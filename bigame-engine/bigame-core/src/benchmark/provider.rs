@@ -394,9 +394,18 @@ impl BenchmarkProvider for SuperTuxKart {
 // ── Registry ─────────────────────────────────────────────────────────────────
 
 /// Every provider this build knows about.
+///
+/// Installed games come first: a built-in benchmark over a real scene is better
+/// evidence about gaming performance than any synthetic workload, even when it
+/// has to be started by hand.
 #[must_use]
 pub fn all() -> Vec<Box<dyn BenchmarkProvider>> {
-    vec![Box::new(SuperTuxKart::new())]
+    let mut providers: Vec<Box<dyn BenchmarkProvider>> = super::games::GameBenchmark::detect_all()
+        .into_iter()
+        .map(|g| Box::new(g) as Box<dyn BenchmarkProvider>)
+        .collect();
+    providers.push(Box::new(SuperTuxKart::new()));
+    providers
 }
 
 /// Providers that can run right now.
