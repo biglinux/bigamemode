@@ -747,7 +747,12 @@ mod tests {
     #[test]
     fn skips_vcache_on_a_cpu_without_it() {
         let h = hw(PowerSource::Ac, vec![]);
-        let plan = Plan::build_with_owner(&h, &caps(true, true), &snap(&[]), &PowerProfileOwner::Booster);
+        let plan = Plan::build_with_owner(
+            &h,
+            &caps(true, true),
+            &snap(&[]),
+            &PowerProfileOwner::Booster,
+        );
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::Unsupported { knob, detail } if knob.contains("V-Cache") && detail.contains("no 3D V-Cache")
         )));
@@ -863,7 +868,12 @@ mod tests {
         assert!(detail.contains("slower"), "{detail}");
 
         // Knobs with no adverse measurement are untouched.
-        assert!(calibrated.changes.iter().any(|ch| ch.knob == Knob::CpuGovernor));
+        assert!(
+            calibrated
+                .changes
+                .iter()
+                .any(|ch| ch.knob == Knob::CpuGovernor)
+        );
     }
 
     #[test]

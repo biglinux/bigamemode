@@ -646,8 +646,7 @@ mod tests {
         // The packaging defect this exists to catch: the launcher's first act
         // is to change into bin/, so a directory it cannot enter stops it
         // before any graphics code runs.
-        std::fs::set_permissions(root.join("bin"), std::fs::Permissions::from_mode(0o000))
-            .unwrap();
+        std::fs::set_permissions(root.join("bin"), std::fs::Permissions::from_mode(0o000)).unwrap();
         let blocked = Superposition::unreadable_part(&root);
 
         // Running the suite as root would defeat the check, so only assert the
@@ -663,7 +662,10 @@ mod tests {
             // The message has to carry the remedy: this is a one-command fix
             // and a user who is only told "blocked" cannot act on it.
             assert!(reason.contains("chmod -R a+rX"), "{reason}");
-            assert!(reason.contains("Failed to change working directory"), "{reason}");
+            assert!(
+                reason.contains("Failed to change working directory"),
+                "{reason}"
+            );
         }
 
         let _ = std::fs::set_permissions(root.join("bin"), std::fs::Permissions::from_mode(0o755));
@@ -687,7 +689,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("bin")).unwrap();
 
-        let provider = Superposition { root: Some(root.clone()) };
+        let provider = Superposition {
+            root: Some(root.clone()),
+        };
         let availability = provider.availability();
         assert!(matches!(availability, Availability::NeedsManualStart(_)));
         assert!(availability.reason().unwrap().contains("Pro-edition"));
@@ -696,7 +700,10 @@ mod tests {
             output_dir: std::env::temp_dir(),
             duration: std::time::Duration::from_secs(1),
         };
-        assert!(provider.run(&ctx).is_err(), "it must refuse rather than invent a score");
+        assert!(
+            provider.run(&ctx).is_err(),
+            "it must refuse rather than invent a score"
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }

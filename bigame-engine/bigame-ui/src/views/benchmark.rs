@@ -47,7 +47,9 @@ fn workloads_group() -> adw::PreferencesGroup {
 
     let providers = provider::all();
     if providers.is_empty() {
-        group.add(&placeholder(&i18n("No benchmark workload is known to this build.")));
+        group.add(&placeholder(&i18n(
+            "No benchmark workload is known to this build.",
+        )));
         return group;
     }
 
@@ -57,10 +59,7 @@ fn workloads_group() -> adw::PreferencesGroup {
 
         let availability = workload.availability();
         let (subtitle, badge) = match &availability {
-            Availability::Ready => (
-                i18n("Ready to run"),
-                i18n("READY"),
-            ),
+            Availability::Ready => (i18n("Ready to run"), i18n("READY")),
             Availability::NotInstalled(what) => (
                 // The install target is the actionable part, so it leads.
                 format!("{}: {what}", i18n("Not installed")),
