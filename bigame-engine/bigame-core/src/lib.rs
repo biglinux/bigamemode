@@ -3,6 +3,7 @@
 //! Separates all system-level logic (D-Bus, sysfs, process management)
 //! from the UI layer, enabling independent testing and headless operation.
 
+pub mod benchmark;
 pub mod booster;
 pub mod capabilities;
 pub mod config;

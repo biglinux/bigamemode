@@ -20,6 +20,8 @@ iGPU, Ethernet, desktop.
 | `cargo clippy --workspace --all-targets` | pass; **0 warnings in new modules** |
 | `./tests/daemon-authorization.sh` | pass — 13 checks |
 
+217 → **237** tests with the benchmark engine.
+
 217 tests, up from 77 at the branch point. Pre-existing pedantic warnings remain
 in untouched UI files and are listed as a known limitation rather than silenced.
 
@@ -162,7 +164,10 @@ and reviewed only.
   online and anti-cheat protected; launching someone's competitive games
   repeatedly on their account was not a reasonable thing to do unasked.
 * **The privileged helper in production.** Not installed on this machine.
-* **Any performance measurement.** See [09-BENCHMARKS.md](09-BENCHMARKS.md).
+* **Any game benchmarked.** The benchmark engine itself *was* validated
+  against real MangoHud captures and a real A/B run — see
+  [09-BENCHMARKS.md](09-BENCHMARKS.md) — but no game was measured, and nothing
+  calls the engine during a Booster activation yet.
 * **Report view in a live activation.** Unit-tested and rendered, but the
   screenshot of a real activation could not be taken — synthetic keyboard input
   went to the foreground window rather than the application, and driving the

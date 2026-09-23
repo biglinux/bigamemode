@@ -32,14 +32,15 @@ Concretely:
 
 Everything above is fixed, verified on real hardware, and covered by tests.
 
-What is **not** done is equally important: **no benchmark engine was built and
-no performance measurement was taken.** The application therefore says
-"Performance impact not measured" on every report, which is the correct answer
-rather than a placeholder.
+What is **not** done is equally important. A benchmark engine *was* built and
+validated against real MangoHud captures and a real A/B run on this machine —
+but **no game was benchmarked**, and nothing calls the engine during a Booster
+activation yet. The application therefore says "Performance impact not measured"
+on every report, which is the correct answer rather than a placeholder.
 
-Totals: 62 files changed, +10 187 / −1 552. Tests 77 → **217**, all passing,
-plus a 13-check D-Bus authorization test that runs against the real helper
-binary without root. Zero clippy warnings in new modules.
+Totals: 77 → **237** tests, all passing, plus a 13-check D-Bus authorization
+test that runs against the real helper binary without root. Zero clippy warnings
+in new modules.
 
 ---
 
@@ -265,13 +266,28 @@ files deleted; atomic configuration writes; `ProtectSystem=strict` with a narrow
 
 ## Benchmark Results
 
-**None.** No benchmark engine was built and no measurement was taken. Reasons —
-the machine is already at its ceiling, the two most interesting knobs could not
-be applied without the helper installed, and the only games available are online
-and anti-cheat protected — are in [09-BENCHMARKS.md](09-BENCHMARKS.md).
+The engine is built and validated; **no game was benchmarked**. Detail in
+[09-BENCHMARKS.md](09-BENCHMARKS.md).
 
-Every report says "Performance impact not measured". Per the brief, that is the
-point.
+Validated on this machine with a real A/B run — `power-saver` as baseline,
+`performance` as candidate, a CPU-bound Vulkan workload, two runs per arm:
+
+```
+measured noise floor from 2 baseline runs: 2.1%
+  1% low:        1984.9 fps → 2146.4 fps
+  P99 frametime:     0.40 ms → 0.37 ms
+  Average FPS:   6096.8 fps → 7195.7 fps
+```
+
+A first attempt was **inconclusive and reported as such**: with the workload
+vsync-locked at 50 FPS, both arms hit the refresh ceiling and every metric came
+back "no measurable change". The engine did not manufacture a difference, and
+the honest reading is that the test could not have detected one.
+
+None of this says anything about games. vkcube at 7000 FPS is a degenerate
+workload, and that 15% must not be restated as "Booster gives 15% more FPS" —
+which is why the application still reports "Performance impact not measured"
+until a game has actually been measured.
 
 ---
 
@@ -294,7 +310,8 @@ point.
 | Daemon auth | None | Polkit, fail-closed | **Yes** — deny path against the real binary |
 | Argument validation | Client side only | Server side, allow-list, property test | **Yes** |
 | sudoers | Passwordless root for `wheel` | Deleted | **Yes** |
-| Tests | 77 | 217 | **Yes** |
+| Benchmarking | None | Capture, statistics, measured noise floor | **Yes** — real A/B run |
+| Tests | 77 | 237 | **Yes** |
 
 ---
 
@@ -313,7 +330,11 @@ Gamescope 3.16.28, falcond 2.0.2, sched-ext without a loader.
 
 Ordered by how much they matter.
 
-1. **No benchmark engine.** The largest piece of the brief not delivered.
+1. **The benchmark engine is not wired into the Booster flow.** It exists and
+   is validated, but nothing calls it during an activation, and no game has
+   been measured. The remaining method work — alternating A-B-A-B runs,
+   discarding the first run, five runs per arm — is listed in
+   [09-BENCHMARKS.md](09-BENCHMARKS.md).
 2. **The privileged helper's *allow* path was never exercised.** The deny path
    is now verified end to end against the real binary by
    `tests/daemon-authorization.sh` — every privileged method refused with
@@ -353,10 +374,10 @@ Ordered by how much they matter.
 ## Future Opportunities
 
 **Next, in order.** Install the helper and exercise the privileged path — that
-single gap invalidates more of this matrix than anything else. Then build the
-benchmark engine on MangoHud CSV, which is the only way the "Improved" branch of
-`Outcome` ever gets used. Then the Gamescope `Auto` tri-state, which has all its
-inputs already.
+single gap invalidates more of this matrix than anything else. Then wire the
+benchmark engine into the Booster flow and measure a real game, which is the
+only way the `Improved` branch of `Outcome` ever reaches a user. Then the
+Gamescope `Auto` tri-state, which has all its inputs already.
 
 **Worth doing after that.** Process-tree game detection (PPID and cgroup rather
 than name matching, which would survive Proton's intermediate processes); a
