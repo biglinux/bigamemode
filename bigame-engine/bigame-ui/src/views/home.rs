@@ -120,11 +120,17 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     button.set_state(&initial_state);
     booster_button::set_pulse(button.widget(), initial_state == State::Ready);
 
-    // Keyboard users land on the one control this page is about.
-    {
-        let button = Rc::clone(&button);
-        glib::idle_add_local_once(move || button.grab_focus());
-    }
+    // The Booster control is deliberately NOT given focus on startup.
+    //
+    // A focused button is the target of any activation the toolkit delivers —
+    // Space, Enter, or anything a compositor or accessibility tool
+    // synthesises — and this one changes system state. It was reproducible:
+    // launching the window and taking a screenshot was enough to activate
+    // Booster without anyone clicking it.
+    //
+    // Keyboard access is not lost. The button is focusable and sits in the tab
+    // order like any other, so it is one Tab away; it simply is not armed
+    // before the user has expressed any intent.
 
     // ── Activation ──────────────────────────────────────────────────────
     {

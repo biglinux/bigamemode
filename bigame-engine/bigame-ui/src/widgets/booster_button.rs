@@ -274,11 +274,6 @@ impl BoosterButton {
     pub fn connect_activated<F: Fn() + 'static>(self: &std::rc::Rc<Self>, handler: F) {
         self.button.connect_clicked(move |_| handler());
     }
-
-    /// Give the control keyboard focus.
-    pub fn grab_focus(&self) {
-        self.button.grab_focus();
-    }
 }
 
 /// Whether the desktop has asked for reduced motion.
