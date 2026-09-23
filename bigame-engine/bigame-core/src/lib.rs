@@ -20,9 +20,11 @@ pub mod polkit;
 pub mod profiles;
 pub mod sched;
 pub mod status;
+pub mod steam;
 pub mod telemetry;
 pub mod vcache;
 pub mod video_config;
+pub mod watch;
 
 #[cfg(test)]
 pub(crate) mod tests {

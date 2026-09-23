@@ -75,6 +75,111 @@ pub enum FrameLimit {
     NestedRefresh(u32),
 }
 
+/// Whether Gamescope should wrap a given game.
+///
+/// A global on/off switch is the wrong shape. Some titles are worse inside
+/// Gamescope — overlay problems, input problems, HDR problems — and some simply
+/// do not need it. Wrapping a game that gains nothing adds a compositor,
+/// a copy and a frame of latency for no benefit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mode {
+    /// Decide from the hardware, the session and what this profile asks for.
+    #[default]
+    Auto,
+    /// Always wrap.
+    Enabled,
+    /// Never wrap.
+    Disabled,
+}
+
+/// The outcome of deciding whether to wrap, with the reason.
+///
+/// The reason is carried rather than logged so the UI can show it. "Gamescope
+/// is off" and "Gamescope is off because nothing in this profile needs it" are
+/// different messages, and only the second lets someone act.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Decision {
+    /// Whether to wrap the game.
+    pub use_gamescope: bool,
+    /// Why, in one sentence, for the user.
+    pub reason: String,
+}
+
+impl Decision {
+    fn yes(reason: impl Into<String>) -> Self {
+        Self {
+            use_gamescope: true,
+            reason: reason.into(),
+        }
+    }
+    fn no(reason: impl Into<String>) -> Self {
+        Self {
+            use_gamescope: false,
+            reason: reason.into(),
+        }
+    }
+}
+
+/// Decide whether to wrap this game in Gamescope.
+///
+/// `Auto` says yes only when the configuration asks for something Gamescope is
+/// the right tool for: upscaling, a non-default filter, a frame-rate target,
+/// HDR, VRR, or the MangoHud overlay through `--mangoapp`. Everything else is
+/// left unwrapped, because a compositor that changes nothing is pure cost.
+///
+/// `Enabled` still checks that Gamescope is installed and that there is a
+/// graphical session — an explicit choice cannot conjure a missing binary.
+#[must_use]
+pub fn decide(
+    mode: Mode,
+    config: &Config,
+    caps: Option<&GamescopeCaps>,
+    session: crate::hardware::Session,
+) -> Decision {
+    if mode == Mode::Disabled {
+        return Decision::no("Gamescope is turned off for this game");
+    }
+    if caps.is_none() {
+        return Decision::no("Gamescope is not installed");
+    }
+    if session == crate::hardware::Session::Tty {
+        return Decision::no("no graphical session for Gamescope to nest in");
+    }
+    if mode == Mode::Enabled {
+        return Decision::yes("Gamescope is turned on for this game");
+    }
+
+    // Auto.
+    let scaling = config.render_width > 0
+        && config.output_width > 0
+        && (config.render_width, config.render_height)
+            != (config.output_width, config.output_height);
+    if scaling {
+        return Decision::yes(format!(
+            "rendering at {}×{} and presenting at {}×{}",
+            config.render_width, config.render_height, config.output_width, config.output_height
+        ));
+    }
+    if config.filter != Filter::Linear {
+        return Decision::yes(format!("{} upscaling is selected", config.filter.as_arg()));
+    }
+    if matches!(config.frame_limit, FrameLimit::NestedRefresh(hz) if hz > 0) {
+        return Decision::yes("a frame-rate target is set");
+    }
+    if config.hdr {
+        return Decision::yes("HDR output is requested");
+    }
+    if config.adaptive_sync {
+        return Decision::yes("variable refresh rate is requested");
+    }
+    if config.mangoapp {
+        return Decision::yes("the MangoHud overlay is enabled");
+    }
+
+    Decision::no("nothing in this profile needs Gamescope, so the game runs directly")
+}
+
 /// Gamescope display and rendering configuration.
 ///
 /// The booleans are independent feature requests rather than a state machine,
@@ -329,6 +434,160 @@ mod tests {
             version: None,
             flags: ["w", "h", "f"].iter().map(|s| (*s).to_owned()).collect(),
         }
+    }
+
+    use crate::hardware::Session;
+
+    #[test]
+    fn disabled_always_means_no() {
+        let d = decide(
+            Mode::Disabled,
+            &Config::default(),
+            Some(&modern()),
+            Session::Wayland,
+        );
+        assert!(!d.use_gamescope);
+        assert!(d.reason.contains("turned off"));
+    }
+
+    #[test]
+    fn enabled_still_requires_gamescope_to_exist() {
+        // An explicit choice cannot conjure a missing binary.
+        let d = decide(Mode::Enabled, &Config::default(), None, Session::Wayland);
+        assert!(!d.use_gamescope);
+        assert!(d.reason.contains("not installed"));
+
+        let d = decide(
+            Mode::Enabled,
+            &Config::default(),
+            Some(&modern()),
+            Session::Tty,
+        );
+        assert!(!d.use_gamescope);
+
+        let d = decide(
+            Mode::Enabled,
+            &Config::default(),
+            Some(&modern()),
+            Session::Wayland,
+        );
+        assert!(d.use_gamescope);
+    }
+
+    #[test]
+    fn auto_declines_when_nothing_needs_a_compositor() {
+        // The default profile changes nothing, so wrapping it is pure cost.
+        let d = decide(
+            Mode::Auto,
+            &Config::default(),
+            Some(&modern()),
+            Session::Wayland,
+        );
+        assert!(!d.use_gamescope);
+        assert!(d.reason.contains("nothing in this profile needs Gamescope"));
+    }
+
+    #[test]
+    fn auto_accepts_when_the_profile_asks_for_scaling() {
+        let cfg = Config {
+            render_width: 2560,
+            render_height: 1080,
+            output_width: 3440,
+            output_height: 1440,
+            ..Config::default()
+        };
+        let d = decide(Mode::Auto, &cfg, Some(&modern()), Session::Wayland);
+        assert!(d.use_gamescope);
+        assert!(d.reason.contains("2560×1080"));
+    }
+
+    #[test]
+    fn auto_ignores_a_resolution_that_is_not_actually_scaling() {
+        // Same in and out: Gamescope would copy the frame for nothing.
+        let cfg = Config {
+            render_width: 3440,
+            render_height: 1440,
+            output_width: 3440,
+            output_height: 1440,
+            ..Config::default()
+        };
+        assert!(!decide(Mode::Auto, &cfg, Some(&modern()), Session::Wayland).use_gamescope);
+    }
+
+    #[test]
+    fn auto_accepts_each_feature_gamescope_is_the_right_tool_for() {
+        let cases = [
+            (
+                Config {
+                    filter: Filter::Fsr,
+                    ..Config::default()
+                },
+                "fsr",
+            ),
+            (
+                Config {
+                    frame_limit: FrameLimit::NestedRefresh(144),
+                    ..Config::default()
+                },
+                "frame-rate",
+            ),
+            (
+                Config {
+                    hdr: true,
+                    ..Config::default()
+                },
+                "HDR",
+            ),
+            (
+                Config {
+                    adaptive_sync: true,
+                    ..Config::default()
+                },
+                "variable refresh",
+            ),
+            (
+                Config {
+                    mangoapp: true,
+                    ..Config::default()
+                },
+                "overlay",
+            ),
+        ];
+        for (cfg, expected) in cases {
+            let d = decide(Mode::Auto, &cfg, Some(&modern()), Session::Wayland);
+            assert!(d.use_gamescope, "expected yes for {expected}: {}", d.reason);
+            assert!(
+                d.reason.contains(expected),
+                "reason {:?} should mention {expected}",
+                d.reason
+            );
+        }
+    }
+
+    #[test]
+    fn every_decision_explains_itself() {
+        for mode in [Mode::Auto, Mode::Enabled, Mode::Disabled] {
+            for caps in [Some(modern()), None] {
+                for session in [Session::Wayland, Session::X11, Session::Tty] {
+                    let d = decide(mode, &Config::default(), caps.as_ref(), session);
+                    assert!(!d.reason.is_empty(), "{mode:?} gave no reason");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn mode_round_trips_through_toml() {
+        for mode in [Mode::Auto, Mode::Enabled, Mode::Disabled] {
+            #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+            struct W {
+                mode: Mode,
+            }
+            let text = toml::to_string(&W { mode }).unwrap();
+            assert_eq!(toml::from_str::<W>(&text).unwrap().mode, mode);
+        }
+        // Auto is the default, so an older profile with no field gets Auto.
+        assert_eq!(Mode::default(), Mode::Auto);
     }
 
     #[test]

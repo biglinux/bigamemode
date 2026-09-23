@@ -170,8 +170,6 @@ pub mod service {
 
     const BUS_NAME: &str = "com.biglinux.BiGameMode1";
     const OBJECT_PATH: &str = "/com/biglinux/BiGameMode/Falcond";
-    /// How often the service polls the status file for changes.
-    const POLL_MS: u64 = 500;
 
     struct FalcondIface;
 
@@ -198,18 +196,34 @@ pub mod service {
 
         tracing::info!("falcond D-Bus status service registered as {BUS_NAME}");
 
-        let mut last = String::new();
+        // Audit DBUS-01: this loop used to re-read the status file every
+        // 500 ms for the life of the process — two wakeups a second, forever,
+        // in an application whose purpose is to stay out of a game's way.
+        //
+        // falcond owns no D-Bus name to subscribe to, so the file really is the
+        // only channel; but watching it costs nothing while nothing happens.
+        // The watcher thread blocks in the kernel and only speaks when the
+        // contents actually change.
+        let path = std::path::Path::new(crate::status::STATUS_PATH);
+        let Some(mut changes) = crate::watch::watch_file(path) else {
+            tracing::warn!(
+                "could not watch {}; falcond status will not be broadcast",
+                crate::status::STATUS_PATH
+            );
+            return Ok(());
+        };
+
         loop {
-            tokio::time::sleep(tokio::time::Duration::from_millis(POLL_MS)).await;
-
-            let Ok(content) = tokio::fs::read_to_string(crate::status::STATUS_PATH).await else {
-                continue;
+            // The watcher is a blocking thread, so receiving is moved off the
+            // reactor rather than blocking it.
+            let received =
+                tokio::task::spawn_blocking(move || changes.recv().ok().map(|c| (c, changes)))
+                    .await;
+            let Ok(Some((content, returned))) = received else {
+                tracing::debug!("falcond status watcher stopped");
+                return Ok(());
             };
-
-            if content == last {
-                continue;
-            }
-            last = content.clone();
+            changes = returned;
 
             let iface_ref = conn
                 .object_server()

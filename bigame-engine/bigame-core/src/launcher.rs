@@ -19,12 +19,6 @@ use crate::models::{
 };
 use crate::video_config::VideoConfig;
 
-/// Env override used by tests and diagnostics.
-///
-/// - `BIGAME_TURBO_MODE=on`  => force turbo active
-/// - `BIGAME_TURBO_MODE=off` => force turbo inactive
-const TURBO_OVERRIDE_ENV: &str = "BIGAME_TURBO_MODE";
-
 // ── LaunchPlan ────────────────────────────────────────────────────────────────
 
 /// Fully resolved plan to launch a game with all BiGame-mode video settings applied.
@@ -63,30 +57,35 @@ impl LaunchPlan {
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
     ) -> Self {
-        // Hard gate: advanced video enhancements only apply with Turbo mode enabled.
-        if !Self::is_turbo_mode_active() {
-            tracing::info!(
-                game = executable,
-                "Turbo mode inactive -> launching without Gamescope/env injections"
-            );
-            return Self {
-                program: executable.to_string(),
-                args: executable_args.to_vec(),
-                env: HashMap::new(),
-            };
-        }
-
+        // Audit LNCH-01: this used to return early unless power-profiles-daemon
+        // reported `performance`, silently dropping Gamescope, Wine FSR,
+        // vkBasalt and every frame-generation variable. A user who turned
+        // Booster off lost their upscaler with no visible cause.
+        //
+        // Presentation-layer settings are not a CPU power policy. The two are
+        // independent layers (docs/02-PERFORMANCE-AUTHORITY.md), so the gate is
+        // gone: what the user configured is what gets applied.
         // Apply runtime harmony policy so enabled technologies do not conflict.
         let effective_video = Self::apply_harmony_policy(logical_game, video);
         let upscaling = &effective_video.upscaling;
         let frame_gen = &effective_video.frame_gen;
 
-        let is_steam_applaunch = Self::is_steam_applaunch_command(executable, executable_args);
-        if is_steam_applaunch {
+        // `steam -applaunch` starts the *client*, which then starts the game in
+        // a separate process tree. Wrapping this command would put Gamescope
+        // around the Steam client, not around the game, so the plan is left
+        // alone here on purpose.
+        //
+        // That is not the whole answer, though. Audit LNCH-02: since Steam is
+        // how most people launch games, leaving it at "we skip this case" made
+        // the entire video pipeline inert in the common path. The mechanism
+        // Steam provides is per-game launch options, so
+        // [`LaunchPlan::as_steam_launch_options`] renders the same plan into
+        // the string Steam understands, and `crate::steam` writes it.
+        if Self::is_steam_applaunch_command(executable, executable_args) {
             tracing::info!(
-                game = executable,
-                args = ?executable_args,
-                "steam launch detected -> bypassing video env injections for stability"
+                game = logical_game,
+                "steam client launch: per-game settings belong in Steam's launch \
+                 options, not around the client process"
             );
             return Self {
                 program: executable.to_string(),
@@ -103,8 +102,29 @@ impl LaunchPlan {
         collect_framegen_env(frame_gen, &mut env);
 
         // ── Decide program + args ─────────────────────────────────────────────
-        let use_gamescope = upscaling.gamescope_enabled || gs_override.is_some();
-        if use_gamescope {
+        // The tri-state lives on the profile; when no profile is supplied the
+        // global "enable Gamescope" toggle stands in for an explicit choice.
+        let mode = if upscaling.gamescope_enabled {
+            gamescope::Mode::Enabled
+        } else {
+            gamescope::Mode::Auto
+        };
+        let caps = crate::capabilities::Capabilities::detect().gamescope;
+        let merged = Self::merge_gamescope_config(upscaling, gs_override);
+        let decision = gamescope::decide(
+            mode,
+            &merged,
+            caps.as_ref(),
+            crate::hardware::Hardware::detect().session,
+        );
+        tracing::info!(
+            target: "gamescope",
+            game = logical_game,
+            wrap = decision.use_gamescope,
+            reason = %decision.reason,
+            "gamescope decision"
+        );
+        if decision.use_gamescope {
             let (program, args) =
                 build_gamescope_argv(executable, executable_args, upscaling, gs_override);
             Self { program, args, env }
@@ -254,33 +274,59 @@ impl LaunchPlan {
             .any(|arg| arg.eq_ignore_ascii_case("-applaunch"))
     }
 
-    /// Runtime turbo mode gate for video enhancements.
-    ///
-    /// Reads `BIGAME_TURBO_MODE` first for deterministic tests, then falls back to
-    /// PowerProfiles D-Bus (`performance` means Turbo active).
-    #[must_use]
-    fn is_turbo_mode_active() -> bool {
-        if let Ok(override_mode) = std::env::var(TURBO_OVERRIDE_ENV) {
-            let mode = override_mode.trim().to_ascii_lowercase();
-            if mode == "on" || mode == "1" || mode == "true" {
-                return true;
-            }
-            if mode == "off" || mode == "0" || mode == "false" {
-                return false;
-            }
-        }
-
-        crate::dbus::power_profile_get()
-            .map(|p| p.eq_ignore_ascii_case("performance"))
-            .unwrap_or(false)
-    }
-
     /// Check for known launch conflicts and emit `tracing::warn` entries.
     ///
     /// Called internally during `build()`; also publicly available for pre-launch
     /// UI validation (show dialogs before actually launching).
     pub fn check_conflicts(executable: &str, video: &VideoConfig) {
         Self::check_and_warn_conflicts(executable, video);
+    }
+
+    /// Render this plan as a Steam per-game launch options string.
+    ///
+    /// Steam substitutes `%command%` with the game's own command line, so the
+    /// result is `VAR=value … gamescope … -- %command%`. Writing that into the
+    /// game's launch options is what makes the plan apply to a Steam launch —
+    /// the one path `build_with_args_for_game` deliberately cannot wrap.
+    ///
+    /// Returns `None` when the plan adds nothing, so a game with no settings is
+    /// not given an empty wrapper.
+    #[must_use]
+    pub fn as_steam_launch_options(&self) -> Option<String> {
+        let mut parts: Vec<String> = Vec::new();
+
+        // Sorted so the same plan always renders the same string — otherwise
+        // every save would look like a change to Steam and to the user.
+        let mut keys: Vec<&String> = self.env.keys().collect();
+        keys.sort();
+        for key in keys {
+            let value = &self.env[key];
+            // Steam runs this through a shell and its own config format has no
+            // escaping; anything needing quoting is dropped rather than risked.
+            if value.contains([' ', '"', '\'', '\\', '\n']) {
+                tracing::warn!(
+                    target: "launch",
+                    key,
+                    "value needs shell quoting; omitted from Steam launch options"
+                );
+                continue;
+            }
+            parts.push(format!("{key}={value}"));
+        }
+
+        if self.program == "gamescope" {
+            // Everything up to the `--` separator; the game command follows it,
+            // and for Steam that is `%command%`.
+            let sep = self.args.iter().position(|a| a == "--");
+            let gs_args = sep.map_or(&self.args[..], |i| &self.args[..i]);
+            parts.push("gamescope".to_owned());
+            parts.extend(gs_args.iter().cloned());
+        }
+
+        if parts.is_empty() {
+            return None;
+        }
+        Some(format!("{} -- %command%", parts.join(" ")))
     }
 
     /// Spawn the game as described by this plan.
@@ -297,6 +343,61 @@ impl LaunchPlan {
 }
 
 // ── Gamescope args builder ────────────────────────────────────────────────────
+
+impl LaunchPlan {
+    /// Merge global upscaling settings with a per-game Gamescope override.
+    ///
+    /// Shared by the decision and the argument builder so the two can never
+    /// disagree about what was configured.
+    #[must_use]
+    pub fn merge_gamescope_config(
+        upscaling: &UpscalingSettings,
+        gs_override: Option<&gamescope::Config>,
+    ) -> gamescope::Config {
+        let base = gs_override.cloned().unwrap_or_default();
+        gamescope::Config {
+            render_width: if upscaling.base_width > 0 {
+                upscaling.base_width
+            } else {
+                base.render_width
+            },
+            render_height: if upscaling.base_height > 0 {
+                upscaling.base_height
+            } else {
+                base.render_height
+            },
+            output_width: if upscaling.target_width > 0 {
+                upscaling.target_width
+            } else {
+                base.output_width
+            },
+            output_height: if upscaling.target_height > 0 {
+                upscaling.target_height
+            } else {
+                base.output_height
+            },
+            // `UpscalingSettings::gamescope_filter` defaults to `Fsr` rather
+            // than to "none", so it says nothing about whether the user wants
+            // upscaling — only which filter they would use if they did. Reading
+            // it unconditionally made the Auto decision believe every profile
+            // had requested FSR, and wrap every game.
+            //
+            // It is therefore honoured only when the user has actually turned
+            // Gamescope upscaling on; otherwise the per-game override decides.
+            filter: if upscaling.gamescope_enabled {
+                match upscaling.gamescope_filter {
+                    GamescopeFilter::Fsr => gamescope::Filter::Fsr,
+                    GamescopeFilter::Nis => gamescope::Filter::Nis,
+                    GamescopeFilter::Integer => gamescope::Filter::Pixel,
+                }
+            } else {
+                base.filter
+            },
+            sharpness: upscaling.clamped_sharpness(),
+            ..base
+        }
+    }
+}
 
 /// Build `("gamescope", argv)` from the global upscaling settings merged with a
 /// per-game override.
@@ -319,38 +420,7 @@ fn build_gamescope_argv(
     let caps = crate::capabilities::Capabilities::detect()
         .gamescope
         .unwrap_or_default();
-
-    let base = gs_override.cloned().unwrap_or_default();
-
-    let cfg = gamescope::Config {
-        render_width: if upscaling.base_width > 0 {
-            upscaling.base_width
-        } else {
-            base.render_width
-        },
-        render_height: if upscaling.base_height > 0 {
-            upscaling.base_height
-        } else {
-            base.render_height
-        },
-        output_width: if upscaling.target_width > 0 {
-            upscaling.target_width
-        } else {
-            base.output_width
-        },
-        output_height: if upscaling.target_height > 0 {
-            upscaling.target_height
-        } else {
-            base.output_height
-        },
-        filter: match upscaling.gamescope_filter {
-            GamescopeFilter::Fsr => gamescope::Filter::Fsr,
-            GamescopeFilter::Nis => gamescope::Filter::Nis,
-            GamescopeFilter::Integer => gamescope::Filter::Pixel,
-        },
-        sharpness: upscaling.clamped_sharpness(),
-        ..base
-    };
+    let cfg = LaunchPlan::merge_gamescope_config(upscaling, gs_override);
 
     let (argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
     for u in &unsupported {
@@ -648,6 +718,63 @@ mod tests {
             !plan.env.contains_key("WINE_FULLSCREEN_FSR")
                 && !plan.env.contains_key("ENABLE_VKBASALT")
         );
+    }
+
+    #[test]
+    fn steam_launch_options_render_env_and_gamescope() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        video.upscaling.wine_fsr_enabled = true;
+        video.upscaling.wine_fsr_mode = WineFsrMode::Quality;
+
+        let plan = LaunchPlan::build("game", &video, None);
+        let opts = plan.as_steam_launch_options().expect("plan adds settings");
+
+        assert!(opts.ends_with(" -- %command%"), "got {opts}");
+        assert!(opts.contains("WINE_FULLSCREEN_FSR=1"));
+        assert!(opts.contains("gamescope"));
+        // The separator appears exactly once, at the end.
+        assert_eq!(opts.matches(" -- ").count(), 1);
+    }
+
+    #[test]
+    fn steam_launch_options_are_stable_across_builds() {
+        // An unstable ordering would make every save look like a change.
+        let mut video = VideoConfig::default();
+        video.upscaling.wine_fsr_enabled = true;
+        video.upscaling.vkbasalt_enabled = true;
+        let a = LaunchPlan::build("game", &video, None).as_steam_launch_options();
+        let b = LaunchPlan::build("game", &video, None).as_steam_launch_options();
+        assert_eq!(a, b);
+        assert!(a.is_some());
+    }
+
+    #[test]
+    fn a_plan_that_adds_nothing_produces_no_launch_options() {
+        let video = VideoConfig::default();
+        let plan = LaunchPlan::build("game", &video, None);
+        assert_eq!(plan.as_steam_launch_options(), None);
+    }
+
+    #[test]
+    fn values_needing_shell_quoting_are_omitted_not_mangled() {
+        let mut plan = LaunchPlan::build("game", &VideoConfig::default(), None);
+        plan.env.insert("SAFE".into(), "1".into());
+        plan.env.insert("RISKY".into(), "has spaces".into());
+        let opts = plan.as_steam_launch_options().unwrap();
+        assert!(opts.contains("SAFE=1"));
+        assert!(!opts.contains("RISKY"));
+    }
+
+    #[test]
+    fn the_steam_client_command_is_never_wrapped() {
+        // Wrapping `steam -applaunch` would put Gamescope around the client.
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let args = vec!["-applaunch".to_string(), "1808500".to_string()];
+        let plan = LaunchPlan::build_with_args("steam", &args, &video, None);
+        assert_eq!(plan.program, "steam");
+        assert_eq!(plan.args, args);
     }
 
     #[test]

@@ -47,6 +47,12 @@ pub struct GameProfile {
     /// Per-game Gamescope configuration (None = use global defaults).
     #[serde(default)]
     pub gamescope: Option<crate::gamescope::Config>,
+    /// Whether Gamescope wraps this game: automatically, always, or never.
+    ///
+    /// Defaults to `Auto`, so profiles written before this field existed keep
+    /// working and get the decision made for them.
+    #[serde(default)]
+    pub gamescope_mode: crate::gamescope::Mode,
     /// Frame generation multiplier (1-4).
     #[serde(default = "default_fg_multiplier")]
     pub fg_multiplier: u32,
@@ -109,6 +115,7 @@ impl Default for GameProfile {
             cpu_governor: String::new(),
             scx_custom_flags: String::new(),
             gamescope: None,
+            gamescope_mode: crate::gamescope::Mode::default(),
             fg_multiplier: 1,
             fg_flow_scale: 100,
             fg_perf_mode: false,
@@ -283,6 +290,13 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
                 }
             }
             "fg_hdr" => p.fg_hdr = val == "true",
+            "gamescope_mode" => {
+                p.gamescope_mode = match val {
+                    "enabled" => crate::gamescope::Mode::Enabled,
+                    "disabled" => crate::gamescope::Mode::Disabled,
+                    _ => crate::gamescope::Mode::Auto,
+                };
+            }
             "fg_present_mode" => p.fg_present_mode = val.parse().unwrap_or(0),
             // Anything this build does not know is kept so saving cannot
             // destroy a falcond feature we have not caught up with yet.
@@ -342,6 +356,14 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     }
     out.push_str(&format!("fg_hdr = {}\n", profile.fg_hdr));
     out.push_str(&format!("fg_present_mode = {}\n", profile.fg_present_mode));
+    out.push_str(&format!(
+        "gamescope_mode = \"{}\"\n",
+        match profile.gamescope_mode {
+            crate::gamescope::Mode::Auto => "auto",
+            crate::gamescope::Mode::Enabled => "enabled",
+            crate::gamescope::Mode::Disabled => "disabled",
+        }
+    ));
     // Unrecognised keys, written back exactly as they were read.
     for (key, value) in &profile.extra {
         out.push_str(&format!("{key} = {value}\n"));
@@ -466,6 +488,25 @@ pub async fn import(src: &Path) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gamescope_mode_survives_the_otter_conf_round_trip() {
+        use crate::gamescope::Mode;
+        for mode in [Mode::Auto, Mode::Enabled, Mode::Disabled] {
+            let p = GameProfile {
+                name: "x".into(),
+                gamescope_mode: mode,
+                ..GameProfile::default()
+            };
+            let text = serialize_profile_otter_conf(&p);
+            assert_eq!(parse_profile_otter_conf(&text).gamescope_mode, mode);
+        }
+        // A profile written before the field existed reads back as Auto.
+        assert_eq!(
+            parse_profile_otter_conf("name = \"x\"\n").gamescope_mode,
+            Mode::Auto
+        );
+    }
 
     #[test]
     fn saving_preserves_falcond_fields_this_build_does_not_know() {
