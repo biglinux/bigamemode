@@ -1,0 +1,945 @@
+<meta charset="utf-8">
+<title>O Que Foi Medido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  /* Neutros com viés frio, puxando para o índigo do acento. */
+  --ground:      #f6f7f9;
+  --surface:     #ffffff;
+  --sunk:        #eceef2;
+  --ink:         #171a20;
+  --ink-soft:    #4a5261;
+  --ink-faint:   #79818f;
+  --rule:        #d9dde4;
+  --rule-strong: #b9c0cb;
+
+  --accent:      #2f4b7c;   /* linha de plotagem, instrumento */
+  --accent-soft: #e5eaf3;
+
+  --worse:       #a83a28;   /* óxido, não vermelho puro */
+  --worse-soft:  #f7e7e3;
+  --better:      #2a6349;
+  --better-soft: #e2efe8;
+  --unknown:     #8a6a1f;
+  --unknown-soft:#f6eeda;
+
+  --fs-step--1: 0.8125rem;
+  --fs-step-0:  1.0625rem;
+  --fs-step-1:  1.3125rem;
+  --fs-step-2:  1.75rem;
+  --fs-step-3:  2.5rem;
+
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+  --data:    "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #101319;
+    --surface:     #171b23;
+    --sunk:        #1d222b;
+    --ink:         #e3e6ec;
+    --ink-soft:    #a8b0bd;
+    --ink-faint:   #757d8b;
+    --rule:        #272d38;
+    --rule-strong: #3a4250;
+
+    --accent:      #8aa8d8;
+    --accent-soft: #1c2634;
+
+    --worse:       #e08a76;
+    --worse-soft:  #2c1d19;
+    --better:      #7dbb9c;
+    --better-soft: #16261f;
+    --unknown:     #d3b264;
+    --unknown-soft:#282112;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #101319;
+  --surface:     #171b23;
+  --sunk:        #1d222b;
+  --ink:         #e3e6ec;
+  --ink-soft:    #a8b0bd;
+  --ink-faint:   #757d8b;
+  --rule:        #272d38;
+  --rule-strong: #3a4250;
+
+  --accent:      #8aa8d8;
+  --accent-soft: #1c2634;
+
+  --worse:       #e08a76;
+  --worse-soft:  #2c1d19;
+  --better:      #7dbb9c;
+  --better-soft: #16261f;
+  --unknown:     #d3b264;
+  --unknown-soft:#282112;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: var(--fs-step-0);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4.5rem) clamp(1rem, 4vw, 3rem) 6rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3.25rem;
+}
+
+/* Faixa estreita para leitura, larga para figuras. */
+.prose { max-width: 40rem; display: flex; flex-direction: column; gap: 1rem; }
+.wide  { max-width: 100%; }
+
+/* ── cabeçalho ─────────────────────────────────────────── */
+
+.masthead { display: flex; flex-direction: column; gap: 1rem; }
+
+.eyebrow {
+  font-family: var(--data);
+  font-size: var(--fs-step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+}
+
+h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--fs-step-3);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  max-width: 22ch;
+}
+
+.standfirst {
+  font-size: var(--fs-step-1);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 44rem;
+}
+
+/* ── as quatro respostas ───────────────────────────────── */
+
+.answers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.answer {
+  background: var(--surface);
+  padding: 1.25rem 1.35rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.answer .q {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--fs-step--1);
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 0.6rem;
+}
+
+.answer .q .n {
+  font-family: var(--data);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.answer .a {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--fs-step-1);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.answer .why {
+  font-size: var(--fs-step--1);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.a.no    { color: var(--worse); }
+.a.part  { color: var(--unknown); }
+.a.yes   { color: var(--better); }
+
+/* ── seções ────────────────────────────────────────────── */
+
+section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--fs-step-2);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-wrap: balance;
+  max-width: 28ch;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+h2 .n {
+  font-family: var(--data);
+  font-size: var(--fs-step-0);
+  font-weight: 500;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--fs-step-1);
+  letter-spacing: -0.01em;
+  margin-top: 0.5rem;
+}
+
+p { max-width: 40rem; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+
+code, .mono {
+  font-family: var(--data);
+  font-size: 0.9em;
+  background: var(--sunk);
+  padding: 0.1em 0.35em;
+  border-radius: 2px;
+}
+
+/* ── tabelas ───────────────────────────────────────────── */
+
+.tablewrap { overflow-x: auto; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 34rem;
+  font-family: var(--data);
+  font-size: var(--fs-step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+caption {
+  text-align: left;
+  font-family: var(--display);
+  font-size: var(--fs-step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding-bottom: 0.6rem;
+}
+
+th, td {
+  padding: 0.55rem 0.85rem;
+  text-align: right;
+  border-bottom: 1px solid var(--rule);
+}
+
+th:first-child, td:first-child { text-align: left; }
+
+thead th {
+  font-weight: 600;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+tbody tr.highlight td { background: var(--worse-soft); }
+tbody tr.baseline td  { background: var(--sunk); }
+
+td.num { white-space: nowrap; }
+
+/* ── selos de veredicto ────────────────────────────────── */
+
+.tag {
+  font-family: var(--display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.18em 0.5em;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.tag.worse   { background: var(--worse-soft);   color: var(--worse); }
+.tag.better  { background: var(--better-soft);  color: var(--better); }
+.tag.flat    { background: var(--sunk);         color: var(--ink-soft); }
+.tag.unknown { background: var(--unknown-soft); color: var(--unknown); }
+
+/* ── figura / gráfico ──────────────────────────────────── */
+
+figure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border-top: 2px solid var(--ink);
+  padding-top: 1rem;
+}
+
+figcaption {
+  font-size: var(--fs-step--1);
+  color: var(--ink-soft);
+  max-width: 44rem;
+  line-height: 1.55;
+}
+
+svg { display: block; width: 100%; height: auto; }
+.svg-label { font-family: var(--data); font-size: 13px; fill: var(--ink); }
+.svg-tick  { font-family: var(--data); font-size: 11px; fill: var(--ink-faint); }
+.svg-note  { font-family: var(--data); font-size: 11px; fill: var(--accent); }
+.svg-val   { font-family: var(--data); font-size: 11px; fill: var(--ink-soft); }
+
+/* ── destaque da conclusão ─────────────────────────────── */
+
+.keyfinding {
+  border-left: 3px solid var(--worse);
+  background: var(--worse-soft);
+  padding: 1.15rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 44rem;
+}
+
+.keyfinding .lead {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--fs-step-1);
+  line-height: 1.3;
+  color: var(--worse);
+  text-wrap: balance;
+}
+
+.keyfinding p { color: var(--ink); margin: 0; }
+
+/* ── listas de estado ──────────────────────────────────── */
+
+.statuslist {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.statuslist > div {
+  display: grid;
+  grid-template-columns: minmax(10rem, 15rem) auto minmax(0, 1fr);
+  gap: 0.5rem 1.1rem;
+  align-items: baseline;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.statuslist .name {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--fs-step-0);
+}
+
+.statuslist .detail {
+  font-size: var(--fs-step--1);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 40rem) {
+  .statuslist > div { grid-template-columns: 1fr auto; }
+  .statuslist .detail { grid-column: 1 / -1; }
+}
+
+/* ── erros que cometi ──────────────────────────────────── */
+
+.mistakes { display: flex; flex-direction: column; gap: 1.6rem; max-width: 44rem; }
+
+.mistake {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 1rem;
+  align-items: baseline;
+}
+
+.mistake .marker {
+  font-family: var(--data);
+  font-size: var(--fs-step--1);
+  color: var(--worse);
+  font-weight: 600;
+}
+
+.mistake .what {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--fs-step-0);
+}
+
+.mistake .body {
+  grid-column: 2;
+  font-size: var(--fs-step--1);
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.mistake .body code { font-size: 0.92em; }
+
+/* ── números de fechamento ─────────────────────────────── */
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1.5rem 2rem;
+  border-top: 2px solid var(--ink);
+  padding-top: 1.25rem;
+}
+
+.count { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.count .v {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--fs-step-2);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.count .k {
+  font-family: var(--data);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+footer {
+  font-size: var(--fs-step--1);
+  color: var(--ink-faint);
+  border-top: 1px solid var(--rule);
+  padding-top: 1.25rem;
+  max-width: 44rem;
+}
+
+a { color: var(--accent); text-underline-offset: 0.15em; }
+a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>BiGame-mode</span>
+      <span>23 set 2026</span>
+      <span>Ryzen 7 5700G · Radeon RX 9060 XT</span>
+      <span>impressão digital 02db452880e054ab</span>
+    </div>
+    <h1>O que foi medido, e o que não foi</h1>
+    <p class="standfirst">
+      Um jogo rodou de verdade: o SuperTuxKart. Os quatro jogos AAA não produziram
+      benchmark nenhum, o Superposition continua bloqueado, e a VM serviu para
+      outra coisa. O que saiu disso, mesmo assim, foi a descoberta de que o
+      Booster deixava esta máquina mais lenta.
+    </p>
+  </header>
+
+  <section class="wide">
+    <div class="answers">
+      <div class="answer">
+        <div class="q"><span class="n">01</span><span>Quais jogos você abriu e testou?</span></div>
+        <div class="a no">Só o SuperTuxKart</div>
+        <div class="why">
+          Nenhum dos quatro AAA produziu medição. O Tomb Raider 2013 chegou a
+          iniciar e abortou; os outros três não foram abertos.
+        </div>
+      </div>
+      <div class="answer">
+        <div class="q"><span class="n">02</span><span>Usou o Unigine Superposition?</span></div>
+        <div class="a no">Não</div>
+        <div class="why">
+          <span class="mono">/opt/unigine-superposition/bin</span> está como
+          <span class="mono">drwxr-x---&nbsp;root&nbsp;root</span>. Verifiquei
+          de novo hoje: continua inacessível.
+        </div>
+      </div>
+      <div class="answer">
+        <div class="q"><span class="n">03</span><span>Usou a VM?</span></div>
+        <div class="a part">Sim, mas não para desempenho</div>
+        <div class="why">
+          Entrei por ela e liguei o sshd. Serviu como teste de detecção de
+          hardware — a GPU dela é virtual, nenhum número de fps ali significaria
+          nada.
+        </div>
+      </div>
+      <div class="answer">
+        <div class="q"><span class="n">04</span><span>Conseguiu fazer todos os testes?</span></div>
+        <div class="a no">Não</div>
+        <div class="why">
+          Um workload de dez medido. Oito itens ficaram como
+          <span class="mono">NOT TESTED</span>, cada um com o motivo registrado.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">01</span> Os jogos</h2>
+
+    <div class="prose">
+      <p>
+        Um único workload chegou a produzir número: o <strong>SuperTuxKart</strong>,
+        e só depois de duas correções. Ele vem travado em 120&nbsp;fps com vsync
+        ligado, o que faz qualquer comparação dar “sem diferença” por construção.
+        Destravado, a mesma repetição de 38&nbsp;segundos saltou de 6.101 para
+        27.871 quadros.
+      </p>
+      <p>
+        Os quatro jogos AAA estão instalados e eu inspecionei todos, mas
+        <strong>nenhum produziu benchmark</strong>. A distinção importa e está
+        registrada assim no código: não é que não existam benchmarks neles — são
+        bons e existem. O que não dá para automatizar é o <em>começar</em>.
+      </p>
+    </div>
+
+    <div class="statuslist">
+      <div>
+        <span class="name">SuperTuxKart 1.5</span>
+        <span class="tag better">Medido</span>
+        <span class="detail">
+          Repetição determinística, encerra sozinho, grava CSV por quadro.
+          32 execuções em duas sessões. O único totalmente automatizável.
+        </span>
+      </div>
+      <div>
+        <span class="name">Shadow of the Tomb Raider</span>
+        <span class="tag unknown">Não aberto</span>
+        <span class="detail">
+          Instalado. Versão Windows sob Proton; o benchmark está em
+          Opções → Vídeo e o jogo não expõe nenhum parâmetro para chamá-lo.
+        </span>
+      </div>
+      <div>
+        <span class="name">Cyberpunk 2077</span>
+        <span class="tag unknown">Não aberto</span>
+        <span class="detail">
+          Instalado. Benchmark em Configurações → Gráficos, também só por menu.
+        </span>
+      </div>
+      <div>
+        <span class="name">Rise of the Tomb Raider</span>
+        <span class="tag unknown">Não aberto</span>
+        <span class="detail">
+          Instalado. A porta da Feral aceita <span class="mono">-benchmark</span>,
+          mas o lançador dela abre antes e
+          <span class="mono">-nolauncher</span> não o suprime.
+        </span>
+      </div>
+      <div>
+        <span class="name">Tomb Raider (2013)</span>
+        <span class="tag worse">Abriu e abortou</span>
+        <span class="detail">
+          O único que cheguei a executar. Dentro do runtime scout ele inicializa
+          o repórter de falhas e registra o Steam&nbsp;ID, depois aborta com
+          <span class="mono">basic_filebuf::underflow</span> ao ler um arquivo
+          que não identifiquei — e só chega até aí com o
+          <span class="mono">libcurl</span> dele pré-carregado.
+        </span>
+      </div>
+      <div>
+        <span class="name">Unigine Superposition</span>
+        <span class="tag worse">Bloqueado</span>
+        <span class="detail">
+          <span class="mono">bin/</span> é legível só pelo root. Defeito de
+          empacotamento, não limitação de hardware.
+        </span>
+      </div>
+      <div>
+        <span class="name">vkmark · glmark2 · Phoronix</span>
+        <span class="tag unknown">Não instalados</span>
+        <span class="detail">
+          Instalar exige autenticação no gerenciador de pacotes, que esta sessão
+          não conseguiu completar.
+        </span>
+      </div>
+      <div>
+        <span class="name">glxgears · vkcube</span>
+        <span class="tag flat">Só sanidade</span>
+        <span class="detail">
+          Confirmam que o driver está vivo. Nunca tratados como prova de
+          desempenho em jogos.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">02</span> O resultado que saiu disso</h2>
+
+    <div class="keyfinding">
+      <div class="lead">O Booster deixava esta máquina 5,8% mais lenta — e um único ajuste respondia por isso.</div>
+      <p>
+        Forçar <span class="mono">power_dpm_force_performance_level=high</span>
+        na Radeon custou 7,5% dos quadros por segundo, sozinho. O ajuste do
+        governador de CPU não mostrou diferença mensurável em nenhuma direção.
+      </p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <caption>Matriz de isolamento — 4 execuções por braço, alternadas, aquecimento descartado</caption>
+        <thead>
+          <tr>
+            <th>Configuração</th>
+            <th>fps médio</th>
+            <th>Dispersão</th>
+            <th>vs base</th>
+            <th>Welch t</th>
+            <th>Limiar</th>
+            <th>Veredicto</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="baseline">
+            <td>baseline</td>
+            <td class="num">298,4</td>
+            <td class="num">3,2%</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td><span class="tag flat">referência</span></td>
+          </tr>
+          <tr>
+            <td>cpu_governor</td>
+            <td class="num">304,5</td>
+            <td class="num">2,4%</td>
+            <td class="num">+2,1%</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td><span class="tag flat">sem diferença</span></td>
+          </tr>
+          <tr class="highlight">
+            <td>gpu_dpm_level</td>
+            <td class="num">275,9</td>
+            <td class="num">4,7%</td>
+            <td class="num">−7,5%</td>
+            <td class="num">2,81</td>
+            <td class="num">2,45</td>
+            <td><span class="tag worse">mais lento</span></td>
+          </tr>
+          <tr class="highlight">
+            <td>Booster completo</td>
+            <td class="num">281,0</td>
+            <td class="num">0,7%</td>
+            <td class="num">−5,8%</td>
+            <td class="num">3,57</td>
+            <td class="num">2,78</td>
+            <td><span class="tag worse">mais lento</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        Os +2,1% do governador <em>não</em> são reportados como ganho. Eles são
+        menores que a variação entre execuções repetidas da mesma configuração,
+        e não passam no teste de Welch. Anunciar aquilo como melhoria seria
+        exatamente o tipo de número que este laboratório existe para recusar.
+      </p>
+    </div>
+
+    <h3>Por quê: “high” não quer dizer “mais rápido”</h3>
+
+    <figure class="wide">
+      <svg viewBox="0 0 760 246" role="img" aria-label="Faixa de clock do núcleo gráfico em cada configuração: com auto a placa varia de 1607 a 3350 MHz e faz média acima de 3000; com high fica presa entre 2565 e 2668 MHz.">
+        <!-- eixo -->
+        <line x1="150" y1="196" x2="690" y2="196" stroke="var(--rule-strong)" stroke-width="1"></line>
+        <g>
+          <line x1="150" y1="30" x2="150" y2="196" stroke="var(--rule)" stroke-width="1"></line>
+          <line x1="292" y1="30" x2="292" y2="196" stroke="var(--rule)" stroke-width="1"></line>
+          <line x1="434" y1="30" x2="434" y2="196" stroke="var(--rule)" stroke-width="1"></line>
+          <line x1="576" y1="30" x2="576" y2="196" stroke="var(--rule)" stroke-width="1"></line>
+          <line x1="690" y1="30" x2="690" y2="196" stroke="var(--rule)" stroke-width="1"></line>
+          <text class="svg-tick" x="150" y="212" text-anchor="middle">1500</text>
+          <text class="svg-tick" x="292" y="212" text-anchor="middle">2000</text>
+          <text class="svg-tick" x="434" y="212" text-anchor="middle">2500</text>
+          <text class="svg-tick" x="576" y="212" text-anchor="middle">3000</text>
+          <text class="svg-tick" x="690" y="212" text-anchor="middle">3400</text>
+          <text class="svg-tick" x="420" y="234" text-anchor="middle">clock do núcleo gráfico sob carga (MHz)</text>
+        </g>
+
+        <!-- teto do maior estado DPM fixo -->
+        <line x1="491" y1="24" x2="491" y2="196" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 3"></line>
+        <text class="svg-note" x="497" y="20">maior estado DPM tabelado · 2700</text>
+
+        <!-- baseline (auto) -->
+        <text class="svg-label" x="138" y="49" text-anchor="end">baseline</text>
+        <line x1="180" y1="45" x2="670" y2="45" stroke="var(--rule-strong)" stroke-width="6" stroke-linecap="round"></line>
+        <circle cx="588" cy="45" r="5.5" fill="var(--accent)"></circle>
+        <text class="svg-val" x="676" y="49">3331</text>
+
+        <!-- cpu_governor (auto) -->
+        <text class="svg-label" x="138" y="91" text-anchor="end">cpu_governor</text>
+        <line x1="199" y1="87" x2="676" y2="87" stroke="var(--rule-strong)" stroke-width="6" stroke-linecap="round"></line>
+        <circle cx="618" cy="87" r="5.5" fill="var(--accent)"></circle>
+        <text class="svg-val" x="682" y="91">3350</text>
+
+        <!-- gpu_dpm_level (high) -->
+        <text class="svg-label" x="138" y="133" text-anchor="end">gpu_dpm_level</text>
+        <line x1="453" y1="129" x2="482" y2="129" stroke="var(--worse)" stroke-width="6" stroke-linecap="round"></line>
+        <circle cx="474" cy="129" r="5.5" fill="var(--worse)"></circle>
+        <text class="svg-val" x="490" y="133">2640 médio</text>
+
+        <!-- booster (high) -->
+        <text class="svg-label" x="138" y="175" text-anchor="end">Booster</text>
+        <line x1="464" y1="171" x2="481" y2="171" stroke="var(--worse)" stroke-width="6" stroke-linecap="round"></line>
+        <circle cx="475" cy="171" r="5.5" fill="var(--worse)"></circle>
+        <text class="svg-val" x="490" y="175">2642 médio</text>
+      </svg>
+      <figcaption>
+        A barra é a faixa medida entre o menor e o maior clock sob carga; o
+        círculo é a média. Com <span class="mono">auto</span> a placa flutua e
+        alcança 3331&nbsp;MHz. Com <span class="mono">high</span> ela fica
+        imóvel logo abaixo de 2700 — porque “high” não pede o clock máximo, e
+        sim o <em>maior estado tabelado</em>, e o boost oportunista do firmware
+        passa por cima dele. Telemetria amostrada duas vezes por segundo ao
+        longo de todas as execuções.
+      </figcaption>
+    </figure>
+
+    <div class="tablewrap">
+      <table>
+        <caption>Telemetria sob carga — amostras com a GPU acima de 60% de ocupação</caption>
+        <thead>
+          <tr>
+            <th>Configuração</th>
+            <th>DPM</th>
+            <th>Clock médio</th>
+            <th>Faixa</th>
+            <th>Potência</th>
+            <th>Temp.</th>
+            <th>Ocupação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="baseline">
+            <td>baseline</td><td>auto</td>
+            <td class="num">3042 MHz</td><td class="num">1607–3331</td>
+            <td class="num">141 W</td><td class="num">60,6 °C</td><td class="num">87%</td>
+          </tr>
+          <tr>
+            <td>cpu_governor</td><td>auto</td>
+            <td class="num">3147 MHz</td><td class="num">1671–3350</td>
+            <td class="num">150 W</td><td class="num">62,3 °C</td><td class="num">87%</td>
+          </tr>
+          <tr class="highlight">
+            <td>gpu_dpm_level</td><td>high</td>
+            <td class="num">2640 MHz</td><td class="num">2565–2668</td>
+            <td class="num">101 W</td><td class="num">58,7 °C</td><td class="num">88%</td>
+          </tr>
+          <tr class="highlight">
+            <td>Booster completo</td><td>high</td>
+            <td class="num">2642 MHz</td><td class="num">2603–2664</td>
+            <td class="num">101 W</td><td class="num">58,0 °C</td><td class="num">88%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        Com <span class="mono">high</span> a placa sobrava 40&nbsp;W de um limite
+        de 170&nbsp;W e trabalhava igualmente ocupada, só que mais devagar. O
+        planejador do Booster agora consulta essa medição antes de qualquer
+        outro critério — inclusive antes de “já está no valor desejado”, porque
+        um valor medido como pior não é ideal só por estar ligado. Sua placa foi
+        devolvida para <span class="mono">auto</span>.
+      </p>
+      <p>
+        Vale o limite: isto é <em>uma</em> placa, em <em>um</em> kernel, contra
+        <em>um</em> workload. A calibração fica amarrada à impressão digital do
+        hardware justamente para nunca ser generalizada além disso.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">03</span> A VM</h2>
+    <div class="prose">
+      <p>
+        O sshd não estava rodando, mas o agente convidado do QEMU estava — entrei
+        por ele, habilitei o sshd, e o acesso que você me passou
+        (<span class="mono">ssh ruscher@192.168.132.87</span>) funciona agora.
+      </p>
+      <p>
+        A GPU dela é virtio. Nenhum número de desempenho dali significaria coisa
+        alguma, e nenhum foi tomado. O que ela serviu foi para provar que o
+        código não assume <em>este</em> computador — ela é uma máquina onde as
+        suposições fáceis falhariam em silêncio:
+      </p>
+    </div>
+
+    <div class="statuslist">
+      <div>
+        <span class="name">Sem cpufreq</span>
+        <span class="tag better">Passou</span>
+        <span class="detail">Governadores e EPP voltam como listas vazias — não como travamento nem como valor inventado.</span>
+      </div>
+      <div>
+        <span class="name">DRM começa em card1</span>
+        <span class="tag better">Passou</span>
+        <span class="detail">Não existe <span class="mono">card0</span> ali. A <span class="mono">card1</span> foi escolhida corretamente como GPU de render.</span>
+      </div>
+      <div>
+        <span class="name">Sem VRAM, sem DPM</span>
+        <span class="tag better">Passou</span>
+        <span class="detail">Registrados como <span class="mono">null</span>, nunca como zero — “não disponível” não pode ser lido como medição.</span>
+      </div>
+      <div>
+        <span class="name">Impressão digital distinta</span>
+        <span class="tag better">Passou</span>
+        <span class="detail"><span class="mono">8deb360402571748</span> contra <span class="mono">02db452880e054ab</span>. Nenhuma das duas aplicaria a calibração da outra.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">04</span> Onde eu errei</h2>
+    <div class="prose">
+      <p>
+        Três coisas deram errado por minha causa. Duas o próprio método pegou; a
+        terceira só apareceu porque você perguntou.
+      </p>
+    </div>
+
+    <div class="mistakes">
+      <div class="mistake">
+        <span class="marker">i</span>
+        <span class="what">Meu instrumento estava atrapalhando a medição</span>
+        <div class="body">
+          O primeiro amostrador de telemetria chamava <code>cat</code> por
+          sensor mais <code>date</code> e <code>awk</code> por amostra: cerca de
+          <strong>1.400 processos por execução</strong>. A dispersão entre
+          execuções subiu de 1,4% para quase 6% — maior que a maioria das
+          diferenças que um benchmark existe para detectar. Quem pegou foi a
+          própria verificação de estabilidade, que recusou a sessão inteira em
+          vez de tirar uma média confiante de dados ruins. Reescrito só com
+          builtins do shell, zero forks no laço.
+        </div>
+      </div>
+
+      <div class="mistake">
+        <span class="marker">ii</span>
+        <span class="what">A primeira tentativa não podia achar nada</span>
+        <div class="body">
+          O SuperTuxKart rodava a 1024×768 com efeitos desligados. A telemetria
+          mostrou a GPU em 50% de ocupação e 1686&nbsp;MHz de 2700 possíveis — a
+          carga era limitada por CPU, não por GPU. Nenhum ajuste de GPU poderia
+          aparecer ali, qualquer que fosse o valor real dele. Reconfigurado para
+          3440×1440 com sombras e SSAO, a GPU foi a 85% e 2574&nbsp;MHz, e aí a
+          diferença apareceu.
+        </div>
+      </div>
+
+      <div class="mistake">
+        <span class="marker">iii</span>
+        <span class="what">Eu tinha diagnosticado o Tomb Raider 2013 errado</span>
+        <div class="body">
+          Eu havia registrado, no código e na documentação, que ele era “um
+          binário 64-bit cuja pasta <code>lib/</code> só tem objetos 32-bit” e
+          que faltava <code>libicui18n.so.51</code>. Conferindo hoje,
+          <strong>as duas metades estão erradas</strong>: o binário é
+          <code>ELF 32-bit</code>, então <code>lib/i686</code> é a arquitetura
+          certa, e a biblioteca <em>está</em> lá, empacotada pelo próprio jogo.
+          A afirmação tinha sido carregada de uma sessão anterior sem ser
+          reconferida. Está corrigida nos dois lugares, e a correção ficou
+          registrada em vez de ser apagada discretamente.
+        </div>
+      </div>
+
+      <div class="mistake">
+        <span class="marker">iv</span>
+        <span class="what">Dois testes liam o estado ao vivo da máquina</span>
+        <div class="body">
+          Dez testes construíam o plano por um caminho que pergunta ao falcond,
+          em tempo real, se ele detém o perfil de energia. Isso fazia a suíte
+          passar ou falhar conforme houvesse um jogo rodando — e foi um
+          lançamento do Steam, durante esta sessão, que expôs isso. Corrigidos
+          para receber o estado explicitamente.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">05</span> O que ficou por fazer</h2>
+    <div class="prose">
+      <p>
+        O maior buraco é o mais óbvio: <strong>nenhum jogo AAA foi medido</strong>.
+        O SuperTuxKart é um jogo de kart, e o equilíbrio entre CPU e GPU dele não
+        é o de um título pesado. O achado do DPM pode ou não valer para o Shadow
+        of the Tomb Raider — o jeito de saber é medir, e o benchmark dele está a
+        quatro cliques de distância num menu.
+      </p>
+      <p>
+        Os quatro benchmarks AAA continuam disponíveis. A infraestrutura para
+        capturar frametimes enquanto eles rodam existe e está pronta; o que falta
+        é alguém iniciar a corrida. Se você abrir o benchmark do Shadow of the
+        Tomb Raider, dá para medir de verdade.
+      </p>
+      <p>
+        Também ficaram de fora: o braço de <span class="mono">sched-ext</span>
+        (exige root, que esta sessão não obteve), a comparação Gamescope contra
+        nativo, e métricas de percentil — o SuperTuxKart publica contagem de
+        quadros sobre uma repetição fixa, não uma série de frametimes, então
+        1%&nbsp;low e afins estão como
+        <span class="mono">NOT AVAILABLE</span>, não estimados.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="counts">
+      <div class="count"><span class="v">1</span><span class="k">workload medido</span></div>
+      <div class="count"><span class="v">32</span><span class="k">execuções de jogo</span></div>
+      <div class="count"><span class="v">8</span><span class="k">itens não testados</span></div>
+      <div class="count"><span class="v">−7,5%</span><span class="k">custo do ajuste de GPU</span></div>
+      <div class="count"><span class="v">372</span><span class="k">testes automatizados</span></div>
+      <div class="count"><span class="v">0</span><span class="k">avisos do clippy</span></div>
+    </div>
+  </section>
+
+  <footer>
+    Estado da máquina ao final: GPU em <span class="mono">auto</span>, a
+    configuração do SuperTuxKart devolvida como você a deixou. Dados brutos em
+    <span class="mono">bigame-engine/benchmarks/</span>; método em
+    <span class="mono">docs/11-BENCHMARK-LAB.md</span>; achados completos, com as
+    correções, em <span class="mono">docs/12-FINDINGS.md</span>.
+  </footer>
+
+</div>
