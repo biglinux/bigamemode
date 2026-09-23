@@ -44,7 +44,9 @@ where
 /// Check if falcond service is running by looking for its status file.
 #[must_use]
 pub fn falcond_is_running() -> bool {
-    std::path::Path::new(crate::status::STATUS_PATH).exists()
+    // A root-owned status file is the evidence; a file in world-writable /tmp
+    // that anyone could have created is not.
+    crate::status::is_trustworthy(crate::status::status_path())
 }
 
 // ── PowerProfiles ───────────────────────────────────────────────────────────
@@ -178,7 +180,12 @@ pub mod service {
         /// Return current falcond status (raw key-value text).
         #[allow(clippy::unused_self)] // zbus interface methods require &self
         fn get_status(&self) -> String {
-            std::fs::read_to_string(crate::status::STATUS_PATH).unwrap_or_default()
+            let path = crate::status::status_path();
+            if crate::status::is_trustworthy(path) {
+                std::fs::read_to_string(path).unwrap_or_default()
+            } else {
+                String::new()
+            }
         }
 
         /// Emitted whenever `/tmp/falcond_status` changes.
@@ -204,11 +211,11 @@ pub mod service {
         // only channel; but watching it costs nothing while nothing happens.
         // The watcher thread blocks in the kernel and only speaks when the
         // contents actually change.
-        let path = std::path::Path::new(crate::status::STATUS_PATH);
+        let path = crate::status::status_path();
         let Some(mut changes) = crate::watch::watch_file(path) else {
             tracing::warn!(
                 "could not watch {}; falcond status will not be broadcast",
-                crate::status::STATUS_PATH
+                path.display()
             );
             return Ok(());
         };

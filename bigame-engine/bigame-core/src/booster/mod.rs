@@ -18,6 +18,7 @@
 
 pub mod journal;
 pub mod knob;
+pub mod measure;
 pub mod plan;
 pub mod report;
 pub mod snapshot;
@@ -262,6 +263,28 @@ impl BoosterEngine {
 
         progress(Progress::Finished);
         Ok(report)
+    }
+
+    /// Measure what this machine's Booster plan is actually worth.
+    ///
+    /// Deliberately separate from [`BoosterEngine::activate`]: measuring takes
+    /// minutes and runs a workload, and doing that because someone pressed
+    /// "Booster Mode" would be worse than not measuring. The caller supplies
+    /// the workload and asks for this explicitly.
+    ///
+    /// The machine is left as it was found, on every path including failure.
+    ///
+    /// # Errors
+    /// Returns an error if the measurement plan is unusable, if the
+    /// optimization plan is empty, or if too few runs succeeded to compare.
+    pub async fn measure<F: FnMut(measure::MeasureProgress)>(
+        &self,
+        measurement: &measure::MeasurementPlan,
+        log_dir: &std::path::PathBuf,
+        progress: F,
+    ) -> Result<measure::Measurement> {
+        let (snapshot, plan) = self.dry_run();
+        measure::run(measurement, &plan, &snapshot, log_dir, progress).await
     }
 
     /// Turn Booster off: restore the journalled baseline exactly.

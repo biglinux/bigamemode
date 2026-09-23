@@ -315,7 +315,7 @@ fn spawn_status_watcher(
     vcache_row: adw::ActionRow,
     badge: gtk4::Label,
 ) {
-    let file = gio::File::for_path(bigame_core::status::STATUS_PATH);
+    let file = gio::File::for_path(bigame_core::status::status_path());
     let Ok(monitor) = file.monitor_file(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE) else {
         return; // inotify not available — polling still covers this
     };

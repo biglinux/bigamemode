@@ -141,8 +141,8 @@ fn load_status(text_view: &gtk4::TextView) {
     let tv = text_view.clone();
     glib::spawn_future_local(async move {
         let text = gio::spawn_blocking(|| {
-            let status_path = bigame_core::status::STATUS_PATH;
-            match std::fs::read_to_string(status_path) {
+            let status_path = bigame_core::status::status_path().display().to_string();
+            match std::fs::read_to_string(&status_path) {
                 Ok(content) if !content.trim().is_empty() => {
                     let mut out = String::new();
                     let _ = writeln!(out, "── {status_path} ──");
