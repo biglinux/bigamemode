@@ -27,6 +27,7 @@ pub mod calibration;
 pub mod games;
 pub mod history;
 pub mod lab;
+pub mod native;
 pub mod provider;
 pub mod result;
 pub mod runner;
