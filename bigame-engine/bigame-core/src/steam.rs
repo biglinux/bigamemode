@@ -196,6 +196,16 @@ pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()
         "Steam is running. It keeps localconfig.vdf in memory and rewrites it on \
          exit, so this edit would be discarded. Close Steam and try again."
     );
+    write_launch_options(config, app_id, value)
+}
+
+/// Write the launch options without checking whether Steam is running.
+///
+/// Split out from [`set_launch_options`] so the file-editing logic can be
+/// tested against a fixture regardless of what is running on the machine. The
+/// public entry point keeps the guard: a caller that skipped it would have its
+/// edit silently discarded when Steam next exits, which is worse than an error.
+fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> {
     // Steam's own format has no escaping for these, and a stray quote or
     // newline would corrupt the file for every game, not just this one.
     anyhow::ensure!(
@@ -432,7 +442,7 @@ mod tests {
     #[test]
     fn writing_replaces_only_the_apps_own_key() {
         let path = write_temp("write", VDF);
-        set_launch_options(&path, "381210", "gamescope -f -- %command%").unwrap();
+        write_launch_options(&path, "381210", "gamescope -f -- %command%").unwrap();
 
         assert_eq!(
             launch_options(&path, "381210").as_deref(),
@@ -450,7 +460,7 @@ mod tests {
     #[test]
     fn writing_inserts_the_key_when_the_app_has_none() {
         let path = write_temp("insert", VDF);
-        set_launch_options(&path, "1808500", "mangohud %command%").unwrap();
+        write_launch_options(&path, "1808500", "mangohud %command%").unwrap();
         assert_eq!(
             launch_options(&path, "1808500").as_deref(),
             Some("mangohud %command%")
@@ -466,7 +476,7 @@ mod tests {
     #[test]
     fn writing_leaves_a_backup() {
         let path = write_temp("backup", VDF);
-        set_launch_options(&path, "381210", "mangohud %command%").unwrap();
+        write_launch_options(&path, "381210", "mangohud %command%").unwrap();
         let backup = path.with_extension("vdf.bigame-backup");
         assert!(backup.is_file());
         assert_eq!(std::fs::read_to_string(&backup).unwrap(), VDF);
@@ -476,7 +486,7 @@ mod tests {
     #[test]
     fn writing_refuses_an_unknown_app() {
         let path = write_temp("unknown", VDF);
-        let err = set_launch_options(&path, "999999", "x %command%").unwrap_err();
+        let err = write_launch_options(&path, "999999", "x %command%").unwrap_err();
         assert!(err.to_string().contains("no entry for app"));
         // Nothing was written, so no backup either.
         assert!(!path.with_extension("vdf.bigame-backup").exists());
@@ -487,7 +497,10 @@ mod tests {
     fn writing_refuses_characters_that_would_corrupt_the_file() {
         let path = write_temp("quotes", VDF);
         for bad in ["say \"hi\" %command%", "a\nb", "back\\slash"] {
-            assert!(set_launch_options(&path, "381210", bad).is_err(), "{bad:?}");
+            assert!(
+                write_launch_options(&path, "381210", bad).is_err(),
+                "{bad:?}"
+            );
         }
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
@@ -519,6 +532,21 @@ mod tests {
         assert!(!mentions_wrapper("MANGOHUD=1 %command%", "mangohud"));
         assert!(!mentions_wrapper("MANGOHUD_CONFIG=x %command%", "mangohud"));
         assert!(!mentions_wrapper("", "gamemoderun"));
+    }
+
+    #[test]
+    fn the_public_entry_point_refuses_while_steam_is_running() {
+        // The guard is on set_launch_options, not on the writer, so these tests
+        // do not depend on whether Steam happens to be open — which is exactly
+        // how they started failing the moment someone launched it.
+        let path = write_temp("guard", VDF);
+        if is_running() {
+            let err = set_launch_options(&path, "381210", "mangohud %command%").unwrap_err();
+            assert!(err.to_string().contains("Steam is running"));
+        } else {
+            assert!(set_launch_options(&path, "381210", "mangohud %command%").is_ok());
+        }
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
 
     #[test]

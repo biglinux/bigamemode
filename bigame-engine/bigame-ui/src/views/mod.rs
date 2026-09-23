@@ -1,6 +1,7 @@
 //! View modules for the main `AdwViewStack` pages.
 
 pub mod dashboard;
+pub mod diagnostics;
 pub mod home;
 
 pub mod logs;

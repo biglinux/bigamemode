@@ -350,8 +350,37 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         .clone()
         .unwrap_or_else(bigame_core::gamescope::load_global);
 
+    // When Gamescope runs: automatically, always, or never.
+    //
+    // A plain on/off switch was the wrong shape. Some titles are worse inside
+    // Gamescope — overlay, input and HDR problems — and some simply do not
+    // need it; wrapping a game that gains nothing adds a compositor, a copy and
+    // a frame of latency for no benefit.
+    let gs_mode_model =
+        gtk4::StringList::new(&[&i18n("Automatic"), &i18n("Always"), &i18n("Never")]);
+    let gs_mode = adw::ComboRow::builder()
+        .title(i18n("Use Gamescope"))
+        .model(&gs_mode_model)
+        .selected(match profile.gamescope_mode {
+            bigame_core::gamescope::Mode::Auto => 0,
+            bigame_core::gamescope::Mode::Enabled => 1,
+            bigame_core::gamescope::Mode::Disabled => 2,
+        })
+        .build();
+    gs_group.add(&gs_mode);
+
+    // What Automatic would decide, given the settings below — shown so the
+    // choice is not a mystery, and updated as those settings change.
+    let gs_explain = adw::ActionRow::builder()
+        .title(i18n("What Automatic does here"))
+        .subtitle(i18n("Checking…"))
+        .build();
+    gs_explain.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
+    gs_group.add(&gs_explain);
+
     let gs_enable = adw::SwitchRow::builder()
-        .title(i18n("Override Gamescope"))
+        .title(i18n("Override Gamescope settings for this game"))
+        .subtitle(i18n("Leave off to use the global defaults"))
         .active(profile.gamescope.is_some())
         .build();
     gs_group.add(&gs_enable);
@@ -426,6 +455,74 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         fsr_ref.set_sensitive(on);
         fps_ref.set_sensitive(on);
     });
+
+    // Keep the explanation honest as the controls change.
+    {
+        let explain = gs_explain.clone();
+        let mode = gs_mode.clone();
+        let width = gs_width.clone();
+        let height = gs_height.clone();
+        let fsr = gs_fsr.clone();
+        let fps = gs_fps.clone();
+        let refresh = Rc::new(move || {
+            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+            let cfg = bigame_core::gamescope::Config {
+                render_width: width.value() as u32,
+                render_height: height.value() as u32,
+                filter: if fsr.is_active() {
+                    bigame_core::gamescope::Filter::Fsr
+                } else {
+                    bigame_core::gamescope::Filter::Linear
+                },
+                frame_limit: {
+                    let hz = fps.value() as u32;
+                    if hz > 0 {
+                        bigame_core::gamescope::FrameLimit::NestedRefresh(hz)
+                    } else {
+                        bigame_core::gamescope::FrameLimit::None
+                    }
+                },
+                ..bigame_core::gamescope::Config::default()
+            };
+            let caps = bigame_core::capabilities::Capabilities::detect().gamescope;
+            let session = bigame_core::hardware::Hardware::detect().session;
+            let decision = bigame_core::gamescope::decide(
+                bigame_core::gamescope::Mode::Auto,
+                &cfg,
+                caps.as_ref(),
+                session,
+            );
+            explain.set_subtitle(&format!(
+                "{} — {}",
+                if decision.use_gamescope {
+                    i18n("Gamescope would run")
+                } else {
+                    i18n("Gamescope would not run")
+                },
+                decision.reason
+            ));
+            // The explanation only describes Automatic.
+            explain.set_visible(mode.selected() == 0);
+        });
+        refresh();
+        for widget in [&gs_width, &gs_height] {
+            let refresh = Rc::clone(&refresh);
+            widget.connect_value_notify(move |_| refresh());
+        }
+        {
+            let refresh = Rc::clone(&refresh);
+            gs_fps.connect_value_notify(move |_| refresh());
+        }
+        {
+            let refresh = Rc::clone(&refresh);
+            gs_fsr.connect_active_notify(move |_| refresh());
+        }
+        {
+            let refresh = Rc::clone(&refresh);
+            gs_mode.connect_selected_notify(move |_| refresh());
+        }
+    }
+
     page.add(&gs_group);
 
     // Frame Generation group
@@ -575,6 +672,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
         start_row,
         stop_row,
         gs_enable,
+        gs_mode,
         gs_width,
         gs_height,
         gs_fsr,
@@ -605,6 +703,7 @@ struct PerfWidgets {
     start_row: adw::EntryRow,
     stop_row: adw::EntryRow,
     gs_enable: adw::SwitchRow,
+    gs_mode: adw::ComboRow,
     gs_width: adw::SpinRow,
     gs_height: adw::SpinRow,
     gs_fsr: adw::SwitchRow,
@@ -675,6 +774,12 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
             p.start_script = if start.is_empty() { None } else { Some(start) };
             let stop = w.stop_row.text().to_string();
             p.stop_script = if stop.is_empty() { None } else { Some(stop) };
+
+            p.gamescope_mode = match w.gs_mode.selected() {
+                1 => bigame_core::gamescope::Mode::Enabled,
+                2 => bigame_core::gamescope::Mode::Disabled,
+                _ => bigame_core::gamescope::Mode::Auto,
+            };
 
             // Per-game Gamescope overrides
             p.gamescope = if w.gs_enable.is_active() {

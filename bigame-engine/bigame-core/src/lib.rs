@@ -8,6 +8,7 @@ pub mod booster;
 pub mod capabilities;
 pub mod config;
 pub mod dbus;
+pub mod diagnostics;
 pub mod fg;
 pub mod games;
 pub mod gamescope;

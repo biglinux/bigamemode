@@ -90,6 +90,9 @@ pub fn build(
     let video_view = views::video::build();
     view_stack.add_named(&video_view, Some("video"));
 
+    let diagnostics = views::diagnostics::build();
+    view_stack.add_named(&diagnostics, Some("diagnostics"));
+
     let logs = views::logs::build();
     view_stack.add_named(&logs, Some("logs"));
 
@@ -120,6 +123,11 @@ pub fn build(
         ("profiles", i18n("Profiles"), "applications-games-symbolic"),
         ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
         ("video", i18n("Video"), "video-display-symbolic"),
+        (
+            "diagnostics",
+            i18n("Diagnostics"),
+            "dialog-question-symbolic",
+        ),
         ("logs", i18n("Logs"), "utilities-terminal-symbolic"),
         ("settings", i18n("Settings"), "emblem-system-symbolic"),
     ];
