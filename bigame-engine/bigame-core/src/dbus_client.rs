@@ -8,6 +8,11 @@
 use zbus::proxy;
 
 /// The root helper's D-Bus interface.
+///
+/// Method names are pinned explicitly and must match `bigame-daemon` exactly.
+/// zbus would otherwise derive them from the Rust function names, which makes
+/// the wire contract hostage to a refactor — and does not always produce the
+/// obvious spelling (`set_vcache_mode` derives to `SetVcacheMode`).
 #[proxy(
     interface = "com.biglinux.BiGameMode",
     default_service = "com.biglinux.BiGameMode",
@@ -18,27 +23,35 @@ pub trait BiGameDaemon {
     ///
     /// `name` must be a bare profile name; the helper rejects anything
     /// containing a path separator or `..`.
+    #[zbus(name = "SaveProfile")]
     async fn save_profile(&self, name: &str, payload: &str) -> zbus::Result<()>;
 
     /// Delete a per-game profile by bare name.
+    #[zbus(name = "DeleteProfile")]
     async fn delete_profile(&self, name: &str) -> zbus::Result<()>;
 
     /// Replace falcond's global configuration and ask it to reload.
+    #[zbus(name = "ApplyFalcondConfig")]
     async fn apply_falcond_config(&self, config_payload: &str) -> zbus::Result<()>;
 
     /// Set the AMD 3D V-Cache mode.
+    #[zbus(name = "SetVCacheMode")]
     async fn set_vcache_mode(&self, mode: &str) -> zbus::Result<()>;
 
     /// Set the CPU frequency governor on every online CPU.
+    #[zbus(name = "SetCpuGovernor")]
     async fn set_cpu_governor(&self, governor: &str) -> zbus::Result<()>;
 
     /// Set the Energy Performance Preference on every online CPU.
+    #[zbus(name = "SetCpuEpp")]
     async fn set_cpu_epp(&self, epp: &str) -> zbus::Result<()>;
 
     /// Set `power_dpm_force_performance_level` for one DRM card.
+    #[zbus(name = "SetGpuDpmLevel")]
     async fn set_gpu_dpm_level(&self, card: &str, level: &str) -> zbus::Result<()>;
 
     /// Liveness probe.
+    #[zbus(name = "Ping")]
     async fn ping(&self) -> zbus::Result<String>;
 }
 

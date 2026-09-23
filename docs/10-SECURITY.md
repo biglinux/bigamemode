@@ -220,6 +220,50 @@ to every local uid the moment it is written.
 not sensitive, but it is also what rollback trusts — and a file another user can
 write is a file that can send the restore somewhere wrong.
 
+## 3.10 Verified against the real binary
+
+`tests/daemon-authorization.sh` starts the helper on a private D-Bus instance,
+as an ordinary user, with no Polkit on that bus — the fail-closed case, and the
+one that matters most.
+
+```
+Liveness (unauthenticated, must succeed):
+  ok    Ping
+Privileged methods (must all be refused):
+  ok    SaveProfile   SetCpuGovernor   SetCpuEpp   SetGpuDpmLevel
+  ok    SetVCacheMode   ApplyFalcondConfig   DeleteProfile
+Audit SEC-02 payloads (path traversal, must be refused and write nothing):
+  ok    SaveProfile ../../../../../etc/cron.d/pwn
+  ok    SaveProfile ../../../../../etc/systemd/system/pwn.service
+  ok    DeleteProfile ../../../etc/passwd
+  ok    nothing written to /etc/cron.d/pwn.conf
+  ok    nothing written to /etc/systemd/system/pwn.service.conf
+
+PASSED — every privileged request refused with Polkit unreachable
+```
+
+The helper log shows the reason for each refusal, named by action:
+
+```
+ERROR bigame_daemon::polkit: polkit check failed
+      action="com.biglinux.bigamemode.manage-profiles"
+      error=...The name org.freedesktop.PolicyKit1 was not provided...
+```
+
+The old helper, given the same unauthenticated call with the same name, would
+have written `/etc/cron.d/pwn.conf` as root.
+
+The test needs no root and installs nothing, so it can run in CI.
+
+### 3.11 Pinned wire names
+
+Writing that test surfaced a smaller problem: zbus derives D-Bus method names
+from Rust function names, and the derived spelling is not always the obvious one
+— `set_vcache_mode` becomes `SetVcacheMode`, not `SetVCacheMode`. Client and
+server derived identically so nothing was broken, but an interface that renames
+itself because someone tidied a function signature is not one anyone can depend
+on. Every method name is now pinned explicitly on both sides.
+
 ## 4. Not fixed in this pass
 
 * **`/tmp/falcond_status`.** Root-owned `0644` in world-writable `/tmp`. This

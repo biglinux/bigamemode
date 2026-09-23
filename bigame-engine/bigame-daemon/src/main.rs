@@ -54,9 +54,15 @@ impl BiGameDaemon {
     }
 }
 
+// D-Bus method names are pinned explicitly rather than derived from the Rust
+// function names. The derived spelling is not always the obvious one —
+// `set_vcache_mode` becomes `SetVcacheMode`, not `SetVCacheMode` — and an
+// interface that renames itself because someone tidied a function signature is
+// not an interface anyone can depend on.
 #[interface(name = "com.biglinux.BiGameMode")]
 impl BiGameDaemon {
     /// Write a per-game profile into falcond's user profile directory.
+    #[zbus(name = "SaveProfile")]
     async fn save_profile(
         &self,
         name: &str,
@@ -85,6 +91,7 @@ impl BiGameDaemon {
     }
 
     /// Delete a per-game profile.
+    #[zbus(name = "DeleteProfile")]
     async fn delete_profile(
         &self,
         name: &str,
@@ -109,6 +116,7 @@ impl BiGameDaemon {
     }
 
     /// Replace falcond's global configuration and ask it to reload.
+    #[zbus(name = "ApplyFalcondConfig")]
     async fn apply_falcond_config(
         &self,
         config_payload: &str,
@@ -131,6 +139,7 @@ impl BiGameDaemon {
     }
 
     /// Set the AMD 3D V-Cache mode.
+    #[zbus(name = "SetVCacheMode")]
     async fn set_vcache_mode(
         &self,
         mode: &str,
@@ -154,6 +163,7 @@ impl BiGameDaemon {
     }
 
     /// Set the CPU frequency governor on every online CPU.
+    #[zbus(name = "SetCpuGovernor")]
     async fn set_cpu_governor(
         &self,
         governor: &str,
@@ -165,6 +175,7 @@ impl BiGameDaemon {
     }
 
     /// Set the Energy Performance Preference on every online CPU.
+    #[zbus(name = "SetCpuEpp")]
     async fn set_cpu_epp(
         &self,
         epp: &str,
@@ -176,6 +187,7 @@ impl BiGameDaemon {
     }
 
     /// Set `power_dpm_force_performance_level` for one DRM card.
+    #[zbus(name = "SetGpuDpmLevel")]
     async fn set_gpu_dpm_level(
         &self,
         card: &str,
@@ -202,6 +214,7 @@ impl BiGameDaemon {
 
     /// Liveness probe.
     #[allow(clippy::unused_self)]
+    #[zbus(name = "Ping")]
     async fn ping(&self) -> Result<String, zbus::fdo::Error> {
         Ok("pong".into())
     }

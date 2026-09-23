@@ -18,6 +18,7 @@ iGPU, Ethernet, desktop.
 | `cargo check --workspace` | pass |
 | `cargo test --workspace` | **217 passed, 0 failed** |
 | `cargo clippy --workspace --all-targets` | pass; **0 warnings in new modules** |
+| `./tests/daemon-authorization.sh` | pass — 13 checks |
 
 217 tests, up from 77 at the branch point. Pre-existing pedantic warnings remain
 in untouched UI files and are listed as a known limitation rather than silenced.
@@ -85,11 +86,28 @@ journal tests used to.
 | Crash recovery | NOT TESTED | `recover()` is unit-tested; no kill-mid-apply run |
 | Battery refusal | Unit test | `refuses_to_raise_power_draw_on_battery` |
 | falcond owns the power profile | Unit test | `booster_stands_down_while_falcond_holds_a_profile` |
-| Root knobs applied end to end | NOT TESTED | `bigame-daemon` is not installed here, so the Polkit path could not be exercised |
+| Root knobs applied end to end | NOT TESTED | `bigame-daemon` is not installed here, so a successful privileged write could not be observed |
 
-The last row is the significant gap: Polkit authorization, the privileged writes
-and their rollback are unit-tested and code-reviewed but have not run against a
-live installed daemon.
+### 3.1 The privileged helper
+
+Partially closed by `tests/daemon-authorization.sh`, which starts the real
+helper binary on a private D-Bus instance, as an ordinary user, with no Polkit
+reachable — the fail-closed case.
+
+| Case | Status |
+|---|---|
+| Helper starts and claims the bus name | **Tested** |
+| `Ping` answers unauthenticated | **Tested** |
+| All 7 privileged methods refused when Polkit is unreachable | **Tested** |
+| SEC-02 traversal payloads refused | **Tested** |
+| Nothing written to `/etc/cron.d` or `/etc/systemd/system` | **Tested** |
+| Exported interface matches the client proxy | **Tested** — introspection |
+| A *successful* privileged write, with Polkit granting | NOT TESTED — needs the helper installed as root |
+| Rollback of a privileged write | NOT TESTED — same |
+
+The remaining gap is narrower than before but still real: the *deny* path is
+verified end to end against the actual binary; the *allow* path is unit-tested
+and reviewed only.
 
 ---
 

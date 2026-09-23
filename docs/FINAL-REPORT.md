@@ -37,8 +37,9 @@ no performance measurement was taken.** The application therefore says
 "Performance impact not measured" on every report, which is the correct answer
 rather than a placeholder.
 
-Totals: 62 files changed, +10 187 / −1 552. Tests 77 → **217**, all passing.
-Zero clippy warnings in new modules.
+Totals: 62 files changed, +10 187 / −1 552. Tests 77 → **217**, all passing,
+plus a 13-check D-Bus authorization test that runs against the real helper
+binary without root. Zero clippy warnings in new modules.
 
 ---
 
@@ -290,7 +291,7 @@ point.
 | Scheduler | 5 hardcoded; no support detection | 16 enumerated; `ServiceDown` reported | **Yes** |
 | GPU telemetry | Aborted early; sampled the iGPU | Render GPU, correct | **Yes** — 48 °C, 26 W |
 | Network | Nothing | Link + DNS benchmark, honest wording | **Yes** — 6 resolvers |
-| Daemon auth | None | Polkit, fail-closed | Unit tests only |
+| Daemon auth | None | Polkit, fail-closed | **Yes** — deny path against the real binary |
 | Argument validation | Client side only | Server side, allow-list, property test | **Yes** |
 | sudoers | Passwordless root for `wheel` | Deleted | **Yes** |
 | Tests | 77 | 217 | **Yes** |
@@ -313,10 +314,13 @@ Gamescope 3.16.28, falcond 2.0.2, sched-ext without a loader.
 Ordered by how much they matter.
 
 1. **No benchmark engine.** The largest piece of the brief not delivered.
-2. **The privileged helper was never exercised in production.** It is not
-   installed on this machine, so Polkit authorization and the privileged writes
-   are unit-tested and reviewed but have not run for real. This is the most
-   important thing to test next.
+2. **The privileged helper's *allow* path was never exercised.** The deny path
+   is now verified end to end against the real binary by
+   `tests/daemon-authorization.sh` — every privileged method refused with
+   Polkit unreachable, the SEC-02 payloads refused, nothing written. But a
+   *successful* privileged write, and the rollback of one, need the helper
+   installed as root and have not been observed. This is the most important
+   thing to test next.
 3. **No game was launched through the new pipeline.** Anti-cheat protected
    online titles on the user's own account were not a reasonable thing to
    launch repeatedly unasked.
