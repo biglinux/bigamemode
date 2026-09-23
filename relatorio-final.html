@@ -462,9 +462,9 @@ a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offs
     <h1>O que foi medido, e o que não foi</h1>
     <p class="standfirst">
       Um jogo rodou de verdade: o SuperTuxKart. Os quatro jogos AAA não produziram
-      benchmark nenhum, o Superposition continua bloqueado, e a VM serviu para
-      outra coisa. O que saiu disso, mesmo assim, foi a descoberta de que o
-      Booster deixava esta máquina mais lenta.
+      benchmark nenhum, o Superposition estava bloqueado e foi consertado depois,
+      e a VM serviu para outra coisa. O que saiu disso, mesmo assim, foi a
+      descoberta de que o Booster deixava esta máquina mais lenta.
     </p>
   </header>
 
@@ -480,11 +480,10 @@ a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offs
       </div>
       <div class="answer">
         <div class="q"><span class="n">02</span><span>Usou o Unigine Superposition?</span></div>
-        <div class="a no">Não</div>
+        <div class="a part">Não no benchmark — mas agora abre</div>
         <div class="why">
-          <span class="mono">/opt/unigine-superposition/bin</span> está como
-          <span class="mono">drwxr-x---&nbsp;root&nbsp;root</span>. Verifiquei
-          de novo hoje: continua inacessível.
+          Estava bloqueado por permissões do pacote. Consertado: abre e roda.
+          A automação por linha de comando, porém, é da edição Pro.
         </div>
       </div>
       <div class="answer">
@@ -500,7 +499,7 @@ a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offs
         <div class="q"><span class="n">04</span><span>Conseguiu fazer todos os testes?</span></div>
         <div class="a no">Não</div>
         <div class="why">
-          Um workload de dez medido. Oito itens ficaram como
+          Um workload de dez medido. Sete itens ficaram como
           <span class="mono">NOT TESTED</span>, cada um com o motivo registrado.
         </div>
       </div>
@@ -572,10 +571,11 @@ a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offs
       </div>
       <div>
         <span class="name">Unigine Superposition</span>
-        <span class="tag worse">Bloqueado</span>
+        <span class="tag better">Consertado</span>
         <span class="detail">
-          <span class="mono">bin/</span> é legível só pelo root. Defeito de
-          empacotamento, não limitação de hardware.
+          Estava bloqueado por permissões do pacote e não abria. Corrigido —
+          abre em 3440×1440, OpenGL 4.6, placa reconhecida. Não entrou na
+          medição porque a automação dele é da edição Pro. Ver seção 06.
         </span>
       </div>
       <div>
@@ -924,10 +924,81 @@ a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offs
   </section>
 
   <section>
+    <h2><span class="n">06</span> O Superposition, consertado</h2>
+
+    <div class="prose">
+      <p>
+        O pacote <span class="mono">unigine-superposition 1.1-7</span> instalava
+        todo o conteúdo de <span class="mono">/opt/unigine-superposition</span>
+        como <span class="mono">drwxr-x--- root root</span>. O atalho do sistema
+        é um script de três linhas:
+      </p>
+    </div>
+
+    <pre style="font-family:var(--data);font-size:var(--fs-step--1);background:var(--sunk);padding:1rem 1.15rem;overflow-x:auto;max-width:44rem;line-height:1.5;border-left:3px solid var(--rule-strong);">cd /opt/unigine-superposition/bin   <span style="color:var(--worse)">← falhava aqui</span>
+./launcher</pre>
+
+    <div class="prose">
+      <p>
+        Ele parava no <span class="mono">cd</span>, imprimia
+        <span class="mono">Failed to change working directory</span> e encerrava
+        antes de chegar a qualquer código gráfico. Um
+        <span class="mono">chmod -R a+rX</span> corrigiu os 180 arquivos para os
+        755/644 normais, e o benchmark passou a abrir:
+      </p>
+    </div>
+
+    <pre style="font-family:var(--data);font-size:var(--fs-step--1);background:var(--sunk);padding:1rem 1.15rem;overflow-x:auto;max-width:44rem;line-height:1.5;border-left:3px solid var(--better);">Set 3440x1440 fullscreen video mode
+OpenGL renderer: AMD Radeon RX 9060 XT (radeonsi, gfx1200, ACO)
+OpenGL version:  4.6 (Core Profile) Mesa 26.2.2-arch1.1
+Run benchmark</pre>
+
+    <div class="prose">
+      <p>
+        <strong>Isso volta se o pacote for reinstalado ou atualizado</strong> —
+        é defeito de empacotamento, não configuração sua. O conserto é sempre o
+        mesmo comando.
+      </p>
+
+      <h3>Duas coisas continuam impossíveis, e não por minha causa</h3>
+
+      <p>
+        <strong>A automação é da edição Pro.</strong> O binário
+        <span class="mono">superposition_cli</span> vem na edição livre mas não
+        faz nada: retorna sucesso até para um arquivo XML inexistente. Os
+        exemplos em <span class="mono">bin/pro_xml_samples/</span> descrevem
+        exatamente o que este laboratório precisaria — modo
+        <span class="mono">Frame N</span> determinístico, CSV por quadro,
+        resumo em texto — e nada disso é alcançável na Basic. Por isso o
+        Superposition entra aqui como benchmark de início manual, igual aos
+        quatro jogos.
+      </p>
+
+      <p>
+        <strong>O monitor de GPU dele não funciona neste driver.</strong> O
+        <span class="mono">libGPUMonitor_x64.so</span> chama a ADL — a API
+        proprietária da AMD da era Catalyst — que não existe num stack
+        <span class="mono">amdgpu</span>/Mesa aberto. Os mostradores de clock e
+        temperatura dentro do app ficam vazios. A pontuação não é afetada, e a
+        telemetria deste projeto lê os mesmos valores direto do sysfs.
+      </p>
+
+      <p>
+        Um detalhe para você não se assustar: o banco de hardware do
+        Superposition é de 2019 e não conhece sua placa. Ele registra
+        <span class="mono">GPU: Unknown GPU x1</span> e
+        <span class="mono">Video memory: 256 MB</span> contra uma RX 9060 XT de
+        16&nbsp;GB. É cosmético — mas não confie no que ele diz
+        <em>sobre</em> o hardware, só no que ele mede de quadros.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <div class="counts">
       <div class="count"><span class="v">1</span><span class="k">workload medido</span></div>
       <div class="count"><span class="v">32</span><span class="k">execuções de jogo</span></div>
-      <div class="count"><span class="v">8</span><span class="k">itens não testados</span></div>
+      <div class="count"><span class="v">7</span><span class="k">itens não testados</span></div>
       <div class="count"><span class="v">−7,5%</span><span class="k">custo do ajuste de GPU</span></div>
       <div class="count"><span class="v">372</span><span class="k">testes automatizados</span></div>
       <div class="count"><span class="v">0</span><span class="k">avisos do clippy</span></div>

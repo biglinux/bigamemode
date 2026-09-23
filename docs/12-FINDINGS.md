@@ -140,13 +140,55 @@ deleted.
 | Cyberpunk 2077 | **Needs manual start** | Installed. Benchmark behind Settings → Graphics. |
 | Rise of the Tomb Raider | **Needs manual start** | Installed. The Feral port accepts `-benchmark`, but its launcher window opens first and `-nolauncher` does not suppress it. |
 | Tomb Raider (2013) | **NOT TESTED** | See the correction below. Installed and launchable; the benchmark was not reached. |
-| Unigine Superposition | **NOT TESTED** | `/opt/unigine-superposition/bin` is `drwxr-x--- root root`. A packaging defect, not a hardware limit. |
+| Unigine Superposition | **Runs; needs manual start** | Was unopenable: see below. Fixed. Its unattended mode is Pro-only. |
 | vkmark, glmark2, Phoronix | **NOT TESTED** | Not installed; installing them needs a package-manager authentication this session could not complete. |
 | sched-ext arm | **NOT TESTED** | `scx_loader` is not running and `/sys/kernel/sched_ext/state` is `disabled`. Enabling it needs root, which was unavailable here; the daemon exposes no method for it. |
 | glxgears, vkcube | **Sanity check only** | Confirm the driver stack is alive. Never treated as evidence about game performance. |
 
 "Needs manual start" is reported distinctly from "unavailable" on purpose. The
 benchmarks are there and are good; what cannot be automated is the starting.
+
+### Unigine Superposition: fixed, and what it still cannot do
+
+The Arch package `unigine-superposition 1.1-7` installed every directory under
+`/opt/unigine-superposition` as `drwxr-x--- root root`, with the data files
+`rw-r-----`. The wrapper at `/usr/bin/unigine-superposition` is three lines:
+
+```sh
+cd /opt/unigine-superposition/bin
+./launcher
+```
+
+so it failed at the `cd`, printed `Failed to change working directory` and
+stopped before reaching any graphics code. `chmod -R a+rX
+/opt/unigine-superposition` corrects all 180 files to the usual 755/644, and
+the benchmark then starts normally: 3440x1440 fullscreen, OpenGL 4.6 core on
+Mesa 26.2.2, the RX 9060 XT detected correctly.
+
+This is a packaging defect, so **a reinstall or package update will bring it
+back**.
+
+Two things remain, neither of them fixable here:
+
+- **Unattended runs are a Pro-edition feature.** `superposition_cli` ships with
+  the free edition and does nothing: it returns success without running
+  anything, even when handed an XML path that does not exist. The XML samples
+  under `bin/pro_xml_samples/` describe exactly what the lab would want — a
+  deterministic `Frame N` mode, per-frame CSV, a summary file — and none of it
+  is reachable on Basic. Superposition is therefore a manual-start benchmark
+  here, like the four installed games.
+- **Its GPU monitor cannot work on this driver stack.** `libGPUMonitor_x64.so`
+  calls AMD's ADL (`ADL2_Overdrive5_Temperature_Get` and friends), the
+  proprietary Catalyst-era API, which does not exist on open `amdgpu`/Mesa. It
+  logs `can't initialize GPUMonitor` and the in-app clock and temperature
+  readouts stay blank. The benchmark score is unaffected, and this project's
+  own telemetry reads the same values from sysfs.
+
+Superposition's own hardware database, last updated in 2019, does not recognise
+the card either: it logs `GPU: Unknown GPU x1` and `Video memory: 256 MB`
+against a 16 GB RX 9060 XT. Cosmetic, but worth knowing before trusting
+anything Superposition reports *about* the hardware as opposed to about the
+frame rate.
 
 ### Correction: Tomb Raider (2013) was misdiagnosed
 

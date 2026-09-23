@@ -391,6 +391,104 @@ impl BenchmarkProvider for SuperTuxKart {
     }
 }
 
+// ── Unigine Superposition ────────────────────────────────────────────────────
+
+/// Unigine Superposition, the synthetic GPU benchmark.
+///
+/// A real GPU workload over a real scene, which makes it far better evidence
+/// than any spinning-cube loop. Two things limit it here.
+///
+/// **It is started by hand.** The `superposition_cli` binary ships with the
+/// free edition but does nothing: it returns success without running anything,
+/// even for an XML file that does not exist. Unattended runs are a Pro-edition
+/// feature, so the free edition is a GUI benchmark and nothing else.
+///
+/// **Its packaging has been known to install unreadable.** The Arch package
+/// installed `/opt/unigine-superposition` with every directory `drwxr-x---`
+/// and root-owned, so the launcher failed at `cd` with "Failed to change
+/// working directory" before reaching any graphics code. That is checked here
+/// rather than assumed, because it is a per-machine condition a package update
+/// can reintroduce, and because "installed but unreadable" needs a different
+/// message from "not installed".
+pub struct Superposition {
+    root: Option<PathBuf>,
+}
+
+impl Default for Superposition {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Superposition {
+    /// Locate an installation.
+    #[must_use]
+    pub fn new() -> Self {
+        let candidates = [
+            PathBuf::from("/opt/unigine-superposition"),
+            PathBuf::from("/opt/Unigine/Superposition"),
+        ];
+        Self {
+            root: candidates.into_iter().find(|p| p.is_dir()),
+        }
+    }
+
+    /// Whether the engine directory can actually be entered and read.
+    ///
+    /// The launcher's first act is to change into `bin/`, so a directory the
+    /// user cannot traverse stops it before anything else can go wrong.
+    fn unreadable_part(root: &Path) -> Option<PathBuf> {
+        ["bin", "data"]
+            .iter()
+            .map(|name| root.join(name))
+            .find(|dir| dir.is_dir() && std::fs::read_dir(dir).is_err())
+    }
+}
+
+impl BenchmarkProvider for Superposition {
+    fn id(&self) -> &'static str {
+        "unigine-superposition"
+    }
+
+    fn name(&self) -> &'static str {
+        "Unigine Superposition"
+    }
+
+    fn source(&self) -> Source {
+        Source::Score
+    }
+
+    fn availability(&self) -> Availability {
+        let Some(root) = &self.root else {
+            return Availability::NotInstalled("unigine-superposition".into());
+        };
+        if let Some(dir) = Self::unreadable_part(root) {
+            return Availability::MissingDependency(format!(
+                "{} cannot be read by this user, so the launcher stops at \
+                 \"Failed to change working directory\"; \
+                 `sudo chmod -R a+rX {}` fixes it",
+                dir.display(),
+                root.display()
+            ));
+        }
+        Availability::NeedsManualStart(
+            "its command-line mode is a Pro-edition feature -- the free \
+             edition's superposition_cli exits without running anything -- so \
+             the benchmark has to be started from the launcher window"
+                .into(),
+        )
+    }
+
+    fn run(&self, _ctx: &RunContext) -> Result<RunOutcome> {
+        anyhow::bail!(
+            "Unigine Superposition cannot be run unattended: {}",
+            self.availability()
+                .reason()
+                .unwrap_or("no automated entry point")
+        )
+    }
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 
 /// Every provider this build knows about.
@@ -404,6 +502,7 @@ pub fn all() -> Vec<Box<dyn BenchmarkProvider>> {
         .into_iter()
         .map(|g| Box::new(g) as Box<dyn BenchmarkProvider>)
         .collect();
+    providers.push(Box::new(Superposition::new()));
     providers.push(Box::new(SuperTuxKart::new()));
     providers
 }
@@ -530,6 +629,76 @@ mod tests {
             notes: Vec::new(),
         };
         assert!(!empty.is_comparable());
+    }
+
+    #[test]
+    fn an_unreadable_engine_directory_is_reported_with_the_fix() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = std::env::temp_dir().join(format!("bigame_super_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+        std::fs::create_dir_all(root.join("data")).unwrap();
+
+        // Readable: nothing to report.
+        assert_eq!(Superposition::unreadable_part(&root), None);
+
+        // The packaging defect this exists to catch: the launcher's first act
+        // is to change into bin/, so a directory it cannot enter stops it
+        // before any graphics code runs.
+        std::fs::set_permissions(root.join("bin"), std::fs::Permissions::from_mode(0o000))
+            .unwrap();
+        let blocked = Superposition::unreadable_part(&root);
+
+        // Running the suite as root would defeat the check, so only assert the
+        // message when the permission actually bites.
+        if let Some(dir) = blocked {
+            assert!(dir.ends_with("bin"));
+            let provider = Superposition {
+                root: Some(root.clone()),
+            };
+            let availability = provider.availability();
+            assert!(matches!(availability, Availability::MissingDependency(_)));
+            let reason = availability.reason().unwrap();
+            // The message has to carry the remedy: this is a one-command fix
+            // and a user who is only told "blocked" cannot act on it.
+            assert!(reason.contains("chmod -R a+rX"), "{reason}");
+            assert!(reason.contains("Failed to change working directory"), "{reason}");
+        }
+
+        let _ = std::fs::set_permissions(root.join("bin"), std::fs::Permissions::from_mode(0o755));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn superposition_without_an_install_says_not_installed() {
+        let provider = Superposition { root: None };
+        let availability = provider.availability();
+        assert!(matches!(availability, Availability::NotInstalled(_)));
+        assert!(!availability.is_ready());
+    }
+
+    #[test]
+    fn a_readable_superposition_still_needs_a_person() {
+        // The free edition ships superposition_cli, but it returns success
+        // without running anything, so "installed and readable" still is not
+        // "can be measured unattended".
+        let root = std::env::temp_dir().join(format!("bigame_super_ok_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+
+        let provider = Superposition { root: Some(root.clone()) };
+        let availability = provider.availability();
+        assert!(matches!(availability, Availability::NeedsManualStart(_)));
+        assert!(availability.reason().unwrap().contains("Pro-edition"));
+
+        let ctx = RunContext {
+            output_dir: std::env::temp_dir(),
+            duration: std::time::Duration::from_secs(1),
+        };
+        assert!(provider.run(&ctx).is_err(), "it must refuse rather than invent a score");
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
