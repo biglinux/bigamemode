@@ -598,7 +598,7 @@ Click to visit losslessscaling.com",
 You must legally acquire Lossless Scaling on Steam or other platforms to obtain this file."))
                 .body_use_markup(true)
                 .build();
-            
+
             dialog.add_response("cancel", &i18n("Close"));
             dialog.add_response("web", &i18n("Visit Website"));
             dialog.set_response_appearance("web", adw::ResponseAppearance::Suggested);

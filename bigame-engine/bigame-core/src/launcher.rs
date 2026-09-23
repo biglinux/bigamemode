@@ -14,7 +14,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::gamescope;
-use crate::models::{FrameGenBackend, FrameGenSettings, GamescopeFilter, UpscalingSettings, WineFsrMode};
+use crate::models::{
+    FrameGenBackend, FrameGenSettings, GamescopeFilter, UpscalingSettings, WineFsrMode,
+};
 use crate::video_config::VideoConfig;
 
 /// Env override used by tests and diagnostics.
@@ -200,78 +202,78 @@ impl LaunchPlan {
         effective
     }
 
-// ── Conflict detection ─────────────────────────────────────────────────────
+    // ── Conflict detection ─────────────────────────────────────────────────────
 
-/// Emit structured warnings for any known frame generation conflicts.
-///
-/// Conflicts occur when two frame generation technologies are active simultaneously:
-/// - OptiScaler/AFMF generates frames at the game render level
-/// - lsfg-vk generates frames at the Vulkan present level
-/// Running both causes doubled/corrupted frames. Users must disable one.
-fn check_and_warn_conflicts(executable: &str, video: &VideoConfig) {
-    if !video.frame_gen.enabled {
-        return;
-    }
-    match video.frame_gen.backend {
-        FrameGenBackend::OptiScaler | FrameGenBackend::Afmf => {
-            // Conflict: OptiScaler/AFMF + lsfg-vk active for same game
-            if crate::fg::is_active_for_game(executable) {
-                tracing::warn!(
-                    game = executable,
-                    backend = ?video.frame_gen.backend,
-                    "FRAME GEN CONFLICT: {} has lsfg-vk FG enabled AND {:?} selected — \
-                     disable one to avoid rendering artifacts",
-                    executable,
-                    video.frame_gen.backend,
-                );
-            }
+    /// Emit structured warnings for any known frame generation conflicts.
+    ///
+    /// Conflicts occur when two frame generation technologies are active simultaneously:
+    /// - OptiScaler/AFMF generates frames at the game render level
+    /// - lsfg-vk generates frames at the Vulkan present level
+    /// Running both causes doubled/corrupted frames. Users must disable one.
+    fn check_and_warn_conflicts(executable: &str, video: &VideoConfig) {
+        if !video.frame_gen.enabled {
+            return;
         }
-        FrameGenBackend::LsfgVk => {
-            // Conflict: lsfg-vk backend but OptiScaler staging also enabled
-            if video.frame_gen.optiscaler_enabled {
-                tracing::warn!(
-                    game = executable,
-                    "FRAME GEN CONFLICT: lsfg-vk backend + OptiScaler staging both active for '{}' — \
+        match video.frame_gen.backend {
+            FrameGenBackend::OptiScaler | FrameGenBackend::Afmf => {
+                // Conflict: OptiScaler/AFMF + lsfg-vk active for same game
+                if crate::fg::is_active_for_game(executable) {
+                    tracing::warn!(
+                        game = executable,
+                        backend = ?video.frame_gen.backend,
+                        "FRAME GEN CONFLICT: {} has lsfg-vk FG enabled AND {:?} selected — \
+                         disable one to avoid rendering artifacts",
+                        executable,
+                        video.frame_gen.backend,
+                    );
+                }
+            }
+            FrameGenBackend::LsfgVk => {
+                // Conflict: lsfg-vk backend but OptiScaler staging also enabled
+                if video.frame_gen.optiscaler_enabled {
+                    tracing::warn!(
+                        game = executable,
+                        "FRAME GEN CONFLICT: lsfg-vk backend + OptiScaler staging both active for '{}' — \
                      disable 'Stage OptiScaler DLLs' to avoid conflicts",
-                    executable,
-                );
+                        executable,
+                    );
+                }
             }
+            FrameGenBackend::None => {}
         }
-        FrameGenBackend::None => {}
-    }
-}
-
-#[must_use]
-fn is_steam_applaunch_command(executable: &str, executable_args: &[String]) -> bool {
-    if !executable.eq_ignore_ascii_case("steam") {
-        return false;
     }
 
-    executable_args
-        .iter()
-        .any(|arg| arg.eq_ignore_ascii_case("-applaunch"))
-}
-
-/// Runtime turbo mode gate for video enhancements.
-///
-/// Reads `BIGAME_TURBO_MODE` first for deterministic tests, then falls back to
-/// PowerProfiles D-Bus (`performance` means Turbo active).
-#[must_use]
-fn is_turbo_mode_active() -> bool {
-    if let Ok(override_mode) = std::env::var(TURBO_OVERRIDE_ENV) {
-        let mode = override_mode.trim().to_ascii_lowercase();
-        if mode == "on" || mode == "1" || mode == "true" {
-            return true;
-        }
-        if mode == "off" || mode == "0" || mode == "false" {
+    #[must_use]
+    fn is_steam_applaunch_command(executable: &str, executable_args: &[String]) -> bool {
+        if !executable.eq_ignore_ascii_case("steam") {
             return false;
         }
+
+        executable_args
+            .iter()
+            .any(|arg| arg.eq_ignore_ascii_case("-applaunch"))
     }
 
-    crate::dbus::power_profile_get()
-        .map(|p| p.eq_ignore_ascii_case("performance"))
-        .unwrap_or(false)
-}
+    /// Runtime turbo mode gate for video enhancements.
+    ///
+    /// Reads `BIGAME_TURBO_MODE` first for deterministic tests, then falls back to
+    /// PowerProfiles D-Bus (`performance` means Turbo active).
+    #[must_use]
+    fn is_turbo_mode_active() -> bool {
+        if let Ok(override_mode) = std::env::var(TURBO_OVERRIDE_ENV) {
+            let mode = override_mode.trim().to_ascii_lowercase();
+            if mode == "on" || mode == "1" || mode == "true" {
+                return true;
+            }
+            if mode == "off" || mode == "0" || mode == "false" {
+                return false;
+            }
+        }
+
+        crate::dbus::power_profile_get()
+            .map(|p| p.eq_ignore_ascii_case("performance"))
+            .unwrap_or(false)
+    }
 
     /// Check for known launch conflicts and emit `tracing::warn` entries.
     ///
@@ -473,7 +475,9 @@ pub fn maybe_stage_optiscaler(fg: &FrameGenSettings, game_dir: Option<&Path>) {
         return;
     };
     let Some(src) = resolve_optiscaler_source(fg) else {
-        tracing::warn!("OptiScaler staging skipped: source dir not found (set it in Video → Frame Generation → OptiScaler Source Directory)");
+        tracing::warn!(
+            "OptiScaler staging skipped: source dir not found (set it in Video → Frame Generation → OptiScaler Source Directory)"
+        );
         return;
     };
     if let Err(e) = stage_optiscaler_dlls(&src, game_dir) {
@@ -662,14 +666,8 @@ mod tests {
 
     #[test]
     fn test_stage_optiscaler_dlls_copies_existing() {
-        let src_dir = std::env::temp_dir().join(format!(
-            "optiscaler_src_{}",
-            std::process::id()
-        ));
-        let dst_dir = std::env::temp_dir().join(format!(
-            "optiscaler_dst_{}",
-            std::process::id()
-        ));
+        let src_dir = std::env::temp_dir().join(format!("optiscaler_src_{}", std::process::id()));
+        let dst_dir = std::env::temp_dir().join(format!("optiscaler_dst_{}", std::process::id()));
         std::fs::create_dir_all(&src_dir).unwrap();
         // Create a fake DLL
         std::fs::write(src_dir.join("dxgi.dll"), b"FAKE").unwrap();

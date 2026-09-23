@@ -24,10 +24,7 @@ pub struct VideoConfig {
 
 fn config_path() -> PathBuf {
     let base = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".config")
-        },
+        |_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".config"),
         PathBuf::from,
     );
     base.join("bigame-mode").join("video.toml")
@@ -70,10 +67,7 @@ pub fn save(cfg: &VideoConfig) -> Result<()> {
 
 fn env_file_path() -> PathBuf {
     let base = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".config")
-        },
+        |_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".config"),
         PathBuf::from,
     );
     base.join("environment.d").join("bigame-mode.conf")
@@ -158,8 +152,7 @@ mod tests {
 
     #[test]
     fn test_video_config_save_load_round_trip() {
-        let tmp = std::env::temp_dir()
-            .join(format!("bigame_video_test_{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!("bigame_video_test_{}", std::process::id()));
         std::fs::create_dir_all(&tmp).unwrap();
         // SAFETY: single-threaded test, no other threads read XDG_CONFIG_HOME
         unsafe { std::env::set_var("XDG_CONFIG_HOME", &tmp) };

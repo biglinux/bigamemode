@@ -50,7 +50,7 @@ Click to visit losslessscaling.com",
 You must legally acquire Lossless Scaling on Steam or other platforms to obtain this file."))
                 .body_use_markup(true)
                 .build();
-            
+
             dialog.add_response("cancel", &i18n("Close"));
             dialog.add_response("web", &i18n("Visit Website"));
             dialog.set_response_appearance("web", adw::ResponseAppearance::Suggested);
@@ -317,14 +317,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                         is_upd_save.set(true);
                         scale_ref.set_value(1.0);
                         is_upd_save.set(false);
-                        let _ = bigame_core::fg::write_profile(
-                            &name_str,
-                            1,
-                            flow,
-                            perf,
-                            hdr,
-                            pres,
-                        );
+                        let _ = bigame_core::fg::write_profile(&name_str, 1, flow, perf, hdr, pres);
                         return;
                     }
 
@@ -351,7 +344,9 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                             } else {
                                 crate::widgets::toast::show(
                                     &target_row_for_toast,
-                                    &i18n("OptiScaler disabled automatically (LSFG enabled in Tuning)"),
+                                    &i18n(
+                                        "OptiScaler disabled automatically (LSFG enabled in Tuning)",
+                                    ),
                                 );
                                 tracing::info!(
                                     profile = %name_str,

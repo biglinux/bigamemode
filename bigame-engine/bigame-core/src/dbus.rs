@@ -35,6 +35,12 @@ trait PowerProfiles {
     /// Set the active power profile.
     #[zbus(property)]
     fn set_active_profile(&self, profile: &str) -> zbus::Result<()>;
+
+    /// All profiles the daemon offers, as a list of property dictionaries.
+    #[zbus(property)]
+    fn profiles(
+        &self,
+    ) -> zbus::Result<Vec<std::collections::HashMap<String, zbus::zvariant::OwnedValue>>>;
 }
 
 /// Get current power profile (blocking).
@@ -51,7 +57,9 @@ pub fn power_profile_get() -> Option<String> {
 
 /// Set power profile (blocking).
 ///
-/// Valid values: "balanced", "performance", "power-saver".
+/// Valid values are whatever [`power_profiles_available`] reports — typically
+/// "balanced", "performance", "power-saver". Returns `false` when the write did
+/// not happen, which callers must treat as a failure rather than ignoring.
 #[must_use]
 pub fn power_profile_set(profile: &str) -> bool {
     let Some(conn) = system_conn() else {
@@ -61,6 +69,48 @@ pub fn power_profile_set(profile: &str) -> bool {
         .ok()
         .and_then(|p| p.set_active_profile(profile).ok())
         .is_some()
+}
+
+/// Profile names power-profiles-daemon offers on this machine.
+///
+/// Returns an empty list when the daemon is unreachable. Never assume the usual
+/// three exist: on some platforms `performance` is absent entirely.
+#[must_use]
+pub fn power_profiles_available() -> Vec<String> {
+    let Some(conn) = system_conn() else {
+        return Vec::new();
+    };
+    let Ok(proxy) = PowerProfilesProxyBlocking::new(conn) else {
+        return Vec::new();
+    };
+    let Ok(profiles) = proxy.profiles() else {
+        return Vec::new();
+    };
+    profiles
+        .iter()
+        .filter_map(|dict| {
+            let v = dict.get("Profile")?;
+            <&str>::try_from(v).ok().map(str::to_owned)
+        })
+        .collect()
+}
+
+/// Whether a well-known name currently has an owner on the system bus.
+///
+/// Used to tell "the service is installed but not running" apart from "the
+/// feature does not exist here" — the distinction audit finding SCX-02 needed.
+#[must_use]
+pub fn system_service_running(name: &str) -> bool {
+    let Some(conn) = system_conn() else {
+        return false;
+    };
+    let Ok(proxy) = zbus::blocking::fdo::DBusProxy::new(conn) else {
+        return false;
+    };
+    let Ok(bus_name) = zbus::names::BusName::try_from(name) else {
+        return false;
+    };
+    proxy.name_has_owner(bus_name).unwrap_or(false)
 }
 
 // ── Falcond status D-Bus service ────────────────────────────────────────────

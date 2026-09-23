@@ -528,11 +528,7 @@ fn open_internal(
                             tracing::error!("Wizard save failed: {e}");
                             crate::widgets::toast::show(
                                 &next_btn_ref,
-                                &format!(
-                                    "{}: {}",
-                                    i18n("Save failed. Check terminal logs."),
-                                    e
-                                ),
+                                &format!("{}: {}", i18n("Save failed. Check terminal logs."), e),
                             );
                             next_btn_ref.set_sensitive(true);
                             next_btn_ref.set_label(&i18n("Save Profile"));

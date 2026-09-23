@@ -200,10 +200,9 @@ pub fn build() -> adw::PreferencesPage {
                     &format!("{}: {}", i18n("Diagnostics saved"), path.display()),
                 ),
                 Ok(Err(err)) => crate::widgets::toast::show(&btn_ref, &err),
-                Err(_) => crate::widgets::toast::show(
-                    &btn_ref,
-                    &i18n("Failed to save diagnostics"),
-                ),
+                Err(_) => {
+                    crate::widgets::toast::show(&btn_ref, &i18n("Failed to save diagnostics"))
+                }
             }
         });
     });
@@ -734,7 +733,8 @@ fn spawn_telemetry_poller(
                     runtime.cfg.frame_gen.backend,
                     bigame_core::models::FrameGenBackend::OptiScaler
                         | bigame_core::models::FrameGenBackend::Afmf
-                ) && runtime.lsfg_enabled && runtime.lsfg_active)
+                ) && runtime.lsfg_enabled
+                    && runtime.lsfg_active)
                     || (runtime.cfg.frame_gen.backend
                         == bigame_core::models::FrameGenBackend::LsfgVk
                         && runtime.cfg.frame_gen.optiscaler_enabled
@@ -1149,7 +1149,11 @@ fn apply_runtime_feature_status(
 
 #[must_use]
 fn find_game_pids(game_name: &str) -> Vec<u32> {
-    let Ok(out) = std::process::Command::new("pgrep").arg("-f").arg(game_name).output() else {
+    let Ok(out) = std::process::Command::new("pgrep")
+        .arg("-f")
+        .arg(game_name)
+        .output()
+    else {
         return Vec::new();
     };
     String::from_utf8_lossy(&out.stdout)
@@ -1186,8 +1190,8 @@ fn process_env_contains(pid: u32, key: &str, needle: &str) -> bool {
 #[must_use]
 fn is_gamescope_running() -> bool {
     std::process::Command::new("pgrep")
-    .arg("-f")
-    .arg("gamescope")
+        .arg("-f")
+        .arg("gamescope")
         .status()
         .is_ok_and(|s| s.success())
 }
@@ -1234,7 +1238,13 @@ fn is_optiscaler_active_for_game(game_name: &str) -> bool {
     for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
         let map_path = format!("/proc/{pid_str}/maps");
         if let Ok(status) = std::process::Command::new("timeout")
-            .args(["0.2", "grep", "-qE", "nvngx\\.dll|_nvngx\\.dll|OptiScaler", &map_path])
+            .args([
+                "0.2",
+                "grep",
+                "-qE",
+                "nvngx\\.dll|_nvngx\\.dll|OptiScaler",
+                &map_path,
+            ])
             .status()
         {
             if status.success() {
@@ -1425,7 +1435,9 @@ fn build_games_onboarding_row() -> adw::ExpanderRow {
 
     let s2 = adw::ActionRow::builder()
         .title(i18n("2. Enable Turbo + Video features"))
-        .subtitle(i18n("Turbo Mode must be active to apply Gamescope/FSR/vkBasalt/FrameGen"))
+        .subtitle(i18n(
+            "Turbo Mode must be active to apply Gamescope/FSR/vkBasalt/FrameGen",
+        ))
         .build();
     row.add_row(&s2);
 
@@ -1437,7 +1449,9 @@ fn build_games_onboarding_row() -> adw::ExpanderRow {
 
     let s4 = adw::ActionRow::builder()
         .title(i18n("4. Validate Runtime Status"))
-        .subtitle(i18n("Check Video Runtime Status and Active Profile during gameplay"))
+        .subtitle(i18n(
+            "Check Video Runtime Status and Active Profile during gameplay",
+        ))
         .build();
     row.add_row(&s4);
 
@@ -1471,10 +1485,7 @@ fn refresh_detected_games_group(trigger: &impl IsA<gtk4::Widget>) {
 fn resolve_launch_command(source: &str, executable: &str) -> (String, Vec<String>) {
     if source == "Steam" {
         if let Some(appid) = find_steam_appid_by_installdir(executable) {
-            return (
-                "steam".to_string(),
-                vec!["-applaunch".to_string(), appid],
-            );
+            return ("steam".to_string(), vec!["-applaunch".to_string(), appid]);
         }
         tracing::warn!(
             source = %source,
@@ -1690,14 +1701,18 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                     executable = %exe_for_wizard,
                     "dashboard create-profile wizard opened"
                 );
-                crate::views::profile_wizard::open_with_suggested_name(b, &exe_for_wizard, move |_profile| {
-                    tracing::info!(
-                        game = %game_name_for_log,
-                        "dashboard create-profile wizard saved"
-                    );
-                    crate::widgets::toast::show(&btn_ref, &i18n("Profile created"));
-                    refresh_detected_games_group(&btn_ref);
-                });
+                crate::views::profile_wizard::open_with_suggested_name(
+                    b,
+                    &exe_for_wizard,
+                    move |_profile| {
+                        tracing::info!(
+                            game = %game_name_for_log,
+                            "dashboard create-profile wizard saved"
+                        );
+                        crate::widgets::toast::show(&btn_ref, &i18n("Profile created"));
+                        refresh_detected_games_group(&btn_ref);
+                    },
+                );
             });
             row.add_suffix(&btn);
         }

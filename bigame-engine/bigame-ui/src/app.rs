@@ -67,7 +67,7 @@ pub fn run() -> adw::glib::ExitCode {
             // System tray — poll actions from GTK main loop
             let (tray_handle, tray_rx) = tray::spawn();
             let app_ref = app.clone();
-            
+
             // Poll tray actions
             glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
                 while let Ok(action) = tray_rx.try_recv() {
@@ -96,7 +96,7 @@ pub fn run() -> adw::glib::ExitCode {
                     .is_some_and(|p| p.eq_ignore_ascii_case("performance"));
                 let falcond_running = bigame_core::dbus::falcond_is_running();
                 let missing_runtime = detect_missing_runtime_packages();
-                
+
                 let status = if !falcond_running {
                     error_indicator.set_error_with_action(
                         &i18n("Service Not Running or Crashed"),
@@ -150,7 +150,7 @@ pub fn run() -> adw::glib::ExitCode {
                         tray::Status::Idle
                     }
                 };
-                
+
                 th_ref.set_status(status);
                 glib::ControlFlow::Continue
             });
@@ -241,10 +241,7 @@ fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> 
         return Some(format!("pamac-installer {}", missing.join(" ")));
     }
     if binary_in_path("pacman") {
-        return Some(format!(
-            "sudo pacman -S --needed {}",
-            missing.join(" ")
-        ));
+        return Some(format!("sudo pacman -S --needed {}", missing.join(" ")));
     }
     None
 }
