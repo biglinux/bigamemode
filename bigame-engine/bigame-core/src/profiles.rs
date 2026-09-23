@@ -67,6 +67,18 @@ pub struct GameProfile {
     /// Present mode for frame generation (0=VSync/FIFO, 1=Mailbox, 2=Immediate).
     #[serde(default)]
     pub fg_present_mode: u32,
+    /// Keys this build does not recognise, preserved verbatim.
+    ///
+    /// falcond gains fields faster than this project can track them — 2.0.8
+    /// added `dmem_protect` and `disable_split_lock`, neither of which older
+    /// BiGame-mode builds knew about. Without this, opening such a profile in
+    /// the editor and pressing Save would silently delete them, because
+    /// serialization only emitted the fields it happened to know.
+    ///
+    /// A `BTreeMap` keeps the output order stable so a save with no edits
+    /// produces no diff.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, String>,
 }
 
 fn default_enabled() -> bool {
@@ -104,6 +116,7 @@ impl Default for GameProfile {
             fg_dll_path: None,
             fg_hdr: false,
             fg_present_mode: 0,
+            extra: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -271,7 +284,11 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
             }
             "fg_hdr" => p.fg_hdr = val == "true",
             "fg_present_mode" => p.fg_present_mode = val.parse().unwrap_or(0),
-            _ => {}
+            // Anything this build does not know is kept so saving cannot
+            // destroy a falcond feature we have not caught up with yet.
+            other => {
+                p.extra.insert(other.to_owned(), val.to_owned());
+            }
         }
     }
     p
@@ -325,6 +342,10 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     }
     out.push_str(&format!("fg_hdr = {}\n", profile.fg_hdr));
     out.push_str(&format!("fg_present_mode = {}\n", profile.fg_present_mode));
+    // Unrecognised keys, written back exactly as they were read.
+    for (key, value) in &profile.extra {
+        out.push_str(&format!("{key} = {value}\n"));
+    }
     out
 }
 
@@ -357,17 +378,12 @@ pub async fn save(profile: &GameProfile) -> Result<()> {
         );
     }
 
-    // Apply CPU governor immediately as a best-effort global effect.
-    // Per-game scoping is handled by falcond's cpu_governor field at activation time.
-    if !profile.cpu_governor.is_empty() {
-        if let Err(e) = proxy.set_cpu_governor(&profile.cpu_governor) {
-            tracing::warn!(
-                "failed to apply cpu_governor '{}' on profile save: {e:#}",
-                profile.cpu_governor
-            );
-        }
-    }
-
+    // The profile's `cpu_governor` is deliberately NOT applied here.
+    //
+    // It is a *per-game* setting, and falcond applies it when the game starts.
+    // Writing it at save time changed the governor system-wide, immediately,
+    // with no record of the previous value and no way back — so merely editing
+    // a profile silently repinned every core on the machine.
     Ok(())
 }
 
@@ -380,13 +396,13 @@ pub async fn delete(name: &str) -> Result<()> {
     anyhow::ensure!(path.exists(), "profile not found: {}", path.display());
 
     let proxy = crate::dbus_client::daemon_proxy_blocking()?;
+    // The helper reloads falcond itself, through systemd. This used to shell
+    // out to `sudo -n pkill -HUP falcond` from the GUI thread: it blocked the
+    // main loop on a subprocess, signalled every process sharing the name, and
+    // depended on a passwordless sudoers rule that has since been removed as a
+    // root escalation. It also silently did nothing, because `sudo -n` already
+    // failed on any normally configured machine.
     proxy.delete_profile(name)?;
-
-    // Signal falcond to reload profiles
-    std::process::Command::new("sudo")
-        .args(["-n", "/usr/bin/pkill", "-HUP", "falcond"])
-        .status()
-        .ok();
 
     // Remove FG entry from lsfg-vk config (best-effort).
     let _ = crate::fg::delete_profile(name);
@@ -450,6 +466,53 @@ pub async fn import(src: &Path) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saving_preserves_falcond_fields_this_build_does_not_know() {
+        // falcond 2.0.8 added dmem_protect and disable_split_lock. Opening such
+        // a profile and saving it must not silently drop them.
+        let original = "\
+name = \"Cyberpunk2077.exe\"
+performance_mode = true
+vcache_mode = cache
+dmem_protect = true
+disable_split_lock = true
+some_future_falcond_key = 42
+";
+        let parsed = parse_profile_otter_conf(original);
+        assert_eq!(parsed.name, "Cyberpunk2077.exe");
+        assert_eq!(
+            parsed.extra.get("dmem_protect").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            parsed.extra.get("disable_split_lock").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            parsed
+                .extra
+                .get("some_future_falcond_key")
+                .map(String::as_str),
+            Some("42")
+        );
+
+        let written = serialize_profile_otter_conf(&parsed);
+        assert!(written.contains("dmem_protect = true"));
+        assert!(written.contains("disable_split_lock = true"));
+        assert!(written.contains("some_future_falcond_key = 42"));
+
+        // And the values survive a second round trip unchanged.
+        let again = parse_profile_otter_conf(&written);
+        assert_eq!(again.extra, parsed.extra);
+    }
+
+    #[test]
+    fn unknown_keys_do_not_leak_into_known_fields() {
+        let parsed = parse_profile_otter_conf("name = \"x\"\nvcache_mode = cache\n");
+        assert_eq!(parsed.vcache_mode, "cache");
+        assert!(parsed.extra.is_empty(), "known keys must not land in extra");
+    }
 
     #[test]
     fn default_profile_values() {

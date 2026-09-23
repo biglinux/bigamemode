@@ -18,6 +18,38 @@ use crate::hardware::{Chassis, Hardware, PowerSource};
 
 use super::snapshot::Snapshot;
 
+/// Who currently owns the power profile.
+///
+/// falcond activates a game profile, switches the power profile, and restores
+/// its own snapshot when the game exits — confirmed on falcond 2.0.2, whose
+/// binary talks to `org.freedesktop.UPower.PowerProfiles` and whose status file
+/// carries a `RESTORE_STATE: Power Profile:` line.
+///
+/// That makes falcond a second writer. If Booster also writes the profile while
+/// a game is running, falcond's restore silently undoes it the moment the game
+/// exits — and Booster would have already reported the change as verified,
+/// because at the instant it checked, it was. Rather than fight, Booster stands
+/// down for as long as falcond holds a profile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PowerProfileOwner {
+    /// No game profile is active; Booster may manage the power profile.
+    Booster,
+    /// falcond has a profile active and is managing it.
+    Falcond {
+        /// The profile falcond matched.
+        profile: String,
+    },
+}
+
+/// Ask falcond whether it currently holds a profile.
+#[must_use]
+pub fn power_profile_owner() -> PowerProfileOwner {
+    match crate::status::read().and_then(|s| s.active_profile) {
+        Some(profile) => PowerProfileOwner::Falcond { profile },
+        None => PowerProfileOwner::Booster,
+    }
+}
+
 /// How risky a change is, which drives whether it is applied automatically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -99,13 +131,27 @@ impl Plan {
     /// anything it could not put back.
     #[must_use]
     pub fn build(hw: &Hardware, caps: &Capabilities, snapshot: &Snapshot) -> Self {
+        Self::build_with_owner(hw, caps, snapshot, &power_profile_owner())
+    }
+
+    /// Build a plan with an explicit power-profile owner.
+    ///
+    /// Split out from [`Plan::build`] so the arbitration can be tested without
+    /// a running falcond.
+    #[must_use]
+    pub fn build_with_owner(
+        hw: &Hardware,
+        caps: &Capabilities,
+        snapshot: &Snapshot,
+        owner: &PowerProfileOwner,
+    ) -> Self {
         let mut plan = Self::default();
         // On battery, raising sustained power draw usually costs more in
         // thermal throttling and clock ceiling than it returns. The user can
         // still opt in per-knob from Advanced; the automatic plan will not.
         let battery = hw.power_source == PowerSource::Battery;
 
-        plan.consider_power_profile(caps, snapshot, battery);
+        plan.consider_power_profile(caps, snapshot, battery, owner);
         plan.consider_cpu_governor(hw, snapshot, battery);
         plan.consider_gpu_dpm(hw, snapshot, battery);
         plan.consider_vcache(hw, snapshot);
@@ -123,8 +169,25 @@ impl Plan {
     /// efficiency, which raises frequency-ramp latency on bursty game threads.
     /// Needs: power-profiles-daemon, with a `performance` profile offered.
     /// Undone by: writing the captured profile back.
-    fn consider_power_profile(&mut self, caps: &Capabilities, snap: &Snapshot, battery: bool) {
+    fn consider_power_profile(
+        &mut self,
+        caps: &Capabilities,
+        snap: &Snapshot,
+        battery: bool,
+        owner: &PowerProfileOwner,
+    ) {
         let knob = Knob::PowerProfile;
+        // Single authority: while falcond holds a game profile it owns this
+        // knob, and it will restore its own baseline when the game exits.
+        if let PowerProfileOwner::Falcond { profile } = owner {
+            self.skipped.push(Skipped::NotBeneficial {
+                knob: knob.title(),
+                detail: format!(
+                    "falcond is managing the power profile for '{profile}' and will                      restore it when the game exits"
+                ),
+            });
+            return;
+        }
         if !caps.power_profiles {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),
@@ -640,6 +703,44 @@ mod tests {
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::NotBeneficial { knob, detail } if knob.contains("sched-ext") && detail.contains("falcond owns")
         )));
+    }
+
+    #[test]
+    fn booster_stands_down_while_falcond_holds_a_profile() {
+        // Two writers on the same knob is the conflict this architecture
+        // exists to remove. falcond restores its own snapshot when the game
+        // exits, which would silently undo anything Booster wrote.
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let s = snap(&[
+            (Knob::PowerProfile, Some("balanced")),
+            (Knob::CpuGovernor, Some("powersave")),
+        ]);
+        let plan = Plan::build_with_owner(
+            &h,
+            &caps(true, true),
+            &s,
+            &PowerProfileOwner::Falcond {
+                profile: "Cyberpunk2077.exe".into(),
+            },
+        );
+        assert!(
+            !plan.changes.iter().any(|c| c.knob == Knob::PowerProfile),
+            "must not contend with falcond for the power profile"
+        );
+        assert!(plan.skipped.iter().any(|sk| matches!(
+            sk, Skipped::NotBeneficial { knob, detail }
+            if knob.contains("Power profile") && detail.contains("falcond")
+        )));
+        // The knobs falcond does not manage are still planned.
+        assert!(plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
+    }
+
+    #[test]
+    fn booster_owns_the_power_profile_when_no_game_is_active() {
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let s = snap(&[(Knob::PowerProfile, Some("balanced"))]);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
+        assert!(plan.changes.iter().any(|c| c.knob == Knob::PowerProfile));
     }
 
     #[test]
