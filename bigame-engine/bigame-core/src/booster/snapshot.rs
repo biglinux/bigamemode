@@ -68,26 +68,73 @@ impl Snapshot {
         self.value_of(knob).is_some()
     }
 
-    /// Restore every knob that currently differs from its captured value.
+    /// Restore only the knobs named in `knob_ids`, in reverse order.
     ///
+    /// **Only knobs that were actually changed may be restored.** A snapshot
+    /// deliberately captures more than the plan touches, because a broad
+    /// baseline makes for a better report — but writing back a knob we never
+    /// wrote is not a restoration, it is a new change, and it fails in exactly
+    /// the ways a new change can.
+    ///
+    /// This was not theoretical. An early run captured `cpu_epp` while the
+    /// machine sat in `power-saver`, never planned it, and then tried to write
+    /// `power` back during rollback — which the driver refused, because with
+    /// the governor at `performance` the only accepted EPP is `performance`.
+    /// The knob reached the right value moments later anyway, when the power
+    /// profile it depends on was restored.
+    ///
+    /// That also explains the ordering: knobs are restored in reverse
+    /// application order, the usual transactional discipline, so a knob is put
+    /// back before whatever was changed on top of it.
+    pub async fn restore_applied(&self, knob_ids: &[String]) -> Vec<RestoreOutcome> {
+        let mut out = Vec::new();
+        for id in knob_ids.iter().rev() {
+            let Some(entry) = self.entries.get(id) else {
+                continue;
+            };
+            out.push(self.restore_one(entry).await);
+        }
+        out
+    }
+
+    /// Restore every captured knob that currently differs from its baseline.
+    ///
+    /// Use [`Snapshot::restore_applied`] for normal rollback. This exists for
+    /// the recovery path, where a journal records a baseline but the list of
+    /// applied knobs cannot be trusted.
+    pub async fn restore(&self) -> Vec<RestoreOutcome> {
+        let mut out = Vec::new();
+        for entry in self.entries.values() {
+            if entry.value.is_none() {
+                continue; // never captured — nothing to restore to
+            }
+            out.push(self.restore_one(entry).await);
+        }
+        out
+    }
+
     /// Restoration is best-effort per knob and never stops early: one knob
     /// failing must not strand the rest of the system in Booster state. Every
     /// outcome is reported so the caller can tell the user exactly what could
     /// not be put back.
-    pub async fn restore(&self) -> Vec<RestoreOutcome> {
-        let mut out = Vec::new();
-        for entry in self.entries.values() {
+    async fn restore_one(&self, entry: &Captured) -> RestoreOutcome {
+        {
             let Some(want) = entry.value.as_deref() else {
-                continue; // never captured — nothing to restore to
+                return RestoreOutcome {
+                    knob: entry.knob.clone(),
+                    target: String::new(),
+                    status: RestoreStatus::Failed {
+                        error: "no baseline was captured for this knob".into(),
+                    },
+                };
             };
             let current = entry.knob.read();
             if current.as_deref() == Some(want) {
-                out.push(RestoreOutcome {
+                return RestoreOutcome {
                     knob: entry.knob.clone(),
                     target: want.to_owned(),
                     status: RestoreStatus::AlreadyCorrect,
-                });
-                continue;
+                };
             }
             let status = match entry.knob.write(want).await {
                 Ok(()) => match entry.knob.verify(want) {
@@ -103,13 +150,12 @@ impl Snapshot {
                     error: format!("{e:#}"),
                 },
             };
-            out.push(RestoreOutcome {
+            RestoreOutcome {
                 knob: entry.knob.clone(),
                 target: want.to_owned(),
                 status,
-            });
+            }
         }
-        out
     }
 }
 
@@ -237,6 +283,86 @@ mod tests {
         let snap = Snapshot::capture(&[Knob::PowerProfile, Knob::CpuGovernor]);
         assert_eq!(snap.entries.len(), 2);
         assert!(snap.taken_at > 0);
+    }
+
+    #[tokio::test]
+    async fn restore_touches_only_the_knobs_that_were_applied() {
+        // A snapshot captures broadly so the report can be informative, but
+        // rollback must write back only what was actually changed. Restoring
+        // an untouched knob is a new change, not a restoration.
+        let snap = snapshot_of(&[
+            (Knob::PowerProfile, Some("power-saver")),
+            (Knob::CpuEpp, Some("power")),
+            (
+                Knob::GpuDpmLevel {
+                    card: "card999".into(),
+                },
+                Some("auto"),
+            ),
+        ]);
+
+        // Nothing was applied, so nothing may be written.
+        assert!(snap.restore_applied(&[]).await.is_empty());
+
+        // Only the named knob is considered.
+        let only_gpu = snap
+            .restore_applied(&[Knob::GpuDpmLevel {
+                card: "card999".into(),
+            }
+            .id()])
+            .await;
+        assert_eq!(only_gpu.len(), 1);
+        assert_eq!(only_gpu[0].knob.id(), "gpu_dpm_level:card999");
+    }
+
+    #[tokio::test]
+    async fn restore_runs_in_reverse_application_order() {
+        // Knobs depend on one another — a power profile drives the governor and
+        // the EPP — so the last thing changed is the first thing put back.
+        let snap = snapshot_of(&[
+            (
+                Knob::GpuDpmLevel {
+                    card: "card999".into(),
+                },
+                Some("auto"),
+            ),
+            (
+                Knob::GpuDpmLevel {
+                    card: "card998".into(),
+                },
+                Some("auto"),
+            ),
+        ]);
+        let applied = vec![
+            Knob::GpuDpmLevel {
+                card: "card999".into(),
+            }
+            .id(),
+            Knob::GpuDpmLevel {
+                card: "card998".into(),
+            }
+            .id(),
+        ];
+        let order: Vec<String> = snap
+            .restore_applied(&applied)
+            .await
+            .iter()
+            .map(|o| o.knob.id())
+            .collect();
+        assert_eq!(
+            order,
+            vec!["gpu_dpm_level:card998", "gpu_dpm_level:card999"]
+        );
+    }
+
+    #[tokio::test]
+    async fn restore_ignores_ids_that_were_never_captured() {
+        let snap = snapshot_of(&[(Knob::PowerProfile, Some("balanced"))]);
+        assert!(
+            snap.restore_applied(&["cpu_governor".to_owned()])
+                .await
+                .is_empty()
+        );
     }
 
     #[test]

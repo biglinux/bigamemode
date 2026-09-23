@@ -26,7 +26,7 @@ pub enum Filter {
     Linear,
     /// Nearest-neighbour.
     Nearest,
-    /// AMD FidelityFX Super Resolution 1.0.
+    /// AMD `FidelityFX` Super Resolution 1.0.
     Fsr,
     /// NVIDIA Image Scaling.
     Nis,
@@ -76,6 +76,10 @@ pub enum FrameLimit {
 }
 
 /// Gamescope display and rendering configuration.
+///
+/// The booleans are independent feature requests rather than a state machine,
+/// so grouping them would add nesting without removing a decision.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -93,7 +97,7 @@ pub struct Config {
     pub sharpness: u8,
     /// Frame-rate handling.
     pub frame_limit: FrameLimit,
-    /// Show the MangoHud overlay through `--mangoapp`.
+    /// Show the `MangoHud` overlay through `--mangoapp`.
     pub mangoapp: bool,
     /// Request variable refresh rate.
     pub adaptive_sync: bool,
@@ -190,8 +194,10 @@ impl Config {
             ]);
         }
 
-        if self.filter != Filter::Linear {
-            if want("F", "upscaling filter not applied", &mut unsupported) {
+        if self.filter != Filter::Linear
+            && want("F", "upscaling filter not applied", &mut unsupported)
+        {
+            {
                 args.extend(["-F".into(), self.filter.as_arg().into()]);
                 if self.filter.uses_sharpness()
                     && want(

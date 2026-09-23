@@ -7,7 +7,6 @@ use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use crate::i18n::i18n;
-use crate::widgets;
 
 /// Telemetry polling interval.
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
@@ -54,11 +53,11 @@ pub fn build() -> adw::PreferencesPage {
     metrics_group.add(&metrics_vbox);
     page.add(&metrics_group);
 
-    // Booster toggle
+    // Performance status. Booster Mode itself lives on Home and is deliberately
+    // not duplicated here: two controls writing the same state is the class of
+    // conflict this project is trying to remove, not reproduce.
     let booster_group = adw::PreferencesGroup::new();
     booster_group.set_title(&i18n("Performance"));
-    let booster = widgets::booster_toggle::build();
-    booster_group.add(&booster);
 
     // Power profile indicator
     let power_row = adw::ActionRow::builder()

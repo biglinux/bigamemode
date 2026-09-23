@@ -13,6 +13,34 @@ fn system_conn() -> Option<&'static zbus::blocking::Connection> {
         .as_ref()
 }
 
+/// Run a blocking zbus call from any context, async or not.
+///
+/// zbus's blocking API drives its own executor with `block_on`, and tokio
+/// panics outright if that happens on a runtime worker: *"Cannot start a
+/// runtime from within a runtime"*. Since these helpers are called both from
+/// the GTK main thread (no runtime) and from the Booster engine (inside one),
+/// the context has to be detected rather than assumed.
+///
+/// When a runtime is running, the call is moved to a plain OS thread and waited
+/// on. That thread does not touch the runtime, so there is no deadlock, and a
+/// D-Bus property read is short enough that the wait is not worth a more
+/// elaborate mechanism.
+fn blocking_dbus<T, F>(f: F) -> Option<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    if tokio::runtime::Handle::try_current().is_err() {
+        return Some(f());
+    }
+    std::thread::Builder::new()
+        .name("bigame-dbus-sync".into())
+        .spawn(f)
+        .ok()?
+        .join()
+        .ok()
+}
+
 /// Check if falcond service is running by looking for its status file.
 #[must_use]
 pub fn falcond_is_running() -> bool {
@@ -49,10 +77,13 @@ trait PowerProfiles {
 /// Returns `None` if daemon is unavailable.
 #[must_use]
 pub fn power_profile_get() -> Option<String> {
-    let conn = system_conn()?;
-    PowerProfilesProxyBlocking::new(conn)
-        .ok()
-        .and_then(|p| p.active_profile().ok())
+    blocking_dbus(|| {
+        let conn = system_conn()?;
+        PowerProfilesProxyBlocking::new(conn)
+            .ok()
+            .and_then(|p| p.active_profile().ok())
+    })
+    .flatten()
 }
 
 /// Set power profile (blocking).
@@ -62,13 +93,17 @@ pub fn power_profile_get() -> Option<String> {
 /// not happen, which callers must treat as a failure rather than ignoring.
 #[must_use]
 pub fn power_profile_set(profile: &str) -> bool {
-    let Some(conn) = system_conn() else {
-        return false;
-    };
-    PowerProfilesProxyBlocking::new(conn)
-        .ok()
-        .and_then(|p| p.set_active_profile(profile).ok())
-        .is_some()
+    let profile = profile.to_owned();
+    blocking_dbus(move || {
+        let Some(conn) = system_conn() else {
+            return false;
+        };
+        PowerProfilesProxyBlocking::new(conn)
+            .ok()
+            .and_then(|p| p.set_active_profile(&profile).ok())
+            .is_some()
+    })
+    .unwrap_or(false)
 }
 
 /// Profile names power-profiles-daemon offers on this machine.
@@ -77,22 +112,25 @@ pub fn power_profile_set(profile: &str) -> bool {
 /// three exist: on some platforms `performance` is absent entirely.
 #[must_use]
 pub fn power_profiles_available() -> Vec<String> {
-    let Some(conn) = system_conn() else {
-        return Vec::new();
-    };
-    let Ok(proxy) = PowerProfilesProxyBlocking::new(conn) else {
-        return Vec::new();
-    };
-    let Ok(profiles) = proxy.profiles() else {
-        return Vec::new();
-    };
-    profiles
-        .iter()
-        .filter_map(|dict| {
-            let v = dict.get("Profile")?;
-            <&str>::try_from(v).ok().map(str::to_owned)
-        })
-        .collect()
+    blocking_dbus(|| {
+        let Some(conn) = system_conn() else {
+            return Vec::new();
+        };
+        let Ok(proxy) = PowerProfilesProxyBlocking::new(conn) else {
+            return Vec::new();
+        };
+        let Ok(profiles) = proxy.profiles() else {
+            return Vec::new();
+        };
+        profiles
+            .iter()
+            .filter_map(|dict| {
+                let v = dict.get("Profile")?;
+                <&str>::try_from(v).ok().map(str::to_owned)
+            })
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 /// Whether a well-known name currently has an owner on the system bus.
@@ -101,16 +139,20 @@ pub fn power_profiles_available() -> Vec<String> {
 /// feature does not exist here" — the distinction audit finding SCX-02 needed.
 #[must_use]
 pub fn system_service_running(name: &str) -> bool {
-    let Some(conn) = system_conn() else {
-        return false;
-    };
-    let Ok(proxy) = zbus::blocking::fdo::DBusProxy::new(conn) else {
-        return false;
-    };
-    let Ok(bus_name) = zbus::names::BusName::try_from(name) else {
-        return false;
-    };
-    proxy.name_has_owner(bus_name).unwrap_or(false)
+    let name = name.to_owned();
+    blocking_dbus(move || {
+        let Some(conn) = system_conn() else {
+            return false;
+        };
+        let Ok(proxy) = zbus::blocking::fdo::DBusProxy::new(conn) else {
+            return false;
+        };
+        let Ok(bus_name) = zbus::names::BusName::try_from(name.as_str()) else {
+            return false;
+        };
+        proxy.name_has_owner(bus_name).unwrap_or(false)
+    })
+    .unwrap_or(false)
 }
 
 // ── Falcond status D-Bus service ────────────────────────────────────────────

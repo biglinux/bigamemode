@@ -117,7 +117,29 @@ impl BoosterEngine {
     /// Whether Booster is currently active, according to the journal.
     #[must_use]
     pub fn is_active() -> bool {
-        Journal::load().ok().flatten().is_some()
+        Self::active_summary().is_some()
+    }
+
+    /// How many changes are currently in force, if Booster is active.
+    ///
+    /// Also reconciles a stale record: a journal written during a previous boot
+    /// describes sysfs knobs that the kernel has already reset to their
+    /// defaults, so replaying or reporting it would be describing a state the
+    /// machine is not in. Such a record is discarded here rather than shown.
+    ///
+    /// Returns `None` when Booster is not active.
+    #[must_use]
+    pub fn active_summary() -> Option<usize> {
+        let record = Journal::load().ok().flatten()?;
+        if !record.is_current_boot() {
+            tracing::info!(
+                target: "booster",
+                "discarding a journal from a previous boot; kernel state has already reset"
+            );
+            Journal::clear();
+            return None;
+        }
+        Some(record.applied.len())
     }
 
     /// Capture a baseline and build a plan, **without changing anything**.
@@ -268,7 +290,9 @@ impl BoosterEngine {
             return Ok(Vec::new());
         }
 
-        let outcomes = record.snapshot.restore().await;
+        // Only the knobs this run actually applied are put back. Writing a
+        // knob we never wrote would be a fresh change, not a restoration.
+        let outcomes = record.snapshot.restore_applied(&record.applied).await;
         let all_ok = outcomes.iter().all(|o| o.status.is_ok());
         if all_ok {
             Journal::clear();

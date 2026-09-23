@@ -29,6 +29,27 @@ pub fn build(
     // ── View stack (content driven by sidebar) ───────────────────────
     let view_stack = adw::ViewStack::new();
 
+    // Home is the landing page and carries the single Booster control. The
+    // report page is rebuilt on demand, so it always reflects the latest run
+    // rather than a stale snapshot of an earlier one.
+    let report_holder: Rc<RefCell<Option<gtk4::Widget>>> = Rc::new(RefCell::new(None));
+    let show_report: Rc<dyn Fn(&bigame_core::booster::report::Report)> = {
+        let stack = view_stack.clone();
+        let holder = Rc::clone(&report_holder);
+        Rc::new(move |report| {
+            if let Some(old) = holder.borrow_mut().take() {
+                stack.remove(&old);
+            }
+            let page = views::report::build(report);
+            stack.add_named(&page, Some("report"));
+            *holder.borrow_mut() = Some(page);
+            stack.set_visible_child_name("report");
+        })
+    };
+
+    let home = views::home::build(Rc::clone(&show_report));
+    view_stack.add_named(&home, Some("home"));
+
     let dashboard = views::dashboard::build();
     view_stack.add_named(&dashboard, Some("dashboard"));
 
@@ -49,7 +70,7 @@ pub fn build(
     view_stack.add_named(&settings_view, Some("settings"));
 
     // ── Content: header + view stack wrapped in toast overlay ────────
-    let page_title = adw::WindowTitle::new(&i18n("Dashboard"), "");
+    let page_title = adw::WindowTitle::new(&i18n("Home"), "");
     let content_header = adw::HeaderBar::new();
     content_header.set_title_widget(Some(&page_title));
 
@@ -67,7 +88,8 @@ pub fn build(
 
     // ── Sidebar: nav list (icon + label rows) ─────────────────────────
     let nav_items = [
-        ("dashboard", i18n("Dashboard"), "speedometer-symbolic"),
+        ("home", i18n("Home"), "go-home-symbolic"),
+        ("dashboard", i18n("Details"), "speedometer-symbolic"),
         ("profiles", i18n("Profiles"), "applications-games-symbolic"),
         ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
         ("video", i18n("Video"), "video-display-symbolic"),
@@ -153,6 +175,8 @@ pub fn build(
     // ── Restore last active tab ───────────────────────────────────────
     {
         let tab = saved.last_tab.clone();
+        // "report" is rebuilt per run and does not exist at startup.
+        let tab = if tab == "report" { String::new() } else { tab };
         if !tab.is_empty() {
             view_stack.set_visible_child_name(&tab);
             let mut idx = 0i32;

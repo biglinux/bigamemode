@@ -177,11 +177,14 @@ impl Knob {
         );
         match self {
             Self::PowerProfile => {
+                // power-profiles-daemon is driven through zbus's blocking API,
+                // which must not be called on a runtime worker: it would block
+                // the reactor the rest of this function depends on.
                 let v = value.to_owned();
-                anyhow::ensure!(
-                    crate::dbus::power_profile_set(&v),
-                    "power-profiles-daemon rejected profile {v:?}"
-                );
+                let ok = tokio::task::spawn_blocking(move || crate::dbus::power_profile_set(&v))
+                    .await
+                    .context("power profile write task")?;
+                anyhow::ensure!(ok, "power-profiles-daemon rejected profile {value:?}");
                 Ok(())
             }
             Self::CpuGovernor => {
