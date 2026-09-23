@@ -21,6 +21,7 @@ async fn main() -> anyhow::Result<()> {
         command: tail.iter().skip(1).cloned().collect(),
         duration_s: head[1].parse()?,
         runs_per_arm: head[2].parse()?,
+        start_delay_s: head.get(3).and_then(|v| v.parse().ok()).unwrap_or(12),
     };
     let engine = BoosterEngine::detect();
 

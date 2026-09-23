@@ -40,6 +40,12 @@ pub struct MeasurementPlan {
     /// Three is the practical minimum: one warm-up plus two that count, which
     /// is the fewest that can produce a noise floor at all.
     pub runs_per_arm: usize,
+    /// Seconds to wait after launching before recording starts.
+    ///
+    /// Long enough to get past menus, loading screens and shader compilation.
+    /// Too short and each run captures a different mix of menu and gameplay,
+    /// which is noise no statistic can rescue.
+    pub start_delay_s: u32,
 }
 
 impl Default for MeasurementPlan {
@@ -48,6 +54,7 @@ impl Default for MeasurementPlan {
             command: Vec::new(),
             duration_s: 30,
             runs_per_arm: 3,
+            start_delay_s: 12,
         }
     }
 }
@@ -132,6 +139,7 @@ impl Measurement {
 fn record_run(
     cmd: &[String],
     duration_s: u32,
+    start_delay_s: u32,
     log_dir: &std::path::Path,
 ) -> Result<Option<FrameStats>> {
     std::fs::create_dir_all(log_dir)
@@ -143,16 +151,28 @@ fn record_run(
     let config_path = log_dir.join("mangohud.conf");
     std::fs::write(
         &config_path,
-        benchmark::mangohud_config(log_dir, duration_s),
+        benchmark::mangohud_config(log_dir, duration_s, start_delay_s),
     )
     .context("write MangoHud config")?;
 
-    let (program, args) = cmd.split_first().context("empty workload command")?;
+    // Run through the `mangohud` wrapper rather than setting MANGOHUD=1.
+    //
+    // The environment variable only enables MangoHud's *Vulkan* implicit
+    // layer. Plenty of games are OpenGL — SuperTuxKart among them — and for
+    // those the wrapper's LD_PRELOAD is what attaches the overlay. Setting the
+    // variable alone produced no capture at all and, because the failure is an
+    // empty directory rather than an error, it looked like the game had simply
+    // rendered nothing.
+    let mut wrapped: Vec<String> = Vec::new();
+    if crate::capabilities::which("mangohud").is_some() {
+        wrapped.push("mangohud".to_owned());
+    }
+    wrapped.extend(cmd.iter().cloned());
+
+    let (program, argv) = wrapped.split_first().context("empty workload command")?;
     let mut child = std::process::Command::new(program)
-        .args(args)
+        .args(argv)
         .env("MANGOHUD_CONFIGFILE", &config_path)
-        // MangoHud is loaded as a Vulkan layer; `mangohud` the wrapper sets
-        // this itself, but the workload may be invoked directly.
         .env("MANGOHUD", "1")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -162,7 +182,7 @@ fn record_run(
     // The log starts after a one-second delay and runs for `duration_s`;
     // a few seconds of slack covers start-up and the final flush.
     let start = std::time::Instant::now();
-    let budget = Duration::from_secs(u64::from(duration_s) + 8);
+    let budget = Duration::from_secs(u64::from(duration_s) + u64::from(start_delay_s) + 10);
     // MangoHud writes the CSV once the log duration elapses; wait for it to
     // appear before killing the workload, rather than guessing a fixed sleep.
     let settle = budget.saturating_sub(Duration::from_secs(4));
@@ -230,7 +250,12 @@ pub async fn run<F: FnMut(MeasureProgress)>(
                     warmup,
                 });
 
-                let stats = record_run(&measurement.command, measurement.duration_s, log_dir)?;
+                let stats = record_run(
+                    &measurement.command,
+                    measurement.duration_s,
+                    measurement.start_delay_s,
+                    log_dir,
+                )?;
                 let Some(stats) = stats else {
                     anyhow::bail!(
                         "the workload produced too few frames to measure; check that \
@@ -264,14 +289,14 @@ pub async fn run<F: FnMut(MeasureProgress)>(
         "too few usable runs to compare"
     );
 
-    // The floor is the spread between runs of the *same* configuration.
-    // Without it, every comparison finds an improvement.
+    // Each metric is judged against the spread of that same metric across the
+    // baseline runs — see `benchmark::compare_runs`. The single floor kept
+    // here is the 1% low's, for reporting.
     let baseline_lows: Vec<f64> = baseline.iter().map(|s| s.low_1_fps).collect();
     let noise_floor = benchmark::noise_floor(&baseline_lows).unwrap_or(0.0);
 
-    let a = Measurement::representative(&baseline).context("no baseline runs")?;
     let b = Measurement::representative(&optimized).context("no optimized runs")?;
-    let outcomes = benchmark::compare_all(a, b, noise_floor);
+    let outcomes = benchmark::compare_runs(&baseline, b);
 
     tracing::info!(
         target: "booster",

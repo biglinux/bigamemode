@@ -59,13 +59,14 @@ fn main() -> anyhow::Result<()> {
         let a_low: Vec<f64> = a.iter().map(|s| s.low_1_fps).collect();
         let noise = benchmark::noise_floor(&a_low).unwrap_or(0.0);
         println!(
-            "\nmeasured noise floor from {} baseline runs: {:.1}%",
+            "\n1% low noise floor from {} baseline runs: {:.1}%",
             a.len(),
             noise * 100.0
         );
 
-        println!("\nA (baseline) vs B (candidate):");
-        for outcome in benchmark::compare_all(a[0], b[0], noise) {
+        println!("\nA (baseline) vs B (candidate), each metric against its own noise:");
+        let owned: Vec<FrameStats> = a.iter().map(|s| (*s).clone()).collect();
+        for outcome in benchmark::compare_runs(&owned, b[0]) {
             println!("  {}", outcome.describe());
         }
         return Ok(());

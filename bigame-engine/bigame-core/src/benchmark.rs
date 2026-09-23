@@ -202,13 +202,17 @@ pub fn newest_capture_in(dir: &Path) -> Result<Option<PathBuf>> {
 ///   and the CSV together, which is exactly the combination a benchmark would
 ///   reach for first.
 ///
-/// `autostart_log` is a delay in seconds before logging begins; one second is
-/// enough to skip the first frames, which are dominated by shader compilation
-/// and are not representative.
+/// `start_delay_s` is how long to wait before logging begins. It matters more
+/// than it looks: a game that spends ten seconds at a menu and loading screen
+/// will otherwise have that time inside the capture window, and since the
+/// window is a fixed length, each run captures a different mix of menu and
+/// gameplay. A real `SuperTuxKart` measurement here produced 3871 frames in one
+/// run and 1541 in the next for exactly that reason, which is noise no
+/// statistic can rescue.
 #[must_use]
-pub fn mangohud_config(folder: &Path, duration_s: u32) -> String {
+pub fn mangohud_config(folder: &Path, duration_s: u32, start_delay_s: u32) -> String {
     format!(
-        "output_folder={}\nlog_duration={duration_s}\nautostart_log=1\nfps_limit=0\n",
+        "output_folder={}\nlog_duration={duration_s}\nautostart_log={start_delay_s}\nfps_limit=0\n",
         folder.display()
     )
 }
@@ -408,51 +412,78 @@ pub fn noise_floor(values: &[f64]) -> Option<f64> {
     Some((max - min) / min)
 }
 
-/// Compare two configurations across the metrics worth reporting.
+/// The metrics reported, in the order they are reported.
 ///
-/// Ordered deliberately: 1% low first, because it is what is felt, and average
-/// FPS last, because it is the easiest number to move without improving
-/// anything.
+/// 1% low first, because it is what is felt; average FPS last, because it is
+/// the easiest number to move without improving anything.
+type MetricReader = fn(&FrameStats) -> f64;
+
+/// name, unit, direction, and how to read it from a run.
+type Metric = (&'static str, &'static str, Direction, MetricReader);
+
+const METRICS: &[Metric] = &[
+    ("1% low", "fps", Direction::HigherIsBetter, |s| s.low_1_fps),
+    ("P99 frametime", "ms", Direction::LowerIsBetter, |s| {
+        s.p99_ms
+    }),
+    ("P95 frametime", "ms", Direction::LowerIsBetter, |s| {
+        s.p95_ms
+    }),
+    ("Average FPS", "fps", Direction::HigherIsBetter, |s| {
+        s.avg_fps
+    }),
+];
+
+/// Compare two configurations across every reported metric.
+///
+/// **Each metric gets its own noise floor**, measured from the spread of that
+/// same metric across the baseline runs. A single shared floor is wrong when
+/// the metrics differ in stability, and on a real game they differ a lot: a
+/// `SuperTuxKart` run here held 1% low to within 0.4% across runs while average
+/// FPS varied by 150%, because the capture window landed on different parts of
+/// the race. Applying the 1% low's floor to average FPS turned that variance
+/// into a confident "worse".
+///
+/// `baseline_runs` must contain at least two runs of the *same* configuration;
+/// with fewer there is no evidence about repeatability and every metric is
+/// reported as [`Outcome::NotMeasured`].
 #[must_use]
-pub fn compare_all(
-    baseline: &FrameStats,
+pub fn compare_runs(
+    baseline_runs: &[FrameStats],
     candidate: &FrameStats,
-    noise: f64,
 ) -> Vec<crate::booster::report::Outcome> {
-    vec![
-        compare(
-            "1% low",
-            "fps",
-            baseline.low_1_fps,
-            candidate.low_1_fps,
-            Direction::HigherIsBetter,
-            noise,
-        ),
-        compare(
-            "P99 frametime",
-            "ms",
-            baseline.p99_ms,
-            candidate.p99_ms,
-            Direction::LowerIsBetter,
-            noise,
-        ),
-        compare(
-            "P95 frametime",
-            "ms",
-            baseline.p95_ms,
-            candidate.p95_ms,
-            Direction::LowerIsBetter,
-            noise,
-        ),
-        compare(
-            "Average FPS",
-            "fps",
-            baseline.avg_fps,
-            candidate.avg_fps,
-            Direction::HigherIsBetter,
-            noise,
-        ),
-    ]
+    let Some(reference) = median_by(baseline_runs, |s| s.low_1_fps) else {
+        return vec![crate::booster::report::Outcome::NotMeasured];
+    };
+
+    METRICS
+        .iter()
+        .map(|(name, unit, direction, get)| {
+            let samples: Vec<f64> = baseline_runs.iter().map(get).collect();
+            let Some(floor) = noise_floor(&samples) else {
+                return crate::booster::report::Outcome::NotMeasured;
+            };
+            compare(
+                name,
+                unit,
+                get(reference),
+                get(candidate),
+                *direction,
+                floor,
+            )
+        })
+        .collect()
+}
+
+/// The run whose `metric` is the median of the set.
+#[must_use]
+pub fn median_by<F: Fn(&FrameStats) -> f64>(runs: &[FrameStats], metric: F) -> Option<&FrameStats> {
+    if runs.is_empty() {
+        return None;
+    }
+    let mut sorted: Vec<&FrameStats> = runs.iter().collect();
+    sorted.sort_by(|a, b| metric(a).total_cmp(&metric(b)));
+    sorted.get(sorted.len() / 2).copied()
 }
 
 #[cfg(test)]
@@ -701,21 +732,77 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
     }
 
     #[test]
-    fn compare_all_leads_with_the_metric_that_is_felt() {
-        let base = FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap();
+    fn compare_runs_leads_with_the_metric_that_is_felt() {
+        let base = vec![
+            FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap(),
+            FrameStats::from_frametimes(&synthetic(1000, 8.05, 0, 0.0), 8.05).unwrap(),
+        ];
         let cand = FrameStats::from_frametimes(&synthetic(1000, 7.0, 0, 0.0), 7.0).unwrap();
-        let outcomes = compare_all(&base, &cand, 0.02);
+        let outcomes = compare_runs(&base, &cand);
         assert_eq!(outcomes.len(), 4);
         assert!(outcomes[0].describe().starts_with("1% low"));
         assert!(outcomes[3].describe().starts_with("Average FPS"));
     }
 
     #[test]
+    fn each_metric_is_judged_against_its_own_noise() {
+        // The real case this was written for: a game whose 1% low was steady
+        // across runs while average FPS swung wildly, because the capture
+        // window landed on different parts of the race. A single shared floor
+        // reported the swing as a regression.
+        let steady_low_noisy_avg = |base_ms: f64, frames: usize| {
+            // Same worst-case frametimes, very different frame counts, so
+            // 1% low matches while average FPS does not.
+            let mut v = vec![base_ms; frames];
+            v.extend(std::iter::repeat_n(15.0, 20));
+            FrameStats::from_frametimes(&v, 20.0).unwrap()
+        };
+        let base = vec![
+            steady_low_noisy_avg(4.0, 3800),
+            steady_low_noisy_avg(4.0, 1500),
+        ];
+        let cand = steady_low_noisy_avg(4.0, 2600);
+
+        let outcomes = compare_runs(&base, &cand);
+        let avg = outcomes
+            .iter()
+            .find(|o| o.describe().starts_with("Average FPS"))
+            .unwrap();
+        assert!(
+            matches!(avg, Outcome::NoChange { .. }),
+            "a metric this noisy must not be called a change: {}",
+            avg.describe()
+        );
+    }
+
+    #[test]
+    fn a_single_baseline_run_supports_no_claim() {
+        let base = vec![FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap()];
+        let cand = FrameStats::from_frametimes(&synthetic(1000, 4.0, 0, 0.0), 4.0).unwrap();
+        // Twice as fast, and still not claimable without evidence of repeatability.
+        for outcome in compare_runs(&base, &cand) {
+            assert_eq!(outcome, Outcome::NotMeasured);
+        }
+    }
+
+    #[test]
+    fn median_by_picks_the_middle_run() {
+        let runs = vec![
+            FrameStats::from_frametimes(&synthetic(1000, 10.0, 0, 0.0), 10.0).unwrap(),
+            FrameStats::from_frametimes(&synthetic(1000, 6.0, 0, 0.0), 6.0).unwrap(),
+            FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap(),
+        ];
+        let median = median_by(&runs, |s| s.low_1_fps).unwrap();
+        assert!((median.mean_ms - 8.0).abs() < 1e-9);
+        assert!(median_by(&[], |s| s.low_1_fps).is_none());
+    }
+
+    #[test]
     fn mangohud_config_is_well_formed() {
-        let cfg = mangohud_config(Path::new("/tmp/logs"), 30);
+        let cfg = mangohud_config(Path::new("/tmp/logs"), 30, 12);
         assert!(cfg.contains("output_folder=/tmp/logs"));
         assert!(cfg.contains("log_duration=30"));
-        assert!(cfg.contains("autostart_log=1"));
+        assert!(cfg.contains("autostart_log=12"));
         // no_display=1 suppresses the CSV as well as the overlay on 0.8.4,
         // so it must never appear here.
         assert!(!cfg.contains("no_display"));
