@@ -16,11 +16,11 @@ iGPU, Ethernet, desktop.
 |---|---|
 | `cargo fmt --check` | pass |
 | `cargo check --workspace` | pass |
-| `cargo test --workspace` | **286 passed, 0 failed** |
+| `cargo test --workspace` | **301 passed, 0 failed** |
 | `cargo clippy --workspace --all-targets` | pass; **0 warnings anywhere** |
 | `./tests/daemon-authorization.sh` | pass — 13 checks |
 
-286 tests, up from 77 at the branch point.
+301 tests, up from 77 at the branch point.
 
 217 tests, up from 77 at the branch point. Pre-existing pedantic warnings remain
 in untouched UI files and are listed as a known limitation rather than silenced.
@@ -241,3 +241,30 @@ the real machine:
 | One noise floor applied to every metric | a 150%-variance metric reported as a regression |
 | The inotify watcher could report an empty file | a test that failed one run in three |
 | The `.pot` template was stale | the `--check` gate failing a package build |
+
+
+---
+
+## 11. Third pass — exposing what was built
+
+The second pass left several mechanisms with no way for a user to reach them.
+
+| Item | Now |
+|---|---|
+| Diagnostics report | **Tested** — generated, inspected, redaction asserted |
+| Background load | **Tested** — against this machine's real load |
+| Steam launch-option repair | **Tested** — the live broken entry is listed |
+| Gamescope tri-state in the editor | **Tested** — page runs, explains Automatic |
+| Advanced section | **Tested** — page runs clean |
+| Measurement entry point | **Tested** — offered for 4 of 7 detected titles |
+
+### 11.1 More bugs found by doing
+
+| Bug | How it surfaced |
+|---|---|
+| Steam tests depended on whether Steam was running | they started failing the moment Steam was opened |
+
+The Steam tests are the same class as T-01: the guard that refuses to edit
+`localconfig.vdf` while the client is running is correct, but it made the file
+tests depend on system state. The guard now sits on the public entry point and
+the tests exercise the writer directly.

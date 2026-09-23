@@ -38,7 +38,7 @@ is frame-capped and cannot show a difference. The application still says
 "Performance impact not measured" on an ordinary activation, because measuring
 requires running a workload and that is the user's decision to make.
 
-Totals: 77 → **286** tests, all passing, plus a 13-check D-Bus authorization
+Totals: 77 → **301** tests, all passing, plus a 13-check D-Bus authorization
 test that runs against the real helper binary without root. Zero clippy warnings
 across the whole workspace.
 
@@ -317,7 +317,11 @@ until a game has actually been measured.
 | Argument validation | Client side only | Server side, allow-list, property test | **Yes** |
 | sudoers | Passwordless root for `wheel` | Deleted | **Yes** |
 | Benchmarking | None | Capture, statistics, measured noise floor | **Yes** — real A/B run |
-| Tests | 77 | 286 | **Yes** |
+| Diagnostics | None | Support report, redacted at build time | **Yes** — generated and inspected |
+| Background load | None | Detected, classified, explained | **Yes** — real load on this machine |
+| Advanced options | None | Collapsed section, explains itself | **Yes** — page runs clean |
+| Measurement | No entry point | Per-game, only where it can work | **Yes** — offered for 4 of 7 titles |
+| Tests | 77 | 301 | **Yes** |
 
 ---
 
@@ -334,59 +338,59 @@ Gamescope 3.16.28, falcond 2.0.2, sched-ext without a loader.
 
 ## Known Limitations
 
-All thirteen limitations recorded in the first pass have been closed or
-reduced. What follows is what is genuinely left, ordered by how much it
-matters.
+Everything from the first two passes is closed. What follows is what is
+genuinely left.
 
-1. **No UI entry point for measurement.** `BoosterEngine::measure` exists and
-   is proven, but nothing in the interface calls it. Choosing a workload,
-   agreeing to several minutes of repeated launches, and picking a capture
-   window are decisions the Home screen must not guess at, and designing that
-   flow is a separate piece of work. Available today through the CLI example.
+1. **No workload exists here that a benchmark could learn from.** The
+   measurement path works end to end and is offered per game, but SuperTuxKart
+   — the only safely launchable title on this machine — is frame-capped at
+   160 fps, so neither arm can differ and it honestly reports no change. A
+   GPU-bound game with a repeatable benchmark is still needed.
 
-2. **No UI entry point for Steam launch options.** The `steam` module reads and
-   writes `localconfig.vdf` safely and `LaunchPlan::as_steam_launch_options`
-   renders the string, but nothing joins them. It also needs a way to tell the
-   user that Steam has to be closed first.
+2. **Measurement is unavailable for Steam titles.** `steam -applaunch` returns
+   immediately with the game in a separate process tree, so there is no handle
+   to measure. The UI says so by not offering it rather than by failing later.
+   Doing it properly means wrapping through Steam's own launch options and
+   finding the capture afterwards.
 
-3. **No game has been benchmarked where the benchmark could detect anything.**
-   SuperTuxKart was measured correctly and reported "no measurable change" on
-   three of four metrics — because it is frame-capped at 160 fps, so neither
-   arm can differ. That is the engine behaving properly, not a result. A
-   GPU-bound title with a repeatable benchmark is still needed.
-
-4. **Hardware coverage.** NVIDIA, Intel graphics, Intel CPUs, hybrid P/E cores,
+3. **Hardware coverage.** NVIDIA, Intel graphics, Intel CPUs, hybrid P/E cores,
    3D V-Cache, laptops and batteries, VRR and HDR displays, Wi-Fi and X11 all
    remain `NOT TESTED — hardware unavailable`. Detection and refusal paths are
    unit-tested; none has met real hardware.
 
+4. **Background load is reported, not managed.** Deprioritising a process you
+   own needs no privileges and is reversible; deciding *which* one is the hard
+   part, and getting it wrong is worse than the frames it would save. An
+   automatic version needs to be opt-in per application — see §27 discussion in
+   `processes.rs`.
+
 5. **Booster activates on a single click, with no confirmation.** Defensible
-   for a reversible action with a visible report, and the control is no longer
-   focused on start-up so a stray activation cannot reach it — but it is worth
+   for a reversible action with a visible report, and the control is not
+   focused on start-up so a stray activation cannot reach it — but worth
    revisiting if the plan ever grows a change that is not cheap to undo.
 
 6. **`/tmp/falcond_status` cannot be moved.** falcond 2.0.2 hardcodes it and
-   implements no `status_dir`. The reader is hardened — it accepts only a
-   root-owned regular file, checked without following symlinks, and prefers
-   `/run/falcond/status` if a future falcond publishes there — but the file
-   still lives in a world-writable directory, which is falcond's to fix.
+   implements no `status_dir`. The reader accepts only a root-owned regular
+   file, checked without following symlinks, and prefers `/run/falcond/status`
+   if a future falcond publishes there — but the file still lives in a
+   world-writable directory, which is falcond's to fix.
 
-7. **The Gamescope `Auto` decision has no UI control.** The tri-state is
-   implemented, tested and used at launch, and profiles round-trip it, but the
-   editor still presents Gamescope as a switch.
-
-8. **The daemon's allow path is verified on one machine, by one user.** Polkit
+7. **The daemon's allow path is verified on one machine, by one user.** Polkit
    grants an active local session without a prompt, which is what makes Booster
    one click. That has not been exercised for a remote session, an inactive
-   session, or a second user.
+   session, or a second user — the cases where it should *prompt*.
+
+8. **`meson` was edited but never built.** `PKGBUILD` is the path that is
+   exercised, end to end, including installation.
 
 ## Future Opportunities
 
-**Next, in order.** Install the helper and exercise the privileged path — that
-single gap invalidates more of this matrix than anything else. Then wire the
-benchmark engine into the Booster flow and measure a real game, which is the
-only way the `Improved` branch of `Outcome` ever reaches a user. Then the
-Gamescope `Auto` tri-state, which has all its inputs already.
+**Next, in order.** Find a GPU-bound game with a repeatable benchmark and
+measure it — the whole measurement path is built and proven, and has never had
+a workload that could show it a difference. Then measurement for Steam titles,
+which needs the launch-options route it already knows how to write. Then the
+hardware the matrix still marks untested, which needs machines rather than
+code.
 
 **Worth doing after that.** Process-tree game detection (PPID and cgroup rather
 than name matching, which would survive Proton's intermediate processes); a
