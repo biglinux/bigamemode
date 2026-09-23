@@ -65,6 +65,24 @@ read_state() {
 
 ORIGINAL=$(read_state)
 
+# The workload's own settings are state as well. A benchmark needs the frame
+# cap lifted and, to test anything GPU-side, the resolution and effects raised;
+# none of that is what the user chose, and all of it has to come back. Kept
+# beside the results rather than in a temporary directory, so a crashed session
+# still leaves a recoverable copy.
+STK_CONFIG_BACKUP=""
+back_up_workload_config() {
+    [ -f "$STK_CONFIG/config.xml" ] || return 0
+    STK_CONFIG_BACKUP="$OUT/workload-config.original.xml"
+    mkdir -p "$OUT"
+    cp "$STK_CONFIG/config.xml" "$STK_CONFIG_BACKUP" 2>/dev/null || STK_CONFIG_BACKUP=""
+}
+restore_workload_config() {
+    [ -n "$STK_CONFIG_BACKUP" ] && [ -f "$STK_CONFIG_BACKUP" ] || return 0
+    cp "$STK_CONFIG_BACKUP" "$STK_CONFIG/config.xml" 2>/dev/null \
+        && log "workload configuration restored from $STK_CONFIG_BACKUP"
+}
+
 set_governor() { [ -n "$1" ] && "${BUS[@]}" SetCpuGovernor s "$1" >/dev/null 2>&1; }
 set_epp()      { [ -n "$1" ] && "${BUS[@]}" SetCpuEpp s "$1" >/dev/null 2>&1; }
 set_dpm()      { [ -n "$1" ] && "${BUS[@]}" SetGpuDpmLevel ss "$CARD" "$1" >/dev/null 2>&1; }
@@ -75,6 +93,7 @@ restore() {
     eval "$ORIGINAL"
     set_governor "$governor"; set_epp "$epp"; set_dpm "$dpm"; set_profile "$profile"
     read_state | sed 's/^/  /' >&2
+    restore_workload_config
 }
 trap restore EXIT INT TERM
 
@@ -97,8 +116,11 @@ arm_booster() {
     set_dpm high
 }
 
-arm_governor_only() { arm_baseline; set_governor performance; set_epp performance; }
-arm_gpu_only()      { arm_baseline; set_dpm high; }
+# Single-knob arms. Named for the knob itself -- these names are the keys the
+# Booster's planner looks a measurement up by, so renaming one here without
+# renaming Knob::calibration_key would quietly sever the loop.
+arm_cpu_governor()  { arm_baseline; set_governor performance; set_epp performance; }
+arm_gpu_dpm_level() { arm_baseline; set_dpm high; }
 
 # ── workload ─────────────────────────────────────────────────────────────────
 
@@ -154,6 +176,7 @@ STAMP=$(date +%Y-%m-%d)
 OUT="$OUT_ROOT/$STAMP-supertuxkart${LABEL:+-$LABEL}"
 mkdir -p "$OUT"
 log "render GPU: $CARD    workload: $STK_ROOT    output: $OUT"
+back_up_workload_config
 
 declare -A RESULTS
 ARMS=("$@")

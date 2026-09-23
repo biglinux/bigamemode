@@ -162,6 +162,14 @@ fn skipped_row(skipped: &Skipped) -> adw::ActionRow {
         Skipped::NotBeneficial { knob, detail } => {
             (knob.clone(), detail.clone(), "dialog-information-symbolic")
         }
+        // Given its own icon and wording: this is the only skip reason backed
+        // by a measurement on this machine, and it deserves to read differently
+        // from "the hardware does not support it".
+        Skipped::MeasuredHarmful { knob, detail } => (
+            knob.clone(),
+            format!("{} — {detail}", i18n("Measured slower on this machine")),
+            "speedometer-symbolic",
+        ),
         Skipped::NotRestorable { knob } => (
             knob.clone(),
             i18n(

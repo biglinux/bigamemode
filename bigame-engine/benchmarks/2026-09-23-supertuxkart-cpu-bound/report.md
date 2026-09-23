@@ -1,4 +1,4 @@
-# 2026-09-23-supertuxkart — 2026-09-23
+# 2026-09-23-supertuxkart-cpu-bound — 2026-09-23
 
 ## Verdict
 

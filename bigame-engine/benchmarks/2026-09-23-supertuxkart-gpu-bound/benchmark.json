@@ -1,0 +1,41 @@
+{
+  "schema": "bigame.benchmark/1",
+  "workload": "2026-09-23-supertuxkart-gpu-bound",
+  "metric": "avg_fps",
+  "date": "2026-09-23",
+  "fingerprint": "02db452880e054ab",
+  "arms": {
+    "baseline": [
+      304.8803,
+      287.7485,
+      307.7468,
+      293.0872
+    ],
+    "booster": [
+      279.035,
+      280.4846,
+      280.7583,
+      283.8635
+    ],
+    "cpu_governor": [
+      293.9634,
+      305.423,
+      307.9061,
+      310.6839
+    ],
+    "gpu_dpm_level": [
+      280.3871,
+      256.7061,
+      281.6122,
+      284.7665
+    ]
+  },
+  "warmup_runs": 1,
+  "alternating": true,
+  "caveats": [
+    "SuperTuxKart's frame limiter was lifted for this test (max_fps 120 -> 1000, vsync off), and the workload was reconfigured to be GPU-bound: 3440x1440 instead of 1024x768, with shadows at 2048, SSAO, MLAA and full geometry detail. The original configuration is restored when the benchmark session ends.",
+    "The reconfiguration was necessary. At the stock 1024x768 with effects off, telemetry showed the discrete GPU at about 50% utilisation and 1686 MHz of a possible 2700 -- the workload was limited by CPU and driver submission, not by the GPU, so no GPU-side setting could have shown an effect through it whatever its true value. After the change the GPU sits at about 85% and 2574 MHz.",
+    "An earlier session of this same workload (benchmarks/2026-09-23-supertuxkart-cpu-bound) was measured with a telemetry sampler that spawned about 1400 processes per run. It raised the run-to-run spread from 1.4% to nearly 6% and its results are not usable; the sampler was rewritten to use only shell builtins.",
+    "This workload is a kart racer, not a AAA title. A setting that helps here will not necessarily help a game with a different CPU/GPU balance."
+  ]
+}

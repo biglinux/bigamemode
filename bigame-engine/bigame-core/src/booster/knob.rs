@@ -76,6 +76,23 @@ impl Knob {
         }
     }
 
+    /// Key under which measurements about this knob are stored.
+    ///
+    /// Unlike [`Knob::id`], this carries no instance -- a DPM measurement is
+    /// about the driver's behaviour, not about `card1` specifically, and a
+    /// calibration would otherwise be discarded the first time a card is
+    /// renumbered by an unrelated hardware change.
+    #[must_use]
+    pub fn calibration_key(&self) -> &'static str {
+        match self {
+            Self::PowerProfile => "power_profile",
+            Self::CpuGovernor => "cpu_governor",
+            Self::CpuEpp => "cpu_epp",
+            Self::GpuDpmLevel { .. } => "gpu_dpm_level",
+            Self::VCacheMode => "vcache_mode",
+        }
+    }
+
     /// Who is allowed to write this knob.
     #[must_use]
     pub fn privilege(&self) -> Privilege {

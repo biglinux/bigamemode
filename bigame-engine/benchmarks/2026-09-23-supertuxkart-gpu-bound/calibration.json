@@ -1,0 +1,28 @@
+{
+  "schema": "bigame.calibration/1",
+  "fingerprint": "02db452880e054ab",
+  "measured": "2026-09-23",
+  "findings": {
+    "booster": {
+      "knob": "booster",
+      "verdict": "regression",
+      "delta_pct": -5.808425700407255,
+      "workload": "2026-09-23-supertuxkart-gpu-bound",
+      "rationale": "5.8% slower, above the 3.2% run-to-run spread and significant at 95% (Welch's t = 3.57 against a 2.78 threshold)"
+    },
+    "cpu_governor": {
+      "knob": "cpu_governor",
+      "verdict": "within_noise",
+      "delta_pct": 2.0539894498596856,
+      "workload": "2026-09-23-supertuxkart-gpu-bound",
+      "rationale": "the 2.1% difference is within the 3.2% spread of the runs themselves, so it cannot be attributed to the change"
+    },
+    "gpu_dpm_level": {
+      "knob": "gpu_dpm_level",
+      "verdict": "regression",
+      "delta_pct": -7.540318810104514,
+      "workload": "2026-09-23-supertuxkart-gpu-bound",
+      "rationale": "7.5% slower, above the 4.7% run-to-run spread and significant at 95% (Welch's t = 2.81 against a 2.45 threshold)"
+    }
+  }
+}

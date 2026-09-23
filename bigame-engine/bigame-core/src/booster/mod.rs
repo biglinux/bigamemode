@@ -25,6 +25,7 @@ pub mod snapshot;
 
 use anyhow::Result;
 
+use crate::benchmark::calibration::Calibration;
 use crate::capabilities::Capabilities;
 use crate::hardware::Hardware;
 
@@ -143,6 +144,30 @@ impl BoosterEngine {
         Some(record.applied.len())
     }
 
+    /// Build the plan, deferring to anything measured on this machine.
+    ///
+    /// The calibration is loaded fresh each time rather than cached on the
+    /// engine, because it is written by a benchmark session that may have run
+    /// since this engine was constructed, and a plan built from a stale
+    /// calibration would silently reapply a setting that was just measured to
+    /// hurt.
+    ///
+    /// A calibration from different hardware, or an unreadable one, is simply
+    /// absent: the plan then falls back to reasoning from what the hardware
+    /// supports, which is what it always did.
+    fn build_plan(&self, snapshot: &Snapshot) -> Plan {
+        let calibration = Calibration::default_path().and_then(|path| {
+            let fingerprint = crate::inventory::fingerprint(&self.hardware);
+            Calibration::load(&path, &fingerprint).ok().flatten()
+        });
+        Plan::build_calibrated(
+            &self.hardware,
+            &self.capabilities,
+            snapshot,
+            calibration.as_ref(),
+        )
+    }
+
     /// Capture a baseline and build a plan, **without changing anything**.
     ///
     /// Exposed separately so the UI can show the user what is about to happen
@@ -150,7 +175,7 @@ impl BoosterEngine {
     #[must_use]
     pub fn dry_run(&self) -> (Snapshot, Plan) {
         let snapshot = Snapshot::capture(&self.relevant_knobs());
-        let plan = Plan::build(&self.hardware, &self.capabilities, &snapshot);
+        let plan = self.build_plan(&snapshot);
         (snapshot, plan)
     }
 
@@ -174,7 +199,7 @@ impl BoosterEngine {
         let snapshot = Snapshot::capture(&self.relevant_knobs());
 
         progress(Progress::Planning);
-        let plan = Plan::build(&self.hardware, &self.capabilities, &snapshot);
+        let plan = self.build_plan(&snapshot);
 
         let mut report = Report {
             machine: plan::describe_machine(&self.hardware),

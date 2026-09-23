@@ -10,9 +10,12 @@
 //! A machine already sitting at its best configuration should be told exactly
 //! that, not handed a list of no-ops dressed up as optimizations.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use super::knob::Knob;
+use crate::benchmark::calibration::Calibration;
 use crate::capabilities::Capabilities;
 use crate::hardware::{Chassis, Hardware, PowerSource};
 
@@ -100,6 +103,16 @@ pub enum Skipped {
         /// Why not.
         detail: String,
     },
+    /// Measurement on this machine showed the knob makes things worse.
+    ///
+    /// The strongest reason to skip something, and the only one derived from
+    /// evidence rather than from what the hardware claims to support.
+    MeasuredHarmful {
+        /// Knob title.
+        knob: String,
+        /// What was measured.
+        detail: String,
+    },
     /// We could not read the current value, so we could not guarantee a
     /// rollback — and an unrestorable change is never worth making.
     NotRestorable {
@@ -116,6 +129,13 @@ pub struct Plan {
     /// Candidates that were considered and rejected, with reasons. Reporting
     /// these is what lets the user see the engine reasoned rather than guessed.
     pub skipped: Vec<Skipped>,
+    /// Knobs measurement on this machine rejected, by calibration key.
+    ///
+    /// Not part of the saved plan: it is an input to the decision, and a plan
+    /// read back from disk should record what was decided rather than what was
+    /// consulted.
+    #[serde(skip)]
+    harmful: BTreeMap<String, String>,
 }
 
 impl Plan {
@@ -134,6 +154,35 @@ impl Plan {
         Self::build_with_owner(hw, caps, snapshot, &power_profile_owner())
     }
 
+    /// Build a plan that defers to what was measured on this machine.
+    ///
+    /// Measurement outranks every other reason to apply a knob. A setting the
+    /// hardware supports, that is not already set, that would help in theory,
+    /// and that this machine has been measured to be *slower* with, is not
+    /// applied -- and the report says so, with the numbers.
+    ///
+    /// The concrete case this was built for: forcing an amdgpu card's DPM level
+    /// to `high` sounds like the fastest setting and is not. It pins the card
+    /// to its highest *fixed* state and takes the firmware's opportunistic
+    /// boost out of the loop. Measured on a Radeon RX 9060 XT, `auto` averaged
+    /// 3042 MHz and reached 3331; `high` sat at 2640 MHz and drew 40 W less of
+    /// a 170 W budget. The frame rate fell 7.5%.
+    #[must_use]
+    pub fn build_calibrated(
+        hw: &Hardware,
+        caps: &Capabilities,
+        snapshot: &Snapshot,
+        calibration: Option<&Calibration>,
+    ) -> Self {
+        Self::build_inner(
+            hw,
+            caps,
+            snapshot,
+            &power_profile_owner(),
+            calibration,
+        )
+    }
+
     /// Build a plan with an explicit power-profile owner.
     ///
     /// Split out from [`Plan::build`] so the arbitration can be tested without
@@ -145,7 +194,34 @@ impl Plan {
         snapshot: &Snapshot,
         owner: &PowerProfileOwner,
     ) -> Self {
+        Self::build_inner(hw, caps, snapshot, owner, None)
+    }
+
+    /// The one place a plan is actually assembled.
+    fn build_inner(
+        hw: &Hardware,
+        caps: &Capabilities,
+        snapshot: &Snapshot,
+        owner: &PowerProfileOwner,
+        calibration: Option<&Calibration>,
+    ) -> Self {
         let mut plan = Self::default();
+        if let Some(calibration) = calibration {
+            plan.harmful = calibration
+                .findings
+                .values()
+                .filter(|f| f.is_harmful())
+                .map(|f| {
+                    (
+                        f.knob.clone(),
+                        format!(
+                            "measured on this machine against {}: {}",
+                            f.workload, f.rationale
+                        ),
+                    )
+                })
+                .collect();
+        }
         // On battery, raising sustained power draw usually costs more in
         // thermal throttling and clock ceiling than it returns. The user can
         // still opt in per-knob from Advanced; the automatic plan will not.
@@ -157,6 +233,23 @@ impl Plan {
         plan.consider_vcache(hw, snapshot);
         plan.note_scheduler(caps);
         plan
+    }
+
+    /// Whether measurement on this machine rejected this knob.
+    ///
+    /// Consulted before every other reason, including "it already holds the
+    /// value we would write". A setting measured to be slower is not optimal
+    /// just because it happens to be set: reporting it as optimal would tell
+    /// the user the opposite of what was measured.
+    fn measured_harmful(&mut self, knob: &Knob) -> bool {
+        let Some(detail) = self.harmful.get(knob.calibration_key()).cloned() else {
+            return false;
+        };
+        self.skipped.push(Skipped::MeasuredHarmful {
+            knob: knob.title(),
+            detail,
+        });
+        true
     }
 
     // ── Candidates ───────────────────────────────────────────────────────────
@@ -177,6 +270,9 @@ impl Plan {
         owner: &PowerProfileOwner,
     ) {
         let knob = Knob::PowerProfile;
+        if self.measured_harmful(&knob) {
+            return;
+        }
         // Single authority: while falcond holds a game profile it owns this
         // knob, and it will restore its own baseline when the game exits.
         if let PowerProfileOwner::Falcond { profile } = owner {
@@ -241,6 +337,9 @@ impl Plan {
     /// CPU governor → `performance`, only where the driver accepts it.
     fn consider_cpu_governor(&mut self, hw: &Hardware, snap: &Snapshot, battery: bool) {
         let knob = Knob::CpuGovernor;
+        if self.measured_harmful(&knob) {
+            return;
+        }
         if !hw.cpu.supports_governor("performance") {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),
@@ -301,6 +400,9 @@ impl Plan {
         let knob = Knob::GpuDpmLevel {
             card: gpu.card.clone(),
         };
+        if self.measured_harmful(&knob) {
+            return;
+        }
         if gpu.dpm_level_path.is_none() {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),
@@ -348,6 +450,9 @@ impl Plan {
     /// gaming workloads prefer the cache die over the higher-clocking one.
     fn consider_vcache(&mut self, hw: &Hardware, snap: &Snapshot) {
         let knob = Knob::VCacheMode;
+        if self.measured_harmful(&knob) {
+            return;
+        }
         let Some(vcache) = hw.cpu.vcache.as_ref() else {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),
