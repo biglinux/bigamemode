@@ -20,12 +20,17 @@ depend on it.
 | [07-NETWORK-TELEMETRY.md](07-NETWORK-TELEMETRY.md) | Measurement, and what is deliberately not tuned |
 | [09-BENCHMARKS.md](09-BENCHMARKS.md) | Why nothing was measured, and what building it needs |
 | [10-SECURITY.md](10-SECURITY.md) | Threat model, findings, and what was done |
+| [11-BENCHMARK-LAB.md](11-BENCHMARK-LAB.md) | The method: why runs alternate, what counts as a real difference |
+| [12-FINDINGS.md](12-FINDINGS.md) | What the method found, including where the Booster was wrong |
 | [FINAL-REPORT.md](FINAL-REPORT.md) | Summary, before/after, and known limitations |
 
-There is no `08-UX-REDESIGN.md` or `11-IMPLEMENTATION.md`. The UX rationale is
-in FINAL-REPORT and in the module documentation for `views/home.rs` and
-`widgets/booster_button.rs`; the implementation narrative is the commit history.
-Empty documents would not have earned their place.
+There is no `08-UX-REDESIGN.md`. The UX rationale is in FINAL-REPORT and in the
+module documentation for `views/home.rs` and `widgets/booster_button.rs`; the
+implementation narrative is the commit history. An empty document would not have
+earned its place.
+
+`09-BENCHMARKS.md` describes the state before there was a benchmark lab and is
+kept for that history; `11` and `12` supersede it.
 
 ## Historical
 
