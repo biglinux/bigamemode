@@ -48,6 +48,12 @@ pub struct Entry {
     pub has_profile: bool,
     /// Whether that profile ships with the system rather than being the user's.
     pub system_profile: bool,
+    /// A command that starts this game directly, when one exists.
+    ///
+    /// `None` for anything that needs a launcher — Steam titles in particular.
+    /// Features that need a handle on the game's own process are offered only
+    /// when this is `Some`.
+    pub launch_command: Option<Vec<String>>,
     /// Whether the key came from a real executable rather than the title.
     ///
     /// A title-keyed profile cannot match a process, so the card says so
@@ -369,6 +375,7 @@ mod tests {
             key: "PioneerGame.exe".into(),
             source: "Steam".into(),
             cover: None,
+            launch_command: None,
             has_profile,
             system_profile: system,
             key_is_verified: true,

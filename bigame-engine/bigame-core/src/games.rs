@@ -71,6 +71,14 @@ pub struct DetectedGame {
     pub executables: Vec<String>,
     /// Portrait cover already on disk, if a launcher cached one.
     pub cover: Option<PathBuf>,
+    /// A command that starts this game directly, when one exists.
+    ///
+    /// `None` for anything that has to go through a launcher process — Steam
+    /// titles in particular, where `steam -applaunch` returns immediately and
+    /// the game runs in a separate tree. That distinction matters: a benchmark
+    /// needs a handle on the process it is measuring, so features that require
+    /// one are offered only where this is `Some`.
+    pub launch_command: Option<Vec<String>>,
 }
 
 impl DetectedGame {
@@ -90,6 +98,12 @@ impl DetectedGame {
     #[must_use]
     pub fn has_real_executable(&self) -> bool {
         !self.executables.is_empty()
+    }
+
+    /// Whether this game can be started, and measured, without a launcher.
+    #[must_use]
+    pub fn is_directly_launchable(&self) -> bool {
+        self.launch_command.is_some()
     }
 }
 
@@ -211,6 +225,10 @@ fn parse_acf(manifest: &Path, steamapps: &Path, home: &Path) -> Option<DetectedG
         executables,
         name,
         source: Source::Steam,
+        // Steam titles start through the client, which returns immediately and
+        // runs the game in a separate process tree. There is no command here
+        // that yields a handle on the game itself.
+        launch_command: None,
     })
 }
 
@@ -405,8 +423,13 @@ fn detect_lutris(home: &Path, games: &mut Vec<DetectedGame>) {
         let Ok(content) = std::fs::read_to_string(&path) else {
             continue;
         };
-        let (name, exe) = parse_lutris_yml(&content);
+        let (name, exe, exe_path) = parse_lutris_yml(&content);
         let name = name.unwrap_or_else(|| slug_to_title(slug));
+        // Only a path that still exists is offered as launchable; a stale
+        // Lutris entry pointing at a deleted directory is worse than none.
+        let launch_command = exe_path
+            .filter(|p| p.is_file())
+            .map(|p| vec![p.to_string_lossy().into_owned()]);
         games.push(DetectedGame {
             cover: lutris_cover(home, slug),
             executables: exe.into_iter().collect(),
@@ -414,15 +437,20 @@ fn detect_lutris(home: &Path, games: &mut Vec<DetectedGame>) {
             source: Source::Lutris,
             app_id: None,
             install_path: None,
+            launch_command,
         });
     }
 }
 
-/// Pull `name:` and the basename of `exe:` out of a Lutris game YAML.
+/// Pull `name:` and `exe:` out of a Lutris game YAML.
+///
+/// Returns the declared name, the executable's basename (what a profile is
+/// keyed on) and its full path (what can actually be launched).
 #[must_use]
-pub fn parse_lutris_yml(content: &str) -> (Option<String>, Option<String>) {
+pub fn parse_lutris_yml(content: &str) -> (Option<String>, Option<String>, Option<PathBuf>) {
     let mut name = None;
     let mut exe = None;
+    let mut exe_path = None;
     for line in content.lines() {
         let trimmed = line.trim();
         if let Some(v) = trimmed.strip_prefix("name:") {
@@ -437,10 +465,14 @@ pub fn parse_lutris_yml(content: &str) -> (Option<String>, Option<String>) {
                 exe = Path::new(v)
                     .file_name()
                     .map(|f| f.to_string_lossy().into_owned());
+                let path = PathBuf::from(v);
+                if path.is_absolute() {
+                    exe_path = Some(path);
+                }
             }
         }
     }
-    (name, exe)
+    (name, exe, exe_path)
 }
 
 /// Strip Lutris's trailing `-<digits>` install id from a slug.
@@ -505,6 +537,7 @@ fn detect_heroic(home: &Path, games: &mut Vec<DetectedGame>) {
                 app_id: None,
                 install_path: None,
                 executables: Vec::new(),
+                launch_command: None,
             });
         }
     }
@@ -520,13 +553,19 @@ fn detect_heroic(home: &Path, games: &mut Vec<DetectedGame>) {
                 .ok()
                 .and_then(|c| json_string_values(&c, "title").into_iter().next())
                 .unwrap_or_else(|| dirname.clone());
+            let executables = find_executables(&entry.path());
+            let launch_command = executables
+                .first()
+                .map(|exe| vec![entry.path().join(exe).to_string_lossy().into_owned()])
+                .filter(|cmd| std::path::Path::new(&cmd[0]).is_file());
             games.push(DetectedGame {
                 cover: heroic_cover(&base, &title),
-                executables: find_executables(&entry.path()),
+                executables,
                 install_path: Some(entry.path()),
                 name: title,
                 source: Source::Heroic,
                 app_id: None,
+                launch_command,
             });
         }
     }
@@ -683,6 +722,7 @@ mod tests {
             install_path: None,
             executables: vec!["PioneerGame.exe".into()],
             cover: None,
+            launch_command: None,
         };
         assert_eq!(game.profile_key(), "PioneerGame.exe");
         assert_ne!(game.profile_key(), "ARC Raiders");
@@ -698,6 +738,7 @@ mod tests {
             install_path: None,
             executables: Vec::new(),
             cover: None,
+            launch_command: None,
         };
         // It still yields something usable, but callers can tell it is a guess.
         assert_eq!(game.profile_key(), "Some Game");
@@ -758,11 +799,41 @@ mod tests {
 
     #[test]
     fn lutris_yaml_prefers_the_declared_name_and_exe_basename() {
-        let (name, exe) = parse_lutris_yml(
+        let (name, exe, path) = parse_lutris_yml(
             "name: Celeste\ngame:\n  exe: /home/u/Games/celeste/Celeste.bin.x86_64\n",
         );
         assert_eq!(name.as_deref(), Some("Celeste"));
+        // The basename is what a profile is keyed on…
         assert_eq!(exe.as_deref(), Some("Celeste.bin.x86_64"));
+        // …and the full path is what can be launched.
+        assert_eq!(
+            path.as_deref(),
+            Some(Path::new("/home/u/Games/celeste/Celeste.bin.x86_64"))
+        );
+    }
+
+    #[test]
+    fn a_relative_lutris_exe_is_not_treated_as_launchable() {
+        // Without an absolute path there is nothing to run from here.
+        let (_, exe, path) = parse_lutris_yml("game:\n  exe: game.sh\n");
+        assert_eq!(exe.as_deref(), Some("game.sh"));
+        assert_eq!(path, None);
+    }
+
+    #[test]
+    fn steam_titles_are_not_directly_launchable() {
+        // `steam -applaunch` returns immediately and the game runs elsewhere,
+        // so nothing that needs a handle on the game can be offered for them.
+        let game = DetectedGame {
+            name: "ARC Raiders".into(),
+            source: Source::Steam,
+            app_id: Some("1808500".into()),
+            install_path: None,
+            executables: vec!["PioneerGame.exe".into()],
+            cover: None,
+            launch_command: None,
+        };
+        assert!(!game.is_directly_launchable());
     }
 
     #[test]

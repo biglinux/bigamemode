@@ -1028,6 +1028,7 @@ fn build_library() -> Vec<game_card::Entry> {
             title: game.name.clone(),
             source: game.source.label().to_owned(),
             cover: game.cover.clone(),
+            launch_command: game.launch_command.clone(),
             system_profile: has_profile && bigame_core::profiles::is_system_profile(&key),
             key_is_verified: game.has_real_executable(),
             has_profile,
@@ -1047,6 +1048,7 @@ fn build_library() -> Vec<game_card::Entry> {
             key: name.clone(),
             source: i18n("Profile"),
             cover: None,
+            launch_command: None,
             has_profile: true,
             system_profile: bigame_core::profiles::is_system_profile(name),
         });
@@ -1076,6 +1078,11 @@ fn looks_like_a_process_name(name: &str) -> bool {
 /// Overflow menu for one card.
 fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::NavigationView) {
     let menu = gio::Menu::new();
+    // Measuring needs a handle on the game's own process, which only exists
+    // for games that start without a launcher.
+    if entry.launch_command.is_some() {
+        menu.append(Some(&i18n("Measure the difference")), Some("card.measure"));
+    }
     if entry.has_profile {
         menu.append(Some(&i18n("Edit profile")), Some("card.edit"));
         if !entry.system_profile {
@@ -1086,6 +1093,16 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     }
 
     let group = gio::SimpleActionGroup::new();
+
+    if let Some(command) = entry.launch_command.clone() {
+        let measure = gio::SimpleAction::new("measure", None);
+        let title = entry.title.clone();
+        let anchor = anchor.clone();
+        measure.connect_activate(move |_, _| {
+            crate::views::measure_dialog::present(&anchor, &title, &command);
+        });
+        group.add_action(&measure);
+    }
 
     let edit = gio::SimpleAction::new("edit", None);
     {

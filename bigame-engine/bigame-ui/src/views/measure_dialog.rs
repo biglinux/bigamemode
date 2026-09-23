@@ -1,0 +1,234 @@
+//! "Measure the difference" — the honest answer to "did that help?".
+//!
+//! Deliberately not part of pressing Booster Mode. Measuring launches the game
+//! several times and takes minutes; doing that because someone pressed a
+//! performance button would be worse than not measuring at all. It is offered
+//! per game, from the card menu, and only for games that can be started
+//! directly — a benchmark needs a handle on the process it is measuring, and
+//! `steam -applaunch` returns immediately with the game running elsewhere.
+//!
+//! The dialog states the cost before starting, because "this will open your
+//! game six times over the next four minutes" is not something to discover
+//! halfway through.
+
+use std::sync::mpsc;
+use std::time::Duration;
+
+use adw::prelude::*;
+use gtk4::glib;
+use libadwaita as adw;
+
+use bigame_core::booster::BoosterEngine;
+use bigame_core::booster::measure::{Arm, MeasureProgress, MeasurementPlan};
+
+use crate::i18n::i18n;
+
+/// Seconds of frametime recorded per run.
+const CAPTURE_SECONDS: u32 = 20;
+
+/// Seconds to skip before recording, to get past menus and loading.
+const START_DELAY_SECONDS: u32 = 14;
+
+/// Runs per arm, including the discarded warm-up.
+const RUNS_PER_ARM: usize = 3;
+
+/// What the worker sends back.
+enum Event {
+    Progress(String),
+    Done(Box<Result<Vec<String>, String>>),
+}
+
+/// Ask whether to measure `game`, and do it if the answer is yes.
+pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String]) {
+    let runs = RUNS_PER_ARM * 2;
+    let per_run = u64::from(CAPTURE_SECONDS + START_DELAY_SECONDS) + 10;
+    #[allow(clippy::cast_possible_truncation)]
+    let minutes = (per_run * runs as u64).div_ceil(60);
+
+    let dialog = adw::AlertDialog::new(
+        Some(&i18n("Measure the difference?")),
+        Some(
+            &i18n(
+                "%t will be launched %n times — %h with your current settings and \
+                 %h with the optimizations applied — for about %m minutes in total.\n\n\
+                 Your settings are restored afterwards, including if something \
+                 goes wrong. Leave the game in a scene that keeps rendering; a \
+                 pause menu measures the pause menu.",
+            )
+            .replace("%t", title)
+            .replace("%n", &runs.to_string())
+            .replace("%h", &RUNS_PER_ARM.to_string())
+            .replace("%m", &minutes.to_string()),
+        ),
+    );
+    dialog.add_response("cancel", &i18n("Cancel"));
+    dialog.add_response("measure", &i18n("Measure"));
+    dialog.set_response_appearance("measure", adw::ResponseAppearance::Suggested);
+    dialog.set_default_response(Some("cancel"));
+    dialog.set_close_response("cancel");
+
+    let anchor = parent.as_ref().clone();
+    let command = command.to_vec();
+    let title = title.to_owned();
+    {
+        let anchor = anchor.clone();
+        dialog.connect_response(None, move |_, response| {
+            if response == "measure" {
+                run(&anchor, &title, &command);
+            }
+        });
+    }
+    dialog.present(Some(&anchor));
+}
+
+/// Run the measurement, showing progress and then the result.
+fn run(parent: &gtk4::Widget, title: &str, command: &[String]) {
+    let progress = adw::AlertDialog::new(Some(&i18n("Measuring…")), Some(&i18n("Starting")));
+    // No cancel response: stopping midway would leave an arm applied, and the
+    // engine restores the baseline only when it finishes or fails.
+    progress.present(Some(parent));
+
+    let (tx, rx) = mpsc::channel::<Event>();
+    spawn_worker(tx, command.to_vec());
+
+    let progress_ref = progress.clone();
+    let parent = parent.clone();
+    let title = title.to_owned();
+    glib::timeout_add_local(Duration::from_millis(120), move || {
+        while let Ok(event) = rx.try_recv() {
+            match event {
+                Event::Progress(text) => progress_ref.set_body(&text),
+                Event::Done(result) => {
+                    progress_ref.close();
+                    show_result(&parent, &title, *result);
+                    return glib::ControlFlow::Break;
+                }
+            }
+        }
+        glib::ControlFlow::Continue
+    });
+}
+
+fn spawn_worker(tx: mpsc::Sender<Event>, command: Vec<String>) {
+    let spawned = std::thread::Builder::new()
+        .name("bigame-measure".into())
+        .spawn(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    let _ = tx.send(Event::Done(Box::new(Err(e.to_string()))));
+                    return;
+                }
+            };
+
+            runtime.block_on(async {
+                let plan = MeasurementPlan {
+                    command,
+                    duration_s: CAPTURE_SECONDS,
+                    runs_per_arm: RUNS_PER_ARM,
+                    start_delay_s: START_DELAY_SECONDS,
+                };
+                let log_dir = log_directory();
+                let engine = BoosterEngine::detect();
+                let progress_tx = tx.clone();
+
+                let result = engine
+                    .measure(&plan, &log_dir, |p| {
+                        let _ = progress_tx.send(Event::Progress(describe(&p)));
+                    })
+                    .await;
+
+                let payload = match result {
+                    Ok(measurement) => Ok(measurement
+                        .outcomes
+                        .iter()
+                        .map(bigame_core::booster::report::Outcome::describe)
+                        .collect()),
+                    Err(e) => Err(format!("{e:#}")),
+                };
+                let _ = tx.send(Event::Done(Box::new(payload)));
+            });
+        });
+
+    if let Err(e) = spawned {
+        tracing::error!("could not start the measurement thread: {e}");
+    }
+}
+
+/// Where `MangoHud` writes its captures.
+fn log_directory() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
+        || {
+            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
+                .join(".cache")
+        },
+        std::path::PathBuf::from,
+    );
+    base.join("bigame-mode").join("benchmark")
+}
+
+/// Turn an engine stage into something worth reading.
+fn describe(progress: &MeasureProgress) -> String {
+    match progress {
+        MeasureProgress::Switching { to } => match to {
+            Arm::Baseline => i18n("Restoring your current settings"),
+            Arm::Optimized => i18n("Applying the optimizations"),
+        },
+        MeasureProgress::Running {
+            arm,
+            run,
+            total,
+            warmup,
+        } => {
+            let which = match arm {
+                Arm::Baseline => i18n("current settings"),
+                Arm::Optimized => i18n("optimized"),
+            };
+            if *warmup {
+                // Saying it will be discarded avoids the impression that the
+                // first run counted and something went wrong.
+                i18n("Run %r of %t — %w (warm-up, discarded)")
+                    .replace("%r", &run.to_string())
+                    .replace("%t", &total.to_string())
+                    .replace("%w", &which)
+            } else {
+                i18n("Run %r of %t — %w")
+                    .replace("%r", &run.to_string())
+                    .replace("%t", &total.to_string())
+                    .replace("%w", &which)
+            }
+        }
+        MeasureProgress::Analysing => i18n("Analysing"),
+    }
+}
+
+fn show_result(parent: &gtk4::Widget, title: &str, result: Result<Vec<String>, String>) {
+    let (heading, body) = match result {
+        Ok(lines) if lines.is_empty() => (
+            i18n("Nothing could be compared"),
+            i18n("The runs produced no usable frametimes."),
+        ),
+        Ok(lines) => (
+            i18n("Results for %t").replace("%t", title),
+            format!(
+                "{}\n\n{}",
+                lines.join("\n"),
+                i18n(
+                    "Each metric is judged against how much that same metric varied \
+                     between runs of your current settings. Anything smaller than \
+                     that variation is reported as no change, because it is not \
+                     evidence of one."
+                )
+            ),
+        ),
+        Err(error) => (i18n("Measurement failed"), error),
+    };
+
+    let dialog = adw::AlertDialog::new(Some(&heading), Some(&body));
+    dialog.add_response("close", &i18n("Close"));
+    dialog.set_default_response(Some("close"));
+    dialog.present(Some(parent));
+}
