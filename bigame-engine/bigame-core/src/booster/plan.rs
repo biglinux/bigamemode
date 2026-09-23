@@ -174,13 +174,7 @@ impl Plan {
         snapshot: &Snapshot,
         calibration: Option<&Calibration>,
     ) -> Self {
-        Self::build_inner(
-            hw,
-            caps,
-            snapshot,
-            &power_profile_owner(),
-            calibration,
-        )
+        Self::build_inner(hw, caps, snapshot, &power_profile_owner(), calibration)
     }
 
     /// Build a plan with an explicit power-profile owner.
@@ -649,7 +643,7 @@ mod tests {
                 Some("auto"),
             ),
         ]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
 
         let ids: Vec<String> = plan.changes.iter().map(|c| c.knob.id()).collect();
         assert!(ids.contains(&"power_profile".to_owned()));
@@ -676,7 +670,7 @@ mod tests {
                 Some("high"),
             ),
         ]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
         assert!(
             plan.is_empty(),
             "expected no changes, got {:?}",
@@ -702,7 +696,7 @@ mod tests {
                 Some("auto"),
             ),
         ]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
         assert!(plan.is_empty(), "nothing should be forced on battery");
         assert_eq!(
             plan.skipped
@@ -720,7 +714,7 @@ mod tests {
         let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
         // Nothing captured at all.
         let s = snap(&[]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
         assert!(plan.is_empty());
         assert!(
             plan.skipped
@@ -735,7 +729,7 @@ mod tests {
         // A driver offering only powersave — `performance` is not writable.
         h.cpu = cpu(&["powersave"]);
         let s = snap(&[(Knob::CpuGovernor, Some("powersave"))]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::Unsupported { knob, .. } if knob.contains("governor")
@@ -746,14 +740,14 @@ mod tests {
     fn skips_power_profile_when_the_platform_has_no_performance_mode() {
         let h = hw(PowerSource::Ac, vec![]);
         let s = snap(&[(Knob::PowerProfile, Some("balanced"))]);
-        let plan = Plan::build(&h, &caps(false, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(false, true), &s, &PowerProfileOwner::Booster);
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::PowerProfile));
     }
 
     #[test]
     fn skips_vcache_on_a_cpu_without_it() {
         let h = hw(PowerSource::Ac, vec![]);
-        let plan = Plan::build(&h, &caps(true, true), &snap(&[]));
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &snap(&[]), &PowerProfileOwner::Booster);
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::Unsupported { knob, detail } if knob.contains("V-Cache") && detail.contains("no 3D V-Cache")
         )));
@@ -768,7 +762,7 @@ mod tests {
             },
             Some("auto"),
         )]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
         assert!(
             !plan
                 .changes
@@ -798,7 +792,7 @@ mod tests {
             scxctl: true,
             loader_service: true,
         };
-        let plan = Plan::build(&h, &c, &s);
+        let plan = Plan::build_with_owner(&h, &c, &s, &PowerProfileOwner::Booster);
         // Even when fully switchable, the scheduler stays falcond's.
         assert!(
             plan.changes
@@ -808,6 +802,139 @@ mod tests {
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::NotBeneficial { knob, detail } if knob.contains("sched-ext") && detail.contains("falcond owns")
         )));
+    }
+
+    #[test]
+    fn a_knob_measured_harmful_is_dropped_with_the_numbers() {
+        use crate::benchmark::calibration::Calibration;
+        use crate::benchmark::result::{ArmSummary, Comparison};
+
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let c = caps(true, true);
+        let s = snap(&[
+            (Knob::PowerProfile, Some("balanced")),
+            (Knob::CpuGovernor, Some("powersave")),
+            (
+                Knob::GpuDpmLevel {
+                    card: "card1".into(),
+                },
+                Some("auto"),
+            ),
+        ]);
+
+        // With no measurement, the knob is planned on hardware support alone.
+        let plain = Plan::build_calibrated(&h, &c, &s, None);
+        assert!(
+            plain
+                .changes
+                .iter()
+                .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
+            "without evidence the planner falls back to what the hardware supports"
+        );
+
+        // The real measurement from this machine: forcing DPM high was slower.
+        let mut calibration = Calibration::new("fp", "2026-09-23");
+        calibration.record(
+            "supertuxkart-gpu-bound",
+            &Comparison::new(
+                "avg_fps",
+                ArmSummary::new("baseline", vec![304.9, 287.7, 307.7, 293.1]).unwrap(),
+                ArmSummary::new("gpu_dpm_level", vec![280.4, 256.7, 281.6, 284.8]).unwrap(),
+            ),
+        );
+
+        let calibrated = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
+        assert!(
+            !calibrated
+                .changes
+                .iter()
+                .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
+            "a knob measured slower must not be applied"
+        );
+        let detail = calibrated
+            .skipped
+            .iter()
+            .find_map(|sk| match sk {
+                Skipped::MeasuredHarmful { knob, detail } if knob.contains("GPU") => Some(detail),
+                _ => None,
+            })
+            .expect("the skip must be reported with its evidence, not silently");
+        assert!(detail.contains("supertuxkart-gpu-bound"), "{detail}");
+        assert!(detail.contains("slower"), "{detail}");
+
+        // Knobs with no adverse measurement are untouched.
+        assert!(calibrated.changes.iter().any(|ch| ch.knob == Knob::CpuGovernor));
+    }
+
+    #[test]
+    fn a_knob_already_at_a_harmful_value_is_not_called_optimal() {
+        use crate::benchmark::calibration::Calibration;
+        use crate::benchmark::result::{ArmSummary, Comparison};
+
+        // The case that made this ordering matter. The machine is already at
+        // dpm=high, so the planner's first instinct is "already optimal" --
+        // which is the opposite of what was measured.
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let c = caps(true, true);
+        let s = snap(&[(
+            Knob::GpuDpmLevel {
+                card: "card1".into(),
+            },
+            Some("high"),
+        )]);
+
+        let uninformed = Plan::build_calibrated(&h, &c, &s, None);
+        assert!(uninformed.skipped.iter().any(|sk| matches!(
+            sk,
+            Skipped::AlreadyOptimal { knob, .. } if knob.contains("GPU")
+        )));
+
+        let mut calibration = Calibration::new("fp", "2026-09-23");
+        calibration.record(
+            "stk",
+            &Comparison::new(
+                "avg_fps",
+                ArmSummary::new("baseline", vec![304.9, 287.7, 307.7, 293.1]).unwrap(),
+                ArmSummary::new("gpu_dpm_level", vec![280.4, 256.7, 281.6, 284.8]).unwrap(),
+            ),
+        );
+        let informed = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
+        assert!(
+            !informed.skipped.iter().any(|sk| matches!(
+                sk,
+                Skipped::AlreadyOptimal { knob, .. } if knob.contains("GPU")
+            )),
+            "a value measured to be slower is not optimal just because it is set"
+        );
+        assert!(informed.skipped.iter().any(|sk| matches!(
+            sk,
+            Skipped::MeasuredHarmful { knob, .. } if knob.contains("GPU")
+        )));
+    }
+
+    #[test]
+    fn a_knob_measured_neutral_is_still_applied() {
+        use crate::benchmark::calibration::Calibration;
+        use crate::benchmark::result::{ArmSummary, Comparison};
+
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let c = caps(true, true);
+        let s = snap(&[(Knob::CpuGovernor, Some("powersave"))]);
+
+        let mut calibration = Calibration::new("fp", "2026-09-23");
+        calibration.record(
+            "stk",
+            &Comparison::new(
+                "avg_fps",
+                ArmSummary::new("baseline", vec![298.0, 300.0, 299.0]).unwrap(),
+                ArmSummary::new("cpu_governor", vec![301.0, 299.0, 302.0]).unwrap(),
+            ),
+        );
+
+        // Only a measured regression removes a knob. "No measurable
+        // difference" is not evidence of harm.
+        let plan = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
+        assert!(plan.changes.iter().any(|ch| ch.knob == Knob::CpuGovernor));
     }
 
     #[test]
@@ -852,7 +979,7 @@ mod tests {
     fn plan_serializes_for_the_journal() {
         let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
         let s = snap(&[(Knob::PowerProfile, Some("balanced"))]);
-        let plan = Plan::build(&h, &caps(true, true), &s);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
         let json = serde_json::to_string(&plan).unwrap();
         let back: Plan = serde_json::from_str(&json).unwrap();
         assert_eq!(back.changes.len(), plan.changes.len());

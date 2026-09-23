@@ -26,15 +26,6 @@ use anyhow::Result;
 use super::provider::{Availability, BenchmarkProvider, RunContext, RunOutcome, Source};
 use crate::games::{self, DetectedGame};
 
-/// How a title's built-in benchmark is reached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Entry {
-    /// A command-line flag starts it and the game exits when it finishes.
-    CommandLine(&'static str),
-    /// It is reached through the game's own menus.
-    Menu(&'static str),
-}
-
 /// A title this module knows something about.
 struct Known {
     /// Steam application id — the only identifier stable across languages,
@@ -42,8 +33,14 @@ struct Known {
     app_id: &'static str,
     /// Name for the user. The detected title is preferred when available.
     name: &'static str,
-    /// How its benchmark starts.
-    entry: Entry,
+    /// Where its benchmark is reached from.
+    ///
+    /// A plain string rather than an enum of entry points: every title found
+    /// here needs a person to start it, and inventing a `CommandLine` variant
+    /// nothing uses would be describing a capability this machine has not
+    /// actually got. When a title turns up that can be started unattended, the
+    /// distinction can be added along with it.
+    reached_by: &'static str,
     /// A library the game needs and does not bundle, if one is known missing.
     missing_library: Option<&'static str>,
 }
@@ -59,7 +56,7 @@ const KNOWN: &[Known] = &[
         // The Windows build under Proton. Its benchmark is thorough -- it
         // reports CPU and GPU frame rates separately -- but it is reached
         // through Options, and the game exposes no flag to start it.
-        entry: Entry::Menu("Options → Display → Run Benchmark"),
+        reached_by: "Options → Display → Run Benchmark",
         missing_library: None,
     },
     Known {
@@ -68,22 +65,35 @@ const KNOWN: &[Known] = &[
         // The Feral Linux port accepts -benchmark, but its launcher window
         // opens first and -nolauncher does not suppress it, so an unattended
         // run stops at a dialog nobody is there to dismiss.
-        entry: Entry::Menu("the Feral launcher, then Options → Benchmark"),
+        reached_by: "the Feral launcher, then Options → Benchmark",
         missing_library: None,
     },
     Known {
         app_id: "203160",
         name: "Tomb Raider (2013)",
-        entry: Entry::CommandLine("-benchmark"),
-        // The Feral port is a 64-bit binary whose bundled lib/ directory holds
-        // only 32-bit objects, and the Steam runtime does not supply the
-        // missing one either. It cannot start on a current system.
-        missing_library: Some("libicui18n.so.51"),
+        // The Feral port accepts -benchmark, but reaching it is not
+        // straightforward on a current system and was not achieved here.
+        //
+        // The native binary is 32-bit and bundles its dependencies in
+        // lib/i686, including the ICU libraries an earlier note wrongly
+        // recorded as missing. Launched inside the Steam scout runtime it gets
+        // as far as initialising -- but only with its own libcurl preloaded,
+        // because the runtime pins a libcurl lacking the CURL_OPENSSL_4
+        // version the binary needs. It then aborts with
+        // `basic_filebuf::underflow` reading some file, which was not
+        // identified.
+        //
+        // Separately, this Steam installation is configured to run the title
+        // through Proton (TombRaider.exe) rather than the native build, so the
+        // native path is not the one Steam would take anyway.
+        reached_by: "Steam, which runs it through Proton here; the native build's \
+             -benchmark path aborts during start-up for reasons not yet found",
+        missing_library: None,
     },
     Known {
         app_id: "1091500",
         name: "Cyberpunk 2077",
-        entry: Entry::Menu("Settings → Graphics → Run Benchmark"),
+        reached_by: "Settings → Graphics → Run Benchmark",
         missing_library: None,
     },
 ];
@@ -159,13 +169,11 @@ impl BenchmarkProvider for GameBenchmark {
                 "{library} is missing and the game does not bundle a usable copy"
             ));
         }
-        match self.known.entry {
-            Entry::Menu(where_) => Availability::NeedsManualStart(format!(
-                "its benchmark is reached through {where_}; frametimes can be \
-                 captured while it runs, but starting it cannot be automated"
-            )),
-            Entry::CommandLine(_) => Availability::Ready,
-        }
+        Availability::NeedsManualStart(format!(
+            "its benchmark is reached through {}; frametimes can be captured \
+             while it runs, but starting it cannot be automated",
+            self.known.reached_by
+        ))
     }
 
     fn run(&self, _ctx: &RunContext) -> Result<RunOutcome> {

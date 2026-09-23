@@ -94,7 +94,10 @@ fn main() -> anyhow::Result<()> {
             kernel: hw.kernel.clone(),
             runs: session.arms.get(&baseline).cloned().unwrap_or_default(),
         };
-        println!("## Against previous sessions\n\n{}\n", history.check(&entry).describe());
+        println!(
+            "## Against previous sessions\n\n{}\n",
+            history.check(&entry).describe()
+        );
         history.record(entry);
         history.save(&path)?;
     }

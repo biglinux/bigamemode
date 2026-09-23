@@ -139,7 +139,7 @@ deleted.
 | Shadow of the Tomb Raider | **Needs manual start** | Installed. Windows build under Proton; its benchmark is behind Options → Display and the game exposes no flag for it. |
 | Cyberpunk 2077 | **Needs manual start** | Installed. Benchmark behind Settings → Graphics. |
 | Rise of the Tomb Raider | **Needs manual start** | Installed. The Feral port accepts `-benchmark`, but its launcher window opens first and `-nolauncher` does not suppress it. |
-| Tomb Raider (2013) | **NOT TESTED** | Cannot start. The Feral port is a 64-bit binary whose bundled `lib/` holds only 32-bit objects; `libicui18n.so.51` is absent from the system too. |
+| Tomb Raider (2013) | **NOT TESTED** | See the correction below. Installed and launchable; the benchmark was not reached. |
 | Unigine Superposition | **NOT TESTED** | `/opt/unigine-superposition/bin` is `drwxr-x--- root root`. A packaging defect, not a hardware limit. |
 | vkmark, glmark2, Phoronix | **NOT TESTED** | Not installed; installing them needs a package-manager authentication this session could not complete. |
 | sched-ext arm | **NOT TESTED** | `scx_loader` is not running and `/sys/kernel/sched_ext/state` is `disabled`. Enabling it needs root, which was unavailable here; the daemon exposes no method for it. |
@@ -147,6 +147,38 @@ deleted.
 
 "Needs manual start" is reported distinctly from "unavailable" on purpose. The
 benchmarks are there and are good; what cannot be automated is the starting.
+
+### Correction: Tomb Raider (2013) was misdiagnosed
+
+An earlier revision of this document, and of `benchmark/games.rs`, recorded
+this title as unable to start because it was "a 64-bit binary whose bundled
+`lib/` holds only 32-bit objects" with `libicui18n.so.51` missing. Checked
+directly, **both halves of that are wrong**:
+
+- the native binary is `ELF 32-bit LSB`, so `lib/i686` is the matching
+  architecture, not a mismatch
+- `libicui18n.so.51` is present, in `lib/i686`, bundled by the game
+
+What actually happens: inside the Steam scout runtime the binary gets as far as
+initialising its crash reporter and caching a Steam ID, then aborts with
+`std::ios_base::failure: basic_filebuf::underflow error reading the file`. It
+reaches that point only when its own `libcurl.so.4` is preloaded, because the
+runtime pins a `libcurl` that lacks the `CURL_OPENSSL_4` version the binary
+requires. Which file it fails on was not identified; `strace` is not installed
+on this machine.
+
+Separately, this Steam installation is configured to launch the title **through
+Proton** (`TombRaider.exe`), not the native build — so the native path is not
+the one Steam would take. A Proton launch was started and reached
+pressure-vessel, but no game window appeared within the time it was given, GPU
+utilisation stayed at 11%, and it was stopped rather than left running.
+
+The install itself is intact: 16 583 266 183 bytes on disk, matching Steam's
+manifest byte for byte, with the main archives in `share/data/`.
+
+The lesson is the same one section 1 makes: a claim is worth what it was
+checked against. This one had been carried forward from an earlier session
+without being re-verified, and it was wrong.
 
 falcond was active throughout but inert: `ACTIVE_PROFILE: None`, and it has no
 profile matching SuperTuxKart. It was therefore not an uncontrolled variable.

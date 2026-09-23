@@ -12,7 +12,10 @@ fn main() {
     let hw = Hardware::detect();
 
     println!("== inventory ==");
-    println!("{}", serde_json::to_string_pretty(&inventory::build(&hw)).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&inventory::build(&hw)).unwrap_or_default()
+    );
 
     println!("\n== render GPU ==");
     match hw.render_gpu() {

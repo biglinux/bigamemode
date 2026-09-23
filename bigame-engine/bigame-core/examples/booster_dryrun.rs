@@ -10,7 +10,12 @@ fn main() {
         println!("  (nothing)");
     }
     for change in &plan.changes {
-        println!("  {} : {} -> {}", change.knob.title(), change.from, change.to);
+        println!(
+            "  {} : {} -> {}",
+            change.knob.title(),
+            change.from,
+            change.to
+        );
     }
 
     println!("\n== skipped ==");

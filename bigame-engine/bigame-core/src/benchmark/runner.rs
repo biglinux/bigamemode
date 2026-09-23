@@ -156,7 +156,10 @@ pub fn run_session(
     plan: &Plan,
     mut report: impl FnMut(Progress),
 ) -> Result<Outcome> {
-    anyhow::ensure!(!arms.is_empty(), "a session needs at least one configuration");
+    anyhow::ensure!(
+        !arms.is_empty(),
+        "a session needs at least one configuration"
+    );
     let availability = provider.availability();
     anyhow::ensure!(
         availability.is_ready(),
@@ -197,7 +200,11 @@ pub fn run_session(
                     arm: arm.name.clone(),
                     reason: reason.clone(),
                 });
-                outcome.failures.entry(arm.name.clone()).or_default().push(reason);
+                outcome
+                    .failures
+                    .entry(arm.name.clone())
+                    .or_default()
+                    .push(reason);
                 continue;
             }
             std::thread::sleep(plan.settle);
@@ -213,7 +220,11 @@ pub fn run_session(
                         arm: arm.name.clone(),
                         value,
                     });
-                    outcome.arms.entry(arm.name.clone()).or_default().push(value);
+                    outcome
+                        .arms
+                        .entry(arm.name.clone())
+                        .or_default()
+                        .push(value);
                 }
                 Ok(None) => {
                     let reason = "the run produced no comparable value".to_owned();
@@ -221,7 +232,11 @@ pub fn run_session(
                         arm: arm.name.clone(),
                         reason: reason.clone(),
                     });
-                    outcome.failures.entry(arm.name.clone()).or_default().push(reason);
+                    outcome
+                        .failures
+                        .entry(arm.name.clone())
+                        .or_default()
+                        .push(reason);
                 }
                 Err(error) => {
                     let reason = error.to_string();
@@ -229,7 +244,11 @@ pub fn run_session(
                         arm: arm.name.clone(),
                         reason: reason.clone(),
                     });
-                    outcome.failures.entry(arm.name.clone()).or_default().push(reason);
+                    outcome
+                        .failures
+                        .entry(arm.name.clone())
+                        .or_default()
+                        .push(reason);
                 }
             }
         }
@@ -327,15 +346,15 @@ mod tests {
         // One warm-up, then A B A B A B.
         let provider = Fake::ready(vec![
             Some(0.0), // warm-up, must not appear
-            Some(10.0), Some(20.0),
-            Some(11.0), Some(21.0),
-            Some(12.0), Some(22.0),
+            Some(10.0),
+            Some(20.0),
+            Some(11.0),
+            Some(21.0),
+            Some(12.0),
+            Some(22.0),
         ]);
         let order = RefCell::new(Vec::new());
-        let arms = vec![
-            Arm::new("a", || Ok(())),
-            Arm::new("b", || Ok(())),
-        ];
+        let arms = vec![Arm::new("a", || Ok(())), Arm::new("b", || Ok(()))];
         let outcome = run_session(&provider, &arms, &plan(&dir, 3), |p| {
             if let Progress::Starting { arm, .. } = p {
                 order.borrow_mut().push(arm);
@@ -356,9 +375,11 @@ mod tests {
     fn a_failed_run_is_recorded_not_dropped() {
         let dir = temp("failure");
         let provider = Fake::ready(vec![
-            Some(0.0),                 // warm-up
-            Some(10.0), None,          // run 1: b fails
-            Some(11.0), Some(21.0),    // run 2
+            Some(0.0), // warm-up
+            Some(10.0),
+            None, // run 1: b fails
+            Some(11.0),
+            Some(21.0), // run 2
         ]);
         let arms = vec![Arm::new("a", || Ok(())), Arm::new("b", || Ok(()))];
         let outcome = run_session(&provider, &arms, &plan(&dir, 2), |_| {}).unwrap();
@@ -376,14 +397,23 @@ mod tests {
     #[test]
     fn a_configuration_that_cannot_be_applied_is_not_credited_with_a_number() {
         let dir = temp("apply");
-        let provider = Fake::ready(vec![Some(0.0), Some(10.0), Some(99.0), Some(11.0), Some(99.0)]);
+        let provider = Fake::ready(vec![
+            Some(0.0),
+            Some(10.0),
+            Some(99.0),
+            Some(11.0),
+            Some(99.0),
+        ]);
         let arms = vec![
             Arm::new("a", || Ok(())),
             Arm::new("b", || anyhow::bail!("permission denied")),
         ];
         let outcome = run_session(&provider, &arms, &plan(&dir, 2), |_| {}).unwrap();
 
-        assert!(!outcome.arms.contains_key("b"), "b never ran, so it has no runs");
+        assert!(
+            !outcome.arms.contains_key("b"),
+            "b never ran, so it has no runs"
+        );
         assert_eq!(outcome.failures["b"].len(), 2);
         assert!(outcome.failures["b"][0].contains("permission denied"));
 
@@ -419,11 +449,16 @@ mod tests {
         run_session(&provider, &arms, &plan(&dir, 2), |_| {}).unwrap();
 
         assert_eq!(
-            std::fs::read_to_string(dir.join("solo/run-01/fps.txt")).unwrap().trim(),
+            std::fs::read_to_string(dir.join("solo/run-01/fps.txt"))
+                .unwrap()
+                .trim(),
             "10.0000"
         );
         assert!(dir.join("solo/run-02/fps.txt").is_file());
-        assert!(!dir.join(".warmup").exists(), "the warm-up directory is cleaned up");
+        assert!(
+            !dir.join(".warmup").exists(),
+            "the warm-up directory is cleaned up"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
