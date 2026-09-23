@@ -148,7 +148,10 @@ run_workload() {
 [ -n "$STK_ROOT" ] && [ -x "$STK_ROOT/bin/supertuxkart" ] || die "SuperTuxKart was not found"
 
 STAMP=$(date +%Y-%m-%d)
-OUT="$OUT_ROOT/$STAMP-supertuxkart"
+# LABEL distinguishes sessions of the same workload on the same day -- a
+# CPU-bound configuration and a GPU-bound one are different experiments and
+# must not overwrite each other's evidence.
+OUT="$OUT_ROOT/$STAMP-supertuxkart${LABEL:+-$LABEL}"
 mkdir -p "$OUT"
 log "render GPU: $CARD    workload: $STK_ROOT    output: $OUT"
 
