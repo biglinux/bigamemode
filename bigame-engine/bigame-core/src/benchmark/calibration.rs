@@ -128,7 +128,10 @@ impl Calibration {
     /// Knobs measurement showed to help, worst-first by nothing in particular.
     #[must_use]
     pub fn beneficial(&self) -> Vec<&KnobFinding> {
-        self.findings.values().filter(|f| f.should_apply()).collect()
+        self.findings
+            .values()
+            .filter(|f| f.should_apply())
+            .collect()
     }
 
     /// Knobs measurement showed to hurt. These must not be applied.
@@ -162,8 +165,8 @@ impl Calibration {
         let Ok(text) = std::fs::read_to_string(path) else {
             return Ok(None);
         };
-        let calibration: Self = serde_json::from_str(&text)
-            .with_context(|| format!("parse {}", path.display()))?;
+        let calibration: Self =
+            serde_json::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
         Ok(calibration.applies_to(fingerprint).then_some(calibration))
     }
 
@@ -214,9 +217,18 @@ mod tests {
     #[test]
     fn only_a_measured_improvement_earns_application() {
         let mut c = Calibration::new("abc", "2026-09-23");
-        c.record("stk", &comparison("helps", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]));
-        c.record("stk", &comparison("hurts", &[520.0, 524.0, 518.0], &[400.0, 402.0, 398.0]));
-        c.record("stk", &comparison("neutral", &[400.0, 402.0, 398.0], &[401.0, 399.0, 402.0]));
+        c.record(
+            "stk",
+            &comparison("helps", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]),
+        );
+        c.record(
+            "stk",
+            &comparison("hurts", &[520.0, 524.0, 518.0], &[400.0, 402.0, 398.0]),
+        );
+        c.record(
+            "stk",
+            &comparison("neutral", &[400.0, 402.0, 398.0], &[401.0, 399.0, 402.0]),
+        );
 
         assert!(c.finding("helps").unwrap().should_apply());
         assert!(!c.finding("hurts").unwrap().should_apply());
@@ -249,7 +261,10 @@ mod tests {
         let path = dir.join("calibration.json");
 
         let mut c = Calibration::new("machine-one", "2026-09-23");
-        c.record("stk", &comparison("gpu", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]));
+        c.record(
+            "stk",
+            &comparison("gpu", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]),
+        );
         c.save(&path).unwrap();
 
         // Same machine: the calibration comes back.
@@ -282,10 +297,16 @@ mod tests {
     #[test]
     fn re_measuring_a_knob_replaces_the_old_finding() {
         let mut c = Calibration::new("abc", "2026-09-23");
-        c.record("stk", &comparison("gpu", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]));
+        c.record(
+            "stk",
+            &comparison("gpu", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]),
+        );
         assert!(c.finding("gpu").unwrap().should_apply());
         // A driver update reverses the result; the new measurement wins.
-        c.record("stk", &comparison("gpu", &[520.0, 524.0, 518.0], &[400.0, 402.0, 398.0]));
+        c.record(
+            "stk",
+            &comparison("gpu", &[520.0, 524.0, 518.0], &[400.0, 402.0, 398.0]),
+        );
         assert!(c.finding("gpu").unwrap().is_harmful());
         assert_eq!(c.findings.len(), 1, "the knob is replaced, not duplicated");
     }
@@ -295,9 +316,18 @@ mod tests {
         let mut c = Calibration::new("abc", "2026-09-23");
         assert!(c.describe().contains("No knob has been measured"));
 
-        c.record("stk", &comparison("helps", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]));
-        c.record("stk", &comparison("hurts", &[520.0, 524.0, 518.0], &[400.0, 402.0, 398.0]));
-        c.record("stk", &comparison("neutral", &[400.0, 402.0, 398.0], &[401.0, 399.0, 402.0]));
+        c.record(
+            "stk",
+            &comparison("helps", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]),
+        );
+        c.record(
+            "stk",
+            &comparison("hurts", &[520.0, 524.0, 518.0], &[400.0, 402.0, 398.0]),
+        );
+        c.record(
+            "stk",
+            &comparison("neutral", &[400.0, 402.0, 398.0], &[401.0, 399.0, 402.0]),
+        );
         let text = c.describe();
         assert!(text.contains("1 helped"), "{text}");
         assert!(text.contains("1 hurt"), "{text}");
@@ -307,7 +337,10 @@ mod tests {
     #[test]
     fn a_calibration_round_trips() {
         let mut c = Calibration::new("abc", "2026-09-23");
-        c.record("stk", &comparison("gpu", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]));
+        c.record(
+            "stk",
+            &comparison("gpu", &[400.0, 402.0, 398.0], &[520.0, 524.0, 518.0]),
+        );
         let text = serde_json::to_string(&c).unwrap();
         let back: Calibration = serde_json::from_str(&text).unwrap();
         assert_eq!(back.fingerprint, "abc");

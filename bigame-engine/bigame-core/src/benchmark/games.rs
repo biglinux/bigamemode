@@ -215,7 +215,10 @@ mod tests {
         assert!(!availability.is_ready());
         let reason = availability.reason().unwrap();
         assert!(reason.contains("not installed"));
-        assert!(reason.contains(KNOWN[0].app_id), "the id lets a user find it");
+        assert!(
+            reason.contains(KNOWN[0].app_id),
+            "the id lets a user find it"
+        );
     }
 
     #[test]
