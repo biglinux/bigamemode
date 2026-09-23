@@ -39,3 +39,11 @@ Thumbs.db
 
 # Temporary
 /tmp/
+
+# SuperTuxKart's per-frame, 42-stage render profile. Roughly 4 MB per run and
+# 90 MB per benchmark session -- 98% of what a benchmark directory weighs. A
+# fresh run leaves it beside the other artifacts, where it is useful to anyone
+# chasing a particular render stage; it is simply never committed. The summary,
+# the frame counts and the GPU telemetry are what the findings rest on, and
+# those come to under 2 MB per session.
+benchmarks/**/stdout.log.profile-*.csv
