@@ -53,10 +53,88 @@ const PROBE_DOMAINS: &[&str] = &[
 #[must_use]
 pub fn build() -> gtk4::Widget {
     let page = adw::PreferencesPage::new();
+    page.add(&background_group());
     page.add(&steam_group());
     page.add(&network_group());
     page.add(&report_group());
     page.upcast()
+}
+
+// ── Background load ─────────────────────────────────────────────────────────
+
+/// What else is using the CPU right now.
+///
+/// This lists and explains; it does not act. The mechanism for deprioritising
+/// a process you own is easy — the hard part is being right about *which* one.
+/// A compile left running deliberately, a video export someone is waiting on,
+/// a browser playing the music they are listening to: each looks identical to
+/// "background load" from `/proc`, and quietly slowing any of them down is a
+/// worse outcome than a few lost frames.
+///
+/// So the user decides. Anything automatic here would have to be opt-in per
+/// application and carry the same snapshot-and-restore discipline as every
+/// other change this project makes.
+fn background_group() -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Background load"));
+    group.set_description(Some(&i18n(
+        "Programs of yours using noticeable CPU. Closing or pausing them frees \
+         it for a game — but only you know which ones you are actually using.",
+    )));
+
+    let placeholder = adw::ActionRow::builder()
+        .title(i18n("Measuring…"))
+        .sensitive(false)
+        .build();
+    group.add(&placeholder);
+
+    {
+        let group = group.clone();
+        let placeholder = placeholder.clone();
+        glib::spawn_future_local(async move {
+            // Sampling needs two readings a second or so apart — cumulative
+            // CPU time from one reading says nothing about the present.
+            let busy = gio::spawn_blocking(|| {
+                bigame_core::processes::busy_processes(Duration::from_secs(2))
+            })
+            .await
+            .unwrap_or_default();
+
+            group.remove(&placeholder);
+            if busy.is_empty() {
+                let row = adw::ActionRow::builder()
+                    .title(i18n("Nothing competing for the CPU"))
+                    .subtitle(i18n("No program of yours is using a noticeable share."))
+                    .build();
+                row.add_prefix(&status_icon(true));
+                group.add(&row);
+                return;
+            }
+
+            for process in busy {
+                let row = adw::ActionRow::builder()
+                    .title(&process.name)
+                    .subtitle(format!(
+                        "{:.0}% {} · {} MiB · {}",
+                        process.cpu_percent,
+                        i18n("of one CPU"),
+                        process.memory_mib,
+                        process.kind.describe()
+                    ))
+                    .build();
+                row.add_prefix(&gtk4::Image::from_icon_name(match process.kind {
+                    bigame_core::processes::Kind::Browser => "web-browser-symbolic",
+                    bigame_core::processes::Kind::Gaming => "applications-games-symbolic",
+                    bigame_core::processes::Kind::Media => "video-x-generic-symbolic",
+                    bigame_core::processes::Kind::Virtualisation => "computer-symbolic",
+                    _ => "system-run-symbolic",
+                }));
+                group.add(&row);
+            }
+        });
+    }
+
+    group
 }
 
 // ── Steam launch options ────────────────────────────────────────────────────

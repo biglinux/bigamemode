@@ -18,6 +18,7 @@ pub mod launcher;
 pub mod models;
 pub mod network;
 pub mod polkit;
+pub mod processes;
 pub mod profiles;
 pub mod sched;
 pub mod status;
