@@ -5,6 +5,7 @@
 //! a later step.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -123,7 +124,7 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
     let mut content = String::from("# Managed by BiGameMode. Do not edit manually.\n");
     for k in keys {
         // environment.d is KEY=VALUE per line, no quoting required for our values.
-        content.push_str(&format!("{}={}\n", k, env[k]));
+        let _ = writeln!(content, "{}={}", k, env[k]);
     }
     std::fs::write(&path, content)
         .with_context(|| format!("write env file: {}", path.display()))?;

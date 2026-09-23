@@ -3,10 +3,10 @@
 use anyhow::{Context, Result};
 use tokio::fs;
 
-/// Set the CPU frequency governor for all online cores via DBus.
+/// Set the CPU frequency governor for all online cores via `DBus`.
 ///
 /// # Errors
-/// Returns error if the governor name is invalid or DBus fails.
+/// Returns error if the governor name is invalid or `DBus` fails.
 pub async fn set(governor: &str) -> Result<()> {
     // Strict validation: [a-zA-Z0-9_] only — prevents injection.
     anyhow::ensure!(

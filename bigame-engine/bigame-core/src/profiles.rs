@@ -1,5 +1,6 @@
 //! falcond game profile management (CRUD + sync).
 
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -12,6 +13,11 @@ pub const SYSTEM_PROFILES_DIR: &str = "/usr/share/falcond/profiles";
 pub const USER_PROFILES_DIR: &str = "/usr/share/falcond/profiles/user";
 
 /// A falcond game profile.
+///
+/// Mirrors falcond's own on-disk shape, which is a flat list of independent
+/// switches. Restructuring it here would only make the round trip harder to
+/// verify against the file falcond actually reads.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameProfile {
     /// Executable/process name to match.
@@ -231,7 +237,7 @@ pub fn list_names() -> Vec<String> {
 
 /// Load a profile by name. Checks user dir first, then system.
 ///
-/// Supports both TOML (quoted strings) and otter_conf (bare identifiers) formats.
+/// Supports both TOML (quoted strings) and `otter_conf` (bare identifiers) formats.
 ///
 /// # Errors
 /// Returns error if file is unreadable or unparseable.
@@ -247,7 +253,7 @@ pub fn load(name: &str) -> Result<GameProfile> {
     Ok(parse_profile_otter_conf(&content))
 }
 
-/// Parse a profile from otter_conf format (bare identifiers for enums).
+/// Parse a profile from `otter_conf` format (bare identifiers for enums).
 fn parse_profile_otter_conf(content: &str) -> GameProfile {
     let mut p = GameProfile::default();
     for line in content.lines() {
@@ -308,74 +314,76 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
     p
 }
 
-/// Serialize a game profile to otter_conf format (bare identifiers for enums).
+/// Serialize a game profile to `otter_conf` format (bare identifiers for enums).
 ///
 /// Only emits fields that falcond's `UserProfileConfig` / `ProfileConfig` understand.
 /// Extra UI-only fields (`enabled`, `scx_custom_flags`, `fg_*`, `gamescope`) are
-/// appended with quotes so otter_conf skips them (unknown fields are ignored).
+/// appended with quotes so `otter_conf` skips them (unknown fields are ignored).
 fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let mut out = String::new();
     // name: always a quoted string
-    out.push_str(&format!("name = \"{}\"\n", profile.name));
+    let _ = writeln!(out, "name = \"{}\"", profile.name);
     // Booleans: bare
-    out.push_str(&format!(
-        "performance_mode = {}\n",
-        profile.performance_mode
-    ));
+    let _ = writeln!(out, "performance_mode = {}", profile.performance_mode);
     // Enums: bare identifiers (no quotes!)
-    out.push_str(&format!("scx_sched = {}\n", profile.scx_sched));
-    out.push_str(&format!("scx_sched_props = {}\n", profile.scx_sched_props));
-    out.push_str(&format!("vcache_mode = {}\n", profile.vcache_mode));
-    out.push_str(&format!("idle_inhibit = {}\n", profile.idle_inhibit));
+    let _ = writeln!(out, "scx_sched = {}", profile.scx_sched);
+    let _ = writeln!(out, "scx_sched_props = {}", profile.scx_sched_props);
+    let _ = writeln!(out, "vcache_mode = {}", profile.vcache_mode);
+    let _ = writeln!(out, "idle_inhibit = {}", profile.idle_inhibit);
     // Strings: quoted
     if let Some(ref s) = profile.start_script {
         if !s.is_empty() {
-            out.push_str(&format!("start_script = \"{s}\"\n"));
+            let _ = writeln!(out, "start_script = \"{s}\"");
         }
     }
     if let Some(ref s) = profile.stop_script {
         if !s.is_empty() {
-            out.push_str(&format!("stop_script = \"{s}\"\n"));
+            let _ = writeln!(out, "stop_script = \"{s}\"");
         }
     }
     if !profile.cpu_governor.is_empty() {
-        out.push_str(&format!("cpu_governor = \"{}\"\n", profile.cpu_governor));
+        let _ = writeln!(out, "cpu_governor = \"{}\"", profile.cpu_governor);
     }
     // UI-only fields (otter_conf ignores unknown keys via skipValue)
-    out.push_str(&format!(
-        "scx_custom_flags = \"{}\"\n",
-        profile.scx_custom_flags
-    ));
-    out.push_str(&format!("enabled = {}\n", profile.enabled));
-    out.push_str(&format!("fg_multiplier = {}\n", profile.fg_multiplier));
-    out.push_str(&format!("fg_flow_scale = {}\n", profile.fg_flow_scale));
-    out.push_str(&format!("fg_perf_mode = {}\n", profile.fg_perf_mode));
-    out.push_str(&format!("fg_quality = {}\n", profile.fg_quality));
+    let _ = writeln!(out, "scx_custom_flags = \"{}\"", profile.scx_custom_flags);
+    let _ = writeln!(out, "enabled = {}", profile.enabled);
+    let _ = writeln!(out, "fg_multiplier = {}", profile.fg_multiplier);
+    let _ = writeln!(out, "fg_flow_scale = {}", profile.fg_flow_scale);
+    let _ = writeln!(out, "fg_perf_mode = {}", profile.fg_perf_mode);
+    let _ = writeln!(out, "fg_quality = {}", profile.fg_quality);
     if let Some(ref s) = profile.fg_dll_path {
-        out.push_str(&format!("fg_dll_path = \"{s}\"\n"));
+        let _ = writeln!(out, "fg_dll_path = \"{s}\"");
     }
-    out.push_str(&format!("fg_hdr = {}\n", profile.fg_hdr));
-    out.push_str(&format!("fg_present_mode = {}\n", profile.fg_present_mode));
-    out.push_str(&format!(
-        "gamescope_mode = \"{}\"\n",
+    let _ = writeln!(out, "fg_hdr = {}", profile.fg_hdr);
+    let _ = writeln!(out, "fg_present_mode = {}", profile.fg_present_mode);
+    let _ = writeln!(
+        out,
+        "gamescope_mode = \"{}\"",
         match profile.gamescope_mode {
             crate::gamescope::Mode::Auto => "auto",
             crate::gamescope::Mode::Enabled => "enabled",
             crate::gamescope::Mode::Disabled => "disabled",
         }
-    ));
+    );
     // Unrecognised keys, written back exactly as they were read.
     for (key, value) in &profile.extra {
-        out.push_str(&format!("{key} = {value}\n"));
+        let _ = writeln!(out, "{key} = {value}");
     }
     out
 }
 
-/// Save a profile to the user directory via DBus.
+/// Save a profile to the user directory via D-Bus.
+///
+/// Synchronous on purpose. It was `async` while containing no `await` — it uses
+/// the blocking proxy throughout — and that mismatch caused a real bug: a call
+/// site wrote `let _ = profiles::delete(&name)` inside a blocking closure,
+/// which built a future and dropped it. The button reported "Profile deleted"
+/// and nothing was deleted. A function that cannot suspend should not claim it
+/// might.
 ///
 /// # Errors
-/// Returns error if serialization or DBus call fails.
-pub async fn save(profile: &GameProfile) -> Result<()> {
+/// Returns an error if serialization or the D-Bus call fails.
+pub fn save(profile: &GameProfile) -> Result<()> {
     let content = serialize_profile_otter_conf(profile);
 
     // Use blocking proxy to avoid requiring a Tokio reactor in GTK main-thread flows.
@@ -409,11 +417,13 @@ pub async fn save(profile: &GameProfile) -> Result<()> {
     Ok(())
 }
 
-/// Delete a user profile by name via DBus.
+/// Delete a user profile by name via D-Bus.
+///
+/// Synchronous for the same reason as [`save`].
 ///
 /// # Errors
-/// Returns error if the file doesn't exist or DBus fails.
-pub async fn delete(name: &str) -> Result<()> {
+/// Returns an error if the profile does not exist or the D-Bus call fails.
+pub fn delete(name: &str) -> Result<()> {
     let path = user_path(name);
     anyhow::ensure!(path.exists(), "profile not found: {}", path.display());
 
@@ -474,14 +484,14 @@ pub fn export(name: &str, dest: &Path) -> Result<()> {
 /// Import a profile from a local TOML file into the user profiles directory.
 ///
 /// # Errors
-/// Returns error if the file is unreadable, contains invalid TOML, or DBus write fails.
-pub async fn import(src: &Path) -> Result<String> {
+/// Returns error if the file is unreadable, contains invalid TOML, or `DBus` write fails.
+pub fn import(src: &Path) -> Result<String> {
     let content =
         std::fs::read_to_string(src).with_context(|| format!("read import: {}", src.display()))?;
     let profile: GameProfile = toml::from_str(&content).context("parse imported profile TOML")?;
     anyhow::ensure!(!profile.name.is_empty(), "imported profile has no name");
     let name = profile.name.clone();
-    save(&profile).await?;
+    save(&profile)?;
     Ok(name)
 }
 

@@ -130,7 +130,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                 if let Ok(file) = result {
                     if let Some(path) = file.path() {
                         gtk4::glib::spawn_future_local(async move {
-                            match bigame_core::profiles::import(&path).await {
+                            match bigame_core::profiles::import(&path) {
                                 Ok(name) => {
                                     toast::show(&btn_ref, &i18n("Profile imported"));
                                     refresh_profile_list(&lb_ref, &nav_ref);
@@ -167,15 +167,12 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let nav_ref = nav.clone();
             let target_ref = target.clone();
             gtk4::glib::spawn_future_local(async move {
-                match bigame_core::profiles::import(&path).await {
-                    Ok(name) => {
-                        crate::views::profiles::refresh_profile_list(&list_box_ref, &nav_ref);
-                        if let Some(widget) = target_ref.widget() {
-                            toast::show(&widget, &i18n("Profile imported via drag-and-drop"));
-                        }
-                        nav_ref.push(&build_detail_page(&name));
+                if let Ok(name) = bigame_core::profiles::import(&path) {
+                    crate::views::profiles::refresh_profile_list(&list_box_ref, &nav_ref);
+                    if let Some(widget) = target_ref.widget() {
+                        toast::show(&widget, &i18n("Profile imported via drag-and-drop"));
                     }
-                    Err(_) => {}
+                    nav_ref.push(&build_detail_page(&name));
                 }
             });
             true
@@ -204,7 +201,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
 /// `None` simply leaves the default clamp in place, which is a narrower grid
 /// rather than a broken one.
 fn find_clamp(widget: &gtk4::Widget) -> Option<adw::Clamp> {
-    if let Some(clamp) = widget.clone().downcast::<adw::Clamp>().ok() {
+    if let Ok(clamp) = widget.clone().downcast::<adw::Clamp>() {
         return Some(clamp);
     }
     let mut child = widget.first_child();
@@ -509,7 +506,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     let fg_multiplier = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
-            f64::from(profile.fg_multiplier).max(1.0).min(20.0),
+            f64::from(profile.fg_multiplier).clamp(1.0, 20.0),
             1.0,
             20.0,
             1.0,
@@ -524,7 +521,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     let fg_flow_scale = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
-            f64::from(profile.fg_flow_scale).max(25.0).min(100.0),
+            f64::from(profile.fg_flow_scale).clamp(25.0, 100.0),
             25.0,
             100.0,
             1.0,
@@ -617,7 +614,7 @@ struct PerfWidgets {
     fg_flow_scale: adw::SpinRow,
     fg_perf_mode: adw::SwitchRow,
     fg_hdr: adw::SwitchRow,
-    /// Held to maintain GObject lifetime of the ComboRow model.
+    /// Held to maintain `GObject` lifetime of the `ComboRow` model.
     #[allow(dead_code)]
     fg_present_model: gtk4::StringList,
     fg_present_mode: adw::ComboRow,
@@ -740,7 +737,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         btn.set_label(&i18n("Saving…"));
         let btn_ref = btn.clone();
         glib::spawn_future_local(async move {
-            let _ = bigame_core::profiles::save(&profile_clone).await;
+            let _ = bigame_core::profiles::save(&profile_clone);
             toast::show(&btn_ref, &i18n("Profile saved"));
             glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
                 btn_ref.set_sensitive(true);
@@ -818,11 +815,30 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
             let btn_ref = btn.clone();
             dialog.connect_response(None, move |_dlg, response| {
                 if response == "delete" {
+                    // Report what happened, not what was attempted. This used
+                    // to show "Profile deleted" and then drop the future that
+                    // would have done the deleting.
                     let n = name.clone();
                     btn_ref.set_sensitive(false);
-                    toast::show(&btn_ref, &i18n("Profile deleted"));
-                    gio::spawn_blocking(move || {
-                        let _ = bigame_core::profiles::delete(&n);
+                    let feedback = btn_ref.clone();
+                    glib::spawn_future_local(async move {
+                        let result =
+                            gio::spawn_blocking(move || bigame_core::profiles::delete(&n)).await;
+                        match result {
+                            Ok(Ok(())) => toast::show(&feedback, &i18n("Profile deleted")),
+                            Ok(Err(e)) => {
+                                feedback.set_sensitive(true);
+                                toast::show(
+                                    &feedback,
+                                    &i18n("Could not delete profile: %s")
+                                        .replace("%s", &e.to_string()),
+                                );
+                            }
+                            Err(_) => {
+                                feedback.set_sensitive(true);
+                                toast::show(&feedback, &i18n("Could not delete profile"));
+                            }
+                        }
                     });
                 }
             });
@@ -949,7 +965,7 @@ fn build_library() -> Vec<game_card::Entry> {
 /// false positive costs a tooltip and a false negative costs nothing that was
 /// not already broken.
 fn looks_like_a_process_name(name: &str) -> bool {
-    !(name.contains(' ') && !name.contains('.'))
+    !name.contains(' ') || name.contains('.')
 }
 
 /// Overflow menu for one card.
@@ -1010,7 +1026,7 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
                 let key = key.clone();
                 let anchor = anchor_inner.clone();
                 glib::spawn_future_local(async move {
-                    match bigame_core::profiles::delete(&key).await {
+                    match bigame_core::profiles::delete(&key) {
                         Ok(()) => toast::show(&anchor, &i18n("Profile deleted")),
                         Err(e) => toast::show(
                             &anchor,
@@ -1027,7 +1043,7 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     let popover = gtk4::PopoverMenu::from_model(Some(&menu));
     popover.set_parent(anchor);
     popover.insert_action_group("card", Some(&group));
-    popover.connect_closed(|p| p.unparent());
+    popover.connect_closed(gtk4::prelude::WidgetExt::unparent);
     popover.popup();
 }
 

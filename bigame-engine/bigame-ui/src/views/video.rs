@@ -6,7 +6,7 @@
 //!
 //! Layout:
 //! - `AdwExpanderRow` "Spatial Upscaling" (Gamescope filter, Wine FSR, vkBasalt)
-//! - `AdwExpanderRow` "Frame Generation" (OptiScaler, AFMF, lsfg-vk)
+//! - `AdwExpanderRow` "Frame Generation" (`OptiScaler`, AFMF, lsfg-vk)
 
 use adw::prelude::*;
 use libadwaita as adw;
@@ -120,25 +120,25 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
 
     // ── Wine/Proton FSR ──────────────────────────────────────────────────────
     // ── Render resolution (game draws at this res, 0 = game native) ─────────
-    let base_w_spin = make_res_spinbutton(cfg.upscaling.base_width, 7680);
-    let base_h_spin = make_res_spinbutton(cfg.upscaling.base_height, 4320);
+    let render_width = make_res_spinbutton(cfg.upscaling.base_width, 7680);
+    let render_height = make_res_spinbutton(cfg.upscaling.base_height, 4320);
     let base_res_row = make_resolution_row(
         &i18n("Render Resolution (Base)"),
         &i18n("Game render resolution (-w/-h). 0 = use game native."),
-        &base_w_spin,
-        &base_h_spin,
+        &render_width,
+        &render_height,
         cfg.upscaling.gamescope_enabled,
     );
     expander.add_row(&base_res_row);
 
     // ── Output resolution (upscaled to this, 0 = same as base) ──────────────
-    let target_w_spin = make_res_spinbutton(cfg.upscaling.target_width, 7680);
-    let target_h_spin = make_res_spinbutton(cfg.upscaling.target_height, 4320);
+    let output_width = make_res_spinbutton(cfg.upscaling.target_width, 7680);
+    let output_height = make_res_spinbutton(cfg.upscaling.target_height, 4320);
     let target_res_row = make_resolution_row(
         &i18n("Output Resolution (Target)"),
         &i18n("Display output resolution (-W/-H). 0 = same as render."),
-        &target_w_spin,
-        &target_h_spin,
+        &output_width,
+        &output_height,
         cfg.upscaling.gamescope_enabled,
     );
     expander.add_row(&target_res_row);
@@ -211,24 +211,24 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     });
 
     // Base resolution signal handlers
-    base_w_spin.connect_value_changed(|spin| {
+    render_width.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.base_width = v);
     });
-    base_h_spin.connect_value_changed(|spin| {
+    render_height.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.base_height = v);
     });
 
     // Target resolution signal handlers
-    target_w_spin.connect_value_changed(|spin| {
+    output_width.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.target_width = v);
     });
-    target_h_spin.connect_value_changed(|spin| {
+    output_height.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.target_height = v);
@@ -573,7 +573,7 @@ fn save_framegen(f: impl FnOnce(&mut bigame_core::models::FrameGenSettings)) {
 
 // ── Resolution input helpers ──────────────────────────────────────────────────
 
-/// Build a `SpinButton` clamped to [0, max_val] for resolution inputs.
+/// Build a `SpinButton` clamped to [0, `max_val`] for resolution inputs.
 /// Value 0 = "use game native / auto".
 fn make_res_spinbutton(current: u32, max_val: u32) -> gtk4::SpinButton {
     let adj = gtk4::Adjustment::new(f64::from(current), 0.0, f64::from(max_val), 1.0, 10.0, 0.0);

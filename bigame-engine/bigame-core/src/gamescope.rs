@@ -125,7 +125,7 @@ impl Decision {
 ///
 /// `Auto` says yes only when the configuration asks for something Gamescope is
 /// the right tool for: upscaling, a non-default filter, a frame-rate target,
-/// HDR, VRR, or the MangoHud overlay through `--mangoapp`. Everything else is
+/// HDR, VRR, or the `MangoHud` overlay through `--mangoapp`. Everything else is
 /// left unwrapped, because a compositor that changes nothing is pure cost.
 ///
 /// `Enabled` still checks that Gamescope is installed and that there is a

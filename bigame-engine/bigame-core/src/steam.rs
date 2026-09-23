@@ -1,7 +1,7 @@
 //! Steam per-game launch options.
 //!
 //! Audit finding LNCH-02: the launch pipeline returned early for
-//! `steam -applaunch`, so everything it builds — Gamescope, MangoHud, the
+//! `steam -applaunch`, so everything it builds — Gamescope, `MangoHud`, the
 //! upscaling and frame-generation variables — was inert in the way most people
 //! actually start games. Compensating through `environment.d` only covered
 //! environment variables, never Gamescope, and only after a re-login.
@@ -223,15 +223,12 @@ pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()
         });
         let indent = "\t".repeat(app_depth);
         let line = format!("{indent}\"LaunchOptions\"\t\t\"{value}\"");
-        match existing {
-            Some(i) => {
-                lines[i] = line;
-                i
-            }
-            None => {
-                lines.insert(from, line);
-                from
-            }
+        if let Some(i) = existing {
+            lines[i] = line;
+            i
+        } else {
+            lines.insert(from, line);
+            from
         }
     };
     tracing::debug!(target: "launch", app_id, line = updated, "rewrote LaunchOptions");
@@ -271,7 +268,7 @@ fn write_atomic(path: &Path, content: &[u8]) -> Result<()> {
 /// A launch-options string that names a program which is not installed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrokenLaunchOption {
-    /// Steam AppID.
+    /// Steam `AppID`.
     pub app_id: String,
     /// The stored launch options.
     pub options: String,
@@ -291,7 +288,7 @@ const WRAPPERS: &[&str] = &[
 /// Find launch options that invoke a program this system does not have.
 ///
 /// This is not hypothetical. On the reference machine several titles carry
-/// `gamemoderun %command%` while Feral GameMode is not installed — Steam runs
+/// `gamemoderun %command%` while Feral `GameMode` is not installed — Steam runs
 /// the string through a shell, the wrapper is not found, and the game does not
 /// start. Nothing in Steam's UI says why.
 #[must_use]

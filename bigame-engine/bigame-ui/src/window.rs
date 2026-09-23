@@ -19,6 +19,11 @@ use crate::widgets;
 ///
 /// On narrow screens the split view collapses to show one pane at a time.
 #[allow(clippy::too_many_lines)]
+// The error indicator is shared with the application's status timer, which
+// runs on the GTK main loop. `Arc` rather than `Rc` because the tuple crosses
+// an API boundary; GTK widgets are not `Send`, so this never leaves the main
+// thread in practice.
+#[allow(clippy::arc_with_non_send_sync)]
 pub fn build(
     app: &adw::Application,
 ) -> (

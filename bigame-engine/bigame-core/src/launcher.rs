@@ -1,12 +1,14 @@
-//! Game launch orchestration: gamescope wrapping, env var injection, OptiScaler staging.
+//! Game launch orchestration: gamescope wrapping, env var injection, `OptiScaler` staging.
 //!
 //! Merges per-game `gamescope::Config` (profile) with global `VideoConfig` (video settings)
 //! into a single `LaunchPlan` ready to `spawn()`.
 //!
-//! Priority (highest → lowest):
-//! - `VideoConfig.upscaling.gamescope_filter` (new UIspecific to each filter)
-//! - Per-game `gamescope::Config` resolution / framerate / mangohud
-//! - `VideoConfig.upscaling.base_*/target_*` resolution (falls back when profile has none)
+//! Priority, highest first:
+//!
+//! 1. The globally selected upscaling filter.
+//! 2. The per-game `gamescope::Config`: resolution, frame limit, overlay.
+//! 3. `VideoConfig.upscaling` base/target resolution, used when the profile
+//!    specifies none of its own.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -140,7 +142,7 @@ impl LaunchPlan {
     /// Build a launch plan for `executable`.
     ///
     /// `video` is the global video config. `gs_override` is the per-game gamescope
-    /// profile (resolution, framerate limit, MangoHud toggle); it is merged with the
+    /// profile (resolution, framerate limit, `MangoHud` toggle); it is merged with the
     /// global upscaling filter chosen in `video`.
     #[must_use]
     pub fn build(
@@ -226,10 +228,13 @@ impl LaunchPlan {
 
     /// Emit structured warnings for any known frame generation conflicts.
     ///
-    /// Conflicts occur when two frame generation technologies are active simultaneously:
-    /// - OptiScaler/AFMF generates frames at the game render level
-    /// - lsfg-vk generates frames at the Vulkan present level
-    /// Running both causes doubled/corrupted frames. Users must disable one.
+    /// Two frame generators in series produce doubled and corrupted frames,
+    /// not more frames:
+    ///
+    /// - `OptiScaler`/AFMF generate at the game's render level;
+    /// - lsfg-vk generates at the Vulkan present level.
+    ///
+    /// One of the two has to be disabled.
     fn check_and_warn_conflicts(executable: &str, video: &VideoConfig) {
         if !video.frame_gen.enabled {
             return;
@@ -438,7 +443,7 @@ fn build_gamescope_argv(
 
 /// Build the full set of persistent video-related environment variables for the
 /// given configuration. Intended for writing into systemd user environment.d so
-/// vars reach Steam-launched game processes that bypass our spawn().
+/// vars reach Steam-launched game processes that bypass our `spawn()`.
 #[must_use]
 pub fn build_persistent_env(video: &crate::video_config::VideoConfig) -> HashMap<String, String> {
     let mut env = HashMap::new();
@@ -491,7 +496,7 @@ fn collect_framegen_env(fg: &FrameGenSettings, env: &mut HashMap<String, String>
 
 // ── OptiScaler DLL staging ─────────────────────────────────────────────────────
 
-/// Copy OptiScaler DLLs from `source_dir` into `game_dir`.
+/// Copy `OptiScaler` DLLs from `source_dir` into `game_dir`.
 ///
 /// Files copied (if present): `dxgi.dll`, `nvngx.dll`, `_nvngx.dll`, `OptiScaler.ini`.
 /// Missing files in source are silently skipped.
@@ -516,9 +521,9 @@ pub fn stage_optiscaler_dlls(source_dir: &Path, game_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Stage OptiScaler DLLs if enabled and source found. Logs on failure.
+/// Stage `OptiScaler` DLLs if enabled and source found. Logs on failure.
 ///
-/// Silently does nothing if OptiScaler is disabled, backend is not OptiScaler,
+/// Silently does nothing if `OptiScaler` is disabled, backend is not `OptiScaler`,
 /// source dir is not found, or `game_dir` is `None`.
 pub fn maybe_stage_optiscaler(fg: &FrameGenSettings, game_dir: Option<&Path>) {
     if !fg.enabled || !fg.optiscaler_enabled || fg.backend != FrameGenBackend::OptiScaler {
@@ -545,7 +550,7 @@ pub fn maybe_stage_optiscaler(fg: &FrameGenSettings, game_dir: Option<&Path>) {
     }
 }
 
-/// Resolve the OptiScaler source directory from settings or well-known locations.
+/// Resolve the `OptiScaler` source directory from settings or well-known locations.
 ///
 /// Returns `None` if no valid directory is found.
 #[must_use]

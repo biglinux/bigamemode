@@ -10,6 +10,10 @@ use std::rc::Rc;
 
 use crate::i18n::i18n;
 
+/// Building a widget tree is inherently linear — splitting it yields helpers
+/// with a single caller and no independent meaning — so the length lint is
+/// allowed here rather than worked around.
+#[allow(clippy::too_many_lines)]
 /// Build a group of controls for Frame Generation settings in Tuning.
 pub fn build_tuning_fg_group(active_game: &str) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
@@ -104,7 +108,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     // ── Target Profile Combo ──────────────────────────────────────────────────
     let profiles = bigame_core::profiles::list_names();
-    let mut model_strings: Vec<&str> = profiles.iter().map(|s| s.as_str()).collect();
+    let mut model_strings: Vec<&str> = profiles.iter().map(std::string::String::as_str).collect();
     if model_strings.is_empty() {
         model_strings.push("None");
     }
@@ -119,7 +123,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
     let mut selected_idx = 0;
     if !active_game.is_empty() {
         if let Some(idx) = model_strings.iter().position(|&s| s == active_game) {
-            selected_idx = idx as u32;
+            selected_idx = u32::try_from(idx).unwrap_or(0);
         }
     }
     target_row.set_selected(selected_idx);
@@ -286,7 +290,11 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                 }
                 if let Some(target) = tm_save.string(t_row.selected()) {
                     let name_str = target.to_string();
+                    // SpinRow values are clamped to their adjustment range,
+                    // which is small and positive for both of these.
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let mut mult = scale_ref.value() as u32;
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     let flow = flow_ref.value() as u32;
                     let perf = perf_ref.is_active();
                     let hdr = hdr_ref.is_active();
@@ -383,7 +391,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                                     profile.fg_perf_mode = perf;
                                     profile.fg_hdr = hdr;
                                     profile.fg_present_mode = pres;
-                                    let _ = bigame_core::profiles::save(&profile).await;
+                                    let _ = bigame_core::profiles::save(&profile);
                                 }
                             });
                             dt_closure.take();

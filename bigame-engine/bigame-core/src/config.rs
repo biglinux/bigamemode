@@ -2,6 +2,7 @@
 //!
 //! Config file is TOML. Writing requires root (pkexec).
 
+use std::fmt::Write as _;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -82,7 +83,7 @@ pub fn read() -> Result<FalcondConfig> {
 
 /// Read falcond config from a specific path.
 ///
-/// Supports both otter_conf (bare identifiers) and TOML (quoted strings) formats.
+/// Supports both `otter_conf` (bare identifiers) and TOML (quoted strings) formats.
 ///
 /// # Errors
 /// Returns error if file is unreadable or unparseable.
@@ -97,7 +98,7 @@ pub fn read_from(path: &Path) -> Result<FalcondConfig> {
     Ok(parse_otter_conf(&content))
 }
 
-/// Parse otter_conf format: `key = value` with bare identifiers for enums.
+/// Parse `otter_conf` format: `key = value` with bare identifiers for enums.
 fn parse_otter_conf(content: &str) -> FalcondConfig {
     let mut cfg = FalcondConfig::default();
     for line in content.lines() {
@@ -136,35 +137,36 @@ fn parse_otter_conf(content: &str) -> FalcondConfig {
     cfg
 }
 
-/// Write falcond config via DBus.
+/// Write falcond config via `DBus`.
 ///
-/// Uses DBus to write as root, then sends `SIGHUP` to falcond
+/// Uses `DBus` to write as root, then sends `SIGHUP` to falcond
 /// so it reloads the config without restart.
 ///
 /// # Errors
-/// Returns error if serialization or DBus fails.
+/// Returns error if serialization or `DBus` fails.
 pub async fn write(config: &FalcondConfig) -> Result<()> {
     write_to(config, Path::new(CONFIG_PATH)).await
 }
 
-/// Serialize config to otter_conf format (bare identifiers for enums, no TOML quoting).
+/// Serialize config to `otter_conf` format (bare identifiers for enums, no TOML quoting).
 ///
-/// otter_conf expects: `key = bare_value` for enums/bools/ints,
+/// `otter_conf` expects: `key = bare_value` for enums/bools/ints,
 /// and `key = "quoted"` only for string slices.
 fn serialize_otter_conf(config: &FalcondConfig) -> String {
     let mut out = String::new();
     // Bool: bare true/false
-    out.push_str(&format!(
-        "enable_performance_mode = {}\n",
+    let _ = writeln!(
+        out,
+        "enable_performance_mode = {}",
         config.enable_performance_mode
-    ));
+    );
     // Enum fields: bare identifiers (no quotes)
-    out.push_str(&format!("scx_sched = {}\n", config.scx_sched));
-    out.push_str(&format!("scx_sched_props = {}\n", config.scx_sched_props));
-    out.push_str(&format!("vcache_mode = {}\n", config.vcache_mode));
-    out.push_str(&format!("profile_mode = {}\n", config.profile_mode));
+    let _ = writeln!(out, "scx_sched = {}", config.scx_sched);
+    let _ = writeln!(out, "scx_sched_props = {}", config.scx_sched_props);
+    let _ = writeln!(out, "vcache_mode = {}", config.vcache_mode);
+    let _ = writeln!(out, "profile_mode = {}", config.profile_mode);
     // Integer: bare number
-    out.push_str(&format!("poll_interval_ms = {}\n", config.poll_interval_ms));
+    let _ = writeln!(out, "poll_interval_ms = {}", config.poll_interval_ms);
     // String array: ["quoted", "strings"]
     if !config.system_processes.is_empty() {
         let quoted: Vec<String> = config
@@ -172,15 +174,15 @@ fn serialize_otter_conf(config: &FalcondConfig) -> String {
             .iter()
             .map(|s| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\"")))
             .collect();
-        out.push_str(&format!("system_processes = [{}]\n", quoted.join(", ")));
+        let _ = writeln!(out, "system_processes = [{}]", quoted.join(", "));
     }
     out
 }
 
-/// Write falcond config via DBus.
+/// Write falcond config via `DBus`.
 ///
 /// # Errors
-/// Returns error if serialization or DBus fails.
+/// Returns error if serialization or `DBus` fails.
 pub async fn write_to(config: &FalcondConfig, _path: &Path) -> Result<()> {
     let content = serialize_otter_conf(config);
 

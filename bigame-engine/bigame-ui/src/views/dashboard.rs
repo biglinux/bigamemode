@@ -184,11 +184,13 @@ pub fn build() -> adw::PreferencesPage {
             let result = gio::spawn_blocking(|| {
                 let report = build_runtime_diagnostics_report();
                 let path = std::env::var("HOME")
-                    .map(std::path::PathBuf::from)
-                    .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"))
+                    .map_or_else(
+                        |_| std::path::PathBuf::from("/tmp"),
+                        std::path::PathBuf::from,
+                    )
                     .join("bigame-diagnostics.log");
                 std::fs::write(&path, report)
-                    .map(|_| path)
+                    .map(|()| path)
                     .map_err(|e| format!("{}: {}", i18n("Failed to save diagnostics"), e))
             })
             .await;
@@ -200,7 +202,7 @@ pub fn build() -> adw::PreferencesPage {
                 ),
                 Ok(Err(err)) => crate::widgets::toast::show(&btn_ref, &err),
                 Err(_) => {
-                    crate::widgets::toast::show(&btn_ref, &i18n("Failed to save diagnostics"))
+                    crate::widgets::toast::show(&btn_ref, &i18n("Failed to save diagnostics"));
                 }
             }
         });
@@ -513,7 +515,7 @@ fn spawn_telemetry_poller(
             if let (Some(prev), Some(cur)) = (prev_disk, cur_disk) {
                 let read_kb = (cur.0.saturating_sub(prev.0) * 512) / 1024;
                 let write_kb = (cur.1.saturating_sub(prev.1) * 512) / 1024;
-                disk_val.set_text(&format!("{}R {}W KB/s", read_kb, write_kb));
+                disk_val.set_text(&format!("{read_kb}R {write_kb}W KB/s"));
                 disk_spark.push(f64::from(
                     u32::try_from(read_kb + write_kb).unwrap_or(u32::MAX),
                 ));
@@ -965,7 +967,10 @@ fn make_runtime_status_row(
     (row, badge)
 }
 
-#[derive(Debug, Clone)]
+/// Independent presence flags for the runtime status rows; a flat set of
+/// yes/no answers rather than a state machine.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Default)]
 struct VideoRuntime {
     cfg: bigame_core::video_config::VideoConfig,
     lsfg_installed: bool,
@@ -976,22 +981,6 @@ struct VideoRuntime {
     vkbasalt_active: bool,
     optiscaler_active: bool,
     afmf_active: bool,
-}
-
-impl Default for VideoRuntime {
-    fn default() -> Self {
-        Self {
-            cfg: bigame_core::video_config::VideoConfig::default(),
-            lsfg_installed: false,
-            lsfg_enabled: false,
-            lsfg_active: false,
-            gamescope_active: false,
-            wine_fsr_active: false,
-            vkbasalt_active: false,
-            optiscaler_active: false,
-            afmf_active: false,
-        }
-    }
 }
 
 /// Collect runtime feature flags for the current game context.
@@ -1093,6 +1082,9 @@ fn build_runtime_diagnostics_report() -> String {
     ) + &guidance
 }
 
+/// Each flag drives one independent aspect of the row's appearance; bundling
+/// them into a struct would only move the same parameters behind a name.
+#[allow(clippy::fn_params_excessive_bools)]
 /// Update feature row + badge based on config/runtime/turbo/game state.
 fn apply_runtime_feature_status(
     row: &adw::ActionRow,
@@ -1560,6 +1552,10 @@ fn suggest_profile_program_name(game: &bigame_core::games::DetectedGame) -> Stri
     game.profile_key().to_owned()
 }
 
+/// Building a widget tree is inherently linear — splitting it yields helpers
+/// with a single caller and no independent meaning — so the length lint is
+/// allowed here rather than worked around.
+#[allow(clippy::too_many_lines)]
 /// Populate game rows into a `PreferencesGroup` (called by `build_games_group`).
 fn populate_games_rows(group: &adw::PreferencesGroup) {
     let detected = bigame_core::games::detect_all();

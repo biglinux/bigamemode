@@ -6,6 +6,7 @@
 //! - dmesg (kernel gaming/GPU messages)
 //! - BiGame-mode application log
 
+use std::fmt::Write as _;
 use std::time::Duration;
 
 use adw::prelude::*;
@@ -144,7 +145,7 @@ fn load_status(text_view: &gtk4::TextView) {
             match std::fs::read_to_string(status_path) {
                 Ok(content) if !content.trim().is_empty() => {
                     let mut out = String::new();
-                    out.push_str(&format!("── {} ──\n", status_path));
+                    let _ = writeln!(out, "── {status_path} ──");
                     out.push_str(&content);
                     out.push_str("\n\n");
 
@@ -152,15 +153,15 @@ fn load_status(text_view: &gtk4::TextView) {
                     let profiles_dir = "/usr/share/falcond/profiles/user";
                     if let Ok(entries) = std::fs::read_dir(profiles_dir) {
                         let files: Vec<_> = entries
-                            .filter_map(|e| e.ok())
+                            .filter_map(std::result::Result::ok)
                             .map(|e| e.file_name().to_string_lossy().into_owned())
                             .collect();
                         if files.is_empty() {
                             out.push_str("── Saved Profiles: (none) ──\n");
                         } else {
-                            out.push_str(&format!("── Saved Profiles ({}) ──\n", files.len()));
+                            let _ = writeln!(out, "── Saved Profiles ({}) ──", files.len());
                             for f in &files {
-                                out.push_str(&format!("  • {f}\n"));
+                                let _ = writeln!(out, "  • {f}");
                             }
                         }
                     }
@@ -226,19 +227,16 @@ fn load_journal(text_view: &gtk4::TextView) {
             for (args, label) in sources.iter().zip(labels.iter()) {
                 let cmd = args[0];
                 let cmd_args = &args[1..];
-                match std::process::Command::new(cmd).args(cmd_args).output() {
-                    Ok(out) => {
-                        let stdout = String::from_utf8_lossy(&out.stdout);
-                        let stderr = String::from_utf8_lossy(&out.stderr);
-                        if !stdout.trim().is_empty() && !stdout.contains("-- No entries --") {
-                            combined.push_str(&format!("── {label} ──\n"));
-                            combined.push_str(stdout.trim_end());
-                            combined.push_str("\n\n");
-                        } else if !stderr.trim().is_empty() && stderr.contains("No entries") {
-                            // Skip silently
-                        }
+                if let Ok(out) = std::process::Command::new(cmd).args(cmd_args).output() {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    let stderr = String::from_utf8_lossy(&out.stderr);
+                    if !stdout.trim().is_empty() && !stdout.contains("-- No entries --") {
+                        let _ = writeln!(combined, "── {label} ──");
+                        combined.push_str(stdout.trim_end());
+                        combined.push_str("\n\n");
+                    } else if !stderr.trim().is_empty() && stderr.contains("No entries") {
+                        // Skip silently
                     }
-                    Err(_) => {}
                 }
             }
 
@@ -311,50 +309,51 @@ fn load_app_log(text_view: &gtk4::TextView) {
 
             // Power profile
             if let Some(pp) = bigame_core::dbus::power_profile_get() {
-                log.push_str(&format!("Power profile: {pp}\n"));
+                let _ = writeln!(log, "Power profile: {pp}");
             } else {
                 log.push_str("Power profile: unavailable\n");
             }
 
             // Falcond running?
             let falcond = bigame_core::dbus::falcond_is_running();
-            log.push_str(&format!("Falcond status file exists: {falcond}\n"));
+            let _ = writeln!(log, "Falcond status file exists: {falcond}");
 
             // Installed schedulers
             let scheds = bigame_core::sched::detect_installed();
-            log.push_str(&format!(
-                "Installed schedulers: {}\n",
+            let _ = writeln!(
+                log,
+                "Installed schedulers: {}",
                 if scheds.is_empty() {
                     "none".to_string()
                 } else {
                     scheds.join(", ")
                 }
-            ));
+            );
 
             // Profile count
             let profiles = bigame_core::profiles::list_names();
-            log.push_str(&format!("Saved profiles: {}\n", profiles.len()));
+            let _ = writeln!(log, "Saved profiles: {}", profiles.len());
             for p in &profiles {
-                log.push_str(&format!("  • {p}\n"));
+                let _ = writeln!(log, "  • {p}");
             }
 
             // VCache support
             let vcache_path = "/sys/devices/system/cpu/cpu0/cpufreq/amd_3d_vcache_mode";
             let vcache = std::path::Path::new(vcache_path).exists();
-            log.push_str(&format!("AMD VCache support: {vcache}\n"));
+            let _ = writeln!(log, "AMD VCache support: {vcache}");
 
             // CPU governor
             if let Ok(gov) =
                 std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
             {
-                log.push_str(&format!("CPU governor: {}\n", gov.trim()));
+                let _ = writeln!(log, "CPU governor: {}", gov.trim());
             }
 
             // LSFG-VK
             let mut lsfg_active = false;
             if let Some(status) = bigame_core::status::read() {
                 if let Some(active) = status.active_profile {
-                    log.push_str(&format!("Active game profile: {active}\n"));
+                    let _ = writeln!(log, "Active game profile: {active}");
                     if !active.is_empty() && active != "None" {
                         if let Ok(out) = std::process::Command::new("pgrep")
                             .arg("-f")
@@ -362,7 +361,7 @@ fn load_app_log(text_view: &gtk4::TextView) {
                             .output()
                         {
                             for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
-                                let map_path = format!("/proc/{}/maps", pid_str);
+                                let map_path = format!("/proc/{pid_str}/maps");
                                 // Previne hang se o kernel se perder no spinlock do kernel ao ler proc
                                 if let Ok(status) = std::process::Command::new("timeout")
                                     .args([
@@ -392,14 +391,15 @@ fn load_app_log(text_view: &gtk4::TextView) {
                         .exists()
                         || std::path::Path::new("/etc/vulkan/implicit_layer.d/lsfg-vk.json")
                             .exists();
-                log.push_str(&format!(
-                    "Lossless Scaling (LSFG-VK): {}\n",
+                let _ = writeln!(
+                    log,
+                    "Lossless Scaling (LSFG-VK): {}",
                     if installed {
                         "Ready / Inactive"
                     } else {
                         "Not installed"
                     }
-                ));
+                );
             }
 
             log

@@ -11,7 +11,7 @@ use crate::i18n::i18n;
 use gtk4::gdk_pixbuf;
 
 fn load_icon_as_pixmap(name: &str) -> Option<ksni::Icon> {
-    let resource_path = format!("/com/biglinux/BiGameMode/icons/{}.svg", name);
+    let resource_path = format!("/com/biglinux/BiGameMode/icons/{name}.svg");
     let pixbuf = gdk_pixbuf::Pixbuf::from_resource_at_scale(&resource_path, 22, 22, true).ok()?;
 
     let width = pixbuf.width();
@@ -55,6 +55,7 @@ pub enum Status {
 }
 
 impl Status {
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn icon_name(&self) -> String {
         match self {
             Status::Idle => "input-gaming-symbolic-blue".into(),
@@ -86,8 +87,7 @@ impl ksni::Tray for BiGameTray {
     fn icon_name(&self) -> String {
         self.status
             .read()
-            .map(|s| s.icon_name())
-            .unwrap_or_else(|_| Status::Idle.icon_name())
+            .map_or_else(|_| Status::Idle.icon_name(), |s| s.icon_name())
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
@@ -104,7 +104,7 @@ impl ksni::Tray for BiGameTray {
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
-        let s = self.status.read().map(|s| *s).unwrap_or(Status::Idle);
+        let s = self.status.read().map_or(Status::Idle, |s| *s);
         let desc = match s {
             Status::Idle => i18n("Ready to play"),
             Status::Active => i18n("Gaming mode active"),

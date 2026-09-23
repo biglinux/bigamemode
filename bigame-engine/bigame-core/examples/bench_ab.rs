@@ -1,7 +1,7 @@
-//! Run an A/B frametime comparison using MangoHud capture.
+//! Run an A/B frametime comparison using `MangoHud` capture.
 //!
-//! Usage: bench_ab <run-label> <log-dir>   — capture one run
-//!        bench_ab compare <log-dir>       — analyse captures by label
+//! Usage: `bench_ab` <run-label> <log-dir>   — capture one run
+//!        `bench_ab` compare <log-dir>       — analyse captures by label
 use bigame_core::benchmark::{self, FrameStats};
 use std::path::{Path, PathBuf};
 

@@ -103,7 +103,20 @@ pub fn watch_file(path: &Path) -> Option<mpsc::Receiver<String>> {
         .spawn(move || {
             let mut last: Option<String> = None;
             loop {
-                let current = std::fs::read_to_string(&path).ok();
+                // Empty content is skipped, not reported.
+                //
+                // `write(2)` to a new file produces IN_CREATE before the data
+                // lands, so a reader woken by that event can observe a
+                // zero-byte file. Reporting it would hand the caller an empty
+                // status and, worse, record it as the last-seen value — so the
+                // real contents arriving a moment later would look like a
+                // change from "" rather than the first real reading.
+                //
+                // A zero-byte status file is never meaningful anyway: the next
+                // event carries the actual data.
+                let current = std::fs::read_to_string(&path)
+                    .ok()
+                    .filter(|c| !c.is_empty());
                 if let Some(content) = current {
                     if last.as_ref() != Some(&content) {
                         if tx.send(content.clone()).is_err() {
@@ -195,6 +208,24 @@ mod tests {
         std::thread::sleep(Duration::from_millis(100));
         std::fs::write(&file, "appeared").unwrap();
         assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), "appeared");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_partially_written_file_is_not_reported_as_empty() {
+        // write(2) to a new file emits IN_CREATE before the data lands, so a
+        // reader woken by that event can see zero bytes. Reporting it would
+        // also poison `last`, making the real contents look like a change
+        // from "" rather than the first reading.
+        let dir = tempdir("empty");
+        let file = dir.join("status");
+        let rx = watch_file(&file).expect("watch should start");
+
+        std::fs::write(&file, "").unwrap();
+        assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+
+        std::fs::write(&file, "real").unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), "real");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
