@@ -40,8 +40,138 @@ pub fn build() -> adw::PreferencesPage {
     ));
 
     page.add(&build_device_group(&shared));
+    page.add(&build_advanced_group(&shared));
 
     page
+}
+
+/// Options an ordinary user should never need, kept out of the way.
+///
+/// Collapsed by default and deliberately last. The brief's shape is that a
+/// beginner presses Booster Mode and plays; everything here exists for the
+/// person who already knows what a scheduler flag is, and putting it in front
+/// of everyone else only makes the page harder to read.
+///
+/// Nothing here is a hidden setting — each row states what it writes and where.
+fn build_advanced_group(
+    shared: &Rc<RefCell<bigame_core::config::FalcondConfig>>,
+) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Advanced"));
+
+    let expander = adw::ExpanderRow::builder()
+        .title(i18n("Show advanced options"))
+        .subtitle(i18n("Scheduler flags and raw Gamescope arguments"))
+        .build();
+    group.add(&expander);
+
+    // ── sched-ext flags ─────────────────────────────────────────────────
+    let caps = bigame_core::capabilities::Capabilities::detect();
+    let scx = &caps.sched_ext;
+
+    let scx_status = adw::ActionRow::builder()
+        .title(i18n("sched-ext availability"))
+        .subtitle(match scx.switchable().reason() {
+            // Saying *why* it cannot be switched leads to a different fix than
+            // "unsupported" would: install scx_loader, not new hardware.
+            Some(reason) => reason.to_owned(),
+            None => i18n("Available — falcond applies the scheduler you configure above"),
+        })
+        .build();
+    scx_status.add_prefix(&gtk4::Image::from_icon_name(
+        if scx.switchable().is_available() {
+            "emblem-ok-symbolic"
+        } else {
+            "dialog-warning-symbolic"
+        },
+    ));
+    expander.add_row(&scx_status);
+
+    let installed = adw::ActionRow::builder()
+        .title(i18n("Schedulers installed"))
+        .subtitle(if scx.installed.is_empty() {
+            i18n("None found in /usr/bin")
+        } else {
+            scx.installed.join(", ")
+        })
+        .build();
+    expander.add_row(&installed);
+
+    // ── Raw Gamescope arguments ─────────────────────────────────────────
+    let gamescope_row = adw::ActionRow::builder()
+        .title(i18n("Gamescope options this build accepts"))
+        .subtitle(match &caps.gamescope {
+            Some(gs) => i18n("Version %v — %n options detected from --help")
+                .replace(
+                    "%v",
+                    &gs.version
+                        .map_or_else(|| i18n("unknown"), |v| v.to_string()),
+                )
+                .replace("%n", &gs.flags.len().to_string()),
+            None => i18n("Gamescope is not installed"),
+        })
+        .build();
+    expander.add_row(&gamescope_row);
+
+    // Showing the generated command line is the honest version of an "advanced
+    // options" box: the arguments are built from capabilities, so the useful
+    // thing is to see what they came out as, not to retype them.
+    if let Some(gs) = caps.gamescope.as_ref() {
+        let sample = bigame_core::gamescope::Config {
+            render_width: 1920,
+            render_height: 1080,
+            filter: bigame_core::gamescope::Filter::Fsr,
+            sharpness: 5,
+            ..bigame_core::gamescope::Config::default()
+        };
+        let built = sample.to_args(gs);
+        let preview = adw::ActionRow::builder()
+            .title(i18n("Example command line"))
+            .subtitle(format!("gamescope {} -- <game>", built.args.join(" ")))
+            .build();
+        preview.set_subtitle_selectable(true);
+        expander.add_row(&preview);
+
+        for unsupported in &built.unsupported {
+            let row = adw::ActionRow::builder()
+                .title(i18n("Not supported by this Gamescope"))
+                .subtitle(format!("--{} — {}", unsupported.flag, unsupported.effect))
+                .build();
+            row.add_prefix(&gtk4::Image::from_icon_name("dialog-warning-symbolic"));
+            expander.add_row(&row);
+        }
+    }
+
+    // ── falcond poll interval ───────────────────────────────────────────
+    let poll = adw::SpinRow::new(
+        Some(&gtk4::Adjustment::new(
+            f64::from(shared.borrow().poll_interval_ms),
+            1000.0,
+            60000.0,
+            500.0,
+            1000.0,
+            0.0,
+        )),
+        500.0,
+        0,
+    );
+    poll.set_title(&i18n("falcond scan interval (ms)"));
+    poll.set_subtitle(&i18n(
+        "How often falcond looks for a running game. Lower reacts sooner and \
+         costs more; the default is 9000.",
+    ));
+    {
+        let shared = Rc::clone(shared);
+        poll.connect_value_notify(move |row| {
+            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+            {
+                shared.borrow_mut().poll_interval_ms = row.value() as u32;
+            }
+        });
+    }
+    expander.add_row(&poll);
+
+    group
 }
 
 /// Write the shared config to disk via pkexec (background thread).

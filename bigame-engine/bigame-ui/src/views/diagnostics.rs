@@ -53,9 +53,159 @@ const PROBE_DOMAINS: &[&str] = &[
 #[must_use]
 pub fn build() -> gtk4::Widget {
     let page = adw::PreferencesPage::new();
+    page.add(&steam_group());
     page.add(&network_group());
     page.add(&report_group());
     page.upcast()
+}
+
+// ── Steam launch options ────────────────────────────────────────────────────
+
+/// Steam launch options that name a program which is not installed.
+///
+/// Steam runs the string through a shell, so a missing wrapper means the game
+/// simply does not start — and nothing in Steam's interface explains it. This
+/// machine had exactly that: an app carrying `gamemoderun %command%` with Feral
+/// `GameMode` uninstalled.
+///
+/// Clearing the option is offered rather than done. It is the user's
+/// configuration, and the alternative fix — installing the missing program — is
+/// equally valid and not ours to choose.
+fn steam_group() -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Steam launch options"));
+    group.set_description(Some(&i18n(
+        "Options that call a program this system does not have. Steam runs them \
+         through a shell, so the game will not start.",
+    )));
+    group.set_visible(false);
+
+    let rows: Rc<RefCell<Vec<adw::ActionRow>>> = Rc::new(RefCell::new(Vec::new()));
+    let group_ref = group.clone();
+    let rows_ref = Rc::clone(&rows);
+
+    let refresh: Rc<dyn Fn()> = Rc::new(move || {
+        for row in rows_ref.borrow_mut().drain(..) {
+            group_ref.remove(&row);
+        }
+        let group = group_ref.clone();
+        let rows = Rc::clone(&rows_ref);
+        glib::spawn_future_local(async move {
+            let broken = gio::spawn_blocking(scan_broken_launch_options)
+                .await
+                .unwrap_or_default();
+            group.set_visible(!broken.is_empty());
+            for entry in broken {
+                let row = build_broken_row(&entry);
+                group.add(&row);
+                rows.borrow_mut().push(row);
+            }
+        });
+    });
+    refresh();
+    // Re-scan after a fix so the row disappears instead of lingering.
+    STEAM_REFRESH.with(|cell| *cell.borrow_mut() = Some(Rc::clone(&refresh)));
+
+    group
+}
+
+thread_local! {
+    /// Lets a fix handler ask the group to rebuild itself.
+    static STEAM_REFRESH: RefCell<Option<Rc<dyn Fn()>>> = const { RefCell::new(None) };
+}
+
+/// One broken option, with enough context to describe it.
+struct BrokenOption {
+    config: std::path::PathBuf,
+    app_id: String,
+    title: String,
+    missing: String,
+    options: String,
+}
+
+fn scan_broken_launch_options() -> Vec<BrokenOption> {
+    let Ok(home) = std::env::var("HOME") else {
+        return Vec::new();
+    };
+    let home = std::path::PathBuf::from(home);
+    let mut out = Vec::new();
+    for user in bigame_core::steam::users(&home) {
+        for broken in bigame_core::steam::broken_launch_options(&user.config) {
+            out.push(BrokenOption {
+                title: steam_app_name(&home, &broken.app_id),
+                config: user.config.clone(),
+                app_id: broken.app_id,
+                missing: broken.missing,
+                options: broken.options,
+            });
+        }
+    }
+    out
+}
+
+/// A game's title from its Steam manifest, or its `AppID` if it is not installed.
+fn steam_app_name(home: &std::path::Path, app_id: &str) -> String {
+    for root in bigame_core::games::steam_libraries(home) {
+        let manifest = root.join(format!("steamapps/appmanifest_{app_id}.acf"));
+        if let Ok(content) = std::fs::read_to_string(&manifest) {
+            if let Some(name) = bigame_core::games::acf_value(&content, "name") {
+                return name;
+            }
+        }
+    }
+    format!("{} {app_id}", i18n("Steam app"))
+}
+
+fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(&entry.title)
+        .subtitle(
+            i18n("Calls '%p', which is not installed — launch options: %o")
+                .replace("%p", &entry.missing)
+                .replace("%o", &entry.options),
+        )
+        .build();
+    row.add_prefix(&{
+        let icon = gtk4::Image::from_icon_name("dialog-warning-symbolic");
+        icon.add_css_class("warning");
+        icon
+    });
+
+    let clear = gtk4::Button::builder()
+        .label(i18n("Clear launch options"))
+        .valign(gtk4::Align::Center)
+        .build();
+
+    let config = entry.config.clone();
+    let app_id = entry.app_id.clone();
+    clear.connect_clicked(move |button| {
+        // Steam holds this file in memory and rewrites it on exit, so an edit
+        // made underneath a running client is silently discarded. Say so rather
+        // than appearing to work.
+        if bigame_core::steam::is_running() {
+            toast::show(
+                button,
+                &i18n("Close Steam first — it would overwrite this change when it exits."),
+            );
+            return;
+        }
+        match bigame_core::steam::set_launch_options(&config, &app_id, "") {
+            Ok(()) => {
+                toast::show(button, &i18n("Launch options cleared"));
+                STEAM_REFRESH.with(|cell| {
+                    if let Some(refresh) = cell.borrow().as_ref() {
+                        refresh();
+                    }
+                });
+            }
+            Err(e) => toast::show(
+                button,
+                &i18n("Could not change it: %s").replace("%s", &e.to_string()),
+            ),
+        }
+    });
+    row.add_suffix(&clear);
+    row
 }
 
 // ── Network ─────────────────────────────────────────────────────────────────
