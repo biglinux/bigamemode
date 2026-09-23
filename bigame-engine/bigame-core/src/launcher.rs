@@ -336,15 +336,59 @@ impl LaunchPlan {
 
     /// Spawn the game as described by this plan.
     ///
+    /// The child is placed in its own **process group**, so the whole tree can
+    /// be signalled later with [`terminate`]. Games are routinely started
+    /// through a wrapper — Lutris and many bundles ship a `run_game.sh` that
+    /// execs the real binary as a grandchild — and without this, killing the
+    /// returned handle kills only the wrapper and leaves the game running.
+    ///
+    /// That is not hypothetical: launching `SuperTuxKart` through this pipeline
+    /// left `bin/supertuxkart` alive after the handle was killed and waited on.
+    ///
     /// # Errors
-    /// Returns error if the binary is not found or the process fails to start.
+    /// Returns an error if the binary is not found or the process fails to
+    /// start.
     pub fn spawn(self) -> Result<std::process::Child> {
+        use std::os::unix::process::CommandExt;
+
         let mut cmd = std::process::Command::new(&self.program);
         cmd.args(&self.args);
         cmd.envs(&self.env);
+        // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
+        // calling process, which between fork and exec is the child alone.
+        unsafe {
+            cmd.pre_exec(|| {
+                if libc::setpgid(0, 0) == 0 {
+                    Ok(())
+                } else {
+                    Err(std::io::Error::last_os_error())
+                }
+            });
+        }
         cmd.spawn()
             .with_context(|| format!("spawn '{}'", self.program))
     }
+}
+
+/// Ask a spawned game and everything it started to exit.
+///
+/// Sends `SIGTERM` to the child's whole process group — which
+/// [`LaunchPlan::spawn`] created for exactly this purpose — then reaps the
+/// direct child. Signalling only the child would leave a wrapper's grandchildren
+/// running, which is the orphan this exists to prevent.
+///
+/// # Errors
+/// Returns an error if the process could not be reaped.
+pub fn terminate(child: &mut std::process::Child) -> Result<()> {
+    let pid = i32::try_from(child.id()).context("child pid does not fit in pid_t")?;
+    // SAFETY: a negative pid addresses the process group led by `pid`, which is
+    // the group spawn() created. An already-exited group yields ESRCH, which is
+    // not an error worth reporting here.
+    unsafe {
+        libc::kill(-pid, libc::SIGTERM);
+    }
+    child.wait().context("reap game process")?;
+    Ok(())
 }
 
 // ── Gamescope args builder ────────────────────────────────────────────────────
@@ -398,7 +442,15 @@ impl LaunchPlan {
             } else {
                 base.filter
             },
-            sharpness: upscaling.clamped_sharpness(),
+            // Same reasoning as the filter above: `UpscalingSettings` carries a
+            // sharpness even when Gamescope upscaling is off, and reading it
+            // unconditionally silently overrode whatever the per-game profile
+            // asked for. A profile requesting sharpness 4 was emitting 0.
+            sharpness: if upscaling.gamescope_enabled {
+                upscaling.clamped_sharpness()
+            } else {
+                base.sharpness
+            },
             ..base
         }
     }
@@ -723,6 +775,80 @@ mod tests {
             !plan.env.contains_key("WINE_FULLSCREEN_FSR")
                 && !plan.env.contains_key("ENABLE_VKBASALT")
         );
+    }
+
+    #[test]
+    fn a_per_game_profile_keeps_its_own_filter_and_sharpness() {
+        // The global UpscalingSettings carry a filter and a sharpness even
+        // when Gamescope upscaling is off. Reading them unconditionally
+        // overrode the profile: a profile asking for sharpness 4 emitted 0.
+        let video = VideoConfig::default(); // gamescope_enabled = false
+        let profile = gamescope::Config {
+            filter: gamescope::Filter::Nis,
+            sharpness: 4,
+            ..gamescope::Config::default()
+        };
+        let merged = LaunchPlan::merge_gamescope_config(&video.upscaling, Some(&profile));
+        assert_eq!(merged.filter, gamescope::Filter::Nis);
+        assert_eq!(merged.sharpness, 4);
+    }
+
+    #[test]
+    fn global_upscaling_settings_win_when_they_are_enabled() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        video.upscaling.gamescope_filter = GamescopeFilter::Fsr;
+        video.upscaling.gamescope_sharpness = 9;
+        let profile = gamescope::Config {
+            filter: gamescope::Filter::Nis,
+            sharpness: 4,
+            ..gamescope::Config::default()
+        };
+        let merged = LaunchPlan::merge_gamescope_config(&video.upscaling, Some(&profile));
+        assert_eq!(merged.filter, gamescope::Filter::Fsr);
+        assert_eq!(merged.sharpness, 9);
+    }
+
+    #[test]
+    fn spawn_puts_the_child_in_its_own_process_group() {
+        // Without this, killing the handle of a wrapper script leaves the game
+        // it started running — verified against SuperTuxKart's run_game.sh.
+        let plan = LaunchPlan {
+            program: "sh".into(),
+            args: vec!["-c".into(), "sleep 30 & wait".into()],
+            env: HashMap::new(),
+        };
+        let mut child = plan.spawn().expect("spawn");
+        let child_pid = i32::try_from(child.id()).unwrap();
+
+        // SAFETY: reading the child's process group id.
+        let group = unsafe { libc::getpgid(child_pid) };
+        assert_eq!(group, child_pid, "child should lead its own process group");
+        // And therefore not share ours.
+        assert_ne!(group, unsafe { libc::getpgid(0) });
+
+        terminate(&mut child).expect("terminate");
+    }
+
+    #[test]
+    fn terminate_takes_down_the_whole_group() {
+        // `sh -c 'sleep … & wait'` is the shape of a wrapper script: the thing
+        // that matters is a grandchild.
+        let plan = LaunchPlan {
+            program: "sh".into(),
+            args: vec!["-c".into(), "sleep 60 & echo $! > /dev/null; wait".into()],
+            env: HashMap::new(),
+        };
+        let mut child = plan.spawn().expect("spawn");
+        let pid = i32::try_from(child.id()).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        terminate(&mut child).expect("terminate");
+        std::thread::sleep(std::time::Duration::from_millis(300));
+
+        // SAFETY: signal 0 only probes whether the group still exists.
+        let alive = unsafe { libc::kill(-pid, 0) } == 0;
+        assert!(!alive, "the process group should be gone");
     }
 
     #[test]

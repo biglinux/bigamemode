@@ -18,6 +18,7 @@ makedepends=(
     'rust'
     'cargo'
     'gettext'
+    'python'
 )
 optdepends=(
     'scx-scheds: Sched-ext schedulers for gaming performance'
@@ -43,40 +44,22 @@ build() {
     # Build the full workspace (bigame-ui and bigame-daemon)
     cargo build --release --locked --manifest-path bigame-engine/Cargo.toml
 
-    # Regenerate .pot template from Rust source (used by translators).
-    xgettext \
-        --from-code=UTF-8 \
-        --keyword=i18n \
-        --keyword=gettext \
-        --language=Rust \
-        --add-comments \
-        --output=locale/bigame-mode.pot \
-        --package-name="${pkgname}" \
-        bigame-engine/bigame-ui/src/views/dashboard.rs \
-        bigame-engine/bigame-ui/src/views/logs.rs \
-        bigame-engine/bigame-ui/src/views/profile_wizard.rs \
-        bigame-engine/bigame-ui/src/views/profiles.rs \
-        bigame-engine/bigame-ui/src/views/settings.rs \
-        bigame-engine/bigame-ui/src/views/tuning.rs \
-        bigame-engine/bigame-ui/src/widgets/booster_toggle.rs \
-        bigame-engine/bigame-ui/src/widgets/error_indicator.rs \
-        bigame-engine/bigame-ui/src/widgets/fg_controls.rs \
-        bigame-engine/bigame-ui/src/widgets/scheduler_info.rs \
-        bigame-engine/bigame-ui/src/widgets/tutorial.rs \
-        bigame-engine/bigame-ui/src/tray.rs \
-        bigame-engine/bigame-ui/src/window.rs \
-        bigame-engine/bigame-ui/src/app.rs
+    # Verify the translation template is current, then compile the catalogues.
+    #
+    # It is checked rather than regenerated: a package build is the wrong place
+    # to silently change source files, and a stale template should fail the
+    # build so it gets fixed in the repository.
+    #
+    # xgettext is not used. It has no Rust mode — with --language=C it reads
+    # lifetimes (&'a str) as unterminated character constants and bails, and
+    # the invocation that used to live here passed --language=Rust, which
+    # xgettext does not accept at all.
+    python3 locale/extract-strings.py --check
 
-    # Merge new template strings into existing .po files (preserves translations).
-    for po in locale/*.po; do
-        msgmerge --no-fuzzy-matching -q -U "${po}" locale/bigame-mode.pot
-    done
-
-    # Compile .po -> .mo binaries.
     for po in locale/*.po; do
         lang=$(basename "${po}" .po)
-        mkdir -p "locale/${lang}/LC_MESSAGES"
-        msgfmt "${po}" -o "locale/${lang}/LC_MESSAGES/${pkgname}.mo"
+        install -d "locale/mo/${lang}/LC_MESSAGES"
+        msgfmt --check "${po}" -o "locale/mo/${lang}/LC_MESSAGES/${pkgname}.mo"
     done
 }
 
@@ -129,6 +112,17 @@ package() {
     # Icon
     install -Dm644 "data/icons/com.biglinux.BiGameMode.svg" \
         "${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.biglinux.BiGameMode.svg"
+
+    # Compiled translations.
+    #
+    # These were built and then never installed, so every user got English
+    # regardless of locale. The application reads them from /usr/share/locale
+    # via its gettext domain.
+    for mo in locale/mo/*/LC_MESSAGES/${pkgname}.mo; do
+        lang=$(basename "$(dirname "$(dirname "${mo}")")")
+        install -Dm644 "${mo}" \
+            "${pkgdir}/usr/share/locale/${lang}/LC_MESSAGES/${pkgname}.mo"
+    done
 
     # License
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
