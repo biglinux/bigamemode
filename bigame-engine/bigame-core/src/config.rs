@@ -7,8 +7,17 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// Default falcond config file path.
-pub const CONFIG_PATH: &str = "/etc/falcond/falcond.conf";
+/// falcond's configuration file.
+///
+/// This is `config.conf`. It is **not** `falcond.conf`, which is what this
+/// project used to read and write — a path falcond never opens, so every global
+/// setting the Tuning page offered silently did nothing while reporting
+/// success (audit CFG-01).
+///
+/// Verified against falcond 2.0.2: its binary contains the string
+/// `/etc/falcond/config.conf` and no other configuration path, and
+/// `/etc/falcond/` on a stock install contains exactly that one file.
+pub const CONFIG_PATH: &str = "/etc/falcond/config.conf";
 
 /// Falcond daemon configuration (mirrors Zig `Config` struct).
 #[derive(Debug, Clone, Serialize, Deserialize)]

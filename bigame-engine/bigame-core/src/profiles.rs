@@ -134,10 +134,15 @@ pub fn validate(profile: &GameProfile) -> Vec<String> {
     if profile.vcache_mode != "none" && !crate::vcache::is_available() {
         warnings.push("VCache mode set but AMD 3D V-Cache not detected".into());
     }
-    // Gamescope resolution sanity
+    // Gamescope resolution sanity. Zero on *both* axes is valid and means
+    // "let Gamescope follow the game"; only a half-specified resolution is
+    // wrong, because it makes Gamescope infer the wrong aspect ratio.
     if let Some(ref gs) = profile.gamescope {
-        if gs.width == 0 || gs.height == 0 {
-            warnings.push("Gamescope resolution cannot be zero".into());
+        if (gs.render_width == 0) != (gs.render_height == 0) {
+            warnings.push("Gamescope render resolution needs both width and height".into());
+        }
+        if (gs.output_width == 0) != (gs.output_height == 0) {
+            warnings.push("Gamescope output resolution needs both width and height".into());
         }
     }
     // Script paths: check they look like absolute paths
@@ -170,8 +175,10 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<String> {
         errors.push("Profile name contains invalid path characters".into());
     }
     if let Some(ref gs) = profile.gamescope {
-        if gs.width == 0 || gs.height == 0 {
-            errors.push("Gamescope resolution cannot be zero".into());
+        if (gs.render_width == 0) != (gs.render_height == 0)
+            || (gs.output_width == 0) != (gs.output_height == 0)
+        {
+            errors.push("Gamescope resolution needs both width and height".into());
         }
     }
     errors

@@ -497,7 +497,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
 
     let gs_width = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
-            f64::from(gs_cfg.width),
+            f64::from(gs_cfg.render_width),
             640.0,
             7680.0,
             1.0,
@@ -513,7 +513,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
 
     let gs_height = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
-            f64::from(gs_cfg.height),
+            f64::from(gs_cfg.render_height),
             480.0,
             4320.0,
             1.0,
@@ -529,14 +529,17 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
 
     let gs_fsr = adw::SwitchRow::builder()
         .title(i18n("FSR"))
-        .active(gs_cfg.fsr)
+        .active(gs_cfg.filter == bigame_core::gamescope::Filter::Fsr)
         .sensitive(profile.gamescope.is_some())
         .build();
     gs_group.add(&gs_fsr);
 
     let gs_fps = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
-            f64::from(gs_cfg.framerate_limit),
+            f64::from(match gs_cfg.frame_limit {
+                bigame_core::gamescope::FrameLimit::NestedRefresh(hz) => hz,
+                bigame_core::gamescope::FrameLimit::None => 0,
+            }),
             0.0,
             500.0,
             1.0,
@@ -816,13 +819,21 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
             p.gamescope = if w.gs_enable.is_active() {
                 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
                 {
+                    let fps = w.gs_fps.value() as u32;
                     Some(bigame_core::gamescope::Config {
-                        width: w.gs_width.value() as u32,
-                        height: w.gs_height.value() as u32,
-                        fsr: w.gs_fsr.is_active(),
-                        fsr_sharpness: 5,
-                        framerate_limit: w.gs_fps.value() as u32,
-                        mangohud: false,
+                        render_width: w.gs_width.value() as u32,
+                        render_height: w.gs_height.value() as u32,
+                        filter: if w.gs_fsr.is_active() {
+                            bigame_core::gamescope::Filter::Fsr
+                        } else {
+                            bigame_core::gamescope::Filter::Linear
+                        },
+                        frame_limit: if fps > 0 {
+                            bigame_core::gamescope::FrameLimit::NestedRefresh(fps)
+                        } else {
+                            bigame_core::gamescope::FrameLimit::None
+                        },
+                        ..bigame_core::gamescope::Config::default()
                     })
                 }
             } else {

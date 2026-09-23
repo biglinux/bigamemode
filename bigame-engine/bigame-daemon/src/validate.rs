@@ -73,6 +73,44 @@ pub fn payload(content: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Keys whose value falcond executes.
+const SCRIPT_KEYS: &[&str] = &["start_script", "stop_script"];
+
+/// Validate a per-game profile payload.
+///
+/// Beyond the generic [`payload`] checks this rejects `start_script` and
+/// `stop_script`. falcond runs as `User=root` and spawns those values through
+/// `/bin/sh`, so accepting them would mean any caller authorized to save a
+/// profile could run arbitrary code as root the next time the matching game
+/// starts — turning a "manage my game settings" permission into a full root
+/// escalation with a delayed trigger.
+///
+/// Script hooks are therefore not writable through this interface at all. An
+/// administrator can still place them directly in
+/// `/usr/share/falcond/profiles/`, which correctly requires root to begin with.
+///
+/// # Errors
+/// Returns an error for oversized payloads, NUL bytes, or script hooks.
+pub fn profile_payload(content: &str) -> Result<(), String> {
+    payload(content)?;
+    for line in content.lines() {
+        let line = line.trim_start();
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some((key, _)) = line.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if SCRIPT_KEYS.contains(&key) {
+            return Err(format!(
+                "{key} is not accepted here: falcond executes it as root"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Validate a CPU governor or Energy Performance Preference value.
 ///
 /// # Errors
@@ -234,6 +272,41 @@ mod tests {
             );
             assert_eq!(normalized.parent(), Some(base));
         }
+    }
+
+    #[test]
+    fn profile_payload_rejects_root_script_hooks() {
+        // falcond runs as root and spawns these through /bin/sh, so accepting
+        // them would make "save a game profile" a root escalation primitive.
+        for body in [
+            "name = \"x\"\nstart_script = \"/tmp/evil.sh\"\n",
+            "name = \"x\"\nstop_script = \"/tmp/evil.sh\"\n",
+            "  start_script = \"/tmp/evil.sh\"\n",
+            "start_script=\"/tmp/evil.sh\"\n",
+        ] {
+            assert!(
+                profile_payload(body).is_err(),
+                "must reject script hook in {body:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_payload_accepts_ordinary_profiles() {
+        let body = "name = \"Cyberpunk2077.exe\"\n\
+                    performance_mode = true\n\
+                    scx_sched = none\n\
+                    vcache_mode = cache\n\
+                    idle_inhibit = true\n";
+        assert!(profile_payload(body).is_ok());
+    }
+
+    #[test]
+    fn profile_payload_ignores_the_words_in_comments_and_values() {
+        // A comment mentioning the key, and a value that merely contains the
+        // word, are both harmless — only a real assignment is refused.
+        assert!(profile_payload("# start_script is not supported\nname = \"x\"\n").is_ok());
+        assert!(profile_payload("name = \"my start_script game\"\n").is_ok());
     }
 
     #[test]

@@ -60,78 +60,86 @@ pub async fn cpu_snapshot(core: u32) -> Result<CpuSnapshot> {
 
 // ── GPU Telemetry ────────────────────────────────────────────────────────────
 
-/// Collect a GPU telemetry snapshot.
+/// Collect a GPU telemetry snapshot for the card games render on.
 ///
-/// Tries AMD sysfs first, then NVIDIA `nvidia-smi`.
-/// Returns `None` fields if the GPU is not readable.
+/// Two audit findings are fixed here, and both were caused by walking
+/// `/sys/class/drm` by hand:
+///
+/// * **TEL-01** — the old walk did `read_dir(...).ok()?` *inside* the loop, so
+///   the first entry without a `device/hwmon` directory returned `None` from
+///   the whole function. `/sys/class/drm` is full of such entries (connector
+///   nodes like `card1-DP-1`, plus `renderD*` and `version`), and readdir order
+///   is not stable, so GPU telemetry appeared and vanished between runs.
+/// * **TEL-02** — even when it did complete, it returned the *first* readable
+///   card. On a machine with an integrated and a discrete GPU that is the idle
+///   integrated one, not the card actually rendering the game.
+///
+/// Both go away by asking [`crate::hardware`] which card matters and reading
+/// only that one.
+#[must_use]
 pub async fn gpu_snapshot() -> GpuSnapshot {
-    GpuSnapshot {
-        freq_mhz: gpu_freq_mhz().await.ok(),
-        temp_celsius: gpu_temp_celsius().await.ok(),
-    }
+    let hw = crate::hardware::Hardware::detect();
+    gpu_snapshot_for(hw.render_gpu()).await
 }
 
-/// Read GPU core clock frequency in MHz.
+/// Collect a snapshot for a specific card.
 ///
-/// AMD path: `/sys/class/drm/card*/device/hwmon/hwmon*/freq1_input` (Hz → MHz).
-/// NVIDIA fallback: `nvidia-smi --query-gpu=clocks.current.graphics`.
-async fn gpu_freq_mhz() -> Result<u64> {
-    // AMD: iterate card* dirs looking for hwmon/hwmon*/freq1_input
-    if let Some(val) = amd_hwmon_read_u64("freq1_input").await {
-        return Ok(val / 1_000_000); // Hz → MHz
-    }
-    // NVIDIA fallback
-    nvidia_smi_query("clocks.current.graphics")
-        .await
-        .and_then(|s| s.trim().parse::<u64>().context("parse NVIDIA freq"))
-}
+/// Separated from [`gpu_snapshot`] so callers that already hold a
+/// [`crate::hardware::Hardware`] do not re-scan sysfs on every sample.
+#[must_use]
+pub async fn gpu_snapshot_for(gpu: Option<&crate::hardware::Gpu>) -> GpuSnapshot {
+    let Some(gpu) = gpu else {
+        // No AMD/Intel DRM card identified — try NVIDIA's own tool before
+        // giving up, since its cards are not always described through hwmon.
+        return GpuSnapshot {
+            freq_mhz: nvidia_smi_u64("clocks.current.graphics").await,
+            temp_celsius: nvidia_smi_f64("temperature.gpu").await,
+        };
+    };
 
-/// Read GPU temperature in °C.
-///
-/// AMD path: `/sys/class/drm/card*/device/hwmon/hwmon*/temp1_input` (m°C → °C).
-/// NVIDIA fallback: `nvidia-smi --query-gpu=temperature.gpu`.
-async fn gpu_temp_celsius() -> Result<f64> {
-    if let Some(val) = amd_hwmon_read_u64("temp1_input").await {
-        // millidegrees → °C; u64 fits exactly in f64 for sensor ranges.
+    // hwmon reports frequency in Hz and temperature in millidegrees.
+    let freq_mhz = match gpu.hwmon_u64("freq1_input") {
+        Some(hz) => Some(hz / 1_000_000),
+        None => nvidia_smi_u64("clocks.current.graphics").await,
+    };
+    let temp_celsius = match gpu.hwmon_u64("temp1_input") {
         #[allow(clippy::cast_precision_loss)]
-        return Ok(val as f64 / 1000.0);
+        Some(milli) => Some(milli as f64 / 1000.0),
+        None => nvidia_smi_f64("temperature.gpu").await,
+    };
+
+    GpuSnapshot {
+        freq_mhz,
+        temp_celsius,
     }
-    nvidia_smi_query("temperature.gpu")
-        .await
-        .and_then(|s| s.trim().parse::<f64>().context("parse NVIDIA temp"))
 }
 
-/// Walk `/sys/class/drm/card*/device/hwmon/hwmon*/` and return the first
-/// readable integer value for `filename`.
-async fn amd_hwmon_read_u64(filename: &str) -> Option<u64> {
-    let drm_dir = std::fs::read_dir("/sys/class/drm").ok()?;
-    for card_entry in drm_dir.flatten() {
-        let hwmon_base = card_entry.path().join("device/hwmon");
-        let hwmon_dir = std::fs::read_dir(&hwmon_base).ok()?;
-        for hwmon_entry in hwmon_dir.flatten() {
-            let path = hwmon_entry.path().join(filename);
-            if let Ok(content) = fs::read_to_string(&path).await {
-                if let Ok(val) = content.trim().parse::<u64>() {
-                    return Some(val);
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Run `nvidia-smi --query-gpu=<field> --format=csv,noheader,nounits`.
+/// Run `nvidia-smi --query-gpu=<field>` and return the trimmed first line.
 ///
-/// Returns the trimmed stdout string, or an error if nvidia-smi is not present
-/// or the command fails.
-async fn nvidia_smi_query(field: &str) -> Result<String> {
+/// Returns `None` when nvidia-smi is absent or fails, which is the normal case
+/// on an AMD or Intel machine and must not be logged as an error.
+async fn nvidia_smi(field: &str) -> Option<String> {
     let output = tokio::process::Command::new("nvidia-smi")
-        .args(["--query-gpu", field, "--format=csv,noheader,nounits"])
+        .args([
+            &format!("--query-gpu={field}"),
+            "--format=csv,noheader,nounits",
+        ])
         .output()
         .await
-        .context("spawn nvidia-smi")?;
-    anyhow::ensure!(output.status.success(), "nvidia-smi exited with error");
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    Some(text.lines().next()?.trim().to_owned())
+}
+
+async fn nvidia_smi_u64(field: &str) -> Option<u64> {
+    nvidia_smi(field).await?.parse().ok()
+}
+
+async fn nvidia_smi_f64(field: &str) -> Option<f64> {
+    nvidia_smi(field).await?.parse().ok()
 }
 
 #[cfg(test)]
@@ -186,5 +194,58 @@ mod tests {
     #[tokio::test]
     async fn cpu_snapshot_nonexistent_core_errors() {
         assert!(cpu_snapshot(99999).await.is_err());
+    }
+
+    // ── GPU telemetry regressions ────────────────────────────────────────
+
+    #[tokio::test]
+    async fn gpu_snapshot_reads_the_render_gpu_on_this_machine() {
+        let hw = crate::hardware::Hardware::detect();
+        let Some(gpu) = hw.render_gpu() else {
+            return; // headless CI — nothing to assert
+        };
+        let snap = gpu_snapshot_for(Some(gpu)).await;
+
+        // TEL-01: the walk used to abort on the first connector node and
+        // return nothing at all. If the card has a temperature attribute we
+        // must now actually get a value back.
+        if gpu.hwmon_u64("temp1_input").is_some() {
+            let temp = snap.temp_celsius.expect("temperature should be readable");
+            assert!(
+                (0.0..=125.0).contains(&temp),
+                "implausible temperature {temp}"
+            );
+        }
+        if gpu.hwmon_u64("freq1_input").is_some() {
+            let mhz = snap.freq_mhz.expect("clock should be readable");
+            assert!(mhz < 10_000, "implausible clock {mhz} MHz");
+        }
+    }
+
+    #[tokio::test]
+    async fn gpu_snapshot_targets_the_discrete_card_not_the_first_one() {
+        // TEL-02: on a dual-GPU box the old code sampled whichever card
+        // readdir yielded first, which is the idle integrated one.
+        let hw = crate::hardware::Hardware::detect();
+        if hw.gpus.len() < 2 {
+            return; // single-GPU host
+        }
+        let render = hw.render_gpu().expect("multi-GPU host must resolve one");
+        if hw.gpus.iter().any(|g| g.discrete) {
+            assert!(
+                render.discrete,
+                "render GPU should be the discrete card, got {}",
+                render.card
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn gpu_snapshot_without_a_card_does_not_panic() {
+        // No DRM card and (almost certainly) no nvidia-smi: must yield empty
+        // fields rather than failing.
+        let snap = gpu_snapshot_for(None).await;
+        let _ = snap.freq_mhz;
+        let _ = snap.temp_celsius;
     }
 }

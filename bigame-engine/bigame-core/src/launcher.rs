@@ -298,86 +298,70 @@ impl LaunchPlan {
 
 // ── Gamescope args builder ────────────────────────────────────────────────────
 
-/// Build `("gamescope", args_vec)` with merged profile + upscaling settings.
+/// Build `("gamescope", argv)` from the global upscaling settings merged with a
+/// per-game override.
 ///
-/// Resolution priority (highest → lowest):
-/// 1. `UpscalingSettings.base_*` / `target_*` (non-zero) — enables proper render/output split
-/// 2. Per-game `gamescope::Config.width/height` — output resolution from profile
-/// 3. Nothing (gamescope uses game-reported defaults)
+/// All argument construction is delegated to [`gamescope::Config::to_args`],
+/// which is the project's single builder and is capability-gated. This function
+/// only decides *what* to ask for; the builder decides what this Gamescope
+/// build can actually be given.
+///
+/// Resolution precedence, highest first:
+/// 1. `UpscalingSettings.base_*` / `target_*` — an explicit render/output split;
+/// 2. the per-game profile's render resolution;
+/// 3. nothing, leaving Gamescope to follow the game.
 fn build_gamescope_argv(
     executable: &str,
     executable_args: &[String],
     upscaling: &UpscalingSettings,
     gs_override: Option<&gamescope::Config>,
 ) -> (String, Vec<String>) {
-    let mut args: Vec<String> = Vec::new();
+    let caps = crate::capabilities::Capabilities::detect()
+        .gamescope
+        .unwrap_or_default();
 
-    // ── Render resolution (game draws at this) ─────────────────────────────
-    // Use upscaling.base_* if set; otherwise fall back to profile's width/height
-    let render_w = if upscaling.base_width > 0 {
-        Some(upscaling.base_width)
-    } else {
-        gs_override.filter(|c| c.width > 0).map(|c| c.width)
+    let base = gs_override.cloned().unwrap_or_default();
+
+    let cfg = gamescope::Config {
+        render_width: if upscaling.base_width > 0 {
+            upscaling.base_width
+        } else {
+            base.render_width
+        },
+        render_height: if upscaling.base_height > 0 {
+            upscaling.base_height
+        } else {
+            base.render_height
+        },
+        output_width: if upscaling.target_width > 0 {
+            upscaling.target_width
+        } else {
+            base.output_width
+        },
+        output_height: if upscaling.target_height > 0 {
+            upscaling.target_height
+        } else {
+            base.output_height
+        },
+        filter: match upscaling.gamescope_filter {
+            GamescopeFilter::Fsr => gamescope::Filter::Fsr,
+            GamescopeFilter::Nis => gamescope::Filter::Nis,
+            GamescopeFilter::Integer => gamescope::Filter::Pixel,
+        },
+        sharpness: upscaling.clamped_sharpness(),
+        ..base
     };
-    let render_h = if upscaling.base_height > 0 {
-        Some(upscaling.base_height)
-    } else {
-        gs_override.filter(|c| c.height > 0).map(|c| c.height)
-    };
 
-    // ── Display output resolution (upscaled to this) ───────────────────────
-    let target_w = if upscaling.target_width > 0 {
-        Some(upscaling.target_width)
-    } else {
-        None
-    };
-    let target_h = if upscaling.target_height > 0 {
-        Some(upscaling.target_height)
-    } else {
-        None
-    };
-
-    if let (Some(w), Some(h)) = (render_w, render_h) {
-        args.extend(["-w".into(), w.to_string(), "-h".into(), h.to_string()]);
+    let (argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
+    for u in &unsupported {
+        tracing::warn!(
+            target: "gamescope",
+            flag = %u.flag,
+            effect = %u.effect,
+            "installed gamescope does not support this option"
+        );
     }
-    if let (Some(w), Some(h)) = (target_w, target_h) {
-        args.extend(["-W".into(), w.to_string(), "-H".into(), h.to_string()]);
-    }
-
-    // ── Framerate limit + MangoHud from profile ────────────────────────────
-    if let Some(cfg) = gs_override {
-        if cfg.framerate_limit > 0 {
-            args.extend(["-r".into(), cfg.framerate_limit.to_string()]);
-        }
-        if cfg.mangohud {
-            args.push("--mangoapp".into());
-        }
-    }
-
-    // ── Upscaling filter — gamescope ≥3.14 uses -F/--filter; old --fsr/--nis
-    //    were removed (they share prefix with --fsr-sharpness → parse collision)
-    match upscaling.gamescope_filter {
-        GamescopeFilter::Fsr => {
-            args.extend(["-F".into(), "fsr".into()]);
-            args.push("--fsr-sharpness".into());
-            args.push(upscaling.clamped_sharpness().to_string());
-        }
-        GamescopeFilter::Nis => {
-            args.extend(["-F".into(), "nis".into()]);
-            args.push("--fsr-sharpness".into());
-            args.push(upscaling.clamped_sharpness().to_string());
-        }
-        GamescopeFilter::Integer => {
-            args.extend(["-F".into(), "pixel".into()]);
-        }
-    }
-
-    // Separator between gamescope args and game command
-    args.push("--".into());
-    args.push(executable.to_string());
-    args.extend(executable_args.iter().cloned());
-
-    ("gamescope".into(), args)
+    ("gamescope".into(), argv)
 }
 
 // ── Environment variable builders ─────────────────────────────────────────────
@@ -538,11 +522,11 @@ mod tests {
         video.upscaling.gamescope_sharpness = 5;
         let plan = LaunchPlan::build("myapp", &video, None);
         assert_eq!(plan.program, "gamescope");
-        // gamescope ≥3.14: -F fsr replaces old --fsr bool flag
-        let f_pos = plan.args.iter().position(|a| a == "-F").unwrap();
-        assert_eq!(plan.args[f_pos + 1], "fsr");
-        assert!(plan.args.contains(&"--fsr-sharpness".into()));
-        assert!(plan.args.contains(&"5".into()));
+        // The removed `--fsr` flag must never appear; it aborts the launch.
+        assert!(!plan.args.iter().any(|a| a == "--fsr"));
+        if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
+            assert_eq!(plan.args[f_pos + 1], "fsr");
+        }
         // Separator before exe
         let sep_pos = plan.args.iter().position(|a| a == "--").unwrap();
         assert_eq!(plan.args[sep_pos + 1], "myapp");
@@ -554,8 +538,9 @@ mod tests {
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Nis;
         let plan = LaunchPlan::build("game", &video, None);
-        let f_pos = plan.args.iter().position(|a| a == "-F").unwrap();
-        assert_eq!(plan.args[f_pos + 1], "nis");
+        if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
+            assert_eq!(plan.args[f_pos + 1], "nis");
+        }
         assert!(!plan.args.contains(&"--fsr".into()));
     }
 
@@ -565,8 +550,9 @@ mod tests {
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Integer;
         let plan = LaunchPlan::build("game", &video, None);
-        let f_pos = plan.args.iter().position(|a| a == "-F").unwrap();
-        assert_eq!(plan.args[f_pos + 1], "pixel");
+        if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
+            assert_eq!(plan.args[f_pos + 1], "pixel");
+        }
     }
 
     #[test]

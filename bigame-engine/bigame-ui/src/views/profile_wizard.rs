@@ -469,13 +469,21 @@ fn open_internal(
                     {
                         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
                         if gs_switch.is_active() {
+                            let fps = gs_fps.value() as u32;
                             p.gamescope = Some(bigame_core::gamescope::Config {
-                                width: gs_width.value() as u32,
-                                height: gs_height.value() as u32,
-                                fsr: gs_fsr.is_active(),
-                                fsr_sharpness: 5,
-                                framerate_limit: gs_fps.value() as u32,
-                                mangohud: false,
+                                render_width: gs_width.value() as u32,
+                                render_height: gs_height.value() as u32,
+                                filter: if gs_fsr.is_active() {
+                                    bigame_core::gamescope::Filter::Fsr
+                                } else {
+                                    bigame_core::gamescope::Filter::Linear
+                                },
+                                frame_limit: if fps > 0 {
+                                    bigame_core::gamescope::FrameLimit::NestedRefresh(fps)
+                                } else {
+                                    bigame_core::gamescope::FrameLimit::None
+                                },
+                                ..bigame_core::gamescope::Config::default()
                             });
                         } else {
                             p.gamescope = None;

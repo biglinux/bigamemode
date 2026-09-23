@@ -65,7 +65,7 @@ impl BiGameDaemon {
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::MANAGE_PROFILES).await?;
         validate::profile_name(name).map_err(invalid)?;
-        validate::payload(payload).map_err(invalid)?;
+        validate::profile_payload(payload).map_err(invalid)?;
 
         let dir = Path::new(USER_PROFILES_DIR);
         std::fs::create_dir_all(dir)
