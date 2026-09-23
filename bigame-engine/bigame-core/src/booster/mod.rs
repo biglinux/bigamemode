@@ -280,7 +280,7 @@ impl BoosterEngine {
     pub async fn measure<F: FnMut(measure::MeasureProgress)>(
         &self,
         measurement: &measure::MeasurementPlan,
-        log_dir: &std::path::PathBuf,
+        log_dir: &std::path::Path,
         progress: F,
     ) -> Result<measure::Measurement> {
         let (snapshot, plan) = self.dry_run();

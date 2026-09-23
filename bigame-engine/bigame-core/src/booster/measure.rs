@@ -18,7 +18,7 @@
 //! * **Restore the baseline afterwards**, whatever happened, including on
 //!   failure — a measurement must not leave the machine somewhere it was not.
 
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -161,11 +161,13 @@ fn record_run(
 
     // The log starts after a one-second delay and runs for `duration_s`;
     // a few seconds of slack covers start-up and the final flush.
-    let deadline = std::time::Instant::now() + Duration::from_secs(u64::from(duration_s) + 8);
-    while std::time::Instant::now() < deadline {
-        if benchmark::newest_capture_in(log_dir)?.is_some()
-            && std::time::Instant::now() > deadline - Duration::from_secs(4)
-        {
+    let start = std::time::Instant::now();
+    let budget = Duration::from_secs(u64::from(duration_s) + 8);
+    // MangoHud writes the CSV once the log duration elapses; wait for it to
+    // appear before killing the workload, rather than guessing a fixed sleep.
+    let settle = budget.saturating_sub(Duration::from_secs(4));
+    while start.elapsed() < budget {
+        if start.elapsed() > settle && benchmark::newest_capture_in(log_dir)?.is_some() {
             break;
         }
         std::thread::sleep(Duration::from_millis(250));
@@ -194,7 +196,7 @@ pub async fn run<F: FnMut(MeasureProgress)>(
     measurement: &MeasurementPlan,
     plan: &Plan,
     snapshot: &Snapshot,
-    log_dir: &PathBuf,
+    log_dir: &Path,
     mut progress: F,
 ) -> Result<Measurement> {
     anyhow::ensure!(
