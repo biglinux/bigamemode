@@ -90,6 +90,9 @@ pub fn build(
     let video_view = views::video::build();
     view_stack.add_named(&video_view, Some("video"));
 
+    let benchmark = views::benchmark::build();
+    view_stack.add_named(&benchmark, Some("benchmark"));
+
     let diagnostics = views::diagnostics::build();
     view_stack.add_named(&diagnostics, Some("diagnostics"));
 
@@ -123,6 +126,11 @@ pub fn build(
         ("profiles", i18n("Profiles"), "applications-games-symbolic"),
         ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
         ("video", i18n("Video"), "video-display-symbolic"),
+        (
+            "benchmark",
+            i18n("Benchmark"),
+            "org.gnome.Settings-performance-symbolic",
+        ),
         (
             "diagnostics",
             i18n("Diagnostics"),

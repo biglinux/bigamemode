@@ -23,6 +23,7 @@
 //! Capture is delegated to `MangoHud`, which is already a dependency and already
 //! writes per-frame CSV. Nothing here modifies the game or injects anything of
 //! its own.
+pub mod calibration;
 pub mod lab;
 pub mod provider;
 pub mod result;
