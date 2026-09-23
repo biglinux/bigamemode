@@ -14,6 +14,7 @@ pub mod games;
 pub mod gamescope;
 pub mod governor;
 pub mod hardware;
+pub mod inventory;
 pub mod launcher;
 pub mod models;
 pub mod network;
