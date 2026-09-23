@@ -326,3 +326,61 @@
     animation: pulse-warning 2s infinite;
 }
 
+
+/* ── Game library cards ──────────────────────────────────────────────
+ *
+ * A poster grid, reinterpreting the reference design in libadwaita terms.
+ * Colours are palette tokens rather than fixed hexes so the grid follows the
+ * desktop's light/dark and accent settings instead of imposing its own.
+ */
+
+.game-card {
+    padding: 6px;
+    border-radius: 12px;
+    transition: background-color 160ms ease;
+}
+
+.game-card:hover {
+    background-color: alpha(@window_fg_color, 0.06);
+}
+
+.game-card:focus-visible {
+    outline: 2px solid @accent_color;
+    outline-offset: -2px;
+}
+
+/* The cover keeps its rounded corners while the image is clipped to fill. */
+.game-cover-frame {
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.08);
+}
+
+.game-cover {
+    border-radius: 8px;
+}
+
+/* Launcher badge over the artwork. Needs its own scrim because it sits on
+ * arbitrary cover art rather than on a known background. */
+.game-card-badge {
+    padding: 1px 7px;
+    border-radius: 6px;
+    background-color: alpha(#000, 0.65);
+    color: #fff;
+}
+
+/* Profile indicator. Paired with a tooltip and with the status line under the
+ * title, so the state never depends on colour alone. */
+.profile-dot {
+    min-width: 10px;
+    min-height: 10px;
+    border-radius: 999px;
+    border: 1.5px solid alpha(#000, 0.45);
+}
+
+.profile-dot-custom {
+    background-color: @success_color;
+}
+
+.profile-dot-builtin {
+    background-color: @accent_bg_color;
+}

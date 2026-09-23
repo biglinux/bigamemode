@@ -1547,111 +1547,17 @@ fn find_steam_appid_by_installdir(installdir: &str) -> Option<String> {
     None
 }
 
-/// Suggest the best profile process name for a detected game.
+/// The process name a profile for `game` should be keyed on.
 ///
-/// For Steam titles, attempts to infer the real `.exe` from install directory,
-/// because profile names based on installdir often end up matching generic
-/// Proton helper processes.
+/// Delegates entirely to `bigame_core::games`, which scans the install
+/// directory, filters store helpers and crash handlers, and ranks the rest by
+/// size. This view used to carry its own copy of that heuristic; keeping two
+/// implementations of "which binary is the game" meant they could disagree,
+/// and the one that decided what a profile was named is the one that has to be
+/// right.
 #[must_use]
 fn suggest_profile_program_name(game: &bigame_core::games::DetectedGame) -> String {
-    if game.source == "Steam" {
-        if let Some(root) = game.install_path.as_deref() {
-            if let Some(exe) = guess_primary_windows_exe(root) {
-                return exe;
-            }
-        }
-    }
-    game.executable.clone()
-}
-
-/// Guess main Windows executable by scanning install directory.
-#[must_use]
-fn guess_primary_windows_exe(root: &std::path::Path) -> Option<String> {
-    if !root.exists() {
-        return None;
-    }
-
-    const MAX_DEPTH: usize = 4;
-    const MAX_FILES: usize = 3000;
-    const COMMON_WRAPPERS: &[&str] = &[
-        "steam.exe",
-        "steamwebhelper.exe",
-        "proton.exe",
-        "wineboot.exe",
-        "services.exe",
-        "winedevice.exe",
-        "explorer.exe",
-        "crashpad_handler.exe",
-        "easyanticheat.exe",
-        "eac_launcher.exe",
-        "launcher.exe",
-        "unins000.exe",
-    ];
-
-    let mut stack = vec![(root.to_path_buf(), 0usize)];
-    let mut seen = 0usize;
-    let mut best: Option<(String, u64, i32)> = None;
-
-    while let Some((dir, depth)) = stack.pop() {
-        if depth > MAX_DEPTH || seen > MAX_FILES {
-            continue;
-        }
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            if seen > MAX_FILES {
-                break;
-            }
-            seen += 1;
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push((path, depth + 1));
-                continue;
-            }
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_ascii_lowercase())
-                .unwrap_or_default();
-            if ext != "exe" {
-                continue;
-            }
-
-            let file_name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n.to_string(),
-                None => continue,
-            };
-            let lower = file_name.to_ascii_lowercase();
-            if COMMON_WRAPPERS.iter().any(|w| *w == lower) {
-                continue;
-            }
-
-            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-            let mut score = 0i32;
-            let p = path.to_string_lossy().to_ascii_lowercase();
-            if p.contains("win64") || p.contains("binaries") {
-                score += 10;
-            }
-            if p.contains("shipping") {
-                score += 8;
-            }
-            if p.contains("/bin") {
-                score += 4;
-            }
-
-            match &best {
-                None => best = Some((file_name, size, score)),
-                Some((_name, best_size, best_score)) => {
-                    if score > *best_score || (score == *best_score && size > *best_size) {
-                        best = Some((file_name, size, score));
-                    }
-                }
-            }
-        }
-    }
-
-    best.map(|(name, _, _)| name)
+    game.profile_key().to_owned()
 }
 
 /// Populate game rows into a `PreferencesGroup` (called by `build_games_group`).
@@ -1668,14 +1574,14 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
     for game in detected.iter().take(20) {
         let row = adw::ActionRow::builder()
             .title(&*game.name)
-            .subtitle(game.source)
+            .subtitle(game.source.label())
             .build();
         row.add_prefix(&gtk4::Image::from_icon_name("applications-games-symbolic"));
 
         // "Create Profile" button per game
         let profile_exists = bigame_core::profiles::list_names()
             .iter()
-            .any(|n| n == &game.executable);
+            .any(|n| n == game.profile_key());
         if profile_exists {
             let badge = gtk4::Label::builder()
                 .label(i18n("Profile exists"))
@@ -1726,8 +1632,8 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
             .valign(gtk4::Align::Center)
             .css_classes(["suggested-action"])
             .build();
-        let exe = game.executable.clone();
-        let source = game.source;
+        let exe = game.profile_key().to_owned();
+        let source = game.source.label();
         let game_name = game.name.clone();
         let install_path = game.install_path.clone();
         gs_btn.connect_clicked(move |b| {
