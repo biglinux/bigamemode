@@ -16,11 +16,11 @@ iGPU, Ethernet, desktop.
 |---|---|
 | `cargo fmt --check` | pass |
 | `cargo check --workspace` | pass |
-| `cargo test --workspace` | **217 passed, 0 failed** |
-| `cargo clippy --workspace --all-targets` | pass; **0 warnings in new modules** |
+| `cargo test --workspace` | **286 passed, 0 failed** |
+| `cargo clippy --workspace --all-targets` | pass; **0 warnings anywhere** |
 | `./tests/daemon-authorization.sh` | pass — 13 checks |
 
-217 → **237** tests with the benchmark engine.
+286 tests, up from 77 at the branch point.
 
 217 tests, up from 77 at the branch point. Pre-existing pedantic warnings remain
 in untouched UI files and are listed as a known limitation rather than silenced.
@@ -88,7 +88,7 @@ journal tests used to.
 | Crash recovery | NOT TESTED | `recover()` is unit-tested; no kill-mid-apply run |
 | Battery refusal | Unit test | `refuses_to_raise_power_draw_on_battery` |
 | falcond owns the power profile | Unit test | `booster_stands_down_while_falcond_holds_a_profile` |
-| Root knobs applied end to end | NOT TESTED | `bigame-daemon` is not installed here, so a successful privileged write could not be observed |
+| Root knobs applied end to end | **Tested** | package installed; governor, GPU DPM and power profile applied and verified |
 
 ### 3.1 The privileged helper
 
@@ -104,12 +104,14 @@ reachable — the fail-closed case.
 | SEC-02 traversal payloads refused | **Tested** |
 | Nothing written to `/etc/cron.d` or `/etc/systemd/system` | **Tested** |
 | Exported interface matches the client proxy | **Tested** — introspection |
-| A *successful* privileged write, with Polkit granting | NOT TESTED — needs the helper installed as root |
-| Rollback of a privileged write | NOT TESTED — same |
+| A *successful* privileged write, with Polkit granting | **Tested** — package installed, `implicit active: yes`, no prompt |
+| Rollback of a privileged write | **Tested** — three knobs restored in reverse order |
+| Writing the governor to every CPU | **Tested** — all 16 |
+| Leaving the idle iGPU untouched | **Tested** — card0 stayed `auto` |
 
-The remaining gap is narrower than before but still real: the *deny* path is
-verified end to end against the actual binary; the *allow* path is unit-tested
-and reviewed only.
+Both paths are now verified against the installed binary. What remains untested
+is a remote session, an inactive session, and a second user — the cases where
+Polkit should *prompt* rather than grant.
 
 ---
 
@@ -140,7 +142,7 @@ and reviewed only.
 | Grid renders | Tested | screenshot, 4 columns at 1250 px |
 | Async cover loading | Tested | no visible stall; scaling fixes column count |
 | Orphan profile warning | Tested | the two legacy title-keyed profiles flagged |
-| Create / edit / delete profile | NOT TESTED | requires the installed daemon |
+| Create / edit / delete profile | Partly tested | the helper accepts and validates the calls; the editor flow itself was not driven |
 
 ---
 
@@ -160,21 +162,20 @@ and reviewed only.
 
 ## 7. Not tested at all
 
-* **A game launched through the new pipeline.** The two installed titles are
-  online and anti-cheat protected; launching someone's competitive games
-  repeatedly on their account was not a reasonable thing to do unasked.
-* **The privileged helper in production.** Not installed on this machine.
-* **Any game benchmarked.** The benchmark engine itself *was* validated
-  against real MangoHud captures and a real A/B run — see
-  [09-BENCHMARKS.md](09-BENCHMARKS.md) — but no game was measured, and nothing
-  calls the engine during a Booster activation yet.
+* **An anti-cheat protected online game.** ARC Raiders and Dead by Daylight
+  were deliberately not launched. SuperTuxKart — offline, no anti-cheat, and
+  shipping a repeatable `--profile-time` benchmark — was used instead, both
+  directly and nested in Gamescope.
+* **A benchmark that could detect a difference.** SuperTuxKart was measured
+  correctly and honestly reported "no measurable change" — because it is
+  frame-capped at 160 fps, so neither arm can differ. A GPU-bound title with a
+  repeatable benchmark is still needed. See [09-BENCHMARKS.md](09-BENCHMARKS.md).
 * **Report view in a live activation.** Unit-tested and rendered, but the
   screenshot of a real activation could not be taken — synthetic keyboard input
   went to the foreground window rather than the application, and driving the
   user's desktop that way was abandoned rather than retried.
-* **Packaging.** `meson` and `PKGBUILD` were edited but not built end to end.
-* **Translations.** Strings are wrapped in `i18n()`; `.po` files were not
-  regenerated, so new strings are untranslated.
+* **`meson` as a build path.** `PKGBUILD` is built and installed end to end;
+  the meson route was edited but not exercised.
 
 ---
 
@@ -205,3 +206,38 @@ resized rather than the display.
 | Reduced motion honoured | Implemented via `gtk-enable-animations` + media query, not tested |
 | State never conveyed by colour alone | Implemented — icon and text accompany every state |
 | Contrast | NOT TESTED — no contrast measurement taken |
+
+
+---
+
+## 10. Second pass — what was closed
+
+Everything below was `NOT TESTED` or unimplemented after the first pass.
+
+| Item | Now |
+|---|---|
+| Privileged writes, with Polkit granting | **Tested** on the installed package |
+| Rollback of privileged writes | **Tested** — exact, reverse order |
+| A real game through the launch pipeline | **Tested** — direct and nested in Gamescope |
+| Gamescope `Auto` deciding for itself | **Tested** — chose to wrap, and said why |
+| A game benchmarked A/B | **Tested** — and honestly reported no difference |
+| Steam launch options | **Tested** — read, written, verified, backed up |
+| Translations installed and shown | **Tested** — 29 catalogues, app run in Portuguese |
+| Package built and installed | **Tested** — `makepkg`, then `pacman -U` |
+| `cargo clippy` clean | **Yes** — whole workspace, 160 warnings → 0 |
+
+### 10.1 Bugs found by doing rather than reading
+
+Each of these was invisible to inspection and appeared only when the code met
+the real machine:
+
+| Bug | How it surfaced |
+|---|---|
+| Deleting a profile did nothing — `let _ =` dropped an unawaited future | clippy's `let_underscore_future`, chasing warnings |
+| Games were orphaned — wrappers exec the game as a grandchild | SuperTuxKart stayed running after the launcher exited |
+| A per-game sharpness of 4 was emitted as 0 | reading the args the pipeline actually produced |
+| MangoHud never attached to an OpenGL game | an empty log directory, which is not an error |
+| Capture windows landed on menus, not gameplay | 3871 frames in one run, 1541 in the next |
+| One noise floor applied to every metric | a 150%-variance metric reported as a regression |
+| The inotify watcher could report an empty file | a test that failed one run in three |
+| The `.pot` template was stale | the `--check` gate failing a package build |

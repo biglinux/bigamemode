@@ -134,18 +134,66 @@ gaming proxy, and the 15% figure must not be restated as "Booster gives 15% more
 FPS". That is precisely the extrapolation the brief forbids, and the reason the
 application reports nothing until a game has actually been measured.
 
-## 5. What is still missing
+## 5. Second pass: measuring a real game
 
-1. **Per-game capture wired into the Booster flow.** The engine exists; nothing
-   calls it during an activation.
-2. **Alternating runs.** A-B-A-B rather than AA-BB, so thermal drift does not
-   land entirely on one arm. The validation above used AA-BB.
-3. **Discarding the first run** for shader compilation and cache warming.
-4. **Five runs per arm, not two.** Two sets a floor; it does not characterise a
-   distribution.
-5. **A game with a repeatable benchmark.** The two titles installed here are
-   online and anti-cheat protected, and launching someone's competitive games
-   repeatedly on their own account was not a reasonable thing to do unasked.
+`BoosterEngine::measure` now drives the whole thing — alternating A-B-A-B,
+discarding the first run of each arm, restoring the baseline on every path
+including failure. It was used on **SuperTuxKart**, which is offline, has no
+anti-cheat, and ships `--profile-time`: an AI-driven fixed-duration run that is
+genuinely repeatable.
 
-Until 1–5 hold, the report says "not measured", and per the brief that is the
-point.
+Doing it found three defects that reasoning about the code had not.
+
+**MangoHud was never attaching.** The runner set `MANGOHUD=1`, which enables
+only the *Vulkan* implicit layer. SuperTuxKart is OpenGL, where the `mangohud`
+wrapper's `LD_PRELOAD` is what attaches it. The failure mode is an empty
+directory rather than an error, so it looked as though the game had rendered
+nothing.
+
+**The capture window landed in different places each run.** Logging began one
+second after launch while the game spends ten at a menu and loading screen, so
+a fixed-length window caught a different mix each time — 3871 frames in one
+baseline run and 1541 in the next. The delay is now configurable.
+
+**One noise floor was applied to every metric.** It came from the 1% low, which
+on that game was steady to within 0.4% across runs, while average FPS varied by
+150% for the reason above. Judging average FPS against the 1% low's floor turned
+that variance into a confident "worse". Each metric now gets the spread of that
+same metric across the baseline runs, and a metric without enough baseline runs
+to establish a floor reports `NotMeasured` rather than a number.
+
+### 5.1 The corrected run, which found nothing
+
+```
+baseline   3198 frames  avg 160.0 fps  1% low 136.0 fps  p99 7.13 ms
+baseline   3198 frames  avg 160.0 fps  1% low 134.1 fps  p99 7.20 ms
+optimized  3199 frames  avg 160.0 fps  1% low 133.2 fps  p99 7.17 ms
+optimized  3199 frames  avg 160.0 fps  1% low 131.1 fps  p99 7.35 ms
+
+1% low:        136.0 fps → 133.2 fps   (2% against a 1.4% floor)
+P99 frametime: no measurable change
+P95 frametime: no measurable change
+Average FPS:   160.0 fps → 160.0 fps
+```
+
+Four runs at exactly 160.0 fps: **the workload is frame-capped, so neither arm
+can differ and this benchmark cannot detect a power-profile change at all.**
+Three metrics say so plainly. The 1% low moved 2% against a 1.4% floor — right
+at the edge, reported as measured, and not something to build a claim on.
+
+This is the result worth having. An engine that produced a satisfying number
+here would be broken, and the value of the run is that it says so.
+
+## 6. What is still missing
+
+1. **A workload that can show a difference.** A GPU-bound title with a
+   repeatable built-in benchmark, not one pinned to a frame cap.
+2. **Five runs per arm, not three.** Three gives one warm-up and two counted
+   runs, which sets a floor but does not characterise a distribution.
+3. **A UI entry point.** Measuring takes minutes and runs a workload
+   repeatedly; choosing that is the user's decision, and the flow for asking
+   has not been designed.
+
+Until a workload exists that could detect a difference, an ordinary Booster
+activation still reports "Performance impact not measured" — which remains the
+correct answer.

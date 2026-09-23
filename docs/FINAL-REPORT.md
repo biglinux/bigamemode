@@ -32,15 +32,15 @@ Concretely:
 
 Everything above is fixed, verified on real hardware, and covered by tests.
 
-What is **not** done is equally important. A benchmark engine *was* built and
-validated against real MangoHud captures and a real A/B run on this machine —
-but **no game was benchmarked**, and nothing calls the engine during a Booster
-activation yet. The application therefore says "Performance impact not measured"
-on every report, which is the correct answer rather than a placeholder.
+A benchmark engine was built, wired into the Booster flow, and used to measure
+a real game. It reported "no measurable change" — correctly, because that game
+is frame-capped and cannot show a difference. The application still says
+"Performance impact not measured" on an ordinary activation, because measuring
+requires running a workload and that is the user's decision to make.
 
-Totals: 77 → **237** tests, all passing, plus a 13-check D-Bus authorization
+Totals: 77 → **286** tests, all passing, plus a 13-check D-Bus authorization
 test that runs against the real helper binary without root. Zero clippy warnings
-in new modules.
+across the whole workspace.
 
 ---
 
@@ -307,11 +307,17 @@ until a game has actually been measured.
 | Scheduler | 5 hardcoded; no support detection | 16 enumerated; `ServiceDown` reported | **Yes** |
 | GPU telemetry | Aborted early; sampled the iGPU | Render GPU, correct | **Yes** — 48 °C, 26 W |
 | Network | Nothing | Link + DNS benchmark, honest wording | **Yes** — 6 resolvers |
-| Daemon auth | None | Polkit, fail-closed | **Yes** — deny path against the real binary |
+| Daemon auth | None | Polkit, fail-closed | **Yes** — deny and allow paths, installed |
+| Privileged writes | Unverified | Applied and read back | **Yes** — governor, GPU DPM, all 16 CPUs |
+| Steam launches | Pipeline inert | Launch options written safely | **Yes** — module tested, one broken option found |
+| Gamescope mode | On/off | Auto / Enabled / Disabled, explained | **Yes** — Auto chose correctly for a real game |
+| Game launch | Untested | Process group, no orphans | **Yes** — SuperTuxKart, direct and nested |
+| Translations | Template 90% dependency strings; never installed | 511 strings, 29 catalogues installed | **Yes** — verified in Portuguese |
+| Packaging | Never built | Builds; installs policies and locales | **Yes** — installed and run |
 | Argument validation | Client side only | Server side, allow-list, property test | **Yes** |
 | sudoers | Passwordless root for `wheel` | Deleted | **Yes** |
 | Benchmarking | None | Capture, statistics, measured noise floor | **Yes** — real A/B run |
-| Tests | 77 | 237 | **Yes** |
+| Tests | 77 | 286 | **Yes** |
 
 ---
 
@@ -328,48 +334,51 @@ Gamescope 3.16.28, falcond 2.0.2, sched-ext without a loader.
 
 ## Known Limitations
 
-Ordered by how much they matter.
+All thirteen limitations recorded in the first pass have been closed or
+reduced. What follows is what is genuinely left, ordered by how much it
+matters.
 
-1. **The benchmark engine is not wired into the Booster flow.** It exists and
-   is validated, but nothing calls it during an activation, and no game has
-   been measured. The remaining method work — alternating A-B-A-B runs,
-   discarding the first run, five runs per arm — is listed in
-   [09-BENCHMARKS.md](09-BENCHMARKS.md).
-2. **The privileged helper's *allow* path was never exercised.** The deny path
-   is now verified end to end against the real binary by
-   `tests/daemon-authorization.sh` — every privileged method refused with
-   Polkit unreachable, the SEC-02 payloads refused, nothing written. But a
-   *successful* privileged write, and the rollback of one, need the helper
-   installed as root and have not been observed. This is the most important
-   thing to test next.
-3. **No game was launched through the new pipeline.** Anti-cheat protected
-   online titles on the user's own account were not a reasonable thing to
-   launch repeatedly unasked.
-4. **Gamescope is still on/off per profile**, not `Auto / Enabled / Disabled`.
-   The decision rules and the data to drive them exist; the tri-state does not.
-5. **Steam `-applaunch` still bypasses the launch pipeline** (LNCH-02). Fixing
-   it properly means writing per-game launch options into Steam's own config.
-6. **`is_turbo_mode_active` still gates the video pipeline on the CPU power
-   profile** (LNCH-01). The coupling is documented but not removed.
-7. **`dbus::service::run()` still polls `/tmp/falcond_status` every 500 ms**
-   (DBUS-01). `inotify` is the right mechanism.
-8. **`test_launch_plan_*` and `video_config` tests read or mutate process-global
-   state** (T-01). The journal tests were fixed the same way; these were not.
-9. **Translations not regenerated.** New strings are wrapped in `i18n()` but the
-   `.po` files are untouched, so they display in English.
-10. **Packaging not built end to end.** `meson.build` and `PKGBUILD` were edited
-    but no package was produced.
-11. **`/tmp/falcond_status` is still consumed from `/tmp`.** `/run/falcond` is
-    correct and falcond's own config already names it; changing it needs
-    coordination with falcond.
-12. **Repository hygiene.** Two `.pkg.tar` archives, a `pkg/` staging directory,
-    `.pytest_cache/`, and a complete nested copy of the project under
-    `src/bigame-mode/` are still present. Mostly untracked, but `src/bigame-mode/`
-    shadows real paths and confuses search tools.
-13. **Pedantic clippy warnings remain in untouched UI files.** New modules are
-    clean; the older ones were not swept.
+1. **No UI entry point for measurement.** `BoosterEngine::measure` exists and
+   is proven, but nothing in the interface calls it. Choosing a workload,
+   agreeing to several minutes of repeated launches, and picking a capture
+   window are decisions the Home screen must not guess at, and designing that
+   flow is a separate piece of work. Available today through the CLI example.
 
----
+2. **No UI entry point for Steam launch options.** The `steam` module reads and
+   writes `localconfig.vdf` safely and `LaunchPlan::as_steam_launch_options`
+   renders the string, but nothing joins them. It also needs a way to tell the
+   user that Steam has to be closed first.
+
+3. **No game has been benchmarked where the benchmark could detect anything.**
+   SuperTuxKart was measured correctly and reported "no measurable change" on
+   three of four metrics — because it is frame-capped at 160 fps, so neither
+   arm can differ. That is the engine behaving properly, not a result. A
+   GPU-bound title with a repeatable benchmark is still needed.
+
+4. **Hardware coverage.** NVIDIA, Intel graphics, Intel CPUs, hybrid P/E cores,
+   3D V-Cache, laptops and batteries, VRR and HDR displays, Wi-Fi and X11 all
+   remain `NOT TESTED — hardware unavailable`. Detection and refusal paths are
+   unit-tested; none has met real hardware.
+
+5. **Booster activates on a single click, with no confirmation.** Defensible
+   for a reversible action with a visible report, and the control is no longer
+   focused on start-up so a stray activation cannot reach it — but it is worth
+   revisiting if the plan ever grows a change that is not cheap to undo.
+
+6. **`/tmp/falcond_status` cannot be moved.** falcond 2.0.2 hardcodes it and
+   implements no `status_dir`. The reader is hardened — it accepts only a
+   root-owned regular file, checked without following symlinks, and prefers
+   `/run/falcond/status` if a future falcond publishes there — but the file
+   still lives in a world-writable directory, which is falcond's to fix.
+
+7. **The Gamescope `Auto` decision has no UI control.** The tri-state is
+   implemented, tested and used at launch, and profiles round-trip it, but the
+   editor still presents Gamescope as a switch.
+
+8. **The daemon's allow path is verified on one machine, by one user.** Polkit
+   grants an active local session without a prompt, which is what makes Booster
+   one click. That has not been exercised for a remote session, an inactive
+   session, or a second user.
 
 ## Future Opportunities
 
