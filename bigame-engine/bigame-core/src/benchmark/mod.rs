@@ -29,6 +29,7 @@ pub mod history;
 pub mod lab;
 pub mod provider;
 pub mod result;
+pub mod runner;
 
 use std::path::{Path, PathBuf};
 
