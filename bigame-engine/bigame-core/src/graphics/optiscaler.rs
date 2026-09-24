@@ -427,6 +427,29 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
     Ok(c)
 }
 
+/// The value of `key` in `[section]` of an ini text (the first uncommented
+/// occurrence), compared case-insensitively as `OptiScaler` does.
+#[must_use]
+pub fn get_ini(text: &str, section: &str, key: &str) -> Option<String> {
+    let mut inside = false;
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(name) = t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+            inside = name.trim().eq_ignore_ascii_case(section);
+            continue;
+        }
+        if !inside || t.starts_with(';') || t.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = t.split_once('=') {
+            if k.trim().eq_ignore_ascii_case(key) {
+                return Some(v.trim().to_owned());
+            }
+        }
+    }
+    None
+}
+
 /// Set `key` in `[section]` of an ini text, keeping everything else —
 /// comments, order, the user's other settings — as it was.
 ///
@@ -1032,6 +1055,15 @@ mod tests {
         assert_eq!(f.errors.len(), 1);
         assert!(f.errors[0].contains("amd_fidelityfx_dx12.dll"));
         assert_eq!(read_log(""), LogFindings::default());
+    }
+
+    #[test]
+    fn ini_values_are_read_from_their_own_section() {
+        let t = "[FrameGen]\n; Enabled=true\nEnabled=true\n[Upscalers]\nEnabled=false\n";
+        assert_eq!(get_ini(t, "framegen", "enabled").as_deref(), Some("true"));
+        assert_eq!(get_ini(t, "Upscalers", "Enabled").as_deref(), Some("false"));
+        assert_eq!(get_ini(t, "Log", "LogToFile"), None);
+        assert_eq!(get_ini(&set_ini(t, "FrameGen", "Enabled", "false"), "FrameGen", "Enabled").as_deref(), Some("false"));
     }
 
     #[test]

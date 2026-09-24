@@ -58,14 +58,35 @@ pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Man
 
 /// What a launch of `process` must turn off (§ Harmony): with `OptiScaler`
 /// upscaling in the game, Gamescope upscaling and Wine FSR would be second
-/// upscalers in series.
+/// upscalers in series; with its frame generation on, lsfg-vk would be a
+/// second frame generator.
 #[must_use]
 pub fn launch_disables(state: &Path, process: &str) -> Vec<rules::Tech> {
-    if manifest_for_process(state, process).is_some() {
-        vec![rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr]
-    } else {
-        Vec::new()
+    let Some(m) = manifest_for_process(state, process) else {
+        return Vec::new();
+    };
+    let mut off = vec![rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr];
+    if optiscaler_frame_gen_on(&m) {
+        off.push(rules::Tech::LsfgVk);
     }
+    off
+}
+
+/// Whether the `OptiScaler.ini` in the game has frame generation on — the
+/// file in the game, not what was planned: `OptiScaler`'s overlay writes its
+/// changes there.
+fn optiscaler_frame_gen_on(m: &manifest::Manifest) -> bool {
+    m.entries
+        .iter()
+        .find(|e| {
+            e.path
+                .file_name()
+                .is_some_and(|n| n.eq_ignore_ascii_case("OptiScaler.ini"))
+        })
+        .and_then(|e| manifest::resolve_inside(&m.install_root, &e.path).ok())
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|t| optiscaler::get_ini(&t, "FrameGen", "Enabled"))
+        .is_some_and(|v| v.eq_ignore_ascii_case("true"))
 }
 
 /// Every game BiGame-mode has placed files in, as targets.
@@ -599,5 +620,35 @@ mod tests {
             [rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr]
         );
         assert!(launch_disables(&state, "other.exe").is_empty());
+    }
+
+    #[test]
+    fn optiscaler_frame_generation_on_in_the_game_turns_lsfg_off_for_the_launch() {
+        let dir = tempfile::tempdir().unwrap();
+        let (state, game) = (dir.path().join("state"), dir.path().join("game"));
+        std::fs::create_dir_all(&game).unwrap();
+        let ini = dir.path().join("OptiScaler.ini");
+        std::fs::write(&ini, "[FrameGen]\nEnabled=false\n").unwrap();
+        apply(
+            &state,
+            &Game {
+                key: "steam-1",
+                root: &game,
+                process: Some("Game.exe"),
+                title: None,
+            },
+            manifest::Source::default(),
+            &[PlannedFile {
+                path: "OptiScaler.ini".into(),
+                source: ini,
+                kind: FileKind::Config,
+            }],
+            &[],
+        )
+        .unwrap();
+        assert!(!launch_disables(&state, "Game.exe").contains(&rules::Tech::LsfgVk));
+        // Switched on later from OptiScaler's overlay, which writes the ini.
+        std::fs::write(game.join("OptiScaler.ini"), "[FrameGen]\nEnabled=true\n").unwrap();
+        assert!(launch_disables(&state, "Game.exe").contains(&rules::Tech::LsfgVk));
     }
 }

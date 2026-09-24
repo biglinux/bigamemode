@@ -148,6 +148,14 @@ impl LaunchPlan {
         // ── Environment variables ─────────────────────────────────────────────
         let mut env = HashMap::new();
         Self::check_and_warn_conflicts(logical_game, &effective_video);
+        // OptiScaler's frame generation is on in this game: lsfg-vk would be
+        // a second frame generator. Its layer manifest honours DISABLE_LSFG,
+        // which turns it off for this launch without touching its config.
+        if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
+            env.insert("DISABLE_LSFG".into(), "1".into());
+            tracing::info!(target: "graphics", game = logical_game,
+                "harmony: lsfg-vk off for this launch — OptiScaler generates frames");
+        }
 
         collect_upscaling_env(upscaling, &mut env);
 
