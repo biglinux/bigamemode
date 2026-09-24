@@ -59,7 +59,7 @@ fn section_description(section: Section) -> Option<String> {
 
 fn section_icon(section: Section) -> &'static str {
     match section {
-        Section::Verified | Section::Restored => "emblem-ok-symbolic",
+        Section::Verified | Section::Restored => "object-select-symbolic",
         Section::ManagedPerGame => "system-users-symbolic",
         Section::Skipped => "action-unavailable-symbolic",
         Section::Unavailable => "window-close-symbolic",
@@ -74,7 +74,14 @@ fn kind_title(kind: &Kind) -> String {
         Kind::ProfileSet => i18n("falcond profile set"),
         Kind::GameMode => i18n("Feral GameMode"),
         Kind::Scheduler => i18n("sched-ext scheduler"),
-        Kind::Knob(name) => i18n(name),
+        // Stored in English in the saved report; the GPU knob carries its card.
+        Kind::Knob(name) => match name
+            .strip_prefix("GPU power level (")
+            .and_then(|rest| rest.strip_suffix(')'))
+        {
+            Some(card) => i18n("GPU power level (%s)").replace("%s", card),
+            None => i18n(name),
+        },
     }
 }
 

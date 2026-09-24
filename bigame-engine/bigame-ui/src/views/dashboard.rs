@@ -53,9 +53,8 @@ pub fn build() -> adw::PreferencesPage {
     metrics_group.add(&metrics_vbox);
     page.add(&metrics_group);
 
-    // Performance status. Booster Mode itself lives on Home and is deliberately
-    // not duplicated here: two controls writing the same state is the class of
-    // conflict this project is trying to remove, not reproduce.
+    // Performance status. The Turbo control lives on Home and is deliberately
+    // not duplicated here: two controls writing the same state conflict.
     let booster_group = adw::PreferencesGroup::new();
     booster_group.set_title(&i18n("Performance"));
 
@@ -183,12 +182,7 @@ pub fn build() -> adw::PreferencesPage {
         gtk4::glib::spawn_future_local(async move {
             let result = gio::spawn_blocking(|| {
                 let report = build_runtime_diagnostics_report();
-                let path = std::env::var("HOME")
-                    .map_or_else(
-                        |_| std::path::PathBuf::from("/tmp"),
-                        std::path::PathBuf::from,
-                    )
-                    .join("bigame-diagnostics.log");
+                let path = bigame_core::paths::home_dir().join("bigame-diagnostics.log");
                 std::fs::write(&path, report)
                     .map(|()| path)
                     .map_err(|e| format!("{}: {}", i18n("Failed to save diagnostics"), e))
@@ -416,7 +410,7 @@ fn read_cpu_model_sync() -> String {
                 .and_then(|l| l.split(':').nth(1))
                 .map(|s| s.trim().to_owned())
         })
-        .unwrap_or_else(|| "Unknown CPU".to_owned())
+        .unwrap_or_else(|| i18n("Unknown CPU"))
 }
 
 /// Spawn async poller reading sysfs / D-Bus / status files and updating rows.
@@ -458,10 +452,9 @@ fn spawn_telemetry_poller(
         let mut prev_is_lsfg = false;
         let mut prev_runtime: Option<(bool, bool, bool, bool, bool)> = None;
         loop {
-            // Nothing is read while this page is not on screen -- including
-            // the one-per-second `ping`, which used to run for as long as
-            // the application did, game or no game. Game launch and exit
-            // notifications moved to the application-wide game watcher.
+            // Nothing is read while this page is not on screen, including the
+            // once-a-second `ping`. Game launch and exit notifications belong
+            // to the application-wide game watcher.
             if !ping_val.is_mapped() {
                 glib::timeout_future(POLL_INTERVAL).await;
                 continue;
@@ -469,7 +462,7 @@ fn spawn_telemetry_poller(
             // CPU
             let cpu_text = gio::spawn_blocking(read_cpu_freq)
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             if let Some(mhz) = cpu_text
                 .split_whitespace()
                 .next()
@@ -484,7 +477,7 @@ fn spawn_telemetry_poller(
             // GPU freq
             let gpu_text = gio::spawn_blocking(read_gpu_freq)
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             gpu_val.set_text(&gpu_text);
             if let Ok(mhz) = gpu_text
                 .trim_end_matches(|c: char| !c.is_ascii_digit())
@@ -496,7 +489,7 @@ fn spawn_telemetry_poller(
             // GPU temp
             let (temp_text, css_class) = gio::spawn_blocking(read_gpu_temp)
                 .await
-                .unwrap_or(("N/A".into(), "temp-normal"));
+                .unwrap_or((i18n("N/A"), "temp-normal"));
             temp_val.remove_css_class("temp-normal");
             temp_val.remove_css_class("temp-warm");
             temp_val.remove_css_class("temp-hot");
@@ -534,7 +527,7 @@ fn spawn_telemetry_poller(
             let target = crate::settings::load().ping_target;
             let ping_text = gio::spawn_blocking(move || read_ping_latency(&target))
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             ping_val.set_text(&ping_text);
             if let Some(ms) = ping_text
                 .split_whitespace()
@@ -547,7 +540,7 @@ fn spawn_telemetry_poller(
             // RAM
             let ram_text = gio::spawn_blocking(read_ram_usage)
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             {
                 let parts: Vec<&str> = ram_text.split_whitespace().collect();
                 if parts.len() >= 3 {
@@ -583,12 +576,11 @@ fn spawn_telemetry_poller(
                 bigame_core::dbus::power_profile_get().unwrap_or_else(|| i18n("Unavailable"))
             })
             .await
-            .unwrap_or_else(|_| "N/A".into());
+            .unwrap_or_else(|_| i18n("N/A"));
             power_row.set_subtitle(&pp_text);
 
-            // Turbo is falcond as systemd reports it, the same answer Home
-            // gives. This row used to read "performance power profile" as
-            // Turbo, and said Inactive while Turbo was on.
+            // Turbo is falcond as systemd reports it -- the same answer Home
+            // gives -- not the power profile.
             let turbo_enabled = matches!(
                 gio::spawn_blocking(bigame_core::turbo::state_blocking).await,
                 Ok(Ok(bigame_core::turbo::State::On))
@@ -722,13 +714,13 @@ fn read_cpu_freq() -> String {
     std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
-        .map_or_else(|| "N/A".into(), |khz| format!("{} MHz", khz / 1000))
+        .map_or_else(|| i18n("N/A"), |khz| format!("{} MHz", khz / 1000))
 }
 
 /// Read AMD GPU frequency from sysfs (synchronous, run on background thread).
 fn read_gpu_freq() -> String {
     let Ok(content) = std::fs::read_to_string("/sys/class/drm/card1/device/pp_dpm_sclk") else {
-        return "N/A".into();
+        return i18n("N/A");
     };
     // Active frequency line contains '*', format: "1: 1800Mhz *"
     for line in content.lines() {
@@ -738,7 +730,7 @@ fn read_gpu_freq() -> String {
             }
         }
     }
-    "N/A".into()
+    i18n("N/A")
 }
 
 /// Read GPU temperature from hwmon (synchronous, run on background thread).
@@ -759,19 +751,20 @@ fn read_gpu_temp() -> (String, &'static str) {
             }
         }
     }
-    ("N/A".into(), "temp-normal")
+    (i18n("N/A"), "temp-normal")
 }
 
 /// Read aggregate disk sectors (read, written) from `/proc/diskstats`.
 ///
-/// Sums fields 3 (sectors read) and 7 (sectors written) across all block devices.
+/// Sums the kernel iostats fields 3 (sectors read) and 7 (sectors written)
+/// across all whole block devices.
 fn read_disk_sectors() -> Option<(u64, u64)> {
     let content = std::fs::read_to_string("/proc/diskstats").ok()?;
     let (mut read_total, mut write_total) = (0u64, 0u64);
     for line in content.lines() {
         let fields: Vec<&str> = line.split_whitespace().collect();
         // diskstats: major minor name rd_ios rd_merge rd_sectors ...
-        // Index 5 = sectors read, index 9 = sectors written
+        // After major, minor and name, those are whitespace columns 5 and 9.
         if fields.len() >= 10 {
             let dev = fields[2];
             // Skip partitions — only count whole devices (no trailing digit for sd*, no p\d for nvme)
@@ -793,7 +786,7 @@ fn read_ping_latency(target: &str) -> String {
     // through a shell, but one beginning with '-' would still be read as an
     // option by ping.
     if target.is_empty() || target.starts_with('-') {
-        return "N/A".into();
+        return i18n("N/A");
     }
     let output = std::process::Command::new("ping")
         .args(["-c", "1", "-W", "1", target])
@@ -815,16 +808,16 @@ fn read_ping_latency(target: &str) -> String {
                     }
                 }
             }
-            "N/A".into()
+            i18n("N/A")
         }
-        _ => "Timeout".into(),
+        _ => i18n("Timeout"),
     }
 }
 
 /// Read RAM usage from `/proc/meminfo`.
 fn read_ram_usage() -> String {
     let Ok(content) = std::fs::read_to_string("/proc/meminfo") else {
-        return "N/A".into();
+        return i18n("N/A");
     };
     let mut mem_total = 0u64;
     let mut mem_avail = 0u64;
@@ -844,14 +837,14 @@ fn read_ram_usage() -> String {
         }
     }
     if mem_total == 0 {
-        return "N/A".into();
+        return i18n("N/A");
     }
     let used_mb = (mem_total - mem_avail) / 1024;
     let total_mb = mem_total / 1024;
     format!("{used_mb} / {total_mb} MB")
 }
 
-/// Create a beautiful dashboard card with an embedded sparkline.
+/// A dashboard card with an embedded sparkline.
 fn make_dashboard_card(
     title: &str,
     icon: &str,
@@ -1034,8 +1027,8 @@ fn build_runtime_diagnostics_report() -> String {
 #[allow(clippy::fn_params_excessive_bools)]
 /// Update feature row + badge based on config, runtime and game state.
 ///
-/// Not on Turbo: the launcher applies presentation settings whether or not
-/// Turbo is on (audit LNCH-01), so "requires Turbo" was not true.
+/// Not gated on Turbo: the launcher applies presentation settings whether or
+/// not Turbo is on.
 fn apply_runtime_feature_status(
     row: &adw::ActionRow,
     badge: &gtk4::Label,
@@ -1313,86 +1306,25 @@ fn refresh_detected_games_group(trigger: &impl IsA<gtk4::Widget>) {
     page.add(&build_games_group());
 }
 
-/// Resolve how a detected game should be launched.
-///
-/// Returns `(program, args)`:
-/// - Steam: `("steam", ["-applaunch", "<appid>"])`
-/// - Others: `(executable, [])` (direct process launch)
-#[must_use]
-fn resolve_launch_command(source: &str, executable: &str) -> (String, Vec<String>) {
-    if source == "Steam" {
-        if let Some(appid) = find_steam_appid_by_installdir(executable) {
-            return ("steam".to_string(), vec!["-applaunch".to_string(), appid]);
-        }
-        tracing::warn!(
-            source = %source,
-            executable = %executable,
-            "steam appid not found by installdir; falling back to direct launch"
-        );
+/// How a detected game is started from here: Steam titles through the client
+/// (`steam -applaunch <id>`), others with the command their launcher entry
+/// gives. `None` when there is neither, rather than guessing a program name
+/// and running whatever the PATH resolves it to.
+fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<(String, Vec<String>)> {
+    if game.source == bigame_core::games::Source::Steam {
+        let id = game.app_id.clone()?;
+        return Some(("steam".to_owned(), vec!["-applaunch".to_owned(), id]));
     }
-    (executable.to_string(), Vec::new())
-}
-
-/// Search Steam appmanifest files and return appid for matching `installdir`.
-#[must_use]
-fn find_steam_appid_by_installdir(installdir: &str) -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let steam_dirs = [
-        std::path::Path::new(&home).join(".steam/steam/steamapps"),
-        std::path::Path::new(&home).join(".local/share/Steam/steamapps"),
-    ];
-
-    for dir in steam_dirs {
-        let Ok(entries) = std::fs::read_dir(dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let is_manifest = path
-                .file_name()
-                .is_some_and(|n| n.to_string_lossy().starts_with("appmanifest_"));
-            if !is_manifest {
-                continue;
-            }
-            let Ok(content) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            let mut appid: Option<String> = None;
-            let mut dir_name: Option<String> = None;
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("\"appid\"") {
-                    let parts: Vec<&str> = trimmed.split('"').collect();
-                    if parts.len() >= 4 {
-                        appid = Some(parts[3].to_string());
-                    }
-                }
-                if trimmed.starts_with("\"installdir\"") {
-                    let parts: Vec<&str> = trimmed.split('"').collect();
-                    if parts.len() >= 4 {
-                        dir_name = Some(parts[3].to_string());
-                    }
-                }
-            }
-            if dir_name.as_deref() == Some(installdir) {
-                if let Some(id) = appid {
-                    return Some(id);
-                }
-            }
-        }
-    }
-
-    None
+    let (program, args) = game.launch_command.as_ref()?.split_first()?;
+    Some((program.clone(), args.to_vec()))
 }
 
 /// The process name a profile for `game` should be keyed on.
 ///
 /// Delegates entirely to `bigame_core::games`, which scans the install
 /// directory, filters store helpers and crash handlers, and ranks the rest by
-/// size. This view used to carry its own copy of that heuristic; keeping two
-/// implementations of "which binary is the game" meant they could disagree,
-/// and the one that decided what a profile was named is the one that has to be
-/// right.
+/// size. There is one implementation of "which binary is the game", because
+/// the one that names a profile has to be right.
 #[must_use]
 fn suggest_profile_program_name(game: &bigame_core::games::DetectedGame) -> String {
     game.profile_key().to_owned()
@@ -1464,32 +1396,32 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
             row.add_suffix(&btn);
         }
 
-        // Gamescope launch button — uses launcher::LaunchPlan to apply
-        // VideoConfig (upscaling filter, Wine FSR, vkBasalt, frame gen env vars)
-        // on top of per-game profile gamescope settings. OptiScaler DLLs are
-        // staged into the game directory when configured and install path is known.
-        let gs_btn = gtk4::Button::builder()
-            .label(i18n("Launch (Turbo)"))
-            .tooltip_text(i18n("Launch game with BiGameMode video features"))
-            .valign(gtk4::Align::Center)
-            .css_classes(["suggested-action"])
-            .build();
+        // Launch with the video settings (Gamescope, Wine FSR, vkBasalt, frame
+        // generation) applied on top of the game's own profile.
+        let Some((launch_program, launch_args)) = launch_command(game) else {
+            group.add(&row);
+            continue;
+        };
         let exe = game.profile_key().to_owned();
         let source = game.source.label();
         let game_name = game.name.clone();
+        let gs_btn = gtk4::Button::builder()
+            .label(i18n("Launch (Turbo)"))
+            .tooltip_text(i18n("Launch the game with BiGame-mode's video settings"))
+            .valign(gtk4::Align::Center)
+            .css_classes(["suggested-action"])
+            .build();
         gs_btn.connect_clicked(move |b| {
             let gs_cfg = bigame_core::profiles::load(&exe)
                 .ok()
                 .and_then(|p| p.gamescope);
             let btn_ref = b.clone();
             let exe_for_launch = exe.clone();
+            let (launch_program, launch_args) = (launch_program.clone(), launch_args.clone());
             let game_name_for_launch = game_name.clone();
             let game_name_for_result = game_name.clone();
             gtk4::glib::spawn_future_local(async move {
                 let result = gio::spawn_blocking(move || {
-                    let (launch_program, launch_args) =
-                        resolve_launch_command(source, &exe_for_launch);
-
                     tracing::info!(
                         game = %game_name_for_launch,
                         source = %source,
@@ -1510,8 +1442,8 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                     )
                     .spawn()
                     .map(|mut child| {
-                        // Reaped off the UI thread. Dropping the handle instead
-                        // left every exited Gamescope a zombie for the life of
+                        // Reaped off the UI thread: a dropped handle would
+                        // leave an exited Gamescope a zombie for the life of
                         // the UI, and a zombie still matches "is it running".
                         std::thread::spawn(move || {
                             let _ = child.wait();

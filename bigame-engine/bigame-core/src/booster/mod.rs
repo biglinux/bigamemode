@@ -6,7 +6,7 @@
 //! Detect → Snapshot → Plan → Apply → Verify → Report → (later) Restore
 //! ```
 //!
-//! Two of those stages are what separate this from the toggle it replaces.
+//! Two of those stages carry the design.
 //! **Snapshot** runs before anything is written, so "off" returns the machine
 //! to the state it was actually in rather than to a hardcoded guess. **Verify**
 //! runs after every write, so the report describes what the system did rather
@@ -91,12 +91,6 @@ impl BoosterEngine {
         &self.hardware
     }
 
-    /// The detected capabilities.
-    #[must_use]
-    pub fn capabilities(&self) -> &Capabilities {
-        &self.capabilities
-    }
-
     /// Every knob that exists on this machine and is therefore worth capturing.
     ///
     /// Capturing a knob is free and always safe; *writing* one is what the plan
@@ -152,9 +146,8 @@ impl BoosterEngine {
     /// calibration would silently reapply a setting that was just measured to
     /// hurt.
     ///
-    /// A calibration from different hardware, or an unreadable one, is simply
-    /// absent: the plan then falls back to reasoning from what the hardware
-    /// supports, which is what it always did.
+    /// A calibration from different hardware, or an unreadable one, is treated
+    /// as absent: the plan then reasons only from what the hardware supports.
     fn build_plan(&self, snapshot: &Snapshot) -> Plan {
         let calibration = Calibration::default_path().and_then(|path| {
             let fingerprint = crate::inventory::fingerprint(&self.hardware);
@@ -354,22 +347,6 @@ impl BoosterEngine {
         }
         Ok(outcomes)
     }
-
-    /// Recover after a crash or an unclean shutdown.
-    ///
-    /// Call once at start-up. If a journal is present it means a previous run
-    /// left the machine in Booster state without ever being turned off, so the
-    /// baseline is restored before the user sees anything.
-    ///
-    /// # Errors
-    /// Returns an error if the journal could not be read.
-    pub async fn recover() -> Result<Vec<RestoreOutcome>> {
-        if Journal::load()?.is_none() {
-            return Ok(Vec::new());
-        }
-        tracing::info!(target: "booster", "found an unfinished Booster session; restoring baseline");
-        Self::deactivate().await
-    }
 }
 
 #[cfg(test)]
@@ -391,8 +368,7 @@ mod tests {
         assert!(knobs.contains(&Knob::CpuGovernor));
         assert!(knobs.contains(&Knob::CpuEpp));
 
-        // V-Cache is only listed when the CPU actually has it. On the bench
-        // (a 5700G) it must not be.
+        // V-Cache is listed only when the CPU actually has it.
         assert_eq!(
             knobs.contains(&Knob::VCacheMode),
             engine.hardware().cpu.vcache.is_some()

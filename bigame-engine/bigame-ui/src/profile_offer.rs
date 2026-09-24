@@ -83,8 +83,8 @@ fn should_offer(game: &GameIdentity) -> bool {
         return false;
     }
     // A process that has only just started may be a helper that runs before
-    // the game -- Steam's installer script did exactly that -- so the offer
-    // waits until the process has lived a while.
+    // the game (Steam's installer script does), so the offer waits until the
+    // process has lived a while.
     if bigame_core::running::running_for(game.pid).is_none_or(|secs| secs < SETTLE_SECS) {
         return false;
     }
@@ -144,7 +144,7 @@ pub fn install(app: &adw::Application) {
                 app.withdraw_notification(NOTIFICATION_ID);
                 if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take()) {
                     if crate::settings::load().notifications_enabled {
-                        let n = gio::Notification::new(&format!("{name} {}", i18n("closed")));
+                        let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
                         n.set_body(Some(&i18n(
                             "Everything the game's profile changed has been put back.",
                         )));
@@ -183,7 +183,7 @@ pub fn install(app: &adw::Application) {
 fn notify_offer(app: &adw::Application, game: &GameIdentity) {
     let target = game.process_name.to_variant();
     let notification =
-        gio::Notification::new(&format!("{} {}", game.display_name, i18n("is running")));
+        gio::Notification::new(&i18n("%s is running").replace("%s", &game.display_name));
     notification.set_body(Some(&i18n(
         "BiGame-mode has no profile for this game yet. Create one tuned for this machine?",
     )));
@@ -279,7 +279,7 @@ fn create_for(app: &adw::Application, process: &str) {
         let saving = rec.clone();
         let outcome = gio::spawn_blocking(move || save_and_verify(&saving))
             .await
-            .unwrap_or_else(|_| Created::Failed("the worker thread failed".into()));
+            .unwrap_or_else(|_| Created::Failed(i18n("the worker thread failed")));
         let (title, body) = match &outcome {
             Created::Active => (
                 i18n("Profile created and active"),
@@ -325,7 +325,7 @@ fn show_review(app: &adw::Application, process: &str) {
     for d in rec.decisions.iter().filter(|d| d.key != "scx_sched_props") {
         let row = adw::ActionRow::builder()
             .title(format!("{} = {}", d.key, d.value))
-            .subtitle(format!("{} — {}", i18n(d.evidence.label()), d.why))
+            .subtitle(format!("{} — {}", i18n(d.evidence.label()), i18n(&d.why)))
             .subtitle_lines(4)
             .use_markup(false)
             .build();
@@ -337,7 +337,7 @@ fn show_review(app: &adw::Application, process: &str) {
     body.append(&never);
 
     let dialog = adw::AlertDialog::builder()
-        .heading(format!("{} {}", game.display_name, i18n("is running")))
+        .heading(i18n("%s is running").replace("%s", &game.display_name))
         .body(i18n(
             "BiGame-mode has no profile for this game yet. This is the profile it would create, and why each value was chosen.",
         ))

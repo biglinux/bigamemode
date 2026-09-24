@@ -20,7 +20,7 @@ use bigame_core::graphics::report::Confidence;
 use bigame_core::graphics::runtime::Status;
 use bigame_core::graphics::{self, Analysis, Target};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 
 struct Page {
     target: Target,
@@ -77,10 +77,7 @@ fn upscaler_name(backend: &str) -> String {
 fn standing_text(s: Standing) -> (String, &'static str) {
     match s {
         Standing::Recommended => (i18n("Recommended"), "success"),
-        Standing::Compatible => (
-            i18n("Compatible — not yet checked on this machine"),
-            "accent",
-        ),
+        Standing::Compatible => (i18n("Compatible — not yet verified in practice"), "accent"),
         Standing::Experimental => (i18n("Experimental"), "warning"),
         Standing::NotRecommended => (i18n("Not recommended"), "dim-label"),
         Standing::Blocked => (i18n("Blocked"), "error"),
@@ -125,7 +122,7 @@ fn step_row(step: &Step) -> adw::ActionRow {
         Step::InGame(t) => ("input-gaming-symbolic", t),
         Step::Install(t) => ("folder-download-symbolic", t),
         Step::Disable(t) => ("action-unavailable-symbolic", t),
-        Step::Keep(t) => ("emblem-ok-symbolic", t),
+        Step::Keep(t) => ("object-select-symbolic", t),
         Step::Note(t) => ("dialog-information-symbolic", t),
     };
     let r = adw::ActionRow::builder()
@@ -199,7 +196,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     rec.add(&files);
     for problem in &p.problems {
         rec.add(&row(
-            &format!("{:?} + {:?}", problem.a, problem.b),
+            &format!("{} + {}", i18n(problem.a.label()), i18n(problem.b.label())),
             &i18n(problem.why),
         ));
     }
@@ -289,8 +286,8 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(
             &proxy.slot,
             &format!(
-                "{:?}{}",
-                proxy.owner,
+                "{}{}",
+                i18n(proxy.owner.label()),
                 proxy
                     .version
                     .as_ref()
@@ -309,11 +306,10 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(
             &i18n("Installed by BiGame-mode"),
             &format!(
-                "{} {} · {} {}",
+                "{} {} · {}",
                 m.source.component,
                 m.source.version,
-                m.entries.len(),
-                i18n("files")
+                ni18n("%n file", "%n files", m.entries.len())
             ),
         ));
     }
@@ -581,10 +577,9 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 busy(&page, None);
                 let text = match result {
                     Ok(Ok(m)) => format!(
-                        "{} ({} {})",
+                        "{} ({})",
                         i18n("Installed; every replaced file was backed up"),
-                        m.entries.len(),
-                        i18n("files")
+                        ni18n("%n file", "%n files", m.entries.len())
                     ),
                     Ok(Err(e)) => format!("{}: {e:#}", i18n("Nothing was changed")),
                     Err(_) => i18n("Nothing was changed"),

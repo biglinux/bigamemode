@@ -81,11 +81,10 @@ pub struct GameProfile {
     pub fg_present_mode: u32,
     /// Keys this build does not recognise, preserved verbatim.
     ///
-    /// falcond gains fields faster than this project can track them — 2.0.8
-    /// added `dmem_protect` and `disable_split_lock`, neither of which older
-    /// BiGame-mode builds knew about. Without this, opening such a profile in
-    /// the editor and pressing Save would silently delete them, because
-    /// serialization only emitted the fields it happened to know.
+    /// falcond gains fields faster than this project tracks them (2.0.8 added
+    /// `dmem_protect` and `disable_split_lock`). Without this, opening such a
+    /// profile in the editor and saving would silently delete them, because
+    /// serialization emits only the fields it knows.
     ///
     /// A `BTreeMap` keeps the output order stable so a save with no edits
     /// produces no diff.
@@ -374,12 +373,10 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
 
 /// Save a profile to the user directory via D-Bus.
 ///
-/// Synchronous on purpose. It was `async` while containing no `await` — it uses
-/// the blocking proxy throughout — and that mismatch caused a real bug: a call
-/// site wrote `let _ = profiles::delete(&name)` inside a blocking closure,
-/// which built a future and dropped it. The button reported "Profile deleted"
-/// and nothing was deleted. A function that cannot suspend should not claim it
-/// might.
+/// Synchronous on purpose: it uses the blocking proxy throughout, and an
+/// `async fn` that never awaits invites `let _ = profiles::delete(&name)` in a
+/// blocking closure, which builds a future, drops it and deletes nothing. A
+/// function that cannot suspend should not claim it might.
 ///
 /// # Errors
 /// Returns an error if serialization or the D-Bus call fails.
@@ -411,9 +408,8 @@ pub fn save(profile: &GameProfile) -> Result<()> {
     // The profile's `cpu_governor` is deliberately NOT applied here.
     //
     // It is a *per-game* setting, and falcond applies it when the game starts.
-    // Writing it at save time changed the governor system-wide, immediately,
-    // with no record of the previous value and no way back — so merely editing
-    // a profile silently repinned every core on the machine.
+    // Writing it at save time would change the governor system-wide,
+    // immediately, with no record of the previous value and no way back.
     Ok(())
 }
 
@@ -428,12 +424,7 @@ pub fn delete(name: &str) -> Result<()> {
     anyhow::ensure!(path.exists(), "profile not found: {}", path.display());
 
     let proxy = crate::dbus_client::daemon_proxy_blocking()?;
-    // The helper reloads falcond itself, through systemd. This used to shell
-    // out to `sudo -n pkill -HUP falcond` from the GUI thread: it blocked the
-    // main loop on a subprocess, signalled every process sharing the name, and
-    // depended on a passwordless sudoers rule that has since been removed as a
-    // root escalation. It also silently did nothing, because `sudo -n` already
-    // failed on any normally configured machine.
+    // The helper reloads falcond itself, through systemd.
     proxy.delete_profile(name)?;
 
     // Remove FG entry from lsfg-vk config (best-effort).
@@ -457,12 +448,6 @@ fn user_path(name: &str) -> PathBuf {
 
 fn system_path(name: &str) -> PathBuf {
     Path::new(SYSTEM_PROFILES_DIR).join(format!("{name}.conf"))
-}
-
-/// Check if a profile exists in the user directory (meaning it can be deleted/reverted).
-#[must_use]
-pub fn is_user_profile(name: &str) -> bool {
-    user_path(name).exists()
 }
 
 /// Check if a profile exists in the system directory.

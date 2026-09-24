@@ -1,10 +1,9 @@
 //! Polkit authorization for the privileged helper.
 //!
 //! Every method on the helper's interface must pass through [`check`] before it
-//! touches the system. The audit found the previous helper performed **no**
-//! authorization at all while its `.policy` file declared five `auth_admin`
-//! actions — the actions existed, nothing consulted them, and the bus policy
-//! let every local uid call in.
+//! touches the system. The bus policy lets every local uid call in, so the
+//! actions in the `.policy` file protect nothing unless this code consults
+//! them.
 //!
 //! The caller is identified by its **unique bus name**, not by a PID. A PID can
 //! be recycled between the moment a message is sent and the moment it is

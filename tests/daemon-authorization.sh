@@ -81,8 +81,10 @@ check "SetGpuDpmLevel"     "Access denied" SetGpuDpmLevel ss "card1" "high"
 check "SetVCacheMode"      "Access denied" SetVCacheMode s "cache"
 check "ApplyFalcondConfig" "Access denied" ApplyFalcondConfig s "scx_sched = none"
 check "DeleteProfile"      "Access denied" DeleteProfile s "Cyberpunk2077.exe"
+check "SetGameBackend"     "Access denied" SetGameBackend b true
+check "ReleaseGameBackend" "Access denied" ReleaseGameBackend
 
-echo "Audit SEC-02 payloads (path traversal, must be refused and write nothing):"
+echo "Path traversal (must be refused and write nothing):"
 check "SaveProfile ../etc/cron.d"   "Access denied" \
       SaveProfile ss "../../../../../etc/cron.d/pwn" "evil"
 check "SaveProfile ../etc/systemd"  "Access denied" \

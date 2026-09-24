@@ -49,9 +49,6 @@ pub enum Status {
     Active,
     /// Something is wrong (Yellow).
     Warning,
-    /// Not working / Missing dependencies (Red). Reserved for future use.
-    #[allow(dead_code)]
-    Error,
 }
 
 impl Status {
@@ -61,7 +58,6 @@ impl Status {
             Status::Idle => "input-gaming-symbolic-blue".into(),
             Status::Active => "input-gaming-symbolic-green".into(),
             Status::Warning => "input-gaming-symbolic-yellow".into(),
-            Status::Error => "input-gaming-symbolic-red".into(),
         }
     }
 }
@@ -109,7 +105,6 @@ impl ksni::Tray for BiGameTray {
             Status::Idle => i18n("Ready to play"),
             Status::Active => i18n("Gaming mode active"),
             Status::Warning => i18n("Optimization warning"),
-            Status::Error => i18n("Service error"),
         };
 
         let icon_pixmap = if let Some(data) = load_icon_as_pixmap(&s.icon_name()) {
@@ -191,18 +186,17 @@ impl TrayHandle {
     }
 }
 
-/// Spawn system tray in a background thread. Returns a handle to update it and a receiver for actions.
 /// Send an action and wake the GTK main loop to handle it.
 ///
-/// Instead of the main loop polling the channel four times a second for as
-/// long as the application ran, the tray thread asks it to drain the channel
-/// when -- and only when -- there is something in it.
+/// The main loop is woken only when there is something in the channel, so
+/// nothing polls while the tray is idle.
 fn notify(tx: &mpsc::Sender<TrayAction>, action: TrayAction) {
     if tx.send(action).is_ok() {
         gtk4::glib::MainContext::default().invoke(crate::app::drain_tray_actions);
     }
 }
 
+/// Spawn system tray in a background thread. Returns a handle to update it and a receiver for actions.
 pub fn spawn() -> (TrayHandle, mpsc::Receiver<TrayAction>) {
     let (tx, rx) = mpsc::channel();
     let status = Arc::new(RwLock::new(Status::Idle));

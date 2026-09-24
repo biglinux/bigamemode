@@ -1,10 +1,9 @@
 //! Argument validation for the privileged helper.
 //!
 //! Everything here runs **inside** the root process, on the server side of the
-//! bus. That placement is the entire point: the previous helper relied on the
-//! GUI to reject dangerous input, which an attacker simply bypasses by talking
-//! to the bus directly. The audit's SEC-02 proof-of-concept turned the profile
-//! name `../../../../../etc/cron.d/pwn` into a root-owned file in `/etc/cron.d`.
+//! bus. That placement is the entire point: a check in the GUI is bypassed by
+//! talking to the bus directly, and an unchecked profile name such as
+//! `../../../../../etc/cron.d/pwn` becomes a root-owned file in `/etc/cron.d`.
 //!
 //! The approach throughout is allow-listing. Denying known-bad patterns invites
 //! an encoding that was not thought of; permitting only a known-good character
@@ -89,10 +88,25 @@ const SCRIPT_KEYS: &[&str] = &["start_script", "stop_script"];
 /// administrator can still place them directly in
 /// `/usr/share/falcond/profiles/`, which correctly requires root to begin with.
 ///
+/// These checks read lines the way this function does, and falcond has its
+/// own parser, so anything the two could read differently is refused
+/// outright: control characters (a bare `\r` is a line break to some
+/// parsers and not to others) and a key given twice, even once quoted (one
+/// parser keeps the first value, another the last). Keys are compared with
+/// their quotes removed, so a quoted `"start_script"` is still a script hook.
+///
 /// # Errors
-/// Returns an error for oversized payloads, NUL bytes, or script hooks.
+/// Returns an error for oversized payloads, NUL or other control characters,
+/// repeated keys, or script hooks.
 pub fn profile_payload(content: &str) -> Result<(), String> {
     payload(content)?;
+    if content
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\t')
+    {
+        return Err("profile contains control characters".into());
+    }
+    let mut seen = std::collections::HashSet::new();
     for line in content.lines() {
         let line = line.trim_start();
         if line.starts_with('#') {
@@ -101,11 +115,14 @@ pub fn profile_payload(content: &str) -> Result<(), String> {
         let Some((key, _)) = line.split_once('=') else {
             continue;
         };
-        let key = key.trim();
+        let key = key.trim().trim_matches(['"', '\'']);
         if SCRIPT_KEYS.contains(&key) {
             return Err(format!(
                 "{key} is not accepted here: falcond executes it as root"
             ));
+        }
+        if !seen.insert(key.to_owned()) {
+            return Err(format!("{key} is given more than once"));
         }
     }
     Ok(())
@@ -207,6 +224,19 @@ pub fn profile_name_matches(name: &str, payload: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn a_profile_that_parsers_could_read_differently_is_refused() {
+        use super::profile_payload;
+        assert!(profile_payload("name = \"game\"\nidle_inhibit = true\n").is_ok());
+        // A bare CR hides a line from `lines()` but not from every parser.
+        assert!(profile_payload("name = \"game\"\rstart_script = \"x\"\n").is_err());
+        assert!(profile_payload("\"start_script\" = \"x\"\n").is_err());
+        assert!(profile_payload("'stop_script' = \"x\"\n").is_err());
+        assert!(profile_payload("name = \"game\"\nname = \"Xorg\"\n").is_err());
+        assert!(profile_payload("scx_sched = none\nscx_sched = lavd\n").is_err());
+        assert!(profile_payload("name = \"game\"\n\tidle_inhibit = true\n").is_ok());
+    }
+
+    #[test]
     fn a_profile_can_only_match_the_process_it_is_named_for() {
         assert!(
             profile_name_matches("SOTTR.exe", "name = \"SOTTR.exe\"\nidle_inhibit = true\n")
@@ -235,8 +265,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_the_exact_sec_02_payloads() {
-        // These are the strings the audit proved wrote into /etc as root.
+    fn rejects_path_traversal_payloads() {
+        // Traversal names that would write into /etc as root if accepted.
         for name in [
             "../../../../../etc/cron.d/pwn",
             "../../../../../etc/systemd/system/pwn.service",

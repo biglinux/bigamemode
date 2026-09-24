@@ -3,9 +3,9 @@
 //! The rule is: never two technologies doing the same job in series without a
 //! demonstrated reason. Two upscalers in a row scale an already-scaled image;
 //! two frame generators in a row interpolate interpolated frames. Each entry
-//! says what the verdict rests on — a test on the reference machine, an
-//! upstream statement, or the principle — and a pair nobody has established
-//! is `Unknown`, not a guess.
+//! says what the verdict rests on — a test on real hardware, an upstream
+//! statement, or the principle — and a pair nobody has established is
+//! `Unknown`, not a guess.
 
 use serde::Serialize;
 
@@ -45,6 +45,29 @@ pub enum Tech {
     AntiCheat,
 }
 
+impl Tech {
+    /// A name for the UI, marked for translation.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::NativeDlss => N_("the game's DLSS"),
+            Self::NativeFsr => N_("the game's FSR"),
+            Self::NativeXess => N_("the game's XeSS"),
+            Self::NativeFrameGen => N_("the game's frame generation"),
+            Self::OptiScalerUpscaler => N_("OptiScaler upscaling"),
+            Self::OptiScalerFrameGen => N_("OptiScaler frame generation"),
+            Self::GamescopeUpscaling => N_("Gamescope upscaling"),
+            Self::WineFsr => N_("Wine FSR"),
+            Self::LsfgVk => N_("lsfg-vk frame generation"),
+            Self::MangoHud => "MangoHud",
+            Self::ReShade => "ReShade",
+            Self::RenoDx => "RenoDX",
+            Self::Hdr => N_("HDR output"),
+            Self::AntiCheat => N_("anti-cheat"),
+        }
+    }
+}
+
 /// How two technologies get along.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -67,7 +90,7 @@ pub enum Verdict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Basis {
-    /// Observed on the reference machine.
+    /// Observed in a test on real hardware.
     TestedHere,
     /// The project's own documentation or code.
     Upstream,

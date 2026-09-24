@@ -77,7 +77,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
             .modal(true)
             .build();
         let dll_filter = gtk4::FileFilter::new();
-        dll_filter.set_name(Some("DLL files (*.dll)"));
+        dll_filter.set_name(Some(&format!("{} (*.dll)", i18n("DLL files"))));
         dll_filter.add_pattern("*.dll");
         let filters = gio::ListStore::new::<gtk4::FileFilter>();
         filters.append(&dll_filter);
@@ -108,9 +108,13 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     // ── Target Profile Combo ──────────────────────────────────────────────────
     let profiles = bigame_core::profiles::list_names();
+    // With no profile yet the list shows a placeholder, which must never be
+    // read back as a profile name.
+    let has_profiles = !profiles.is_empty();
+    let placeholder = i18n("No profiles yet");
     let mut model_strings: Vec<&str> = profiles.iter().map(std::string::String::as_str).collect();
-    if model_strings.is_empty() {
-        model_strings.push("None");
+    if !has_profiles {
+        model_strings.push(&placeholder);
     }
 
     let target_model = gtk4::StringList::new(&model_strings);
@@ -250,6 +254,9 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
         let is_upd = is_updating.clone();
 
         target_row.connect_selected_notify(move |r| {
+            if !has_profiles {
+                return;
+            }
             if let Some(target) = tm_clone.string(r.selected()) {
                 let (m, f, p, h, pm) = bigame_core::fg::read_profile(&target);
                 let enabled = m > 1;
@@ -284,7 +291,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
         let save_fn = Rc::new({
             move || {
-                if is_upd_save.get() {
+                if is_upd_save.get() || !has_profiles {
                     return;
                 }
                 if let Some(target) = tm_save.string(t_row.selected()) {
@@ -341,7 +348,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                         }
                     }
 
-                    // 1. Write to lsfg-vk TOML for real-time application
+                    // Write to lsfg-vk's TOML, which it hot-reloads.
                     if let Err(e) =
                         bigame_core::fg::write_profile(&name_str, mult, flow, perf, hdr, pres)
                     {
@@ -353,13 +360,11 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                     }
 
                     // Nothing is written to the falcond profile here. These
-                    // values are lsfg-vk's, and were just written to its own
-                    // configuration above, which is also where the sliders
-                    // read them back from. Mirroring them into falcond's
-                    // profile went through the privileged helper on every
-                    // slider move and reloaded falcond each time, dropping and
-                    // re-applying the running game's profile -- for fields
-                    // falcond does not read.
+                    // values are lsfg-vk's, written to its own configuration
+                    // above, which is also where the sliders read them back
+                    // from. falcond does not read them, and a profile save
+                    // goes through the privileged helper and reloads falcond,
+                    // dropping and re-applying the running game's profile.
                 }
             }
         });

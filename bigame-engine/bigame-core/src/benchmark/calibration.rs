@@ -8,7 +8,7 @@
 //!
 //! ## Why a knob that sounds faster can be slower
 //!
-//! The concrete case this was built around: forcing a Radeon's DPM level to
+//! The concrete case: forcing a Radeon's DPM level to
 //! `high` pins it to its top fixed clock state and takes the firmware's
 //! opportunistic boost algorithm out of the loop. On a card whose top *fixed*
 //! state sits below the boost clock the automatic algorithm reaches, or whose
@@ -162,7 +162,7 @@ impl Calibration {
         self.findings.get(knob)
     }
 
-    /// Knobs measurement showed to help, worst-first by nothing in particular.
+    /// Knobs measurement showed to help, in knob-name order.
     #[must_use]
     pub fn beneficial(&self) -> Vec<&KnobFinding> {
         self.findings

@@ -7,11 +7,10 @@
 //! to be turned off for this game, and it changes nothing. Applying it is a
 //! separate, explicit step ([`super::transaction`]).
 //!
-//! Verdicts are earned: "Recommended" only for a combination that was shown
-//! to work on the reference machine or is the game's own feature; one
-//! upstream documents but nobody has checked here is "Compatible"; one that
-//! depends on spoofing or is reported but not established is
-//! "Experimental".
+//! Verdicts are earned: "Recommended" only for a combination verified to work
+//! or that is the game's own feature; one upstream documents but that has not
+//! been verified is "Compatible"; one that depends on spoofing or is reported
+//! but not established is "Experimental".
 //!
 //! Every sentence is a [`Text`]: a translatable template and its values.
 
@@ -19,7 +18,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use super::config::{AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler};
+use super::config::{AiGraphicsConfig, Layer, Mode, Upscaler};
 use super::optiscaler::{self, Api, FrameGen, Input, Output};
 use super::pe::Machine;
 use super::report::{Confidence, Report};
@@ -32,9 +31,9 @@ use crate::hardware::GpuVendor;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Standing {
-    /// Shown to work here, or the game's own feature.
+    /// Verified to work, or the game's own feature.
     Recommended,
-    /// Documented upstream; not checked here.
+    /// Documented upstream; not verified.
     Compatible,
     /// Depends on spoofing or is not established.
     Experimental,
@@ -260,7 +259,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "XeSS",
             Standing::Recommended,
             N_(
-                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on this machine",
+                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on an AMD RDNA 4 card",
             ),
         )
     } else if n.fsr.is_some() {
@@ -269,7 +268,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "FSR",
             Standing::Compatible,
             N_(
-                "OptiScaler takes over the game's FSR — documented upstream, not yet checked on this machine",
+                "OptiScaler takes over the game's FSR — documented upstream, not yet verified by BiGame-mode",
             ),
         )
     } else if n.dlss.is_some() {
@@ -291,6 +290,11 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         );
     };
     let api = r.api.api.unwrap_or(Api::Dx12);
+    // OptiScaler goes in as `dxgi.dll`: the slot upstream recommends, and one
+    // Proton already loads natively from the game folder (it sets dxgi to
+    // native for DXVK), so no override is needed. When another tool has it,
+    // that is reported, not overwritten: which of two DXGI hooks wins is the
+    // user's decision, and chaining them is OptiScaler's own setting.
     if let Some(p) = r
         .proxies
         .iter()
@@ -307,9 +311,10 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             ))],
         );
     }
-    let frame_gen = match (cfg.mode, cfg.frame_generation) {
-        (Mode::Advanced, FrameGeneration::OptiScaler) if cfg.experimental => FrameGen::OptiFgFsr,
-        _ => FrameGen::Off,
+    let frame_gen = if cfg.optiscaler_frame_generation() {
+        FrameGen::OptiFgFsr
+    } else {
+        FrameGen::Off
     };
     let o = optiscaler::Options {
         proxy: "dxgi.dll".to_owned(),
@@ -420,6 +425,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graphics::config::FrameGeneration;
     use crate::graphics::report::{ApiEvidence, GpuInfo, Native};
     use crate::graphics::scan::{AntiCheat, Proxy};
 

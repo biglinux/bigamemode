@@ -259,18 +259,6 @@ impl Hardware {
     pub fn render_gpu(&self) -> Option<&Gpu> {
         self.render_gpu.and_then(|i| self.gpus.get(i))
     }
-
-    /// True when running on battery — the planner must not max everything out.
-    #[must_use]
-    pub fn on_battery(&self) -> bool {
-        self.power_source == PowerSource::Battery
-    }
-
-    /// Highest refresh-capable resolution across connected outputs.
-    #[must_use]
-    pub fn primary_resolution(&self) -> Option<(u32, u32)> {
-        self.displays.iter().find_map(|d| d.max_mode)
-    }
 }
 
 // ── Detection helpers ────────────────────────────────────────────────────────
@@ -399,7 +387,7 @@ fn detect_hybrid() -> bool {
 }
 
 /// Locate the AMD 3D V-Cache control attribute by globbing the driver dir.
-fn detect_vcache() -> Option<VCacheDevice> {
+pub(crate) fn detect_vcache() -> Option<VCacheDevice> {
     const DRIVER_DIR: &str = "/sys/bus/platform/drivers/amd_x3d_vcache";
     for entry in std::fs::read_dir(DRIVER_DIR).ok()?.flatten() {
         let path = entry.path().join("amd_x3d_mode");
@@ -699,7 +687,8 @@ core id\t\t: 1
     fn card_nodes_exclude_connectors_and_render_nodes() {
         assert!(is_card_node("card0"));
         assert!(is_card_node("card12"));
-        // These are exactly the entries that made the old telemetry walk abort.
+        // Connector nodes sit beside card nodes in /sys/class/drm and are not
+        // cards.
         assert!(!is_card_node("card1-DP-1"));
         assert!(!is_card_node("card1-HDMI-A-1"));
         assert!(!is_card_node("renderD128"));
@@ -747,7 +736,7 @@ core id\t\t: 1
 
     #[test]
     fn render_gpu_prefers_discrete_over_the_igpu_that_drives_no_output() {
-        // Exactly the bench layout: card0 = Cezanne iGPU (512 MiB, no outputs),
+        // A common desktop layout: card0 = Cezanne iGPU (512 MiB, no outputs),
         // card1 = RX 9060 XT (16 GiB, all three connectors).
         let gpus = vec![
             gpu("card0", false, Some(536_870_912), &[]),

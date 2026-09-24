@@ -1,11 +1,8 @@
 //! BiGame-mode privileged helper.
 //!
 //! A small root service on the system bus that performs the handful of writes
-//! the unprivileged UI cannot. Its design follows from the audit of its
-//! predecessor, which had no authorization, no argument validation, and a path
-//! traversal that turned any local uid into root.
-//!
-//! Three rules govern everything here:
+//! the unprivileged UI cannot. Any local process can reach it, so three rules
+//! govern everything here:
 //!
 //! 1. **Authorize first.** Every method calls [`polkit::check`] before doing
 //!    anything, and a failure to reach Polkit is a denial, not a bypass.
@@ -34,14 +31,17 @@ use polkit::actions;
 
 /// falcond's global configuration file.
 ///
-/// This is `config.conf`, **not** `falcond.conf`. The audit (CFG-01) found the
-/// project writing the latter, which falcond never opens — so every global
-/// setting silently did nothing. Confirmed against falcond 2.0.2, whose binary
-/// contains the string `/etc/falcond/config.conf` and no other config path.
+/// This is `config.conf`, **not** `falcond.conf`: falcond 2.0.2 opens only
+/// `/etc/falcond/config.conf` (the only configuration path in its binary), so
+/// a setting written anywhere else is silently ignored.
 const FALCOND_CONFIG: &str = "/etc/falcond/config.conf";
 
 struct BiGameDaemon {
     connection: zbus::Connection,
+    /// Held by every method that writes. zbus runs calls concurrently, and two
+    /// writes of one file, or two backend switches, must not interleave: the
+    /// second switch would record the first one's result as the prior state.
+    writes: tokio::sync::Mutex<()>,
 }
 
 impl BiGameDaemon {
@@ -71,6 +71,7 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::MANAGE_PROFILES).await?;
+        let _write = self.writes.lock().await;
         validate::profile_name(name).map_err(invalid)?;
         validate::profile_payload(payload).map_err(invalid)?;
         validate::profile_name_matches(name, payload).map_err(invalid)?;
@@ -100,6 +101,7 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::MANAGE_PROFILES).await?;
+        let _write = self.writes.lock().await;
         validate::profile_name(name).map_err(invalid)?;
 
         let path = Path::new(USER_PROFILES_DIR).join(format!("{name}.conf"));
@@ -125,6 +127,7 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::WRITE_CONFIG).await?;
+        let _write = self.writes.lock().await;
         validate::payload(config_payload).map_err(invalid)?;
 
         let path = Path::new(FALCOND_CONFIG);
@@ -132,7 +135,7 @@ impl BiGameDaemon {
             std::fs::create_dir_all(parent)
                 .map_err(|e| failed(&format!("create {}: {e}", parent.display())))?;
         }
-        // falcond reads `enable_performance_mode` only at start-up (measured on
+        // falcond reads `enable_performance_mode` only at start-up (falcond
         // 2.0.2: a reload keeps the power-profiles connection it has), so a
         // change to it needs a restart. Everything else it re-reads on SIGHUP.
         let startup_flag = |text: &str| {
@@ -161,11 +164,11 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::SET_VCACHE).await?;
+        let _write = self.writes.lock().await;
         validate::vcache_mode(mode).map_err(invalid)?;
 
-        // The ACPI instance id in this path is board-specific — the audit
-        // (CFG-02) found the old code hardcoding two *different* ids in two
-        // places, so neither the UI nor the helper could agree on the device.
+        // The ACPI instance id in this path is board-specific, so it is found,
+        // never hardcoded.
         let Some(path) = find_vcache_attribute() else {
             return Err(zbus::fdo::Error::NotSupported(
                 "this CPU has no AMD 3D V-Cache control".into(),
@@ -185,7 +188,11 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::SET_CPU).await?;
+        let _write = self.writes.lock().await;
         validate::cpufreq_value(governor).map_err(invalid)?;
+        // Only a governor the kernel lists. Any other name makes cpufreq try
+        // to load a `cpufreq_<name>` module, which a caller must not choose.
+        offered_by_kernel("scaling_available_governors", governor).map_err(invalid)?;
         write_all_cpus("scaling_governor", governor, "governor")
     }
 
@@ -197,7 +204,9 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::SET_CPU).await?;
+        let _write = self.writes.lock().await;
         validate::cpufreq_value(epp).map_err(invalid)?;
+        offered_by_kernel("energy_performance_available_preferences", epp).map_err(invalid)?;
         write_all_cpus("energy_performance_preference", epp, "EPP")
     }
 
@@ -210,6 +219,7 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::SET_GPU).await?;
+        let _write = self.writes.lock().await;
         validate::drm_card(card).map_err(invalid)?;
         validate::dpm_level(level).map_err(invalid)?;
 
@@ -227,8 +237,6 @@ impl BiGameDaemon {
         Ok(())
     }
 
-    /// Liveness probe.
-    #[allow(clippy::unused_self)]
     /// Turn the game performance backend (falcond) on or off, persistently.
     ///
     /// This is Turbo's master switch. Returns the unit's active state as
@@ -240,6 +248,7 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<String, zbus::fdo::Error> {
         self.authorize(&hdr, actions::CONTROL_BACKEND).await?;
+        let _write = self.writes.lock().await;
         backend::set_enabled(&self.connection, enabled)
             .await
             .map(|state| state.active_state)
@@ -254,13 +263,16 @@ impl BiGameDaemon {
         #[zbus(header)] hdr: zbus::message::Header<'_>,
     ) -> Result<bool, zbus::fdo::Error> {
         self.authorize(&hdr, actions::CONTROL_BACKEND).await?;
+        let _write = self.writes.lock().await;
         backend::release(&self.connection)
             .await
             .map(|record| record.is_some())
             .map_err(|e| failed(&format!("{e:#}")))
     }
 
+    /// Liveness probe.
     #[zbus(name = "Ping")]
+    #[allow(clippy::unused_self)]
     async fn ping(&self) -> Result<String, zbus::fdo::Error> {
         Ok("pong".into())
     }
@@ -282,33 +294,61 @@ fn failed(reason: &str) -> zbus::fdo::Error {
 ///
 /// A reader — falcond, in every case here — must never observe a partially
 /// written configuration, and a crash mid-write must not truncate the file that
-/// was already there.
+/// was already there. The temp file is new and unique (`O_EXCL`, never through
+/// a symlink), so nothing that already exists under its name is written into.
 fn write_atomic(path: &Path, content: &[u8], mode: u32) -> Result<()> {
+    static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let dir = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!("path has no parent"))?;
     let tmp = dir.join(format!(
-        ".{}.tmp.{}",
+        ".{}.tmp.{}.{}",
         path.file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("bigame"),
-        std::process::id()
+        std::process::id(),
+        SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
-    {
-        let mut f = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(mode)
-            .open(&tmp)?;
-        f.write_all(content)?;
-        f.sync_all()?;
-    }
-    if let Err(e) = std::fs::rename(&tmp, path) {
+    let written = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(mode)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&tmp)
+        .and_then(|mut f| {
+            f.write_all(content)?;
+            f.sync_all()
+        })
+        .and_then(|()| std::fs::rename(&tmp, path));
+    if let Err(e) = written {
         let _ = std::fs::remove_file(&tmp);
         return Err(e.into());
     }
+    // The rename is durable only once the directory entry is. The file has
+    // already been replaced, so a failure here is reported, not returned.
+    if let Err(e) = std::fs::File::open(dir).and_then(|d| d.sync_all()) {
+        warn!(dir = %dir.display(), error = %e, "could not sync the directory after a write");
+    }
     Ok(())
+}
+
+/// Whether `value` is one of the words the kernel lists in the cpufreq
+/// attribute `list` (`scaling_available_governors`, …) of the first CPU that
+/// has it.
+fn offered_by_kernel(list: &str, value: &str) -> Result<(), String> {
+    let offered = std::fs::read_dir("/sys/devices/system/cpu")
+        .map_err(|e| format!("read /sys/devices/system/cpu: {e}"))?
+        .flatten()
+        .find_map(|entry| std::fs::read_to_string(entry.path().join("cpufreq").join(list)).ok())
+        .ok_or_else(|| format!("this system has no {list}"))?;
+    if offered.split_whitespace().any(|w| w == value) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{value:?} is not offered by the kernel ({})",
+            offered.trim()
+        ))
+    }
 }
 
 /// Apply a cpufreq attribute to every online CPU.
@@ -394,6 +434,7 @@ async fn main() -> Result<()> {
             "/com/biglinux/BiGameMode",
             BiGameDaemon {
                 connection: connection.clone(),
+                writes: tokio::sync::Mutex::new(()),
             },
         )
         .await?;

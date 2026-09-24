@@ -16,7 +16,7 @@
 //! `/` and `\` — so a Windows path like `S:\…\SOTTR.exe` becomes `SOTTR.exe`.
 //! [`falcond_name`] applies exactly that rule, because a profile created from
 //! any other spelling would never match. The install directory is never the
-//! key: the audit found profiles named after it that falcond could not match.
+//! key: falcond cannot match a profile named after it.
 //!
 //! Classification is a pure function over a process list, so it is tested
 //! against trees copied from real games rather than against a live system.
@@ -238,8 +238,8 @@ const INFRASTRUCTURE: &[&str] = &[
     "iexplore.exe",
     "d3ddriverquery64.exe",
     // Steam's installer-script runner: it runs inside the game's Proton tree
-    // on a first launch, before the game itself. Taken for the game on the
-    // reference machine, it was offered -- and given -- a profile.
+    // on a first launch, before the game itself, and must not be offered a
+    // profile.
     "iscriptevaluator.exe",
     "installscript.exe",
     // Helpers games ship
@@ -365,9 +365,9 @@ pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
 ///
 /// `native` maps the executable names of games this machine knows about
 /// ([`known_native_games`]) to their display names. Without it a native
-/// game started from the application menu — `SuperTuxKart` from the
-/// repositories, on the lab VM — was never taken for a game: Home kept
-/// saying *waiting for games* and no profile was offered.
+/// game started from the application menu (`SuperTuxKart` from the
+/// repositories, say) is never taken for a game: Home keeps saying *waiting
+/// for games* and no profile is offered.
 #[must_use]
 pub fn identify_with<S: std::hash::BuildHasher>(
     procs: &[Proc],
@@ -652,7 +652,8 @@ pub fn detect() -> Option<GameIdentity> {
 pub fn running_for(pid: u32) -> Option<u64> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let rest = &stat[stat.rfind(')')? + 1..];
-    // Field 22 overall is starttime; 20 after the two before the comm's end.
+    // starttime is proc(5) field 22; counted from the state field (3) it is
+    // index 19.
     let start_ticks: u64 = rest.split_whitespace().nth(19)?.parse().ok()?;
     let uptime: f64 = std::fs::read_to_string("/proc/uptime")
         .ok()?
@@ -762,9 +763,8 @@ mod tests {
         }
     }
 
-    /// The tree Shadow of the Tomb Raider actually ran in on the reference
-    /// machine (from `pgrep -a` during a session), plus the Wine services a
-    /// prefix always has.
+    /// A real Shadow of the Tomb Raider process tree (from `pgrep -a`), plus
+    /// the Wine services a prefix always has.
     fn sottr_tree() -> Vec<Proc> {
         vec![
             p(1, 0, "/usr/lib/systemd/systemd|--user", 5000),
@@ -904,8 +904,8 @@ mod tests {
 
     #[test]
     fn steams_installer_script_is_not_the_game() {
-        // What happened on the reference machine: Rise of the Tomb Raider's
-        // first launch ran iscriptevaluator.exe in the game's tree first.
+        // Rise of the Tomb Raider's first launch runs iscriptevaluator.exe in
+        // the game's tree before the game.
         let tree = vec![
             p(
                 1,

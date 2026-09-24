@@ -497,7 +497,7 @@ fn section_conflicts(out: &mut String, caps: &Capabilities) {
         let _ = writeln!(
             out,
             "  ! Feral GameMode and falcond are both present. Both snapshot and \
-             restore the same state independently; see docs/02."
+             restore the same state independently, so each can undo the other's changes."
         );
     }
 

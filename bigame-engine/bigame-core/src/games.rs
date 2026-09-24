@@ -1,18 +1,18 @@
 //! Library discovery: what is installed, what it is called, and what it looks
 //! like.
 //!
-//! The audit's GAME-01 was here. Detection stored Steam's `installdir` as the
-//! "executable", and profiles were keyed on it — but falcond matches
-//! `/proc/<pid>/comm`. On this bench the consequence was exact and checkable:
+//! Profiles are keyed on the process falcond sees, never on the title: falcond
+//! matches `/proc/<pid>/comm`, and Steam's `installdir` is often nothing like
+//! it:
 //!
 //! ```text
 //! ARC Raiders        installdir "Arc Raiders"        real process PioneerGame.exe
 //! Dead by Daylight   installdir "Dead by Daylight"   real process DeadByDaylight.exe
 //! ```
 //!
-//! Both profiles the old UI wrote were loaded by falcond and could never match
-//! anything. So detection now looks inside the install directory for the
-//! binaries that actually run, and ranks them.
+//! A profile keyed on `installdir` is loaded by falcond and never matches
+//! anything, so detection looks inside the install directory for the binaries
+//! that actually run, and ranks them.
 //!
 //! Artwork is discovered from what the launchers have already downloaded. No
 //! API key, no network request, no third-party service — if Steam has a cover
@@ -45,15 +45,6 @@ impl Source {
             Self::Lutris => "Lutris",
             Self::Heroic => "Heroic",
             Self::Native => "Native",
-        }
-    }
-
-    /// Symbolic icon to badge the cover with.
-    #[must_use]
-    pub fn icon(self) -> &'static str {
-        match self {
-            Self::Steam => "applications-games-symbolic",
-            Self::Lutris | Self::Heroic | Self::Native => "application-x-executable-symbolic",
         }
     }
 }
@@ -90,8 +81,8 @@ impl DetectedGame {
     /// The process name a profile should be keyed on.
     ///
     /// Falls back to the title only when no executable could be found, and
-    /// callers should treat that as "ask the user" rather than "good enough" —
-    /// a title-keyed profile is the bug this module exists to fix.
+    /// callers should treat that as "ask the user" rather than "good enough":
+    /// a title-keyed profile never matches a process.
     #[must_use]
     pub fn profile_key(&self) -> &str {
         self.executables
@@ -103,12 +94,6 @@ impl DetectedGame {
     #[must_use]
     pub fn has_real_executable(&self) -> bool {
         !self.executables.is_empty()
-    }
-
-    /// Whether this game can be started, and measured, without a launcher.
-    #[must_use]
-    pub fn is_directly_launchable(&self) -> bool {
-        self.launch_command.is_some()
     }
 }
 
@@ -219,12 +204,9 @@ pub fn menu_game(content: &str) -> Option<MenuGame> {
     categories?.split(';').find(|c| c.trim() == "Game")?;
     let argv: Vec<String> = exec_arguments(&exec?)
         .into_iter()
-        .filter(|a| !(a.len() == 2 && a.starts_with('%')))
+        .filter_map(|a| expand_field_codes(&a))
         .collect();
-    let program = argv
-        .iter()
-        .find(|t| *t != "env" && (t.starts_with('/') || !t.contains('=')))?;
-    let program = crate::running::falcond_name(program).to_owned();
+    let program = crate::running::falcond_name(program_of(&argv)?).to_owned();
     if program.is_empty()
         || NOT_GAMES.contains(&program.to_ascii_lowercase().as_str())
         || crate::running::is_infrastructure(&program)
@@ -239,13 +221,98 @@ pub fn menu_game(content: &str) -> Option<MenuGame> {
     })
 }
 
+/// Programs that start another one and then become, or wait for, it: the
+/// game is what they run, and it is the game's process a profile must match.
+const WRAPPERS: &[&str] = &[
+    "env",
+    "prime-run",
+    "gamemoderun",
+    "mangohud",
+    "nice",
+    "ionice",
+    "gamescope",
+];
+
+/// The program an `Exec` line really runs, past [`WRAPPERS`], their options,
+/// `VAR=value` assignments, and Gamescope's own arguments up to `--`.
+fn program_of(argv: &[String]) -> Option<&str> {
+    let mut rest = argv.iter().map(String::as_str).peekable();
+    while let Some(arg) = rest.next() {
+        let base = crate::running::falcond_name(arg);
+        if !WRAPPERS.contains(&base) {
+            return Some(arg);
+        }
+        if base == "gamescope" {
+            rest.find(|a| *a == "--")?;
+            continue;
+        }
+        // Options, their values (env -u NAME, env -C DIR, nice -n 5, …) and
+        // assignments come before the program.
+        while let Some(next) = rest.peek() {
+            if next.starts_with('-') {
+                let takes_value = matches!(*next, "-u" | "-C" | "-n" | "-c" | "-p");
+                rest.next();
+                if takes_value {
+                    rest.next();
+                }
+            } else if next.contains('=') && !next.starts_with('/') {
+                rest.next();
+            } else {
+                break;
+            }
+        }
+    }
+    None
+}
+
+/// Apply the Desktop Entry field codes to one argument: `%f`/`%F`/`%u`/`%U`
+/// (files and URLs, of which there are none) remove the argument when it is
+/// all they are and vanish inside one; `%%` is a percent sign; the rest
+/// (`%i`, `%c`, `%k`, deprecated ones) are dropped.
+fn expand_field_codes(arg: &str) -> Option<String> {
+    if matches!(arg, "%f" | "%F" | "%u" | "%U" | "%i" | "%c" | "%k") {
+        return None;
+    }
+    let mut out = String::with_capacity(arg.len());
+    let mut chars = arg.chars();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
+            continue;
+        }
+        if chars.next() == Some('%') {
+            out.push('%');
+        }
+    }
+    Some(out)
+}
+
+/// Whether `path` can be run here directly: an executable ELF binary or a
+/// script with a `#!` line. A Windows `.exe` from a Wine runner cannot, and
+/// starting one outside its prefix measures nothing.
+fn runs_natively(path: &Path) -> bool {
+    use std::io::Read;
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(meta) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !meta.is_file() || meta.permissions().mode() & 0o111 == 0 {
+        return false;
+    }
+    let mut magic = [0u8; 4];
+    std::fs::File::open(path)
+        .and_then(|mut f| f.read_exact(&mut magic))
+        .is_ok_and(|()| &magic == b"\x7fELF" || magic.starts_with(b"#!"))
+}
+
 /// Every game in the application menu: `XDG_DATA_HOME` and each of
 /// `XDG_DATA_DIRS`, the first entry of a name winning, as the menu does.
 #[must_use]
 pub fn menu_games() -> Vec<MenuGame> {
     let data_home = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")));
+        .filter(|p| p.is_absolute())
+        .or_else(|| Some(crate::paths::home_dir().join(".local/share")));
     let data_dirs = std::env::var("XDG_DATA_DIRS")
         .ok()
         .filter(|d| !d.is_empty())
@@ -463,11 +530,10 @@ pub fn acf_value(content: &str, key: &str) -> Option<String> {
 
 /// Cover art Steam has already downloaded for `app_id`.
 ///
-/// Steam's cache layout changed: covers now live under a per-app directory in a
-/// further hash-named subdirectory, so the search has to recurse rather than
-/// build a fixed path. The filename preference degrades gracefully, which
-/// matters — on this bench ARC Raiders has `library_600x900.jpg` and Dead by
-/// Daylight does not, only `library_capsule.jpg`.
+/// Steam keeps covers under a per-app directory in a further hash-named
+/// subdirectory, so the search recurses rather than building a fixed path. The
+/// filename preference degrades gracefully: not every title has
+/// `library_600x900.jpg` (Dead by Daylight has only `library_capsule.jpg`).
 #[must_use]
 pub fn steam_cover(home: &Path, app_id: &str) -> Option<PathBuf> {
     // Portrait first: the card layout is a 2:3 poster.
@@ -645,7 +711,7 @@ fn detect_lutris(home: &Path, games: &mut Vec<DetectedGame>) {
         // Only a path that still exists is offered as launchable; a stale
         // Lutris entry pointing at a deleted directory is worse than none.
         let launch_command = exe_path
-            .filter(|p| p.is_file())
+            .filter(|p| runs_natively(p))
             .map(|p| vec![p.to_string_lossy().into_owned()]);
         games.push(DetectedGame {
             cover: lutris_cover(home, slug),
@@ -774,7 +840,7 @@ fn detect_heroic(home: &Path, games: &mut Vec<DetectedGame>) {
             let launch_command = executables
                 .first()
                 .map(|exe| vec![entry.path().join(exe).to_string_lossy().into_owned()])
-                .filter(|cmd| std::path::Path::new(&cmd[0]).is_file());
+                .filter(|cmd| runs_natively(Path::new(&cmd[0])));
             games.push(DetectedGame {
                 cover: heroic_cover(&base, &title),
                 executables,
@@ -856,6 +922,48 @@ mod tests {
             xonotic.argv,
             ["env", "SDL_VIDEODRIVER=wayland", "/usr/bin/xonotic-sdl"]
         );
+    }
+
+    #[test]
+    fn wrappers_and_field_codes_are_seen_through() {
+        let entry = |exec: &str| {
+            format!("[Desktop Entry]\nType=Application\nName=G\nExec={exec}\nCategories=Game;\n")
+        };
+        for (exec, program) in [
+            ("/usr/bin/env FOO=1 game", "game"),
+            ("env -u DISPLAY game --x", "game"),
+            ("prime-run game", "game"),
+            ("gamemoderun mangohud game", "game"),
+            ("gamescope -w 1920 -h 1080 -- game", "game"),
+            ("nice -n 5 /opt/g/game", "game"),
+            ("ionice -t -c 3 game", "game"),
+        ] {
+            assert_eq!(menu_game(&entry(exec)).unwrap().program, program, "{exec}");
+        }
+        let game = menu_game(&entry("game --file=%f --level=100%% %U")).unwrap();
+        assert_eq!(game.argv, ["game", "--file=", "--level=100%"]);
+        assert!(menu_game(&entry("prime-run")).is_none());
+    }
+
+    #[test]
+    fn only_a_native_executable_is_launchable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = crate::tests::tempdir("runs-natively");
+        let write = |name: &str, bytes: &[u8], mode: u32| {
+            let p = dir.join(name);
+            std::fs::write(&p, bytes).unwrap();
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(mode)).unwrap();
+            p
+        };
+        assert!(runs_natively(&write(
+            "run.sh",
+            b"#!/bin/sh\nexec game\n",
+            0o755
+        )));
+        assert!(runs_natively(&write("game", b"\x7fELF\x02\x01", 0o755)));
+        assert!(!runs_natively(&write("Game.exe", b"MZ\x90\x00", 0o755)));
+        assert!(!runs_natively(&write("noexec", b"\x7fELF\x02\x01", 0o644)));
+        assert!(!runs_natively(&dir.join("missing")));
     }
 
     #[test]
@@ -951,8 +1059,8 @@ mod tests {
 
     #[test]
     fn store_helpers_shipped_inside_games_are_filtered() {
-        // EpicWebHelper.exe sits inside both Steam titles on this bench and is
-        // larger than some game binaries, so size ranking alone is not enough.
+        // EpicWebHelper.exe ships inside Steam titles and can be larger than the
+        // game binary, so size ranking alone is not enough.
         for name in [
             "EpicWebHelper.exe",
             "steamerrorreporter64.exe",
@@ -987,8 +1095,8 @@ mod tests {
 
     #[test]
     fn profile_key_is_the_process_name_not_the_title() {
-        // This is GAME-01 in one assertion. Keyed on the title, falcond can
-        // never match the process, and the profile does nothing.
+        // Keyed on the title, falcond can never match the process, and the
+        // profile does nothing.
         let game = DetectedGame {
             name: "ARC Raiders".into(),
             source: Source::Steam,
@@ -1034,8 +1142,8 @@ mod tests {
 
     #[test]
     fn cover_search_recurses_into_steams_hashed_subdirectories() {
-        // Steam moved covers under librarycache/<appid>/<hash>/, so a fixed
-        // path finds nothing on a current install.
+        // Steam keeps covers under librarycache/<appid>/<hash>/, so a fixed
+        // path finds nothing.
         let home = tempdir("cover");
         let cache = home.join(".local/share/Steam/appcache/librarycache/1808500/abc123hash");
         fs::create_dir_all(&cache).unwrap();
@@ -1050,7 +1158,7 @@ mod tests {
 
     #[test]
     fn cover_search_falls_back_when_the_portrait_is_missing() {
-        // Dead by Daylight on this bench has no library_600x900.jpg.
+        // Some titles (Dead by Daylight) have no library_600x900.jpg.
         let home = tempdir("cover_fallback");
         let cache = home.join(".local/share/Steam/appcache/librarycache/381210/hash");
         fs::create_dir_all(&cache).unwrap();
@@ -1092,22 +1200,6 @@ mod tests {
         let (_, exe, path) = parse_lutris_yml("game:\n  exe: game.sh\n");
         assert_eq!(exe.as_deref(), Some("game.sh"));
         assert_eq!(path, None);
-    }
-
-    #[test]
-    fn steam_titles_are_not_directly_launchable() {
-        // `steam -applaunch` returns immediately and the game runs elsewhere,
-        // so nothing that needs a handle on the game can be offered for them.
-        let game = DetectedGame {
-            name: "ARC Raiders".into(),
-            source: Source::Steam,
-            app_id: Some("1808500".into()),
-            install_path: None,
-            executables: vec!["PioneerGame.exe".into()],
-            cover: None,
-            launch_command: None,
-        };
-        assert!(!game.is_directly_launchable());
     }
 
     #[test]

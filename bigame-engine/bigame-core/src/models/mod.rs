@@ -66,12 +66,9 @@ pub enum WineFsrMode {
 ///
 /// Per-game upscaling and frame generation through `OptiScaler` are not here:
 /// they are a game's AI Graphics settings (`crate::graphics`), planned,
-/// installed with a backup and verified for that game. The global settings
-/// that used to stand for them — an `OptiScaler` backend that copied DLLs
-/// over whatever was in the game folder, an "AFMF" backend that set a
-/// `RADV_PERFTEST` option RADV does not have, a mode and an on-screen
-/// indicator nothing read — were removed. Files written by an older version
-/// still load: the old backends read as `none`, unknown keys are ignored.
+/// installed with a backup and verified for that game. Files that still name
+/// the retired `optiscaler` or `afmf` backends load, reading them as `none`;
+/// unknown keys are ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FrameGenSettings {

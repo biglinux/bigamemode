@@ -3,9 +3,9 @@
 //! This module **observes and reports**. It does not renice, suspend or kill
 //! anything, and that is a decision rather than an omission.
 //!
-//! The brief asks for background tasks to be deprioritised during a match, and
-//! the mechanism is not hard: lowering the niceness of a process you own needs
-//! no privileges and is trivially reversible. What is hard is deciding *which*
+//! Deprioritising background tasks during a match is mechanically easy:
+//! lowering the niceness of a process you own needs no privileges and is
+//! trivially reversible. What is hard is deciding *which*
 //! process, and being right. A compile that the user is deliberately running
 //! overnight, a video export they are waiting on, a browser playing the music
 //! they are listening to — each looks exactly like "background load" from
@@ -229,8 +229,8 @@ fn read_sample(proc_dir: &std::path::Path) -> Option<Sample> {
     // parentheses, so fields are counted from after the final ')'.
     let close = stat.rfind(')')?;
     let fields: Vec<&str> = stat[close + 1..].split_whitespace().collect();
-    // After comm and state: utime is field 11, stime 12, rss 21 (0-based here
-    // after the split, so 11 and 12 become 11 and 12 minus the two consumed).
+    // Indices count from the state field (proc(5) field 3): utime (field 14)
+    // is 11, stime (15) is 12, rss (24) is 21.
     let utime: u64 = fields.get(11)?.parse().ok()?;
     let stime: u64 = fields.get(12)?.parse().ok()?;
     let rss_pages: u64 = fields.get(21)?.parse().ok()?;
@@ -275,17 +275,16 @@ fn current_uid() -> u32 {
 
 // ── Finding processes ────────────────────────────────────────────────────────
 //
-// These replace `pgrep -f` and `grep /proc/<pid>/maps` in callers that run on
-// a timer. Forking two external programs per matching process, once a second,
-// is not free: with a Proton game running, the dashboard's status poll made
-// about 32 processes a second -- more than half of everything created on the
-// machine -- while the game it was describing was being benchmarked.
+// Callers run these on a timer, so they read /proc directly rather than
+// forking `pgrep -f` and `grep /proc/<pid>/maps`: two external programs per
+// matching process, once a second, is a large share of all process creation
+// on the machine while a Proton game runs.
 
 /// Live processes of the current user whose command line contains `needle`,
 /// as `pgrep -f` would find them, excluding this process.
 ///
-/// Zombies are skipped. `pgrep` counts them, which is how an exited Gamescope
-/// that nobody reaped kept being reported as running for hours.
+/// Zombies are skipped: `pgrep` counts them, so an exited Gamescope that nobody
+/// reaped would be reported as running.
 #[must_use]
 pub fn find_by_cmdline(needle: &str) -> Vec<u32> {
     // SAFETY: getuid and getpid cannot fail and have no side effects.

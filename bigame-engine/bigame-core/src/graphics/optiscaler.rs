@@ -20,7 +20,6 @@ use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 
 use super::manifest::{self, FileKind, check_relative, sha256_file};
-use super::scan::{GameScan, ProxyOwner};
 use super::transaction::PlannedFile;
 
 /// Component id used in manifests and the cache.
@@ -74,92 +73,10 @@ impl Release {
     }
 }
 
-/// Read the latest stable release from the GitHub API response for
-/// `repos/optiscaler/OptiScaler/releases/latest`.
-///
-/// The asset is found by extension, not by name (its suffix changes between
-/// releases), and must be the only `.7z`. Only a release that GitHub marks
-/// as neither a draft nor a pre-release, and whose asset carries a SHA-256
-/// digest, is accepted — without a published digest there is nothing to
-/// check a download against.
-///
-/// # Errors
-/// Returns an error if the response is not a usable stable release.
-pub fn parse_latest(json: &str) -> Result<Release> {
-    #[derive(Deserialize)]
-    struct Asset {
-        name: String,
-        size: u64,
-        digest: Option<String>,
-    }
-    #[derive(Deserialize)]
-    struct Api {
-        tag_name: String,
-        draft: bool,
-        prerelease: bool,
-        published_at: Option<String>,
-        assets: Vec<Asset>,
-    }
-    let api: Api = serde_json::from_str(json).context("GitHub release JSON")?;
-    ensure!(
-        !api.draft && !api.prerelease,
-        "{} is not a stable release",
-        api.tag_name
-    );
-    let archives: Vec<&Asset> = api
-        .assets
-        .iter()
-        .filter(|a| {
-            Path::new(&a.name)
-                .extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case("7z"))
-        })
-        .collect();
-    ensure!(
-        archives.len() == 1,
-        "expected one .7z asset in {}, found {}",
-        api.tag_name,
-        archives.len()
-    );
-    let a = archives[0];
-    let sha = a
-        .digest
-        .as_deref()
-        .and_then(|d| d.strip_prefix("sha256:"))
-        .filter(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()))
-        .with_context(|| format!("{} has no SHA-256 digest to check against", a.name))?;
-    ensure!(
-        a.name
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)),
-        "unexpected asset name {:?}",
-        a.name
-    );
-    Ok(Release {
-        version: api.tag_name.trim_start_matches('v').to_owned(),
-        tag: api.tag_name,
-        asset: a.name.clone(),
-        sha256: sha.to_ascii_lowercase(),
-        size: a.size,
-        published: api
-            .published_at
-            .unwrap_or_default()
-            .chars()
-            .take(10)
-            .collect(),
-    })
-}
-
 /// BiGame-mode's cache for `OptiScaler` releases, shared by every game.
 #[must_use]
 pub fn cache_dir() -> PathBuf {
-    std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .unwrap_or_else(|| {
-            PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| "/tmp".into())).join(".cache")
-        })
-        .join("bigame-mode/graphics/optiscaler")
+    crate::paths::cache_home().join("bigame-mode/graphics/optiscaler")
 }
 
 /// A release that is in the cache, checked and unpacked.
@@ -330,6 +247,8 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
     run(
         "curl",
         &[
+            // First, or it is ignored: no ~/.curlrc may change what this does.
+            "--disable".as_ref(),
             "--fail".as_ref(),
             "--silent".as_ref(),
             "--show-error".as_ref(),
@@ -340,6 +259,13 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
             "=https".as_ref(),
             "--max-filesize".as_ref(),
             release.size.to_string().as_ref(),
+            // A stalled server fails the download instead of hanging it.
+            "--connect-timeout".as_ref(),
+            "20".as_ref(),
+            "--speed-limit".as_ref(),
+            "1024".as_ref(),
+            "--speed-time".as_ref(),
+            "60".as_ref(),
             "--output".as_ref(),
             part.as_os_str(),
             url.as_ref(),
@@ -581,37 +507,6 @@ pub fn release_files(o: &Options) -> Vec<&'static str> {
     f
 }
 
-/// Why `OptiScaler` cannot go into a slot.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SlotTaken {
-    /// The slot.
-    pub slot: String,
-    /// Who has it.
-    pub owner: ProxyOwner,
-}
-
-/// Pick the DLL slot for `OptiScaler` in a scanned game.
-///
-/// `dxgi.dll` is the one upstream recommends and the one Proton already loads
-/// natively from the game folder (it sets `dxgi` to native for DXVK), so it
-/// needs no override. If another tool already has it, that is reported
-/// rather than overwritten: which of two DXGI hooks should win is the user's
-/// decision, and chaining them is `OptiScaler`'s own feature to configure.
-///
-/// # Errors
-/// Returns the slot and its owner when the slot is taken by something else.
-pub fn choose_slot(scan: &GameScan) -> Result<String, SlotTaken> {
-    let slot = "dxgi.dll";
-    match scan.proxies.iter().find(|p| p.slot == slot) {
-        None => Ok(slot.to_owned()),
-        Some(p) if p.owner == ProxyOwner::OptiScaler => Ok(slot.to_owned()),
-        Some(p) => Err(SlotTaken {
-            slot: slot.to_owned(),
-            owner: p.owner.clone(),
-        }),
-    }
-}
-
 /// The files to place for `o` from a cached release: `OptiScaler.dll` under
 /// its slot name, a configured `OptiScaler.ini` (written to `staging`), and
 /// [`release_files`]. Paths are relative to the install folder, in
@@ -746,7 +641,6 @@ pub fn read_log(text: &str) -> LogFindings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graphics::scan::Proxy;
 
     fn opts(input: Input, output: Output, api: Api) -> Options {
         Options {
@@ -836,27 +730,6 @@ mod tests {
     }
 
     #[test]
-    fn a_dxgi_slot_owned_by_another_tool_is_reported_not_taken() {
-        let mut scan = GameScan::default();
-        assert_eq!(choose_slot(&scan).unwrap(), "dxgi.dll");
-        scan.proxies.push(Proxy {
-            slot: "dxgi.dll".into(),
-            path: "dxgi.dll".into(),
-            owner: ProxyOwner::ReShade,
-            version: None,
-        });
-        assert_eq!(
-            choose_slot(&scan),
-            Err(SlotTaken {
-                slot: "dxgi.dll".into(),
-                owner: ProxyOwner::ReShade
-            })
-        );
-        scan.proxies[0].owner = ProxyOwner::OptiScaler;
-        assert_eq!(choose_slot(&scan).unwrap(), "dxgi.dll");
-    }
-
-    #[test]
     fn listings_with_escapes_links_or_devices_are_refused() {
         let ok_v = "drwxr-xr-x 0 0 0 0 Jul 16 D3D12_Optiscaler/\n-rw-r--r-- 0 0 0 400 Mar 2 !! README !!.txt\n-rw-r--r-- 0 0 0 9 Jul 18 OptiScaler.dll\n";
         let ok_n = "D3D12_Optiscaler/\n!! README !!.txt\nOptiScaler.dll\n";
@@ -942,25 +815,7 @@ mod tests {
     }
 
     #[test]
-    fn only_a_stable_release_with_one_archive_and_a_digest_is_taken_from_the_api() {
-        let json = r#"{"tag_name":"v0.9.5","draft":false,"prerelease":false,"published_at":"2026-10-01T10:00:00Z",
-            "assets":[{"name":"Optiscaler_0.9.5-final.7z","size":100,"digest":"sha256:ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}]}"#;
-        let r = parse_latest(json).unwrap();
-        assert_eq!(
-            (r.tag.as_str(), r.version.as_str(), r.published.as_str()),
-            ("v0.9.5", "0.9.5", "2026-10-01")
-        );
-        assert_eq!(
-            r.sha256,
-            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
-        );
-        assert!(
-            parse_latest(&json.replace(r#""prerelease":false"#, r#""prerelease":true"#)).is_err()
-        );
-        assert!(parse_latest(&json.replace("sha256:ABCDEF", "md5:ABCDEF")).is_err());
-        assert!(parse_latest(&json.replace(".7z", ".7z/../../x")).is_err());
-        let two = json.replace("}]}", r#"},{"name":"b.7z","size":1,"digest":null}]}"#);
-        assert!(parse_latest(&two).is_err());
+    fn the_recommended_release_is_fetched_from_its_github_release() {
         assert_eq!(
             Release::recommended().url(),
             "https://github.com/optiscaler/OptiScaler/releases/download/v0.9.4/Optiscaler_0.9.4-final.20260718._MM.7z"

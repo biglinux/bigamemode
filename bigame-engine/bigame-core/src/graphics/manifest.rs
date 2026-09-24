@@ -224,6 +224,15 @@ impl Manifest {
                 m.schema
             );
         }
+        // The key names the directories removal deletes; a manifest must not
+        // be able to point it elsewhere.
+        if m.game_key != game_key {
+            bail!(
+                "{} belongs to another game ({})",
+                path.display(),
+                m.game_key
+            );
+        }
         for e in &m.entries {
             check_relative(&e.path)?;
         }
@@ -238,7 +247,12 @@ impl Manifest {
     pub fn save(&self, state_dir: &Path) -> Result<()> {
         let path = Self::path(state_dir, &self.game_key);
         let dir = path.parent().context("manifest path has no parent")?;
+        let new_dir = !dir.exists();
         std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+        if new_dir {
+            // The game's folder entry must survive a crash too.
+            std::fs::File::open(state_dir)?.sync_all()?;
+        }
         let tmp = dir.join("manifest.json.tmp");
         {
             let mut f =
@@ -247,6 +261,9 @@ impl Manifest {
             f.sync_all()?;
         }
         std::fs::rename(&tmp, &path).with_context(|| format!("replace {}", path.display()))?;
+        // The journal is what a crash is recovered from, so it is on disk —
+        // the rename included — before any file in the game is replaced.
+        std::fs::File::open(dir)?.sync_all()?;
         Ok(())
     }
 

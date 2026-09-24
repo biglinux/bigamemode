@@ -1,15 +1,13 @@
 //! A game card: cover art, title, launcher badge, profile status, actions.
 //!
-//! Reinterprets the reference design (a 2:3 poster grid where hovering a card
-//! reveals its actions) in GTK4 and libadwaita rather than transplanting its
-//! markup. Two things change in translation and both are deliberate:
+//! Cards form a 2:3 poster grid, and two choices in it are deliberate:
 //!
-//! * the reference reveals actions on hover only. A pointer-only affordance is
-//!   unreachable by keyboard, so here the same revealer is driven by focus as
-//!   well, and the card is a focusable widget in the tab order.
-//! * colours come from the libadwaita palette rather than the reference's
-//!   fixed hexes, so the grid follows the desktop's light/dark and accent
-//!   settings instead of imposing its own.
+//! * hovering *or focusing* a card reveals its actions. A pointer-only
+//!   affordance is unreachable by keyboard, so the revealer is driven by focus
+//!   as well, and the card is a focusable widget in the tab order.
+//! * colours come from the libadwaita palette rather than fixed hexes, so the
+//!   grid follows the desktop's light/dark and accent settings instead of
+//!   imposing its own.
 //!
 //! Cover images are decoded off the main thread and cached process-wide. A
 //! library of a few hundred titles would otherwise stall the first frame for
@@ -26,8 +24,7 @@ use libadwaita as adw;
 
 use crate::i18n::i18n;
 
-/// Poster aspect ratio, matching the reference grid and Steam's own
-/// `library_600x900` artwork.
+/// Poster aspect ratio, matching Steam's own `library_600x900` artwork.
 const COVER_RATIO: f64 = 2.0 / 3.0;
 
 /// Nominal cover width. The flow box scales cards around this.
@@ -286,7 +283,7 @@ fn build_cover(entry: &Entry) -> gtk4::Widget {
     let overlay = gtk4::Overlay::new();
     overlay.set_child(Some(&stack));
 
-    // Launcher badge, bottom-left, as in the reference.
+    // Launcher badge, bottom-left.
     let badge = gtk4::Label::new(Some(&entry.source));
     badge.add_css_class("caption");
     badge.add_css_class("game-card-badge");

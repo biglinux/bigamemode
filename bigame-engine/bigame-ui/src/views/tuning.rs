@@ -1,7 +1,7 @@
-//! Tuning view: scheduler, governor, compositor, and device settings.
+//! Tuning view: scheduler, governor, V-Cache and device settings.
 //!
-//! Controls are wired to falcond config via `bigame_core::config`.
-//! Changes trigger pkexec write + SIGHUP reload.
+//! Controls are wired to falcond config via `bigame_core::config`. Changes are
+//! written through the privileged helper, which reloads falcond.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -47,10 +47,10 @@ pub fn build() -> adw::PreferencesPage {
 
 /// Options an ordinary user should never need, kept out of the way.
 ///
-/// Collapsed by default and deliberately last. The brief's shape is that a
-/// beginner presses Booster Mode and plays; everything here exists for the
-/// person who already knows what a scheduler flag is, and putting it in front
-/// of everyone else only makes the page harder to read.
+/// Collapsed by default and deliberately last: a beginner presses Turbo and
+/// plays, everything here exists for the person who already knows what a
+/// scheduler flag is, and putting it in front of everyone else only makes the
+/// page harder to read.
 ///
 /// Nothing here is a hidden setting — each row states what it writes and where.
 // One group, built top to bottom; splitting it would scatter the rows.
@@ -82,7 +82,7 @@ fn build_advanced_group(
         .build();
     scx_status.add_prefix(&gtk4::Image::from_icon_name(
         if scx.switchable().is_available() {
-            "emblem-ok-symbolic"
+            "object-select-symbolic"
         } else {
             "dialog-warning-symbolic"
         },
@@ -179,7 +179,7 @@ fn build_advanced_group(
     group
 }
 
-/// Write the shared config to disk via pkexec (background thread).
+/// Write the shared config through the privileged helper, on a background thread.
 fn save_config(shared: &SharedConfig) {
     let cfg = shared.borrow().clone();
     glib::spawn_future_local(async move {
@@ -187,16 +187,6 @@ fn save_config(shared: &SharedConfig) {
             tracing::error!("config write failed: {e}");
         }
     });
-}
-
-/// Find index of `needle` in a `StringList`.
-fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
-    for i in 0..model.n_items() {
-        if model.string(i).as_deref() == Some(needle) {
-            return i;
-        }
-    }
-    0
 }
 
 /// Daemon settings: performance mode toggle + poll interval.
@@ -274,7 +264,10 @@ fn build_scheduler_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .model(&sched_model)
         .sensitive(has_schedulers)
         .build();
-    sched_row.set_selected(find_index(&sched_model, &shared.borrow().scx_sched));
+    sched_row.set_selected(crate::views::profiles::find_index(
+        &sched_model,
+        &shared.borrow().scx_sched,
+    ));
 
     let info_btn = gtk4::Button::builder()
         .icon_name("dialog-information-symbolic")
@@ -298,7 +291,10 @@ fn build_scheduler_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .model(&mode_model)
         .sensitive(has_schedulers)
         .build();
-    mode_row.set_selected(find_index(&mode_model, &shared.borrow().scx_sched_props));
+    mode_row.set_selected(crate::views::profiles::find_index(
+        &mode_model,
+        &shared.borrow().scx_sched_props,
+    ));
     group.add(&mode_row);
 
     // Connect: scheduler change → update config + save
@@ -401,7 +397,10 @@ fn build_vcache_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .model(&model)
         .sensitive(available)
         .build();
-    row.set_selected(find_index(&model, &shared.borrow().vcache_mode));
+    row.set_selected(crate::views::profiles::find_index(
+        &model,
+        &shared.borrow().vcache_mode,
+    ));
     group.add(&row);
 
     let cfg = Rc::clone(shared);
@@ -429,7 +428,10 @@ fn build_device_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .subtitle(i18n("Selects profile directory for game matching"))
         .model(&model)
         .build();
-    row.set_selected(find_index(&model, &shared.borrow().profile_mode));
+    row.set_selected(crate::views::profiles::find_index(
+        &model,
+        &shared.borrow().profile_mode,
+    ));
     group.add(&row);
 
     let cfg = Rc::clone(shared);

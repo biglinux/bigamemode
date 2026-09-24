@@ -47,14 +47,9 @@ impl Default for Settings {
 
 /// Settings file path: `$XDG_CONFIG_HOME/bigame-mode/settings.toml`.
 fn settings_path() -> PathBuf {
-    let config = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| String::from("/tmp"));
-            PathBuf::from(home).join(".config")
-        },
-        PathBuf::from,
-    );
-    config.join("bigame-mode").join("settings.toml")
+    bigame_core::paths::config_home()
+        .join("bigame-mode")
+        .join("settings.toml")
 }
 
 /// Load settings from disk. Returns defaults on any error.

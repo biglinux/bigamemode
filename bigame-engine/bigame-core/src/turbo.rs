@@ -5,12 +5,9 @@
 //! Turbo ON  = BiGame-mode may detect games and apply optimizations.
 //! ```
 //!
-//! Before this module, Turbo ran the Booster planner and nothing else, while
-//! falcond — a separate, always-on service — applied a profile to every game
-//! whatever Turbo said. On the reference machine the Booster plan was empty,
-//! so the product's headline control did nothing (docs/14-TURBO-AUDIT.md).
-//!
-//! Now Turbo owns the whole flow, in a fixed order:
+//! falcond is a separate service that applies a profile to every game it
+//! matches, whatever else is set, so Turbo switches falcond itself, not only
+//! the Booster plan. It owns the whole flow, in a fixed order:
 //!
 //! ```text
 //! ON:  conflicts noted → falcond profile set corrected → falcond enabled and
@@ -38,6 +35,7 @@ use crate::booster::BoosterEngine;
 use crate::booster::plan::Skipped;
 use crate::booster::report::Report as BoosterReport;
 use crate::capabilities::Capabilities;
+use crate::graphics::text::N_;
 use crate::hardware::{Chassis, Hardware};
 
 /// The unit Turbo switches.
@@ -55,13 +53,7 @@ pub enum State {
     On,
 }
 
-impl State {
-    /// Whether Turbo is on.
-    #[must_use]
-    pub fn is_on(&self) -> bool {
-        *self == Self::On
-    }
-}
+impl State {}
 
 /// Read Turbo's state from the systems that hold it.
 ///
@@ -202,12 +194,6 @@ impl Report {
     }
 }
 
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 // ── Progress ─────────────────────────────────────────────────────────────────
 
 /// A stage of a transition, for the UI to show while it happens.
@@ -253,7 +239,7 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     let caps = Capabilities::detect();
     let mut report = Report {
         turned_on: true,
-        at: now(),
+        at: crate::unix_now(),
         items: Vec::new(),
     };
 
@@ -294,7 +280,7 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     match engine.activate(|p| progress(Step::Booster(p))).await {
         Ok(booster) => absorb_booster(&booster, &mut report),
         Err(e) => report.push(
-            Kind::Knob("Booster".into()),
+            Kind::Knob(N_("Booster").into()),
             Section::Failed,
             "Booster",
             format!("{e:#}"),
@@ -482,7 +468,7 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     let caps = Capabilities::detect();
     let mut report = Report {
         turned_on: false,
-        at: now(),
+        at: crate::unix_now(),
         items: Vec::new(),
     };
 
@@ -544,7 +530,7 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
             }
         }
         Err(e) => report.push(
-            Kind::Knob("Booster".into()),
+            Kind::Knob(N_("Booster").into()),
             Section::Failed,
             "Booster",
             format!("{e:#}"),
@@ -622,7 +608,7 @@ mod tests {
         };
         report.push(Kind::GameBackend, Section::Verified, "falcond", "running");
         report.push(
-            Kind::Knob("Power profile".into()),
+            Kind::Knob(N_("Power profile").into()),
             Section::ManagedPerGame,
             "falcond",
             "per game",
