@@ -355,31 +355,14 @@ fn load_app_log(text_view: &gtk4::TextView) {
                 if let Some(active) = status.active_profile {
                     let _ = writeln!(log, "Active game profile: {active}");
                     if !active.is_empty() && active != "None" {
-                        if let Ok(out) = std::process::Command::new("pgrep")
-                            .arg("-f")
-                            .arg(&active)
-                            .output()
-                        {
-                            for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
-                                let map_path = format!("/proc/{pid_str}/maps");
-                                // Previne hang se o kernel se perder no spinlock do kernel ao ler proc
-                                if let Ok(status) = std::process::Command::new("timeout")
-                                    .args([
-                                        "0.2",
-                                        "grep",
-                                        "-qE",
-                                        "liblsfg-vk.so|VK_LAYER_LSFGVK|lsfg-vk",
-                                        &map_path,
-                                    ])
-                                    .status()
-                                {
-                                    if status.success() {
-                                        lsfg_active = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
+                        lsfg_active = bigame_core::processes::find_by_cmdline(&active)
+                            .into_iter()
+                            .any(|pid| {
+                                bigame_core::processes::maps_contain(
+                                    pid,
+                                    &["liblsfg-vk.so", "VK_LAYER_LSFGVK", "lsfg-vk"],
+                                )
+                            });
                     }
                 }
             }

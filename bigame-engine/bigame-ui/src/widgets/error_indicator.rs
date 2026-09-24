@@ -83,7 +83,13 @@ impl ErrorIndicator {
                     if response == "action" {
                         if let Some((_, cmd)) = &act {
                             if let Some((prog, args)) = cmd.split_first() {
-                                let _ = std::process::Command::new(prog).args(args).spawn();
+                                if let Ok(mut child) =
+                                    std::process::Command::new(prog).args(args).spawn()
+                                {
+                                    std::thread::spawn(move || {
+                                        let _ = child.wait();
+                                    });
+                                }
                             }
                         }
                     } else if response == "copy" {

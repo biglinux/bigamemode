@@ -1009,8 +1009,8 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     let afmf_active = pids
         .iter()
         .any(|pid| process_env_contains(*pid, "RADV_PERFTEST", "afmf"));
-    let lsfg_active = is_lsfg_active_for_game(game);
-    let optiscaler_active = is_optiscaler_active_for_game(game);
+    let lsfg_active = is_lsfg_active(&pids);
+    let optiscaler_active = is_optiscaler_active(&pids);
 
     VideoRuntime {
         cfg,
@@ -1140,17 +1140,7 @@ fn apply_runtime_feature_status(
 
 #[must_use]
 fn find_game_pids(game_name: &str) -> Vec<u32> {
-    let Ok(out) = std::process::Command::new("pgrep")
-        .arg("-f")
-        .arg(game_name)
-        .output()
-    else {
-        return Vec::new();
-    };
-    String::from_utf8_lossy(&out.stdout)
-        .split_whitespace()
-        .filter_map(|s| s.parse::<u32>().ok())
-        .collect()
+    bigame_core::processes::find_by_cmdline(game_name)
 }
 
 #[must_use]
@@ -1180,71 +1170,20 @@ fn process_env_contains(pid: u32, key: &str, needle: &str) -> bool {
 
 #[must_use]
 fn is_gamescope_running() -> bool {
-    std::process::Command::new("pgrep")
-        .arg("-f")
-        .arg("gamescope")
-        .status()
-        .is_ok_and(|s| s.success())
+    !bigame_core::processes::find_by_cmdline("gamescope").is_empty()
 }
 
 #[must_use]
-fn is_lsfg_active_for_game(game_name: &str) -> bool {
-    let Ok(out) = std::process::Command::new("pgrep")
-        .arg("-f")
-        .arg(game_name)
-        .output()
-    else {
-        return false;
-    };
-    for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
-        let map_path = format!("/proc/{pid_str}/maps");
-        if let Ok(status) = std::process::Command::new("timeout")
-            .args([
-                "0.2",
-                "grep",
-                "-qE",
-                "liblsfg-vk.so|VK_LAYER_LSFGVK|lsfg-vk",
-                &map_path,
-            ])
-            .status()
-        {
-            if status.success() {
-                return true;
-            }
-        }
-    }
-    false
+fn is_lsfg_active(pids: &[u32]) -> bool {
+    pids.iter().any(|&pid| {
+        bigame_core::processes::maps_contain(pid, &["liblsfg-vk.so", "VK_LAYER_LSFGVK", "lsfg-vk"])
+    })
 }
 
 #[must_use]
-fn is_optiscaler_active_for_game(game_name: &str) -> bool {
-    let Ok(out) = std::process::Command::new("pgrep")
-        .arg("-f")
-        .arg(game_name)
-        .output()
-    else {
-        return false;
-    };
-
-    for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
-        let map_path = format!("/proc/{pid_str}/maps");
-        if let Ok(status) = std::process::Command::new("timeout")
-            .args([
-                "0.2",
-                "grep",
-                "-qE",
-                "nvngx\\.dll|_nvngx\\.dll|OptiScaler",
-                &map_path,
-            ])
-            .status()
-        {
-            if status.success() {
-                return true;
-            }
-        }
-    }
-
-    false
+fn is_optiscaler_active(pids: &[u32]) -> bool {
+    pids.iter()
+        .any(|&pid| bigame_core::processes::maps_contain(pid, &["nvngx.dll", "OptiScaler"]))
 }
 
 /// Check whether the lsfg-vk Vulkan implicit layer is installed.
@@ -1672,7 +1611,14 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                         gs_cfg.as_ref(),
                     )
                     .spawn()
-                    .map(|_| ())
+                    .map(|mut child| {
+                        // Reaped off the UI thread. Dropping the handle instead
+                        // left every exited Gamescope a zombie for the life of
+                        // the UI, and a zombie still matches "is it running".
+                        std::thread::spawn(move || {
+                            let _ = child.wait();
+                        });
+                    })
                     .map_err(|e| anyhow::anyhow!(e))
                 })
                 .await;
