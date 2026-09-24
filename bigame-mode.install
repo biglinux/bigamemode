@@ -6,7 +6,16 @@ post_install() {
 MSG
 }
 
+_stop_bus_spawned_helper() {
+    # Before 1.0.0 the activation file named no SystemdService, so the bus
+    # started the helper itself, as dbus-:1.N-com.biglinux.BiGameMode@M.service,
+    # outside bigame-daemon.service and its sandbox. try-restart cannot reach
+    # that instance; stopped, the next call starts the helper through the unit.
+    systemctl stop 'dbus-*com.biglinux.BiGameMode@*.service' >/dev/null 2>&1 || :
+}
+
 post_upgrade() {
+    _stop_bus_spawned_helper
     # A running helper keeps the old binary until it restarts.
     systemctl try-restart bigame-daemon.service >/dev/null 2>&1 || :
 }
@@ -17,6 +26,7 @@ pre_remove() {
     busctl call --timeout=10 com.biglinux.BiGameMode /com/biglinux/BiGameMode \
         com.biglinux.BiGameMode ReleaseGameBackend >/dev/null 2>&1 || :
     systemctl stop bigame-daemon.service >/dev/null 2>&1 || :
+    _stop_bus_spawned_helper
 
     cat <<'MSG'
 ==> Games changed by AI Graphics keep their OptiScaler files until restored.
