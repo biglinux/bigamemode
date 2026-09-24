@@ -44,6 +44,16 @@ impl Support {
             Self::NotInstalled(s) | Self::Unsupported(s) | Self::ServiceDown(s) => Some(s),
         }
     }
+
+    /// The reason as a sentence: a missing package is named as missing.
+    #[must_use]
+    pub fn describe(&self) -> Option<String> {
+        match self {
+            Self::Available => None,
+            Self::NotInstalled(package) => Some(format!("{package} is not installed")),
+            Self::Unsupported(s) | Self::ServiceDown(s) => Some(s.clone()),
+        }
+    }
 }
 
 /// A parsed `major.minor.patch` version.
@@ -151,6 +161,9 @@ impl GamescopeCaps {
 }
 
 /// sched-ext availability on this kernel.
+///
+/// Independent yes/no facts about the machine, not a state machine.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Default)]
 pub struct SchedExtCaps {
     /// `/sys/kernel/sched_ext` exists — the kernel was built with sched-ext.
@@ -161,6 +174,8 @@ pub struct SchedExtCaps {
     pub installed: Vec<String>,
     /// `scxctl` is on `PATH`.
     pub scxctl: bool,
+    /// `scx_loader` is installed (Arch: the `scx-tools` package).
+    pub loader_installed: bool,
     /// The `org.scx.Loader` D-Bus service is reachable.
     ///
     /// Without it neither falcond nor this project can switch schedulers, no
@@ -178,8 +193,17 @@ impl SchedExtCaps {
         if self.installed.is_empty() {
             return Support::NotInstalled("scx-scheds".into());
         }
-        if !self.loader_service && !self.scxctl {
-            return Support::ServiceDown("scx_loader service is not running".into());
+        // falcond switches schedulers only through scx_loader's D-Bus
+        // service; scxctl is a client of the same service, so it does not
+        // count. The two failures have different fixes, so they are told
+        // apart: install the package, or start its service.
+        if !self.loader_service && !self.loader_installed {
+            return Support::NotInstalled("scx-tools".into());
+        }
+        if !self.loader_service {
+            return Support::ServiceDown(
+                "scx_loader is installed but its service is not running".into(),
+            );
         }
         Support::Available
     }
@@ -293,7 +317,8 @@ fn detect_sched_ext() -> SchedExtCaps {
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             if let Some(sched) = name.strip_prefix("scx_") {
-                if !sched.is_empty() {
+                // scx_loader is the loader, not a scheduler.
+                if !sched.is_empty() && sched != "loader" {
                     installed.push(sched.to_owned());
                 }
             }
@@ -308,6 +333,7 @@ fn detect_sched_ext() -> SchedExtCaps {
             .map(|s| s.trim().to_owned()),
         installed,
         scxctl: which("scxctl").is_some(),
+        loader_installed: which("scx_loader").is_some(),
         loader_service: crate::dbus::system_service_running("org.scx.Loader"),
     }
 }
@@ -452,22 +478,50 @@ Options:
             state: Some("disabled".into()),
             installed: vec!["lavd".into(), "bpfland".into()],
             scxctl: false,
+            loader_installed: false,
             loader_service: false,
         };
-        assert_eq!(
-            caps.switchable(),
-            Support::ServiceDown("scx_loader service is not running".into())
-        );
+        // The fix is a package, and the reason names it.
+        assert_eq!(caps.switchable(), Support::NotInstalled("scx-tools".into()));
     }
 
     #[test]
-    fn sched_ext_switchable_when_loader_present() {
+    fn an_installed_but_stopped_loader_is_a_different_problem() {
         let caps = SchedExtCaps {
             kernel_support: true,
             state: Some("disabled".into()),
             installed: vec!["lavd".into()],
             scxctl: true,
+            loader_installed: true,
             loader_service: false,
+        };
+        assert!(matches!(caps.switchable(), Support::ServiceDown(_)));
+    }
+
+    #[test]
+    fn scxctl_alone_does_not_make_schedulers_switchable() {
+        // scxctl is a client of scx_loader's service; falcond needs the
+        // service itself.
+        let caps = SchedExtCaps {
+            kernel_support: true,
+            state: Some("disabled".into()),
+            installed: vec!["lavd".into()],
+            scxctl: true,
+            loader_installed: false,
+            loader_service: false,
+        };
+        assert!(!caps.switchable().is_available());
+    }
+
+    #[test]
+    fn a_running_loader_makes_schedulers_switchable() {
+        let caps = SchedExtCaps {
+            kernel_support: true,
+            state: Some("disabled".into()),
+            installed: vec!["lavd".into()],
+            scxctl: true,
+            loader_installed: true,
+            loader_service: true,
         };
         assert!(caps.switchable().is_available());
     }

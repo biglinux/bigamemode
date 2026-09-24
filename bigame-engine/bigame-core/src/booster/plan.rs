@@ -588,10 +588,10 @@ impl Plan {
     /// prevent, so the Booster never writes it.
     fn note_scheduler(&mut self, caps: &Capabilities) {
         let support = caps.sched_ext.switchable();
-        if let Some(reason) = support.reason() {
+        if let Some(reason) = support.describe() {
             self.skipped.push(Skipped::Unsupported {
                 knob: "sched-ext scheduler".into(),
-                detail: reason.to_owned(),
+                detail: reason,
             });
         } else {
             self.skipped.push(Skipped::NotBeneficial {
@@ -912,6 +912,7 @@ mod tests {
             state: Some("disabled".into()),
             installed: vec!["lavd".into()],
             scxctl: true,
+            loader_installed: true,
             loader_service: true,
         };
         let plan = Plan::build_with_owner(&h, &c, &s, &PowerProfileOwner::Booster);

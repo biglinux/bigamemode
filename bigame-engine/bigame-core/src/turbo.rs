@@ -280,14 +280,7 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         );
     }
 
-    let why = match caps.sched_ext.switchable() {
-        crate::capabilities::Support::Available => None,
-        crate::capabilities::Support::NotInstalled(package) => {
-            Some(format!("{package} is not installed"))
-        }
-        crate::capabilities::Support::Unsupported(reason)
-        | crate::capabilities::Support::ServiceDown(reason) => Some(reason),
-    };
+    let why = caps.sched_ext.switchable().describe();
     if let Some(why) = why {
         report.push(
             Kind::Scheduler,

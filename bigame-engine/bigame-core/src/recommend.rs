@@ -136,24 +136,15 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         )
     });
 
-    let scheduler = match caps.sched_ext.switchable() {
-        crate::capabilities::Support::Available => decide(
+    let scheduler = match caps.sched_ext.switchable().describe() {
+        None => decide(
             "scx_sched",
             "none",
             Evidence::CapabilityOnly,
             "sched-ext is available, but no scheduler has been measured faster for this \
              game here; calibrating the game can change that",
         ),
-        crate::capabilities::Support::NotInstalled(package) => decide(
-            "scx_sched",
-            "none",
-            Evidence::Unsupported,
-            format!("{package} is not installed"),
-        ),
-        crate::capabilities::Support::Unsupported(reason)
-        | crate::capabilities::Support::ServiceDown(reason) => {
-            decide("scx_sched", "none", Evidence::Unsupported, reason)
-        }
+        Some(why) => decide("scx_sched", "none", Evidence::Unsupported, why),
     };
     decisions.push(scheduler);
     decisions.push(decide(
