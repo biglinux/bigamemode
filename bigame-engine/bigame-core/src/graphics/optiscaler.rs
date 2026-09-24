@@ -86,27 +86,70 @@ impl Release {
 /// # Errors
 /// Returns an error if the response is not a usable stable release.
 pub fn parse_latest(json: &str) -> Result<Release> {
-    #[derive(Deserialize)]
-    struct Asset {
-        name: String,
-        size: u64,
-        digest: Option<String>,
+    let api: ApiRelease = serde_json::from_str(json).context("GitHub release JSON")?;
+    release_from_api(api)
+}
+
+/// Every usable stable release in the GitHub API response for
+/// `repos/optiscaler/OptiScaler/releases`, newest first. Each is held to the
+/// same checks as [`parse_latest`]; one that fails them (a pre-release, no
+/// digest, two archives) is left out, not guessed at.
+///
+/// # Errors
+/// Returns an error if the response is not a JSON list of releases.
+pub fn parse_releases(json: &str) -> Result<Vec<Release>> {
+    let list: Vec<ApiRelease> = serde_json::from_str(json).context("GitHub releases JSON")?;
+    let mut out: Vec<Release> = list
+        .into_iter()
+        .filter_map(|r| release_from_api(r).ok())
+        .collect();
+    out.sort_by(|a, b| compare_versions(&b.version, &a.version));
+    out.dedup_by(|a, b| a.version == b.version);
+    Ok(out)
+}
+
+/// Order two release versions (`0.9.4`, `0.10.0`, `0.9.2a`) by their numeric
+/// parts, then by the rest.
+#[must_use]
+pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    fn parts(v: &str) -> Vec<(u64, String)> {
+        v.trim_start_matches('v')
+            .split(['.', '-'])
+            .map(|p| {
+                let digits: String = p.chars().take_while(char::is_ascii_digit).collect();
+                (
+                    digits.parse().unwrap_or(0),
+                    p[digits.len()..].to_ascii_lowercase(),
+                )
+            })
+            .collect()
     }
-    #[derive(Deserialize)]
-    struct Api {
-        tag_name: String,
-        draft: bool,
-        prerelease: bool,
-        published_at: Option<String>,
-        assets: Vec<Asset>,
-    }
-    let api: Api = serde_json::from_str(json).context("GitHub release JSON")?;
+    parts(a).cmp(&parts(b))
+}
+
+#[derive(Deserialize)]
+struct ApiAsset {
+    name: String,
+    size: u64,
+    digest: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ApiRelease {
+    tag_name: String,
+    draft: bool,
+    prerelease: bool,
+    published_at: Option<String>,
+    assets: Vec<ApiAsset>,
+}
+
+fn release_from_api(api: ApiRelease) -> Result<Release> {
     ensure!(
         !api.draft && !api.prerelease,
         "{} is not a stable release",
         api.tag_name
     );
-    let archives: Vec<&Asset> = api
+    let archives: Vec<&ApiAsset> = api
         .assets
         .iter()
         .filter(|a| {
@@ -203,6 +246,18 @@ pub fn cached(cache: &Path, release: &Release) -> Option<Cached> {
     (c.release.sha256 == release.sha256 && c.dir.join("OptiScaler.dll").is_file()).then_some(c)
 }
 
+/// The cached copy of version `version`, whatever release it came from —
+/// how a game's installed version is found again without the network.
+#[must_use]
+pub fn cached_version(cache: &Path, version: &str) -> Option<Cached> {
+    if version.is_empty() || version.contains(['/', '\\']) || version.starts_with('.') {
+        return None;
+    }
+    let text = std::fs::read_to_string(cache.join(version).join("release.json")).ok()?;
+    let c: Cached = serde_json::from_str(&text).ok()?;
+    (c.release.version == version && c.dir.join("OptiScaler.dll").is_file()).then_some(c)
+}
+
 /// Check an archive listing before anything is extracted.
 ///
 /// `verbose` is `bsdtar -tvf` output (for entry types), `names` is
@@ -234,7 +289,7 @@ pub fn check_listing(verbose: &str, names: &str) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
-fn run(program: &str, args: &[&std::ffi::OsStr]) -> Result<String> {
+pub(super) fn run(program: &str, args: &[&std::ffi::OsStr]) -> Result<String> {
     let out = std::process::Command::new(program)
         .args(args)
         .output()
@@ -694,23 +749,26 @@ impl LogFindings {
         self.upscalers.last().map(String::as_str)
     }
 
-    /// Which FSR the `fsr31` backend really runs: 4 or 3 (3.1), from the log,
-    /// or `None` when the log does not settle it. FSR 4 needs both
-    /// `Fsr4Update: true` and AMD's runtime loaded (`FSR4Upgrade.cpp`); without
-    /// either, the backend is FSR 3.1.
+    /// `Some(3)` when the log proves the `fsr31` backend runs FSR 3.1;
+    /// `None` when it does not settle it. Never 4.
+    ///
+    /// FSR 4 needs `Fsr4Update: true` *and* AMD's runtime loaded
+    /// (`FSR4Upgrade.cpp`): without either, the backend is FSR 3.1 — that much
+    /// the log proves. The reverse does not hold: the runtime loaded is not
+    /// FSR 4 running (Proton's own `amdxcffx64.dll` has been reported to run
+    /// the FSR 3 model on RDNA 4), and `OptiScaler` logs the model it picks only
+    /// at debug level. Only its on-screen watermark says, so BiGame-mode
+    /// never claims FSR 4 from a log.
     #[must_use]
     pub fn fsr_generation(&self) -> Option<u8> {
         if !self.current_upscaler()?.starts_with("fsr31") {
             return None;
         }
-        if self
+        let fsr4_off = self
             .fsr4
             .as_deref()
-            .is_some_and(|l| l.contains("Fsr4Update: false"))
-        {
-            return Some(3);
-        }
-        self.amdxcffx64.map(|loaded| if loaded { 4 } else { 3 })
+            .is_some_and(|l| l.contains("Fsr4Update: false"));
+        (fsr4_off || self.amdxcffx64 == Some(false)).then_some(3)
     }
 }
 
@@ -977,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    fn fsr4_is_claimed_only_when_the_log_says_amds_runtime_loaded() {
+    fn the_log_proves_fsr_3_1_but_never_fsr_4() {
         // Messages as FSR4Upgrade.cpp (v0.9.4) writes them.
         let head = "\
 [1] [I] FSR4Upgrade RDNA4: true, RDNA3: false, Fsr4Update: true
@@ -985,7 +1043,9 @@ mod tests {
 ";
         let loaded = format!("{head}[3] [I] UpdateFfxApiProvider amdxcffx64 loaded from game folder\n");
         let f = read_log(&loaded);
-        assert_eq!(f.fsr_generation(), Some(4));
+        // Loaded is not proof: which model runs is logged only at debug level.
+        assert_eq!(f.amdxcffx64, Some(true));
+        assert_eq!(f.fsr_generation(), None);
         assert!(f.errors.is_empty());
 
         // The usual case under Proton: no AMD Windows driver, so no

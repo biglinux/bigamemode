@@ -96,7 +96,7 @@ pub struct Plan {
 /// What else is configured for the game, from video settings and the profile.
 // Four independent facts about the launch, not a state machine in disguise.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Context {
     /// Gamescope renders below the output size and upscales.
     pub gamescope_upscaling: bool,
@@ -106,6 +106,9 @@ pub struct Context {
     pub lsfg: bool,
     /// `MangoHud` is on.
     pub mangohud: bool,
+    /// The `OptiScaler` version the profile's policy resolves to; `None` for
+    /// the recommended release.
+    pub optiscaler_version: Option<String>,
 }
 
 fn nothing(standing: Standing, summary: Text, steps: Vec<Step>) -> Plan {
@@ -386,7 +389,9 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         Step::Install(Text::with(
             N_("OptiScaler %s as %s beside the game, with %s configured as the output"),
             [
-                optiscaler::Release::recommended().version,
+                ctx.optiscaler_version
+                    .clone()
+                    .unwrap_or_else(|| optiscaler::Release::recommended().version),
                 o.proxy.clone(),
                 output_name.to_owned(),
             ],

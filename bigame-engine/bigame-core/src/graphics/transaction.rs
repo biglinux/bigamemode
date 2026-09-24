@@ -266,6 +266,7 @@ pub fn apply(
         entries,
         created_dirs,
         generated: fresh,
+        previous: None,
     };
     m.save(state_dir)?;
     tracing::info!(target: "graphics", game = game_key, files = files.len(), "backup created; applying");

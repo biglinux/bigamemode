@@ -112,6 +112,11 @@ pub struct Manifest {
     /// there is never listed, so never touched.
     #[serde(default)]
     pub generated: Vec<PathBuf>,
+    /// What was installed before the last update — the version "Go back"
+    /// returns to. The originals of the game's files are those in `entries`,
+    /// never a previous BiGame-mode payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous: Option<Source>,
 }
 
 /// SHA-256 of a file, as lowercase hex.
@@ -255,11 +260,18 @@ impl Manifest {
     /// # Errors
     /// Returns an error if it exists and cannot be removed.
     pub fn delete(state_dir: &Path, game_key: &str) -> Result<()> {
-        match std::fs::remove_file(Self::path(state_dir, game_key)) {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.into()),
+        let path = Self::path(state_dir, game_key);
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.into()),
         }
+        // The game's folder in the state, once nothing is left in it (kept
+        // copies of edited configs stay, and so does the folder then).
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::remove_dir(dir);
+        }
+        Ok(())
     }
 }
 
@@ -346,6 +358,7 @@ mod tests {
             }],
             created_dirs: vec![],
             generated: vec![],
+            previous: None,
         };
         m.save(dir.path()).unwrap();
         assert_eq!(

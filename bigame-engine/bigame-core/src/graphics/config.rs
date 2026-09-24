@@ -131,6 +131,8 @@ pub enum VersionPolicy {
     /// The release BiGame-mode was tested with.
     #[default]
     Recommended,
+    /// The newest stable release (never older than the tested one).
+    Latest,
     /// Exactly this version, until the user changes it. A version known to
     /// work for a game stays when a newer one appears.
     Pinned(String),
@@ -156,6 +158,10 @@ pub struct AiGraphicsConfig {
     pub experimental: bool,
     /// `OptiScaler` version.
     pub version: VersionPolicy,
+    /// A newer release the user chose to skip: it is not offered again (a
+    /// release newer than it is).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skipped_update: Option<String>,
 }
 
 impl AiGraphicsConfig {
@@ -195,10 +201,33 @@ mod tests {
             hdr: Hdr::Off,
             experimental: false,
             version: VersionPolicy::Pinned("0.9.4".into()),
+            skipped_update: Some("0.9.5".into()),
         };
         let text = toml::to_string(&c).unwrap();
         assert!(!text.contains('/'), "portable: no paths\n{text}");
         assert_eq!(toml::from_str::<AiGraphicsConfig>(&text).unwrap(), c);
+    }
+
+    #[test]
+    fn every_version_policy_round_trips() {
+        for v in [
+            VersionPolicy::Recommended,
+            VersionPolicy::Latest,
+            VersionPolicy::Pinned("0.9.3".into()),
+        ] {
+            let c = AiGraphicsConfig {
+                version: v,
+                ..AiGraphicsConfig::default()
+            };
+            let text = toml::to_string(&c).unwrap();
+            assert_eq!(toml::from_str::<AiGraphicsConfig>(&text).unwrap(), c, "{text}");
+        }
+        // A config saved before "latest" and skipping existed still loads.
+        let old: AiGraphicsConfig =
+            toml::from_str("mode = \"advanced\"\n[version]\npolicy = \"pinned\"\nversion = \"0.9.4\"\n")
+                .unwrap();
+        assert_eq!(old.version, VersionPolicy::Pinned("0.9.4".into()));
+        assert_eq!(old.skipped_update, None);
     }
 
     #[test]
