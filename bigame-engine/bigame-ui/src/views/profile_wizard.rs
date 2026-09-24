@@ -1,6 +1,6 @@
 //! Profile creation wizard — child-friendly guided flow.
 //!
-//! Opens as an `adw::Dialog` with 8 steps; each step explains
+//! Opens as an `adw::Dialog` with 9 steps; each step explains
 //! one tuning option in plain language and at the end assembles
 //! a `GameProfile` from the user's choices.
 
@@ -15,15 +15,18 @@ use bigame_core::profiles::GameProfile;
 
 const STEPS: usize = 9;
 
+// No per-game CPU governor step: falcond never reads one, so the choice
+// saved nothing that took effect. The power profile it does set follows
+// "performance mode" (step 2).
 const STEP_IDS: &[&str; STEPS] = &[
     "game",      // 1 – executable name
     "perf",      // 2 – performance mode (turbo vs normal)
-    "cpu",       // 3 – CPU governor
-    "sched",     // 4 – sched-ext scheduler
-    "vcache",    // 5 – AMD VCache mode
-    "gamescope", // 6 – Gamescope display layer
-    "fg",        // 7 – Frame Generation (LSFG-VK)
-    "idle",      // 8 – Idle inhibit (screen sleep)
+    "sched",     // 3 – sched-ext scheduler
+    "vcache",    // 4 – AMD VCache mode
+    "gamescope", // 5 – Gamescope display layer
+    "fg",        // 6 – Frame Generation (LSFG-VK)
+    "idle",      // 7 – Idle inhibit (screen sleep)
+    "ai",        // 8 – AI Graphics (optional)
     "review",    // 9 – summary + save
 ];
 
@@ -55,6 +58,7 @@ fn open_internal(
     // Moved into the GTK closures that outlive this call.
     on_saved: impl Fn(GameProfile) + 'static,
 ) {
+    let parent_w: gtk4::Widget = parent.clone().upcast();
     let profile = Rc::new(RefCell::new(GameProfile::default()));
     let current = Rc::new(RefCell::new(0usize));
     let on_saved_cb = Rc::new(on_saved);
@@ -139,38 +143,6 @@ fn open_internal(
             Some(&perf_group),
         ),
         Some("perf"),
-    );
-
-    // Step 3 — CPU Governor
-    let (cpu_group, cpu_smart, _cpu_fast) = build_radio_group(&[
-        (
-            "",
-            &i18n("Smart (recommended)"),
-            &i18n("The computer decides — fast when gaming, slow when idle. Best for most people!"),
-        ),
-        (
-            "",
-            &i18n("Always Fast"),
-            &i18n("Processor runs at top speed ALL the time. For competitive gaming."),
-        ),
-        (
-            "",
-            &i18n("Eco / Save Power"),
-            &i18n("Slower but saves electricity. For simple games on a laptop."),
-        ),
-    ]);
-    cpu_group.add_css_class("wizard-input-card");
-    stack.add_named(
-        &wizard_step(
-            3,
-            "cpu-symbolic",
-            &i18n("Processor Speed"),
-            &i18n(
-                "Select how the CPU should balance performance and power efficiency while this game is running.",
-            ),
-            Some(&cpu_group),
-        ),
-        Some("cpu"),
     );
 
     // Step 4 — Scheduler
@@ -382,6 +354,43 @@ fn open_internal(
     );
 
     // Step 9 — Summary (populated just before showing)
+    // Step 8 — AI Graphics (optional, nothing applied without a plan)
+    let (ai_group, ai_recommended, ai_advanced) = build_radio_group(&[
+        (
+            "",
+            &i18n("Recommended"),
+            &i18n(
+                "BiGame-mode looks at the game and your graphics card and shows what it would do. Nothing changes until you press Apply.",
+            ),
+        ),
+        (
+            "",
+            &i18n("Advanced…"),
+            &i18n("Choose the upscaler and frame generation yourself."),
+        ),
+        (
+            "",
+            &i18n("Not now"),
+            &i18n("Leave the game's graphics as they are."),
+        ),
+    ]);
+    ai_group.add_css_class("wizard-input-card");
+    stack.add_named(
+        &wizard_step(
+            8,
+            "applications-graphics-symbolic",
+            &i18n("AI Graphics"),
+            &i18n(
+                "Improve image quality and performance using technologies such as DLSS, FSR, XeSS, OptiScaler and compatible neural-rendering features.\nEnable AI Graphics for this game?",
+            ),
+            Some(&ai_group),
+        ),
+        Some("ai"),
+    );
+    let ai_choice = Rc::new(std::cell::Cell::new(
+        bigame_core::graphics::config::Mode::Off,
+    ));
+
     let summary_box = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
     summary_box.set_margin_top(12);
     summary_box.set_margin_bottom(12);
@@ -451,13 +460,6 @@ fn open_internal(
                     0 => p.name = name_entry.text().to_string(),
                     1 => p.performance_mode = !perf_normal.is_active(),
                     2 => {
-                        p.cpu_governor = if cpu_smart.is_active() {
-                            String::new()
-                        } else {
-                            "performance".into()
-                        };
-                    }
-                    3 => {
                         if let Some(s) = sched_model.string(sched_combo.selected()) {
                             p.scx_sched = s.to_string();
                         }
@@ -465,7 +467,7 @@ fn open_internal(
                         p.scx_sched_props =
                             modes.get(idx).copied().unwrap_or("default").to_string();
                     }
-                    4 => {
+                    3 => {
                         p.vcache_mode = if vcache_off.is_active() {
                             "none".into()
                         } else if vcache_cache_active(&vcache_off) {
@@ -474,7 +476,7 @@ fn open_internal(
                             "freq".into()
                         };
                     }
-                    5 =>
+                    4 =>
                     {
                         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
                         if gs_switch.is_active() {
@@ -498,7 +500,7 @@ fn open_internal(
                             p.gamescope = None;
                         }
                     }
-                    6 => {
+                    5 => {
                         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
                         {
                             p.fg_multiplier = fg_mult_row.value() as u32;
@@ -506,8 +508,18 @@ fn open_internal(
                             p.fg_perf_mode = fg_perf_row.is_active();
                         }
                     }
-                    7 => {
+                    6 => {
                         p.idle_inhibit = idle_switch.is_active();
+                    }
+                    7 => {
+                        use bigame_core::graphics::config::Mode;
+                        ai_choice.set(if ai_recommended.is_active() {
+                            Mode::Recommended
+                        } else if ai_advanced.is_active() {
+                            Mode::Advanced
+                        } else {
+                            Mode::Off
+                        });
                     }
                     _ => {}
                 }
@@ -532,6 +544,8 @@ fn open_internal(
                 let dialog_ref = dialog.clone();
                 let p_clone = p.clone();
                 let on_saved_final = on_saved_ref.clone();
+                let ai_choice_final = ai_choice.clone();
+                let parent_w = parent_w.clone();
 
                 gtk4::glib::spawn_future_local(async move {
                     tracing::info!(profile = %p_clone.name, "wizard save requested");
@@ -540,6 +554,25 @@ fn open_internal(
                             tracing::info!(profile = %p_clone.name, "wizard save succeeded");
                             on_saved_final(p_clone.clone());
                             dialog_ref.close();
+                            let mode = ai_choice_final.get();
+                            if mode != bigame_core::graphics::config::Mode::Off {
+                                let process = p_clone.name.clone();
+                                let found = gtk4::gio::spawn_blocking(move || {
+                                    bigame_core::graphics::target_for_process(&process)
+                                })
+                                .await
+                                .ok()
+                                .flatten();
+                                match found {
+                                    Some(target) => {
+                                        crate::views::ai_graphics::open(&parent_w, target, Some(mode));
+                                    }
+                                    None => crate::widgets::toast::show(
+                                        &parent_w,
+                                        &i18n("AI Graphics needs the game's install folder, and no installed game runs as this program"),
+                                    ),
+                                }
+                            }
                         }
                         Err(e) => {
                             tracing::error!("Wizard save failed: {e}");
@@ -750,12 +783,6 @@ fn populate_summary(container: &gtk4::Box, p: &GameProfile) {
             &normal_str
         },
     );
-    let cpu_label = match p.cpu_governor.as_str() {
-        "performance" => i18n("Always Fast"),
-        "powersave" => i18n("Eco"),
-        _ => i18n("Smart"),
-    };
-    add_summary_row(&group, "", &i18n("CPU Speed"), &cpu_label);
     if !p.scx_sched.is_empty() {
         add_summary_row(&group, "", &i18n("Scheduler"), &p.scx_sched);
     }

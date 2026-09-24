@@ -11,7 +11,7 @@
 use adw::prelude::*;
 use libadwaita as adw;
 
-use bigame_core::models::{FrameGenBackend, FrameGenMode, GamescopeFilter, WineFsrMode};
+use bigame_core::models::{FrameGenBackend, GamescopeFilter, WineFsrMode};
 use bigame_core::video_config;
 
 use crate::i18n::i18n;
@@ -291,262 +291,51 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
 
 // ── Frame Generation ─────────────────────────────────────────────────────────
 
-#[allow(clippy::too_many_lines)]
+/// Frame generation for every game: lsfg-vk, when it is installed.
+///
+/// Upscaling and frame generation through `OptiScaler` are per game, in each
+/// game's AI Graphics (Profiles), where they are planned, installed with a
+/// backup and verified. The controls this group used to have — an
+/// `OptiScaler` backend that copied DLLs over the game's own, an "AFMF"
+/// backend setting a `RADV_PERFTEST` option RADV does not have, a mode and an
+/// on-screen indicator nothing read — did nothing, or harm, and are gone.
 fn build_framegen_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Frame Generation"));
     group.set_description(Some(&i18n(
-        "Artificial frame generation for compatible games. \
-         OptiScaler: FSR 3 frame generation for DLSS3 titles.",
+        "lsfg-vk generates extra frames for every game. Upscaling and frame generation \
+         for one game are in that game's AI Graphics, in Profiles.",
     )));
 
-    // Conflict banner — shown when OptiScaler is selected and lsfg-vk is configured
-    let conflict_banner = adw::Banner::new(&i18n(
-        "OptiScaler and lsfg-vk both generate frames — disable one to avoid conflicts.",
-    ));
-    // Use has_any_active_profile() — more precise than config_path().exists():
-    // only warns when an lsfg-vk profile actually has multiplier > 1.
-    let lsfg_active = bigame_core::fg::has_any_active_profile();
-    let opti_conflict = cfg.frame_gen.optiscaler_enabled
-        && cfg.frame_gen.backend == FrameGenBackend::OptiScaler
-        && lsfg_active;
-    conflict_banner.set_revealed(opti_conflict);
-    group.add(&conflict_banner);
+    if !bigame_core::fg::layer_installed() {
+        let row = adw::ActionRow::builder()
+            .title(i18n("lsfg-vk"))
+            .subtitle(i18n("Not installed"))
+            .use_markup(false)
+            .build();
+        group.add(&row);
+        return group;
+    }
 
-    let expander = adw::ExpanderRow::new();
-    expander.set_title(&i18n("OptiScaler / AFMF / lsfg-vk"));
-    expander.set_subtitle(&i18n("Artificial frame generation backends"));
-
-    // ── Master enable ────────────────────────────────────────────────────────
-    let enabled_row = adw::SwitchRow::builder()
-        .title(i18n("Enable Frame Generation"))
-        .subtitle(i18n("Activates the selected backend on game launch"))
-        .active(cfg.frame_gen.enabled)
-        .build();
-    expander.add_row(&enabled_row);
-
-    // ── Backend selector ─────────────────────────────────────────────────────
-    let backend_items = gtk4::StringList::new(&[
-        &i18n("None"),
-        "OptiScaler (FSR 3 / dlssg-to-fsr3)",
-        "AFMF (AMD Fluid Motion Frames)",
-        "lsfg-vk (Lossless Scaling)",
-    ]);
-    let backend_row = adw::ComboRow::new();
-    backend_row.set_title(&i18n("Backend"));
-    backend_row.set_subtitle(&i18n("Frame generation technology to use"));
-    backend_row.set_model(Some(&backend_items));
-    backend_row.set_selected(match cfg.frame_gen.backend {
-        FrameGenBackend::None => 0,
-        FrameGenBackend::OptiScaler => 1,
-        FrameGenBackend::Afmf => 2,
-        FrameGenBackend::LsfgVk => 3,
-    });
-    expander.add_row(&backend_row);
-
-    let lsfg_switch_row = adw::SwitchRow::builder()
-        .title(i18n("Enable LSFG-VK"))
-        .subtitle(i18n("When disabled, lsfg-vk backend is set to None"))
+    let lsfg_row = adw::SwitchRow::builder()
+        .title(i18n("lsfg-vk"))
+        .subtitle(i18n(
+            "Raises the presented frame rate, not the rendered one, and adds latency",
+        ))
         .active(cfg.frame_gen.enabled && cfg.frame_gen.backend == FrameGenBackend::LsfgVk)
         .build();
-    expander.add_row(&lsfg_switch_row);
-
-    // ── Mode (FSR3 / XeSS / DLSS / Native) ──────────────────────────────────
-    let mode_items = gtk4::StringList::new(&["FSR 3", "XeSS", "DLSS", &i18n("Native")]);
-    let mode_row = adw::ComboRow::new();
-    mode_row.set_title(&i18n("Mode"));
-    mode_row.set_subtitle(&i18n("Rendering mode passed to OptiScaler"));
-    mode_row.set_model(Some(&mode_items));
-    mode_row.set_selected(match cfg.frame_gen.mode {
-        FrameGenMode::Fsr3 => 0,
-        FrameGenMode::Xess => 1,
-        FrameGenMode::Dlss => 2,
-        FrameGenMode::Native => 3,
-    });
-    expander.add_row(&mode_row);
-
-    // ── OSD (on-screen status overlay) ──────────────────────────────────────
-    let osd_row = adw::SwitchRow::builder()
-        .title(i18n("Show On-Screen Status (OSD)"))
-        .subtitle(i18n(
-            "Displays frame generation status overlay while in-game",
-        ))
-        .active(cfg.frame_gen.osd_enabled)
-        .build();
-    expander.add_row(&osd_row);
-
-    // ── OptiScaler DLL staging ───────────────────────────────────────────────
-    let opti_row = adw::SwitchRow::builder()
-        .title(i18n("Stage OptiScaler DLLs"))
-        .subtitle(i18n(
-            "Copies dxgi.dll/nvngx.dll from source directory into game prefix on launch",
-        ))
-        .active(cfg.frame_gen.optiscaler_enabled)
-        .build();
-    expander.add_row(&opti_row);
-
-    let opti_src_row = adw::EntryRow::builder()
-        .title(i18n("OptiScaler Source Directory"))
-        .text(cfg.frame_gen.optiscaler_source_dir.as_deref().unwrap_or(""))
-        .sensitive(cfg.frame_gen.optiscaler_enabled)
-        .build();
-    expander.add_row(&opti_src_row);
-
-    // ── AFMF experimental ────────────────────────────────────────────────────
-    let afmf_row = adw::SwitchRow::builder()
-        .title(i18n("Enable AFMF Experimental Variables"))
-        .subtitle(i18n(
-            "Advanced: sets RADV_PERFTEST=afmf. Full AFMF requires amdgpu-pro; \
-             on RADV (open driver) this is experimental.",
-        ))
-        .active(cfg.frame_gen.afmf_experimental_enabled)
-        .build();
-    expander.add_row(&afmf_row);
-
-    let afmf_env_row = adw::EntryRow::builder()
-        .title(i18n("AFMF Env Override"))
-        .text(
-            cfg.frame_gen
-                .afmf_env_override
-                .as_deref()
-                .unwrap_or("RADV_PERFTEST=afmf"),
-        )
-        .sensitive(cfg.frame_gen.afmf_experimental_enabled)
-        .build();
-    expander.add_row(&afmf_env_row);
-
-    // ── Signal handlers ──────────────────────────────────────────────────────
-    enabled_row.connect_active_notify(|row| {
-        save_framegen(|f| f.enabled = row.is_active());
-    });
-
-    let banner = conflict_banner.clone();
-    let opti_src = opti_src_row.clone();
-    let opti_row_for_backend = opti_row.clone();
-    let opti_row_for_toast = opti_row.clone();
-    let lsfg_switch_for_backend = lsfg_switch_row.clone();
-    let enabled_for_backend = enabled_row.clone();
-    backend_row.connect_selected_notify(move |row| {
-        let backend = match row.selected() {
-            1 => FrameGenBackend::OptiScaler,
-            2 => FrameGenBackend::Afmf,
-            3 => FrameGenBackend::LsfgVk,
-            _ => FrameGenBackend::None,
-        };
-
-        lsfg_switch_for_backend
-            .set_active(backend == FrameGenBackend::LsfgVk && enabled_for_backend.is_active());
-
-        // Mutual exclusion: choosing lsfg-vk disables OptiScaler staging.
-        if backend == FrameGenBackend::LsfgVk && opti_row_for_backend.is_active() {
-            opti_row_for_backend.set_active(false);
-            crate::widgets::toast::show(
-                &opti_row_for_toast,
-                &i18n("OptiScaler disabled automatically (lsfg-vk selected)"),
-            );
-        }
-
-        // Mutual exclusion: choosing OptiScaler auto-enables DLL staging.
-        if backend == FrameGenBackend::OptiScaler && !opti_row_for_backend.is_active() {
-            opti_row_for_backend.set_active(true);
-        }
-
-        // Refresh conflict banner
-        let conflict = backend == FrameGenBackend::OptiScaler
-            && opti_src.is_sensitive()
-            && bigame_core::fg::has_any_active_profile();
-        banner.set_revealed(conflict);
-        save_framegen(|f| f.backend = backend);
-    });
-
-    let backend_for_lsfg = backend_row.clone();
-    let enabled_for_lsfg = enabled_row.clone();
-    let opti_for_lsfg = opti_row.clone();
-    lsfg_switch_row.connect_active_notify(move |row| {
-        let enabled = row.is_active();
-        if enabled {
-            enabled_for_lsfg.set_active(true);
-            backend_for_lsfg.set_selected(3);
-            if opti_for_lsfg.is_active() {
-                opti_for_lsfg.set_active(false);
-                crate::widgets::toast::show(
-                    &opti_for_lsfg,
-                    &i18n("OptiScaler disabled automatically (lsfg-vk selected)"),
-                );
-            }
-            save_framegen(|f| {
-                f.enabled = true;
-                f.backend = FrameGenBackend::LsfgVk;
-            });
-        } else if backend_for_lsfg.selected() == 3 {
-            backend_for_lsfg.set_selected(0);
-            save_framegen(|f| {
-                f.backend = FrameGenBackend::None;
-                f.enabled = false;
-            });
-        }
-    });
-
-    mode_row.connect_selected_notify(|row| {
-        let mode = match row.selected() {
-            1 => FrameGenMode::Xess,
-            2 => FrameGenMode::Dlss,
-            3 => FrameGenMode::Native,
-            _ => FrameGenMode::Fsr3,
-        };
-        save_framegen(|f| f.mode = mode);
-    });
-
-    osd_row.connect_active_notify(|row| {
-        save_framegen(|f| f.osd_enabled = row.is_active());
-    });
-
-    // OptiScaler toggle — re-sensitizes source path + refreshes banner
-    let src = opti_src_row.clone();
-    let banner2 = conflict_banner.clone();
-    let backend_row_for_opti = backend_row.clone();
-    let opti_row_for_toast2 = opti_row.clone();
-    opti_row.connect_active_notify(move |row| {
-        let enabled = row.is_active();
-
-        // Mutual exclusion: enabling OptiScaler while lsfg-vk is selected
-        // automatically switches backend to OptiScaler.
-        if enabled && backend_row_for_opti.selected() == 3 {
-            backend_row_for_opti.set_selected(1);
-            crate::widgets::toast::show(
-                &opti_row_for_toast2,
-                &i18n("Backend switched to OptiScaler (lsfg-vk was active)"),
-            );
-        }
-
-        src.set_sensitive(enabled);
-        let conflict = enabled && bigame_core::fg::has_any_active_profile();
-        banner2.set_revealed(conflict);
-        save_framegen(|f| f.optiscaler_enabled = enabled);
-    });
-
-    opti_src_row.connect_changed(|row| {
-        let text = row.text().to_string();
+    lsfg_row.connect_active_notify(|row| {
+        let on = row.is_active();
         save_framegen(|f| {
-            f.optiscaler_source_dir = if text.is_empty() { None } else { Some(text) };
+            f.enabled = on;
+            f.backend = if on {
+                FrameGenBackend::LsfgVk
+            } else {
+                FrameGenBackend::None
+            };
         });
     });
-
-    // AFMF toggle — re-sensitizes env override field
-    let env_row = afmf_env_row.clone();
-    afmf_row.connect_active_notify(move |row| {
-        env_row.set_sensitive(row.is_active());
-        save_framegen(|f| f.afmf_experimental_enabled = row.is_active());
-    });
-
-    afmf_env_row.connect_changed(|row| {
-        let text = row.text().to_string();
-        save_framegen(|f| {
-            f.afmf_env_override = if text.is_empty() { None } else { Some(text) };
-        });
-    });
-
-    group.add(&expander);
+    group.add(&lsfg_row);
     group
 }
 

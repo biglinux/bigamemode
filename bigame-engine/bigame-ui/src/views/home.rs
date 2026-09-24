@@ -488,6 +488,7 @@ struct GameCard {
     running: gtk4::Label,
     facts: gtk4::Label,
     profile: gtk4::Label,
+    ai: gtk4::Label,
     create: gtk4::Button,
     game: Rc<RefCell<Option<GameIdentity>>>,
     turbo_on: Rc<Cell<bool>>,
@@ -515,6 +516,10 @@ impl GameCard {
         let profile = gtk4::Label::new(None);
         profile.set_xalign(0.0);
         profile.set_wrap(true);
+        let ai = gtk4::Label::new(None);
+        ai.set_xalign(0.0);
+        ai.set_wrap(true);
+        ai.set_visible(false);
         let create = gtk4::Button::builder()
             .label(i18n("Create profile"))
             .css_classes(["pill", "suggested-action"])
@@ -529,6 +534,7 @@ impl GameCard {
         text.append(&running);
         text.append(&facts);
         text.append(&profile);
+        text.append(&ai);
         text.append(&create);
 
         let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 16);
@@ -556,6 +562,7 @@ impl GameCard {
             running,
             facts,
             profile,
+            ai,
             create,
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
@@ -612,6 +619,19 @@ impl GameCard {
                 (secs / 60) % 60,
                 secs % 60
             ));
+        }
+        // What AI Graphics is really doing in the game, from what it loaded
+        // and OptiScaler's own log — hidden when nothing was installed.
+        match bigame_core::graphics::status_running(&g) {
+            Some(st) => {
+                self.ai.set_label(&format!(
+                    "{} · {}",
+                    i18n("AI Graphics"),
+                    crate::views::ai_graphics::status_text(&st)
+                ));
+                self.ai.set_visible(true);
+            }
+            None => self.ai.set_visible(false),
         }
         if !self.turbo_on.get() {
             self.profile

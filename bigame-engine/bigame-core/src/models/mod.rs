@@ -62,56 +62,35 @@ pub enum WineFsrMode {
     Ultra,
 }
 
-/// Artificial frame generation settings and integration mode.
+/// Frame generation for every game: lsfg-vk, when it is installed.
 ///
-/// The booleans are independent feature toggles rather than a state machine;
-/// grouping them would add nesting without removing a decision.
-#[allow(clippy::struct_excessive_bools)]
+/// Per-game upscaling and frame generation through `OptiScaler` are not here:
+/// they are a game's AI Graphics settings (`crate::graphics`), planned,
+/// installed with a backup and verified for that game. The global settings
+/// that used to stand for them — an `OptiScaler` backend that copied DLLs
+/// over whatever was in the game folder, an "AFMF" backend that set a
+/// `RADV_PERFTEST` option RADV does not have, a mode and an on-screen
+/// indicator nothing read — were removed. Files written by an older version
+/// still load: the old backends read as `none`, unknown keys are ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FrameGenSettings {
-    /// Enables frame generation layer orchestration.
+    /// Frame generation is on.
     pub enabled: bool,
-    /// Backend/technology used for frame generation.
+    /// Which.
     pub backend: FrameGenBackend,
-    /// Desired frame generation mode (FSR3, `XeSS`, etc.).
-    pub mode: FrameGenMode,
-    /// Shows frame generation on-screen status indicator.
-    pub osd_enabled: bool,
-    /// Enables `OptiScaler` file staging into game prefix.
-    pub optiscaler_enabled: bool,
-    /// Optional source directory containing `OptiScaler` DLL payload.
-    pub optiscaler_source_dir: Option<String>,
-    /// Enable experimental AFMF variables for advanced users.
-    pub afmf_experimental_enabled: bool,
-    /// Optional custom AFMF environment override (e.g. `RADV_PERFTEST=afmf`).
-    pub afmf_env_override: Option<String>,
 }
 
-/// Frame generation technology backend.
+/// Frame generation technology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameGenBackend {
-    /// No external frame generation backend selected.
+    /// None.
     #[default]
+    #[serde(alias = "optiscaler", alias = "afmf")]
     None,
-    /// `OptiScaler` + dlssg-to-fsr3 path.
-    OptiScaler,
-    /// AMD Fluid Motion Frames path.
-    Afmf,
-    /// Existing lsfg-vk path for compatibility with current stack.
+    /// lsfg-vk (Lossless Scaling frame generation, Vulkan layer).
     LsfgVk,
-}
-
-/// Frame generation quality/method mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FrameGenMode {
-    #[default]
-    Fsr3,
-    Xess,
-    Dlss,
-    Native,
 }
 
 #[cfg(test)]
@@ -139,12 +118,24 @@ mod tests {
         let cfg = FrameGenSettings::default();
         assert!(!cfg.enabled);
         assert_eq!(cfg.backend, FrameGenBackend::None);
-        assert_eq!(cfg.mode, FrameGenMode::Fsr3);
-        assert!(!cfg.osd_enabled);
-        assert!(!cfg.optiscaler_enabled);
-        assert_eq!(cfg.optiscaler_source_dir, None);
-        assert!(!cfg.afmf_experimental_enabled);
-        assert_eq!(cfg.afmf_env_override, None);
+    }
+
+    #[test]
+    fn a_video_config_from_before_ai_graphics_still_loads() {
+        // The OptiScaler/AFMF backends and their fields are gone; a file
+        // that has them loads, with frame generation off.
+        for backend in ["optiscaler", "afmf"] {
+            let json = format!(
+                r#"{{"enabled":true,"backend":"{backend}","mode":"xess","osd_enabled":true,
+                    "optiscaler_enabled":true,"optiscaler_source_dir":"/opt/optiscaler",
+                    "afmf_experimental_enabled":true,"afmf_env_override":"RADV_PERFTEST=afmf"}}"#
+            );
+            let fg: FrameGenSettings = serde_json::from_str(&json).unwrap();
+            assert_eq!(fg.backend, FrameGenBackend::None, "{backend}");
+        }
+        let fg: FrameGenSettings =
+            serde_json::from_str(r#"{"enabled":true,"backend":"lsfg_vk"}"#).unwrap();
+        assert_eq!((fg.enabled, fg.backend), (true, FrameGenBackend::LsfgVk));
     }
 
     #[test]
@@ -174,13 +165,7 @@ mod tests {
 
         let fg = FrameGenSettings {
             enabled: true,
-            backend: FrameGenBackend::OptiScaler,
-            mode: FrameGenMode::Xess,
-            osd_enabled: true,
-            optiscaler_enabled: true,
-            optiscaler_source_dir: Some("/opt/optiscaler".into()),
-            afmf_experimental_enabled: false,
-            afmf_env_override: None,
+            backend: FrameGenBackend::LsfgVk,
         };
 
         let up_json = serde_json::to_string(&up).expect("serialize upscaling");

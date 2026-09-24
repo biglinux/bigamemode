@@ -34,6 +34,14 @@ depend on it.
 | [22-AAA-VALIDATION.md](22-AAA-VALIDATION.md) | Checks against the real installed games |
 | [23-NEW-TECH-RESEARCH.md](23-NEW-TECH-RESEARCH.md) | falcond 2.0.14, scx-loader, GameMode, linuxgamebench and others |
 | [24-FINAL-VALIDATION.md](24-FINAL-VALIDATION.md) | The definition of done, criterion by criterion |
+| [25-DLSS-RESEARCH.md](25-DLSS-RESEARCH.md) | AI Graphics: the two reference projects, upstream, and what was taken or rejected |
+| [26-DLSS-LICENSE-AUDIT.md](26-DLSS-LICENSE-AUDIT.md) | What may be fetched, what the user must obtain, what is never touched |
+| [27-GRAPHICS-COMPATIBILITY-MATRIX.md](27-GRAPHICS-COMPATIBILITY-MATRIX.md) | Which graphics technologies may run together, and why |
+| [28-DLSS-ARCHITECTURE.md](28-DLSS-ARCHITECTURE.md) | The `graphics` subsystem and where it plugs in |
+| [29-DLSS-IMPLEMENTATION.md](29-DLSS-IMPLEMENTATION.md) | User flow, integration points, what was removed, defects found |
+| [30-DLSS-TESTS.md](30-DLSS-TESTS.md) | Automated and real-machine tests, and what was not tested |
+| [31-DLSS-BENCHMARKS.md](31-DLSS-BENCHMARKS.md) | TAA vs the game's XeSS vs OptiScaler FSR, measured |
+| [32-DLSS-FINAL-REPORT.md](32-DLSS-FINAL-REPORT.md) | AI Graphics: summary, decisions, limitations, next steps |
 | [FINAL-REPORT.md](FINAL-REPORT.md) | Summary, before/after, and known limitations |
 
 There is no `08-UX-REDESIGN.md`. The UX rationale is in FINAL-REPORT and in the

@@ -59,6 +59,9 @@ pub struct Entry {
     /// A title-keyed profile cannot match a process, so the card says so
     /// instead of quietly offering to create one that will do nothing.
     pub key_is_verified: bool,
+    /// Where AI Graphics would work on this game: its install folder and
+    /// Steam id. `None` for a profile with no installed game behind it.
+    pub target: Option<bigame_core::graphics::Target>,
 }
 
 impl Entry {
@@ -379,6 +382,7 @@ mod tests {
             has_profile,
             system_profile: system,
             key_is_verified: true,
+            target: None,
         }
     }
 

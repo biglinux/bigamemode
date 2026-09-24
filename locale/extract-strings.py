@@ -31,8 +31,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 POTFILES = ROOT / "locale" / "POTFILES.in"
 POT = ROOT / "locale" / "bigame-mode.pot"
 
-# `i18n(` / `i18n (` followed by a string literal.
-CALL = re.compile(r"\bi18n\s*\(\s*")
+# `i18n(` / `i18n (` followed by a string literal — and `N_(`, the no-op
+# marker bigame-core uses for text it builds for the UI to translate (core has
+# no gettext of its own; the UI calls `i18n` on the marked template).
+CALL = re.compile(r"\b(?:i18n|N_)\s*\(\s*")
 # Desktop/AppStream files: Name=, Comment=, GenericName=, Keywords=
 DESKTOP_KEY = re.compile(r"^(Name|GenericName|Comment|Keywords)\s*=\s*(.+)$")
 XML_TAG = re.compile(r"<(name|summary|caption|p)>([^<]+)</\1>")
@@ -66,6 +68,27 @@ def read_rust_literal(text: str, i: int) -> tuple[str, int] | None:
             if j + 1 >= len(text):
                 return None
             nxt = text[j + 1]
+            if nxt == "\n":
+                # Rust: a backslash at the end of a line skips the newline and
+                # every whitespace character that starts the next line. Keeping
+                # them made the template's msgid differ from the string the
+                # program asks gettext for, so no such string could ever be
+                # translated.
+                j += 2
+                while j < len(text) and text[j] in " \t\n\r":
+                    j += 1
+                continue
+            if nxt == "u" and j + 2 < len(text) and text[j + 2] == "{":
+                close = text.find("}", j + 3)
+                if close < 0:
+                    return None
+                out.append(chr(int(text[j + 3 : close].replace("_", ""), 16)))
+                j = close + 1
+                continue
+            if nxt == "x" and j + 3 < len(text):
+                out.append(chr(int(text[j + 2 : j + 4], 16)))
+                j += 4
+                continue
             out.append({"n": "\n", "t": "\t", "r": "\r", "0": "\0"}.get(nxt, nxt))
             j += 2
             continue
