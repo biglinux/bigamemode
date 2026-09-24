@@ -201,6 +201,45 @@ That is worth knowing before anyone reports "the governor did not stick".
 
 ---
 
+## Shadow of the Tomb Raider — CPU-bound, sched-ext schedulers
+
+`benchmarks/2026-09-24-sottr-scheduler/`, 2026-09-24 06:48–07:25. The same
+CPU-bound setup (render scale at its minimum, 3440×1440 output, GPU ~85 %
+busy), performance power profile throughout. Each scheduler was applied the
+way the product applies it — the game's falcond profile rewritten
+(`scx_sched`, `scx_sched_props = gaming`) and falcond reloaded, so falcond
+asked `scx_loader` — and each run records what the kernel reported:
+`none` ×3, `lavd_1.1.3` ×3, `bpfland_1.1.3` ×3, every one as asked. Arms
+rotated between rounds; warm-up discarded; settings identical in all nine
+runs; desktop and VM idle.
+
+| arm | avg fps | 1 % low | 0.1 % low | stutters |
+|---|---|---|---|---|
+| `scx_none` | 120.6 121.5 119.5 | 71.3 70.8 69.0 | 53.5 48.9 54.2 | 11 16 24 |
+| `scx_lavd` (gaming) | 123.0 122.7 119.8 | 73.9 73.5 68.6 | 56.2 55.8 40.5 | 14 18 18 |
+| `scx_bpfland` (gaming) | 123.0 124.0 121.1 | 68.8 58.1 50.2 | 32.9 17.7 12.9 | 8 19 28 |
+
+**Result: neither scheduler makes this game faster here.** Average frame
+rate: lavd +1.1 % (inside the 1.4 % run-to-run spread), bpfland +1.8 %
+(Welch's t = 2.12 against the 2.78 needed at 95 %) — no difference above
+normal variation. lavd's 1 % low is the same as the default scheduler's.
+
+**bpfland's frame-time tails: a warning, not a verdict.** Every bpfland run's
+0.1 % low (32.9, 17.7, 12.9 fps) is below every default run's (48.9–54.2),
+and it fell each round. The method refuses to call it — bpfland's own runs
+disagree by 49 %, above the 5 % ceiling — and three runs against three is not
+enough to overrule that. What it does say is that bpfland bought no average
+gain here and may cost smoothness; nothing about it argues for a default.
+
+**For the product** this is the evidence behind what it already does: a
+profile it creates asks for `scx_sched = none` unless a scheduler has been
+measured faster for that game on that machine. For Shadow of the Tomb Raider
+on the reference machine, none has. One CPU (Ryzen 7 5700G, 8 cores), one
+title, one mode per scheduler: a different CPU — hybrid cores, two CCDs — or
+a title that is harder on the scheduler could come out otherwise.
+
+---
+
 ## The product's own overhead
 
 §55 asks for the application's cost to be measured rather than assumed. It was,

@@ -40,7 +40,7 @@ current one) are treated as unknown-stack, not stale.
 |---|---|---|
 | "Calibrate this game" from the UI, driving a built-in benchmark | NOT IMPLEMENTED | Only Shadow of the Tomb Raider can be driven unattended (its `[R]` rerun key), and driving it means sending keys to a fullscreen game — acceptable from a script a developer watches, not yet as a button. The harness is the prototype. |
 | Per-game calibration (a finding scoped to one title) | NOT IMPLEMENTED | Findings are per machine. The data model needs a game key before a UI can offer it. |
-| Scheduler calibration | NOT TESTED | `scx-tools` now installed on the reference machine and the session is ready, but it needs the user's Polkit approval ([20](20-BENCHMARK-RESULTS.md)); the chain works on the VM ([21](21-VM-TESTS.md)). |
+| Scheduler calibration | MEASURED by the harness, not by the product | SotTR CPU-bound on the reference machine: lavd and bpfland no faster than the default ([13](13-AAA-BENCHMARKS.md)); the recommendation's `none` stands. The product has no scheduler calibration run of its own yet. |
 | Combinations of winning knobs | NOT DONE | No knob has yet measured as a winner here. |
 
 The honest state is that the machinery is complete for one game and one

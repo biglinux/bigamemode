@@ -83,10 +83,13 @@ the last fixes and installed with `scx-tools`; `scx_loader` enabled; falcond
 listing sixteen schedulers. The two old profiles were migrated from Settings
 (by the user, backed up), the wrong profile created for Steam's installer
 script was removed, and the scheduler chain was verified on this machine
-(kernel ops `lavd_1.1.3`). **Not yet done:** the scheduler measurement itself
-— one run of nine before the machine was needed; it wants ~45 minutes of an
-idle desktop. The attempts found and fixed five defects in the benchmark
-tooling ([13](13-AAA-BENCHMARKS.md), [20](20-BENCHMARK-RESULTS.md)).
+(kernel ops `lavd_1.1.3`). **Then the scheduler was measured** — SotTR
+CPU-bound, none × lavd × bpfland, three alternating rounds: neither scheduler
+is faster on average (lavd +1.1 %, bpfland +1.8 %, both within noise), and
+bpfland's worst frames were worse in every run, though too scattered to call.
+So the default a new profile gets, `scx_sched = none`, is now backed by a
+measurement rather than by its absence. Getting there found and fixed five
+defects in the benchmark tooling ([13](13-AAA-BENCHMARKS.md), [20](20-BENCHMARK-RESULTS.md)).
 Diagnostics now also warns when systemd has had to restart falcond, the case
 that leaves the machine boosted ([21](21-VM-TESTS.md)).
 
@@ -280,7 +283,8 @@ falcond owns it; Booster never writes it. What the project adds is honesty about
 whether it can be changed at all — the reference machine had kernel support and
 sixteen schedulers installed but no `scx_loader`, so every selection in the old
 picker would have been silently discarded. (`scx-tools` is installed there
-now; the scheduler itself is not yet measured.) That is now reported as
+now, and lavd and bpfland measured no faster than the default in SotTR
+CPU-bound.) That is now reported as
 `ServiceDown("scx_loader service is not running")`, which is a different problem
 from unsupported hardware and has a different fix.
 

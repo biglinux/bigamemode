@@ -17,15 +17,16 @@ verdicts from run-to-run spread and Welch's t at 95 %. Raw data under
 | CPU governor + EPP alone | SotTR CPU-bound | −1.1 % | no difference — MEASURED |
 | CPU governor | SuperTuxKart, GPU-bound | +2.1 % | within noise — MEASURED |
 | BiGame-mode's own UI (old build) running vs frozen | SotTR CPU-bound | +1.1 % frozen | not significant — MEASURED |
-| sched-ext scheduler (none × lavd × bpfland) | SotTR CPU-bound | one run of nine (`none`: 123.0 fps) | NOT MEASURED — the session ran on 2026-09-24 06:04 with the chain verified (falcond → `scx_loader` → kernel reported `lavd_1.1.3`), and stopped when the game was closed during the first lavd run (below) |
+| sched-ext `lavd` (gaming) vs default | SotTR CPU-bound | +1.1 % avg, 1 % low same | no difference — MEASURED |
+| sched-ext `bpfland` (gaming) vs default | SotTR CPU-bound | +1.8 % avg (t = 2.12 < 2.78); 0.1 % low lower in every run | no difference in average — MEASURED; tails inconclusive (spread 49 %) |
 | Gamescope native vs nested | — | — | NOT MEASURED |
 
 ## Turbo off vs Turbo on
 
 Turbo on means falcond runs and applies a profile per game; its only
 performance-relevant action on this machine is switching to the
-**performance** power profile while a game runs (the scheduler it asks for
-cannot be set without `scx-tools`; V-Cache does not exist on this CPU). So
+**performance** power profile while a game runs (V-Cache does not exist on
+this CPU, and the schedulers it can now set measured no faster). So
 Turbo off vs on here *is* balanced-or-resting-state vs performance power
 profile, and that was measured: **no difference**, GPU-bound or CPU-bound.
 
@@ -42,9 +43,9 @@ against 7.38 % and 313/s (the build on `main`); hidden in the tray: 0.52 %,
 
 ## What would change these conclusions
 
-- **A scheduler.** The one lever not yet measured here, and the one falcond
-  exists to pull. The prerequisite is now in place; the session is one
-  command, with the game on its results screen at minimum render scale:
+- **A scheduler on other hardware.** Measured here (no gain, [13](13-AAA-BENCHMARKS.md));
+  on one 8-core APU and one title. The session is one command, with the game
+  on its results screen at minimum render scale:
   `GAME=sottr RUNS=3 LABEL=scheduler SCX_PROFILE=SOTTR.exe
   scripts/bench-game.sh scx_none scx_lavd scx_bpfland`. It asks for the
   password once, up front — the scheduler is set the way the product sets it,
@@ -60,9 +61,8 @@ against 7.38 % and 313/s (the build on `main`); hidden in the tray: 0.52 %,
   it with `scx=lavd, mode=gaming`, and the kernel reported sched_ext
   `enabled`, ops `lavd_1.1.3` — and measured `none` once (123.0 fps). The
   user then needed the machine and closed the game, confirmed by the user, so
-  lavd is not implicated. The session needs ~45 minutes of an idle desktop:
-  every focus change holds the next run, and anything busy is noise in a
-  CPU-bound measurement.
+  lavd is not implicated. The full session ran at 06:48–07:25, the desktop
+  left idle: nine runs, each with the scheduler the kernel reported.
 - **Other hardware.** Every result above is one CPU and one GPU. The planner's
   GPU DPM gate is local evidence, not a rule for every Radeon.
 - **Other titles.** Cyberpunk 2077 and Rise of the Tomb Raider are read

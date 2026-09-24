@@ -1,0 +1,221 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "scx_none",
+          "runs": [
+            120.63273483246067,
+            121.49995502688243,
+            119.54120031316661
+          ],
+          "mean": 120.55796339083656,
+          "median": 120.63273483246067,
+          "min": 119.54120031316661,
+          "max": 121.49995502688243,
+          "stddev": 0.9815157072038608,
+          "cov": 0.008141442336927072
+        },
+        "candidate": {
+          "arm": "scx_bpfland",
+          "runs": [
+            122.96287296356914,
+            124.01153364551872,
+            121.14058085371734
+          ],
+          "mean": 122.70499582093505,
+          "median": 122.96287296356914,
+          "min": 121.14058085371734,
+          "max": 124.01153364551872,
+          "stddev": 1.452744970291716,
+          "cov": 0.011839330261758249
+        },
+        "delta_pct": 1.7809129896612739,
+        "verdict": "within_noise",
+        "rationale": "a 1.8% difference, but Welch's t = 2.12 falls short of the 2.78 needed for 95% confidence at 3.5 degrees of freedom"
+      },
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "scx_none",
+          "runs": [
+            120.63273483246067,
+            121.49995502688243,
+            119.54120031316661
+          ],
+          "mean": 120.55796339083656,
+          "median": 120.63273483246067,
+          "min": 119.54120031316661,
+          "max": 121.49995502688243,
+          "stddev": 0.9815157072038608,
+          "cov": 0.008141442336927072
+        },
+        "candidate": {
+          "arm": "scx_lavd",
+          "runs": [
+            122.95370663781331,
+            122.7061013768485,
+            119.84637744992469
+          ],
+          "mean": 121.83539515486216,
+          "median": 122.7061013768485,
+          "min": 119.84637744992469,
+          "max": 122.95370663781331,
+          "stddev": 1.726983110580536,
+          "cov": 0.014174724088885727
+        },
+        "delta_pct": 1.0595996548849205,
+        "verdict": "within_noise",
+        "rationale": "the 1.1% difference is within the 1.4% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "scx_none",
+          "runs": [
+            71.26490327289693,
+            70.83460971613492,
+            68.96164668674133
+          ],
+          "mean": 70.3537198919244,
+          "median": 70.83460971613492,
+          "min": 68.96164668674133,
+          "max": 71.26490327289693,
+          "stddev": 1.2246178966066141,
+          "cov": 0.017406583454120706
+        },
+        "candidate": {
+          "arm": "scx_bpfland",
+          "runs": [
+            68.77488879915849,
+            58.12017881939735,
+            50.1623711306362
+          ],
+          "mean": 59.01914624973068,
+          "median": 58.12017881939735,
+          "min": 50.1623711306362,
+          "max": 68.77488879915849,
+          "stddev": 9.33876653101809,
+          "cov": 0.15823282992780846
+        },
+        "delta_pct": -16.110837720600422,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 1.7% and 15.8%, above the 5% ceiling); something on the machine was interfering"
+      },
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "scx_none",
+          "runs": [
+            71.26490327289693,
+            70.83460971613492,
+            68.96164668674133
+          ],
+          "mean": 70.3537198919244,
+          "median": 70.83460971613492,
+          "min": 68.96164668674133,
+          "max": 71.26490327289693,
+          "stddev": 1.2246178966066141,
+          "cov": 0.017406583454120706
+        },
+        "candidate": {
+          "arm": "scx_lavd",
+          "runs": [
+            73.87377713195343,
+            73.53428640880641,
+            68.60923988585448
+          ],
+          "mean": 72.00576780887144,
+          "median": 73.53428640880641,
+          "min": 68.60923988585448,
+          "max": 73.87377713195343,
+          "stddev": 2.946373183534489,
+          "cov": 0.04091857184767749
+        },
+        "delta_pct": 2.3482026529441153,
+        "verdict": "within_noise",
+        "rationale": "the 2.3% difference is within the 4.1% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "scx_none",
+          "runs": [
+            53.47051804489273,
+            48.90657133145695,
+            54.235507701442096
+          ],
+          "mean": 52.20419902593059,
+          "median": 53.47051804489273,
+          "min": 48.90657133145695,
+          "max": 54.235507701442096,
+          "stddev": 2.8813301793054764,
+          "cov": 0.05519345633239727
+        },
+        "candidate": {
+          "arm": "scx_bpfland",
+          "runs": [
+            32.85393959803204,
+            17.73538626341128,
+            12.869582227621727
+          ],
+          "mean": 21.152969363021683,
+          "median": 17.73538626341128,
+          "min": 12.869582227621727,
+          "max": 32.85393959803204,
+          "stddev": 10.42130224871754,
+          "cov": 0.49266379910403585
+        },
+        "delta_pct": -59.480329633034515,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 5.5% and 49.3%, above the 5% ceiling); something on the machine was interfering"
+      },
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "scx_none",
+          "runs": [
+            53.47051804489273,
+            48.90657133145695,
+            54.235507701442096
+          ],
+          "mean": 52.20419902593059,
+          "median": 53.47051804489273,
+          "min": 48.90657133145695,
+          "max": 54.235507701442096,
+          "stddev": 2.8813301793054764,
+          "cov": 0.05519345633239727
+        },
+        "candidate": {
+          "arm": "scx_lavd",
+          "runs": [
+            56.17725046065345,
+            55.770582133336305,
+            40.52088531736384
+          ],
+          "mean": 50.822905970451195,
+          "median": 55.770582133336305,
+          "min": 40.52088531736384,
+          "max": 56.17725046065345,
+          "stddev": 8.924128357133236,
+          "cov": 0.1755926424656195
+        },
+        "delta_pct": -2.64594243615018,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 5.5% and 17.6%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  }
+]

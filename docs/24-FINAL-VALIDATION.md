@@ -43,11 +43,7 @@ lints) reports zero warnings, which is what `-D warnings` would enforce.
 
 ## Still to do on the reference machine
 
-1. Measure a scheduler CPU-bound: the one command in
-   [20](20-BENCHMARK-RESULTS.md), with the desktop left idle for ~45 minutes.
-   It asks for the password once.
-
-Done on 2026-09-24:
+Nothing. Done on 2026-09-24:
 
 | Step | Status |
 |---|---|
@@ -56,5 +52,5 @@ Done on 2026-09-24:
 | `user/iscriptevaluator.exe.conf` removed through the helper's `DeleteProfile`; falcond reloaded, 13 profiles | VERIFIED |
 | Package rebuilt at `d495215` (the restart warning) and installed; helper and UI restarted | VERIFIED |
 | Scheduler chain on this machine: profile → falcond → `scx_loader` → kernel ops `lavd_1.1.3` | VERIFIED |
-| Scheduler measurement | NOT DONE — one run of nine; the game was closed mid-session |
-| SotTR's render scale restored after the session (`ResolutionModifier` 200 → 1000, the game had saved the minimum on exit); all 28 graphics values match the clean session | VERIFIED |
+| Scheduler measurement, SotTR CPU-bound, none × lavd × bpfland, 3 rounds | MEASURED — no scheduler faster on average; bpfland's 0.1 % lows lower but inconclusive ([13](13-AAA-BENCHMARKS.md)) |
+| SotTR's render scale restored after each session (`ResolutionModifier` back to 1000; all 28 graphics values match the clean session) | VERIFIED |
