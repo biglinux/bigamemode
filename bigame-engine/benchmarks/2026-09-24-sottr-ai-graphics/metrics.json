@@ -1,0 +1,221 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "native_taa",
+          "runs": [
+            89.60133423364226,
+            89.78030136366843,
+            89.88772389360098
+          ],
+          "mean": 89.75645316363722,
+          "median": 89.78030136366843,
+          "min": 89.60133423364226,
+          "max": 89.88772389360098,
+          "stddev": 0.1446765765988517,
+          "cov": 0.0016118793858207413
+        },
+        "candidate": {
+          "arm": "native_xess",
+          "runs": [
+            93.93968832672661,
+            94.18693793862043,
+            94.3839447133512
+          ],
+          "mean": 94.17019032623274,
+          "median": 94.18693793862043,
+          "min": 93.93968832672661,
+          "max": 94.3839447133512,
+          "stddev": 0.2226012042975057,
+          "cov": 0.002363818141668301
+        },
+        "delta_pct": 4.917459421606968,
+        "verdict": "improvement",
+        "rationale": "4.9% faster, above the 0.2% run-to-run spread and significant at 95% (Welch's t = 28.80 against a 2.78 threshold)"
+      },
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "native_taa",
+          "runs": [
+            89.60133423364226,
+            89.78030136366843,
+            89.88772389360098
+          ],
+          "mean": 89.75645316363722,
+          "median": 89.78030136366843,
+          "min": 89.60133423364226,
+          "max": 89.88772389360098,
+          "stddev": 0.1446765765988517,
+          "cov": 0.0016118793858207413
+        },
+        "candidate": {
+          "arm": "optiscaler_fsr",
+          "runs": [
+            99.01702439918279,
+            98.72443249355135,
+            98.73996243110442
+          ],
+          "mean": 98.82713977461286,
+          "median": 98.73996243110442,
+          "min": 98.72443249355135,
+          "max": 99.01702439918279,
+          "stddev": 0.16462813467372456,
+          "cov": 0.0016658190761078258
+        },
+        "delta_pct": 10.10588797937308,
+        "verdict": "improvement",
+        "rationale": "10.1% faster, above the 0.2% run-to-run spread and significant at 95% (Welch's t = 71.68 against a 2.78 threshold)"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "native_taa",
+          "runs": [
+            60.45200089691907,
+            61.57672850646945,
+            65.92358713450126
+          ],
+          "mean": 62.65077217929659,
+          "median": 61.57672850646945,
+          "min": 60.45200089691907,
+          "max": 65.92358713450126,
+          "stddev": 2.8895918997636554,
+          "cov": 0.04612220726496556
+        },
+        "candidate": {
+          "arm": "native_xess",
+          "runs": [
+            62.33308526450073,
+            66.33788601192215,
+            64.7520626139408
+          ],
+          "mean": 64.47434463012122,
+          "median": 64.7520626139408,
+          "min": 62.33308526450073,
+          "max": 66.33788601192215,
+          "stddev": 2.0167926803564606,
+          "cov": 0.031280545648450876
+        },
+        "delta_pct": 2.9106942937684144,
+        "verdict": "within_noise",
+        "rationale": "the 2.9% difference is within the 4.6% spread of the runs themselves, so it cannot be attributed to the change"
+      },
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "native_taa",
+          "runs": [
+            60.45200089691907,
+            61.57672850646945,
+            65.92358713450126
+          ],
+          "mean": 62.65077217929659,
+          "median": 61.57672850646945,
+          "min": 60.45200089691907,
+          "max": 65.92358713450126,
+          "stddev": 2.8895918997636554,
+          "cov": 0.04612220726496556
+        },
+        "candidate": {
+          "arm": "optiscaler_fsr",
+          "runs": [
+            60.99034241385703,
+            60.50857456925458,
+            60.919985504167556
+          ],
+          "mean": 60.806300829093054,
+          "median": 60.919985504167556,
+          "min": 60.50857456925458,
+          "max": 60.99034241385703,
+          "stddev": 0.26022724306520895,
+          "cov": 0.004279609835116002
+        },
+        "delta_pct": -2.9440520620000488,
+        "verdict": "within_noise",
+        "rationale": "the 2.9% difference is within the 4.6% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "native_taa",
+          "runs": [
+            36.62243490362195,
+            39.880889077953846,
+            51.159966984767976
+          ],
+          "mean": 42.55443032211459,
+          "median": 39.880889077953846,
+          "min": 36.62243490362195,
+          "max": 51.159966984767976,
+          "stddev": 7.6286189340377275,
+          "cov": 0.17926732601736425
+        },
+        "candidate": {
+          "arm": "native_xess",
+          "runs": [
+            42.2092905462445,
+            51.16572578582028,
+            42.27328835455452
+          ],
+          "mean": 45.21610156220643,
+          "median": 42.27328835455452,
+          "min": 42.2092905462445,
+          "max": 51.16572578582028,
+          "stddev": 5.152625081599338,
+          "cov": 0.11395553582854928
+        },
+        "delta_pct": 6.2547453225067144,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 17.9% and 11.4%, above the 5% ceiling); something on the machine was interfering"
+      },
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "native_taa",
+          "runs": [
+            36.62243490362195,
+            39.880889077953846,
+            51.159966984767976
+          ],
+          "mean": 42.55443032211459,
+          "median": 39.880889077953846,
+          "min": 36.62243490362195,
+          "max": 51.159966984767976,
+          "stddev": 7.6286189340377275,
+          "cov": 0.17926732601736425
+        },
+        "candidate": {
+          "arm": "optiscaler_fsr",
+          "runs": [
+            40.15419209765499,
+            38.04270293404346,
+            33.40710736209129
+          ],
+          "mean": 37.20133413126325,
+          "median": 38.04270293404346,
+          "min": 33.40710736209129,
+          "max": 40.15419209765499,
+          "stddev": 3.451335133529927,
+          "cov": 0.09277449892931379
+        },
+        "delta_pct": -12.579409829555289,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 17.9% and 9.3%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  }
+]
