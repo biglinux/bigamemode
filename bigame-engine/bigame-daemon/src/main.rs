@@ -16,6 +16,7 @@
 //!    from validated input — never a path assembled from a caller-supplied
 //!    string.
 
+mod backend;
 mod polkit;
 mod validate;
 
@@ -86,7 +87,7 @@ impl BiGameDaemon {
             .map_err(|e| failed(&format!("write profile: {e:#}")))?;
 
         info!(profile = name, "profile saved");
-        reload_falcond();
+        backend::reload(&self.connection).await;
         Ok(())
     }
 
@@ -104,7 +105,7 @@ impl BiGameDaemon {
         match std::fs::remove_file(&path) {
             Ok(()) => {
                 info!(profile = name, "profile deleted");
-                reload_falcond();
+                backend::reload(&self.connection).await;
                 Ok(())
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -130,11 +131,24 @@ impl BiGameDaemon {
             std::fs::create_dir_all(parent)
                 .map_err(|e| failed(&format!("create {}: {e}", parent.display())))?;
         }
+        // falcond reads `enable_performance_mode` only at start-up (measured on
+        // 2.0.2: a reload keeps the power-profiles connection it has), so a
+        // change to it needs a restart. Everything else it re-reads on SIGHUP.
+        let startup_flag = |text: &str| {
+            text.lines()
+                .find_map(|l| l.trim().strip_prefix("enable_performance_mode"))
+                .map(|rest| rest.trim_start_matches([' ', '=']).trim().to_owned())
+        };
+        let before = std::fs::read_to_string(path).ok();
         write_atomic(path, config_payload.as_bytes(), 0o644)
             .map_err(|e| failed(&format!("write falcond config: {e:#}")))?;
 
         info!(path = FALCOND_CONFIG, "falcond configuration written");
-        reload_falcond();
+        if before.as_deref().and_then(startup_flag) == startup_flag(config_payload) {
+            backend::reload(&self.connection).await;
+        } else {
+            backend::restart_if_running(&self.connection).await;
+        }
         Ok(())
     }
 
@@ -214,6 +228,37 @@ impl BiGameDaemon {
 
     /// Liveness probe.
     #[allow(clippy::unused_self)]
+    /// Turn the game performance backend (falcond) on or off, persistently.
+    ///
+    /// This is Turbo's master switch. Returns the unit's active state as
+    /// systemd reports it afterwards.
+    #[zbus(name = "SetGameBackend")]
+    async fn set_game_backend(
+        &self,
+        enabled: bool,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
+    ) -> Result<String, zbus::fdo::Error> {
+        self.authorize(&hdr, actions::CONTROL_BACKEND).await?;
+        backend::set_enabled(&self.connection, enabled)
+            .await
+            .map(|state| state.active_state)
+            .map_err(|e| failed(&format!("{e:#}")))
+    }
+
+    /// Return falcond to the state it was in before BiGame-mode first changed
+    /// it, and stop managing it.
+    #[zbus(name = "ReleaseGameBackend")]
+    async fn release_game_backend(
+        &self,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
+    ) -> Result<bool, zbus::fdo::Error> {
+        self.authorize(&hdr, actions::CONTROL_BACKEND).await?;
+        backend::release(&self.connection)
+            .await
+            .map(|record| record.is_some())
+            .map_err(|e| failed(&format!("{e:#}")))
+    }
+
     #[zbus(name = "Ping")]
     async fn ping(&self) -> Result<String, zbus::fdo::Error> {
         Ok("pong".into())
@@ -319,23 +364,6 @@ fn find_vcache_attribute() -> Option<PathBuf> {
         .flatten()
         .map(|e| e.path().join("amd_x3d_mode"))
         .find(|p| p.exists())
-}
-
-/// Ask falcond to reload its configuration.
-///
-/// Goes through systemd rather than `pkill -HUP falcond`, which signalled every
-/// process that happened to share the name (audit SEC-06). Best effort: a
-/// failure to reload is logged, never fatal, because the file on disk is
-/// already correct and falcond will pick it up when it next restarts.
-fn reload_falcond() {
-    let result = std::process::Command::new("systemctl")
-        .args(["reload-or-restart", "falcond.service"])
-        .status();
-    match result {
-        Ok(s) if s.success() => info!("falcond reloaded"),
-        Ok(s) => warn!(status = %s, "falcond reload returned a non-zero status"),
-        Err(e) => warn!(error = %e, "could not invoke systemctl to reload falcond"),
-    }
 }
 
 #[tokio::main]

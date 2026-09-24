@@ -28,6 +28,8 @@ pub mod actions {
     pub const WRITE_CONFIG: &str = "com.biglinux.bigamemode.write-config";
     /// Create or delete per-game profiles.
     pub const MANAGE_PROFILES: &str = "com.biglinux.bigamemode.manage-profiles";
+    /// Turn the game performance backend (falcond) on or off.
+    pub const CONTROL_BACKEND: &str = "com.biglinux.bigamemode.control-backend";
 }
 
 #[zbus::proxy(
