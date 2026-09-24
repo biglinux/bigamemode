@@ -44,6 +44,40 @@ across the whole workspace.
 
 ---
 
+## Fourth pass: an AAA title, measured
+
+Detail in [13-AAA-BENCHMARKS.md](13-AAA-BENCHMARKS.md). The question this
+project exists to answer — *does it improve anything, and by how much?* — now
+has an answer from a real AAA game, not only from a kart racer.
+
+**How.** The games already record every frame of their built-in benchmarks;
+`benchmark/native.rs` reads Crystal Dynamics' and Cyberpunk 2077's formats and
+matches the games' own averages. *Shadow of the Tomb Raider* reruns its
+benchmark on `[R]`, so `scripts/bench-game.sh` drives a whole alternating
+session from one launch under Proton + VKD3D-Proton.
+
+**What it found**, on a Radeon RX 9060 XT and Ryzen 7 5700G:
+
+| setting | GPU-bound (3440×1440 High) | CPU-bound (render scale minimum) |
+|---|---|---|
+| `gpu_dpm_level=high` | **−8.0 % average, −7.6 % 1 % low** (spread 0.1 %) | — |
+| performance profile vs balanced | no difference (−0.1 %) | no difference (within 1.5 %) |
+| CPU governor + EPP → performance | — | no difference |
+| the running BiGame-mode UI | — | −1.1 % with it polling; not significant |
+
+So, on this machine: **the Booster's one GPU setting made games slower, and its
+CPU settings made no measurable difference, GPU-bound or CPU-bound.** The
+planner no longer forces GPU DPM without a measurement showing it helps.
+
+**What it fixed.** The dashboard forked ~32 processes a second during play,
+flooded the journal with 7 653 lines a day, and — because it never reaped the
+Gamescope it launched — reported a 6-hour-old zombie as a running Gamescope.
+All three are fixed. The installed package predates the calibration-aware
+planner, so the installed Booster applied the harmful setting to every AAA run
+taken by hand today; it needs a rebuild and reinstall.
+
+---
+
 ## Problems Found
 
 Full detail in [01-AUDIT.md](01-AUDIT.md). By severity:
@@ -341,17 +375,15 @@ Gamescope 3.16.28, falcond 2.0.2, sched-ext without a loader.
 Everything from the first two passes is closed. What follows is what is
 genuinely left.
 
-1. **No workload exists here that a benchmark could learn from.** The
-   measurement path works end to end and is offered per game, but SuperTuxKart
-   — the only safely launchable title on this machine — is frame-capped at
-   160 fps, so neither arm can differ and it honestly reports no change. A
-   GPU-bound game with a repeatable benchmark is still needed.
+1. **One AAA title is driven unattended; the others need a person per run.**
+   *Shadow of the Tomb Raider* is automated (fourth pass). *Cyberpunk 2077*'s
+   results are read automatically but its benchmark has no rerun key; *Rise of
+   the Tomb Raider*'s Windows build has not yet been seen writing results.
 
-2. **Measurement is unavailable for Steam titles.** `steam -applaunch` returns
-   immediately with the game in a separate process tree, so there is no handle
-   to measure. The UI says so by not offering it rather than by failing later.
-   Doing it properly means wrapping through Steam's own launch options and
-   finding the capture afterwards.
+2. **Steam titles are measured through the game's own files, not a process
+   handle.** That covers the titles with a built-in benchmark that writes
+   frames. A Steam title without one would still need `MangoHud` through
+   Steam's launch options, which is not implemented.
 
 3. **Hardware coverage.** NVIDIA, Intel graphics, Intel CPUs, hybrid P/E cores,
    3D V-Cache, laptops and batteries, VRR and HDR displays, Wi-Fi and X11 all

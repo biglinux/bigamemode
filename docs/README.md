@@ -22,6 +22,7 @@ depend on it.
 | [10-SECURITY.md](10-SECURITY.md) | Threat model, findings, and what was done |
 | [11-BENCHMARK-LAB.md](11-BENCHMARK-LAB.md) | The method: why runs alternate, what counts as a real difference |
 | [12-FINDINGS.md](12-FINDINGS.md) | What the method found, including where the Booster was wrong |
+| [13-AAA-BENCHMARKS.md](13-AAA-BENCHMARKS.md) | Shadow of the Tomb Raider driven unattended; GPU- and CPU-bound results; the UI's own overhead |
 | [FINAL-REPORT.md](FINAL-REPORT.md) | Summary, before/after, and known limitations |
 
 There is no `08-UX-REDESIGN.md`. The UX rationale is in FINAL-REPORT and in the

@@ -136,7 +136,7 @@ deleted.
 | Workload | Status | Detail |
 |---|---|---|
 | SuperTuxKart 1.5 | **Automated** | Deterministic replay, exits by itself, per-frame CSV. The only fully unattended workload found. |
-| Shadow of the Tomb Raider | **Needs manual start** | Installed. Windows build under Proton; its benchmark is behind Options → Display and the game exposes no flag for it. |
+| Shadow of the Tomb Raider | **Automated** (later the same day) | The first pass is started from Options; after that its results screen reruns on `[R]`, which `scripts/bench-game.sh` drives. Results in [13-AAA-BENCHMARKS.md](13-AAA-BENCHMARKS.md). |
 | Cyberpunk 2077 | **Needs manual start** | Installed. Benchmark behind Settings → Graphics. |
 | Rise of the Tomb Raider | **Needs manual start** | Installed. The Feral port accepts `-benchmark`, but its launcher window opens first and `-nolauncher` does not suppress it. |
 | Tomb Raider (2013) | **NOT TESTED** | See the correction below. Installed and launchable; the benchmark was not reached. |
