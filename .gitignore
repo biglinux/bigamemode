@@ -1,27 +1,18 @@
-# Rust build artifacts
+# Rust
 target/
-bigame-mode/target/
-bigame-engine/target/
 
-# makepkg working directories (cargo registry, pkg staging, extracted sources)
+# makepkg working directories and packages
 /src/
 /pkg/
 /pkgbuild/
-bigame-mode/src/
-bigame-mode/pkg/
-
-# Stray bare-clone of upstream package repo (not part of source tree)
-/bigame-mode/
-
-# Built Arch packages
 *.pkg.tar
 *.pkg.tar.zst
 *.pkg.tar.xz
 
-# Compiled locale files
+# Compiled translations (built by the PKGBUILD)
 *.mo
 
-# Editor / IDE
+# Editors and local tools
 *.swp
 *~
 *.bak
@@ -29,22 +20,11 @@ bigame-mode/pkg/
 .idea/
 .vscode/
 *.iml
-
-# OS
-.DS_Store
-Thumbs.db
-
-# AI assistant metadata
 .serena/
-
-# Temporary
-/tmp/
-
-# SuperTuxKart's per-frame, 42-stage render profile. Roughly 4 MB per run and
-# 90 MB per benchmark session -- 98% of what a benchmark directory weighs. A
-# fresh run leaves it beside the other artifacts, where it is useful to anyone
-# chasing a particular render stage; it is simply never committed. The summary,
-# the frame counts and the GPU telemetry are what the findings rest on, and
-# those come to under 2 MB per session.
-benchmarks/**/stdout.log.profile-*.csv
+.DS_Store
 __pycache__/
+
+# SuperTuxKart's per-frame, per-stage render profile: about 4 MB per run and
+# 98% of a session's weight. Summaries, frame counts and GPU telemetry are
+# what the published results rest on; this is left beside them, uncommitted.
+benchmarks/**/stdout.log.profile-*.csv
