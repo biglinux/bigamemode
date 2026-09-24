@@ -401,6 +401,13 @@ impl Plan {
             });
             return;
         }
+        if hw.cpu.available_governors.is_empty() {
+            self.skipped.push(Skipped::Unsupported {
+                knob: knob.title(),
+                detail: "this machine exposes no CPU frequency control".into(),
+            });
+            return;
+        }
         if !hw.cpu.supports_governor("performance") {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),

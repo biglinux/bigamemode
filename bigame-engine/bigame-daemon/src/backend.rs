@@ -29,7 +29,6 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
-use zbus::zvariant::OwnedObjectPath;
 
 /// The unit this module controls. Fixed: nothing a caller sends selects it.
 pub const UNIT: &str = "falcond.service";
@@ -41,48 +40,7 @@ pub const OWNERSHIP_RECORD: &str = "/var/lib/bigame-mode/game-backend.json";
 /// How long to wait for systemd to report the state asked for.
 const SETTLE_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[zbus::proxy(
-    interface = "org.freedesktop.systemd1.Manager",
-    default_service = "org.freedesktop.systemd1",
-    default_path = "/org/freedesktop/systemd1"
-)]
-trait Manager {
-    #[zbus(name = "StartUnit")]
-    fn start_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
-    #[zbus(name = "StopUnit")]
-    fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
-    #[zbus(name = "EnableUnitFiles")]
-    #[allow(clippy::type_complexity)]
-    fn enable_unit_files(
-        &self,
-        files: &[&str],
-        runtime: bool,
-        force: bool,
-    ) -> zbus::Result<(bool, Vec<(String, String, String)>)>;
-    #[zbus(name = "DisableUnitFiles")]
-    fn disable_unit_files(
-        &self,
-        files: &[&str],
-        runtime: bool,
-    ) -> zbus::Result<Vec<(String, String, String)>>;
-    #[zbus(name = "Reload")]
-    fn reload(&self) -> zbus::Result<()>;
-    #[zbus(name = "GetUnitFileState")]
-    fn get_unit_file_state(&self, file: &str) -> zbus::Result<String>;
-    #[zbus(name = "LoadUnit")]
-    fn load_unit(&self, name: &str) -> zbus::Result<OwnedObjectPath>;
-    #[zbus(name = "KillUnit")]
-    fn kill_unit(&self, name: &str, whom: &str, signal: i32) -> zbus::Result<()>;
-}
-
-#[zbus::proxy(
-    interface = "org.freedesktop.systemd1.Unit",
-    default_service = "org.freedesktop.systemd1"
-)]
-trait Unit {
-    #[zbus(property, name = "ActiveState")]
-    fn active_state(&self) -> zbus::Result<String>;
-}
+use bigame_core::systemd::ManagerProxy;
 
 /// The state falcond was in before BiGame-mode first changed it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -102,14 +60,7 @@ impl Ownership {
     }
 }
 
-/// What systemd reports about the unit now.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UnitState {
-    /// `enabled`, `disabled`, `masked`, `static`, … or `not-found`.
-    pub unit_file_state: String,
-    /// `active`, `inactive`, `failed`, `activating`, …
-    pub active_state: String,
-}
+pub use bigame_core::systemd::UnitState;
 
 async fn manager(connection: &zbus::Connection) -> zbus::Result<ManagerProxy<'_>> {
     ManagerProxy::new(connection).await
@@ -118,19 +69,9 @@ async fn manager(connection: &zbus::Connection) -> zbus::Result<ManagerProxy<'_>
 /// Read the unit's current state.
 ///
 /// # Errors
-/// Returns an error if systemd cannot be reached or the unit does not exist.
+/// Returns an error if systemd cannot be reached.
 pub async fn state(connection: &zbus::Connection) -> zbus::Result<UnitState> {
-    let manager = manager(connection).await?;
-    let unit_file_state = manager
-        .get_unit_file_state(UNIT)
-        .await
-        .unwrap_or_else(|_| "not-found".into());
-    let path = manager.load_unit(UNIT).await?;
-    let unit = UnitProxy::builder(connection).path(path)?.build().await?;
-    Ok(UnitState {
-        unit_file_state,
-        active_state: unit.active_state().await?,
-    })
+    bigame_core::systemd::unit_state(connection, UNIT).await
 }
 
 /// Record what the unit looks like, once, before the first change.
