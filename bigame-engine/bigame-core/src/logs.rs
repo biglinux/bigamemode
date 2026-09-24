@@ -171,6 +171,36 @@ pub fn strip_ansi(text: &str) -> String {
     out
 }
 
+/// A line written by `tracing` — BiGame-mode's own — carries its level:
+/// `  INFO target: message`, after an RFC 3339 timestamp in builds that wrote
+/// one. That level is the truth; the wording is not. `INFO turbo: turbo on
+/// verified=1 … failed=0` was shown as an error on the lab VM because it
+/// contains "failed".
+///
+/// Returns the level and the message without the prefix.
+#[must_use]
+pub fn tracing_level(message: &str) -> Option<(Level, &str)> {
+    let mut rest = message.trim_start();
+    if let Some((first, after)) = rest.split_once(' ') {
+        let timestamp = first.len() >= 20
+            && first.as_bytes()[0].is_ascii_digit()
+            && first.contains('T')
+            && first.ends_with('Z');
+        if timestamp {
+            rest = after.trim_start();
+        }
+    }
+    let (word, after) = rest.split_once(' ')?;
+    let level = match word {
+        "TRACE" | "DEBUG" => Level::Debug,
+        "INFO" => Level::Info,
+        "WARN" => Level::Warning,
+        "ERROR" => Level::Error,
+        _ => return None,
+    };
+    Some((level, after.trim_start()))
+}
+
 /// The severity of a message, from the journal priority and its wording.
 #[must_use]
 pub fn classify(priority: Option<u8>, message: &str) -> Level {
@@ -276,10 +306,23 @@ pub fn parse_journal(output: &str) -> (Vec<Entry>, Option<String>) {
             .and_then(serde_json::Value::as_str)
             .and_then(|t| t.parse().ok())
             .unwrap_or(0);
+        let (level, message) = match tracing_level(&message) {
+            // An ordinary line can still report a confirmation.
+            Some((Level::Info, text)) => {
+                let level = if classify(None, text) == Level::Success {
+                    Level::Success
+                } else {
+                    Level::Info
+                };
+                (level, text.to_owned())
+            }
+            Some((level, text)) => (level, text.to_owned()),
+            None => (classify(priority, &message), message),
+        };
         entries.push(Entry {
             time_us,
             source,
-            level: classify(priority, &message),
+            level,
             message,
         });
     }
@@ -321,6 +364,27 @@ pub fn redact(text: &str, home: &str, user: &str, host: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tracing_line_keeps_its_own_level() {
+        let (level, text) =
+            tracing_level(" INFO turbo: turbo on verified=1 per_game=1 skipped=0 failed=0")
+                .unwrap();
+        assert_eq!(level, Level::Info);
+        assert_eq!(
+            text,
+            "turbo: turbo on verified=1 per_game=1 skipped=0 failed=0"
+        );
+        let (level, text) = tracing_level(
+            "2026-09-24T15:03:02.350657Z  WARN bigame_daemon::polkit: denied by policy",
+        )
+        .unwrap();
+        assert_eq!(level, Level::Warning);
+        assert_eq!(text, "bigame_daemon::polkit: denied by policy");
+        assert_eq!(tracing_level("ERROR x: y").unwrap().0, Level::Error);
+        assert!(tracing_level("info(daemon): activating profile 'supertuxkart'").is_none());
+        assert!(tracing_level("Failed to set text from markup").is_none());
+    }
 
     #[test]
     fn falcond_warnings_inside_info_records_are_warnings() {
