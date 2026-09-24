@@ -16,6 +16,8 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::graphics::text::N_;
+
 /// Who must perform the write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Privilege {
@@ -68,11 +70,11 @@ impl Knob {
     #[must_use]
     pub fn title(&self) -> String {
         match self {
-            Self::PowerProfile => "Power profile".into(),
-            Self::CpuGovernor => "CPU governor".into(),
-            Self::CpuEpp => "CPU energy preference".into(),
-            Self::GpuDpmLevel { card } => format!("GPU power level ({card})"),
-            Self::VCacheMode => "3D V-Cache mode".into(),
+            Self::PowerProfile => N_("Power profile").into(),
+            Self::CpuGovernor => N_("CPU governor").into(),
+            Self::CpuEpp => N_("CPU energy preference").into(),
+            Self::GpuDpmLevel { card } => N_("GPU power level (%s)").replace("%s", card),
+            Self::VCacheMode => N_("3D V-Cache mode").into(),
         }
     }
 

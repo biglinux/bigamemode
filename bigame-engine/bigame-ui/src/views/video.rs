@@ -157,7 +157,7 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
         &i18n("Performance"),
         &i18n("Balanced"),
         &i18n("Quality"),
-        "Ultra",
+        &i18n("Ultra"),
     ]);
     let wine_quality_row = adw::ComboRow::new();
     wine_quality_row.set_title(&i18n("Wine FSR Quality"));

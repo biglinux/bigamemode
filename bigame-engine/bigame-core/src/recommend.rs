@@ -21,6 +21,7 @@ use std::fmt::Write as _;
 use serde::{Deserialize, Serialize};
 
 use crate::capabilities::Capabilities;
+use crate::graphics::text::N_;
 use crate::hardware::{Hardware, PowerSource};
 use crate::running::GameIdentity;
 
@@ -47,12 +48,12 @@ impl Evidence {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Fact => "Fact",
-            Self::CapabilityOnly => "Supported, not measured",
-            Self::UpstreamDefault => "falcond default, not measured here",
-            Self::LocallyMeasured => "Measured on this machine",
-            Self::Regression => "Measured slower — avoided",
-            Self::Unsupported => "Not available on this machine",
+            Self::Fact => N_("Fact"),
+            Self::CapabilityOnly => N_("Supported, not measured"),
+            Self::UpstreamDefault => N_("falcond default, not measured here"),
+            Self::LocallyMeasured => N_("Measured on this machine"),
+            Self::Regression => N_("Measured slower — avoided"),
+            Self::Unsupported => N_("Not available on this machine"),
         }
     }
 }
@@ -113,7 +114,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         "name",
         &game.process_name,
         Evidence::Fact,
-        "the process falcond sees for this game; the profile applies whenever it runs",
+        N_("the process falcond sees for this game; the profile applies whenever it runs"),
     )];
 
     let battery = hardware.power_source == PowerSource::Battery;
@@ -122,17 +123,21 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "performance_mode",
             "false",
             Evidence::CapabilityOnly,
-            "on battery, holding the performance power profile costs more in heat and \
+            N_(
+                "on battery, holding the performance power profile costs more in heat and \
              throttling than it returns",
+            ),
         )
     } else {
         decide(
             "performance_mode",
             "true",
             Evidence::UpstreamDefault,
-            "switches to the performance power profile while the game runs and back \
+            N_(
+                "switches to the performance power profile while the game runs and back \
              afterwards, as falcond's own profiles do; on the reference machine it \
              measured no faster than balanced, so it is not a speed claim",
+            ),
         )
     });
 
@@ -141,8 +146,10 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "scx_sched",
             "none",
             Evidence::CapabilityOnly,
-            "sched-ext is available, but no scheduler has been measured faster for this \
+            N_(
+                "sched-ext is available, but no scheduler has been measured faster for this \
              game here; calibrating the game can change that",
+            ),
         ),
         Some(why) => decide("scx_sched", "none", Evidence::Unsupported, why),
     };
@@ -151,7 +158,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         "scx_sched_props",
         "default",
         Evidence::Fact,
-        "no scheduler is set, so its mode has no effect",
+        N_("no scheduler is set, so its mode has no effect"),
     ));
 
     decisions.push(if hardware.cpu.vcache.is_some() {
@@ -159,14 +166,14 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "vcache_mode",
             "cache",
             Evidence::UpstreamDefault,
-            "prefers the cache-stacked CCD while the game runs, as falcond's profiles do",
+            N_("prefers the cache-stacked CCD while the game runs, as falcond's profiles do"),
         )
     } else {
         decide(
             "vcache_mode",
             "none",
             Evidence::Unsupported,
-            "this CPU has no 3D V-Cache",
+            N_("this CPU has no 3D V-Cache"),
         )
     });
 
@@ -174,7 +181,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         "idle_inhibit",
         "true",
         Evidence::CapabilityOnly,
-        "keeps the screen from blanking while playing with a controller",
+        N_("keeps the screen from blanking while playing with a controller"),
     ));
 
     Recommendation {

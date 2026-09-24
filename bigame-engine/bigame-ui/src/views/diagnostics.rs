@@ -402,7 +402,7 @@ fn steam_app_name(home: &std::path::Path, app_id: &str) -> String {
             }
         }
     }
-    format!("{} {app_id}", i18n("Steam app"))
+    i18n("Steam app %s").replace("%s", app_id)
 }
 
 fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {

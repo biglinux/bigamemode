@@ -416,7 +416,7 @@ fn read_cpu_model_sync() -> String {
                 .and_then(|l| l.split(':').nth(1))
                 .map(|s| s.trim().to_owned())
         })
-        .unwrap_or_else(|| "Unknown CPU".to_owned())
+        .unwrap_or_else(|| i18n("Unknown CPU"))
 }
 
 /// Spawn async poller reading sysfs / D-Bus / status files and updating rows.
@@ -469,7 +469,7 @@ fn spawn_telemetry_poller(
             // CPU
             let cpu_text = gio::spawn_blocking(read_cpu_freq)
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             if let Some(mhz) = cpu_text
                 .split_whitespace()
                 .next()
@@ -484,7 +484,7 @@ fn spawn_telemetry_poller(
             // GPU freq
             let gpu_text = gio::spawn_blocking(read_gpu_freq)
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             gpu_val.set_text(&gpu_text);
             if let Ok(mhz) = gpu_text
                 .trim_end_matches(|c: char| !c.is_ascii_digit())
@@ -496,7 +496,7 @@ fn spawn_telemetry_poller(
             // GPU temp
             let (temp_text, css_class) = gio::spawn_blocking(read_gpu_temp)
                 .await
-                .unwrap_or(("N/A".into(), "temp-normal"));
+                .unwrap_or((i18n("N/A"), "temp-normal"));
             temp_val.remove_css_class("temp-normal");
             temp_val.remove_css_class("temp-warm");
             temp_val.remove_css_class("temp-hot");
@@ -534,7 +534,7 @@ fn spawn_telemetry_poller(
             let target = crate::settings::load().ping_target;
             let ping_text = gio::spawn_blocking(move || read_ping_latency(&target))
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             ping_val.set_text(&ping_text);
             if let Some(ms) = ping_text
                 .split_whitespace()
@@ -547,7 +547,7 @@ fn spawn_telemetry_poller(
             // RAM
             let ram_text = gio::spawn_blocking(read_ram_usage)
                 .await
-                .unwrap_or_else(|_| "N/A".into());
+                .unwrap_or_else(|_| i18n("N/A"));
             {
                 let parts: Vec<&str> = ram_text.split_whitespace().collect();
                 if parts.len() >= 3 {
@@ -583,7 +583,7 @@ fn spawn_telemetry_poller(
                 bigame_core::dbus::power_profile_get().unwrap_or_else(|| i18n("Unavailable"))
             })
             .await
-            .unwrap_or_else(|_| "N/A".into());
+            .unwrap_or_else(|_| i18n("N/A"));
             power_row.set_subtitle(&pp_text);
 
             // Turbo is falcond as systemd reports it, the same answer Home
@@ -722,13 +722,13 @@ fn read_cpu_freq() -> String {
     std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
-        .map_or_else(|| "N/A".into(), |khz| format!("{} MHz", khz / 1000))
+        .map_or_else(|| i18n("N/A"), |khz| format!("{} MHz", khz / 1000))
 }
 
 /// Read AMD GPU frequency from sysfs (synchronous, run on background thread).
 fn read_gpu_freq() -> String {
     let Ok(content) = std::fs::read_to_string("/sys/class/drm/card1/device/pp_dpm_sclk") else {
-        return "N/A".into();
+        return i18n("N/A");
     };
     // Active frequency line contains '*', format: "1: 1800Mhz *"
     for line in content.lines() {
@@ -738,7 +738,7 @@ fn read_gpu_freq() -> String {
             }
         }
     }
-    "N/A".into()
+    i18n("N/A")
 }
 
 /// Read GPU temperature from hwmon (synchronous, run on background thread).
@@ -759,7 +759,7 @@ fn read_gpu_temp() -> (String, &'static str) {
             }
         }
     }
-    ("N/A".into(), "temp-normal")
+    (i18n("N/A"), "temp-normal")
 }
 
 /// Read aggregate disk sectors (read, written) from `/proc/diskstats`.
@@ -793,7 +793,7 @@ fn read_ping_latency(target: &str) -> String {
     // through a shell, but one beginning with '-' would still be read as an
     // option by ping.
     if target.is_empty() || target.starts_with('-') {
-        return "N/A".into();
+        return i18n("N/A");
     }
     let output = std::process::Command::new("ping")
         .args(["-c", "1", "-W", "1", target])
@@ -815,16 +815,16 @@ fn read_ping_latency(target: &str) -> String {
                     }
                 }
             }
-            "N/A".into()
+            i18n("N/A")
         }
-        _ => "Timeout".into(),
+        _ => i18n("Timeout"),
     }
 }
 
 /// Read RAM usage from `/proc/meminfo`.
 fn read_ram_usage() -> String {
     let Ok(content) = std::fs::read_to_string("/proc/meminfo") else {
-        return "N/A".into();
+        return i18n("N/A");
     };
     let mut mem_total = 0u64;
     let mut mem_avail = 0u64;
@@ -844,7 +844,7 @@ fn read_ram_usage() -> String {
         }
     }
     if mem_total == 0 {
-        return "N/A".into();
+        return i18n("N/A");
     }
     let used_mb = (mem_total - mem_avail) / 1024;
     let total_mb = mem_total / 1024;

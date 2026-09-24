@@ -1,6 +1,6 @@
 //! Internationalization (gettext) setup for BiGame-mode UI.
 
-use gettextrs::{LocaleCategory, gettext};
+use gettextrs::{LocaleCategory, gettext, ngettext};
 
 /// Application gettext domain.
 const GETTEXT_DOMAIN: &str = "bigame-mode";
@@ -27,4 +27,11 @@ pub fn init() {
 #[must_use]
 pub fn i18n(s: &str) -> String {
     gettext(s)
+}
+
+/// Translate a count-dependent message: `singular` when `n` takes the
+/// language's singular form, `plural` otherwise (both may hold `%n`).
+#[must_use]
+pub fn ni18n(singular: &str, plural: &str, n: usize) -> String {
+    ngettext(singular, plural, u32::try_from(n).unwrap_or(u32::MAX)).replace("%n", &n.to_string())
 }

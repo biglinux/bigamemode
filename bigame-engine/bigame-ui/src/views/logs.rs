@@ -18,7 +18,7 @@ use libadwaita as adw;
 
 use bigame_core::logs::{Entry, Level, Source};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 
 /// Entries kept in memory; older ones scroll away.
 const KEEP: usize = 3000;
@@ -368,12 +368,14 @@ fn render(state: &State, view: &gtk4::TextView, counts: &gtk4::Label) {
         .iter()
         .filter(|e| e.level == Level::Warning)
         .count();
-    counts.set_label(&format!(
-        "{shown} {} · {errors} {} · {warnings} {}",
-        i18n("shown"),
-        i18n("errors"),
-        i18n("warnings")
-    ));
+    counts.set_label(
+        &[
+            ni18n("%n shown", "%n shown", shown),
+            ni18n("%n error", "%n errors", errors),
+            ni18n("%n warning", "%n warnings", warnings),
+        ]
+        .join(" · "),
+    );
 }
 
 fn export_to_file(anchor: &gtk4::Button, state: &State) {

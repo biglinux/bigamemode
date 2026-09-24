@@ -38,6 +38,7 @@ use crate::booster::BoosterEngine;
 use crate::booster::plan::Skipped;
 use crate::booster::report::Report as BoosterReport;
 use crate::capabilities::Capabilities;
+use crate::graphics::text::N_;
 use crate::hardware::{Chassis, Hardware};
 
 /// The unit Turbo switches.
@@ -294,7 +295,7 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     match engine.activate(|p| progress(Step::Booster(p))).await {
         Ok(booster) => absorb_booster(&booster, &mut report),
         Err(e) => report.push(
-            Kind::Knob("Booster".into()),
+            Kind::Knob(N_("Booster").into()),
             Section::Failed,
             "Booster",
             format!("{e:#}"),
@@ -544,7 +545,7 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
             }
         }
         Err(e) => report.push(
-            Kind::Knob("Booster".into()),
+            Kind::Knob(N_("Booster").into()),
             Section::Failed,
             "Booster",
             format!("{e:#}"),
@@ -622,7 +623,7 @@ mod tests {
         };
         report.push(Kind::GameBackend, Section::Verified, "falcond", "running");
         report.push(
-            Kind::Knob("Power profile".into()),
+            Kind::Knob(N_("Power profile").into()),
             Section::ManagedPerGame,
             "falcond",
             "per game",

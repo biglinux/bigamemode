@@ -20,7 +20,7 @@ use bigame_core::graphics::report::Confidence;
 use bigame_core::graphics::runtime::Status;
 use bigame_core::graphics::{self, Analysis, Target};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 
 struct Page {
     target: Target,
@@ -199,7 +199,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     rec.add(&files);
     for problem in &p.problems {
         rec.add(&row(
-            &format!("{:?} + {:?}", problem.a, problem.b),
+            &format!("{} + {}", i18n(problem.a.label()), i18n(problem.b.label())),
             &i18n(problem.why),
         ));
     }
@@ -289,8 +289,8 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(
             &proxy.slot,
             &format!(
-                "{:?}{}",
-                proxy.owner,
+                "{}{}",
+                i18n(proxy.owner.label()),
                 proxy
                     .version
                     .as_ref()
@@ -309,11 +309,10 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(
             &i18n("Installed by BiGame-mode"),
             &format!(
-                "{} {} · {} {}",
+                "{} {} · {}",
                 m.source.component,
                 m.source.version,
-                m.entries.len(),
-                i18n("files")
+                ni18n("%n file", "%n files", m.entries.len())
             ),
         ));
     }
@@ -581,10 +580,9 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 busy(&page, None);
                 let text = match result {
                     Ok(Ok(m)) => format!(
-                        "{} ({} {})",
+                        "{} ({})",
                         i18n("Installed; every replaced file was backed up"),
-                        m.entries.len(),
-                        i18n("files")
+                        ni18n("%n file", "%n files", m.entries.len())
                     ),
                     Ok(Err(e)) => format!("{}: {e:#}", i18n("Nothing was changed")),
                     Err(_) => i18n("Nothing was changed"),

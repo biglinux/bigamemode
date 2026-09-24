@@ -115,7 +115,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let filter = gtk4::FileFilter::new();
             filter.add_pattern("*.conf");
             filter.add_pattern("*.toml");
-            filter.set_name(Some("Profile files (*.conf, *.toml)"));
+            filter.set_name(Some(&format!("{} (*.conf, *.toml)", i18n("Profile files"))));
             let filters = gio::ListStore::new::<gtk4::FileFilter>();
             filters.append(&filter);
             dialog.set_filters(Some(&filters));
@@ -546,7 +546,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
             .modal(true)
             .build();
         let f = gtk4::FileFilter::new();
-        f.set_name(Some("DLL files (*.dll)"));
+        f.set_name(Some(&format!("{} (*.dll)", i18n("DLL files"))));
         f.add_pattern("*.dll");
         let filters = gio::ListStore::new::<gtk4::FileFilter>();
         filters.append(&f);

@@ -77,7 +77,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
             .modal(true)
             .build();
         let dll_filter = gtk4::FileFilter::new();
-        dll_filter.set_name(Some("DLL files (*.dll)"));
+        dll_filter.set_name(Some(&format!("{} (*.dll)", i18n("DLL files"))));
         dll_filter.add_pattern("*.dll");
         let filters = gio::ListStore::new::<gtk4::FileFilter>();
         filters.append(&dll_filter);
@@ -108,9 +108,13 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     // ── Target Profile Combo ──────────────────────────────────────────────────
     let profiles = bigame_core::profiles::list_names();
+    // With no profile yet the list shows a placeholder, which must never be
+    // read back as a profile name.
+    let has_profiles = !profiles.is_empty();
+    let placeholder = i18n("No profiles yet");
     let mut model_strings: Vec<&str> = profiles.iter().map(std::string::String::as_str).collect();
-    if model_strings.is_empty() {
-        model_strings.push("None");
+    if !has_profiles {
+        model_strings.push(&placeholder);
     }
 
     let target_model = gtk4::StringList::new(&model_strings);
@@ -250,6 +254,9 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
         let is_upd = is_updating.clone();
 
         target_row.connect_selected_notify(move |r| {
+            if !has_profiles {
+                return;
+            }
             if let Some(target) = tm_clone.string(r.selected()) {
                 let (m, f, p, h, pm) = bigame_core::fg::read_profile(&target);
                 let enabled = m > 1;
@@ -284,7 +291,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
         let save_fn = Rc::new({
             move || {
-                if is_upd_save.get() {
+                if is_upd_save.get() || !has_profiles {
                     return;
                 }
                 if let Some(target) = tm_save.string(t_row.selected()) {
