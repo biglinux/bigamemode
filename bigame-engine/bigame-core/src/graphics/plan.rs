@@ -291,6 +291,11 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         );
     };
     let api = r.api.api.unwrap_or(Api::Dx12);
+    // OptiScaler goes in as `dxgi.dll`: the slot upstream recommends, and one
+    // Proton already loads natively from the game folder (it sets dxgi to
+    // native for DXVK), so no override is needed. When another tool has it,
+    // that is reported, not overwritten: which of two DXGI hooks wins is the
+    // user's decision, and chaining them is OptiScaler's own setting.
     if let Some(p) = r
         .proxies
         .iter()

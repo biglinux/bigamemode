@@ -91,12 +91,6 @@ impl BoosterEngine {
         &self.hardware
     }
 
-    /// The detected capabilities.
-    #[must_use]
-    pub fn capabilities(&self) -> &Capabilities {
-        &self.capabilities
-    }
-
     /// Every knob that exists on this machine and is therefore worth capturing.
     ///
     /// Capturing a knob is free and always safe; *writing* one is what the plan

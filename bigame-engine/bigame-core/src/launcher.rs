@@ -185,20 +185,6 @@ impl LaunchPlan {
         }
     }
 
-    /// Build a launch plan for `executable`.
-    ///
-    /// `video` is the global video config. `gs_override` is the per-game gamescope
-    /// profile (resolution, framerate limit, `MangoHud` toggle); it is merged with the
-    /// global upscaling filter chosen in `video`.
-    #[must_use]
-    pub fn build(
-        executable: &str,
-        video: &VideoConfig,
-        gs_override: Option<&gamescope::Config>,
-    ) -> Self {
-        Self::build_with_args(executable, &[], video, gs_override)
-    }
-
     /// Apply conflict-resolution policy and return an effective launch config.
     ///
     /// Only lsfg-vk remains a global frame-generation backend; per-game
@@ -290,61 +276,6 @@ impl LaunchPlan {
         executable_args
             .iter()
             .any(|arg| arg.eq_ignore_ascii_case("-applaunch"))
-    }
-
-    /// Check for known launch conflicts and emit `tracing::warn` entries.
-    ///
-    /// Called internally during `build()`; also publicly available for pre-launch
-    /// UI validation (show dialogs before actually launching).
-    pub fn check_conflicts(executable: &str, video: &VideoConfig) {
-        Self::check_and_warn_conflicts(executable, video);
-    }
-
-    /// Render this plan as a Steam per-game launch options string.
-    ///
-    /// Steam substitutes `%command%` with the game's own command line, so the
-    /// result is `VAR=value … gamescope … -- %command%`. Writing that into the
-    /// game's launch options is what makes the plan apply to a Steam launch —
-    /// the one path `build_with_args_for_game` deliberately cannot wrap.
-    ///
-    /// Returns `None` when the plan adds nothing, so a game with no settings is
-    /// not given an empty wrapper.
-    #[must_use]
-    pub fn as_steam_launch_options(&self) -> Option<String> {
-        let mut parts: Vec<String> = Vec::new();
-
-        // Sorted so the same plan always renders the same string — otherwise
-        // every save would look like a change to Steam and to the user.
-        let mut keys: Vec<&String> = self.env.keys().collect();
-        keys.sort();
-        for key in keys {
-            let value = &self.env[key];
-            // Steam runs this through a shell and its own config format has no
-            // escaping; anything needing quoting is dropped rather than risked.
-            if value.contains([' ', '"', '\'', '\\', '\n']) {
-                tracing::warn!(
-                    target: "launch",
-                    key,
-                    "value needs shell quoting; omitted from Steam launch options"
-                );
-                continue;
-            }
-            parts.push(format!("{key}={value}"));
-        }
-
-        if self.program == "gamescope" {
-            // Everything up to the `--` separator; the game command follows it,
-            // and for Steam that is `%command%`.
-            let sep = self.args.iter().position(|a| a == "--");
-            let gs_args = sep.map_or(&self.args[..], |i| &self.args[..i]);
-            parts.push("gamescope".to_owned());
-            parts.extend(gs_args.iter().cloned());
-        }
-
-        if parts.is_empty() {
-            return None;
-        }
-        Some(format!("{} -- %command%", parts.join(" ")))
     }
 
     /// Spawn the game as described by this plan.
@@ -847,52 +778,6 @@ mod tests {
         // SAFETY: signal 0 only probes whether the group still exists.
         let alive = unsafe { libc::kill(-pid, 0) } == 0;
         assert!(!alive, "the process group should be gone");
-    }
-
-    #[test]
-    fn steam_launch_options_render_env_and_gamescope() {
-        let mut video = VideoConfig::default();
-        video.upscaling.gamescope_enabled = true;
-        video.upscaling.wine_fsr_enabled = true;
-        video.upscaling.wine_fsr_mode = WineFsrMode::Quality;
-
-        let plan = build("game", &video, None);
-        let opts = plan.as_steam_launch_options().expect("plan adds settings");
-
-        assert!(opts.ends_with(" -- %command%"), "got {opts}");
-        assert!(opts.contains("WINE_FULLSCREEN_FSR=1"));
-        assert!(opts.contains("gamescope"));
-        // The separator appears exactly once, at the end.
-        assert_eq!(opts.matches(" -- ").count(), 1);
-    }
-
-    #[test]
-    fn steam_launch_options_are_stable_across_builds() {
-        // An unstable ordering would make every save look like a change.
-        let mut video = VideoConfig::default();
-        video.upscaling.wine_fsr_enabled = true;
-        video.upscaling.vkbasalt_enabled = true;
-        let a = build("game", &video, None).as_steam_launch_options();
-        let b = build("game", &video, None).as_steam_launch_options();
-        assert_eq!(a, b);
-        assert!(a.is_some());
-    }
-
-    #[test]
-    fn a_plan_that_adds_nothing_produces_no_launch_options() {
-        let video = VideoConfig::default();
-        let plan = build("game", &video, None);
-        assert_eq!(plan.as_steam_launch_options(), None);
-    }
-
-    #[test]
-    fn values_needing_shell_quoting_are_omitted_not_mangled() {
-        let mut plan = build("game", &VideoConfig::default(), None);
-        plan.env.insert("SAFE".into(), "1".into());
-        plan.env.insert("RISKY".into(), "has spaces".into());
-        let opts = plan.as_steam_launch_options().unwrap();
-        assert!(opts.contains("SAFE=1"));
-        assert!(!opts.contains("RISKY"));
     }
 
     #[test]

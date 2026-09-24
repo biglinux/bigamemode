@@ -14,8 +14,12 @@ mod window;
 fn main() -> libadwaita::glib::ExitCode {
     // The support report the Diagnostics page shows, for a terminal or a
     // bug report: no window, no display needed.
-    if std::env::args().skip(1).any(|a| a == "--diagnostics") {
-        print!("{}", bigame_core::diagnostics::report(false));
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--diagnostics") {
+        // --network adds the DNS measurements, which take a few seconds and
+        // send queries, so they are asked for rather than assumed.
+        let network = args.iter().any(|a| a == "--network");
+        print!("{}", bigame_core::diagnostics::report(network));
         return libadwaita::glib::ExitCode::SUCCESS;
     }
     init_tracing();

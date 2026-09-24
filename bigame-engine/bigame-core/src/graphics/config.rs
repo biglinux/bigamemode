@@ -65,22 +65,7 @@ pub enum Quality {
     UltraPerformance,
 }
 
-impl Quality {
-    /// `OptiScaler`'s ratio for this preset (`[QualityOverrides]`), or `None`
-    /// to leave the game's own.
-    #[must_use]
-    pub fn ratio(self) -> Option<f32> {
-        match self {
-            Self::Game => None,
-            Self::NativeAa => Some(1.0),
-            Self::UltraQuality => Some(1.3),
-            Self::Quality => Some(1.5),
-            Self::Balanced => Some(1.7),
-            Self::Performance => Some(2.0),
-            Self::UltraPerformance => Some(3.0),
-        }
-    }
-}
+impl Quality {}
 
 /// How the upscaler reaches the game.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -159,12 +144,6 @@ pub struct AiGraphicsConfig {
 }
 
 impl AiGraphicsConfig {
-    /// Whether AI Graphics is on for this game.
-    #[must_use]
-    pub fn enabled(&self) -> bool {
-        self.mode != Mode::Off
-    }
-
     /// Whether `OptiScaler`'s frame generation is chosen: Advanced, with the
     /// experimental combinations allowed.
     #[must_use]
@@ -183,7 +162,7 @@ mod tests {
     fn an_old_profile_without_ai_graphics_loads_as_off() {
         let c: AiGraphicsConfig = toml::from_str("").unwrap();
         assert_eq!(c, AiGraphicsConfig::default());
-        assert!(!c.enabled());
+        assert_eq!(c.mode, Mode::Off);
     }
 
     #[test]
@@ -208,12 +187,5 @@ mod tests {
         let text = toml::to_string(&c).unwrap();
         assert!(!text.contains('/'), "portable: no paths\n{text}");
         assert_eq!(toml::from_str::<AiGraphicsConfig>(&text).unwrap(), c);
-    }
-
-    #[test]
-    fn presets_map_to_optiscaler_ratios() {
-        assert_eq!(Quality::Game.ratio(), None);
-        assert_eq!(Quality::Quality.ratio(), Some(1.5));
-        assert_eq!(Quality::UltraPerformance.ratio(), Some(3.0));
     }
 }

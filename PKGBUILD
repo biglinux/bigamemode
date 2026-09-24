@@ -142,7 +142,7 @@ package() {
     # carries them inside the binary; installing them lets tray hosts that
     # draw by icon name find them in the theme.
     local icon
-    for icon in com.biglinux.BiGameMode input-gaming-symbolic-{blue,green,yellow,red}; do
+    for icon in com.biglinux.BiGameMode input-gaming-symbolic-{blue,green,yellow}; do
         install -Dm644 "usr/share/icons/hicolor/scalable/apps/${icon}.svg" \
             "${pkgdir}/usr/share/icons/hicolor/scalable/apps/${icon}.svg"
     done

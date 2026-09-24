@@ -189,16 +189,6 @@ fn save_config(shared: &SharedConfig) {
     });
 }
 
-/// Find index of `needle` in a `StringList`.
-fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
-    for i in 0..model.n_items() {
-        if model.string(i).as_deref() == Some(needle) {
-            return i;
-        }
-    }
-    0
-}
-
 /// Daemon settings: performance mode toggle + poll interval.
 fn build_daemon_group(shared: &SharedConfig) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
@@ -274,7 +264,10 @@ fn build_scheduler_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .model(&sched_model)
         .sensitive(has_schedulers)
         .build();
-    sched_row.set_selected(find_index(&sched_model, &shared.borrow().scx_sched));
+    sched_row.set_selected(crate::views::profiles::find_index(
+        &sched_model,
+        &shared.borrow().scx_sched,
+    ));
 
     let info_btn = gtk4::Button::builder()
         .icon_name("dialog-information-symbolic")
@@ -298,7 +291,10 @@ fn build_scheduler_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .model(&mode_model)
         .sensitive(has_schedulers)
         .build();
-    mode_row.set_selected(find_index(&mode_model, &shared.borrow().scx_sched_props));
+    mode_row.set_selected(crate::views::profiles::find_index(
+        &mode_model,
+        &shared.borrow().scx_sched_props,
+    ));
     group.add(&mode_row);
 
     // Connect: scheduler change → update config + save
@@ -401,7 +397,10 @@ fn build_vcache_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .model(&model)
         .sensitive(available)
         .build();
-    row.set_selected(find_index(&model, &shared.borrow().vcache_mode));
+    row.set_selected(crate::views::profiles::find_index(
+        &model,
+        &shared.borrow().vcache_mode,
+    ));
     group.add(&row);
 
     let cfg = Rc::clone(shared);
@@ -429,7 +428,10 @@ fn build_device_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         .subtitle(i18n("Selects profile directory for game matching"))
         .model(&model)
         .build();
-    row.set_selected(find_index(&model, &shared.borrow().profile_mode));
+    row.set_selected(crate::views::profiles::find_index(
+        &model,
+        &shared.borrow().profile_mode,
+    ));
     group.add(&row);
 
     let cfg = Rc::clone(shared);

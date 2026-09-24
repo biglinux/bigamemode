@@ -6,7 +6,6 @@
 use adw::prelude::*;
 use gtk4::glib;
 use libadwaita as adw;
-use std::path::PathBuf;
 
 use crate::i18n::i18n;
 use crate::style;
@@ -236,7 +235,7 @@ fn detect_missing_runtime_packages() -> Vec<String> {
     let cfg = bigame_core::video_config::load();
     let mut missing = Vec::new();
 
-    if cfg.upscaling.gamescope_enabled && !binary_in_path("gamescope") {
+    if cfg.upscaling.gamescope_enabled && bigame_core::capabilities::which("gamescope").is_none() {
         missing.push("gamescope".to_string());
     }
     // vkbasalt is a Vulkan implicit layer (no CLI binary). Detect via layer manifest or libvkbasalt.so.
@@ -290,7 +289,7 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
         return None;
     }
     // Prefer pamac-installer (full GUI window with graphical polkit auth).
-    if binary_in_path("pamac-installer") {
+    if bigame_core::capabilities::which("pamac-installer").is_some() {
         let mut argv = vec!["pamac-installer".to_string()];
         argv.extend(missing.iter().cloned());
         return Some(argv);
@@ -299,7 +298,7 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
     // Arguments are passed as an argv, never through a shell: a root command
     // assembled into a string for `sh -c` is one quoting mistake away from
     // running something else.
-    if binary_in_path("pacman") {
+    if bigame_core::capabilities::which("pacman").is_some() {
         let mut argv: Vec<String> = ["pkexec", "pacman", "-S", "--needed", "--noconfirm"]
             .iter()
             .map(|s| (*s).to_owned())
@@ -315,22 +314,13 @@ fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> 
     if missing.is_empty() {
         return None;
     }
-    if binary_in_path("pamac-installer") {
+    if bigame_core::capabilities::which("pamac-installer").is_some() {
         return Some(format!("pamac-installer {}", missing.join(" ")));
     }
-    if binary_in_path("pacman") {
+    if bigame_core::capabilities::which("pacman").is_some() {
         return Some(format!("sudo pacman -S --needed {}", missing.join(" ")));
     }
     None
-}
-
-#[must_use]
-fn binary_in_path(binary: &str) -> bool {
-    let Some(path) = std::env::var_os("PATH") else {
-        return false;
-    };
-
-    std::env::split_paths(&path).any(|dir: PathBuf| dir.join(binary).is_file())
 }
 
 /// Present the About dialog with system information.

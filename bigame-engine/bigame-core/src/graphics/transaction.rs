@@ -84,12 +84,6 @@ pub enum FileState {
     Changed,
 }
 
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 /// Copy `src` over `target` atomically: a temporary file in the target's own
 /// folder (same filesystem, so the rename is atomic), synced, then renamed.
 fn place(src: &Path, target: &Path) -> Result<()> {
@@ -242,7 +236,7 @@ pub fn apply(
     if files.is_empty() {
         bail!("nothing to install");
     }
-    let started_at = now();
+    let started_at = crate::unix_now();
     let backup_root = Manifest::backup_dir(state_dir, game_key).join(started_at.to_string());
 
     // 1. Check, and hash what will be placed.
@@ -371,7 +365,7 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
                 }
                 FileKind::Config => {
                     let keep = Manifest::backup_dir(state_dir, &m.game_key)
-                        .join(format!("edited-{}", now()))
+                        .join(format!("edited-{}", crate::unix_now()))
                         .join(&e.path);
                     std::fs::create_dir_all(keep.parent().context("no parent")?)?;
                     std::fs::copy(&target, &keep)?;

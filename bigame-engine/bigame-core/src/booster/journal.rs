@@ -74,7 +74,7 @@ impl Journal {
         Self {
             format: FORMAT,
             boot_id: Self::current_boot_id(),
-            activated_at: super::snapshot::now_secs(),
+            activated_at: crate::unix_now(),
             snapshot,
             plan,
             applied: Vec::new(),

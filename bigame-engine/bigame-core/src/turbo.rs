@@ -56,13 +56,7 @@ pub enum State {
     On,
 }
 
-impl State {
-    /// Whether Turbo is on.
-    #[must_use]
-    pub fn is_on(&self) -> bool {
-        *self == Self::On
-    }
-}
+impl State {}
 
 /// Read Turbo's state from the systems that hold it.
 ///
@@ -203,12 +197,6 @@ impl Report {
     }
 }
 
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 // ── Progress ─────────────────────────────────────────────────────────────────
 
 /// A stage of a transition, for the UI to show while it happens.
@@ -254,7 +242,7 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     let caps = Capabilities::detect();
     let mut report = Report {
         turned_on: true,
-        at: now(),
+        at: crate::unix_now(),
         items: Vec::new(),
     };
 
@@ -483,7 +471,7 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     let caps = Capabilities::detect();
     let mut report = Report {
         turned_on: false,
-        at: now(),
+        at: crate::unix_now(),
         items: Vec::new(),
     };
 

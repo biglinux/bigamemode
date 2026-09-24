@@ -18,18 +18,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::graphics::text::N_;
 
-/// Who must perform the write.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Privilege {
-    /// Writable by the calling user.
-    User,
-    /// Mediated by another daemon that runs its own authorization
-    /// (power-profiles-daemon, which has its own Polkit actions).
-    Delegated,
-    /// Requires our root helper, and therefore a Polkit check.
-    Root,
-}
-
 /// Identifies one piece of system state.
 ///
 /// Serialized into the crash-recovery journal, so the string forms are a
@@ -92,17 +80,6 @@ impl Knob {
             Self::CpuEpp => "cpu_epp",
             Self::GpuDpmLevel { .. } => "gpu_dpm_level",
             Self::VCacheMode => "vcache_mode",
-        }
-    }
-
-    /// Who is allowed to write this knob.
-    #[must_use]
-    pub fn privilege(&self) -> Privilege {
-        match self {
-            Self::PowerProfile => Privilege::Delegated,
-            Self::CpuGovernor | Self::CpuEpp | Self::GpuDpmLevel { .. } | Self::VCacheMode => {
-                Privilege::Root
-            }
         }
     }
 
@@ -340,19 +317,6 @@ mod tests {
         sorted.sort();
         sorted.dedup();
         assert_eq!(sorted.len(), ids.len(), "knob ids must be unique");
-    }
-
-    #[test]
-    fn privilege_is_declared_per_knob() {
-        assert_eq!(Knob::PowerProfile.privilege(), Privilege::Delegated);
-        assert_eq!(Knob::CpuGovernor.privilege(), Privilege::Root);
-        assert_eq!(
-            Knob::GpuDpmLevel {
-                card: "card1".into()
-            }
-            .privilege(),
-            Privilege::Root
-        );
     }
 
     #[test]

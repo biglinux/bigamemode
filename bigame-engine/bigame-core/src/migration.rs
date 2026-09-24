@@ -213,13 +213,6 @@ pub fn backup(user_dir: &Path, backup_root: &Path) -> anyhow::Result<PathBuf> {
     Ok(dest)
 }
 
-/// Whether a plan changes anything.
-#[must_use]
-pub fn needs_migration(plan: &[Action]) -> bool {
-    plan.iter()
-        .any(|a| matches!(a, Action::Rekey { .. } | Action::Clean { .. }))
-}
-
 /// Carry out `plan` through the helper, after backing up `user_dir`.
 ///
 /// Returns the backup directory and one line per change made.

@@ -165,15 +165,6 @@ impl Plan {
         self.changes.is_empty()
     }
 
-    /// Build a plan for this machine.
-    ///
-    /// `snapshot` must already have been captured: the planner refuses to plan
-    /// anything it could not put back.
-    #[must_use]
-    pub fn build(hw: &Hardware, caps: &Capabilities, snapshot: &Snapshot) -> Self {
-        Self::build_with_owner(hw, caps, snapshot, &power_profile_owner())
-    }
-
     /// Build a plan that defers to what was measured on this machine.
     ///
     /// Measurement outranks every other reason to apply a knob. A setting the

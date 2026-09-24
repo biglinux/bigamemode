@@ -263,15 +263,6 @@ impl Capabilities {
             steam: which("steam").is_some(),
         }
     }
-
-    /// Gamescope support status, with a reason when unavailable.
-    #[must_use]
-    pub fn gamescope_support(&self) -> Support {
-        match &self.gamescope {
-            Some(_) => Support::Available,
-            None => Support::NotInstalled("gamescope".into()),
-        }
-    }
 }
 
 // ── Probes ───────────────────────────────────────────────────────────────────

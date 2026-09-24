@@ -180,8 +180,8 @@ impl LatencyStats {
         samples_ms.sort_by(f64::total_cmp);
         Some(Self {
             min_ms: samples_ms[0],
-            median_ms: percentile(&samples_ms, 50.0),
-            p95_ms: percentile(&samples_ms, 95.0),
+            median_ms: crate::benchmark::percentile(&samples_ms, 50.0),
+            p95_ms: crate::benchmark::percentile(&samples_ms, 95.0),
             jitter_ms,
             samples: samples_ms.len(),
             lost,
@@ -199,21 +199,6 @@ impl LatencyStats {
         let ratio = self.lost as f64 / total as f64;
         ratio
     }
-}
-
-/// Nearest-rank percentile of a pre-sorted slice.
-#[must_use]
-pub fn percentile(sorted: &[f64], p: f64) -> f64 {
-    if sorted.is_empty() {
-        return 0.0;
-    }
-    #[allow(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
-    let rank = ((p / 100.0) * sorted.len() as f64).ceil() as usize;
-    sorted[rank.saturating_sub(1).min(sorted.len() - 1)]
 }
 
 // ── DNS ──────────────────────────────────────────────────────────────────────
@@ -369,16 +354,6 @@ pub fn dns_disclaimer() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn percentiles_use_nearest_rank() {
-        let s = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        assert!((percentile(&s, 50.0) - 5.0).abs() < f64::EPSILON);
-        assert!((percentile(&s, 95.0) - 10.0).abs() < f64::EPSILON);
-        assert!((percentile(&s, 100.0) - 10.0).abs() < f64::EPSILON);
-        assert!((percentile(&s, 0.0) - 1.0).abs() < f64::EPSILON);
-        assert!((percentile(&[], 50.0)).abs() < f64::EPSILON);
-    }
 
     #[test]
     fn median_resists_a_single_outlier() {

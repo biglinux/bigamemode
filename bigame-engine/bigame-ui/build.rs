@@ -12,7 +12,7 @@ fn main() {
     let output = format!("{}/resources.gresource", std::env::var("OUT_DIR").unwrap());
 
     // The bundle lists style.css and icons/hicolor/…; each is found in one of
-    // these directories, so nothing has to be staged or copied first.
+    // these directories.
     let sources = [
         root.join("data"),
         root.join("style"),

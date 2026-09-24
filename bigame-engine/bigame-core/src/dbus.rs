@@ -41,14 +41,6 @@ where
         .ok()
 }
 
-/// Check if falcond service is running by looking for its status file.
-#[must_use]
-pub fn falcond_is_running() -> bool {
-    // A root-owned status file is the evidence; a file in world-writable /tmp
-    // that anyone could have created is not.
-    crate::status::is_trustworthy(crate::status::status_path())
-}
-
 // ── PowerProfiles ───────────────────────────────────────────────────────────
 
 /// Proxy for `net.hadess.PowerProfiles` (power-profiles-daemon).

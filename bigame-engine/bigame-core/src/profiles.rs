@@ -459,12 +459,6 @@ fn system_path(name: &str) -> PathBuf {
     Path::new(SYSTEM_PROFILES_DIR).join(format!("{name}.conf"))
 }
 
-/// Check if a profile exists in the user directory (meaning it can be deleted/reverted).
-#[must_use]
-pub fn is_user_profile(name: &str) -> bool {
-    user_path(name).exists()
-}
-
 /// Check if a profile exists in the system directory.
 #[must_use]
 pub fn is_system_profile(name: &str) -> bool {

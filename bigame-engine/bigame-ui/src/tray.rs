@@ -49,9 +49,6 @@ pub enum Status {
     Active,
     /// Something is wrong (Yellow).
     Warning,
-    /// Not working / Missing dependencies (Red). Reserved for future use.
-    #[allow(dead_code)]
-    Error,
 }
 
 impl Status {
@@ -61,7 +58,6 @@ impl Status {
             Status::Idle => "input-gaming-symbolic-blue".into(),
             Status::Active => "input-gaming-symbolic-green".into(),
             Status::Warning => "input-gaming-symbolic-yellow".into(),
-            Status::Error => "input-gaming-symbolic-red".into(),
         }
     }
 }
@@ -109,7 +105,6 @@ impl ksni::Tray for BiGameTray {
             Status::Idle => i18n("Ready to play"),
             Status::Active => i18n("Gaming mode active"),
             Status::Warning => i18n("Optimization warning"),
-            Status::Error => i18n("Service error"),
         };
 
         let icon_pixmap = if let Some(data) = load_icon_as_pixmap(&s.icon_name()) {

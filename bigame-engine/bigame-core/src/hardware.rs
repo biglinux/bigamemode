@@ -259,18 +259,6 @@ impl Hardware {
     pub fn render_gpu(&self) -> Option<&Gpu> {
         self.render_gpu.and_then(|i| self.gpus.get(i))
     }
-
-    /// True when running on battery — the planner must not max everything out.
-    #[must_use]
-    pub fn on_battery(&self) -> bool {
-        self.power_source == PowerSource::Battery
-    }
-
-    /// Highest refresh-capable resolution across connected outputs.
-    #[must_use]
-    pub fn primary_resolution(&self) -> Option<(u32, u32)> {
-        self.displays.iter().find_map(|d| d.max_mode)
-    }
 }
 
 // ── Detection helpers ────────────────────────────────────────────────────────
@@ -399,7 +387,7 @@ fn detect_hybrid() -> bool {
 }
 
 /// Locate the AMD 3D V-Cache control attribute by globbing the driver dir.
-fn detect_vcache() -> Option<VCacheDevice> {
+pub(crate) fn detect_vcache() -> Option<VCacheDevice> {
     const DRIVER_DIR: &str = "/sys/bus/platform/drivers/amd_x3d_vcache";
     for entry in std::fs::read_dir(DRIVER_DIR).ok()?.flatten() {
         let path = entry.path().join("amd_x3d_mode");

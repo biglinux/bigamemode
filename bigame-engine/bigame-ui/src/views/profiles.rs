@@ -222,7 +222,7 @@ fn build_detail_page(profile_name: &str) -> adw::NavigationPage {
 }
 
 /// Find index of `needle` in a `StringList`.
-fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
+pub(crate) fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
     for i in 0..model.n_items() {
         if model.string(i).as_deref() == Some(needle) {
             return i;

@@ -48,7 +48,7 @@ impl Snapshot {
             );
         }
         Self {
-            taken_at: now_secs(),
+            taken_at: crate::unix_now(),
             entries,
         }
     }
@@ -92,22 +92,6 @@ impl Snapshot {
             let Some(entry) = self.entries.get(id) else {
                 continue;
             };
-            out.push(self.restore_one(entry).await);
-        }
-        out
-    }
-
-    /// Restore every captured knob that currently differs from its baseline.
-    ///
-    /// Use [`Snapshot::restore_applied`] for normal rollback. This exists for
-    /// the recovery path, where a journal records a baseline but the list of
-    /// applied knobs cannot be trusted.
-    pub async fn restore(&self) -> Vec<RestoreOutcome> {
-        let mut out = Vec::new();
-        for entry in self.entries.values() {
-            if entry.value.is_none() {
-                continue; // never captured — nothing to restore to
-            }
             out.push(self.restore_one(entry).await);
         }
         out
@@ -192,12 +176,6 @@ impl RestoreStatus {
     pub fn is_ok(&self) -> bool {
         matches!(self, Self::Restored | Self::AlreadyCorrect)
     }
-}
-
-pub(super) fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
 }
 
 #[cfg(test)]

@@ -47,15 +47,6 @@ impl Source {
             Self::Native => "Native",
         }
     }
-
-    /// Symbolic icon to badge the cover with.
-    #[must_use]
-    pub fn icon(self) -> &'static str {
-        match self {
-            Self::Steam => "applications-games-symbolic",
-            Self::Lutris | Self::Heroic | Self::Native => "application-x-executable-symbolic",
-        }
-    }
 }
 
 /// An installed game.
@@ -103,12 +94,6 @@ impl DetectedGame {
     #[must_use]
     pub fn has_real_executable(&self) -> bool {
         !self.executables.is_empty()
-    }
-
-    /// Whether this game can be started, and measured, without a launcher.
-    #[must_use]
-    pub fn is_directly_launchable(&self) -> bool {
-        self.launch_command.is_some()
     }
 }
 
@@ -1215,22 +1200,6 @@ mod tests {
         let (_, exe, path) = parse_lutris_yml("game:\n  exe: game.sh\n");
         assert_eq!(exe.as_deref(), Some("game.sh"));
         assert_eq!(path, None);
-    }
-
-    #[test]
-    fn steam_titles_are_not_directly_launchable() {
-        // `steam -applaunch` returns immediately and the game runs elsewhere,
-        // so nothing that needs a handle on the game can be offered for them.
-        let game = DetectedGame {
-            name: "ARC Raiders".into(),
-            source: Source::Steam,
-            app_id: Some("1808500".into()),
-            install_path: None,
-            executables: vec!["PioneerGame.exe".into()],
-            cover: None,
-            launch_command: None,
-        };
-        assert!(!game.is_directly_launchable());
     }
 
     #[test]

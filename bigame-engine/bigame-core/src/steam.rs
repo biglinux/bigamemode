@@ -358,18 +358,6 @@ pub fn mentions_wrapper(options: &str, wrapper: &str) -> bool {
         .any(|token| token == wrapper || token.ends_with(&format!("/{wrapper}")))
 }
 
-/// Build a launch-options string wrapping `%command%` with `prefix`.
-///
-/// `%command%` is Steam's placeholder for the game's own command line; without
-/// it Steam appends nothing and the wrapper runs alone.
-#[must_use]
-pub fn wrap_command(prefix: &[String]) -> String {
-    if prefix.is_empty() {
-        return String::new();
-    }
-    format!("{} -- %command%", prefix.join(" "))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -547,15 +535,6 @@ mod tests {
             assert!(set_launch_options(&path, "381210", "mangohud %command%").is_ok());
         }
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
-    }
-
-    #[test]
-    fn wrap_command_keeps_the_steam_placeholder() {
-        assert_eq!(
-            wrap_command(&["gamescope".into(), "-f".into()]),
-            "gamescope -f -- %command%"
-        );
-        assert_eq!(wrap_command(&[]), "");
     }
 
     #[test]

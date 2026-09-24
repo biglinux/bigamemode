@@ -30,7 +30,6 @@ pub mod lab;
 pub mod native;
 pub mod provider;
 pub mod result;
-pub mod runner;
 
 use std::path::{Path, PathBuf};
 
@@ -56,16 +55,6 @@ pub struct Capture {
 }
 
 impl Capture {
-    /// Whether there are enough frames for the statistics to mean anything.
-    ///
-    /// The 0.1% low needs a thousand frames before it is describing anything
-    /// other than the single worst frame, so a capture below that reports the
-    /// metric as unavailable rather than as a number.
-    #[must_use]
-    pub fn is_usable(&self) -> bool {
-        self.frametimes_ms.len() >= MIN_FRAMES
-    }
-
     /// Compute statistics. Returns `None` when the capture is too short.
     #[must_use]
     pub fn stats(&self) -> Option<FrameStats> {
@@ -628,7 +617,12 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
     }
 
     #[test]
-    fn percentiles_and_lows_handle_edges() {
+    fn percentiles_use_nearest_rank_and_lows_handle_edges() {
+        let s = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
+        assert!((percentile(&s, 50.0) - 5.0).abs() < f64::EPSILON);
+        assert!((percentile(&s, 95.0) - 10.0).abs() < f64::EPSILON);
+        assert!((percentile(&s, 100.0) - 10.0).abs() < f64::EPSILON);
+        assert!((percentile(&s, 0.0) - 1.0).abs() < f64::EPSILON);
         assert!((percentile(&[], 50.0)).abs() < f64::EPSILON);
         assert!((low_fps(&[], 0.01)).abs() < f64::EPSILON);
         // A single frame: the 1% low is that frame.

@@ -135,20 +135,6 @@ impl Report {
         self.applied.iter().filter(|a| !a.succeeded()).count()
     }
 
-    /// Changes whose write was accepted but whose read-back disagreed.
-    ///
-    /// This is the signature of a second writer contending for the same state,
-    /// and it is worth surfacing prominently rather than burying as a failure.
-    #[must_use]
-    pub fn contended(&self) -> Vec<&AppliedChange> {
-        self.applied
-            .iter()
-            .filter(|a| {
-                a.error.is_none() && matches!(a.verification, Verification::Mismatch { .. })
-            })
-            .collect()
-    }
-
     /// Overall state to show on the Home screen.
     #[must_use]
     pub fn state(&self) -> ReportState {
@@ -386,32 +372,6 @@ mod tests {
         };
         assert_eq!(report.state(), ReportState::Failed);
         assert!(report.headline().contains("No optimization"));
-    }
-
-    #[test]
-    fn contention_is_distinguished_from_plain_failure() {
-        let contended = AppliedChange {
-            verification: Verification::Mismatch {
-                actual: "auto".into(),
-            },
-            ..ok_change(Knob::GpuDpmLevel {
-                card: "card1".into(),
-            })
-        };
-        let errored = failed(&change(Knob::CpuGovernor, "a", "b"), "boom".into());
-        let report = Report {
-            applied: vec![contended, errored],
-            ..Report::default()
-        };
-        // Both failed, but only one indicates a second writer fighting us.
-        assert_eq!(report.failed_count(), 2);
-        assert_eq!(report.contended().len(), 1);
-        assert_eq!(
-            report.contended()[0].knob,
-            Knob::GpuDpmLevel {
-                card: "card1".into()
-            }
-        );
     }
 
     #[test]
