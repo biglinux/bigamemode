@@ -161,32 +161,31 @@ arm_ui_paused()  { arm_rest; [ -n "$UI_PID" ] || die "no bigame-ui is running"; 
 # under a single Polkit approval -- to rewrite the game's falcond profile and
 # have falcond reload. What the kernel reports afterwards is recorded with the
 # run, so a scheduler that did not take is visible rather than assumed.
-SCX_FIFO=""
+SCX_PID=""
 scx_start() {
-    [ -n "$SCX_FIFO" ] && return 0
-    SCX_FIFO="${XDG_RUNTIME_DIR:-/tmp}/bgm-scx.$$"
-    mkfifo -m 600 "$SCX_FIFO" || die "cannot create $SCX_FIFO"
-    pkexec "$HERE/scx-switch.sh" "$SCX_FIFO" "${SCX_PROFILE:?set SCX_PROFILE to the falcond profile name of the game}" &
-    SCX_PID=$!
-    sleep 1
+    [ -n "$SCX_PID" ] && return 0
+    log "starting the scheduler switcher: approve the Polkit prompt"
+    # A coprocess: requests go to its stdin, replies come from its stdout, and
+    # if this script dies the pipe closes, which ends the root side and puts
+    # the profile back.
+    coproc SCX { exec pkexec "$HERE/scx-switch.sh" "${SCX_PROFILE:?set SCX_PROFILE to the falcond profile name of the game}"; }
+    local reply=""
+    read -r -t "${SCX_AUTH_TIMEOUT_S:-300}" -u "${SCX[0]}" reply
+    [ "$reply" = ready ] || die "the scheduler switcher did not start (Polkit refused, timed out, or bad profile)"
 }
 scx_set() {
     scx_start
-    rm -f "$SCX_FIFO.ack"
-    echo "$1 $2" > "$SCX_FIFO"
-    local waited=0
-    until [ -s "$SCX_FIFO.ack" ]; do
-        sleep 0.5; waited=$((waited + 1))
-        [ $waited -ge 120 ] && die "the scheduler switcher did not answer"
-    done
-    SCX_NOW=$(cat "$SCX_FIFO.ack")
-    log "scheduler: asked $1/$2, kernel reports: $SCX_NOW"
+    echo "$1 $2" >&"${SCX[1]}"
+    SCX_NOW=""
+    read -r -t 60 -u "${SCX[0]}" SCX_NOW || die "the scheduler switcher did not answer"
+    case $SCX_NOW in ok\ *) ;; *) die "scheduler switch refused: $SCX_NOW" ;; esac
+    log "scheduler: asked $1/$2, kernel reports: ${SCX_NOW#ok }"
 }
 scx_stop() {
-    [ -n "$SCX_FIFO" ] || return 0
-    echo "quit" > "$SCX_FIFO" 2>/dev/null
-    wait "${SCX_PID:-}" 2>/dev/null
-    rm -f "$SCX_FIFO" "$SCX_FIFO.ack"
+    [ -n "$SCX_PID" ] || return 0
+    local pid=$SCX_PID; SCX_PID=""
+    [ -n "${SCX[1]:-}" ] && eval "exec ${SCX[1]}>&-"
+    wait "$pid" 2>/dev/null
 }
 arm_scx_none()    { arm_rest; scx_set none default; }
 arm_scx_lavd()    { arm_rest; scx_set lavd gaming; }
@@ -211,6 +210,9 @@ collect() {
     done
     ls "$dest"/*_frametimes_*.txt >/dev/null 2>&1
 }
+
+# The Polkit prompt comes before the warm-up, so a refusal costs nothing.
+for arm in "${ARMS[@]}"; do case $arm in scx_*) scx_start; break ;; esac; done
 
 # Warm-up: whatever pass is running or last finished is discarded. If the game
 # is idle on its results screen, start one.
