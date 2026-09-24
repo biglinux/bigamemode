@@ -89,10 +89,21 @@ const SCRIPT_KEYS: &[&str] = &["start_script", "stop_script"];
 /// administrator can still place them directly in
 /// `/usr/share/falcond/profiles/`, which correctly requires root to begin with.
 ///
+/// These checks read lines the way this function does, and falcond has its
+/// own parser, so anything the two could read differently is refused
+/// outright: control characters (a bare `\r` is a line break to some
+/// parsers and not to others), quoted keys, and a key given twice (where one
+/// parser keeps the first value and another the last).
+///
 /// # Errors
-/// Returns an error for oversized payloads, NUL bytes, or script hooks.
+/// Returns an error for oversized payloads, NUL or other control characters,
+/// repeated keys, or script hooks.
 pub fn profile_payload(content: &str) -> Result<(), String> {
     payload(content)?;
+    if content.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+        return Err("profile contains control characters".into());
+    }
+    let mut seen = std::collections::HashSet::new();
     for line in content.lines() {
         let line = line.trim_start();
         if line.starts_with('#') {
@@ -101,11 +112,14 @@ pub fn profile_payload(content: &str) -> Result<(), String> {
         let Some((key, _)) = line.split_once('=') else {
             continue;
         };
-        let key = key.trim();
+        let key = key.trim().trim_matches(['"', '\'']);
         if SCRIPT_KEYS.contains(&key) {
             return Err(format!(
                 "{key} is not accepted here: falcond executes it as root"
             ));
+        }
+        if !seen.insert(key.to_owned()) {
+            return Err(format!("{key} is given more than once"));
         }
     }
     Ok(())
@@ -206,6 +220,19 @@ pub fn profile_name_matches(name: &str, payload: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_profile_that_parsers_could_read_differently_is_refused() {
+        use super::profile_payload;
+        assert!(profile_payload("name = \"game\"\nidle_inhibit = true\n").is_ok());
+        // A bare CR hides a line from `lines()` but not from every parser.
+        assert!(profile_payload("name = \"game\"\rstart_script = \"x\"\n").is_err());
+        assert!(profile_payload("\"start_script\" = \"x\"\n").is_err());
+        assert!(profile_payload("'stop_script' = \"x\"\n").is_err());
+        assert!(profile_payload("name = \"game\"\nname = \"Xorg\"\n").is_err());
+        assert!(profile_payload("scx_sched = none\nscx_sched = lavd\n").is_err());
+        assert!(profile_payload("name = \"game\"\n\tidle_inhibit = true\n").is_ok());
+    }
+
     #[test]
     fn a_profile_can_only_match_the_process_it_is_named_for() {
         assert!(

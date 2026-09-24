@@ -1,12 +1,13 @@
 [package]
 name = "bigame-daemon"
-version = "1.0.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 authors.workspace = true
 license.workspace = true
+rust-version.workspace = true
 
 [dependencies]
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 zbus.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -54,9 +54,15 @@ pub struct Ownership {
 }
 
 impl Ownership {
-    fn load() -> Option<Self> {
-        let text = std::fs::read_to_string(OWNERSHIP_RECORD).ok()?;
-        serde_json::from_str(&text).ok()
+    /// The record, or `None` when there is none. A record that cannot be read
+    /// is an error, not "none": treated as absent, the backend could never be
+    /// released, and it would never be re-recorded either.
+    fn load() -> anyhow::Result<Option<Self>> {
+        match std::fs::read_to_string(OWNERSHIP_RECORD) {
+            Ok(text) => Ok(Some(serde_json::from_str(&text)?)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
@@ -154,7 +160,7 @@ pub async fn set_enabled(
 /// Returns an error if systemd refuses a change. The record is kept in that
 /// case so a later attempt can finish.
 pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Ownership>> {
-    let Some(record) = Ownership::load() else {
+    let Some(record) = Ownership::load()? else {
         return Ok(None);
     };
     let manager = manager(connection).await?;
