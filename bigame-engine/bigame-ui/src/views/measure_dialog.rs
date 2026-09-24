@@ -40,6 +40,39 @@ enum Event {
 
 /// Ask whether to measure `game`, and do it if the answer is yes.
 pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String]) {
+    // Whether there is anything to compare is known before any launch. On the
+    // lab VM (no cpufreq, a virtual GPU) the plan was empty: the dialog
+    // promised six launches and five minutes, then reported a failure.
+    let anchor = parent.as_ref().clone();
+    let title = title.to_owned();
+    let command = command.to_vec();
+    glib::spawn_future_local(async move {
+        let nothing_to_change =
+            gtk4::gio::spawn_blocking(|| BoosterEngine::detect().dry_run().1.is_empty())
+                .await
+                .unwrap_or(false);
+        if nothing_to_change {
+            let dialog = adw::AlertDialog::new(
+                Some(&i18n("Nothing to measure")),
+                Some(
+                    &i18n(
+                        "BiGame-mode would change nothing on this machine, so %t would \
+                         be measured against itself. The game's profile is still \
+                         applied by falcond whenever it runs.",
+                    )
+                    .replace("%t", &title),
+                ),
+            );
+            dialog.add_response("close", &i18n("Close"));
+            dialog.present(Some(&anchor));
+        } else {
+            ask(&anchor, &title, &command);
+        }
+    });
+}
+
+/// The confirmation, once there is a difference to measure.
+fn ask(parent: &gtk4::Widget, title: &str, command: &[String]) {
     let runs = RUNS_PER_ARM * 2;
     let per_run = u64::from(CAPTURE_SECONDS + START_DELAY_SECONDS) + 10;
     #[allow(clippy::cast_possible_truncation)]
@@ -67,7 +100,7 @@ pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String])
     dialog.set_default_response(Some("cancel"));
     dialog.set_close_response("cancel");
 
-    let anchor = parent.as_ref().clone();
+    let anchor = parent.clone();
     let command = command.to_vec();
     let title = title.to_owned();
     {

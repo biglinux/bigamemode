@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-24 12:27-0300\n"
+"POT-Creation-Date: 2026-09-24 12:49-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -23,7 +23,7 @@ msgstr ""
 msgid "%s through OptiScaler, from the game's %s"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:51
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:84
 msgid "%t will be launched %n times — %h with your current settings and %h with the optimizations applied — for about %m minutes in total.\n\nYour settings are restored afterwards, including if something goes wrong. Leave the game in a scene that keeps rendering; a pause menu measures the pause menu."
 msgstr ""
 
@@ -263,7 +263,7 @@ msgstr ""
 msgid "AI Graphics needs the game's install folder, and no installed game runs as this program"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1059
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1066
 msgid "AI Graphics…"
 msgstr ""
 
@@ -275,7 +275,7 @@ msgstr ""
 msgid "About BiGame-mode"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:856
+#: bigame-engine/bigame-ui/src/views/profiles.rs:854
 msgid "Activate Profile"
 msgstr ""
 
@@ -338,7 +338,7 @@ msgstr ""
 msgid "Allow experimental options"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:326
+#: bigame-engine/bigame-ui/src/views/profiles.rs:324
 msgid "Always"
 msgstr ""
 
@@ -354,7 +354,7 @@ msgstr ""
 msgid "An innovative scheduler that runs most of its logic in user-space rather than kernel-space. Great for development, testing, and system safety."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:204
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:237
 msgid "Analysing"
 msgstr ""
 
@@ -386,11 +386,11 @@ msgstr ""
 msgid "Apply upscaling filters when launching games. Gamescope: best quality, uses more VRAM."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:178
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:211
 msgid "Applying the optimizations"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:326
+#: bigame-engine/bigame-ui/src/views/profiles.rs:324
 msgid "Automatic"
 msgstr ""
 
@@ -472,6 +472,10 @@ msgstr ""
 msgid "BiGame-mode picks the fewest components that give the best result for this game on this GPU. If the game's own upscaler is already the best, nothing is installed. OptiScaler is used where it adds something the game lacks — FSR 4 on RDNA 4 graphics cards. Frame generation is never switched on by itself: it raises the presented frame rate, not the rendered one, and adds latency. Games with anti-cheat get no injection at all."
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:58
+msgid "BiGame-mode would change nothing on this machine, so %t would be measured against itself. The game's profile is still applied by falcond whenever it runs."
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:1010
 msgid "BiGameMode Runtime Diagnostics"
 msgstr ""
@@ -513,9 +517,9 @@ msgstr ""
 msgid "Calls '%p', which is not installed — launch options: %o"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:64
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1120
-#: bigame-engine/bigame-ui/src/views/profiles.rs:875
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:97
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1127
+#: bigame-engine/bigame-ui/src/views/profiles.rs:873
 #: bigame-engine/bigame-ui/src/window.rs:335
 msgid "Cancel"
 msgstr ""
@@ -545,7 +549,7 @@ msgstr ""
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:165
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:476
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:482
-#: bigame-engine/bigame-ui/src/views/profiles.rs:342
+#: bigame-engine/bigame-ui/src/views/profiles.rs:340
 #: bigame-engine/bigame-ui/src/views/settings.rs:118
 msgid "Checking…"
 msgstr ""
@@ -575,8 +579,9 @@ msgid "Clear launch options"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:172
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:231
-#: bigame-engine/bigame-ui/src/views/profiles.rs:529
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:264
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:66
+#: bigame-engine/bigame-ui/src/views/profiles.rs:527
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:71
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:58
 msgid "Close"
@@ -598,7 +603,7 @@ msgstr ""
 msgid "Combinations reported to work but not established"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:252
+#: bigame-engine/bigame-ui/src/app.rs:255
 msgid "Command"
 msgstr ""
 
@@ -640,7 +645,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:186
+#: bigame-engine/bigame-ui/src/app.rs:189
 msgid "Copy Install Command"
 msgstr ""
 
@@ -675,12 +680,12 @@ msgstr ""
 msgid "Could not create the profile"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:906
+#: bigame-engine/bigame-ui/src/views/profiles.rs:904
 msgid "Could not delete profile"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1139
-#: bigame-engine/bigame-ui/src/views/profiles.rs:900
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1146
+#: bigame-engine/bigame-ui/src/views/profiles.rs:898
 msgid "Could not delete profile: %s"
 msgstr ""
 
@@ -721,8 +726,8 @@ msgid "Could not restore falcond's settings"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:757
-#: bigame-engine/bigame-ui/src/views/profiles.rs:804
-#: bigame-engine/bigame-ui/src/views/profiles.rs:807
+#: bigame-engine/bigame-ui/src/views/profiles.rs:802
+#: bigame-engine/bigame-ui/src/views/profiles.rs:805
 msgid "Could not save: %s"
 msgstr ""
 
@@ -738,7 +743,7 @@ msgstr ""
 #: bigame-engine/bigame-ui/src/profile_offer.rs:192
 #: bigame-engine/bigame-ui/src/profile_offer.rs:349
 #: bigame-engine/bigame-ui/src/views/home.rs:524
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1067
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1074
 msgid "Create profile"
 msgstr ""
 
@@ -779,24 +784,24 @@ msgstr ""
 msgid "Default settings restored"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1121
-#: bigame-engine/bigame-ui/src/views/profiles.rs:876
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1128
+#: bigame-engine/bigame-ui/src/views/profiles.rs:874
 msgid "Delete"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:866
+#: bigame-engine/bigame-ui/src/views/profiles.rs:864
 msgid "Delete Profile"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:872
+#: bigame-engine/bigame-ui/src/views/profiles.rs:870
 msgid "Delete Profile?"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1064
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Delete profile"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1114
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1121
 msgid "Delete this profile?"
 msgstr ""
 
@@ -828,7 +833,7 @@ msgstr ""
 msgid "Detected during current game"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:335
+#: bigame-engine/bigame-ui/src/app.rs:338
 msgid "Developers"
 msgstr ""
 
@@ -901,7 +906,7 @@ msgstr ""
 msgid "Dynamic gaming performance orchestration for BigLinux"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:219
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:252
 msgid "Each metric is judged against how much that same metric varied between runs of your current settings. Anything smaller than that variation is reported as no change, because it is not evidence of one."
 msgstr ""
 
@@ -913,7 +918,7 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1062
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1069
 msgid "Edit profile"
 msgstr ""
 
@@ -933,7 +938,7 @@ msgstr ""
 msgid "Enable performance optimizations when games are detected"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:245
+#: bigame-engine/bigame-ui/src/views/profiles.rs:243
 msgid "Enable system-wide optimizations"
 msgstr ""
 
@@ -977,12 +982,12 @@ msgstr ""
 msgid "Experimental"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:826
-#: bigame-engine/bigame-ui/src/views/profiles.rs:831
+#: bigame-engine/bigame-ui/src/views/profiles.rs:824
+#: bigame-engine/bigame-ui/src/views/profiles.rs:829
 msgid "Export Profile"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:844
+#: bigame-engine/bigame-ui/src/views/profiles.rs:842
 msgid "Export failed: %s"
 msgstr ""
 
@@ -1000,7 +1005,7 @@ msgid "FG Performance Mode"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:69
-#: bigame-engine/bigame-ui/src/views/profiles.rs:387
+#: bigame-engine/bigame-ui/src/views/profiles.rs:385
 msgid "FSR"
 msgstr ""
 
@@ -1073,7 +1078,7 @@ msgstr ""
 msgid "Flow Scale (%)"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:597
+#: bigame-engine/bigame-ui/src/views/profiles.rs:595
 msgid "Flow Scale (25-100%)"
 msgstr ""
 
@@ -1091,7 +1096,7 @@ msgstr ""
 msgid "Frame Generation"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:494
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:20
 msgid "Frame Generation (LSFG-VK)"
 msgstr ""
@@ -1112,7 +1117,7 @@ msgstr ""
 msgid "Frame generation"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:408
+#: bigame-engine/bigame-ui/src/views/profiles.rs:406
 msgid "Framerate Limit"
 msgstr ""
 
@@ -1149,7 +1154,7 @@ msgstr ""
 msgid "Game"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:193
+#: bigame-engine/bigame-ui/src/views/profiles.rs:191
 #: bigame-engine/bigame-ui/src/views/profiles.rs:34
 msgid "Game Library"
 msgstr ""
@@ -1188,7 +1193,7 @@ msgid "Games found on this system, and the profiles that tune them."
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:796
-#: bigame-engine/bigame-ui/src/views/profiles.rs:308
+#: bigame-engine/bigame-ui/src/views/profiles.rs:306
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:73
 msgid "Gamescope"
 msgstr ""
@@ -1221,11 +1226,11 @@ msgstr ""
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:466
+#: bigame-engine/bigame-ui/src/views/profiles.rs:464
 msgid "Gamescope would not run"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:464
+#: bigame-engine/bigame-ui/src/views/profiles.rs:462
 msgid "Gamescope would run"
 msgstr ""
 
@@ -1273,7 +1278,7 @@ msgstr ""
 msgid "Graphics card"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:607
+#: bigame-engine/bigame-ui/src/views/profiles.rs:605
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:216
 msgid "HDR Mode"
 msgstr ""
@@ -1303,7 +1308,7 @@ msgstr ""
 msgid "Hardware not detected — CPU lacks AMD 3D V-Cache"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:382
+#: bigame-engine/bigame-ui/src/views/profiles.rs:380
 msgid "Height"
 msgstr ""
 
@@ -1348,7 +1353,7 @@ msgstr ""
 msgid "Idle Behavior"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:251
+#: bigame-engine/bigame-ui/src/views/profiles.rs:249
 msgid "Idle Inhibit"
 msgstr ""
 
@@ -1356,17 +1361,17 @@ msgstr ""
 msgid "Idle — no game running"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:616
+#: bigame-engine/bigame-ui/src/views/profiles.rs:614
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:227
 msgid "Immediate"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:115
+#: bigame-engine/bigame-ui/src/views/profiles.rs:113
 #: bigame-engine/bigame-ui/src/views/profiles.rs:61
 msgid "Import Profile"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:142
+#: bigame-engine/bigame-ui/src/views/profiles.rs:140
 msgid "Import failed: %s"
 msgstr ""
 
@@ -1394,11 +1399,11 @@ msgstr ""
 msgid "Initial release with dashboard, profiles, tuning, and gamescope panels."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:184
+#: bigame-engine/bigame-ui/src/app.rs:187
 msgid "Install Missing Packages"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:949
+#: bigame-engine/bigame-ui/src/views/profiles.rs:947
 msgid "Install a game through Steam, Lutris or Heroic, or create a profile by hand."
 msgstr ""
 
@@ -1414,11 +1419,11 @@ msgstr ""
 msgid "Install lsfg-vk to enable Vulkan frame generation"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:249
+#: bigame-engine/bigame-ui/src/app.rs:252
 msgid "Install missing packages"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:260
+#: bigame-engine/bigame-ui/src/app.rs:263
 msgid "Install missing packages with your package manager"
 msgstr ""
 
@@ -1510,12 +1515,12 @@ msgstr ""
 msgid "Launches games through Gamescope with the selected filter"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:272
+#: bigame-engine/bigame-ui/src/views/profiles.rs:270
 #: bigame-engine/bigame-ui/src/views/tuning.rs:283
 msgid "Learn about Schedulers"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:349
+#: bigame-engine/bigame-ui/src/views/profiles.rs:347
 msgid "Leave off to use the global defaults"
 msgstr ""
 
@@ -1541,12 +1546,12 @@ msgstr ""
 msgid "Looking at the game…"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:522
+#: bigame-engine/bigame-ui/src/views/profiles.rs:520
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:51
 msgid "Lossless Scaling Required"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:510
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:41
 msgid "Lossless Scaling is proprietary.\nClick to visit losslessscaling.com"
 msgstr ""
@@ -1559,7 +1564,7 @@ msgstr ""
 msgid "MISSING"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:615
+#: bigame-engine/bigame-ui/src/views/profiles.rs:613
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:226
 msgid "Mailbox"
 msgstr ""
@@ -1589,7 +1594,7 @@ msgid "Maximum power! Like a race car. Best for fast action games."
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:542
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:65
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:98
 msgid "Measure"
 msgstr ""
 
@@ -1597,11 +1602,11 @@ msgstr ""
 msgid "Measure again"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1056
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1063
 msgid "Measure the difference"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:49
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:82
 msgid "Measure the difference?"
 msgstr ""
 
@@ -1613,7 +1618,7 @@ msgstr ""
 msgid "Measured on this machine"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:227
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:260
 msgid "Measurement failed"
 msgstr ""
 
@@ -1623,7 +1628,7 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:257
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:559
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:86
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:119
 msgid "Measuring…"
 msgstr ""
 
@@ -1631,8 +1636,8 @@ msgstr ""
 msgid "Memory Optimization"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:177
-#: bigame-engine/bigame-ui/src/app.rs:191
+#: bigame-engine/bigame-ui/src/app.rs:180
+#: bigame-engine/bigame-ui/src/app.rs:194
 msgid "Missing Runtime Dependencies"
 msgstr ""
 
@@ -1640,7 +1645,7 @@ msgstr ""
 msgid "Missing files put back"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:263
+#: bigame-engine/bigame-ui/src/app.rs:266
 msgid "Missing packages"
 msgstr ""
 
@@ -1678,7 +1683,7 @@ msgstr ""
 msgid "Multiplier"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:580
 msgid "Multiplier (1-20x)"
 msgstr ""
 
@@ -1691,6 +1696,7 @@ msgid "NO CHANGE"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/home.rs:597
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1035
 msgid "Native"
 msgstr ""
 
@@ -1707,12 +1713,12 @@ msgstr ""
 msgid "Network"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:326
+#: bigame-engine/bigame-ui/src/views/profiles.rs:324
 msgid "Never"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:56
-#: bigame-engine/bigame-ui/src/views/profiles.rs:923
+#: bigame-engine/bigame-ui/src/views/profiles.rs:921
 msgid "New Profile"
 msgstr ""
 
@@ -1744,7 +1750,7 @@ msgstr ""
 msgid "No games detected"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:948
+#: bigame-engine/bigame-ui/src/views/profiles.rs:946
 msgid "No games found"
 msgstr ""
 
@@ -1835,7 +1841,7 @@ msgstr ""
 msgid "Nothing competing for the CPU"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:211
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:244
 msgid "Nothing could be compared"
 msgstr ""
 
@@ -1849,6 +1855,10 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:359
 msgid "Nothing matches."
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:56
+msgid "Nothing to measure"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:589
@@ -1904,7 +1914,7 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:167
+#: bigame-engine/bigame-ui/src/app.rs:170
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr ""
 
@@ -2001,11 +2011,11 @@ msgstr ""
 msgid "Output Resolution (Target)"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:348
+#: bigame-engine/bigame-ui/src/views/profiles.rs:346
 msgid "Override Gamescope settings for this game"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:499
+#: bigame-engine/bigame-ui/src/views/profiles.rs:497
 msgid "Path to Lossless.dll"
 msgstr ""
 
@@ -2025,7 +2035,7 @@ msgstr ""
 msgid "Per-game optimization could not be started"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:309
+#: bigame-engine/bigame-ui/src/views/profiles.rs:307
 msgid "Per-game overrides (leave disabled for global defaults)"
 msgstr ""
 
@@ -2040,18 +2050,18 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:139
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:779
-#: bigame-engine/bigame-ui/src/views/profiles.rs:244
-#: bigame-engine/bigame-ui/src/views/profiles.rs:601
+#: bigame-engine/bigame-ui/src/views/profiles.rs:242
+#: bigame-engine/bigame-ui/src/views/profiles.rs:599
 #: bigame-engine/bigame-ui/src/views/tuning.rs:210
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:208
 msgid "Performance Mode"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:241
+#: bigame-engine/bigame-ui/src/views/profiles.rs:239
 msgid "Performance Settings"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:329
+#: bigame-engine/bigame-ui/src/app.rs:332
 msgid "Performance tuning for Linux gaming"
 msgstr ""
 
@@ -2081,12 +2091,12 @@ msgstr ""
 msgid "Power-of-2-Choices Double Queue. A highly academic, low-latency scheduler that uses mathematical probability to rapidly balance load across many CPU cores."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:619
+#: bigame-engine/bigame-ui/src/views/profiles.rs:617
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:230
 msgid "Present Mode"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:252
+#: bigame-engine/bigame-ui/src/views/profiles.rs:250
 msgid "Prevent screensaver while running"
 msgstr ""
 
@@ -2102,14 +2112,14 @@ msgstr ""
 msgid "Process"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:689
+#: bigame-engine/bigame-ui/src/views/profiles.rs:687
 msgid "Process Name"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:226
 #: bigame-engine/bigame-ui/src/views/home.rs:652
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1020
-#: bigame-engine/bigame-ui/src/views/profiles.rs:686
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1018
+#: bigame-engine/bigame-ui/src/views/profiles.rs:684
 #: bigame-engine/bigame-ui/src/views/report.rs:154
 msgid "Profile"
 msgstr ""
@@ -2118,7 +2128,7 @@ msgstr ""
 msgid "Profile Summary"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:860
+#: bigame-engine/bigame-ui/src/views/profiles.rs:858
 msgid "Profile activated"
 msgstr ""
 
@@ -2132,8 +2142,8 @@ msgstr ""
 msgid "Profile created and active"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1136
-#: bigame-engine/bigame-ui/src/views/profiles.rs:895
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1143
+#: bigame-engine/bigame-ui/src/views/profiles.rs:893
 msgid "Profile deleted"
 msgstr ""
 
@@ -2141,19 +2151,19 @@ msgstr ""
 msgid "Profile exists"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:841
+#: bigame-engine/bigame-ui/src/views/profiles.rs:839
 msgid "Profile exported"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:135
+#: bigame-engine/bigame-ui/src/views/profiles.rs:133
 msgid "Profile imported"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:173
+#: bigame-engine/bigame-ui/src/views/profiles.rs:171
 msgid "Profile imported via drag-and-drop"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:799
+#: bigame-engine/bigame-ui/src/views/profiles.rs:797
 msgid "Profile saved"
 msgstr ""
 
@@ -2264,7 +2274,7 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:79
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:361
-#: bigame-engine/bigame-ui/src/views/profiles.rs:614
+#: bigame-engine/bigame-ui/src/views/profiles.rs:612
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:225
 msgid "Recommended"
 msgstr ""
@@ -2282,7 +2292,7 @@ msgstr ""
 msgid "Regenerate"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:873
+#: bigame-engine/bigame-ui/src/views/profiles.rs:871
 msgid "Remove \"%s\" permanently?"
 msgstr ""
 
@@ -2318,8 +2328,8 @@ msgstr ""
 msgid "Report saved to"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:180
-#: bigame-engine/bigame-ui/src/app.rs:194
+#: bigame-engine/bigame-ui/src/app.rs:183
+#: bigame-engine/bigame-ui/src/app.rs:197
 msgid "Required packages were not found in the system"
 msgstr ""
 
@@ -2339,8 +2349,8 @@ msgstr ""
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:250
-#: bigame-engine/bigame-ui/src/app.rs:261
+#: bigame-engine/bigame-ui/src/app.rs:253
+#: bigame-engine/bigame-ui/src/app.rs:264
 msgid "Restart BiGameMode"
 msgstr ""
 
@@ -2369,11 +2379,11 @@ msgstr ""
 msgid "Restoring the game's own files…"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:177
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:210
 msgid "Restoring your current settings"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:215
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:248
 msgid "Results for %t"
 msgstr ""
 
@@ -2385,11 +2395,11 @@ msgstr ""
 msgid "Right now"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:198
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:231
 msgid "Run %r of %t — %w"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:193
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:226
 msgid "Run %r of %t — %w (warm-up, discarded)"
 msgstr ""
 
@@ -2397,8 +2407,8 @@ msgstr ""
 msgid "Run Diagnostics"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:251
-#: bigame-engine/bigame-ui/src/app.rs:262
+#: bigame-engine/bigame-ui/src/app.rs:254
+#: bigame-engine/bigame-ui/src/app.rs:265
 msgid "Run Runtime Diagnostics again after opening a game"
 msgstr ""
 
@@ -2433,8 +2443,8 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:584
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:599
-#: bigame-engine/bigame-ui/src/views/profiles.rs:699
-#: bigame-engine/bigame-ui/src/views/profiles.rs:811
+#: bigame-engine/bigame-ui/src/views/profiles.rs:697
+#: bigame-engine/bigame-ui/src/views/profiles.rs:809
 msgid "Save Profile"
 msgstr ""
 
@@ -2463,13 +2473,13 @@ msgid "Saves electricity. Good for calm games like Minecraft."
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:541
-#: bigame-engine/bigame-ui/src/views/profiles.rs:790
+#: bigame-engine/bigame-ui/src/views/profiles.rs:788
 msgid "Saving…"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:157
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:787
-#: bigame-engine/bigame-ui/src/views/profiles.rs:263
+#: bigame-engine/bigame-ui/src/views/profiles.rs:261
 #: bigame-engine/bigame-ui/src/views/report.rs:167
 #: bigame-engine/bigame-ui/src/views/tuning.rs:272
 msgid "Scheduler"
@@ -2484,7 +2494,7 @@ msgid "Scheduler Information"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:285
+#: bigame-engine/bigame-ui/src/views/profiles.rs:283
 msgid "Scheduler Mode"
 msgstr ""
 
@@ -2520,7 +2530,7 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:547
+#: bigame-engine/bigame-ui/src/views/profiles.rs:545
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:76
 msgid "Select Lossless.dll"
 msgstr ""
@@ -2603,7 +2613,7 @@ msgstr ""
 msgid "Spatial upscaling and post-processing pipeline"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:339
+#: bigame-engine/bigame-ui/src/app.rs:342
 msgid "Special Thanks"
 msgstr ""
 
@@ -2620,7 +2630,7 @@ msgid "Start in the background at login"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:48
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:86
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:119
 msgid "Starting"
 msgstr ""
 
@@ -2689,15 +2699,15 @@ msgstr ""
 msgid "The game's own only"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:164
+#: bigame-engine/bigame-ui/src/app.rs:167
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1116
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1123
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:212
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:245
 msgid "The runs produced no usable frametimes."
 msgstr ""
 
@@ -2709,7 +2719,7 @@ msgstr ""
 msgid "This CPU does not have 3D V-Cache hardware"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:523
+#: bigame-engine/bigame-ui/src/views/profiles.rs:521
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:52
 msgid "This feature uses LSFG-VK which requires the proprietary Lossless.dll to function.\n\nYou must legally acquire Lossless Scaling on Steam or other platforms to obtain this file."
 msgstr ""
@@ -2718,8 +2728,8 @@ msgstr ""
 msgid "Toggle Dark Mode"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:248
-#: bigame-engine/bigame-ui/src/app.rs:259
+#: bigame-engine/bigame-ui/src/app.rs:251
+#: bigame-engine/bigame-ui/src/app.rs:262
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:1115
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:999
 msgid "Troubleshooting"
@@ -2813,7 +2823,7 @@ msgstr ""
 msgid "Use 'Launch (Turbo)' for BiGameMode injections"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:328
+#: bigame-engine/bigame-ui/src/views/profiles.rs:326
 msgid "Use Gamescope"
 msgstr ""
 
@@ -2834,7 +2844,7 @@ msgid "VCache (AMD 3D V-Cache)"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:256
-#: bigame-engine/bigame-ui/src/views/profiles.rs:294
+#: bigame-engine/bigame-ui/src/views/profiles.rs:292
 #: bigame-engine/bigame-ui/src/views/tuning.rs:399
 msgid "VCache Mode"
 msgstr ""
@@ -2843,7 +2853,7 @@ msgstr ""
 msgid "VCache Mode requires an AMD X3D CPU (e.g. 5800X3D, 7800X3D, 9800X3D)"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:613
+#: bigame-engine/bigame-ui/src/views/profiles.rs:611
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:224
 msgid "VSync/FIFO (default)"
 msgstr ""
@@ -2868,7 +2878,7 @@ msgstr ""
 msgid "Virtual"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:530
+#: bigame-engine/bigame-ui/src/views/profiles.rs:528
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:59
 msgid "Visit Website"
 msgstr ""
@@ -2897,7 +2907,7 @@ msgstr ""
 msgid "Watching for games"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:341
+#: bigame-engine/bigame-ui/src/views/profiles.rs:339
 msgid "What Automatic does here"
 msgstr ""
 
@@ -2957,7 +2967,7 @@ msgstr ""
 msgid "Wi-Fi"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:366
+#: bigame-engine/bigame-ui/src/views/profiles.rs:364
 msgid "Width"
 msgstr ""
 
@@ -3049,7 +3059,7 @@ msgstr ""
 msgid "confirmed"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:187
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:220
 msgid "current settings"
 msgstr ""
 
@@ -3105,7 +3115,7 @@ msgstr ""
 msgid "falcond ships separate profile sets for desktops, handhelds and home-theatre PCs. The handheld set runs games in power-saving mode, which is the wrong set for a desktop."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:163
+#: bigame-engine/bigame-ui/src/app.rs:166
 msgid "falcond stopped unexpectedly"
 msgstr ""
 
@@ -3245,7 +3255,7 @@ msgstr ""
 msgid "only the game's own options were chosen"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:188
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:221
 msgid "optimized"
 msgstr ""
 
