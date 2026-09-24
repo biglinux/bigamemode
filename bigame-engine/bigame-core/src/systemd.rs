@@ -50,6 +50,16 @@ pub trait Unit {
     fn active_state(&self) -> zbus::Result<String>;
 }
 
+#[zbus::proxy(
+    interface = "org.freedesktop.systemd1.Service",
+    default_service = "org.freedesktop.systemd1"
+)]
+pub trait Service {
+    /// Automatic restarts since the service was last started on request.
+    #[zbus(property, name = "NRestarts")]
+    fn n_restarts(&self) -> zbus::Result<u32>;
+}
+
 /// A unit's state, as systemd reports it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnitState {
@@ -129,5 +139,22 @@ impl Reader {
             unit_file_state,
             active_state: proxy.active_state().ok()?,
         })
+    }
+
+    /// How many times systemd restarted a service on its own (after a crash
+    /// or a kill) since it was last started on request, or `None` if the unit
+    /// is not loaded or systemd could not be asked.
+    #[must_use]
+    pub fn restarts(&self, unit: &str) -> Option<u32> {
+        let manager = ManagerProxyBlocking::new(&self.connection).ok()?;
+        manager.get_unit_file_state(unit).ok()?;
+        let path = manager.load_unit(unit).ok()?;
+        ServiceProxyBlocking::builder(&self.connection)
+            .path(path)
+            .ok()?
+            .build()
+            .ok()?
+            .n_restarts()
+            .ok()
     }
 }

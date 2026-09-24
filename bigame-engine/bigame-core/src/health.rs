@@ -122,6 +122,28 @@ pub fn vulkan_32bit(vendor: GpuVendor, lib32: &Path) -> (bool, &'static str) {
     (lib32.join(file).exists(), package)
 }
 
+/// A warning when systemd has had to restart falcond on its own.
+///
+/// falcond records the machine's state when a game's profile activates and
+/// puts it back when the game exits. An instance restarted mid-game (after a
+/// crash, or a kill) finds the game already running and records the
+/// *boosted* state as the one to restore, so the machine stays boosted after
+/// the game — reproduced on the lab VM (`docs/21-VM-TESTS.md`).
+#[must_use]
+pub fn restart_check(restarts: u32) -> Option<Check> {
+    (restarts > 0).then(|| {
+        check(
+            "falcond restarts",
+            Status::Warning,
+            format!(
+                "systemd restarted falcond {restarts} time{} after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits",
+                if restarts == 1 { "" } else { "s" }
+            ),
+            Some("journalctl -u falcond -b"),
+        )
+    })
+}
+
 /// Run every check.
 ///
 /// One flat list, top to bottom, so each check reads on its own.
@@ -131,8 +153,10 @@ pub fn collect() -> Vec<Check> {
     let hw = Hardware::detect();
     let caps = Capabilities::detect();
     let status = crate::status::read();
-    let backend =
-        crate::systemd::Reader::system().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+    let systemd = crate::systemd::Reader::system();
+    let backend = systemd
+        .as_ref()
+        .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
     let db = Path::new(PACMAN_DB);
     let mut out = Vec::new();
 
@@ -165,6 +189,18 @@ pub fn collect() -> Vec<Check> {
             None,
         ),
     });
+    if backend
+        .as_ref()
+        .is_some_and(crate::systemd::UnitState::is_active)
+    {
+        if let Some(c) = systemd
+            .as_ref()
+            .and_then(|r| r.restarts(crate::turbo::BACKEND_UNIT))
+            .and_then(restart_check)
+        {
+            out.push(c);
+        }
+    }
     if status.as_ref().is_some_and(|s| s.dmem_cgroup.is_none()) && caps.falcond_installed {
         let kernel_can = Path::new("/sys/fs/cgroup/dmem.capacity").exists();
         out.push(check(
@@ -350,6 +386,19 @@ pub fn collect() -> Vec<Check> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_restarted_falcond_is_a_warning_and_an_untouched_one_is_silent() {
+        assert_eq!(restart_check(0), None);
+        let one = restart_check(1).unwrap();
+        assert_eq!(one.status, Status::Warning);
+        assert!(one.detail.contains("1 time after"), "{}", one.detail);
+        assert!(restart_check(3).unwrap().detail.contains("3 times"));
+        assert_eq!(
+            one.fix,
+            Some(Fix::Command("journalctl -u falcond -b".into()))
+        );
+    }
 
     #[test]
     fn a_package_is_found_by_its_name_not_a_prefix() {
