@@ -809,6 +809,12 @@ fn read_disk_sectors() -> Option<(u64, u64)> {
 
 /// Measure network latency via a single ICMP ping to configurable target.
 fn read_ping_latency(target: &str) -> String {
+    // The target comes from Settings. It is passed as an argument, never
+    // through a shell, but one beginning with '-' would still be read as an
+    // option by ping.
+    if target.is_empty() || target.starts_with('-') {
+        return "N/A".into();
+    }
     let output = std::process::Command::new("ping")
         .args(["-c", "1", "-W", "1", target])
         .output();

@@ -264,7 +264,12 @@ pub fn apply(
                     .file_stem()
                     .map(|s| s.to_string_lossy().into_owned())
                     .unwrap_or_default();
-                proxy.save_profile(&stem, content)?;
+                // Saved under the process it matches; the helper requires the
+                // file name and the name field to agree.
+                proxy.save_profile(name, content)?;
+                if stem != *name {
+                    proxy.delete_profile(&stem)?;
+                }
                 done.push(format!("{name}: removed fields falcond ignores"));
             }
             Action::Keep { .. } | Action::Unresolved { .. } => {}
