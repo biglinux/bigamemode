@@ -239,6 +239,14 @@ pub fn identify_owner(bytes: &[u8]) -> ProxyOwner {
     ProxyOwner::Unknown
 }
 
+/// Anti-cheat markers in an install folder.
+///
+/// From the vendors' own layouts and `SteamDB`'s file-detection rules (MIT).
+/// Easy Anti-Cheat is flagged by its own folder or launcher only: the Epic
+/// Online Services SDK (`EOSSDK-Win64-Shipping.dll`) on its own is not
+/// anti-cheat — Shadow of the Tomb Raider ships it. Erring towards a marker
+/// costs a disabled injection; erring away costs an account, so doubtful
+/// markers (mhyprot's driver names are not confirmed by its vendor) stay in.
 fn anti_cheat_marker(name_lower: &str, is_dir: bool) -> Option<&'static str> {
     if is_dir {
         return match name_lower {
@@ -248,23 +256,35 @@ fn anti_cheat_marker(name_lower: &str, is_dir: bool) -> Option<&'static str> {
             "eaanticheat" => Some("EA Javelin Anticheat"),
             "xigncode" | "xigncode3" => Some("XIGNCODE3"),
             "equ8" => Some("EQU8"),
+            "anticheatexpert" | "aceantibotclient" => Some("Tencent ACE"),
+            "hshield" => Some("AhnLab HackShield"),
             _ => None,
         };
     }
     match name_lower {
-        n if n.starts_with("easyanticheat") && (has_ext(n, "exe") || has_ext(n, "dll")) => {
-            Some("Easy Anti-Cheat")
-        }
-        "start_protected_game.exe" => Some("Easy Anti-Cheat"),
+        "start_protected_game.exe"
+        | "easyanticheat_eos_setup.exe"
+        | "easyanticheat_setup.exe"
+        | "easyanticheat.dll"
+        | "easyanticheat_x64.dll"
+        | "easyanticheat_x64.so" => Some("Easy Anti-Cheat"),
         "beservice.exe"
         | "beservice_x64.exe"
         | "install_battleye.bat"
+        | "uninstall_battleye.bat"
         | "beclient.dll"
         | "beclient_x64.dll" => Some("BattlEye"),
         n if n.ends_with("_be.exe") => Some("BattlEye"),
         "ggsetup.exe" | "gameguard.des" => Some("nProtect GameGuard"),
+        "eaanticheat.installer.exe" => Some("EA Javelin Anticheat"),
         n if n.starts_with("eaanticheat") => Some("EA Javelin Anticheat"),
-        "x3.xem" | "xigncode3.xem" => Some("XIGNCODE3"),
+        n if has_ext(n, "xem") => Some("XIGNCODE3"),
+        "equ8_conf.json" => Some("EQU8"),
+        "randgrid.sys" => Some("Ricochet"),
+        "pnkbstra.exe" | "pbsvc.exe" | "pbsv.dll" => Some("PunkBuster"),
+        "neacsafe64.sys" | "nep2.dll" => Some("NetEase anti-cheat"),
+        "blackcall.aes" | "blackcall64.aes" | "blackcat64.sys" => Some("Nexon BlackCipher"),
+        "hsinst.dll" => Some("AhnLab HackShield"),
         "mhyprot2.sys" | "mhyprot3.sys" | "mhypbase.dll" => Some("mhyprot"),
         "vgc.exe" | "vgk.sys" => Some("Riot Vanguard"),
         _ => None,
@@ -598,6 +618,11 @@ mod tests {
             ("BattlEye/BEClient_x64.dll", "BattlEye"),
             ("Game_BE.exe", "BattlEye"),
             ("x3.xem", "XIGNCODE3"),
+            ("EasyAntiCheat_EOS_Setup.exe", "Easy Anti-Cheat"),
+            ("Randgrid.sys", "Ricochet"),
+            ("EAAntiCheat.Installer.exe", "EA Javelin Anticheat"),
+            ("AntiCheatExpert/x.dat", "Tencent ACE"),
+            ("pbsvc.exe", "PunkBuster"),
         ] {
             let dir = tempfile::tempdir().unwrap();
             put(dir.path(), "Game.exe", &exe(&[], 0));
