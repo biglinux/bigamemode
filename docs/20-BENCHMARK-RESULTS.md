@@ -17,7 +17,7 @@ verdicts from run-to-run spread and Welch's t at 95 %. Raw data under
 | CPU governor + EPP alone | SotTR CPU-bound | −1.1 % | no difference — MEASURED |
 | CPU governor | SuperTuxKart, GPU-bound | +2.1 % | within noise — MEASURED |
 | BiGame-mode's own UI (old build) running vs frozen | SotTR CPU-bound | +1.1 % frozen | not significant — MEASURED |
-| sched-ext scheduler (any) | — | — | NOT MEASURED — `scx-tools` absent on the reference machine |
+| sched-ext scheduler (none × lavd × bpfland) | SotTR CPU-bound | — | NOT MEASURED — `scx-tools` installed and `scx_loader` running since 2026-09-24 04:10, the session is ready, but it needs one Polkit approval and none was given while this pass ran (below) |
 | Gamescope native vs nested | — | — | NOT MEASURED |
 
 ## Turbo off vs Turbo on
@@ -43,7 +43,18 @@ against 7.38 % and 313/s (the build on `main`); hidden in the tray: 0.52 %,
 ## What would change these conclusions
 
 - **A scheduler.** The one lever not yet measured here, and the one falcond
-  exists to pull. `scx-tools` is the prerequisite.
+  exists to pull. The prerequisite is now in place; the session is one
+  command, with the game on its results screen at minimum render scale:
+  `GAME=sottr RUNS=3 LABEL=scheduler SCX_PROFILE=SOTTR.exe
+  scripts/bench-game.sh scx_none scx_lavd scx_bpfland`. It asks for the
+  password once, up front — the scheduler is set the way the product sets it,
+  by rewriting the game's falcond profile and reloading falcond, which takes
+  a root helper for the length of the session. Two attempts on 2026-09-24
+  found three defects in the harness (a lost key press, a helper that could
+  outlive it, a hang when the prompt expired) and one in the helper
+  (signalling falcond's inhibitor along with falcond); all fixed
+  ([13](13-AAA-BENCHMARKS.md)). The prompt then went unanswered for 20
+  minutes, so the game's settings were restored and it was closed.
 - **Other hardware.** Every result above is one CPU and one GPU. The planner's
   GPU DPM gate is local evidence, not a rule for every Radeon.
 - **Other titles.** Cyberpunk 2077 and Rise of the Tomb Raider are read

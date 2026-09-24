@@ -26,10 +26,10 @@ profile were then verified there.
 | Results reproducible | VERIFIED | clean SotTR session: spread 0.1 % |
 | Regressions rejected | VERIFIED | GPU DPM `high` refused with the numbers |
 | Rollback works | VERIFIED on the VM | off restores mid-game; release restores the prior unit state |
-| Crashes do not leave state stuck | PARTIAL | helper killed mid-switch: consistent. **falcond killed mid-game: power profile left boosted** — falcond's defect ([21](21-VM-TESTS.md)) |
+| Crashes do not leave state stuck | PARTIAL | helper killed mid-switch: consistent. **falcond killed mid-game: power profile left boosted** — falcond's defect ([21](21-VM-TESTS.md)); Diagnostics now warns when systemd has restarted falcond (VERIFIED on the VM). A reload mid-game keeps the right baseline (VERIFIED on the VM) |
 | Gamescope zombie | VERIFIED fixed (previous pass) | children reaped |
 | UI has low overhead | MEASURED | 0.77 % CPU, 9.9 wake-ups/s on Home in-game (was 7.38 %, 313/s) |
-| Tests pass | TESTED | 430 tests; `cargo fmt --check`; `cargo clippy --workspace --all-targets` 0 warnings |
+| Tests pass | TESTED | 434 tests; `cargo fmt --check`; `cargo clippy --workspace --all-targets` 0 warnings |
 | Package installs | VERIFIED | branch package installed on the reference machine (03:10); helper restarted and exposes `SetGameBackend` |
 | Application starts | VERIFIED | the branch build ran on the reference machine |
 | Games still start normally | VERIFIED | SotTR launched through Steam throughout |
@@ -44,7 +44,12 @@ lints) reports zero warnings, which is what `-D warnings` would enforce.
 ## Still to do on the reference machine
 
 1. Settings → *Fix* the two old profiles (the user's choice; backed up first).
-2. Install `scx-tools`, enable `scx_loader`, restart falcond, and measure a
-   scheduler CPU-bound with `scripts/bench-game.sh`.
-3. Reinstall once more to pick up the last UI commit (late graphics path,
-   following Turbo changed elsewhere), verified so far with the branch build.
+2. Remove `user/iscriptevaluator.exe.conf`, a profile created for Steam's
+   installer script before it was recognised as not-a-game (the detector has
+   excluded it since `9b406a8`).
+3. Measure a scheduler CPU-bound: the one command in
+   [20](20-BENCHMARK-RESULTS.md). It asks for the password once.
+
+All three need a Polkit approval. Done on 2026-09-24: the package rebuilt at
+`9b406a8` and installed with `scx-tools`; `scx_loader` enabled; falcond
+restarted and listing the schedulers; Diagnostics reporting sched-ext OK.

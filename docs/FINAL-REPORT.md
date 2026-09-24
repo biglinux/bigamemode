@@ -78,9 +78,15 @@ every move.
 package installed; Turbo off (falcond stopped and disabled, ownership
 recorded) and on (profile set corrected handheld → desktop, falcond running);
 a profile for Shadow of the Tomb Raider created from the offer and matched by
-falcond at the next launch. **Not yet done:** the migration of the two old
-profiles (the user's choice), and a scheduler measurement after installing
-`scx-tools`.
+falcond at the next launch. Later the same morning: the package rebuilt with
+the last fixes and installed with `scx-tools`; `scx_loader` enabled; falcond
+listing sixteen schedulers. **Not yet done, each waiting for a password:** the
+migration of the two old profiles, removing a wrong profile created for
+Steam's installer script, and the scheduler measurement — ready to run, but
+its prompt went unanswered; the attempts found and fixed four defects in the
+benchmark tooling ([13](13-AAA-BENCHMARKS.md), [20](20-BENCHMARK-RESULTS.md)).
+Diagnostics now also warns when systemd has had to restart falcond, the case
+that leaves the machine boosted ([21](21-VM-TESTS.md)).
 
 ---
 
@@ -269,9 +275,10 @@ generate frames; the matrix and the arbitration rules are in
 ## Scheduler Strategy
 
 falcond owns it; Booster never writes it. What the project adds is honesty about
-whether it can be changed at all — the reference machine has kernel support and
+whether it can be changed at all — the reference machine had kernel support and
 sixteen schedulers installed but no `scx_loader`, so every selection in the old
-picker would have been silently discarded. That is now reported as
+picker would have been silently discarded. (`scx-tools` is installed there
+now; the scheduler itself is not yet measured.) That is now reported as
 `ServiceDown("scx_loader service is not running")`, which is a different problem
 from unsupported hardware and has a different fix.
 

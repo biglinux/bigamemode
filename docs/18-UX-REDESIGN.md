@@ -58,6 +58,12 @@ reference machine it reports the handheld profile set and missing
 looking: rows parsed their text as Pango markup, so a fix containing `&&`
 rendered as an empty line. Fixed for every row that shows dynamic text.
 
+It also warns when systemd has had to restart falcond on its own (the
+service's `NRestarts`): an instance restarted mid-game records the game's
+boosted state as the one to restore, and leaves the machine boosted
+afterwards ([21](21-VM-TESTS.md)). VERIFIED on the VM — SIGKILL → warning; a
+manual restart clears it; silent on the reference machine (`NRestarts=0`).
+
 ## Logs
 
 One list, colour-coded by severity label only (palette chosen for light or
