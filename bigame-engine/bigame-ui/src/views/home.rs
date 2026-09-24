@@ -527,6 +527,10 @@ impl GameCard {
             .visible(false)
             .build();
         create.set_action_name(Some("app.profile-review"));
+        // The action takes the process name. Until a game is running there is
+        // none, but without a target of the right type GTK rejects the
+        // button on every update ("parameter type mismatch").
+        create.set_action_target_value(Some(&glib::variant::ToVariant::to_variant("")));
 
         let text = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
         text.set_valign(gtk4::Align::Center);

@@ -128,6 +128,7 @@ fn build_advanced_group(
         let preview = adw::ActionRow::builder()
             .title(i18n("Example command line"))
             .subtitle(format!("gamescope {} -- <game>", built.args.join(" ")))
+            .use_markup(false)
             .build();
         preview.set_subtitle_selectable(true);
         expander.add_row(&preview);
