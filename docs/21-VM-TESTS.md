@@ -19,6 +19,7 @@ serves as a stand-in game that the upstream `cs2` profile matches by name.
 | `SetGameBackend false` mid-game | `inactive/disabled`, `balanced` restored, ownership record written | VERIFIED |
 | `SetGameBackend true` | `active/enabled`, running game re-detected, profile re-applied | VERIFIED |
 | Profile save mid-game | same falcond PID (reload, not restart); inotify and SIGHUP both reload | VERIFIED |
+| Reload mid-game keeps the original baseline (R0–R2, 2026-09-24) | a reload deactivates the profile (restoring `balanced`) and re-activates it, so the new snapshot is `balanced` again; `RESTORE_STATE` stays `balanced` through SIGHUP and inotify reloads, and `balanced` returns on exit | VERIFIED |
 | `ReleaseGameBackend` after an external `disable` | back to `inactive/disabled` exactly | VERIFIED |
 | `turbo off` / `turbo on` through the core orchestrator | falcond stopped/started, report correct, power profile attributed to falcond | VERIFIED |
 | Chassis `Unknown` → no profile-set correction | not corrected (only certain mismatches are) | VERIFIED |
