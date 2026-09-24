@@ -90,6 +90,25 @@ count() { local n; n=$(grep -c "\[Benchmark\] Benchmark $1" "$GAME_LOG" 2>/dev/n
 stops()  { count stopped; }
 starts() { count started; }
 
+# A press can be lost: the game drops input for a moment when it regains
+# focus, and under Wayland a native dialog (the Polkit prompt) can hold the
+# keyboard while X still reports the game as the active window. So a run
+# counts as started only when the game's log says it started; loading the
+# benchmark takes up to ~20 s, so a press is repeated only after 45.
+start_run() {
+    local before tries
+    before=$(starts)
+    for tries in 1 2 3; do
+        press_rerun || return 1
+        for _ in $(seq 1 45); do
+            [ "$(starts)" -gt "$before" ] && return 0
+            sleep 1
+        done
+        log "the game did not start a run (press $tries); pressing again"
+    done
+    return 1
+}
+
 wait_for_stop() {
     local before=$1 waited=0
     while [ "$(stops)" -le "$before" ]; do
@@ -218,8 +237,7 @@ for arm in "${ARMS[@]}"; do case $arm in scx_*) scx_start; break ;; esac; done
 # is idle on its results screen, start one.
 if [ "$(starts)" -le "$(stops)" ]; then
     log "warm-up run (discarded)"
-    before=$(stops); press_rerun || die "could not start the warm-up"
-    sleep 10
+    before=$(stops); start_run || die "could not start the warm-up"
 else
     log "a pass is already running; it is the warm-up (discarded)"
     before=$(stops)
@@ -239,7 +257,7 @@ for round in $(seq 1 "$RUNS"); do
         stamp="$dir/.start"; touch "$stamp"
         "$HERE/gpu-telemetry.sh" "$CARD" "$dir/gpu.csv" & TELEMETRY_PID=$!
         before=$(stops)
-        press_rerun || { log "$arm run $round: focus never returned"; break 2; }
+        start_run || { log "$arm run $round: the game would not start a run"; break 2; }
         if ! wait_for_stop "$before"; then
             log "$arm run $round: NO RESULT"
             kill "$TELEMETRY_PID" 2>/dev/null; TELEMETRY_PID=""
