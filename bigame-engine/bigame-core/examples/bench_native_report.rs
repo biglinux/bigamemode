@@ -11,6 +11,11 @@
 //! Every run's graphics settings are compared with the first run's before
 //! anything is computed. A session in which the game's settings changed is two
 //! experiments, and it is refused rather than averaged.
+//!
+//! `--record-graphics=<game-key> --setups=<arm>=<setup>,…` also records the
+//! arms in AI Graphics' local measurements, where the game's plan reads them
+//! (`setup`: `none`, `native:xess`, `optiscaler:xess:fsr`; the `OptiScaler`
+//! version with `--optiscaler=0.9.4`).
 // A report generator: one long linear main, text built by appending, and
 // frame counts far below 2^52.
 #![allow(
@@ -204,6 +209,24 @@ fn main() -> Result<()> {
     }
 
     let hw = Hardware::detect();
+    // The machine a session was first reported on, before this run rewrites
+    // benchmark.json: measurements are recorded only on the machine that took
+    // them, under its own GPU.
+    let measured_on: Option<String> = std::fs::read_to_string(dir.join("benchmark.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("fingerprint")?.as_str().map(str::to_owned));
+    let record_game =
+        std::env::args().find_map(|a| a.strip_prefix("--record-graphics=").map(str::to_owned));
+    if record_game.is_some() {
+        let here = inventory::fingerprint(&hw);
+        if let Some(there) = measured_on.as_deref().filter(|f| *f != here) {
+            bail!(
+                "this session was measured on another machine (fingerprint {there}, this one is \
+                 {here}); its results are not recorded under this machine's GPU"
+            );
+        }
+    }
     let workload = dir
         .file_name()
         .unwrap_or_default()
@@ -354,5 +377,43 @@ fn main() -> Result<()> {
         serde_json::to_string_pretty(&reports)?,
     )?;
     println!("{md}");
+    if let Some(game) = record_game {
+        use bigame_core::graphics::outcomes::{self, Measurement, Setup};
+        let setups: BTreeMap<String, Setup> = std::env::args()
+            .find_map(|a| a.strip_prefix("--setups=").map(str::to_owned))
+            .context("--record-graphics needs --setups=<arm>=<setup>,...")?
+            .split(',')
+            .map(|pair| {
+                let (arm, setup) = pair.split_once('=').context("--setups: <arm>=<setup>")?;
+                let setup = Setup::parse(setup).with_context(|| format!("unknown setup {setup:?}"))?;
+                anyhow::ensure!(arms.contains_key(arm), "--setups names arm {arm:?}, which has no runs");
+                Ok((arm.to_owned(), setup))
+            })
+            .collect::<Result<_>>()?;
+        let optiscaler = std::env::args().find_map(|a| a.strip_prefix("--optiscaler=").map(str::to_owned));
+        let gpu = bigame_core::graphics::report::render_gpu_name(&hw).context("no GPU")?;
+        let resolution = [("FullscreenWidth", "FullscreenHeight"), ("renderWidth", "renderHeight")]
+            .iter()
+            .find_map(|(w, h)| reference.get(*w).zip(reference.get(*h)))
+            .map(|(w, h)| format!("{w}x{h}"));
+        let date = workload.split('-').take(3).collect::<Vec<_>>().join("-");
+        let measurements: Vec<Measurement> = setups
+            .into_iter()
+            .map(|(arm, setup)| Measurement {
+                date: date.clone(),
+                game: game.clone(),
+                gpu: gpu.clone(),
+                optiscaler_version: matches!(setup, Setup::OptiScaler { .. })
+                    .then(|| optiscaler.clone())
+                    .flatten(),
+                setup,
+                resolution: resolution.clone(),
+                avg_fps: arms[&arm].iter().map(|r| r.stats.avg_fps).collect(),
+                low_1pct: arms[&arm].iter().map(|r| r.stats.low_1_fps).collect(),
+            })
+            .collect();
+        outcomes::record(&outcomes::path(), &measurements)?;
+        println!("recorded {} arms for {game} on {gpu}", measurements.len());
+    }
     Ok(())
 }

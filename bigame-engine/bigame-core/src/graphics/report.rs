@@ -372,6 +372,14 @@ pub fn rdna_generation(name: &str) -> Option<u8> {
     }
 }
 
+/// The name the report gives the GPU games render on — the key measurements
+/// are recorded under ([`super::outcomes`]).
+#[must_use]
+pub fn render_gpu_name(hw: &Hardware) -> Option<String> {
+    let (gpus, render) = gpu_infos(hw, None);
+    render.and_then(|i| gpus.into_iter().nth(i)).map(|g| g.name)
+}
+
 fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<usize>) {
     let db = std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default();
     let pacman = Path::new("/var/lib/pacman/local");

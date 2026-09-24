@@ -191,7 +191,9 @@ fn render(page: &Rc<Page>, a: &Analysis) {
             "BiGame-mode picks the fewest components that give the best result for this game on \
              this GPU. If the game's own upscaler is already the best, nothing is installed. \
              OptiScaler is used where it adds something the game lacks — FSR 4 on RDNA 4 \
-             graphics cards. Frame generation is never switched on by itself: it raises the \
+             graphics cards — or where a benchmark on this computer measured it faster, with \
+             the 1% low no worse. Measurements stay on this computer. DLSS is offered only \
+             on NVIDIA RTX cards. Frame generation is never switched on by itself: it raises the \
              presented frame rate, not the rendered one, and adds latency. Games with \
              anti-cheat get no injection at all.",
         ),

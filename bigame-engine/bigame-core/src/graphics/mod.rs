@@ -9,6 +9,7 @@
 pub mod config;
 pub mod manifest;
 pub mod optiscaler;
+pub mod outcomes;
 pub mod pe;
 pub mod plan;
 pub mod report;
@@ -150,7 +151,11 @@ fn running_as(target: &Target) -> Option<crate::running::GameIdentity> {
 }
 
 /// What else is configured that the plan has to reconcile.
-fn launch_context(target: &Target, cfg: &config::AiGraphicsConfig) -> plan::Context {
+fn launch_context(
+    target: &Target,
+    cfg: &config::AiGraphicsConfig,
+    gpu: Option<&str>,
+) -> plan::Context {
     let video = crate::video_config::load();
     let cache = optiscaler::cache_dir();
     plan::Context {
@@ -162,6 +167,14 @@ fn launch_context(target: &Target, cfg: &config::AiGraphicsConfig) -> plan::Cont
         optiscaler_version: versions::resolve(&cache, &cfg.version, &versions::load(&cache))
             .ok()
             .map(|r| r.version),
+        measured: gpu
+            .map(|g| {
+                outcomes::for_game(&outcomes::load(&outcomes::path()), &target.key(), g)
+                    .into_iter()
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }
 
@@ -187,7 +200,8 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         &hw,
         installed.clone(),
     );
-    let plan = plan::plan(&report, cfg, &launch_context(target, cfg));
+    let gpu = report.gpu().map(|g| g.name.clone());
+    let plan = plan::plan(&report, cfg, &launch_context(target, cfg, gpu.as_deref()));
     let status = status_of(installed.as_ref(), running.as_ref(), &scanned);
     tracing::info!(target: "graphics", game = %target.process, standing = ?plan.standing,
         summary = %plan.summary, "graphics plan generated");

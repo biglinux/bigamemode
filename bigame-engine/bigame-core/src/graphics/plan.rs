@@ -32,7 +32,8 @@ use crate::hardware::GpuVendor;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Standing {
-    /// Shown to work here, or the game's own feature.
+    /// The game's own feature, shown to work on the test machine, or
+    /// measured better on this one.
     Recommended,
     /// Documented upstream; not checked here.
     Compatible,
@@ -96,7 +97,7 @@ pub struct Plan {
 /// What else is configured for the game, from video settings and the profile.
 // Four independent facts about the launch, not a state machine in disguise.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Context {
     /// Gamescope renders below the output size and upscales.
     pub gamescope_upscaling: bool,
@@ -109,6 +110,8 @@ pub struct Context {
     /// The `OptiScaler` version the profile's policy resolves to; `None` for
     /// the recommended release.
     pub optiscaler_version: Option<String>,
+    /// What was measured for this game on this GPU ([`super::outcomes`]).
+    pub measured: Vec<super::outcomes::Measurement>,
 }
 
 fn nothing(standing: Standing, summary: Text, steps: Vec<Step>) -> Plan {
@@ -266,30 +269,93 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             _ => Output::Fsr,
         },
     };
+    // What this machine measured for OptiScaler taking over the game's
+    // upscaler — better evidence than anything known in general, when the
+    // benchmark tests settle it.
+    let game_input = if n.xess.is_some() {
+        Some("xess")
+    } else if n.fsr.is_some() {
+        Some("fsr")
+    } else if n.dlss.is_some() {
+        Some("dlss")
+    } else {
+        None
+    };
+    let learned = game_input.and_then(|i| {
+        super::outcomes::learned(&ctx.measured.iter().collect::<Vec<_>>(), i)
+    });
+    let learned_output = learned.as_ref().filter(|l| l.better()).and_then(|l| {
+        match l.output.as_str() {
+            "fsr" => Some(Output::Fsr),
+            "xess" => Some(Output::Xess),
+            "dlss" if dlss_runs => Some(Output::Dlss),
+            _ => None,
+        }
+    });
+    // Against the game's own DLSS on an RTX card nothing measured here
+    // compares: the runs were against the game's other upscaler.
+    let measured_better = cfg.mode == Mode::Recommended
+        && learned_output.is_some()
+        && !(dlss_runs && n.dlss.is_some());
+    let want_output = if measured_better {
+        learned_output.unwrap_or(want_output)
+    } else {
+        want_output
+    };
     // Recommended installs OptiScaler only where it beats the game's own
-    // options: FSR 4 on RDNA 4 for a game that has no FSR 4. Everywhere else
-    // the game's own upscaler is already the best this GPU can run.
+    // options: FSR 4 on RDNA 4 for a game that has no FSR 4, or where this
+    // machine measured it faster. Everywhere else the game's own upscaler is
+    // already the best this GPU can run.
     let optiscaler_worth_it = match (cfg.mode, vendor) {
         (Mode::Advanced, _) => {
             cfg.layer == Layer::OptiScaler
                 || !matches!(cfg.upscaler, Upscaler::Auto | Upscaler::Off)
         }
-        (_, GpuVendor::Amd) => fsr4,
-        _ => false,
+        (_, GpuVendor::Amd) => fsr4 || measured_better,
+        _ => measured_better,
     };
+    let measured_note = learned.as_ref().map(|l| {
+        let change = format!("{:+.1} %", l.fps_change_pct);
+        let runs = l.runs.to_string();
+        let input = match l.input.as_str() {
+            "xess" => "XeSS",
+            "fsr" => "FSR",
+            _ => "DLSS",
+        };
+        if l.better() {
+            Text::with(
+                N_("measured on this computer: %s average frame rate over the game's own %s, %s runs each, with the 1% low no worse"),
+                [change, input.to_owned(), runs],
+            )
+        } else if l.not_better() {
+            Text::with(
+                N_("measured on this computer: OptiScaler was not better than the game's own %s (%s average frame rate, %s runs each)"),
+                [input.to_owned(), change, runs],
+            )
+        } else {
+            Text::with(
+                N_("measured on this computer, but not enough to decide (%s runs each)"),
+                [runs],
+            )
+        }
+    });
     if want_output == Output::Dlss && dlss_runs && n.dlss.is_some() {
         return keep_native(Text::plain(N_(
             "DLSS is the game's own feature and runs natively on this GPU",
         )));
     }
     if !optiscaler_worth_it {
-        return keep_native(Text::plain(if vendor == GpuVendor::Amd {
+        let mut p = keep_native(Text::plain(if vendor == GpuVendor::Amd {
             N_(
                 "FSR 4 needs an RDNA 4 GPU under Proton, so OptiScaler would bring nothing the game does not have",
             )
         } else {
             N_("the game's own upscaler is the best this GPU runs")
         }));
+        if let Some(t) = measured_note {
+            p.steps.push(Step::Note(t));
+        }
+        return p;
     }
     let (input, input_name, standing, input_why) = if n.xess.is_some() {
         (
@@ -297,7 +363,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "XeSS",
             Standing::Recommended,
             N_(
-                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on this machine",
+                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on BiGame-mode's test machine",
             ),
         )
     } else if n.fsr.is_some() {
@@ -335,6 +401,12 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 "OptiScaler replaces an upscaler the game already has; this game ships none",
             )))],
         );
+    };
+    // Measured here beats "documented upstream".
+    let standing = if measured_better {
+        Standing::Recommended
+    } else {
+        standing
     };
     let api = r.api.api.unwrap_or(Api::Dx12);
     if let Some(p) = r
@@ -407,6 +479,9 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "every file that is replaced is backed up first, and Restore puts it back",
         ))),
     ];
+    if let Some(t) = measured_note {
+        steps.insert(2, Step::Note(t));
+    }
     if r.api.confidence >= Confidence::Likely {
         steps.push(Step::Note(Text::plain(N_(
             "the game's graphics API is not certain yet; it is confirmed the first time the game runs",
@@ -710,6 +785,76 @@ mod tests {
             &ctx,
         );
         assert_eq!(p.disable, [Tech::GamescopeUpscaling, Tech::WineFsr]);
+    }
+
+    fn measured(setup: &str, fps: &[f64]) -> crate::graphics::outcomes::Measurement {
+        crate::graphics::outcomes::Measurement {
+            date: "2026-09-24".into(),
+            game: "steam-1".into(),
+            gpu: "x".into(),
+            setup: crate::graphics::outcomes::Setup::parse(setup).unwrap(),
+            resolution: None,
+            optiscaler_version: Some("0.9.4".into()),
+            avg_fps: fps.to_vec(),
+            low_1pct: vec![],
+        }
+    }
+
+    #[test]
+    fn a_gain_measured_on_this_machine_makes_optiscaler_the_recommendation() {
+        let gtx = named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]");
+        let faster = Context {
+            measured: vec![
+                measured("native:xess", &[40.0, 40.2, 40.1]),
+                measured("optiscaler:xess:fsr", &[46.0, 46.1, 45.9]),
+            ],
+            ..Context::default()
+        };
+        let p = plan(&report(sottr(), gtx.clone()), &recommended(), &faster);
+        assert_eq!(p.standing, Standing::Recommended);
+        assert_eq!(
+            p.summary.english(),
+            "FSR 3.1 through OptiScaler, from the game's XeSS"
+        );
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().starts_with("measured on this computer: +14.7 %")),
+            "{:#?}",
+            p.steps
+        );
+
+        // Measured, and no faster: the game's own, and the plan says why.
+        let same = Context {
+            measured: vec![
+                measured("native:xess", &[40.0, 41.0, 40.5]),
+                measured("optiscaler:xess:fsr", &[40.4, 40.9, 40.2]),
+            ],
+            ..Context::default()
+        };
+        let p = plan(&report(sottr(), gtx), &recommended(), &same);
+        assert_eq!(p.summary.english(), "the game's own XeSS");
+        assert!(p.files.is_empty());
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("OptiScaler was not better"))
+        );
+    }
+
+    #[test]
+    fn a_measurement_against_xess_does_not_overrule_native_dlss_on_rtx() {
+        let rtx = named(GpuVendor::Nvidia, "AD104 [GeForce RTX 4070 Ti]");
+        let faster = Context {
+            measured: vec![
+                measured("native:xess", &[40.0, 40.2, 40.1]),
+                measured("optiscaler:xess:fsr", &[46.0, 46.1, 45.9]),
+            ],
+            ..Context::default()
+        };
+        let p = plan(&report(sottr(), rtx), &recommended(), &faster);
+        assert_eq!(p.summary.english(), "the game's own DLSS");
+        assert!(p.files.is_empty());
     }
 
     #[test]
