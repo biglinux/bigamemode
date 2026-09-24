@@ -678,6 +678,11 @@ pub struct LogFindings {
     pub upscalers: Vec<String>,
     /// The FSR 4 line: `RDNA4: true, RDNA3: false, Fsr4Update: true`.
     pub fsr4: Option<String>,
+    /// Whether AMD's FSR 4 runtime (`amdxcffx64.dll`) was loaded: `Some(true)`
+    /// for `amdxcffx64 loaded from …`, `Some(false)` for `Failed to load
+    /// amdxcffx64.dll` — after which `OptiScaler` goes on with FSR 3.1. `None`
+    /// when it did not try.
+    pub amdxcffx64: Option<bool>,
     /// Lines that say something failed.
     pub errors: Vec<String>,
 }
@@ -687,6 +692,25 @@ impl LogFindings {
     #[must_use]
     pub fn current_upscaler(&self) -> Option<&str> {
         self.upscalers.last().map(String::as_str)
+    }
+
+    /// Which FSR the `fsr31` backend really runs: 4 or 3 (3.1), from the log,
+    /// or `None` when the log does not settle it. FSR 4 needs both
+    /// `Fsr4Update: true` and AMD's runtime loaded (`FSR4Upgrade.cpp`); without
+    /// either, the backend is FSR 3.1.
+    #[must_use]
+    pub fn fsr_generation(&self) -> Option<u8> {
+        if !self.current_upscaler()?.starts_with("fsr31") {
+            return None;
+        }
+        if self
+            .fsr4
+            .as_deref()
+            .is_some_and(|l| l.contains("Fsr4Update: false"))
+        {
+            return Some(3);
+        }
+        self.amdxcffx64.map(|loaded| if loaded { 4 } else { 3 })
     }
 }
 
@@ -724,10 +748,21 @@ pub fn read_log(text: &str) -> LogFindings {
         if line.contains("Fsr4Update:") {
             f.fsr4 = line.find("RDNA4:").map(|i| line[i..].trim().to_owned());
         }
-        let failed = line.contains("can't load")
-            || line.contains("Upscaler can't created")
-            || line.contains("Failed to load")
-            || line.contains("] [E] ");
+        if line.contains("amdxcffx64 loaded") {
+            f.amdxcffx64 = Some(true);
+        }
+        // A warning, not a failure: OptiScaler goes on with FSR 3.1. Under
+        // Proton this is the usual case — the DLL comes with AMD's Windows
+        // driver.
+        let fsr4_runtime_missing = line.contains("Failed to load amdxcffx64");
+        if fsr4_runtime_missing {
+            f.amdxcffx64 = Some(false);
+        }
+        let failed = !fsr4_runtime_missing
+            && (line.contains("can't load")
+                || line.contains("Upscaler can't created")
+                || line.contains("Failed to load")
+                || line.contains("] [E] "));
         if failed {
             let msg = line
                 .splitn(3, "] ")
@@ -939,6 +974,38 @@ mod tests {
         assert_eq!(f.errors.len(), 1);
         assert!(f.errors[0].contains("amd_fidelityfx_dx12.dll"));
         assert_eq!(read_log(""), LogFindings::default());
+    }
+
+    #[test]
+    fn fsr4_is_claimed_only_when_the_log_says_amds_runtime_loaded() {
+        // Messages as FSR4Upgrade.cpp (v0.9.4) writes them.
+        let head = "\
+[1] [I] FSR4Upgrade RDNA4: true, RDNA3: false, Fsr4Update: true
+[2] [I] NVSDK_NGX_D3D12_CreateFeature Creating new fsr31 upscaler
+";
+        let loaded = format!("{head}[3] [I] UpdateFfxApiProvider amdxcffx64 loaded from game folder\n");
+        let f = read_log(&loaded);
+        assert_eq!(f.fsr_generation(), Some(4));
+        assert!(f.errors.is_empty());
+
+        // The usual case under Proton: no AMD Windows driver, so no
+        // amdxcffx64.dll. OptiScaler warns and runs FSR 3.1 — not a failure.
+        let missing = format!("{head}[3] [W] UpdateFfxApiProvider Failed to load amdxcffx64.dll\n");
+        let f = read_log(&missing);
+        assert_eq!(f.fsr_generation(), Some(3));
+        assert!(f.errors.is_empty(), "{:?}", f.errors);
+
+        // Not an RDNA 3/4 GPU: FSR 4 is off from the start.
+        let off = "[1] [I] FSR4Upgrade RDNA4: false, RDNA3: false, Fsr4Update: false\n[2] [I] f Creating new fsr31 upscaler\n";
+        assert_eq!(read_log(off).fsr_generation(), Some(3));
+
+        // FSR 4 on, but nothing said about the runtime yet: not settled.
+        assert_eq!(read_log(head).fsr_generation(), None);
+        // Not an FSR backend at all.
+        assert_eq!(
+            read_log("[1] [I] f Creating new xess upscaler\n").fsr_generation(),
+            None
+        );
     }
 
     #[test]

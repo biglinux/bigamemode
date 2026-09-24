@@ -581,21 +581,110 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
     }
 }
 
-/// The DRM card a process renders on, from its open render node.
-fn render_card(pid: u32) -> Option<String> {
-    let fds = std::fs::read_dir(format!("/proc/{pid}/fd")).ok()?;
-    let node = fds.flatten().find_map(|fd| {
-        let target = std::fs::read_link(fd.path()).ok()?;
-        let name = target.file_name()?.to_string_lossy().into_owned();
-        name.starts_with("renderD").then_some(name)
-    })?;
-    // /sys/class/drm/renderD128/device → the PCI device; its drm/cardN is the card.
-    let device = std::fs::canonicalize(format!("/sys/class/drm/{node}/device")).ok()?;
+/// A GPU a process has open.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OpenGpu {
+    /// DRM card (`card0`).
+    card: String,
+    /// Opened through the NVIDIA driver's own node (`/dev/nvidia0`).
+    nvidia_node: bool,
+    /// The firmware's boot display adapter.
+    boot_vga: bool,
+}
+
+/// Which of the GPUs a process has open it renders on.
+///
+/// A game can hold more than one: on a hybrid laptop DXVK renders on the
+/// GeForce through `/dev/nvidia0` while the compositor path keeps the iGPU's
+/// render node open, and under `DRI_PRIME` both render nodes are open. So:
+/// the NVIDIA driver's own node first (the proprietary driver renders only
+/// through it); then, among several render nodes, the card that is not the
+/// boot display adapter (a secondary card is opened on purpose, for
+/// offload); then the only one there is.
+fn choose_render_gpu(open: &[OpenGpu]) -> Option<&str> {
+    open.iter()
+        .find(|g| g.nvidia_node)
+        .or_else(|| {
+            if open.len() > 1 {
+                open.iter().find(|g| !g.boot_vga)
+            } else {
+                None
+            }
+        })
+        .or_else(|| open.first())
+        .map(|g| g.card.as_str())
+}
+
+/// The DRM card under a PCI device directory.
+fn card_of_device(device: &std::path::Path) -> Option<String> {
     std::fs::read_dir(device.join("drm"))
         .ok()?
         .flatten()
         .map(|e| e.file_name().to_string_lossy().into_owned())
-        .find(|n| n.starts_with("card"))
+        .find(|n| crate::hardware::is_card_node(n))
+}
+
+/// The PCI device of NVIDIA minor `minor`, from the driver's own records
+/// (`/proc/driver/nvidia/gpus/<slot>/information`, `Device Minor: N`).
+fn nvidia_device(minor: u32) -> Option<std::path::PathBuf> {
+    std::fs::read_dir("/proc/driver/nvidia/gpus")
+        .ok()?
+        .flatten()
+        .find_map(|e| {
+            let info = std::fs::read_to_string(e.path().join("information")).ok()?;
+            let m = info.lines().find_map(|l| {
+                l.strip_prefix("Device Minor:")
+                    .and_then(|v| v.trim().parse::<u32>().ok())
+            })?;
+            (m == minor).then(|| {
+                std::path::Path::new("/sys/bus/pci/devices").join(e.file_name())
+            })
+        })
+}
+
+/// The DRM card a process renders on, from the GPU device nodes it has open.
+fn render_card(pid: u32) -> Option<String> {
+    let fds = std::fs::read_dir(format!("/proc/{pid}/fd")).ok()?;
+    let mut open: Vec<OpenGpu> = Vec::new();
+    for fd in fds.flatten() {
+        let Ok(target) = std::fs::read_link(fd.path()) else {
+            continue;
+        };
+        let Some(name) = target.file_name().map(|n| n.to_string_lossy().into_owned()) else {
+            continue;
+        };
+        let (device, nvidia_node) = if name.starts_with("renderD") {
+            // /sys/class/drm/renderD128/device → the PCI device.
+            let Ok(d) = std::fs::canonicalize(format!("/sys/class/drm/{name}/device")) else {
+                continue;
+            };
+            (d, false)
+        } else if let Some(minor) = name
+            .strip_prefix("nvidia")
+            .and_then(|m| m.parse::<u32>().ok())
+        {
+            let Some(d) = nvidia_device(minor) else {
+                continue;
+            };
+            (d, true)
+        } else {
+            continue;
+        };
+        let Some(card) = card_of_device(&device) else {
+            continue;
+        };
+        if open.iter().any(|g| g.card == card && g.nvidia_node == nvidia_node) {
+            continue;
+        }
+        let boot_vga = std::fs::read_to_string(device.join("boot_vga"))
+            .is_ok_and(|v| v.trim() == "1");
+        open.push(OpenGpu {
+            card,
+            nvidia_node,
+            boot_vga,
+        });
+    }
+    choose_render_gpu(&open).map(str::to_owned)
 }
 
 /// Fill in what the launcher and the live process can say.
@@ -748,6 +837,38 @@ pub fn matching_profile(process_name: &str, profile_mode: &str) -> Option<Profil
 #[allow(clippy::unreadable_literal, clippy::similar_names)]
 mod tests {
     use super::*;
+
+    fn open_gpu(card: &str, nvidia_node: bool, boot_vga: bool) -> OpenGpu {
+        OpenGpu {
+            card: card.into(),
+            nvidia_node,
+            boot_vga,
+        }
+    }
+
+    #[test]
+    fn a_game_on_the_geforce_of_a_hybrid_laptop_renders_on_the_geforce() {
+        // The lab laptop: card1 = i915 (boot display, drives eDP), card0 =
+        // GTX 1050 Ti. DXVK holds /dev/nvidia0; the iGPU's render node is
+        // open too, and comes first in the fd table.
+        let open = [open_gpu("card1", false, true), open_gpu("card0", true, false)];
+        assert_eq!(choose_render_gpu(&open), Some("card0"));
+    }
+
+    #[test]
+    fn under_dri_prime_the_secondary_card_is_the_one_rendering() {
+        let open = [open_gpu("card0", false, true), open_gpu("card1", false, false)];
+        assert_eq!(choose_render_gpu(&open), Some("card1"));
+    }
+
+    #[test]
+    fn one_open_render_node_is_the_answer_whatever_it_is() {
+        assert_eq!(
+            choose_render_gpu(&[open_gpu("card1", false, true)]),
+            Some("card1")
+        );
+        assert_eq!(choose_render_gpu(&[]), None);
+    }
 
     /// `"argv0|arguments"`: argv0 is given explicitly because Wine paths
     /// contain spaces, and the kernel separates arguments with NUL, not space.

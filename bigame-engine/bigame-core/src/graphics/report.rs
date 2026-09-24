@@ -74,6 +74,78 @@ impl GpuInfo {
     pub fn fsr4(&self) -> bool {
         self.vendor == GpuVendor::Amd && self.rdna == Some(4)
     }
+
+    /// Whether DLSS Super Resolution runs on this GPU: an NVIDIA RTX card
+    /// (tensor cores, Turing or later). `None` when the model does not say.
+    #[must_use]
+    pub fn dlss(&self) -> Option<bool> {
+        (self.vendor == GpuVendor::Nvidia)
+            .then(|| nvidia_dlss(&self.name).0)
+            .unwrap_or(Some(false))
+    }
+
+    /// Whether DLSS Frame Generation runs on this GPU (RTX 40 and later —
+    /// Ada and Blackwell). `None` when the model does not say.
+    #[must_use]
+    pub fn dlss_fg(&self) -> Option<bool> {
+        (self.vendor == GpuVendor::Nvidia)
+            .then(|| nvidia_dlss(&self.name).1)
+            .unwrap_or(Some(false))
+    }
+}
+
+/// What an NVIDIA model can run: (DLSS Super Resolution, DLSS Frame
+/// Generation), from its PCI database name — `GP107M [GeForce GTX 1050 Ti
+/// Mobile]`, `AD104 [GeForce RTX 4070]`, `TU102GL [Quadro RTX 6000/8000]`.
+///
+/// DLSS needs tensor cores: every RTX-branded card has them, no GTX, GT, MX
+/// or pre-Turing Quadro does, and the GTX 16 series (TU116/TU117) is Turing
+/// without them. Frame generation needs Ada's optical-flow hardware or later
+/// (AD1xx, GB2xx). A name that fits none of this is unknown, not "yes".
+#[must_use]
+pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
+    let chip = name
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let upper = name.to_ascii_uppercase();
+    let older_chip = ["GP", "GM", "GK", "GF", "GV"]
+        .iter()
+        .any(|p| chip.starts_with(p))
+        || chip.starts_with("TU116")
+        || chip.starts_with("TU117");
+    let non_rtx_brand = [
+        "GTX", "GEFORCE GT ", "GEFORCE MX", "QUADRO P", "QUADRO M", "QUADRO K", "TITAN X",
+        "TITAN V",
+    ]
+    .iter()
+    .any(|b| upper.contains(b));
+    let sr = if upper.contains("RTX") {
+        Some(true)
+    } else if older_chip || non_rtx_brand {
+        Some(false)
+    } else {
+        None
+    };
+    // A GeForce RTX 40xx/50xx or an "… Ada" workstation card, when the name
+    // carries no chip code. ("RTX 4000" alone is also a Turing Quadro.)
+    let geforce_40_50 = upper.match_indices("RTX ").any(|(i, m)| {
+        let model: String = upper[i + m.len()..]
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        model.len() == 4 && (model.starts_with("40") || model.starts_with("50"))
+            && upper.contains("GEFORCE")
+    });
+    let fg = match sr {
+        Some(false) => Some(false),
+        _ if chip.starts_with("AD") || chip.starts_with("GB") => Some(true),
+        _ if chip.starts_with("TU") || chip.starts_with("GA") => Some(false),
+        _ if geforce_40_50 || upper.contains(" ADA") => Some(true),
+        _ => None,
+    };
+    (sr, fg)
 }
 
 /// The upscalers and frame generators the game ships.
@@ -477,5 +549,57 @@ mod tests {
         assert_eq!(pci_name(db, "10de:7590").as_deref(), Some("not this one"));
         assert_eq!(pci_name(db, "8086:1234"), None);
         assert_eq!(rdna_generation("Navi 31 [Radeon RX 7900 XTX]"), Some(3));
+    }
+
+    #[test]
+    fn dlss_needs_an_rtx_card_and_frame_generation_needs_ada_or_later() {
+        // Names exactly as /usr/share/hwdata/pci.ids has them.
+        for (name, sr, fg) in [
+            ("GP107M [GeForce GTX 1050 Ti Mobile]", Some(false), Some(false)),
+            ("GP104 [GeForce GTX 1080]", Some(false), Some(false)),
+            ("GP108 [GeForce GT 1030]", Some(false), Some(false)),
+            ("TU117 [GeForce GTX 1650]", Some(false), Some(false)),
+            ("TU117M [GeForce GTX 1650 Ti Mobile]", Some(false), Some(false)),
+            ("TU106 [GeForce RTX 2060 Rev. A]", Some(true), Some(false)),
+            ("TU102GL [Quadro RTX 6000/8000]", Some(true), Some(false)),
+            ("GA102 [GeForce RTX 3090]", Some(true), Some(false)),
+            ("GA106M [GeForce RTX 3060 Mobile / Max-Q]", Some(true), Some(false)),
+            ("GA102GL [RTX A6000]", Some(true), Some(false)),
+            ("AD102 [GeForce RTX 4090]", Some(true), Some(true)),
+            ("AD104 [GeForce RTX 4070 Ti]", Some(true), Some(true)),
+            ("AD104GL [RTX 4000 SFF Ada Generation]", Some(true), Some(true)),
+            ("GB202 [GeForce RTX 5090]", Some(true), Some(true)),
+            ("GB206 [GeForce RTX 5060 Ti]", Some(true), Some(true)),
+            // No chip code: the brand alone.
+            ("NVIDIA GeForce RTX 4070", Some(true), Some(true)),
+            ("NVIDIA GeForce RTX 2080", Some(true), None),
+            ("NVIDIA GeForce GTX 1050 Ti", Some(false), Some(false)),
+            // Nothing to go on: unknown, never "yes".
+            ("10de:9999", None, None),
+        ] {
+            assert_eq!(nvidia_dlss(name), (sr, fg), "{name}");
+        }
+    }
+
+    #[test]
+    fn only_nvidia_cards_run_dlss() {
+        let g = |vendor, name: &str| GpuInfo {
+            card: "card0".into(),
+            vendor,
+            name: name.into(),
+            driver: String::new(),
+            userspace: None,
+            vram: None,
+            discrete: true,
+            rdna: None,
+            renders_game: false,
+        };
+        assert_eq!(g(GpuVendor::Amd, "Navi 44 [Radeon RX 9060 XT]").dlss(), Some(false));
+        assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").dlss_fg(), Some(false));
+        assert_eq!(
+            g(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]").dlss(),
+            Some(false)
+        );
+        assert_eq!(g(GpuVendor::Nvidia, "AD102 [GeForce RTX 4090]").dlss_fg(), Some(true));
     }
 }

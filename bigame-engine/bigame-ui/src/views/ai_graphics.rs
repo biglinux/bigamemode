@@ -49,9 +49,15 @@ pub fn status_text(s: &Status) -> String {
         Status::Loaded { .. } => {
             i18n("Loaded — choose the upscaler named in the steps in the game's graphics menu")
         }
-        Status::Active { upscaler, .. } => {
-            format!("{} ({})", i18n("Active"), upscaler_name(upscaler))
-        }
+        Status::Active {
+            upscaler,
+            fsr_generation,
+            ..
+        } => format!(
+            "{} ({})",
+            i18n("Active"),
+            upscaler_name(upscaler, *fsr_generation)
+        ),
         Status::NotDetected => i18n("Installed, but the game did not load it"),
         Status::Failed { errors } => format!(
             "{}: {}",
@@ -62,9 +68,18 @@ pub fn status_text(s: &Status) -> String {
 }
 
 /// `OptiScaler` backend ids, as people know them. FSR 4 is never claimed
-/// from the backend alone: `fsr31` runs FSR 4 only where the GPU and the
-/// runtime allow it, which the log does not say.
-fn upscaler_name(backend: &str) -> String {
+/// from the backend alone: `fsr31` runs FSR 4 only when the log says AMD's
+/// FSR 4 runtime loaded (`generation`), FSR 3.1 when it says it did not, and
+/// plain "FSR" when the log has not settled it.
+fn upscaler_name(backend: &str, generation: Option<u8>) -> String {
+    match (backend, generation) {
+        ("fsr31" | "fsr31_12", Some(4)) => "FSR 4".to_owned(),
+        ("fsr31" | "fsr31_12", Some(3)) => "FSR 3.1".to_owned(),
+        _ => upscaler_family(backend),
+    }
+}
+
+fn upscaler_family(backend: &str) -> String {
     match backend {
         "fsr31" | "fsr31_12" => i18n("FSR"),
         "fsr21" | "fsr22" | "fsr21_12" | "fsr22_12" => i18n("FSR 2"),

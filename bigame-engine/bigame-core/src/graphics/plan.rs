@@ -121,24 +121,41 @@ fn nothing(standing: Standing, summary: Text, steps: Vec<Step>) -> Plan {
 }
 
 /// The game's own upscaler that is best for `vendor`: its name (a product
-/// name, not translated) and technology.
-fn native_choice(r: &Report, vendor: GpuVendor) -> Option<(&'static str, Tech)> {
+/// name, not translated) and technology. DLSS only where it runs: an RTX
+/// card (`dlss_runs`); a GTX gets what an AMD card would.
+fn native_choice(r: &Report, vendor: GpuVendor, dlss_runs: bool) -> Option<(&'static str, Tech)> {
     let n = &r.native;
     let dlss = n.dlss.as_ref().map(|_| ("DLSS", Tech::NativeDlss));
     let fsr = n.fsr.as_ref().map(|_| ("FSR", Tech::NativeFsr));
     let xess = n.xess.as_ref().map(|_| ("XeSS", Tech::NativeXess));
     match vendor {
-        GpuVendor::Nvidia => dlss.or(xess).or(fsr),
+        GpuVendor::Nvidia if dlss_runs => dlss.or(xess).or(fsr),
         GpuVendor::Intel => xess.or(fsr),
-        // XeSS runs on AMD through its DP4a path; FSR is AMD's own.
+        // XeSS runs on AMD and pre-RTX GeForce through its DP4a path, at a
+        // higher cost than FSR; FSR runs on everything.
         _ => fsr.or(xess),
     }
 }
 
 /// Build the plan for a game.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
+    let mut p = plan_for_gpu(r, cfg, ctx);
+    // Two GPUs and the game not running: the plan is for the card games are
+    // expected to use, which is only confirmed once the game has it open.
+    if cfg.mode != Mode::Off && r.gpus.len() > 1 && !r.gpus.iter().any(|g| g.renders_game) {
+        if let Some(g) = r.gpu() {
+            p.steps.push(Step::Note(Text::with(
+                N_("this computer has more than one GPU: the plan is for %s, the one DXVK and VKD3D-Proton pick for Windows games; it is confirmed when the game runs"),
+                [g.name.clone()],
+            )));
+        }
+    }
+    p
+}
+
+#[allow(clippy::too_many_lines)]
+fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     if cfg.mode == Mode::Off {
         return nothing(
             Standing::NotRecommended,
@@ -148,7 +165,10 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     }
     let vendor = r.gpu().map_or(GpuVendor::Other, |g| g.vendor);
     let fsr4 = r.gpu().is_some_and(super::report::GpuInfo::fsr4);
-    let native = native_choice(r, vendor);
+    // Only a confirmed RTX card counts: an unknown NVIDIA model is not
+    // promised DLSS.
+    let dlss_runs = r.gpu().and_then(super::report::GpuInfo::dlss) == Some(true);
+    let native = native_choice(r, vendor, dlss_runs);
     let keep_native = |why: Text| -> Plan {
         match native {
             Some((name, _)) => nothing(
@@ -214,6 +234,20 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "OptiScaler exists only for 64-bit games and this one is 32-bit",
         )));
     }
+    if cfg.mode == Mode::Advanced
+        && matches!(cfg.upscaler, Upscaler::NativeDlss | Upscaler::Dlaa)
+        && !dlss_runs
+    {
+        let gpu = r.gpu().map_or_else(String::new, |g| g.name.clone());
+        return nothing(
+            Standing::NotRecommended,
+            Text::plain(N_("DLSS does not run on this GPU")),
+            vec![Step::Note(Text::with(
+                N_("DLSS and DLAA need an NVIDIA RTX GPU; this game renders on %s. Choose FSR or XeSS instead"),
+                [gpu],
+            ))],
+        );
+    }
     if cfg.mode == Mode::Advanced && cfg.layer == Layer::Native {
         return keep_native(Text::plain(N_("only the game's own options were chosen")));
     }
@@ -224,7 +258,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         (Mode::Advanced, Upscaler::Xess) => Output::Xess,
         (Mode::Advanced, Upscaler::NativeDlss | Upscaler::Dlaa) => Output::Dlss,
         _ => match vendor {
-            GpuVendor::Nvidia => Output::Dlss,
+            GpuVendor::Nvidia if dlss_runs => Output::Dlss,
             GpuVendor::Intel => Output::Xess,
             _ => Output::Fsr,
         },
@@ -240,7 +274,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         (_, GpuVendor::Amd) => fsr4,
         _ => false,
     };
-    if want_output == Output::Dlss && vendor == GpuVendor::Nvidia && n.dlss.is_some() {
+    if want_output == Output::Dlss && dlss_runs && n.dlss.is_some() {
         return keep_native(Text::plain(N_(
             "DLSS is the game's own feature and runs natively on this GPU",
         )));
@@ -270,6 +304,15 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             Standing::Compatible,
             N_(
                 "OptiScaler takes over the game's FSR — documented upstream, not yet checked on this machine",
+            ),
+        )
+    } else if n.dlss.is_some() && vendor == GpuVendor::Nvidia {
+        (
+            Input::Dlss,
+            "DLSS",
+            Standing::Experimental,
+            N_(
+                "the game has only DLSS, which does not run on this GeForce: whether the game offers it anyway for OptiScaler to take over depends on the game and is not established",
             ),
         )
     } else if n.dlss.is_some() {
@@ -517,15 +560,78 @@ mod tests {
         assert_eq!(p.summary.english(), "the game's own XeSS");
     }
 
+    fn named(vendor: GpuVendor, name: &str) -> GpuInfo {
+        GpuInfo {
+            name: name.into(),
+            driver: "nvidia".into(),
+            ..gpu(vendor, None)
+        }
+    }
+
     #[test]
-    fn nvidia_with_native_dlss_installs_nothing() {
+    fn nvidia_rtx_with_native_dlss_installs_nothing() {
         let p = plan(
-            &report(sottr(), gpu(GpuVendor::Nvidia, None)),
+            &report(sottr(), named(GpuVendor::Nvidia, "AD104 [GeForce RTX 4070 Ti]")),
             &recommended(),
             &Context::default(),
         );
         assert_eq!(p.summary.english(), "the game's own DLSS");
         assert!(p.files.is_empty());
+    }
+
+    #[test]
+    fn a_gtx_is_never_told_to_use_dlss() {
+        // The lab laptop's GTX 1050 Ti with Shadow of the Tomb Raider, which
+        // ships DLSS 2.3 and XeSS 1.1.
+        let gtx = named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]");
+        let p = plan(&report(sottr(), gtx.clone()), &recommended(), &Context::default());
+        assert_eq!(p.summary.english(), "the game's own XeSS");
+        assert!(p.files.is_empty());
+        assert!(
+            !p.steps.iter().any(|s| s.text().english().contains("DLSS")),
+            "{:#?}",
+            p.steps
+        );
+        // A model the database does not name is not promised DLSS either.
+        let unknown = named(GpuVendor::Nvidia, "10de:9999");
+        let p = plan(&report(sottr(), unknown), &recommended(), &Context::default());
+        assert_eq!(p.summary.english(), "the game's own XeSS");
+        // Asked for by hand, DLSS is refused with the reason.
+        let adv = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            upscaler: Upscaler::NativeDlss,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(&report(sottr(), gtx), &adv, &Context::default());
+        assert_eq!(p.standing, Standing::NotRecommended);
+        assert_eq!(p.summary.english(), "DLSS does not run on this GPU");
+        assert!(p.optiscaler.is_none());
+    }
+
+    #[test]
+    fn with_two_gpus_the_plan_says_which_one_it_is_for_until_the_game_runs() {
+        let mut r = report(
+            sottr(),
+            named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]"),
+        );
+        r.gpus[0].renders_game = false;
+        r.gpus.push(GpuInfo {
+            card: "card1".into(),
+            discrete: false,
+            renders_game: false,
+            ..named(GpuVendor::Intel, "Kaby Lake-H GT2 [HD Graphics 630]")
+        });
+        let note = |p: &Plan| {
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("more than one GPU"))
+        };
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(note(&p), "{:#?}", p.steps);
+        assert!(p.steps.iter().any(|s| s.text().english().contains("GTX 1050 Ti")));
+        // Once the game has the GeForce open, it is a fact: no note.
+        r.gpus[0].renders_game = true;
+        assert!(!note(&plan(&r, &recommended(), &Context::default())));
     }
 
     #[test]
