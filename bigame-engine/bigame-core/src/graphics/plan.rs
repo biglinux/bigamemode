@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use super::config::{AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler};
+use super::gamedb::Prefer;
 use super::optiscaler::{self, Api, FrameGen, Input, Output};
 use super::pe::Machine;
 use super::report::{Confidence, Report};
@@ -223,6 +224,31 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         };
         return p;
     }
+    // Then the game list: a game listed as blocked gets no injection either.
+    if let Some(reason) = r.listed.as_ref().and_then(|e| e.block.clone()) {
+        let mut p = keep_native(Text::with(
+            N_("the game list blocks graphics injection for this game: %s"),
+            [reason],
+        ));
+        if native.is_none() {
+            p.standing = Standing::Blocked;
+            p.summary = Text::plain(N_("blocked by the game list"));
+        }
+        return p;
+    }
+    let prefer = r.listed.as_ref().and_then(|e| e.prefer);
+    if cfg.mode == Mode::Recommended && prefer == Some(Prefer::Nothing) {
+        return nothing(
+            Standing::NotRecommended,
+            Text::plain(N_("the game list says AI Graphics brings nothing to this game")),
+            vec![Step::Keep(Text::plain(N_("no files are changed")))],
+        );
+    }
+    if cfg.mode == Mode::Recommended && prefer == Some(Prefer::Native) {
+        return keep_native(Text::plain(N_(
+            "the game list says the game's own upscaler is the best choice here",
+        )));
+    }
     if r.executable.is_none() || r.runtime.as_deref() == Some("native") {
         // No Windows executable: a native Linux game. OptiScaler, and the
         // DLL-slot approach it rests on, are for Windows games under Proton
@@ -297,6 +323,11 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     let measured_better = cfg.mode == Mode::Recommended
         && learned_output.is_some()
         && !(dlss_runs && n.dlss.is_some());
+    // The game list asks for OptiScaler: taken like any Recommended
+    // OptiScaler plan, with the standing its input earns.
+    let listed_optiscaler = cfg.mode == Mode::Recommended
+        && prefer == Some(Prefer::OptiScaler)
+        && !(dlss_runs && n.dlss.is_some());
     let want_output = if measured_better {
         learned_output.unwrap_or(want_output)
     } else {
@@ -311,8 +342,8 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             cfg.layer == Layer::OptiScaler
                 || !matches!(cfg.upscaler, Upscaler::Auto | Upscaler::Off)
         }
-        (_, GpuVendor::Amd) => fsr4 || measured_better,
-        _ => measured_better,
+        (_, GpuVendor::Amd) => fsr4 || measured_better || listed_optiscaler,
+        _ => measured_better || listed_optiscaler,
     };
     let measured_note = learned.as_ref().map(|l| {
         let change = format!("{:+.1} %", l.fps_change_pct);
@@ -482,6 +513,12 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     if let Some(t) = measured_note {
         steps.insert(2, Step::Note(t));
     }
+    if let Some(v) = r.listed.as_ref().and_then(|e| e.tested_optiscaler.clone()) {
+        steps.push(Step::Note(Text::with(
+            N_("the game list records this game as tested with OptiScaler %s"),
+            [v],
+        )));
+    }
     if r.api.confidence >= Confidence::Likely {
         steps.push(Step::Note(Text::plain(N_(
             "the game's graphics API is not certain yet; it is confirmed the first time the game runs",
@@ -581,6 +618,7 @@ mod tests {
             render_gpu: Some(0),
             installed: None,
             scan_truncated: false,
+            listed: None,
         }
     }
 
@@ -855,6 +893,62 @@ mod tests {
         let p = plan(&report(sottr(), rtx), &recommended(), &faster);
         assert_eq!(p.summary.english(), "the game's own DLSS");
         assert!(p.files.is_empty());
+    }
+
+    fn listed(user: &str) -> Option<crate::graphics::gamedb::Entry> {
+        crate::graphics::gamedb::GameDb::from_texts(Some(user))
+            .lookup(Some("1"), "Game.exe")
+            .cloned()
+    }
+
+    #[test]
+    fn the_game_list_can_block_or_prefer_but_never_unblock() {
+        let entry = |body: &str| listed(&format!("[[game]]\nsteam_app_id = \"1\"\n{body}\n"));
+        let rdna4 = || report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+
+        let mut r = rdna4();
+        r.listed = entry("block = \"crashes with a proxy dxgi.dll\"");
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        assert!(p.steps.iter().any(|s| s.text().english().contains("crashes with a proxy")));
+
+        // RDNA 4 would get OptiScaler FSR 4; the list prefers the game's own.
+        let mut r = rdna4();
+        r.listed = entry("prefer = \"native\"");
+        let p = plan(&r, &recommended(), &Context::default());
+        assert_eq!(p.summary.english(), "the game's own XeSS");
+        // Advanced is the user's own choice; the list does not overrule it.
+        let adv = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            layer: Layer::OptiScaler,
+            upscaler: Upscaler::Fsr,
+            ..AiGraphicsConfig::default()
+        };
+        assert!(plan(&r, &adv, &Context::default()).optiscaler.is_some());
+
+        let mut r = rdna4();
+        r.listed = entry("prefer = \"nothing\"");
+        assert_eq!(
+            plan(&r, &recommended(), &Context::default()).standing,
+            Standing::NotRecommended
+        );
+
+        // On a GTX, "optiscaler" makes it the plan, with the note of the
+        // tested version.
+        let mut r = report(sottr(), named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]"));
+        r.listed = entry("prefer = \"optiscaler\"\ntested_optiscaler = \"0.9.4\"");
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_some(), "{:#?}", p.steps);
+        assert!(p.steps.iter().any(|s| s.text().english().contains("tested with OptiScaler 0.9.4")));
+
+        // Anti-cheat still wins over a list that asks for OptiScaler.
+        let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+        r.listed = entry("prefer = \"optiscaler\"");
+        r.anti_cheat = vec![AntiCheat {
+            name: "Easy Anti-Cheat".into(),
+            evidence: "EasyAntiCheat/".into(),
+        }];
+        assert!(plan(&r, &recommended(), &Context::default()).optiscaler.is_none());
     }
 
     #[test]

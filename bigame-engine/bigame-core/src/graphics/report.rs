@@ -209,6 +209,34 @@ pub struct Report {
     pub installed: Option<Manifest>,
     /// The folder scan stopped at its limit.
     pub scan_truncated: bool,
+    /// The game's entry in the game list, if it has one.
+    pub listed: Option<super::gamedb::Entry>,
+}
+
+impl Report {
+    /// Take in the game's entry in the game list. Its API fills in only
+    /// where detection is weaker than reading the game's files: what the
+    /// running game shows, or its files say, is never replaced.
+    pub fn with_listing(mut self, entry: Option<super::gamedb::Entry>) -> Self {
+        if let Some(e) = &entry {
+            if let Some(api) = e.api {
+                if self.api.confidence > Confidence::Detected {
+                    self.api.api = Some(api);
+                    self.api.confidence = Confidence::Detected;
+                    self.api.evidence.push(match e.origin {
+                        super::gamedb::Origin::Carried => Text::plain(N_(
+                            "BiGame-mode's game list names the API this game renders with by default",
+                        )),
+                        super::gamedb::Origin::User => Text::plain(N_(
+                            "your game list names the API this game renders with",
+                        )),
+                    });
+                }
+            }
+        }
+        self.listed = entry;
+        self
+    }
 }
 
 impl Report {
@@ -482,6 +510,7 @@ pub fn build(
         gpus,
         render_gpu,
         installed,
+        listed: None,
         scan_truncated: scan.truncated,
     }
 }
@@ -587,6 +616,43 @@ mod tests {
         ] {
             assert_eq!(nvidia_dlss(name), (sr, fg), "{name}");
         }
+    }
+
+    #[test]
+    fn a_listed_api_fills_in_uncertainty_but_never_replaces_what_was_seen() {
+        let entry = crate::graphics::gamedb::GameDb::from_texts(None)
+            .lookup(Some("750920"), "SOTTR.exe")
+            .cloned();
+        let base = |api, confidence| Report {
+            game: "g".into(),
+            app_id: Some("750920".into()),
+            install_root: "/g".into(),
+            executable: None,
+            machine: None,
+            runtime: None,
+            api: ApiEvidence {
+                api,
+                confidence,
+                evidence: vec![],
+                translation: None,
+            },
+            native: Native::default(),
+            proxies: vec![],
+            anti_cheat: vec![],
+            gpus: vec![],
+            render_gpu: None,
+            installed: None,
+            scan_truncated: false,
+            listed: None,
+        };
+        // SotTR from its files alone is only "likely DX12".
+        let r = base(Some(Api::Dx12), Confidence::Likely).with_listing(entry.clone());
+        assert_eq!((r.api.api, r.api.confidence), (Some(Api::Dx12), Confidence::Detected));
+        assert_eq!(r.api.evidence.len(), 1);
+        // Seen running with DXVK (the DX11 renderer): that stays.
+        let r = base(Some(Api::Dx11), Confidence::Fact).with_listing(entry);
+        assert_eq!((r.api.api, r.api.confidence), (Some(Api::Dx11), Confidence::Fact));
+        assert!(r.listed.is_some());
     }
 
     #[test]

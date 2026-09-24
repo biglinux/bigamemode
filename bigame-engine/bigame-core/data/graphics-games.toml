@@ -1,0 +1,21 @@
+# AI Graphics game list: facts about particular games that detection cannot
+# establish from their files. Detection stays the main source; an entry only
+# adds to it. An entry is here only with evidence behind it — observed on
+# BiGame-mode's test machines, not reported somewhere.
+#
+# Keys (all optional except one of steam_app_id / exe):
+#   steam_app_id       Steam app id, as a string
+#   exe                executable name, when the game is not a Steam game
+#   api                "dx11" | "dx12" | "vulkan" — the API it renders with
+#                      by default (the running game still wins)
+#   prefer             "native" | "optiscaler" | "nothing" — for Recommended
+#   block              a reason to never inject into this game
+#   tested_optiscaler  the OptiScaler version it was checked with
+#
+# Your own entries go in ~/.config/bigame-mode/graphics-games.toml, same
+# format; an entry there replaces one here for the same game.
+
+[[game]]
+steam_app_id = "750920"            # Shadow of the Tomb Raider
+api = "dx12"                       # VKD3D-Proton seen in the running game
+tested_optiscaler = "0.9.4"        # XeSS input, FSR output; docs/31

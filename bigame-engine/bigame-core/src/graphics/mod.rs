@@ -7,6 +7,7 @@
 //! file BiGame-mode places in its folder to get there.
 
 pub mod config;
+pub mod gamedb;
 pub mod manifest;
 pub mod optiscaler;
 pub mod outcomes;
@@ -199,6 +200,11 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         running.as_ref(),
         &hw,
         installed.clone(),
+    )
+    .with_listing(
+        gamedb::GameDb::load()
+            .lookup(target.app_id.as_deref(), &target.process)
+            .cloned(),
     );
     let gpu = report.gpu().map(|g| g.name.clone());
     let plan = plan::plan(&report, cfg, &launch_context(target, cfg, gpu.as_deref()));
