@@ -1,8 +1,7 @@
 //! Logs: everything involved in a game session, in one colour-coded list.
 //!
 //! Read from the journal in one call ([`bigame_core::logs`]), incrementally
-//! by cursor, and only while this page is on screen. The previous page ran
-//! four processes every five seconds whether or not anyone was looking.
+//! by cursor, and only while this page is on screen.
 //!
 //! Only the severity label is coloured, so an error stands out without the
 //! whole line shouting; the message itself stays in the normal text colour.
@@ -212,8 +211,8 @@ pub fn build() -> adw::PreferencesPage {
                 drop(s);
                 render();
                 // Keep the newest line in view -- once GTK has laid the text
-                // out; scrolling before that is silently a no-op, which left
-                // the page opening on the oldest entry.
+                // out; scrolling before that is silently a no-op and the page
+                // would open on the oldest entry.
                 let view = view.clone();
                 glib::idle_add_local_once(move || {
                     let buffer = view.buffer();

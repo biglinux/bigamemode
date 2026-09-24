@@ -1,6 +1,7 @@
 //! Read/write falcond configuration (`/etc/falcond/config.conf`).
 //!
-//! Config file is TOML. Writing requires root (pkexec).
+//! The file is falcond's `otter_conf` format (TOML is still read). Writing goes
+//! through the privileged helper, authorized by Polkit.
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -10,14 +11,10 @@ use serde::{Deserialize, Serialize};
 
 /// falcond's configuration file.
 ///
-/// This is `config.conf`. It is **not** `falcond.conf`, which is what this
-/// project used to read and write — a path falcond never opens, so every global
-/// setting the Tuning page offered silently did nothing while reporting
-/// success (audit CFG-01).
-///
-/// Verified against falcond 2.0.2: its binary contains the string
-/// `/etc/falcond/config.conf` and no other configuration path, and
-/// `/etc/falcond/` on a stock install contains exactly that one file.
+/// This is `config.conf`, **not** `falcond.conf`: falcond never opens the
+/// latter, so a setting written there silently does nothing. falcond 2.0.2's
+/// binary contains `/etc/falcond/config.conf` and no other configuration path,
+/// and a stock `/etc/falcond/` holds exactly that one file.
 pub const CONFIG_PATH: &str = "/etc/falcond/config.conf";
 
 /// Falcond daemon configuration (mirrors Zig `Config` struct).
@@ -152,8 +149,9 @@ pub fn write_blocking(config: &FalcondConfig) -> Result<()> {
 
 /// Write falcond config via `DBus`.
 ///
-/// Uses `DBus` to write as root, then sends `SIGHUP` to falcond
-/// so it reloads the config without restart.
+/// The privileged helper writes it as root and reloads falcond with `SIGHUP`,
+/// or restarts it when `enable_performance_mode` changed, which falcond reads
+/// only at start-up.
 ///
 /// # Errors
 /// Returns error if serialization or `DBus` fails.
@@ -167,20 +165,16 @@ pub async fn write(config: &FalcondConfig) -> Result<()> {
 /// and `key = "quoted"` only for string slices.
 fn serialize_otter_conf(config: &FalcondConfig) -> String {
     let mut out = String::new();
-    // Bool: bare true/false
     let _ = writeln!(
         out,
         "enable_performance_mode = {}",
         config.enable_performance_mode
     );
-    // Enum fields: bare identifiers (no quotes)
     let _ = writeln!(out, "scx_sched = {}", config.scx_sched);
     let _ = writeln!(out, "scx_sched_props = {}", config.scx_sched_props);
     let _ = writeln!(out, "vcache_mode = {}", config.vcache_mode);
     let _ = writeln!(out, "profile_mode = {}", config.profile_mode);
-    // Integer: bare number
     let _ = writeln!(out, "poll_interval_ms = {}", config.poll_interval_ms);
-    // String array: ["quoted", "strings"]
     if !config.system_processes.is_empty() {
         let quoted: Vec<String> = config
             .system_processes
@@ -193,6 +187,8 @@ fn serialize_otter_conf(config: &FalcondConfig) -> String {
 }
 
 /// Write falcond config via `DBus`.
+///
+/// The helper always writes [`CONFIG_PATH`]; `_path` is not used.
 ///
 /// # Errors
 /// Returns error if serialization or `DBus` fails.

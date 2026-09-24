@@ -687,7 +687,8 @@ core id\t\t: 1
     fn card_nodes_exclude_connectors_and_render_nodes() {
         assert!(is_card_node("card0"));
         assert!(is_card_node("card12"));
-        // These are exactly the entries that made the old telemetry walk abort.
+        // Connector nodes sit beside card nodes in /sys/class/drm and are not
+        // cards.
         assert!(!is_card_node("card1-DP-1"));
         assert!(!is_card_node("card1-HDMI-A-1"));
         assert!(!is_card_node("renderD128"));
@@ -735,7 +736,7 @@ core id\t\t: 1
 
     #[test]
     fn render_gpu_prefers_discrete_over_the_igpu_that_drives_no_output() {
-        // Exactly the bench layout: card0 = Cezanne iGPU (512 MiB, no outputs),
+        // A common desktop layout: card0 = Cezanne iGPU (512 MiB, no outputs),
         // card1 = RX 9060 XT (16 GiB, all three connectors).
         let gpus = vec![
             gpu("card0", false, Some(536_870_912), &[]),

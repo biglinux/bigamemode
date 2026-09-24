@@ -18,8 +18,8 @@
 //!
 //! 1. **Scene transitions are set aside, and counted.** *Shadow of the Tomb
 //!    Raider* loads between the sections of its benchmark, and the loading
-//!    screen arrives as a single frame of several seconds — 7.8 s in a real run
-//!    here, which is why the game itself prints `Min FPS: 0.0`. Left in, that
+//!    screen arrives as a single frame of several seconds (7.8 s is typical),
+//!    which is why the game itself prints `Min FPS: 0.0`. Left in, that
 //!    one frame would *be* the 0.1 % low, and its length depends on disk and
 //!    cache state rather than on anything a run is meant to compare.
 //! 2. **The settings travel with the result.** Two runs at different
@@ -39,8 +39,8 @@ use super::Capture;
 /// A frame this long is a loading screen, not a rendered frame.
 ///
 /// One second is well clear of any hitch a player would still call gameplay —
-/// the longest non-transition frame in a real *Shadow of the Tomb Raider* run
-/// here was 62 ms — and well short of the 7.8 s scene load.
+/// tens of milliseconds, about 62 ms at worst in a *Shadow of the Tomb Raider*
+/// run — and well short of a multi-second scene load.
 pub const TRANSITION_MS: f64 = 1000.0;
 
 /// One run of a game's built-in benchmark, as read from its own files.
@@ -339,7 +339,7 @@ mod tests {
     use super::*;
 
     /// A shortened real log: the header and first rows of a *Shadow of the
-    /// Tomb Raider* run on this machine, with its scene-load frame.
+    /// Tomb Raider* run, with its scene-load frame.
     const SOTTR: &str = "Frame, Time (ms), Delta (ms) , Memory (mb)\n\
             1, 0.000, 0.000,2691\n\
             2,11.216,11.216,5480\n\

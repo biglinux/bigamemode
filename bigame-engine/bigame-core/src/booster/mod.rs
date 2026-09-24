@@ -6,7 +6,7 @@
 //! Detect → Snapshot → Plan → Apply → Verify → Report → (later) Restore
 //! ```
 //!
-//! Two of those stages are what separate this from the toggle it replaces.
+//! Two of those stages carry the design.
 //! **Snapshot** runs before anything is written, so "off" returns the machine
 //! to the state it was actually in rather than to a hardcoded guess. **Verify**
 //! runs after every write, so the report describes what the system did rather
@@ -146,9 +146,8 @@ impl BoosterEngine {
     /// calibration would silently reapply a setting that was just measured to
     /// hurt.
     ///
-    /// A calibration from different hardware, or an unreadable one, is simply
-    /// absent: the plan then falls back to reasoning from what the hardware
-    /// supports, which is what it always did.
+    /// A calibration from different hardware, or an unreadable one, is treated
+    /// as absent: the plan then reasons only from what the hardware supports.
     fn build_plan(&self, snapshot: &Snapshot) -> Plan {
         let calibration = Calibration::default_path().and_then(|path| {
             let fingerprint = crate::inventory::fingerprint(&self.hardware);
@@ -369,8 +368,7 @@ mod tests {
         assert!(knobs.contains(&Knob::CpuGovernor));
         assert!(knobs.contains(&Knob::CpuEpp));
 
-        // V-Cache is only listed when the CPU actually has it. On the bench
-        // (a 5700G) it must not be.
+        // V-Cache is listed only when the CPU actually has it.
         assert_eq!(
             knobs.contains(&Knob::VCacheMode),
             engine.hardware().cpu.vcache.is_some()

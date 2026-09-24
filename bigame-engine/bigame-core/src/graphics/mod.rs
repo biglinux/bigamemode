@@ -46,9 +46,8 @@ pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Man
     })
 }
 
-/// What a launch of `process` must turn off (§ Harmony): with `OptiScaler`
-/// upscaling in the game, Gamescope upscaling and Wine FSR would be second
-/// upscalers in series.
+/// What a launch of `process` must turn off: with `OptiScaler` upscaling in the
+/// game, Gamescope upscaling and Wine FSR would be second upscalers in series.
 #[must_use]
 pub fn launch_disables(state: &Path, process: &str) -> Vec<rules::Tech> {
     if manifest_for_process(state, process).is_none() {

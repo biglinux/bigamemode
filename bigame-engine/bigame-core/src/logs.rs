@@ -3,10 +3,8 @@
 //! Every component involved already logs there — falcond, the helper, the UI,
 //! power-profiles-daemon, `scx_loader`, Polkit, Gamescope, and the kernel's
 //! DRM and GPU drivers — so one `journalctl -o json` call reads them all.
-//! The Logs page previously ran three `journalctl` processes (one a
-//! `--grep` over the whole journal) and `dmesg` every five seconds, forever,
-//! whether or not it was on screen; `dmesg` usually fails for a normal user
-//! anyway (`kernel.dmesg_restrict`), and the journal's kernel records do not.
+//! The journal's kernel records are readable by a normal user where `dmesg`
+//! usually is not (`kernel.dmesg_restrict`).
 //!
 //! Refreshes are incremental: the last entry's cursor is kept, and the next
 //! read asks only for what came after it.
@@ -173,9 +171,8 @@ pub fn strip_ansi(text: &str) -> String {
 
 /// A line written by `tracing` — BiGame-mode's own — carries its level:
 /// `  INFO target: message`, after an RFC 3339 timestamp in builds that wrote
-/// one. That level is the truth; the wording is not. `INFO turbo: turbo on
-/// verified=1 … failed=0` was shown as an error on the lab VM because it
-/// contains "failed".
+/// one. That level is the truth; the wording is not: `INFO turbo: turbo on
+/// verified=1 … failed=0` contains "failed" and is not an error.
 ///
 /// Returns the level and the message without the prefix.
 #[must_use]
@@ -388,7 +385,7 @@ mod tests {
 
     #[test]
     fn falcond_warnings_inside_info_records_are_warnings() {
-        // What falcond actually wrote on the reference machine, at priority 6.
+        // A real falcond line, logged at priority 6.
         assert_eq!(
             classify(
                 Some(6),

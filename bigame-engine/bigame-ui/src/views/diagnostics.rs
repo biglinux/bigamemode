@@ -313,9 +313,9 @@ fn background_group() -> adw::PreferencesGroup {
 /// Steam launch options that name a program which is not installed.
 ///
 /// Steam runs the string through a shell, so a missing wrapper means the game
-/// simply does not start — and nothing in Steam's interface explains it. This
-/// machine had exactly that: an app carrying `gamemoderun %command%` with Feral
-/// `GameMode` uninstalled.
+/// simply does not start — and nothing in Steam's interface explains it. A
+/// common case is `gamemoderun %command%` left behind after Feral `GameMode` is
+/// uninstalled.
 ///
 /// Clearing the option is offered rather than done. It is the user's
 /// configuration, and the alternative fix — installing the missing program — is

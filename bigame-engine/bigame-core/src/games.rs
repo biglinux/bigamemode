@@ -1,18 +1,18 @@
 //! Library discovery: what is installed, what it is called, and what it looks
 //! like.
 //!
-//! The audit's GAME-01 was here. Detection stored Steam's `installdir` as the
-//! "executable", and profiles were keyed on it — but falcond matches
-//! `/proc/<pid>/comm`. On this bench the consequence was exact and checkable:
+//! Profiles are keyed on the process falcond sees, never on the title: falcond
+//! matches `/proc/<pid>/comm`, and Steam's `installdir` is often nothing like
+//! it:
 //!
 //! ```text
 //! ARC Raiders        installdir "Arc Raiders"        real process PioneerGame.exe
 //! Dead by Daylight   installdir "Dead by Daylight"   real process DeadByDaylight.exe
 //! ```
 //!
-//! Both profiles the old UI wrote were loaded by falcond and could never match
-//! anything. So detection now looks inside the install directory for the
-//! binaries that actually run, and ranks them.
+//! A profile keyed on `installdir` is loaded by falcond and never matches
+//! anything, so detection looks inside the install directory for the binaries
+//! that actually run, and ranks them.
 //!
 //! Artwork is discovered from what the launchers have already downloaded. No
 //! API key, no network request, no third-party service — if Steam has a cover
@@ -81,8 +81,8 @@ impl DetectedGame {
     /// The process name a profile should be keyed on.
     ///
     /// Falls back to the title only when no executable could be found, and
-    /// callers should treat that as "ask the user" rather than "good enough" —
-    /// a title-keyed profile is the bug this module exists to fix.
+    /// callers should treat that as "ask the user" rather than "good enough":
+    /// a title-keyed profile never matches a process.
     #[must_use]
     pub fn profile_key(&self) -> &str {
         self.executables
@@ -530,11 +530,10 @@ pub fn acf_value(content: &str, key: &str) -> Option<String> {
 
 /// Cover art Steam has already downloaded for `app_id`.
 ///
-/// Steam's cache layout changed: covers now live under a per-app directory in a
-/// further hash-named subdirectory, so the search has to recurse rather than
-/// build a fixed path. The filename preference degrades gracefully, which
-/// matters — on this bench ARC Raiders has `library_600x900.jpg` and Dead by
-/// Daylight does not, only `library_capsule.jpg`.
+/// Steam keeps covers under a per-app directory in a further hash-named
+/// subdirectory, so the search recurses rather than building a fixed path. The
+/// filename preference degrades gracefully: not every title has
+/// `library_600x900.jpg` (Dead by Daylight has only `library_capsule.jpg`).
 #[must_use]
 pub fn steam_cover(home: &Path, app_id: &str) -> Option<PathBuf> {
     // Portrait first: the card layout is a 2:3 poster.
@@ -1059,8 +1058,8 @@ mod tests {
 
     #[test]
     fn store_helpers_shipped_inside_games_are_filtered() {
-        // EpicWebHelper.exe sits inside both Steam titles on this bench and is
-        // larger than some game binaries, so size ranking alone is not enough.
+        // EpicWebHelper.exe ships inside Steam titles and can be larger than the
+        // game binary, so size ranking alone is not enough.
         for name in [
             "EpicWebHelper.exe",
             "steamerrorreporter64.exe",
@@ -1095,8 +1094,8 @@ mod tests {
 
     #[test]
     fn profile_key_is_the_process_name_not_the_title() {
-        // This is GAME-01 in one assertion. Keyed on the title, falcond can
-        // never match the process, and the profile does nothing.
+        // Keyed on the title, falcond can never match the process, and the
+        // profile does nothing.
         let game = DetectedGame {
             name: "ARC Raiders".into(),
             source: Source::Steam,
@@ -1142,8 +1141,8 @@ mod tests {
 
     #[test]
     fn cover_search_recurses_into_steams_hashed_subdirectories() {
-        // Steam moved covers under librarycache/<appid>/<hash>/, so a fixed
-        // path finds nothing on a current install.
+        // Steam keeps covers under librarycache/<appid>/<hash>/, so a fixed
+        // path finds nothing.
         let home = tempdir("cover");
         let cache = home.join(".local/share/Steam/appcache/librarycache/1808500/abc123hash");
         fs::create_dir_all(&cache).unwrap();
@@ -1158,7 +1157,7 @@ mod tests {
 
     #[test]
     fn cover_search_falls_back_when_the_portrait_is_missing() {
-        // Dead by Daylight on this bench has no library_600x900.jpg.
+        // Some titles (Dead by Daylight) have no library_600x900.jpg.
         let home = tempdir("cover_fallback");
         let cache = home.join(".local/share/Steam/appcache/librarycache/381210/hash");
         fs::create_dir_all(&cache).unwrap();

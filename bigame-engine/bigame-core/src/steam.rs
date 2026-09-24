@@ -1,9 +1,9 @@
 //! Steam per-game launch options.
 //!
-//! Audit finding LNCH-02: the launch pipeline returned early for
-//! `steam -applaunch`, so everything it builds — Gamescope, `MangoHud`, the
-//! upscaling and frame-generation variables — was inert in the way most people
-//! actually start games. Compensating through `environment.d` only covered
+//! The launch pipeline cannot wrap `steam -applaunch` (the client starts the
+//! game in its own process tree), so without this nothing it builds —
+//! Gamescope, `MangoHud`, the upscaling and frame-generation variables — would
+//! reach the way most people start games. `environment.d` covers only
 //! environment variables, never Gamescope, and only after a re-login.
 //!
 //! The mechanism Steam itself provides is the per-game **launch options**
@@ -297,10 +297,9 @@ const WRAPPERS: &[&str] = &[
 
 /// Find launch options that invoke a program this system does not have.
 ///
-/// This is not hypothetical. On the reference machine several titles carry
-/// `gamemoderun %command%` while Feral `GameMode` is not installed — Steam runs
-/// the string through a shell, the wrapper is not found, and the game does not
-/// start. Nothing in Steam's UI says why.
+/// A common case is `gamemoderun %command%` without Feral `GameMode`
+/// installed: Steam runs the string through a shell, the wrapper is not found,
+/// and the game does not start. Nothing in Steam's UI says why.
 #[must_use]
 pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
     let Ok(content) = std::fs::read_to_string(config) else {
@@ -497,9 +496,9 @@ mod tests {
     fn detects_wrappers_that_are_not_installed() {
         let path = write_temp("broken", VDF);
         let broken = broken_launch_options(&path);
-        // mangohud is installed on this machine; gamemoderun is not — but the
-        // gamemoderun entry is inside `cloud`, so only the app-level key is
-        // considered and the result depends on what is installed here.
+        // The gamemoderun entry is inside `cloud`, so only the app-level key
+        // is considered, and the result depends on what is installed: whatever
+        // is reported must really be missing.
         for b in &broken {
             assert_eq!(b.app_id, "381210");
             assert!(crate::capabilities::which(&b.missing).is_none());
@@ -525,8 +524,7 @@ mod tests {
     #[test]
     fn the_public_entry_point_refuses_while_steam_is_running() {
         // The guard is on set_launch_options, not on the writer, so these tests
-        // do not depend on whether Steam happens to be open — which is exactly
-        // how they started failing the moment someone launched it.
+        // do not depend on whether Steam happens to be open.
         let path = write_temp("guard", VDF);
         if is_running() {
             let err = set_launch_options(&path, "381210", "mangohud %command%").unwrap_err();

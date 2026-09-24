@@ -7,11 +7,10 @@
 //! to be turned off for this game, and it changes nothing. Applying it is a
 //! separate, explicit step ([`super::transaction`]).
 //!
-//! Verdicts are earned: "Recommended" only for a combination that was shown
-//! to work on the reference machine or is the game's own feature; one
-//! upstream documents but nobody has checked here is "Compatible"; one that
-//! depends on spoofing or is reported but not established is
-//! "Experimental".
+//! Verdicts are earned: "Recommended" only for a combination verified to work
+//! or that is the game's own feature; one upstream documents but that has not
+//! been verified is "Compatible"; one that depends on spoofing or is reported
+//! but not established is "Experimental".
 //!
 //! Every sentence is a [`Text`]: a translatable template and its values.
 
@@ -32,9 +31,9 @@ use crate::hardware::GpuVendor;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Standing {
-    /// Shown to work here, or the game's own feature.
+    /// Verified to work, or the game's own feature.
     Recommended,
-    /// Documented upstream; not checked here.
+    /// Documented upstream; not verified.
     Compatible,
     /// Depends on spoofing or is not established.
     Experimental,

@@ -3,9 +3,9 @@
 //! The rule is: never two technologies doing the same job in series without a
 //! demonstrated reason. Two upscalers in a row scale an already-scaled image;
 //! two frame generators in a row interpolate interpolated frames. Each entry
-//! says what the verdict rests on — a test on the reference machine, an
-//! upstream statement, or the principle — and a pair nobody has established
-//! is `Unknown`, not a guess.
+//! says what the verdict rests on — a test on real hardware, an upstream
+//! statement, or the principle — and a pair nobody has established is
+//! `Unknown`, not a guess.
 
 use serde::Serialize;
 
@@ -90,7 +90,7 @@ pub enum Verdict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Basis {
-    /// Observed on the reference machine.
+    /// Observed in a test on real hardware.
     TestedHere,
     /// The project's own documentation or code.
     Upstream,

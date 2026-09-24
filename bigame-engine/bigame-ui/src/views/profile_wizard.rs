@@ -15,9 +15,8 @@ use bigame_core::profiles::GameProfile;
 
 const STEPS: usize = 9;
 
-// No per-game CPU governor step: falcond never reads one, so the choice
-// saved nothing that took effect. The power profile it does set follows
-// "performance mode" (step 2).
+// No per-game CPU governor step: falcond does not read one. The power
+// profile it does set follows "performance mode" (step 2).
 const STEP_IDS: &[&str; STEPS] = &[
     "game",      // 1 – executable name
     "perf",      // 2 – performance mode (turbo vs normal)
@@ -141,7 +140,7 @@ fn open_internal(
         Some("perf"),
     );
 
-    // Step 4 — Scheduler
+    // Step 3 — Scheduler
     let installed = bigame_core::sched::detect_installed();
     let sched_choices: Vec<&str> = {
         let mut v = vec![""];
@@ -178,7 +177,7 @@ fn open_internal(
         Some("sched"),
     );
 
-    // Step 5 — VCache Mode (AMD)
+    // Step 4 — VCache Mode (AMD)
     let vcache_available = bigame_core::vcache::is_available();
     let (vcache_group, vcache_off, _vcache_cache) = build_radio_group(&[
         (
@@ -217,7 +216,7 @@ fn open_internal(
         Some("vcache"),
     );
 
-    // Step 6 — Gamescope
+    // Step 5 — Gamescope
     let gs_switch = adw::SwitchRow::builder()
         .title(i18n("Enable Gamescope"))
         .subtitle(i18n("Wrap the game in a special display layer"))
@@ -286,7 +285,7 @@ fn open_internal(
         Some("gamescope"),
     );
 
-    // Step 7 — Frame Generation (LSFG-VK)
+    // Step 6 — Frame Generation (LSFG-VK)
     let fg_mult_adj = gtk4::Adjustment::new(1.0, 1.0, 4.0, 1.0, 1.0, 0.0);
     let fg_mult_row = adw::SpinRow::new(Some(&fg_mult_adj), 1.0, 0);
     fg_mult_row.set_title(&i18n("Multiplier (1-4x)"));
@@ -339,7 +338,6 @@ fn open_internal(
         Some("idle"),
     );
 
-    // Step 9 — Summary (populated just before showing)
     // Step 8 — AI Graphics (optional, nothing applied without a plan)
     let (ai_group, ai_recommended, ai_advanced) = build_radio_group(&[
         (
@@ -375,6 +373,7 @@ fn open_internal(
         bigame_core::graphics::config::Mode::Off,
     ));
 
+    // Step 9 — Summary (populated just before showing)
     let summary_box = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
     summary_box.set_margin_top(12);
     summary_box.set_margin_bottom(12);

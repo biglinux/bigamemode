@@ -2,8 +2,7 @@
 //!
 //! Turbo is the master switch: off means falcond does not run, so nothing
 //! intervenes in a game; on means it runs and applies profiles. The service
-//! is the switch because it is the only one that works — measured against
-//! falcond 2.0.2 on the lab VM:
+//! is the switch because it is the only one that works (falcond 2.0.2):
 //!
 //! * `systemctl stop` with a profile active restores that profile's snapshot
 //!   before exiting (falcond's `deinit` deactivates first). Off is a clean
@@ -189,11 +188,10 @@ pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Own
 
 /// Ask a running falcond to re-read its configuration and profiles.
 ///
-/// SIGHUP, which falcond handles as a reload. The previous helper used
-/// `systemctl reload-or-restart`, and falcond's unit has no `ExecReload`, so
-/// every profile save *restarted* it — tearing down the profile of a game that
-/// was running. A stopped falcond is left stopped: Turbo decides that, not a
-/// profile save.
+/// SIGHUP, which falcond handles as a reload. Not `systemctl
+/// reload-or-restart`: falcond's unit has no `ExecReload`, so that restarts it
+/// and tears down the profile of a game that is running. A stopped falcond is
+/// left stopped: Turbo decides that, not a profile save.
 pub async fn reload(connection: &zbus::Connection) {
     let running = state(connection)
         .await

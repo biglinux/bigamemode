@@ -3,7 +3,8 @@
 //! Every value carries where it came from ([`Evidence`]) and why. Nothing is
 //! chosen because of its name: a scheduler is not picked because the game is
 //! a shooter, and "performance" is not assumed to be faster because of what it
-//! is called — the one GPU setting named for speed measured 8 % slower here.
+//! is called: forcing the GPU DPM level to `high`, the one setting named for
+//! speed, measured 8 % slower on an RX 9060 XT.
 //!
 //! Sources, in the order they are consulted:
 //!
@@ -12,9 +13,9 @@
 //! 3. what falcond's own base profiles do,
 //! 4. what was measured on this machine.
 //!
-//! The profile contains **only falcond's fields**. Earlier profiles written by
-//! this project also carried BiGame-mode's frame-generation settings into
-//! falcond's directory, where falcond ignores them and nothing reads them back.
+//! The profile contains **only falcond's fields**: falcond ignores anything
+//! else, and BiGame-mode's own per-game settings live in
+//! [`crate::game_settings`].
 
 use std::fmt::Write as _;
 

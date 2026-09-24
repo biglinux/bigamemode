@@ -1,8 +1,8 @@
 //! Persistence for global video-enhancement settings (upscaling + frame generation).
 //!
 //! Stored as TOML in `$XDG_CONFIG_HOME/bigame-mode/video.toml`.
-//! These are system-wide defaults; per-game profile overrides will extend them in
-//! a later step.
+//! These are the global defaults; a game's profile overrides the Gamescope part
+//! (see `crate::launcher`).
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -39,10 +39,9 @@ pub fn load() -> VideoConfig {
 
 /// Load video config from a specific file.
 ///
-/// Exists so tests can supply their own path. Reaching for `XDG_CONFIG_HOME`
-/// instead would mean mutating a process-global variable while `cargo test`
-/// runs tests in parallel threads — which is what made the journal tests race
-/// and leak state into the real user profile.
+/// Exists so tests can supply their own path: `XDG_CONFIG_HOME` is
+/// process-global, and mutating it while `cargo test` runs tests in parallel
+/// threads races them and can write into the real user profile.
 #[must_use]
 pub fn load_from(path: &Path) -> VideoConfig {
     std::fs::read_to_string(path)
@@ -54,7 +53,7 @@ pub fn load_from(path: &Path) -> VideoConfig {
 /// Persist video config to `$XDG_CONFIG_HOME/bigame-mode/video.toml`.
 ///
 /// Also writes the corresponding systemd user environment.d snippet so the
-/// computed env vars (Wine FSR, vkBasalt, AFMF) reach game processes spawned
+/// computed env vars (Wine FSR, vkBasalt) reach game processes spawned
 /// outside our launcher (notably Steam-launched games).
 ///
 /// # Errors
@@ -170,9 +169,8 @@ mod tests {
     ///
     /// These tests deliberately do **not** touch `XDG_CONFIG_HOME`.
     /// Environment variables are process-global and `cargo test` runs tests in
-    /// parallel threads, so mutating one races every other test in the binary —
-    /// which is exactly how an earlier version of the journal tests leaked a
-    /// file into the real user profile (audit T-01).
+    /// parallel threads, so mutating one races every other test in the binary
+    /// and can leak files into the real user profile.
     fn temp_config(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "bigame_video_{tag}_{}_{:?}",

@@ -130,7 +130,7 @@ pub fn power_profiles_available() -> Vec<String> {
 /// Whether a well-known name currently has an owner on the system bus.
 ///
 /// Used to tell "the service is installed but not running" apart from "the
-/// feature does not exist here" — the distinction audit finding SCX-02 needed.
+/// feature does not exist here": the two have different fixes.
 #[must_use]
 pub fn system_service_running(name: &str) -> bool {
     let name = name.to_owned();

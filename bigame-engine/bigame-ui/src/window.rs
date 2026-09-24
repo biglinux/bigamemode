@@ -34,7 +34,7 @@ pub fn build(
     // ── View stack (content driven by sidebar) ───────────────────────
     let view_stack = adw::ViewStack::new();
 
-    // Home is the landing page and carries the single Booster control. The
+    // Home is the landing page and carries the single Turbo control. The
     // report page is rebuilt on demand, so it always reflects the latest run
     // rather than a stale snapshot of an earlier one.
     let report_holder: Rc<RefCell<Option<gtk4::Widget>>> = Rc::new(RefCell::new(None));
@@ -42,9 +42,9 @@ pub fn build(
     // A "Back to Home" button, shown only while the report is on screen.
     //
     // The report is not a sidebar destination — it has no row of its own — so
-    // without this it was possible to be looking at the report while the
-    // sidebar and the window title both still said "Home", with no obvious way
-    // out. Showing where you are, and how to leave, is the minimum.
+    // without this the sidebar and the window title would still say "Home"
+    // while it is shown, with no obvious way out. Showing where you are, and
+    // how to leave, is the minimum.
     let back_button = gtk4::Button::builder()
         .icon_name("go-previous-symbolic")
         .tooltip_text(i18n("Back to Home"))

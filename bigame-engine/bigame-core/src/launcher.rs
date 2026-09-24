@@ -67,9 +67,8 @@ impl LaunchPlan {
 
     /// Build a launch plan and evaluate policy against a logical game id.
     ///
-    /// `logical_game` should be the profile/process identifier representing the real game
-    /// (for example, Steam `installdir`). It can differ from `executable` (for example,
-    /// `executable="steam"` with `-applaunch`).
+    /// `logical_game` is the process name the game's profile is keyed on. It can differ
+    /// from `executable` (for example, `executable="steam"` with `-applaunch`).
     #[must_use]
     pub fn build_with_args_for_game(
         executable: &str,
@@ -98,18 +97,14 @@ impl LaunchPlan {
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
     ) -> Self {
-        // Audit LNCH-01: this used to return early unless power-profiles-daemon
-        // reported `performance`, silently dropping Gamescope, Wine FSR,
-        // vkBasalt and every frame-generation variable. A user who turned
-        // Booster off lost their upscaler with no visible cause.
-        //
-        // Presentation-layer settings are not a CPU power policy. The two are
-        // independent layers (docs/02-PERFORMANCE-AUTHORITY.md), so the gate is
-        // gone: what the user configured is what gets applied.
-        // Apply runtime harmony policy so enabled technologies do not conflict.
+        // Presentation-layer settings (Gamescope, Wine FSR, vkBasalt, frame
+        // generation) are not a CPU power policy and do not depend on the power
+        // profile: what the user configured is applied whatever Booster or
+        // Turbo are doing. The harmony policy keeps enabled technologies from
+        // conflicting.
         let mut effective_video = Self::apply_harmony_policy(logical_game, video);
-        // Harmony Policy 2.0: a game BiGame-mode installed OptiScaler into
-        // already upscales; Gamescope and Wine FSR would be second upscalers.
+        // A game BiGame-mode installed OptiScaler into already upscales;
+        // Gamescope and Wine FSR would be second upscalers.
         let disables =
             crate::graphics::launch_disables(&crate::graphics::state_dir(), logical_game);
         let gs_local = Self::apply_graphics_disables(
@@ -126,12 +121,9 @@ impl LaunchPlan {
         // around the Steam client, not around the game, so the plan is left
         // alone here on purpose.
         //
-        // That is not the whole answer, though. Audit LNCH-02: since Steam is
-        // how most people launch games, leaving it at "we skip this case" made
-        // the entire video pipeline inert in the common path. The mechanism
-        // Steam provides is per-game launch options, so
-        // [`LaunchPlan::as_steam_launch_options`] renders the same plan into
-        // the string Steam understands, and `crate::steam` writes it.
+        // Steam launches get the same settings through per-game launch
+        // options instead: [`LaunchPlan::as_steam_launch_options`] renders the
+        // plan into the string Steam understands, and `crate::steam` writes it.
         if Self::is_steam_applaunch_command(executable, executable_args) {
             tracing::info!(
                 game = logical_game,
@@ -286,9 +278,6 @@ impl LaunchPlan {
     /// execs the real binary as a grandchild — and without this, killing the
     /// returned handle kills only the wrapper and leaves the game running.
     ///
-    /// That is not hypothetical: launching `SuperTuxKart` through this pipeline
-    /// left `bin/supertuxkart` alive after the handle was killed and waited on.
-    ///
     /// # Errors
     /// Returns an error if the binary is not found or the process fails to
     /// start.
@@ -389,9 +378,9 @@ impl LaunchPlan {
             },
             // `UpscalingSettings::gamescope_filter` defaults to `Fsr` rather
             // than to "none", so it says nothing about whether the user wants
-            // upscaling — only which filter they would use if they did. Reading
-            // it unconditionally made the Auto decision believe every profile
-            // had requested FSR, and wrap every game.
+            // upscaling — only which filter they would use if they did. Read
+            // unconditionally, it would make every profile look as if it had
+            // requested FSR, and the Auto decision would wrap every game.
             //
             // It is therefore honoured only when the user has actually turned
             // Gamescope upscaling on; otherwise the per-game override decides.
@@ -405,9 +394,9 @@ impl LaunchPlan {
                 base.filter
             },
             // Same reasoning as the filter above: `UpscalingSettings` carries a
-            // sharpness even when Gamescope upscaling is off, and reading it
-            // unconditionally silently overrode whatever the per-game profile
-            // asked for. A profile requesting sharpness 4 was emitting 0.
+            // sharpness even when Gamescope upscaling is off, and read
+            // unconditionally it would override whatever the per-game profile
+            // asks for.
             sharpness: if upscaling.gamescope_enabled {
                 upscaling.clamped_sharpness()
             } else {
@@ -465,7 +454,7 @@ pub fn build_persistent_env(video: &crate::video_config::VideoConfig) -> HashMap
     env
 }
 
-/// Insert Wine FSR env vars if enabled.
+/// Insert the Wine FSR and vkBasalt variables for whichever is enabled.
 fn collect_upscaling_env(upscaling: &UpscalingSettings, env: &mut HashMap<String, String>) {
     if upscaling.wine_fsr_enabled {
         env.insert("WINE_FULLSCREEN_FSR".into(), "1".into());
@@ -541,7 +530,6 @@ mod tests {
         if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
             assert_eq!(plan.args[f_pos + 1], "fsr");
         }
-        // Separator before exe
         let sep_pos = plan.args.iter().position(|a| a == "--").unwrap();
         assert_eq!(plan.args[sep_pos + 1], "myapp");
     }
@@ -625,7 +613,8 @@ mod tests {
 
     #[test]
     fn an_old_afmf_or_optiscaler_setting_sets_nothing() {
-        // AFMF set RADV_PERFTEST=afmf, an option RADV does not have.
+        // A saved `afmf` backend still loads but sets nothing:
+        // `RADV_PERFTEST=afmf` is not an option RADV has.
         let video: VideoConfig = toml::from_str(
             "[frame_gen]\nenabled = true\nbackend = \"afmf\"\nafmf_experimental_enabled = true\n",
         )
@@ -709,8 +698,8 @@ mod tests {
     #[test]
     fn a_per_game_profile_keeps_its_own_filter_and_sharpness() {
         // The global UpscalingSettings carry a filter and a sharpness even
-        // when Gamescope upscaling is off. Reading them unconditionally
-        // overrode the profile: a profile asking for sharpness 4 emitted 0.
+        // when Gamescope upscaling is off; they must not override the
+        // profile's.
         let video = VideoConfig::default(); // gamescope_enabled = false
         let profile = gamescope::Config {
             filter: gamescope::Filter::Nis,

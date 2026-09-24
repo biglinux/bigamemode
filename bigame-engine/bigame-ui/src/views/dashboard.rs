@@ -53,9 +53,8 @@ pub fn build() -> adw::PreferencesPage {
     metrics_group.add(&metrics_vbox);
     page.add(&metrics_group);
 
-    // Performance status. Booster Mode itself lives on Home and is deliberately
-    // not duplicated here: two controls writing the same state is the class of
-    // conflict this project is trying to remove, not reproduce.
+    // Performance status. The Turbo control lives on Home and is deliberately
+    // not duplicated here: two controls writing the same state conflict.
     let booster_group = adw::PreferencesGroup::new();
     booster_group.set_title(&i18n("Performance"));
 
@@ -453,10 +452,9 @@ fn spawn_telemetry_poller(
         let mut prev_is_lsfg = false;
         let mut prev_runtime: Option<(bool, bool, bool, bool, bool)> = None;
         loop {
-            // Nothing is read while this page is not on screen -- including
-            // the one-per-second `ping`, which used to run for as long as
-            // the application did, game or no game. Game launch and exit
-            // notifications moved to the application-wide game watcher.
+            // Nothing is read while this page is not on screen, including the
+            // once-a-second `ping`. Game launch and exit notifications belong
+            // to the application-wide game watcher.
             if !ping_val.is_mapped() {
                 glib::timeout_future(POLL_INTERVAL).await;
                 continue;
@@ -581,9 +579,8 @@ fn spawn_telemetry_poller(
             .unwrap_or_else(|_| i18n("N/A"));
             power_row.set_subtitle(&pp_text);
 
-            // Turbo is falcond as systemd reports it, the same answer Home
-            // gives. This row used to read "performance power profile" as
-            // Turbo, and said Inactive while Turbo was on.
+            // Turbo is falcond as systemd reports it -- the same answer Home
+            // gives -- not the power profile.
             let turbo_enabled = matches!(
                 gio::spawn_blocking(bigame_core::turbo::state_blocking).await,
                 Ok(Ok(bigame_core::turbo::State::On))
@@ -759,14 +756,15 @@ fn read_gpu_temp() -> (String, &'static str) {
 
 /// Read aggregate disk sectors (read, written) from `/proc/diskstats`.
 ///
-/// Sums fields 3 (sectors read) and 7 (sectors written) across all block devices.
+/// Sums the kernel iostats fields 3 (sectors read) and 7 (sectors written)
+/// across all whole block devices.
 fn read_disk_sectors() -> Option<(u64, u64)> {
     let content = std::fs::read_to_string("/proc/diskstats").ok()?;
     let (mut read_total, mut write_total) = (0u64, 0u64);
     for line in content.lines() {
         let fields: Vec<&str> = line.split_whitespace().collect();
         // diskstats: major minor name rd_ios rd_merge rd_sectors ...
-        // Index 5 = sectors read, index 9 = sectors written
+        // After major, minor and name, those are whitespace columns 5 and 9.
         if fields.len() >= 10 {
             let dev = fields[2];
             // Skip partitions — only count whole devices (no trailing digit for sd*, no p\d for nvme)
@@ -846,7 +844,7 @@ fn read_ram_usage() -> String {
     format!("{used_mb} / {total_mb} MB")
 }
 
-/// Create a beautiful dashboard card with an embedded sparkline.
+/// A dashboard card with an embedded sparkline.
 fn make_dashboard_card(
     title: &str,
     icon: &str,
@@ -1029,8 +1027,8 @@ fn build_runtime_diagnostics_report() -> String {
 #[allow(clippy::fn_params_excessive_bools)]
 /// Update feature row + badge based on config, runtime and game state.
 ///
-/// Not on Turbo: the launcher applies presentation settings whether or not
-/// Turbo is on (audit LNCH-01), so "requires Turbo" was not true.
+/// Not gated on Turbo: the launcher applies presentation settings whether or
+/// not Turbo is on.
 fn apply_runtime_feature_status(
     row: &adw::ActionRow,
     badge: &gtk4::Label,
@@ -1325,10 +1323,8 @@ fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<(String, Ve
 ///
 /// Delegates entirely to `bigame_core::games`, which scans the install
 /// directory, filters store helpers and crash handlers, and ranks the rest by
-/// size. This view used to carry its own copy of that heuristic; keeping two
-/// implementations of "which binary is the game" meant they could disagree,
-/// and the one that decided what a profile was named is the one that has to be
-/// right.
+/// size. There is one implementation of "which binary is the game", because
+/// the one that names a profile has to be right.
 #[must_use]
 fn suggest_profile_program_name(game: &bigame_core::games::DetectedGame) -> String {
     game.profile_key().to_owned()
@@ -1446,8 +1442,8 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                     )
                     .spawn()
                     .map(|mut child| {
-                        // Reaped off the UI thread. Dropping the handle instead
-                        // left every exited Gamescope a zombie for the life of
+                        // Reaped off the UI thread: a dropped handle would
+                        // leave an exited Gamescope a zombie for the life of
                         // the UI, and a zombie still matches "is it running".
                         std::thread::spawn(move || {
                             let _ = child.wait();

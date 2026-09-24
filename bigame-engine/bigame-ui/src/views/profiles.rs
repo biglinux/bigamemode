@@ -1,7 +1,7 @@
 //! Profiles view: game profile list with navigation to detail/editor.
 //!
-//! Uses `bigame_core::profiles` for CRUD operations.
-//! Saves via pkexec to user profiles directory.
+//! Uses `bigame_core::profiles` for CRUD operations. Saves go through the
+//! privileged helper (D-Bus, Polkit) into falcond's user profile directory.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,10 +36,9 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         "Games found on this system, and the profiles that tune them.",
     )));
 
-    // A poster grid rather than a list. The reference design this follows is a
-    // library of cover art, and a library reads far faster as pictures than as
-    // rows of text — especially when most entries are titles the user
-    // recognises by their box art.
+    // A poster grid rather than a list: a library reads far faster as cover
+    // art than as rows of text, especially when most entries are titles the
+    // user recognises by their box art.
     let list_box = gtk4::FlowBox::builder()
         .selection_mode(gtk4::SelectionMode::None)
         .homogeneous(true)
@@ -76,8 +75,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
 
     // Filled whenever the list comes on screen: the first time the page is
     // shown, on return from a detail or create page, and after a profile was
-    // made elsewhere — from Home or the notification offer, which on the lab
-    // VM left the new profile missing here until the rescan button.
+    // made elsewhere (from Home or the notification offer).
     {
         let lb = list_box.clone();
         let nav_ref = nav_view.clone();
@@ -85,9 +83,8 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     }
 
     // Refreshing is driven by navigation and by the explicit button above,
-    // not by a timer. The previous two-second poll rebuilt every row forever,
-    // which with cover art would mean re-reading the whole library twice a
-    // second in a window the user may not even be looking at.
+    // not by a timer: with cover art, a poll would re-read the whole library
+    // in a window the user may not even be looking at.
     {
         let lb = list_box.clone();
         let nav_ref = nav_view.clone();
@@ -179,7 +176,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     }
 
     // AdwPreferencesPage clamps its content to form width, which is right for
-    // settings and wrong for a poster grid — it held the library to three
+    // settings and wrong for a poster grid — it holds the library to three
     // columns on a 1250 px window. The page keeps its structure and margins,
     // but the clamp is widened so the grid can use the space it has.
     if let Some(clamp) = find_clamp(page.upcast_ref::<gtk4::Widget>()) {
@@ -252,8 +249,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         .build();
     perf.add(&idle_inhibit);
 
-    // No per-game CPU governor: falcond has no such field, so the control
-    // this replaced saved a value that nothing ever applied.
+    // No per-game CPU governor: falcond has no such field.
     let installed = bigame_core::sched::detect_installed();
     let installed_refs: Vec<&str> = installed.iter().map(String::as_str).collect();
     let sched_model = gtk4::StringList::new(&installed_refs);
@@ -316,7 +312,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
 
     // When Gamescope runs: automatically, always, or never.
     //
-    // A plain on/off switch was the wrong shape. Some titles are worse inside
+    // A plain on/off switch is the wrong shape. Some titles are worse inside
     // Gamescope — overlay, input and HDR problems — and some simply do not
     // need it; wrapping a game that gains nothing adds a compositor, a copy and
     // a frame of latency for no benefit.
@@ -789,8 +785,8 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         let btn_ref = btn.clone();
         glib::spawn_future_local(async move {
             // Off the main thread: the call may wait on a Polkit password
-            // prompt, and the window must keep drawing meanwhile. And the
-            // result is reported -- it used to say "saved" whatever happened.
+            // prompt, and the window must keep drawing meanwhile. The result
+            // is reported, whichever it is.
             let result =
                 gio::spawn_blocking(move || bigame_core::profiles::save(&profile_clone)).await;
             match result {
@@ -880,9 +876,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
             let btn_ref = btn.clone();
             dialog.connect_response(None, move |_dlg, response| {
                 if response == "delete" {
-                    // Report what happened, not what was attempted. This used
-                    // to show "Profile deleted" and then drop the future that
-                    // would have done the deleting.
+                    // Report what happened, not what was attempted.
                     let n = name.clone();
                     btn_ref.set_sensitive(false);
                     let feedback = btn_ref.clone();
@@ -959,8 +953,7 @@ pub(crate) fn refresh_profile_list(list_box: &gtk4::FlowBox, nav: &adw::Navigati
             &entry,
             move |entry| {
                 // Existing profile opens for editing; a new one starts from the
-                // game's real process name, which is the whole fix for profiles
-                // that never matched anything.
+                // game's real process name, so falcond can match it.
                 if entry.has_profile {
                     nav_activate.push(&build_detail_page(&entry.key));
                 } else {
@@ -1040,10 +1033,8 @@ pub(crate) fn source_label(source: bigame_core::games::Source) -> String {
 /// Whether a profile name could plausibly be a process name.
 ///
 /// falcond matches `/proc/<pid>/comm`, so a profile named after a display title
-/// can never activate. This is exactly the damage the old game detection did on
-/// this machine: it wrote profiles called `Arc Raiders` and `Dead by Daylight`
-/// while the processes are `PioneerGame.exe` and
-/// `DeadByDaylight-Win64-Shipping.exe`.
+/// can never activate: `Arc Raiders` and `Dead by Daylight` run as
+/// `PioneerGame.exe` and `DeadByDaylight-Win64-Shipping.exe`.
 ///
 /// The check is deliberately conservative — a name containing a space and no
 /// file extension is the signature of a display title, and everything else is
@@ -1157,8 +1148,8 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     popover.set_parent(anchor);
     popover.insert_action_group("card", Some(&group));
     // `closed` is emitted before the chosen item's action is activated;
-    // unparenting right away detached the popover — and the "card" actions
-    // inserted on it — first, so no item in this menu did anything. Let the
+    // unparenting right away would detach the popover — and the "card"
+    // actions inserted on it — first, so no item would do anything. Let the
     // activation run, then unparent.
     popover.connect_closed(|p| {
         let p = p.clone();
@@ -1173,7 +1164,7 @@ mod tests {
 
     #[test]
     fn display_titles_are_flagged_as_unmatched_profiles() {
-        // The two profiles the old detection wrote on this bench.
+        // Display titles, not process names.
         assert!(!looks_like_a_process_name("Arc Raiders"));
         assert!(!looks_like_a_process_name("Dead by Daylight"));
     }

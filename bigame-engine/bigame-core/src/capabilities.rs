@@ -1,10 +1,9 @@
 //! Capability discovery — what this system can actually be asked to do.
 //!
 //! The rule this module exists to enforce: **never offer, and never plan, an
-//! optimization the machine cannot carry out.** Audit finding GS-01 (the project
-//! emitted a Gamescope flag removed three releases earlier) and SCX-02 (a
-//! scheduler picker on a machine with no `scx_loader`) were both the direct
-//! result of assuming instead of probing.
+//! optimization the machine cannot carry out.** Gamescope drops flags between
+//! releases and a scheduler picker is useless without `scx_loader`, so both are
+//! probed, never assumed.
 //!
 //! Probing is deliberately cheap — `--version` at most, never a benchmark — and
 //! results are meant to be cached by the caller for the life of a Booster run.
@@ -228,7 +227,7 @@ pub struct Capabilities {
     /// falcond currently running.
     pub falcond_running: bool,
     /// Feral `GameMode` present. Relevant because it and falcond contend for the
-    /// same knobs; see `docs/02-PERFORMANCE-AUTHORITY.md`.
+    /// same knobs, and two writers undo each other's changes.
     pub gamemode: bool,
     /// power-profiles-daemon reachable on the system bus.
     pub power_profiles: bool,
@@ -384,7 +383,7 @@ mod tests {
         assert_eq!(parse_version("no numbers here"), None);
     }
 
-    /// Trimmed from the real `gamescope 3.16.28 --help` on the bench.
+    /// Trimmed from real `gamescope 3.16.28 --help` output.
     const HELP: &str = "\
 usage: gamescope [options...] -- [command...]
 
@@ -434,8 +433,8 @@ Options:
             version: None,
             flags: GamescopeCaps::parse_help(HELP),
         };
-        // `--fsr` was removed from Gamescope; the old builder emitted it anyway
-        // and every launch failed. Capability detection is what stops that.
+        // `--fsr` no longer exists in Gamescope and a launch passing it fails,
+        // so it must not be reported as a flag.
         assert!(!caps.has_flag("fsr"));
         assert!(!caps.has_flag("nis"));
         assert!(!caps.has_flag("invented-flag"));
@@ -462,8 +461,8 @@ Options:
 
     #[test]
     fn sched_ext_is_not_switchable_without_a_loader() {
-        // Exactly the bench state: kernel support yes, 16 binaries installed,
-        // but org.scx.Loader is absent and scxctl is not installed.
+        // A common state: kernel support, 16 scheduler binaries installed, but
+        // no org.scx.Loader and no scxctl.
         let caps = SchedExtCaps {
             kernel_support: true,
             state: Some("disabled".into()),

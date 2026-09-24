@@ -1,16 +1,14 @@
 //! Gamescope configuration and command-line construction.
 //!
 //! There is exactly one argument builder in this project, and it is
-//! [`Config::to_args`]. The audit found two: this module emitted `--fsr`, a
-//! flag Gamescope removed years ago, while `launcher` independently built the
-//! correct `-F fsr`. Every launch through the first path failed with a parse
-//! error, because `--fsr` collides with the `--fsr-sharpness` prefix.
+//! [`Config::to_args`]. Gamescope no longer has `--fsr` (the filter is
+//! `-F fsr`), and because `--fsr` collides with the `--fsr-sharpness` prefix,
+//! passing it is a parse error that stops the launch.
 //!
-//! The lesson is baked into the signature: **the builder cannot be called
-//! without capabilities**. Flags are emitted only when the Gamescope binary
-//! actually on disk advertises them in `--help`, so a distribution patch, an
-//! old build or a future removal degrades to "that option is not applied"
-//! instead of "nothing launches".
+//! So **the builder cannot be called without capabilities**: flags are emitted
+//! only when the Gamescope binary actually on disk advertises them in `--help`,
+//! so a distribution patch, an old build or a future removal degrades to "that
+//! option is not applied" instead of "nothing launches".
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -59,11 +57,9 @@ impl Filter {
 
 /// How the game's frame rate should be limited, if at all.
 ///
-/// Gamescope offers two mechanisms with quite different meanings, and the audit
-/// found the project conflating them: it stored a field called
-/// `framerate_limit` and passed it to `-r`, which is `--nested-refresh` — the
-/// refresh rate of the nested display. That does cap frames in nested mode, but
-/// it is not the limiter, and the UI label promised something else.
+/// `-r` is `--nested-refresh`, the refresh rate of the nested display. It caps
+/// frames in nested mode, but it is not a frame limiter, so the variant is
+/// named for what it is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameLimit {
@@ -393,7 +389,7 @@ pub fn save_global(config: &Config) -> Result<()> {
 mod tests {
     use super::*;
 
-    /// The flag set of the real Gamescope 3.16.28 on the bench.
+    /// The flag set of a real Gamescope 3.16.28.
     fn modern() -> GamescopeCaps {
         GamescopeCaps {
             version: None,

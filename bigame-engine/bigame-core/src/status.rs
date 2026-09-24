@@ -209,7 +209,7 @@ mod tests {
         // falcond 2.0.14's documented status output.
         let newer = "FEATURES:\n  Performance Mode: Available\n  DMEM Cgroup: Available\n\nCONFIG:\n  Profile Mode: none\n";
         assert_eq!(parse(newer).dmem_cgroup, Some(true));
-        // The 2.0.2 installed on the reference machine has no such line.
+        // falcond 2.0.2 has no such line.
         let older =
             "FEATURES:\n  Performance Mode: Available\n\nCONFIG:\n  Profile Mode: handheld\n";
         assert_eq!(parse(older).dmem_cgroup, None);
@@ -307,7 +307,8 @@ CURRENT_STATUS:
 
     #[test]
     fn the_real_falcond_status_is_trusted_on_this_machine() {
-        // falcond is running here and owns /tmp/falcond_status as root.
+        // When falcond is running it owns /tmp/falcond_status as root, and
+        // that file must be trusted.
         let path = Path::new(STATUS_PATH);
         if path.exists() {
             assert!(

@@ -1,10 +1,9 @@
 //! Argument validation for the privileged helper.
 //!
 //! Everything here runs **inside** the root process, on the server side of the
-//! bus. That placement is the entire point: the previous helper relied on the
-//! GUI to reject dangerous input, which an attacker simply bypasses by talking
-//! to the bus directly. The audit's SEC-02 proof-of-concept turned the profile
-//! name `../../../../../etc/cron.d/pwn` into a root-owned file in `/etc/cron.d`.
+//! bus. That placement is the entire point: a check in the GUI is bypassed by
+//! talking to the bus directly, and an unchecked profile name such as
+//! `../../../../../etc/cron.d/pwn` becomes a root-owned file in `/etc/cron.d`.
 //!
 //! The approach throughout is allow-listing. Denying known-bad patterns invites
 //! an encoding that was not thought of; permitting only a known-good character
@@ -266,7 +265,7 @@ mod tests {
 
     #[test]
     fn rejects_the_exact_sec_02_payloads() {
-        // These are the strings the audit proved wrote into /etc as root.
+        // Traversal names that would write into /etc as root if accepted.
         for name in [
             "../../../../../etc/cron.d/pwn",
             "../../../../../etc/systemd/system/pwn.service",

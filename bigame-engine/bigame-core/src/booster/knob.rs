@@ -158,8 +158,9 @@ impl Knob {
     ///
     /// Returns `Ok(())` only when the write was *attempted successfully*. It
     /// does **not** mean the system now holds that value — that is what
-    /// [`Knob::verify`] is for, and the two are kept separate on purpose. Audit
-    /// finding BST-01 was exactly a write whose result nobody checked.
+    /// [`Knob::verify`] is for, and the two are kept separate on purpose: an
+    /// unchecked write is how a control reports success while the system stays
+    /// unchanged.
     ///
     /// # Errors
     /// Returns an error if the value is not accepted here, or if the write
@@ -356,8 +357,9 @@ mod tests {
 
     #[test]
     fn governor_knob_reflects_this_machine() {
-        // amd-pstate-epp on the bench offers exactly performance + powersave,
-        // so an `ondemand` plan must be rejected before it is ever attempted.
+        // Only values the driver lists are accepted (amd-pstate-epp offers just
+        // `performance` and `powersave`), so a plan for anything else is
+        // rejected before it reaches the helper.
         let allowed = Knob::CpuGovernor.allowed_values();
         if allowed.is_empty() {
             return; // no cpufreq on this host; nothing to assert

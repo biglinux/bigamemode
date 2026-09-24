@@ -33,10 +33,10 @@ struct Known {
     name: &'static str,
     /// Where its benchmark is reached from.
     ///
-    /// A plain string rather than an enum of entry points: every title found
-    /// here needs a person to start it, and inventing a `CommandLine` variant
-    /// nothing uses would be describing a capability this machine has not
-    /// actually got. When a title turns up that can be started unattended, the
+    /// A plain string rather than an enum of entry points: every title on this
+    /// list needs a person to start it, and inventing a `CommandLine` variant
+    /// nothing uses would describe a capability the engine does not have.
+    /// When a title turns up that can be started unattended, the
     /// distinction can be added along with it.
     reached_by: &'static str,
     /// A library the game needs and does not bundle, if one is known missing.
@@ -67,9 +67,8 @@ const KNOWN: &[Known] = &[
     Known {
         app_id: "391220",
         name: "Rise of the Tomb Raider",
-        // Installed here as the Windows build under Proton. It writes the
-        // same frametime format as Shadow, one file per scene -- seen in its
-        // prefix on the reference machine after a run on 2026-09-24.
+        // The Windows build under Proton. It writes the same frametime format
+        // as Shadow, one file per scene.
         reached_by: "Options → Graphics → Run Benchmark",
         missing_library: None,
         records_frames: true,
@@ -77,21 +76,13 @@ const KNOWN: &[Known] = &[
     Known {
         app_id: "203160",
         name: "Tomb Raider (2013)",
-        // The Feral port accepts -benchmark, but reaching it is not
-        // straightforward on a current system and was not achieved here.
-        //
-        // The native binary is 32-bit and bundles its dependencies in
-        // lib/i686, including the ICU libraries an earlier note wrongly
-        // recorded as missing. Launched inside the Steam scout runtime it gets
-        // as far as initialising -- but only with its own libcurl preloaded,
-        // because the runtime pins a libcurl lacking the CURL_OPENSSL_4
-        // version the binary needs. It then aborts with
-        // `basic_filebuf::underflow` reading some file, which was not
-        // identified.
-        //
-        // Separately, this Steam installation is configured to run the title
-        // through Proton (TombRaider.exe) rather than the native build, so the
-        // native path is not the one Steam would take anyway.
+        // The native Feral port accepts -benchmark but cannot be driven
+        // unattended. Its 32-bit binary bundles its dependencies in lib/i686
+        // and starts inside the Steam scout runtime only with its own libcurl
+        // preloaded (the runtime's libcurl lacks the CURL_OPENSSL_4 version it
+        // needs), then aborts in `basic_filebuf::underflow`. Steam can run the
+        // title through Proton (TombRaider.exe) instead, and then the native
+        // path is not the one it takes anyway.
         reached_by: "Options, through Steam, which runs it with Proton; the native \
              build's -benchmark mode does not start on current systems",
         missing_library: None,

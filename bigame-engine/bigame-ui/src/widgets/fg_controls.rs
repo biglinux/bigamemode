@@ -348,7 +348,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                         }
                     }
 
-                    // 1. Write to lsfg-vk TOML for real-time application
+                    // Write to lsfg-vk's TOML, which it hot-reloads.
                     if let Err(e) =
                         bigame_core::fg::write_profile(&name_str, mult, flow, perf, hdr, pres)
                     {
@@ -360,13 +360,11 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                     }
 
                     // Nothing is written to the falcond profile here. These
-                    // values are lsfg-vk's, and were just written to its own
-                    // configuration above, which is also where the sliders
-                    // read them back from. Mirroring them into falcond's
-                    // profile went through the privileged helper on every
-                    // slider move and reloaded falcond each time, dropping and
-                    // re-applying the running game's profile -- for fields
-                    // falcond does not read.
+                    // values are lsfg-vk's, written to its own configuration
+                    // above, which is also where the sliders read them back
+                    // from. falcond does not read them, and a profile save
+                    // goes through the privileged helper and reloads falcond,
+                    // dropping and re-applying the running game's profile.
                 }
             }
         });

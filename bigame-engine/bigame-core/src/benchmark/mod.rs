@@ -189,9 +189,8 @@ pub fn newest_capture_in(dir: &Path) -> Result<Option<PathBuf>> {
 
 /// Build a `MangoHud` configuration that logs `duration_s` seconds to `folder`.
 ///
-/// Two things here were established by trying them on `MangoHud` 0.8.4 rather
-/// than from documentation, and both silently produce **no log at all** when
-/// wrong:
+/// Two `MangoHud` 0.8.4 behaviours, neither documented, silently produce **no
+/// log at all** when wrong:
 ///
 /// * The settings must reach `MangoHud` through `MANGOHUD_CONFIGFILE`.
 ///   `MANGOHUD_CONFIG` with the same keys did not produce a log.
@@ -203,9 +202,8 @@ pub fn newest_capture_in(dir: &Path) -> Result<Option<PathBuf>> {
 /// than it looks: a game that spends ten seconds at a menu and loading screen
 /// will otherwise have that time inside the capture window, and since the
 /// window is a fixed length, each run captures a different mix of menu and
-/// gameplay. A real `SuperTuxKart` measurement here produced 3871 frames in one
-/// run and 1541 in the next for exactly that reason, which is noise no
-/// statistic can rescue.
+/// gameplay (a `SuperTuxKart` run can vary between 1541 and 3871 frames that
+/// way), which is noise no statistic can rescue.
 #[must_use]
 pub fn mangohud_config(folder: &Path, duration_s: u32, start_delay_s: u32) -> String {
     format!(
@@ -435,10 +433,10 @@ const METRICS: &[Metric] = &[
 ///
 /// **Each metric gets its own noise floor**, measured from the spread of that
 /// same metric across the baseline runs. A single shared floor is wrong when
-/// the metrics differ in stability, and on a real game they differ a lot: a
-/// `SuperTuxKart` run here held 1% low to within 0.4% across runs while average
-/// FPS varied by 150%, because the capture window landed on different parts of
-/// the race. Applying the 1% low's floor to average FPS turned that variance
+/// the metrics differ in stability, and on a real game they differ a lot: in a
+/// `SuperTuxKart` race 1% low can hold within 0.4% across runs while average
+/// FPS varies by 150%, because the capture window lands on different parts of
+/// the race. Applying the 1% low's floor to average FPS turns that variance
 /// into a confident "worse".
 ///
 /// `baseline_runs` must contain at least two runs of the *same* configuration;
@@ -488,8 +486,8 @@ mod tests {
     use super::*;
     use crate::booster::report::Outcome;
 
-    /// Trimmed from a real `MangoHud` 0.8.4 capture on the reference machine —
-    /// `mangohud vkcube`, RX 9060 XT, 6 seconds, 959 frames.
+    /// Trimmed from a real `MangoHud` 0.8.4 capture: `mangohud vkcube`, RX 9060
+    /// XT, 6 seconds, 959 frames.
     const REAL_CSV: &str = "\
 os,cpu,gpu,ram,kernel,driver,cpuscheduler
 BigLinux based on Manjaro Linux,AMD Ryzen 7 5700G with Radeon Graphics,AMD Radeon RX 9060 XT (RADV GFX1200),48677468,7.2.6-x64v3-xanmod1-1,,performance
@@ -748,10 +746,9 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
 
     #[test]
     fn each_metric_is_judged_against_its_own_noise() {
-        // The real case this was written for: a game whose 1% low was steady
-        // across runs while average FPS swung wildly, because the capture
-        // window landed on different parts of the race. A single shared floor
-        // reported the swing as a regression.
+        // A game whose 1% low is steady across runs while average FPS swings
+        // wildly, because the capture window lands on different parts of the
+        // race. A single shared floor would report the swing as a regression.
         let steady_low_noisy_avg = |base_ms: f64, frames: usize| {
             // Same worst-case frametimes, very different frame counts, so
             // 1% low matches while average FPS does not.

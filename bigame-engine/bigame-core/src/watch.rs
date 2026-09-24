@@ -1,14 +1,10 @@
 //! Filesystem change notification.
 //!
-//! Audit finding DBUS-01: the falcond status service re-read
-//! `/tmp/falcond_status` every 500 ms for the entire life of the process and
-//! diffed the whole string — two wakeups a second, forever, in an application
-//! whose stated purpose is to stay out of a game's way.
-//!
-//! falcond does not own a D-Bus name to subscribe to, so the file really is the
-//! only channel. But watching a file and polling it are different things:
-//! `inotify` blocks until the kernel has something to say, which costs nothing
-//! while nothing is happening.
+//! falcond does not own a D-Bus name to subscribe to, so its status file is the
+//! only channel — and it is watched, never polled: an application whose purpose
+//! is to stay out of a game's way must not wake up on a timer. `inotify` blocks
+//! until the kernel has something to say, which costs nothing while nothing is
+//! happening.
 //!
 //! The watch is on the **parent directory**, not the file. falcond rewrites its
 //! status by creating a new file and renaming it into place, which replaces the

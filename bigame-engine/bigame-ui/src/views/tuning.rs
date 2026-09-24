@@ -1,7 +1,7 @@
-//! Tuning view: scheduler, governor, compositor, and device settings.
+//! Tuning view: scheduler, governor, V-Cache and device settings.
 //!
-//! Controls are wired to falcond config via `bigame_core::config`.
-//! Changes trigger pkexec write + SIGHUP reload.
+//! Controls are wired to falcond config via `bigame_core::config`. Changes are
+//! written through the privileged helper, which reloads falcond.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -47,10 +47,10 @@ pub fn build() -> adw::PreferencesPage {
 
 /// Options an ordinary user should never need, kept out of the way.
 ///
-/// Collapsed by default and deliberately last. The brief's shape is that a
-/// beginner presses Booster Mode and plays; everything here exists for the
-/// person who already knows what a scheduler flag is, and putting it in front
-/// of everyone else only makes the page harder to read.
+/// Collapsed by default and deliberately last: a beginner presses Turbo and
+/// plays, everything here exists for the person who already knows what a
+/// scheduler flag is, and putting it in front of everyone else only makes the
+/// page harder to read.
 ///
 /// Nothing here is a hidden setting — each row states what it writes and where.
 // One group, built top to bottom; splitting it would scatter the rows.
@@ -179,7 +179,7 @@ fn build_advanced_group(
     group
 }
 
-/// Write the shared config to disk via pkexec (background thread).
+/// Write the shared config through the privileged helper, on a background thread.
 fn save_config(shared: &SharedConfig) {
     let cfg = shared.borrow().clone();
     glib::spawn_future_local(async move {

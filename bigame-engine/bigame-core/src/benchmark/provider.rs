@@ -64,7 +64,7 @@ pub trait BenchmarkProvider: Send + Sync {
 
 /// `SuperTuxKart`'s built-in benchmark.
 ///
-/// The best automated workload found on this machine, for four reasons: it
+/// The best automated workload available, for four reasons: it
 /// replays a recorded lap rather than simulating one, so every run renders the
 /// same frames; it exits by itself; it writes a per-frame CSV; and it is free
 /// software, so a result can be reproduced by anyone.
@@ -213,7 +213,7 @@ impl BenchmarkProvider for SuperTuxKart {
 /// Unigine Superposition, the synthetic GPU benchmark.
 ///
 /// A real GPU workload over a real scene, which makes it far better evidence
-/// than any spinning-cube loop. Two things limit it here.
+/// than any spinning-cube loop. Two things limit it.
 ///
 /// **It is started by hand.** The `superposition_cli` binary ships with the
 /// free edition but does nothing: it returns success without running anything,

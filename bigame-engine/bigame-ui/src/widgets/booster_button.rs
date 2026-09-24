@@ -1,10 +1,9 @@
 //! The Turbo Mode control.
 //!
-//! This replaces an `AdwSwitchRow` whose entire implementation was one
-//! discarded D-Bus call. A switch is the wrong affordance for this: it implies
-//! a setting that is simply on or off, when what actually happens is a
-//! multi-step operation that can succeed, partly succeed, or fail, and that
-//! takes long enough to need feedback while it runs.
+//! A switch is the wrong affordance for this: it implies a setting that is
+//! simply on or off, when what actually happens is a multi-step operation that
+//! can succeed, partly succeed, or fail, and that takes long enough to need
+//! feedback while it runs.
 //!
 //! So it is a large button with an explicit state machine. Every state
 //! corresponds to something the engine is really doing — there is no timed

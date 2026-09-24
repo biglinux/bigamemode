@@ -7,8 +7,8 @@
 //! was not measured — so [`Outcome::NotMeasured`] is a first-class value here,
 //! not an error state.
 //!
-//! Audit finding BST-01 was a switch that turned green on a D-Bus call whose
-//! return value was discarded. Everything below exists so that cannot recur.
+//! A switch must not turn green because a D-Bus call was sent; everything
+//! below makes success mean "written and read back".
 
 use serde::{Deserialize, Serialize};
 
@@ -244,7 +244,7 @@ mod tests {
             },
             ..ok_change(Knob::PowerProfile)
         };
-        // The old Booster called this a win. It is not.
+        // An accepted write whose read-back disagrees is not a success.
         assert!(!mismatched.succeeded());
         assert_eq!(mismatched.error, None, "the write itself did succeed");
     }

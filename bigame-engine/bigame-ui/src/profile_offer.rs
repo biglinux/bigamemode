@@ -83,8 +83,8 @@ fn should_offer(game: &GameIdentity) -> bool {
         return false;
     }
     // A process that has only just started may be a helper that runs before
-    // the game -- Steam's installer script did exactly that -- so the offer
-    // waits until the process has lived a while.
+    // the game (Steam's installer script does), so the offer waits until the
+    // process has lived a while.
     if bigame_core::running::running_for(game.pid).is_none_or(|secs| secs < SETTLE_SECS) {
         return false;
     }

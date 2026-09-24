@@ -4,16 +4,13 @@
 Why this exists rather than plain xgettext: xgettext has no Rust mode. Run
 against Rust with `--language=C` it reads lifetimes (`&'a str`) as unterminated
 character constants and bails; with `--language=Python` it mis-parses byte and
-raw strings. A previous attempt to work around that produced a template
-containing 34 strings, 36 of whose source references pointed into
-`src/cargo-home/registry/` — the catalogues were carrying strings from the
-gettext-rs crate itself and almost none of the application's own.
+raw strings, and pointed at the build tree it also collects the strings of
+vendored crates under `src/cargo-home/registry/` (gettext-rs among them).
 
 The application funnels every translatable string through `i18n` (and
 `ni18n` for counts), so a focused extractor is both simpler and more accurate
-than a general one. It
-understands the Rust string literals actually used here: normal literals with
-escapes, and raw literals (`r"…"`, `r#"…"#`).
+than a general one. It understands the Rust string literals actually used
+here: normal literals with escapes, and raw literals (`r"…"`, `r#"…"#`).
 
 Usage:
     locale/extract-strings.py                 # write locale/bigame-mode.pot

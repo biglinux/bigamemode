@@ -1,11 +1,8 @@
 //! BiGame-mode privileged helper.
 //!
 //! A small root service on the system bus that performs the handful of writes
-//! the unprivileged UI cannot. Its design follows from the audit of its
-//! predecessor, which had no authorization, no argument validation, and a path
-//! traversal that turned any local uid into root.
-//!
-//! Three rules govern everything here:
+//! the unprivileged UI cannot. Any local process can reach it, so three rules
+//! govern everything here:
 //!
 //! 1. **Authorize first.** Every method calls [`polkit::check`] before doing
 //!    anything, and a failure to reach Polkit is a denial, not a bypass.
@@ -138,7 +135,7 @@ impl BiGameDaemon {
             std::fs::create_dir_all(parent)
                 .map_err(|e| failed(&format!("create {}: {e}", parent.display())))?;
         }
-        // falcond reads `enable_performance_mode` only at start-up (measured on
+        // falcond reads `enable_performance_mode` only at start-up (falcond
         // 2.0.2: a reload keeps the power-profiles connection it has), so a
         // change to it needs a restart. Everything else it re-reads on SIGHUP.
         let startup_flag = |text: &str| {

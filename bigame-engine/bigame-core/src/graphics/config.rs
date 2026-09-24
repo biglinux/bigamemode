@@ -104,8 +104,9 @@ pub enum Hdr {
     /// None.
     #[default]
     Off,
-    /// A `RenoDX` mod for this game, when one exists — reported, installed by
-    /// the user (see the license audit).
+    /// A `RenoDX` mod for this game, when one exists — reported, never
+    /// installed: it needs a `ReShade` add-on build, and `ReShade` binaries are
+    /// distributed only by its own site, so they are not fetched.
     RenoDx,
 }
 

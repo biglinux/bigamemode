@@ -6,8 +6,8 @@
 //! workload, and silently launching a game because someone pressed a button
 //! would be worse than not measuring at all.
 //!
-//! The method follows what [`docs/09-BENCHMARKS.md`] specifies, and each rule
-//! exists because skipping it produces a confident wrong answer:
+//! The method has four rules, and each exists because skipping it produces a
+//! confident wrong answer:
 //!
 //! * **Alternate the arms** (A-B-A-B, not AA-BB) so a machine warming up over
 //!   the session does not hand all its drift to whichever arm ran last.
@@ -159,10 +159,10 @@ fn record_run(
     //
     // The environment variable only enables MangoHud's *Vulkan* implicit
     // layer. Plenty of games are OpenGL — SuperTuxKart among them — and for
-    // those the wrapper's LD_PRELOAD is what attaches the overlay. Setting the
-    // variable alone produced no capture at all and, because the failure is an
-    // empty directory rather than an error, it looked like the game had simply
-    // rendered nothing.
+    // those the wrapper's LD_PRELOAD is what attaches the overlay. The
+    // variable alone yields no capture, and because the failure is an empty
+    // directory rather than an error, it looks as if the game rendered
+    // nothing.
     let mut wrapped: Vec<String> = Vec::new();
     if crate::capabilities::which("mangohud").is_some() {
         wrapped.push("mangohud".to_owned());

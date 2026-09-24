@@ -5,12 +5,9 @@
 //! Turbo ON  = BiGame-mode may detect games and apply optimizations.
 //! ```
 //!
-//! Before this module, Turbo ran the Booster planner and nothing else, while
-//! falcond — a separate, always-on service — applied a profile to every game
-//! whatever Turbo said. On the reference machine the Booster plan was empty,
-//! so the product's headline control did nothing (docs/14-TURBO-AUDIT.md).
-//!
-//! Now Turbo owns the whole flow, in a fixed order:
+//! falcond is a separate service that applies a profile to every game it
+//! matches, whatever else is set, so Turbo switches falcond itself, not only
+//! the Booster plan. It owns the whole flow, in a fixed order:
 //!
 //! ```text
 //! ON:  conflicts noted → falcond profile set corrected → falcond enabled and

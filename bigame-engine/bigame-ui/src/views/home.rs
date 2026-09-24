@@ -308,8 +308,8 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let game = game.clone();
         let root = scroll.clone();
         // Probed once: the CPU model and render GPU do not change while the
-        // application runs, and re-probing every tick was a full hardware
-        // scan to update three numbers.
+        // application runs, and re-probing every tick would be a full
+        // hardware scan to update three numbers.
         let hw = Rc::new(Hardware::detect());
         status.set_label(&summary_line_machine(&hw));
         let tick = Cell::new(0u32);

@@ -67,7 +67,7 @@ pub fn run() -> adw::glib::ExitCode {
     let args: Vec<String> = args.into_iter().filter(|a| a != "--background").collect();
 
     // The name notifications and the desktop show; left unset, GLib uses the
-    // program name, and the profile offer arrived signed "bigame-ui".
+    // program name and notifications are signed "bigame-ui".
     adw::glib::set_application_name("BiGame-mode");
     let app = adw::Application::builder().application_id(APP_ID).build();
 
@@ -97,12 +97,10 @@ pub fn run() -> adw::glib::ExitCode {
             }
         });
 
-        // Quit action for explicit exit
         let quit = adw::gio::ActionEntry::builder("quit")
             .activate(|app: &adw::Application, _, _| app.quit())
             .build();
 
-        // About dialog action
         let about = adw::gio::ActionEntry::builder("about")
             .activate(|app: &adw::Application, _, _| {
                 show_about_dialog(app);
@@ -111,7 +109,6 @@ pub fn run() -> adw::glib::ExitCode {
 
         app.add_action_entries([quit, about]);
 
-        // Keyboard shortcuts
         app.set_accels_for_action("app.quit", &["<Control>q"]);
 
         // Which game is running, for Home and the first-run profile offer.
@@ -162,9 +159,7 @@ fn start_status_loop(
     // Every ten seconds, on one cached bus connection. A stopped
     // falcond is not an error: it is what Turbo off means. Only a
     // unit systemd reports as failed is, and nothing offered here
-    // deletes anything -- the "Repair & Enable" action this replaces
-    // ran `rm -f` over every user profile through `sh -c`, and would
-    // have been offered on every Turbo off.
+    // deletes anything.
     let systemd = bigame_core::systemd::Reader::system();
     glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
         let unit = systemd
