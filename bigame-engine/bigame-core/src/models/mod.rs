@@ -42,7 +42,7 @@ impl UpscalingSettings {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GamescopeFilter {
-    /// AMD FidelityFX Super Resolution 1.0.
+    /// AMD `FidelityFX` Super Resolution 1.0.
     #[default]
     Fsr,
     /// NVIDIA Image Scaling.
@@ -63,6 +63,10 @@ pub enum WineFsrMode {
 }
 
 /// Artificial frame generation settings and integration mode.
+///
+/// The booleans are independent feature toggles rather than a state machine;
+/// grouping them would add nesting without removing a decision.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FrameGenSettings {
@@ -70,17 +74,17 @@ pub struct FrameGenSettings {
     pub enabled: bool,
     /// Backend/technology used for frame generation.
     pub backend: FrameGenBackend,
-    /// Desired frame generation mode (FSR3, XeSS, etc.).
+    /// Desired frame generation mode (FSR3, `XeSS`, etc.).
     pub mode: FrameGenMode,
     /// Shows frame generation on-screen status indicator.
     pub osd_enabled: bool,
-    /// Enables OptiScaler file staging into game prefix.
+    /// Enables `OptiScaler` file staging into game prefix.
     pub optiscaler_enabled: bool,
-    /// Optional source directory containing OptiScaler DLL payload.
+    /// Optional source directory containing `OptiScaler` DLL payload.
     pub optiscaler_source_dir: Option<String>,
     /// Enable experimental AFMF variables for advanced users.
     pub afmf_experimental_enabled: bool,
-    /// Optional custom AFMF environment override (e.g. RADV_PERFTEST=afmf).
+    /// Optional custom AFMF environment override (e.g. `RADV_PERFTEST=afmf`).
     pub afmf_env_override: Option<String>,
 }
 
@@ -91,7 +95,7 @@ pub enum FrameGenBackend {
     /// No external frame generation backend selected.
     #[default]
     None,
-    /// OptiScaler + dlssg-to-fsr3 path.
+    /// `OptiScaler` + dlssg-to-fsr3 path.
     OptiScaler,
     /// AMD Fluid Motion Frames path.
     Afmf,

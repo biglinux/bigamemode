@@ -19,6 +19,11 @@ use crate::widgets;
 ///
 /// On narrow screens the split view collapses to show one pane at a time.
 #[allow(clippy::too_many_lines)]
+// The error indicator is shared with the application's status timer, which
+// runs on the GTK main loop. `Arc` rather than `Rc` because the tuple crosses
+// an API boundary; GTK widgets are not `Send`, so this never leaves the main
+// thread in practice.
+#[allow(clippy::arc_with_non_send_sync)]
 pub fn build(
     app: &adw::Application,
 ) -> (
@@ -28,6 +33,49 @@ pub fn build(
     let error_indicator = Arc::new(crate::widgets::error_indicator::ErrorIndicator::new());
     // ── View stack (content driven by sidebar) ───────────────────────
     let view_stack = adw::ViewStack::new();
+
+    // Home is the landing page and carries the single Booster control. The
+    // report page is rebuilt on demand, so it always reflects the latest run
+    // rather than a stale snapshot of an earlier one.
+    let report_holder: Rc<RefCell<Option<gtk4::Widget>>> = Rc::new(RefCell::new(None));
+    let page_title = adw::WindowTitle::new(&i18n("Home"), "");
+    // A "Back to Home" button, shown only while the report is on screen.
+    //
+    // The report is not a sidebar destination — it has no row of its own — so
+    // without this it was possible to be looking at the report while the
+    // sidebar and the window title both still said "Home", with no obvious way
+    // out. Showing where you are, and how to leave, is the minimum.
+    let back_button = gtk4::Button::builder()
+        .icon_name("go-previous-symbolic")
+        .tooltip_text(i18n("Back to Home"))
+        .visible(false)
+        .build();
+    back_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Back to Home"))]);
+
+    let show_report: Rc<dyn Fn(&bigame_core::booster::report::Report)> = {
+        let stack = view_stack.clone();
+        let holder = Rc::clone(&report_holder);
+        let title = page_title.clone();
+        let back = back_button.clone();
+        Rc::new(move |report| {
+            if let Some(old) = holder.borrow_mut().take() {
+                stack.remove(&old);
+            }
+            let page = views::report::build(report);
+            stack.add_named(&page, Some("report"));
+            *holder.borrow_mut() = Some(page);
+            stack.set_visible_child_name("report");
+            title.set_title(&i18n("Optimization Report"));
+            back.set_visible(true);
+        })
+    };
+    {
+        let stack = view_stack.clone();
+        back_button.connect_clicked(move |_| stack.set_visible_child_name("home"));
+    }
+
+    let home = views::home::build(Rc::clone(&show_report));
+    view_stack.add_named(&home, Some("home"));
 
     let dashboard = views::dashboard::build();
     view_stack.add_named(&dashboard, Some("dashboard"));
@@ -42,6 +90,12 @@ pub fn build(
     let video_view = views::video::build();
     view_stack.add_named(&video_view, Some("video"));
 
+    let benchmark = views::benchmark::build();
+    view_stack.add_named(&benchmark, Some("benchmark"));
+
+    let diagnostics = views::diagnostics::build();
+    view_stack.add_named(&diagnostics, Some("diagnostics"));
+
     let logs = views::logs::build();
     view_stack.add_named(&logs, Some("logs"));
 
@@ -49,9 +103,9 @@ pub fn build(
     view_stack.add_named(&settings_view, Some("settings"));
 
     // ── Content: header + view stack wrapped in toast overlay ────────
-    let page_title = adw::WindowTitle::new(&i18n("Dashboard"), "");
     let content_header = adw::HeaderBar::new();
     content_header.set_title_widget(Some(&page_title));
+    content_header.pack_start(&back_button);
 
     let toast_overlay = adw::ToastOverlay::new();
     toast_overlay.set_child(Some(&view_stack));
@@ -67,10 +121,21 @@ pub fn build(
 
     // ── Sidebar: nav list (icon + label rows) ─────────────────────────
     let nav_items = [
-        ("dashboard", i18n("Dashboard"), "speedometer-symbolic"),
+        ("home", i18n("Home"), "go-home-symbolic"),
+        ("dashboard", i18n("Details"), "speedometer-symbolic"),
         ("profiles", i18n("Profiles"), "applications-games-symbolic"),
         ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
         ("video", i18n("Video"), "video-display-symbolic"),
+        (
+            "benchmark",
+            i18n("Benchmark"),
+            "org.gnome.Settings-performance-symbolic",
+        ),
+        (
+            "diagnostics",
+            i18n("Diagnostics"),
+            "dialog-question-symbolic",
+        ),
         ("logs", i18n("Logs"), "utilities-terminal-symbolic"),
         ("settings", i18n("Settings"), "emblem-system-symbolic"),
     ];
@@ -153,6 +218,8 @@ pub fn build(
     // ── Restore last active tab ───────────────────────────────────────
     {
         let tab = saved.last_tab.clone();
+        // "report" is rebuilt per run and does not exist at startup.
+        let tab = if tab == "report" { String::new() } else { tab };
         if !tab.is_empty() {
             view_stack.set_visible_child_name(&tab);
             let mut idx = 0i32;
@@ -172,12 +239,39 @@ pub fn build(
     // ── Persist active tab on switch ──────────────────────────────────
     {
         let stack = view_stack.clone();
+        let back = back_button.clone();
+        let title = page_title.clone();
+        let list = sidebar_list.clone();
         view_stack.connect_visible_child_name_notify(move |_| {
-            if let Some(name) = stack.visible_child_name() {
-                let mut s = settings::load();
-                s.last_tab = name.to_string();
-                settings::save(&s);
+            let Some(name) = stack.visible_child_name() else {
+                return;
+            };
+            let name = name.to_string();
+
+            // Leaving the report by any route — the back button, the sidebar,
+            // a keyboard shortcut — must put the header back.
+            if name != "report" {
+                back.set_visible(false);
+                let mut idx = 0i32;
+                while let Some(row) = list.row_at_index(idx) {
+                    if row.widget_name() == name.as_str() {
+                        if let Some(ar) = row.downcast_ref::<adw::ActionRow>() {
+                            title.set_title(&ar.title());
+                        }
+                        break;
+                    }
+                    idx += 1;
+                }
             }
+
+            // The report is rebuilt per run and does not exist at startup, so
+            // remembering it as the last tab would restore an empty page.
+            if name == "report" {
+                return;
+            }
+            let mut s = settings::load();
+            s.last_tab = name;
+            settings::save(&s);
         });
     }
 

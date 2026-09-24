@@ -5,7 +5,8 @@
 //! a later step.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -23,21 +24,31 @@ pub struct VideoConfig {
 }
 
 fn config_path() -> PathBuf {
-    let base = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".config")
-        },
+    config_dir().join("bigame-mode").join("video.toml")
+}
+
+fn config_dir() -> PathBuf {
+    std::env::var("XDG_CONFIG_HOME").map_or_else(
+        |_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".config"),
         PathBuf::from,
-    );
-    base.join("bigame-mode").join("video.toml")
+    )
 }
 
 /// Load video config from disk. Returns defaults on any error (missing file, parse fail).
 #[must_use]
 pub fn load() -> VideoConfig {
-    let path = config_path();
-    std::fs::read_to_string(&path)
+    load_from(&config_path())
+}
+
+/// Load video config from a specific file.
+///
+/// Exists so tests can supply their own path. Reaching for `XDG_CONFIG_HOME`
+/// instead would mean mutating a process-global variable while `cargo test`
+/// runs tests in parallel threads — which is what made the journal tests race
+/// and leak state into the real user profile.
+#[must_use]
+pub fn load_from(path: &Path) -> VideoConfig {
+    std::fs::read_to_string(path)
         .ok()
         .and_then(|s| toml::from_str(&s).ok())
         .unwrap_or_default()
@@ -52,15 +63,7 @@ pub fn load() -> VideoConfig {
 /// # Errors
 /// Returns error if directory creation or file write fails.
 pub fn save(cfg: &VideoConfig) -> Result<()> {
-    let path = config_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("create config dir: {}", parent.display()))?;
-    }
-    let content = toml::to_string_pretty(cfg).context("serialize video config")?;
-    std::fs::write(&path, content)
-        .with_context(|| format!("write video config: {}", path.display()))?;
-
+    save_to(cfg, &config_path())?;
     // Best-effort: keep environment.d in sync. Failure here must not block save.
     if let Err(e) = write_env_file(cfg) {
         tracing::warn!(error = %e, "failed to update environment.d snippet");
@@ -68,12 +71,24 @@ pub fn save(cfg: &VideoConfig) -> Result<()> {
     Ok(())
 }
 
+/// Persist video config to a specific file, without touching `environment.d`.
+///
+/// # Errors
+/// Returns an error if directory creation or file write fails.
+pub fn save_to(cfg: &VideoConfig, path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create config dir: {}", parent.display()))?;
+    }
+    let content = toml::to_string_pretty(cfg).context("serialize video config")?;
+    std::fs::write(path, content)
+        .with_context(|| format!("write video config: {}", path.display()))?;
+    Ok(())
+}
+
 fn env_file_path() -> PathBuf {
     let base = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".config")
-        },
+        |_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".config"),
         PathBuf::from,
     );
     base.join("environment.d").join("bigame-mode.conf")
@@ -109,7 +124,7 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
     let mut content = String::from("# Managed by BiGameMode. Do not edit manually.\n");
     for k in keys {
         // environment.d is KEY=VALUE per line, no quoting required for our values.
-        content.push_str(&format!("{}={}\n", k, env[k]));
+        let _ = writeln!(content, "{}={}", k, env[k]);
     }
     std::fs::write(&path, content)
         .with_context(|| format!("write env file: {}", path.display()))?;
@@ -156,28 +171,51 @@ mod tests {
         assert_eq!(cfg.frame_gen.backend, FrameGenBackend::None);
     }
 
+    /// A private config path per test.
+    ///
+    /// These tests deliberately do **not** touch `XDG_CONFIG_HOME`.
+    /// Environment variables are process-global and `cargo test` runs tests in
+    /// parallel threads, so mutating one races every other test in the binary —
+    /// which is exactly how an earlier version of the journal tests leaked a
+    /// file into the real user profile (audit T-01).
+    fn temp_config(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "bigame_video_{tag}_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("video.toml")
+    }
+
     #[test]
     fn test_video_config_save_load_round_trip() {
-        let tmp = std::env::temp_dir()
-            .join(format!("bigame_video_test_{}", std::process::id()));
-        std::fs::create_dir_all(&tmp).unwrap();
-        // SAFETY: single-threaded test, no other threads read XDG_CONFIG_HOME
-        unsafe { std::env::set_var("XDG_CONFIG_HOME", &tmp) };
+        let path = temp_config("roundtrip");
 
         let mut cfg = VideoConfig::default();
         cfg.upscaling.gamescope_enabled = true;
         cfg.upscaling.gamescope_sharpness = 7;
         cfg.frame_gen.enabled = true;
 
-        save(&cfg).expect("save should succeed");
-        let loaded = load();
+        save_to(&cfg, &path).expect("save should succeed");
+        let loaded = load_from(&path);
 
         assert!(loaded.upscaling.gamescope_enabled);
         assert_eq!(loaded.upscaling.gamescope_sharpness, 7);
         assert!(loaded.frame_gen.enabled);
 
-        std::fs::remove_dir_all(&tmp).ok();
-        // SAFETY: restoring env
-        unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn a_missing_or_corrupt_config_falls_back_to_defaults() {
+        let path = temp_config("corrupt");
+        assert!(!load_from(&path).upscaling.gamescope_enabled);
+
+        std::fs::write(&path, b"this is not toml {{{").unwrap();
+        assert!(!load_from(&path).upscaling.gamescope_enabled);
+
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
 }

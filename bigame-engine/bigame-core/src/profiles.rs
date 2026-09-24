@@ -1,5 +1,6 @@
 //! falcond game profile management (CRUD + sync).
 
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -12,6 +13,11 @@ pub const SYSTEM_PROFILES_DIR: &str = "/usr/share/falcond/profiles";
 pub const USER_PROFILES_DIR: &str = "/usr/share/falcond/profiles/user";
 
 /// A falcond game profile.
+///
+/// Mirrors falcond's own on-disk shape, which is a flat list of independent
+/// switches. Restructuring it here would only make the round trip harder to
+/// verify against the file falcond actually reads.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameProfile {
     /// Executable/process name to match.
@@ -47,6 +53,12 @@ pub struct GameProfile {
     /// Per-game Gamescope configuration (None = use global defaults).
     #[serde(default)]
     pub gamescope: Option<crate::gamescope::Config>,
+    /// Whether Gamescope wraps this game: automatically, always, or never.
+    ///
+    /// Defaults to `Auto`, so profiles written before this field existed keep
+    /// working and get the decision made for them.
+    #[serde(default)]
+    pub gamescope_mode: crate::gamescope::Mode,
     /// Frame generation multiplier (1-4).
     #[serde(default = "default_fg_multiplier")]
     pub fg_multiplier: u32,
@@ -67,6 +79,18 @@ pub struct GameProfile {
     /// Present mode for frame generation (0=VSync/FIFO, 1=Mailbox, 2=Immediate).
     #[serde(default)]
     pub fg_present_mode: u32,
+    /// Keys this build does not recognise, preserved verbatim.
+    ///
+    /// falcond gains fields faster than this project can track them — 2.0.8
+    /// added `dmem_protect` and `disable_split_lock`, neither of which older
+    /// BiGame-mode builds knew about. Without this, opening such a profile in
+    /// the editor and pressing Save would silently delete them, because
+    /// serialization only emitted the fields it happened to know.
+    ///
+    /// A `BTreeMap` keeps the output order stable so a save with no edits
+    /// produces no diff.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub extra: std::collections::BTreeMap<String, String>,
 }
 
 fn default_enabled() -> bool {
@@ -97,6 +121,7 @@ impl Default for GameProfile {
             cpu_governor: String::new(),
             scx_custom_flags: String::new(),
             gamescope: None,
+            gamescope_mode: crate::gamescope::Mode::default(),
             fg_multiplier: 1,
             fg_flow_scale: 100,
             fg_perf_mode: false,
@@ -104,6 +129,7 @@ impl Default for GameProfile {
             fg_dll_path: None,
             fg_hdr: false,
             fg_present_mode: 0,
+            extra: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -134,10 +160,15 @@ pub fn validate(profile: &GameProfile) -> Vec<String> {
     if profile.vcache_mode != "none" && !crate::vcache::is_available() {
         warnings.push("VCache mode set but AMD 3D V-Cache not detected".into());
     }
-    // Gamescope resolution sanity
+    // Gamescope resolution sanity. Zero on *both* axes is valid and means
+    // "let Gamescope follow the game"; only a half-specified resolution is
+    // wrong, because it makes Gamescope infer the wrong aspect ratio.
     if let Some(ref gs) = profile.gamescope {
-        if gs.width == 0 || gs.height == 0 {
-            warnings.push("Gamescope resolution cannot be zero".into());
+        if (gs.render_width == 0) != (gs.render_height == 0) {
+            warnings.push("Gamescope render resolution needs both width and height".into());
+        }
+        if (gs.output_width == 0) != (gs.output_height == 0) {
+            warnings.push("Gamescope output resolution needs both width and height".into());
         }
     }
     // Script paths: check they look like absolute paths
@@ -170,8 +201,10 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<String> {
         errors.push("Profile name contains invalid path characters".into());
     }
     if let Some(ref gs) = profile.gamescope {
-        if gs.width == 0 || gs.height == 0 {
-            errors.push("Gamescope resolution cannot be zero".into());
+        if (gs.render_width == 0) != (gs.render_height == 0)
+            || (gs.output_width == 0) != (gs.output_height == 0)
+        {
+            errors.push("Gamescope resolution needs both width and height".into());
         }
     }
     errors
@@ -204,7 +237,7 @@ pub fn list_names() -> Vec<String> {
 
 /// Load a profile by name. Checks user dir first, then system.
 ///
-/// Supports both TOML (quoted strings) and otter_conf (bare identifiers) formats.
+/// Supports both TOML (quoted strings) and `otter_conf` (bare identifiers) formats.
 ///
 /// # Errors
 /// Returns error if file is unreadable or unparseable.
@@ -220,7 +253,7 @@ pub fn load(name: &str) -> Result<GameProfile> {
     Ok(parse_profile_otter_conf(&content))
 }
 
-/// Parse a profile from otter_conf format (bare identifiers for enums).
+/// Parse a profile from `otter_conf` format (bare identifiers for enums).
 fn parse_profile_otter_conf(content: &str) -> GameProfile {
     let mut p = GameProfile::default();
     for line in content.lines() {
@@ -263,69 +296,94 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
                 }
             }
             "fg_hdr" => p.fg_hdr = val == "true",
+            "gamescope_mode" => {
+                p.gamescope_mode = match val {
+                    "enabled" => crate::gamescope::Mode::Enabled,
+                    "disabled" => crate::gamescope::Mode::Disabled,
+                    _ => crate::gamescope::Mode::Auto,
+                };
+            }
             "fg_present_mode" => p.fg_present_mode = val.parse().unwrap_or(0),
-            _ => {}
+            // Anything this build does not know is kept so saving cannot
+            // destroy a falcond feature we have not caught up with yet.
+            other => {
+                p.extra.insert(other.to_owned(), val.to_owned());
+            }
         }
     }
     p
 }
 
-/// Serialize a game profile to otter_conf format (bare identifiers for enums).
+/// Serialize a game profile to `otter_conf` format (bare identifiers for enums).
 ///
 /// Only emits fields that falcond's `UserProfileConfig` / `ProfileConfig` understand.
 /// Extra UI-only fields (`enabled`, `scx_custom_flags`, `fg_*`, `gamescope`) are
-/// appended with quotes so otter_conf skips them (unknown fields are ignored).
+/// appended with quotes so `otter_conf` skips them (unknown fields are ignored).
 fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let mut out = String::new();
     // name: always a quoted string
-    out.push_str(&format!("name = \"{}\"\n", profile.name));
+    let _ = writeln!(out, "name = \"{}\"", profile.name);
     // Booleans: bare
-    out.push_str(&format!(
-        "performance_mode = {}\n",
-        profile.performance_mode
-    ));
+    let _ = writeln!(out, "performance_mode = {}", profile.performance_mode);
     // Enums: bare identifiers (no quotes!)
-    out.push_str(&format!("scx_sched = {}\n", profile.scx_sched));
-    out.push_str(&format!("scx_sched_props = {}\n", profile.scx_sched_props));
-    out.push_str(&format!("vcache_mode = {}\n", profile.vcache_mode));
-    out.push_str(&format!("idle_inhibit = {}\n", profile.idle_inhibit));
+    let _ = writeln!(out, "scx_sched = {}", profile.scx_sched);
+    let _ = writeln!(out, "scx_sched_props = {}", profile.scx_sched_props);
+    let _ = writeln!(out, "vcache_mode = {}", profile.vcache_mode);
+    let _ = writeln!(out, "idle_inhibit = {}", profile.idle_inhibit);
     // Strings: quoted
     if let Some(ref s) = profile.start_script {
         if !s.is_empty() {
-            out.push_str(&format!("start_script = \"{s}\"\n"));
+            let _ = writeln!(out, "start_script = \"{s}\"");
         }
     }
     if let Some(ref s) = profile.stop_script {
         if !s.is_empty() {
-            out.push_str(&format!("stop_script = \"{s}\"\n"));
+            let _ = writeln!(out, "stop_script = \"{s}\"");
         }
     }
     if !profile.cpu_governor.is_empty() {
-        out.push_str(&format!("cpu_governor = \"{}\"\n", profile.cpu_governor));
+        let _ = writeln!(out, "cpu_governor = \"{}\"", profile.cpu_governor);
     }
     // UI-only fields (otter_conf ignores unknown keys via skipValue)
-    out.push_str(&format!(
-        "scx_custom_flags = \"{}\"\n",
-        profile.scx_custom_flags
-    ));
-    out.push_str(&format!("enabled = {}\n", profile.enabled));
-    out.push_str(&format!("fg_multiplier = {}\n", profile.fg_multiplier));
-    out.push_str(&format!("fg_flow_scale = {}\n", profile.fg_flow_scale));
-    out.push_str(&format!("fg_perf_mode = {}\n", profile.fg_perf_mode));
-    out.push_str(&format!("fg_quality = {}\n", profile.fg_quality));
+    let _ = writeln!(out, "scx_custom_flags = \"{}\"", profile.scx_custom_flags);
+    let _ = writeln!(out, "enabled = {}", profile.enabled);
+    let _ = writeln!(out, "fg_multiplier = {}", profile.fg_multiplier);
+    let _ = writeln!(out, "fg_flow_scale = {}", profile.fg_flow_scale);
+    let _ = writeln!(out, "fg_perf_mode = {}", profile.fg_perf_mode);
+    let _ = writeln!(out, "fg_quality = {}", profile.fg_quality);
     if let Some(ref s) = profile.fg_dll_path {
-        out.push_str(&format!("fg_dll_path = \"{s}\"\n"));
+        let _ = writeln!(out, "fg_dll_path = \"{s}\"");
     }
-    out.push_str(&format!("fg_hdr = {}\n", profile.fg_hdr));
-    out.push_str(&format!("fg_present_mode = {}\n", profile.fg_present_mode));
+    let _ = writeln!(out, "fg_hdr = {}", profile.fg_hdr);
+    let _ = writeln!(out, "fg_present_mode = {}", profile.fg_present_mode);
+    let _ = writeln!(
+        out,
+        "gamescope_mode = \"{}\"",
+        match profile.gamescope_mode {
+            crate::gamescope::Mode::Auto => "auto",
+            crate::gamescope::Mode::Enabled => "enabled",
+            crate::gamescope::Mode::Disabled => "disabled",
+        }
+    );
+    // Unrecognised keys, written back exactly as they were read.
+    for (key, value) in &profile.extra {
+        let _ = writeln!(out, "{key} = {value}");
+    }
     out
 }
 
-/// Save a profile to the user directory via DBus.
+/// Save a profile to the user directory via D-Bus.
+///
+/// Synchronous on purpose. It was `async` while containing no `await` — it uses
+/// the blocking proxy throughout — and that mismatch caused a real bug: a call
+/// site wrote `let _ = profiles::delete(&name)` inside a blocking closure,
+/// which built a future and dropped it. The button reported "Profile deleted"
+/// and nothing was deleted. A function that cannot suspend should not claim it
+/// might.
 ///
 /// # Errors
-/// Returns error if serialization or DBus call fails.
-pub async fn save(profile: &GameProfile) -> Result<()> {
+/// Returns an error if serialization or the D-Bus call fails.
+pub fn save(profile: &GameProfile) -> Result<()> {
     let content = serialize_profile_otter_conf(profile);
 
     // Use blocking proxy to avoid requiring a Tokio reactor in GTK main-thread flows.
@@ -350,36 +408,33 @@ pub async fn save(profile: &GameProfile) -> Result<()> {
         );
     }
 
-    // Apply CPU governor immediately as a best-effort global effect.
-    // Per-game scoping is handled by falcond's cpu_governor field at activation time.
-    if !profile.cpu_governor.is_empty() {
-        if let Err(e) = proxy.set_cpu_governor(&profile.cpu_governor) {
-            tracing::warn!(
-                "failed to apply cpu_governor '{}' on profile save: {e:#}",
-                profile.cpu_governor
-            );
-        }
-    }
-
+    // The profile's `cpu_governor` is deliberately NOT applied here.
+    //
+    // It is a *per-game* setting, and falcond applies it when the game starts.
+    // Writing it at save time changed the governor system-wide, immediately,
+    // with no record of the previous value and no way back — so merely editing
+    // a profile silently repinned every core on the machine.
     Ok(())
 }
 
-/// Delete a user profile by name via DBus.
+/// Delete a user profile by name via D-Bus.
+///
+/// Synchronous for the same reason as [`save`].
 ///
 /// # Errors
-/// Returns error if the file doesn't exist or DBus fails.
-pub async fn delete(name: &str) -> Result<()> {
+/// Returns an error if the profile does not exist or the D-Bus call fails.
+pub fn delete(name: &str) -> Result<()> {
     let path = user_path(name);
     anyhow::ensure!(path.exists(), "profile not found: {}", path.display());
 
     let proxy = crate::dbus_client::daemon_proxy_blocking()?;
+    // The helper reloads falcond itself, through systemd. This used to shell
+    // out to `sudo -n pkill -HUP falcond` from the GUI thread: it blocked the
+    // main loop on a subprocess, signalled every process sharing the name, and
+    // depended on a passwordless sudoers rule that has since been removed as a
+    // root escalation. It also silently did nothing, because `sudo -n` already
+    // failed on any normally configured machine.
     proxy.delete_profile(name)?;
-
-    // Signal falcond to reload profiles
-    std::process::Command::new("sudo")
-        .args(["-n", "/usr/bin/pkill", "-HUP", "falcond"])
-        .status()
-        .ok();
 
     // Remove FG entry from lsfg-vk config (best-effort).
     let _ = crate::fg::delete_profile(name);
@@ -429,20 +484,86 @@ pub fn export(name: &str, dest: &Path) -> Result<()> {
 /// Import a profile from a local TOML file into the user profiles directory.
 ///
 /// # Errors
-/// Returns error if the file is unreadable, contains invalid TOML, or DBus write fails.
-pub async fn import(src: &Path) -> Result<String> {
+/// Returns error if the file is unreadable, contains invalid TOML, or `DBus` write fails.
+pub fn import(src: &Path) -> Result<String> {
     let content =
         std::fs::read_to_string(src).with_context(|| format!("read import: {}", src.display()))?;
     let profile: GameProfile = toml::from_str(&content).context("parse imported profile TOML")?;
     anyhow::ensure!(!profile.name.is_empty(), "imported profile has no name");
     let name = profile.name.clone();
-    save(&profile).await?;
+    save(&profile)?;
     Ok(name)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gamescope_mode_survives_the_otter_conf_round_trip() {
+        use crate::gamescope::Mode;
+        for mode in [Mode::Auto, Mode::Enabled, Mode::Disabled] {
+            let p = GameProfile {
+                name: "x".into(),
+                gamescope_mode: mode,
+                ..GameProfile::default()
+            };
+            let text = serialize_profile_otter_conf(&p);
+            assert_eq!(parse_profile_otter_conf(&text).gamescope_mode, mode);
+        }
+        // A profile written before the field existed reads back as Auto.
+        assert_eq!(
+            parse_profile_otter_conf("name = \"x\"\n").gamescope_mode,
+            Mode::Auto
+        );
+    }
+
+    #[test]
+    fn saving_preserves_falcond_fields_this_build_does_not_know() {
+        // falcond 2.0.8 added dmem_protect and disable_split_lock. Opening such
+        // a profile and saving it must not silently drop them.
+        let original = "\
+name = \"Cyberpunk2077.exe\"
+performance_mode = true
+vcache_mode = cache
+dmem_protect = true
+disable_split_lock = true
+some_future_falcond_key = 42
+";
+        let parsed = parse_profile_otter_conf(original);
+        assert_eq!(parsed.name, "Cyberpunk2077.exe");
+        assert_eq!(
+            parsed.extra.get("dmem_protect").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            parsed.extra.get("disable_split_lock").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            parsed
+                .extra
+                .get("some_future_falcond_key")
+                .map(String::as_str),
+            Some("42")
+        );
+
+        let written = serialize_profile_otter_conf(&parsed);
+        assert!(written.contains("dmem_protect = true"));
+        assert!(written.contains("disable_split_lock = true"));
+        assert!(written.contains("some_future_falcond_key = 42"));
+
+        // And the values survive a second round trip unchanged.
+        let again = parse_profile_otter_conf(&written);
+        assert_eq!(again.extra, parsed.extra);
+    }
+
+    #[test]
+    fn unknown_keys_do_not_leak_into_known_fields() {
+        let parsed = parse_profile_otter_conf("name = \"x\"\nvcache_mode = cache\n");
+        assert_eq!(parsed.vcache_mode, "cache");
+        assert!(parsed.extra.is_empty(), "known keys must not land in extra");
+    }
 
     #[test]
     fn default_profile_values() {

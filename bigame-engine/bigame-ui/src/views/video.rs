@@ -6,7 +6,7 @@
 //!
 //! Layout:
 //! - `AdwExpanderRow` "Spatial Upscaling" (Gamescope filter, Wine FSR, vkBasalt)
-//! - `AdwExpanderRow` "Frame Generation" (OptiScaler, AFMF, lsfg-vk)
+//! - `AdwExpanderRow` "Frame Generation" (`OptiScaler`, AFMF, lsfg-vk)
 
 use adw::prelude::*;
 use libadwaita as adw;
@@ -69,14 +69,19 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     // ── Gamescope toggle ─────────────────────────────────────────────────────
     let gs_row = adw::SwitchRow::builder()
         .title(i18n("Enable Gamescope Upscaling"))
-        .subtitle(i18n("Launches games through Gamescope with the selected filter"))
+        .subtitle(i18n(
+            "Launches games through Gamescope with the selected filter",
+        ))
         .active(cfg.upscaling.gamescope_enabled)
         .build();
     expander.add_row(&gs_row);
 
     // ── Upscaling filter (FSR / NIS / Integer) ───────────────────────────────
-    let filter_items =
-        gtk4::StringList::new(&["FSR 1.0 (FidelityFX)", "NIS (Nvidia Image Scaling)", &i18n("Integer Scaling")]);
+    let filter_items = gtk4::StringList::new(&[
+        "FSR 1.0 (FidelityFX)",
+        "NIS (Nvidia Image Scaling)",
+        &i18n("Integer Scaling"),
+    ]);
     let filter_row = adw::ComboRow::new();
     filter_row.set_title(&i18n("Upscaling Filter"));
     filter_row.set_subtitle(&i18n("Gamescope upscaling algorithm"));
@@ -102,51 +107,58 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     sharpness_spin.set_valign(gtk4::Align::Center);
     let sharpness_row = adw::ActionRow::builder()
         .title(i18n("FSR Sharpness"))
-        .subtitle(i18n("0 = maximum sharpness · 20 = softest (--fsr-sharpness)"))
+        .subtitle(i18n(
+            "0 = maximum sharpness · 20 = softest (--fsr-sharpness)",
+        ))
         .build();
     sharpness_row.add_suffix(&sharpness_spin);
     sharpness_row.set_activatable_widget(Some(&sharpness_spin));
     sharpness_row.set_sensitive(
-        cfg.upscaling.gamescope_enabled
-            && cfg.upscaling.gamescope_filter == GamescopeFilter::Fsr,
+        cfg.upscaling.gamescope_enabled && cfg.upscaling.gamescope_filter == GamescopeFilter::Fsr,
     );
     expander.add_row(&sharpness_row);
 
     // ── Wine/Proton FSR ──────────────────────────────────────────────────────
     // ── Render resolution (game draws at this res, 0 = game native) ─────────
-    let base_w_spin = make_res_spinbutton(cfg.upscaling.base_width, 7680);
-    let base_h_spin = make_res_spinbutton(cfg.upscaling.base_height, 4320);
+    let render_width = make_res_spinbutton(cfg.upscaling.base_width, 7680);
+    let render_height = make_res_spinbutton(cfg.upscaling.base_height, 4320);
     let base_res_row = make_resolution_row(
         &i18n("Render Resolution (Base)"),
         &i18n("Game render resolution (-w/-h). 0 = use game native."),
-        &base_w_spin,
-        &base_h_spin,
+        &render_width,
+        &render_height,
         cfg.upscaling.gamescope_enabled,
     );
     expander.add_row(&base_res_row);
 
     // ── Output resolution (upscaled to this, 0 = same as base) ──────────────
-    let target_w_spin = make_res_spinbutton(cfg.upscaling.target_width, 7680);
-    let target_h_spin = make_res_spinbutton(cfg.upscaling.target_height, 4320);
+    let output_width = make_res_spinbutton(cfg.upscaling.target_width, 7680);
+    let output_height = make_res_spinbutton(cfg.upscaling.target_height, 4320);
     let target_res_row = make_resolution_row(
         &i18n("Output Resolution (Target)"),
         &i18n("Display output resolution (-W/-H). 0 = same as render."),
-        &target_w_spin,
-        &target_h_spin,
+        &output_width,
+        &output_height,
         cfg.upscaling.gamescope_enabled,
     );
     expander.add_row(&target_res_row);
 
     let wine_row = adw::SwitchRow::builder()
         .title(i18n("Wine/Proton Fullscreen FSR"))
-        .subtitle(i18n("Adds WINE_FULLSCREEN_FSR=1 to game environment (Wine/Proton)"))
+        .subtitle(i18n(
+            "Adds WINE_FULLSCREEN_FSR=1 to game environment (Wine/Proton)",
+        ))
         .active(cfg.upscaling.wine_fsr_enabled)
         .build();
     expander.add_row(&wine_row);
 
     // ── Wine FSR quality preset ──────────────────────────────────────────────
-    let wine_quality_items =
-        gtk4::StringList::new(&[&i18n("Performance"), &i18n("Balanced"), &i18n("Quality"), "Ultra"]);
+    let wine_quality_items = gtk4::StringList::new(&[
+        &i18n("Performance"),
+        &i18n("Balanced"),
+        &i18n("Quality"),
+        "Ultra",
+    ]);
     let wine_quality_row = adw::ComboRow::new();
     wine_quality_row.set_title(&i18n("Wine FSR Quality"));
     wine_quality_row.set_subtitle(&i18n("WINE_FULLSCREEN_FSR_MODE value"));
@@ -163,7 +175,9 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     // ── vkBasalt post-processing ─────────────────────────────────────────────
     let vkb_row = adw::SwitchRow::builder()
         .title(i18n("vkBasalt Post-Processing"))
-        .subtitle(i18n("Adds ENABLE_VKBASALT=1 to game environment (requires vkBasalt)"))
+        .subtitle(i18n(
+            "Adds ENABLE_VKBASALT=1 to game environment (requires vkBasalt)",
+        ))
         .active(cfg.upscaling.vkbasalt_enabled)
         .build();
     expander.add_row(&vkb_row);
@@ -197,24 +211,24 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     });
 
     // Base resolution signal handlers
-    base_w_spin.connect_value_changed(|spin| {
+    render_width.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.base_width = v);
     });
-    base_h_spin.connect_value_changed(|spin| {
+    render_height.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.base_height = v);
     });
 
     // Target resolution signal handlers
-    target_w_spin.connect_value_changed(|spin| {
+    output_width.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.target_width = v);
     });
-    target_h_spin.connect_value_changed(|spin| {
+    output_height.connect_value_changed(|spin| {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = spin.value() as u32;
         save_upscaling(|u| u.target_height = v);
@@ -354,7 +368,9 @@ fn build_framegen_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGrou
     // ── OSD (on-screen status overlay) ──────────────────────────────────────
     let osd_row = adw::SwitchRow::builder()
         .title(i18n("Show On-Screen Status (OSD)"))
-        .subtitle(i18n("Displays frame generation status overlay while in-game"))
+        .subtitle(i18n(
+            "Displays frame generation status overlay while in-game",
+        ))
         .active(cfg.frame_gen.osd_enabled)
         .build();
     expander.add_row(&osd_row);
@@ -371,12 +387,7 @@ fn build_framegen_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGrou
 
     let opti_src_row = adw::EntryRow::builder()
         .title(i18n("OptiScaler Source Directory"))
-        .text(
-            cfg.frame_gen
-                .optiscaler_source_dir
-                .as_deref()
-                .unwrap_or(""),
-        )
+        .text(cfg.frame_gen.optiscaler_source_dir.as_deref().unwrap_or(""))
         .sensitive(cfg.frame_gen.optiscaler_enabled)
         .build();
     expander.add_row(&opti_src_row);
@@ -509,8 +520,7 @@ fn build_framegen_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGrou
         }
 
         src.set_sensitive(enabled);
-        let conflict =
-            enabled && bigame_core::fg::has_any_active_profile();
+        let conflict = enabled && bigame_core::fg::has_any_active_profile();
         banner2.set_revealed(conflict);
         save_framegen(|f| f.optiscaler_enabled = enabled);
     });
@@ -563,17 +573,10 @@ fn save_framegen(f: impl FnOnce(&mut bigame_core::models::FrameGenSettings)) {
 
 // ── Resolution input helpers ──────────────────────────────────────────────────
 
-/// Build a `SpinButton` clamped to [0, max_val] for resolution inputs.
+/// Build a `SpinButton` clamped to [0, `max_val`] for resolution inputs.
 /// Value 0 = "use game native / auto".
 fn make_res_spinbutton(current: u32, max_val: u32) -> gtk4::SpinButton {
-    let adj = gtk4::Adjustment::new(
-        f64::from(current),
-        0.0,
-        f64::from(max_val),
-        1.0,
-        10.0,
-        0.0,
-    );
+    let adj = gtk4::Adjustment::new(f64::from(current), 0.0, f64::from(max_val), 1.0, 10.0, 0.0);
     let spin = gtk4::SpinButton::new(Some(&adj), 1.0, 0);
     spin.set_valign(gtk4::Align::Center);
     spin.set_width_chars(6);

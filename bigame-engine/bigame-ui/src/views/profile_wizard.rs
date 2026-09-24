@@ -27,6 +27,10 @@ const STEP_IDS: &[&str; STEPS] = &[
     "review",    // 9 – summary + save
 ];
 
+/// Building a widget tree is inherently linear — splitting it yields helpers
+/// with a single caller and no independent meaning — so the length lint is
+/// allowed here rather than worked around.
+#[allow(clippy::too_many_lines)]
 /// Open the wizard dialog attached to `parent`.
 pub fn open(parent: &impl IsA<gtk4::Widget>, on_saved: impl Fn(GameProfile) + 'static) {
     open_internal(parent, None, on_saved);
@@ -41,9 +45,14 @@ pub fn open_with_suggested_name(
     open_internal(parent, Some(suggested_name.to_string()), on_saved);
 }
 
+/// Building a widget tree is inherently linear — splitting it yields helpers
+/// with a single caller and no independent meaning — so the length lint is
+/// allowed here rather than worked around.
+#[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 fn open_internal(
     parent: &impl IsA<gtk4::Widget>,
     suggested_name: Option<String>,
+    // Moved into the GTK closures that outlive this call.
     on_saved: impl Fn(GameProfile) + 'static,
 ) {
     let profile = Rc::new(RefCell::new(GameProfile::default()));
@@ -469,13 +478,21 @@ fn open_internal(
                     {
                         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
                         if gs_switch.is_active() {
+                            let fps = gs_fps.value() as u32;
                             p.gamescope = Some(bigame_core::gamescope::Config {
-                                width: gs_width.value() as u32,
-                                height: gs_height.value() as u32,
-                                fsr: gs_fsr.is_active(),
-                                fsr_sharpness: 5,
-                                framerate_limit: gs_fps.value() as u32,
-                                mangohud: false,
+                                render_width: gs_width.value() as u32,
+                                render_height: gs_height.value() as u32,
+                                filter: if gs_fsr.is_active() {
+                                    bigame_core::gamescope::Filter::Fsr
+                                } else {
+                                    bigame_core::gamescope::Filter::Linear
+                                },
+                                frame_limit: if fps > 0 {
+                                    bigame_core::gamescope::FrameLimit::NestedRefresh(fps)
+                                } else {
+                                    bigame_core::gamescope::FrameLimit::None
+                                },
+                                ..bigame_core::gamescope::Config::default()
                             });
                         } else {
                             p.gamescope = None;
@@ -518,8 +535,8 @@ fn open_internal(
 
                 gtk4::glib::spawn_future_local(async move {
                     tracing::info!(profile = %p_clone.name, "wizard save requested");
-                    match bigame_core::profiles::save(&p_clone).await {
-                        Ok(_) => {
+                    match bigame_core::profiles::save(&p_clone) {
+                        Ok(()) => {
                             tracing::info!(profile = %p_clone.name, "wizard save succeeded");
                             on_saved_final(p_clone.clone());
                             dialog_ref.close();
@@ -528,11 +545,7 @@ fn open_internal(
                             tracing::error!("Wizard save failed: {e}");
                             crate::widgets::toast::show(
                                 &next_btn_ref,
-                                &format!(
-                                    "{}: {}",
-                                    i18n("Save failed. Check terminal logs."),
-                                    e
-                                ),
+                                &format!("{}: {}", i18n("Save failed. Check terminal logs."), e),
                             );
                             next_btn_ref.set_sensitive(true);
                             next_btn_ref.set_label(&i18n("Save Profile"));
@@ -695,14 +708,14 @@ fn build_radio_group(
         group.add(&row);
     }
 
-    let first = first_check.unwrap_or_else(gtk4::CheckButton::new);
-    let second = second_check.unwrap_or_else(gtk4::CheckButton::new);
+    let first = first_check.unwrap_or_default();
+    let second = second_check.unwrap_or_default();
     (group, first, second)
 }
 
 // ── Helper: VCache card detection ─────────────────────────────────────────
 
-/// Get the active state of the second radio button in the VCache group.
+/// Get the active state of the second radio button in the `VCache` group.
 fn vcache_cache_active(first: &gtk4::CheckButton) -> bool {
     let mut child = first.next_sibling();
     while let Some(w) = child {

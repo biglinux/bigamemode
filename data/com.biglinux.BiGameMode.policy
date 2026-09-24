@@ -2,43 +2,79 @@
 <!DOCTYPE policyconfig PUBLIC
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  Authorization policy for the BiGame-mode privileged helper.
+
+  Every action listed here is enforced by bigame-daemon, which calls
+  CheckAuthorization before touching the system. Adding an action to this file
+  does nothing on its own; the daemon must reference it.
+
+  The split below is deliberate:
+
+  * Performance knobs (CPU, GPU) are allowed for an active local session
+    without a prompt. They are bounded, reversible, validated against a fixed
+    value set, and no worse than what power-profiles-daemon already grants the
+    same user. Requiring a password to turn Booster Mode on would make the
+    feature unusable, and users would simply run the tweaks by hand as root.
+
+  * Configuration and profile actions require administrator authentication,
+    because they write files that falcond — which runs as root — later acts on.
+    A per-game profile is not merely a preference; it is input to a root
+    process, so it is held to a root-level bar.
+
+  Remote and inactive sessions must always authenticate.
+-->
 <policyconfig>
   <vendor>BigLinux</vendor>
   <vendor_url>https://www.biglinux.com.br</vendor_url>
+  <icon_name>com.biglinux.BiGameMode</icon_name>
 
-  <action id="com.biglinux.bigamemode.set-governor">
-    <description>Set CPU frequency governor</description>
-    <message>Authentication is required to change the CPU frequency governor</message>
+  <action id="com.biglinux.bigamemode.set-cpu">
+    <description>Change CPU performance settings</description>
+    <description xml:lang="pt_BR">Alterar configurações de desempenho da CPU</description>
+    <message>Authentication is required to change CPU performance settings</message>
+    <message xml:lang="pt_BR">É necessário autenticar-se para alterar as configurações de desempenho da CPU</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>
+      <allow_active>yes</allow_active>
     </defaults>
   </action>
 
-  <action id="com.biglinux.bigamemode.set-scheduler">
-    <description>Change sched-ext BPF scheduler</description>
-    <message>Authentication is required to change the process scheduler</message>
+  <action id="com.biglinux.bigamemode.set-gpu">
+    <description>Change GPU performance settings</description>
+    <description xml:lang="pt_BR">Alterar configurações de desempenho da GPU</description>
+    <message>Authentication is required to change GPU performance settings</message>
+    <message xml:lang="pt_BR">É necessário autenticar-se para alterar as configurações de desempenho da GPU</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>
+      <allow_active>yes</allow_active>
     </defaults>
   </action>
 
   <action id="com.biglinux.bigamemode.set-vcache">
-    <description>Modify AMD VCache mode</description>
-    <message>Authentication is required to change VCache settings</message>
+    <description>Change AMD 3D V-Cache mode</description>
+    <description xml:lang="pt_BR">Alterar o modo do AMD 3D V-Cache</description>
+    <message>Authentication is required to change the 3D V-Cache mode</message>
+    <message xml:lang="pt_BR">É necessário autenticar-se para alterar o modo do 3D V-Cache</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>
+      <allow_active>yes</allow_active>
     </defaults>
   </action>
 
+  <!--
+    Writes /etc/falcond/config.conf, which the root falcond daemon reads and
+    acts on system-wide. Administrator only.
+  -->
   <action id="com.biglinux.bigamemode.write-config">
-    <description>Write falcond daemon configuration</description>
-    <message>Authentication is required to modify system performance settings</message>
+    <description>Write the falcond system configuration</description>
+    <description xml:lang="pt_BR">Gravar a configuração de sistema do falcond</description>
+    <message>Authentication is required to modify the system gaming configuration</message>
+    <message xml:lang="pt_BR">É necessário autenticar-se para modificar a configuração de jogos do sistema</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -46,9 +82,16 @@
     </defaults>
   </action>
 
+  <!--
+    Per-game profiles are consumed by root falcond. The helper additionally
+    refuses start_script/stop_script keys outright, since falcond spawns them
+    through /bin/sh as root.
+  -->
   <action id="com.biglinux.bigamemode.manage-profiles">
-    <description>Manage game profiles</description>
-    <message>Authentication is required to save or delete game profiles</message>
+    <description>Create or delete game profiles</description>
+    <description xml:lang="pt_BR">Criar ou excluir perfis de jogos</description>
+    <message>Authentication is required to change game profiles</message>
+    <message xml:lang="pt_BR">É necessário autenticar-se para alterar os perfis de jogos</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

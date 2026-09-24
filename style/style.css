@@ -1,22 +1,91 @@
-/* BiGame-mode — "Booster Ignition" visual identity */
+/* BiGame-mode — Booster Mode visual identity
+ *
+ * The Booster control is the one thing on the Home screen, so it carries the
+ * only strong colour in the application. Everything else stays libadwaita
+ * default on purpose: a page where one element is emphatic reads as a clear
+ * hierarchy, a page where five are reads as noise.
+ *
+ * Every state is distinguished by icon and text as well as colour, so the
+ * control remains legible without colour perception.
+ */
 
-/* High-Performance State: accent glow + gradient */
-.booster-active {
-    background: linear-gradient(
-        135deg,
-        @accent_bg_color,
-        shade(@accent_bg_color, 0.8)
-    );
-    box-shadow: 0 0 12px alpha(@accent_bg_color, 0.4);
-    border-radius: 12px;
-    transition: all 300ms ease-in-out;
+.booster-button {
+    border-radius: 999px;
+    padding: 24px;
+    border: 2px solid transparent;
+    transition:
+        background-color 200ms ease,
+        border-color 200ms ease,
+        box-shadow 200ms ease;
 }
 
-/* Idle state: neutral card background */
-.booster-idle {
-    background: @card_bg_color;
-    border-radius: 12px;
-    transition: all 300ms ease-in-out;
+/* Idle: inviting but calm. */
+.booster-button.booster-ready {
+    background-color: alpha(@accent_bg_color, 0.12);
+    border-color: alpha(@accent_bg_color, 0.45);
+    color: @accent_color;
+}
+
+.booster-button.booster-ready:hover {
+    background-color: alpha(@accent_bg_color, 0.2);
+    border-color: @accent_bg_color;
+}
+
+/* Working: neutral, so nothing is claimed while work is still in progress. */
+.booster-button.booster-working {
+    background-color: alpha(@window_fg_color, 0.08);
+    border-color: alpha(@window_fg_color, 0.2);
+}
+
+/* Applied and verified. */
+.booster-button.booster-active {
+    background-color: alpha(@success_color, 0.16);
+    border-color: @success_color;
+    color: @success_color;
+}
+
+/* Some changes took, some did not. */
+.booster-button.booster-partial {
+    background-color: alpha(@warning_color, 0.16);
+    border-color: @warning_color;
+    color: @warning_color;
+}
+
+.booster-button.booster-error {
+    background-color: alpha(@error_color, 0.14);
+    border-color: @error_color;
+    color: @error_color;
+}
+
+/* A slow breath on the idle control, to draw the eye once without nagging.
+ * Applied through a class the widget only adds when GTK reports animations
+ * are enabled, so the reduced-motion preference removes it entirely rather
+ * than merely shortening it. */
+@keyframes booster-breathe {
+    0%   { box-shadow: 0 0 0 0 alpha(@accent_bg_color, 0.35); }
+    70%  { box-shadow: 0 0 0 18px alpha(@accent_bg_color, 0); }
+    100% { box-shadow: 0 0 0 0 alpha(@accent_bg_color, 0); }
+}
+
+.booster-button.booster-pulse {
+    animation: booster-breathe 3.2s ease-out infinite;
+}
+
+/* Belt and braces: if the platform exposes the media query, honour it here
+ * too, so the animation stops even if the widget class was left on. */
+@media (prefers-reduced-motion: reduce) {
+    .booster-button,
+    .booster-button.booster-pulse {
+        animation: none;
+        transition: none;
+    }
+}
+
+/* Keep the focus ring clearly visible on the round control — this is the
+ * primary action and is reachable by keyboard. */
+.booster-button:focus-visible {
+    outline: 2px solid @accent_color;
+    outline-offset: 3px;
 }
 
 /* Telemetry gauge rows */
@@ -257,3 +326,61 @@
     animation: pulse-warning 2s infinite;
 }
 
+
+/* ── Game library cards ──────────────────────────────────────────────
+ *
+ * A poster grid, reinterpreting the reference design in libadwaita terms.
+ * Colours are palette tokens rather than fixed hexes so the grid follows the
+ * desktop's light/dark and accent settings instead of imposing its own.
+ */
+
+.game-card {
+    padding: 6px;
+    border-radius: 12px;
+    transition: background-color 160ms ease;
+}
+
+.game-card:hover {
+    background-color: alpha(@window_fg_color, 0.06);
+}
+
+.game-card:focus-visible {
+    outline: 2px solid @accent_color;
+    outline-offset: -2px;
+}
+
+/* The cover keeps its rounded corners while the image is clipped to fill. */
+.game-cover-frame {
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.08);
+}
+
+.game-cover {
+    border-radius: 8px;
+}
+
+/* Launcher badge over the artwork. Needs its own scrim because it sits on
+ * arbitrary cover art rather than on a known background. */
+.game-card-badge {
+    padding: 1px 7px;
+    border-radius: 6px;
+    background-color: alpha(#000, 0.65);
+    color: #fff;
+}
+
+/* Profile indicator. Paired with a tooltip and with the status line under the
+ * title, so the state never depends on colour alone. */
+.profile-dot {
+    min-width: 10px;
+    min-height: 10px;
+    border-radius: 999px;
+    border: 1.5px solid alpha(#000, 0.45);
+}
+
+.profile-dot-custom {
+    background-color: @success_color;
+}
+
+.profile-dot-builtin {
+    background-color: @accent_bg_color;
+}

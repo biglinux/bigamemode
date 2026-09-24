@@ -62,11 +62,13 @@ name = "bigame-core"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "libc",
  "serde",
  "serde_json",
  "tokio",
  "toml 0.8.23",
  "tracing",
+ "tracing-subscriber",
  "zbus",
 ]
 
@@ -94,6 +96,7 @@ dependencies = [
  "ksni",
  "libadwaita",
  "serde",
+ "tokio",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",

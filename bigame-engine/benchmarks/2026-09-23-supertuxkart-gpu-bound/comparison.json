@@ -1,0 +1,110 @@
+[
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "baseline",
+      "runs": [
+        304.8803,
+        287.7485,
+        307.7468,
+        293.0872
+      ],
+      "mean": 298.3657,
+      "median": 298.98375,
+      "min": 287.7485,
+      "max": 307.7468,
+      "stddev": 9.504955697950418,
+      "cov": 0.03185673050873615
+    },
+    "candidate": {
+      "arm": "booster",
+      "runs": [
+        279.035,
+        280.4846,
+        280.7583,
+        283.8635
+      ],
+      "mean": 281.03535,
+      "median": 280.62145,
+      "min": 279.035,
+      "max": 283.8635,
+      "stddev": 2.031412875316079,
+      "cov": 0.0072283179867446545
+    },
+    "delta_pct": -5.808425700407255,
+    "verdict": "regression",
+    "rationale": "5.8% slower, above the 3.2% run-to-run spread and significant at 95% (Welch's t = 3.57 against a 2.78 threshold)"
+  },
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "baseline",
+      "runs": [
+        304.8803,
+        287.7485,
+        307.7468,
+        293.0872
+      ],
+      "mean": 298.3657,
+      "median": 298.98375,
+      "min": 287.7485,
+      "max": 307.7468,
+      "stddev": 9.504955697950418,
+      "cov": 0.03185673050873615
+    },
+    "candidate": {
+      "arm": "cpu_governor",
+      "runs": [
+        293.9634,
+        305.423,
+        307.9061,
+        310.6839
+      ],
+      "mean": 304.4941,
+      "median": 306.66454999999996,
+      "min": 293.9634,
+      "max": 310.6839,
+      "stddev": 7.341976703404432,
+      "cov": 0.024112049144480736
+    },
+    "delta_pct": 2.0539894498596856,
+    "verdict": "within_noise",
+    "rationale": "the 2.1% difference is within the 3.2% spread of the runs themselves, so it cannot be attributed to the change"
+  },
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "baseline",
+      "runs": [
+        304.8803,
+        287.7485,
+        307.7468,
+        293.0872
+      ],
+      "mean": 298.3657,
+      "median": 298.98375,
+      "min": 287.7485,
+      "max": 307.7468,
+      "stddev": 9.504955697950418,
+      "cov": 0.03185673050873615
+    },
+    "candidate": {
+      "arm": "gpu_dpm_level",
+      "runs": [
+        280.3871,
+        256.7061,
+        281.6122,
+        284.7665
+      ],
+      "mean": 275.867975,
+      "median": 280.99965,
+      "min": 256.7061,
+      "max": 284.7665,
+      "stddev": 12.907101563448188,
+      "cov": 0.04678724148190158
+    },
+    "delta_pct": -7.540318810104514,
+    "verdict": "regression",
+    "rationale": "7.5% slower, above the 4.7% run-to-run spread and significant at 95% (Welch's t = 2.81 against a 2.45 threshold)"
+  }
+]

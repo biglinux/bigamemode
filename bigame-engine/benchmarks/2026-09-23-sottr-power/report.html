@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026-09-23-sottr-power — 2026-09-23</title>
+<style>body{font:15px/1.6 system-ui,sans-serif;max-width:56rem;margin:2rem auto;padding:0 1rem;color:#1a1a1a;background:#fff}h1{font-size:1.6rem;margin-bottom:.2rem}h1 small{font-weight:400;color:#666;font-size:1rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ddd;padding-bottom:.3rem}table{border-collapse:collapse;width:100%}th,td{text-align:right;padding:.4rem .6rem;border-bottom:1px solid #eee}th:first-child,td:first-child{text-align:left}th{font-weight:600;color:#555}.verdict{padding:.6rem .8rem;border-left:4px solid #bbb;background:#fafafa;margin:.5rem 0}.verdict.good{border-color:#2e7d32}.verdict.bad{border-color:#c62828}.verdict.unknown{border-color:#ef6c00}svg{max-width:100%;height:auto;margin:1rem 0}.lbl{font:13px system-ui,sans-serif;fill:#333}.ax{font:11px system-ui,sans-serif;fill:#888}.span{stroke:#ccc;stroke-width:2}.pt{fill:#4a6fa5;fill-opacity:.75}.mean{stroke:#c62828;stroke-width:2}code{background:#f3f3f3;padding:.1rem .3rem;border-radius:3px}@media(prefers-color-scheme:dark){body{background:#16181c;color:#e6e6e6}h2{border-color:#333}td,th{border-color:#2a2d33}th{color:#aaa}.verdict{background:#1e2126;border-color:#555}.lbl{fill:#ddd}.span{stroke:#444}.pt{fill:#7aa2d6}code{background:#24272d}}</style>
+<h1>2026-09-23-sottr-power <small>2026-09-23</small></h1>
+<h2>Verdict</h2>
+<p class="verdict none"><b>baseline</b> — <b>NO CHANGE</b>: the 0.1% difference is within the 0.6% spread of the runs themselves, so it cannot be attributed to the change</p>
+<p class="verdict bad"><b>gpu_dpm_level</b> — <b>SLOWER</b>: 8.3% slower, above the 1.1% run-to-run spread and significant at 95% (Welch's t = 13.91 against a 2.57 threshold)</p>
+<h2>Every run</h2>
+<svg viewBox="0 0 720 166" width="100%" role="img" aria-label="every measured run, by configuration">
+<text x="120" y="28" class="lbl" text-anchor="end">rest</text>
+<line x1="582.1" y1="24" x2="634.2" y2="24" class="span"/>
+<circle cx="590.3" cy="24" r="4" class="pt"><title>88.4</title></circle>
+<circle cx="582.1" cy="24" r="4" class="pt"><title>88.2</title></circle>
+<circle cx="634.2" cy="24" r="4" class="pt"><title>89.3</title></circle>
+<circle cx="622.9" cy="24" r="4" class="pt"><title>89.1</title></circle>
+<line x1="607.4" y1="13" x2="607.4" y2="35" class="mean"><title>mean 88.8</title></line>
+<text x="120" y="72" class="lbl" text-anchor="end">baseline</text>
+<line x1="580.6" y1="68" x2="627.3" y2="68" class="span"/>
+<circle cx="585.3" cy="68" r="4" class="pt"><title>88.3</title></circle>
+<circle cx="580.6" cy="68" r="4" class="pt"><title>88.2</title></circle>
+<circle cx="627.3" cy="68" r="4" class="pt"><title>89.2</title></circle>
+<circle cx="626.0" cy="68" r="4" class="pt"><title>89.2</title></circle>
+<line x1="604.8" y1="57" x2="604.8" y2="79" class="mean"><title>mean 88.7</title></line>
+<text x="120" y="116" class="lbl" text-anchor="end">gpu_dpm_level</text>
+<line x1="195.8" y1="112" x2="296.2" y2="112" class="span"/>
+<circle cx="248.7" cy="112" r="4" class="pt"><title>81.3</title></circle>
+<circle cx="195.8" cy="112" r="4" class="pt"><title>80.2</title></circle>
+<circle cx="296.2" cy="112" r="4" class="pt"><title>82.3</title></circle>
+<circle cx="278.9" cy="112" r="4" class="pt"><title>81.9</title></circle>
+<line x1="254.9" y1="101" x2="254.9" y2="123" class="mean"><title>mean 81.4</title></line>
+<text x="130" y="158" class="ax">79</text><text x="720" y="158" class="ax" text-anchor="end">91</text>
+</svg>
+<h2>Measurements</h2>
+<table>
+<tr><th>Arm<th>Runs<th>Mean<th>Median<th>Min<th>Max<th>Spread<th>vs baseline
+<tr><td>rest<td>4<td>88.8<td>88.8<td>88.2<td>89.3<td>0.6%<td>—
+<tr><td>baseline<td>4<td>88.7<td>88.7<td>88.2<td>89.2<td>0.6%<td>within noise
+<tr><td>gpu_dpm_level<td>4<td>81.4<td>81.6<td>80.2<td>82.3<td>1.1%<td>-8.3%
+</table>
+<h2>Caveats</h2>
+<ul>
+<li>Shadow of the Tomb Raider (Windows build, Proton Experimental, DX12 via VKD3D-Proton), 3440x1440, preset High (AA=TAA), VSync off, in-game benchmark rerun with [R] from its results screen; one launch for the whole session.
+<li>Launch options were the user's own and unchanged throughout: WINE_FULLSCREEN_FSR=1 ENABLE_VKBASALT=1 RADV_PERFTEST=afmf. vkBasalt (CAS) was loaded; the other two are inert on Proton Experimental and Mesa 26.2.
+<li>Baseline for the verdicts is 'rest': performance power profile, performance governor and EPP, GPU DPM auto -- the state this machine keeps.
+<li>The game reports itself 99% GPU-bound at these settings (its own CPU/GPU breakdown: CPU game 117 fps, CPU render 217 fps, GPU 84 fps).
+<li>CONTAMINATED LOWS: the lab VM runs on this same host, and package installs and a Phoronix build inside it overlapped baseline run-02 (freezes of 3.6 s and 2.0 s), baseline run-04 (1.1 s) and gpu_dpm_level run-02 (333 ms). Average frame rate is robust to these; 1% and 0.1% lows from this session are not, and are superseded by 2026-09-23-sottr-power-clean.
+<li>big-screen-monitor-display.service (a root python3 system monitor) used about 38% of one core continuously, in every arm.
+<li>falcond's generic 'Proton' profile matched the game at launch and stayed active in every arm (performance_mode, idle_inhibit); per-run state.txt confirms each arm's settings held.
+</ul>
+<h2>Method</h2>
+<ul>
+<li>4 measured runs per arm, 1 warm-up discarded.
+<li>Arms were alternated, so drift over the session falls on both equally.
+<li>A difference counts as real only when it exceeds the run-to-run spread of both arms and passes Welch's t-test at 95%.
+<li>Machine fingerprint <code>02db452880e054ab</code>.
+</ul>
+</html>

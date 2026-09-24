@@ -1,0 +1,28 @@
+{
+  "schema": "bigame.calibration/1",
+  "fingerprint": "02db452880e054ab",
+  "measured": "2026-09-23",
+  "findings": {
+    "booster": {
+      "knob": "booster",
+      "verdict": "inconclusive",
+      "delta_pct": 3.378301918962682,
+      "workload": "2026-09-23-supertuxkart-cpu-bound",
+      "rationale": "the runs within an arm disagree too much to compare (variation 4.6% and 5.9%, above the 5% ceiling); something on the machine was interfering"
+    },
+    "governor_only": {
+      "knob": "governor_only",
+      "verdict": "within_noise",
+      "delta_pct": 0.7200995509934155,
+      "workload": "2026-09-23-supertuxkart-cpu-bound",
+      "rationale": "the 0.7% difference is within the 4.6% spread of the runs themselves, so it cannot be attributed to the change"
+    },
+    "gpu_only": {
+      "knob": "gpu_only",
+      "verdict": "within_noise",
+      "delta_pct": 0.5145374445407502,
+      "workload": "2026-09-23-supertuxkart-cpu-bound",
+      "rationale": "the 0.5% difference is within the 4.6% spread of the runs themselves, so it cannot be attributed to the change"
+    }
+  }
+}

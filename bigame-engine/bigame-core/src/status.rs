@@ -1,16 +1,62 @@
-//! Parse falcond status file (`/tmp/falcond_status`).
+//! Parse falcond's status file.
 //!
-//! The status file uses a simple `KEY: VALUE` / `  KEY: VALUE` format
-//! with section headers like `FEATURES:`, `CONFIG:`, `CURRENT_STATUS:`.
+//! The file uses a simple `KEY: VALUE` / `  KEY: VALUE` format with section
+//! headers like `FEATURES:`, `CONFIG:`, `CURRENT_STATUS:`.
+//!
+//! # Where it lives, and why that matters
+//!
+//! falcond 2.0.2 hardcodes `/tmp/falcond_status` — the path is the only one in
+//! its binary, and the `status_dir` setting some documentation mentions is not
+//! implemented in this release. `/run/falcond`, which would be the correct
+//! location, does not exist.
+//!
+//! `/tmp` is world-writable. falcond runs as root and creates the file, but if
+//! it has not started yet any local user can create `/tmp/falcond_status`
+//! first, or replace it with a symlink pointing somewhere else. Nothing here
+//! writes the file, so there is no privilege escalation — but a spoofed status
+//! would make the UI report a scheduler, a V-Cache mode and an active profile
+//! that are not real, which is exactly the kind of confident falsehood this
+//! project exists to stop.
+//!
+//! [`read`] therefore accepts the file only when it is a regular file owned by
+//! root. A future falcond that writes to `/run/falcond/status` is preferred
+//! automatically, with no code change needed here.
 
 use std::collections::HashMap;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
-/// Falcond status file path (tmp, world-readable).
+/// Preferred location, for a falcond that publishes under `/run`.
+pub const RUNTIME_STATUS_PATH: &str = "/run/falcond/status";
+
+/// Where falcond 2.x actually writes, in world-writable `/tmp`.
 pub const STATUS_PATH: &str = "/tmp/falcond_status";
 
+/// The status file to read, preferring `/run` over `/tmp`.
+#[must_use]
+pub fn status_path() -> &'static Path {
+    let runtime = Path::new(RUNTIME_STATUS_PATH);
+    if runtime.exists() {
+        runtime
+    } else {
+        Path::new(STATUS_PATH)
+    }
+}
+
+/// Whether `path` is a regular file owned by root.
+///
+/// `symlink_metadata` deliberately does not follow links: a symlink planted in
+/// `/tmp` would otherwise report the metadata of whatever it points at.
+#[must_use]
+pub fn is_trustworthy(path: &Path) -> bool {
+    match std::fs::symlink_metadata(path) {
+        Ok(meta) => meta.is_file() && meta.uid() == 0,
+        Err(_) => false,
+    }
+}
+
 /// Parsed falcond daemon status.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FalcondStatus {
     /// Whether performance mode switching is available.
     pub performance_available: bool,
@@ -34,12 +80,33 @@ pub struct FalcondStatus {
     pub screensaver_inhibited: bool,
 }
 
-/// Parse the falcond status file.
+/// Read and parse falcond's status.
 ///
-/// Returns `None` if the file doesn't exist or is unreadable.
+/// Returns `None` when the file is absent, unreadable, or fails the ownership
+/// check described in the module documentation.
 #[must_use]
 pub fn read() -> Option<FalcondStatus> {
-    let content = std::fs::read_to_string(Path::new(STATUS_PATH)).ok()?;
+    read_from(status_path())
+}
+
+/// Read and parse a specific status file, after checking it can be trusted.
+///
+/// Returns `None` rather than an error: from the caller's point of view "no
+/// status" and "status we will not believe" lead to the same behaviour, and
+/// treating a spoofed file as absent is the safe reading.
+#[must_use]
+pub fn read_from(path: &Path) -> Option<FalcondStatus> {
+    if !is_trustworthy(path) {
+        if path.exists() {
+            tracing::warn!(
+                target: "security",
+                path = %path.display(),
+                "ignoring falcond status: not a root-owned regular file"
+            );
+        }
+        return None;
+    }
+    let content = std::fs::read_to_string(path).ok()?;
     Some(parse(&content))
 }
 
@@ -164,6 +231,70 @@ CURRENT_STATUS:
         assert_eq!(s.current_vcache, "cache");
         assert_eq!(s.current_scx, "bpfland");
         assert!(s.screensaver_inhibited);
+    }
+
+    #[test]
+    fn a_symlink_is_never_trusted() {
+        // /tmp is world-writable: a symlink planted there would otherwise let
+        // any local user choose what the UI reports as falcond's state.
+        let dir = std::env::temp_dir().join(format!(
+            "bigame_status_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let real = dir.join("real");
+        std::fs::write(&real, "FEATURES:\n  Performance Mode: Available\n").unwrap();
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        assert!(!is_trustworthy(&link), "a symlink must not be trusted");
+        assert_eq!(read_from(&link), None);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_file_owned_by_the_user_is_not_trusted() {
+        // falcond runs as root; anything else wrote this.
+        let dir = std::env::temp_dir().join(format!(
+            "bigame_status_own_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("status");
+        std::fs::write(&file, "ACTIVE_PROFILE: Cyberpunk2077.exe\n").unwrap();
+
+        // Running as root in CI would legitimately own it; only assert the
+        // non-root case, which is how the application actually runs.
+        if unsafe { libc::geteuid() } != 0 {
+            assert!(!is_trustworthy(&file));
+            assert_eq!(read_from(&file), None);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_real_falcond_status_is_trusted_on_this_machine() {
+        // falcond is running here and owns /tmp/falcond_status as root.
+        let path = Path::new(STATUS_PATH);
+        if path.exists() {
+            assert!(
+                is_trustworthy(path),
+                "falcond's own status should be trusted"
+            );
+            assert!(read().is_some());
+        }
+    }
+
+    #[test]
+    fn a_missing_file_is_simply_absent() {
+        assert!(!is_trustworthy(Path::new("/nonexistent/falcond_status")));
+        assert_eq!(read_from(Path::new("/nonexistent/falcond_status")), None);
     }
 
     #[test]

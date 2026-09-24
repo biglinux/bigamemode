@@ -6,6 +6,10 @@ use libadwaita as adw;
 
 use crate::i18n::i18n;
 
+/// Building a widget tree is inherently linear — splitting it yields helpers
+/// with a single caller and no independent meaning — so the length lint is
+/// allowed here rather than worked around.
+#[allow(clippy::too_many_lines)]
 /// Show an informational dialog explaining the various sched-ext schedulers.
 pub fn show(parent: &gtk4::Window) {
     let dialog = adw::Window::builder()
@@ -34,7 +38,7 @@ pub fn show(parent: &gtk4::Window) {
 
     // Intro
     let title = gtk4::Label::builder()
-        .label(&format!(
+        .label(format!(
             "<span size='large' weight='bold'>{}</span>",
             i18n("What is a Scheduler?")
         ))
@@ -44,7 +48,7 @@ pub fn show(parent: &gtk4::Window) {
     content.append(&title);
 
     let desc = gtk4::Label::builder()
-        .label(&i18n("The CPU scheduler (or 'policial de trânsito') decides which programs run on which CPU cores and for how long. The default Linux scheduler divides time fairly among all apps. However, for Gaming, we don't want fairness—we want absolute priority for the game! With sched-ext (SCX), we can dynamically swap the default scheduler for a specialized one without rebooting."))
+        .label(i18n("The CPU scheduler (or 'policial de trânsito') decides which programs run on which CPU cores and for how long. The default Linux scheduler divides time fairly among all apps. However, for Gaming, we don't want fairness—we want absolute priority for the game! With sched-ext (SCX), we can dynamically swap the default scheduler for a specialized one without rebooting."))
         .wrap(true)
         .halign(gtk4::Align::Start)
         .build();
@@ -136,7 +140,7 @@ pub fn show(parent: &gtk4::Window) {
         let group = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
 
         let s_title = gtk4::Label::builder()
-            .label(&format!("<span weight='bold'>{}</span>", name))
+            .label(format!("<span weight='bold'>{name}</span>"))
             .use_markup(true)
             .halign(gtk4::Align::Start)
             .build();

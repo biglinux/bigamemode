@@ -1,0 +1,119 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "rest",
+          "runs": [
+            89.36831369738307,
+            89.42808137536936,
+            89.32000326624747
+          ],
+          "mean": 89.37213277966663,
+          "median": 89.36831369738307,
+          "min": 89.32000326624747,
+          "max": 89.42808137536936,
+          "stddev": 0.05414017417738235,
+          "cov": 0.000605783620615351
+        },
+        "candidate": {
+          "arm": "gpu_dpm_level",
+          "runs": [
+            82.1633273400312,
+            82.20920878679568,
+            82.22143761801335
+          ],
+          "mean": 82.19799124828008,
+          "median": 82.20920878679568,
+          "min": 82.1633273400312,
+          "max": 82.22143761801335,
+          "stddev": 0.03063618741868103,
+          "cov": 0.00037271211806312924
+        },
+        "delta_pct": -8.027269024756638,
+        "verdict": "regression",
+        "rationale": "8.0% slower, above the 0.1% run-to-run spread and significant at 95% (Welch's t = 199.75 against a 2.78 threshold)"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "rest",
+          "runs": [
+            65.47195060907488,
+            65.71150412700874,
+            63.793775084866084
+          ],
+          "mean": 64.99240994031656,
+          "median": 65.47195060907488,
+          "min": 63.793775084866084,
+          "max": 65.71150412700874,
+          "stddev": 1.0449356963537146,
+          "cov": 0.016077811198466
+        },
+        "candidate": {
+          "arm": "gpu_dpm_level",
+          "runs": [
+            59.21089188910984,
+            59.515416324071516,
+            61.480458909062364
+          ],
+          "mean": 60.06892237408124,
+          "median": 59.515416324071516,
+          "min": 59.21089188910984,
+          "max": 61.480458909062364,
+          "stddev": 1.2318726902817803,
+          "cov": 0.02050765423441845
+        },
+        "delta_pct": -7.575480845773577,
+        "verdict": "regression",
+        "rationale": "7.6% slower, above the 2.1% run-to-run spread and significant at 95% (Welch's t = 5.28 against a 2.78 threshold)"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "rest",
+          "runs": [
+            51.630135477475484,
+            52.506300756090724,
+            46.58775735853629
+          ],
+          "mean": 50.24139786403416,
+          "median": 51.630135477475484,
+          "min": 46.58775735853629,
+          "max": 52.506300756090724,
+          "stddev": 3.194328271550033,
+          "cov": 0.06357960581022622
+        },
+        "candidate": {
+          "arm": "gpu_dpm_level",
+          "runs": [
+            39.28453790806814,
+            42.25031687737658,
+            48.77170340801656
+          ],
+          "mean": 43.43551939782043,
+          "median": 42.25031687737658,
+          "min": 39.28453790806814,
+          "max": 48.77170340801656,
+          "stddev": 4.853360286101038,
+          "cov": 0.11173713019636591
+        },
+        "delta_pct": -13.546355705771065,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 6.4% and 11.2%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  }
+]

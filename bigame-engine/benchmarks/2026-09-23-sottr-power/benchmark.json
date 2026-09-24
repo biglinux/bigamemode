@@ -1,0 +1,38 @@
+{
+  "schema": "bigame.benchmark/1",
+  "workload": "2026-09-23-sottr-power",
+  "metric": "avg_fps",
+  "date": "2026-09-23",
+  "fingerprint": "02db452880e054ab",
+  "arms": {
+    "baseline": [
+      88.31453016428235,
+      88.21619325121416,
+      89.18740070755011,
+      89.16038542119836
+    ],
+    "gpu_dpm_level": [
+      81.30913768503802,
+      80.20693350684331,
+      82.29611856930178,
+      81.93700974350526
+    ],
+    "rest": [
+      88.41738264884923,
+      88.24744708768951,
+      89.33200582424094,
+      89.09522744127422
+    ]
+  },
+  "warmup_runs": 1,
+  "alternating": true,
+  "caveats": [
+    "Shadow of the Tomb Raider (Windows build, Proton Experimental, DX12 via VKD3D-Proton), 3440x1440, preset High (AA=TAA), VSync off, in-game benchmark rerun with [R] from its results screen; one launch for the whole session.",
+    "Launch options were the user's own and unchanged throughout: WINE_FULLSCREEN_FSR=1 ENABLE_VKBASALT=1 RADV_PERFTEST=afmf. vkBasalt (CAS) was loaded; the other two are inert on Proton Experimental and Mesa 26.2.",
+    "Baseline for the verdicts is 'rest': performance power profile, performance governor and EPP, GPU DPM auto -- the state this machine keeps.",
+    "The game reports itself 99% GPU-bound at these settings (its own CPU/GPU breakdown: CPU game 117 fps, CPU render 217 fps, GPU 84 fps).",
+    "CONTAMINATED LOWS: the lab VM runs on this same host, and package installs and a Phoronix build inside it overlapped baseline run-02 (freezes of 3.6 s and 2.0 s), baseline run-04 (1.1 s) and gpu_dpm_level run-02 (333 ms). Average frame rate is robust to these; 1% and 0.1% lows from this session are not, and are superseded by 2026-09-23-sottr-power-clean.",
+    "big-screen-monitor-display.service (a root python3 system monitor) used about 38% of one core continuously, in every arm.",
+    "falcond's generic 'Proton' profile matched the game at launch and stayed active in every arm (performance_mode, idle_inhibit); per-run state.txt confirms each arm's settings held."
+  ]
+}

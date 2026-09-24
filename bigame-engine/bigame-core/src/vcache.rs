@@ -26,10 +26,10 @@ pub fn read_mode() -> Option<String> {
         .map(|s| s.trim().to_owned())
 }
 
-/// Write `VCache` mode to sysfs via DBus.
+/// Write `VCache` mode to sysfs via `DBus`.
 ///
 /// # Errors
-/// Returns error if DBus fails.
+/// Returns error if `DBus` fails.
 pub async fn set_mode(mode: &str) -> Result<()> {
     anyhow::ensure!(
         matches!(mode, "frequency" | "cache"),

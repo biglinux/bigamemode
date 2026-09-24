@@ -3,21 +3,31 @@
 //! Separates all system-level logic (D-Bus, sysfs, process management)
 //! from the UI layer, enabling independent testing and headless operation.
 
+pub mod benchmark;
+pub mod booster;
+pub mod capabilities;
 pub mod config;
 pub mod dbus;
+pub mod diagnostics;
 pub mod fg;
 pub mod games;
 pub mod gamescope;
 pub mod governor;
+pub mod hardware;
+pub mod inventory;
 pub mod launcher;
 pub mod models;
+pub mod network;
 pub mod polkit;
-pub mod video_config;
+pub mod processes;
 pub mod profiles;
 pub mod sched;
 pub mod status;
+pub mod steam;
 pub mod telemetry;
 pub mod vcache;
+pub mod video_config;
+pub mod watch;
 
 #[cfg(test)]
 pub(crate) mod tests {

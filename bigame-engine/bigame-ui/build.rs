@@ -28,7 +28,11 @@ fn main() {
     let icons_src = workspace.join("usr/share/icons");
     if icons_src.exists() {
         let _ = Command::new("cp")
-            .args(["-r", icons_src.to_str().unwrap(), stage_dir.join("icons").to_str().unwrap()])
+            .args([
+                "-r",
+                icons_src.to_str().unwrap(),
+                stage_dir.join("icons").to_str().unwrap(),
+            ])
             .status();
     }
 

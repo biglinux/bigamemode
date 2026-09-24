@@ -1,3 +1,10 @@
+> **Historical — superseded 2026-09-23.**
+> This document describes the implementation as it stood before the audit and
+> rebuild, and parts of it are no longer true (the Booster `AdwSwitchRow`, the
+> old game detection and the old Gamescope builder no longer exist). It is kept
+> for context, not as a reference.
+> Current documentation: [README.md](README.md).
+
 # Arquitetura do BiGameMode
 
 Este documento resume as tecnologias, os componentes e o fluxo de execução do BiGameMode.

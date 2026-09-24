@@ -7,7 +7,6 @@ use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use crate::i18n::i18n;
-use crate::widgets;
 
 /// Telemetry polling interval.
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
@@ -54,11 +53,11 @@ pub fn build() -> adw::PreferencesPage {
     metrics_group.add(&metrics_vbox);
     page.add(&metrics_group);
 
-    // Booster toggle
+    // Performance status. Booster Mode itself lives on Home and is deliberately
+    // not duplicated here: two controls writing the same state is the class of
+    // conflict this project is trying to remove, not reproduce.
     let booster_group = adw::PreferencesGroup::new();
     booster_group.set_title(&i18n("Performance"));
-    let booster = widgets::booster_toggle::build();
-    booster_group.add(&booster);
 
     // Power profile indicator
     let power_row = adw::ActionRow::builder()
@@ -185,11 +184,13 @@ pub fn build() -> adw::PreferencesPage {
             let result = gio::spawn_blocking(|| {
                 let report = build_runtime_diagnostics_report();
                 let path = std::env::var("HOME")
-                    .map(std::path::PathBuf::from)
-                    .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"))
+                    .map_or_else(
+                        |_| std::path::PathBuf::from("/tmp"),
+                        std::path::PathBuf::from,
+                    )
                     .join("bigame-diagnostics.log");
                 std::fs::write(&path, report)
-                    .map(|_| path)
+                    .map(|()| path)
                     .map_err(|e| format!("{}: {}", i18n("Failed to save diagnostics"), e))
             })
             .await;
@@ -200,10 +201,9 @@ pub fn build() -> adw::PreferencesPage {
                     &format!("{}: {}", i18n("Diagnostics saved"), path.display()),
                 ),
                 Ok(Err(err)) => crate::widgets::toast::show(&btn_ref, &err),
-                Err(_) => crate::widgets::toast::show(
-                    &btn_ref,
-                    &i18n("Failed to save diagnostics"),
-                ),
+                Err(_) => {
+                    crate::widgets::toast::show(&btn_ref, &i18n("Failed to save diagnostics"));
+                }
             }
         });
     });
@@ -315,7 +315,7 @@ fn spawn_status_watcher(
     vcache_row: adw::ActionRow,
     badge: gtk4::Label,
 ) {
-    let file = gio::File::for_path(bigame_core::status::STATUS_PATH);
+    let file = gio::File::for_path(bigame_core::status::status_path());
     let Ok(monitor) = file.monitor_file(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE) else {
         return; // inotify not available — polling still covers this
     };
@@ -515,7 +515,7 @@ fn spawn_telemetry_poller(
             if let (Some(prev), Some(cur)) = (prev_disk, cur_disk) {
                 let read_kb = (cur.0.saturating_sub(prev.0) * 512) / 1024;
                 let write_kb = (cur.1.saturating_sub(prev.1) * 512) / 1024;
-                disk_val.set_text(&format!("{}R {}W KB/s", read_kb, write_kb));
+                disk_val.set_text(&format!("{read_kb}R {write_kb}W KB/s"));
                 disk_spark.push(f64::from(
                     u32::try_from(read_kb + write_kb).unwrap_or(u32::MAX),
                 ));
@@ -734,7 +734,8 @@ fn spawn_telemetry_poller(
                     runtime.cfg.frame_gen.backend,
                     bigame_core::models::FrameGenBackend::OptiScaler
                         | bigame_core::models::FrameGenBackend::Afmf
-                ) && runtime.lsfg_enabled && runtime.lsfg_active)
+                ) && runtime.lsfg_enabled
+                    && runtime.lsfg_active)
                     || (runtime.cfg.frame_gen.backend
                         == bigame_core::models::FrameGenBackend::LsfgVk
                         && runtime.cfg.frame_gen.optiscaler_enabled
@@ -966,7 +967,10 @@ fn make_runtime_status_row(
     (row, badge)
 }
 
-#[derive(Debug, Clone)]
+/// Independent presence flags for the runtime status rows; a flat set of
+/// yes/no answers rather than a state machine.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Default)]
 struct VideoRuntime {
     cfg: bigame_core::video_config::VideoConfig,
     lsfg_installed: bool,
@@ -977,22 +981,6 @@ struct VideoRuntime {
     vkbasalt_active: bool,
     optiscaler_active: bool,
     afmf_active: bool,
-}
-
-impl Default for VideoRuntime {
-    fn default() -> Self {
-        Self {
-            cfg: bigame_core::video_config::VideoConfig::default(),
-            lsfg_installed: false,
-            lsfg_enabled: false,
-            lsfg_active: false,
-            gamescope_active: false,
-            wine_fsr_active: false,
-            vkbasalt_active: false,
-            optiscaler_active: false,
-            afmf_active: false,
-        }
-    }
 }
 
 /// Collect runtime feature flags for the current game context.
@@ -1021,8 +1009,8 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     let afmf_active = pids
         .iter()
         .any(|pid| process_env_contains(*pid, "RADV_PERFTEST", "afmf"));
-    let lsfg_active = is_lsfg_active_for_game(game);
-    let optiscaler_active = is_optiscaler_active_for_game(game);
+    let lsfg_active = is_lsfg_active(&pids);
+    let optiscaler_active = is_optiscaler_active(&pids);
 
     VideoRuntime {
         cfg,
@@ -1094,6 +1082,9 @@ fn build_runtime_diagnostics_report() -> String {
     ) + &guidance
 }
 
+/// Each flag drives one independent aspect of the row's appearance; bundling
+/// them into a struct would only move the same parameters behind a name.
+#[allow(clippy::fn_params_excessive_bools)]
 /// Update feature row + badge based on config/runtime/turbo/game state.
 fn apply_runtime_feature_status(
     row: &adw::ActionRow,
@@ -1149,13 +1140,7 @@ fn apply_runtime_feature_status(
 
 #[must_use]
 fn find_game_pids(game_name: &str) -> Vec<u32> {
-    let Ok(out) = std::process::Command::new("pgrep").arg("-f").arg(game_name).output() else {
-        return Vec::new();
-    };
-    String::from_utf8_lossy(&out.stdout)
-        .split_whitespace()
-        .filter_map(|s| s.parse::<u32>().ok())
-        .collect()
+    bigame_core::processes::find_by_cmdline(game_name)
 }
 
 #[must_use]
@@ -1185,65 +1170,20 @@ fn process_env_contains(pid: u32, key: &str, needle: &str) -> bool {
 
 #[must_use]
 fn is_gamescope_running() -> bool {
-    std::process::Command::new("pgrep")
-    .arg("-f")
-    .arg("gamescope")
-        .status()
-        .is_ok_and(|s| s.success())
+    !bigame_core::processes::find_by_cmdline("gamescope").is_empty()
 }
 
 #[must_use]
-fn is_lsfg_active_for_game(game_name: &str) -> bool {
-    let Ok(out) = std::process::Command::new("pgrep")
-        .arg("-f")
-        .arg(game_name)
-        .output()
-    else {
-        return false;
-    };
-    for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
-        let map_path = format!("/proc/{pid_str}/maps");
-        if let Ok(status) = std::process::Command::new("timeout")
-            .args([
-                "0.2",
-                "grep",
-                "-qE",
-                "liblsfg-vk.so|VK_LAYER_LSFGVK|lsfg-vk",
-                &map_path,
-            ])
-            .status()
-        {
-            if status.success() {
-                return true;
-            }
-        }
-    }
-    false
+fn is_lsfg_active(pids: &[u32]) -> bool {
+    pids.iter().any(|&pid| {
+        bigame_core::processes::maps_contain(pid, &["liblsfg-vk.so", "VK_LAYER_LSFGVK", "lsfg-vk"])
+    })
 }
 
 #[must_use]
-fn is_optiscaler_active_for_game(game_name: &str) -> bool {
-    let Ok(out) = std::process::Command::new("pgrep")
-        .arg("-f")
-        .arg(game_name)
-        .output()
-    else {
-        return false;
-    };
-
-    for pid_str in String::from_utf8_lossy(&out.stdout).split_whitespace() {
-        let map_path = format!("/proc/{pid_str}/maps");
-        if let Ok(status) = std::process::Command::new("timeout")
-            .args(["0.2", "grep", "-qE", "nvngx\\.dll|_nvngx\\.dll|OptiScaler", &map_path])
-            .status()
-        {
-            if status.success() {
-                return true;
-            }
-        }
-    }
-
-    false
+fn is_optiscaler_active(pids: &[u32]) -> bool {
+    pids.iter()
+        .any(|&pid| bigame_core::processes::maps_contain(pid, &["nvngx.dll", "OptiScaler"]))
 }
 
 /// Check whether the lsfg-vk Vulkan implicit layer is installed.
@@ -1425,7 +1365,9 @@ fn build_games_onboarding_row() -> adw::ExpanderRow {
 
     let s2 = adw::ActionRow::builder()
         .title(i18n("2. Enable Turbo + Video features"))
-        .subtitle(i18n("Turbo Mode must be active to apply Gamescope/FSR/vkBasalt/FrameGen"))
+        .subtitle(i18n(
+            "Turbo Mode must be active to apply Gamescope/FSR/vkBasalt/FrameGen",
+        ))
         .build();
     row.add_row(&s2);
 
@@ -1437,7 +1379,9 @@ fn build_games_onboarding_row() -> adw::ExpanderRow {
 
     let s4 = adw::ActionRow::builder()
         .title(i18n("4. Validate Runtime Status"))
-        .subtitle(i18n("Check Video Runtime Status and Active Profile during gameplay"))
+        .subtitle(i18n(
+            "Check Video Runtime Status and Active Profile during gameplay",
+        ))
         .build();
     row.add_row(&s4);
 
@@ -1471,10 +1415,7 @@ fn refresh_detected_games_group(trigger: &impl IsA<gtk4::Widget>) {
 fn resolve_launch_command(source: &str, executable: &str) -> (String, Vec<String>) {
     if source == "Steam" {
         if let Some(appid) = find_steam_appid_by_installdir(executable) {
-            return (
-                "steam".to_string(),
-                vec!["-applaunch".to_string(), appid],
-            );
+            return ("steam".to_string(), vec!["-applaunch".to_string(), appid]);
         }
         tracing::warn!(
             source = %source,
@@ -1537,113 +1478,23 @@ fn find_steam_appid_by_installdir(installdir: &str) -> Option<String> {
     None
 }
 
-/// Suggest the best profile process name for a detected game.
+/// The process name a profile for `game` should be keyed on.
 ///
-/// For Steam titles, attempts to infer the real `.exe` from install directory,
-/// because profile names based on installdir often end up matching generic
-/// Proton helper processes.
+/// Delegates entirely to `bigame_core::games`, which scans the install
+/// directory, filters store helpers and crash handlers, and ranks the rest by
+/// size. This view used to carry its own copy of that heuristic; keeping two
+/// implementations of "which binary is the game" meant they could disagree,
+/// and the one that decided what a profile was named is the one that has to be
+/// right.
 #[must_use]
 fn suggest_profile_program_name(game: &bigame_core::games::DetectedGame) -> String {
-    if game.source == "Steam" {
-        if let Some(root) = game.install_path.as_deref() {
-            if let Some(exe) = guess_primary_windows_exe(root) {
-                return exe;
-            }
-        }
-    }
-    game.executable.clone()
+    game.profile_key().to_owned()
 }
 
-/// Guess main Windows executable by scanning install directory.
-#[must_use]
-fn guess_primary_windows_exe(root: &std::path::Path) -> Option<String> {
-    if !root.exists() {
-        return None;
-    }
-
-    const MAX_DEPTH: usize = 4;
-    const MAX_FILES: usize = 3000;
-    const COMMON_WRAPPERS: &[&str] = &[
-        "steam.exe",
-        "steamwebhelper.exe",
-        "proton.exe",
-        "wineboot.exe",
-        "services.exe",
-        "winedevice.exe",
-        "explorer.exe",
-        "crashpad_handler.exe",
-        "easyanticheat.exe",
-        "eac_launcher.exe",
-        "launcher.exe",
-        "unins000.exe",
-    ];
-
-    let mut stack = vec![(root.to_path_buf(), 0usize)];
-    let mut seen = 0usize;
-    let mut best: Option<(String, u64, i32)> = None;
-
-    while let Some((dir, depth)) = stack.pop() {
-        if depth > MAX_DEPTH || seen > MAX_FILES {
-            continue;
-        }
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            if seen > MAX_FILES {
-                break;
-            }
-            seen += 1;
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push((path, depth + 1));
-                continue;
-            }
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_ascii_lowercase())
-                .unwrap_or_default();
-            if ext != "exe" {
-                continue;
-            }
-
-            let file_name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n.to_string(),
-                None => continue,
-            };
-            let lower = file_name.to_ascii_lowercase();
-            if COMMON_WRAPPERS.iter().any(|w| *w == lower) {
-                continue;
-            }
-
-            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-            let mut score = 0i32;
-            let p = path.to_string_lossy().to_ascii_lowercase();
-            if p.contains("win64") || p.contains("binaries") {
-                score += 10;
-            }
-            if p.contains("shipping") {
-                score += 8;
-            }
-            if p.contains("/bin") {
-                score += 4;
-            }
-
-            match &best {
-                None => best = Some((file_name, size, score)),
-                Some((_name, best_size, best_score)) => {
-                    if score > *best_score || (score == *best_score && size > *best_size) {
-                        best = Some((file_name, size, score));
-                    }
-                }
-            }
-        }
-    }
-
-    best.map(|(name, _, _)| name)
-}
-
+/// Building a widget tree is inherently linear — splitting it yields helpers
+/// with a single caller and no independent meaning — so the length lint is
+/// allowed here rather than worked around.
+#[allow(clippy::too_many_lines)]
 /// Populate game rows into a `PreferencesGroup` (called by `build_games_group`).
 fn populate_games_rows(group: &adw::PreferencesGroup) {
     let detected = bigame_core::games::detect_all();
@@ -1658,14 +1509,14 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
     for game in detected.iter().take(20) {
         let row = adw::ActionRow::builder()
             .title(&*game.name)
-            .subtitle(game.source)
+            .subtitle(game.source.label())
             .build();
         row.add_prefix(&gtk4::Image::from_icon_name("applications-games-symbolic"));
 
         // "Create Profile" button per game
         let profile_exists = bigame_core::profiles::list_names()
             .iter()
-            .any(|n| n == &game.executable);
+            .any(|n| n == game.profile_key());
         if profile_exists {
             let badge = gtk4::Label::builder()
                 .label(i18n("Profile exists"))
@@ -1690,14 +1541,18 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                     executable = %exe_for_wizard,
                     "dashboard create-profile wizard opened"
                 );
-                crate::views::profile_wizard::open_with_suggested_name(b, &exe_for_wizard, move |_profile| {
-                    tracing::info!(
-                        game = %game_name_for_log,
-                        "dashboard create-profile wizard saved"
-                    );
-                    crate::widgets::toast::show(&btn_ref, &i18n("Profile created"));
-                    refresh_detected_games_group(&btn_ref);
-                });
+                crate::views::profile_wizard::open_with_suggested_name(
+                    b,
+                    &exe_for_wizard,
+                    move |_profile| {
+                        tracing::info!(
+                            game = %game_name_for_log,
+                            "dashboard create-profile wizard saved"
+                        );
+                        crate::widgets::toast::show(&btn_ref, &i18n("Profile created"));
+                        refresh_detected_games_group(&btn_ref);
+                    },
+                );
             });
             row.add_suffix(&btn);
         }
@@ -1712,8 +1567,8 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
             .valign(gtk4::Align::Center)
             .css_classes(["suggested-action"])
             .build();
-        let exe = game.executable.clone();
-        let source = game.source;
+        let exe = game.profile_key().to_owned();
+        let source = game.source.label();
         let game_name = game.name.clone();
         let install_path = game.install_path.clone();
         gs_btn.connect_clicked(move |b| {
@@ -1756,7 +1611,14 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                         gs_cfg.as_ref(),
                     )
                     .spawn()
-                    .map(|_| ())
+                    .map(|mut child| {
+                        // Reaped off the UI thread. Dropping the handle instead
+                        // left every exited Gamescope a zombie for the life of
+                        // the UI, and a zombie still matches "is it running".
+                        std::thread::spawn(move || {
+                            let _ = child.wait();
+                        });
+                    })
                     .map_err(|e| anyhow::anyhow!(e))
                 })
                 .await;

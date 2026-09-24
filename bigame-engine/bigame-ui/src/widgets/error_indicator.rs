@@ -1,3 +1,12 @@
+// The stored callbacks are boxed closures over GTK widgets; naming each
+// shape with a type alias would add indirection without making the
+// signatures easier to read. The wide setter takes one argument per piece
+// of the error banner it fills in.
+#![allow(
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    clippy::many_single_char_names
+)]
 use crate::i18n::i18n;
 use adw::prelude::*;
 use gtk4::glib;
@@ -9,9 +18,9 @@ pub struct ErrorIndicator {
     error_title: std::sync::Arc<std::sync::Mutex<String>>,
     error_msg: std::sync::Arc<std::sync::Mutex<String>>,
     solution: std::sync::Arc<std::sync::Mutex<String>>,
-    /// Optional action: (button_label, shell_command_args).
+    /// Optional action: (`button_label`, `shell_command_args`).
     action: std::sync::Arc<std::sync::Mutex<Option<(String, Vec<String>)>>>,
-    /// Optional copy action: (button_label, text_to_copy).
+    /// Optional copy action: (`button_label`, `text_to_copy`).
     copy_action: std::sync::Arc<std::sync::Mutex<Option<(String, String)>>>,
 }
 
@@ -74,7 +83,13 @@ impl ErrorIndicator {
                     if response == "action" {
                         if let Some((_, cmd)) = &act {
                             if let Some((prog, args)) = cmd.split_first() {
-                                let _ = std::process::Command::new(prog).args(args).spawn();
+                                if let Ok(mut child) =
+                                    std::process::Command::new(prog).args(args).spawn()
+                                {
+                                    std::thread::spawn(move || {
+                                        let _ = child.wait();
+                                    });
+                                }
                             }
                         }
                     } else if response == "copy" {

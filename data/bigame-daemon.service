@@ -1,14 +1,48 @@
 [Unit]
-Description=BiGame-mode Engine Daemon (Root Orchestrator)
-After=dbus.service
+Description=BiGame-mode privileged helper
+Documentation=https://github.com/ruscher/bigamemode
+After=dbus.service polkit.service
 Requires=dbus.service
+# Polkit is how every method authorizes its caller. Without it the helper
+# denies everything, so starting before it is pointless.
+Wants=polkit.service
 
 [Service]
 Type=dbus
 BusName=com.biglinux.BiGameMode
 ExecStart=/usr/bin/bigame-daemon
-Restart=always
+Restart=on-failure
 RestartSec=3
+
+# The helper needs root to write sysfs and /etc/falcond, but nothing beyond
+# that. Everything below removes access it never uses, so a bug in argument
+# handling has as little reach as possible.
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @obsolete
+
+# Writes are confined to the two locations the helper actually touches.
+# ProtectSystem=strict makes the rest of the filesystem read-only; sysfs is
+# then re-opened read-write because that is where cpufreq and amdgpu live.
+ProtectSystem=strict
+ReadWritePaths=/etc/falcond /usr/share/falcond/profiles /sys/devices/system/cpu /sys/class/drm /sys/bus/platform/drivers/amd_x3d_vcache
+
+# PrivateTmp is intentionally NOT set: falcond publishes its status to
+# /tmp/falcond_status and a private /tmp would hide it.
+PrivateTmp=no
 
 [Install]
 WantedBy=multi-user.target

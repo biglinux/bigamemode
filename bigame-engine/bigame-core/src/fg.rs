@@ -22,7 +22,7 @@ const CONFIG_REL_PATH: &str = ".config/lsfg-vk/conf.toml";
 // version must be 1 (as required by current lsfg-vk parser);
 // multiplier must be > 1; flow_scale must be 0.25–1.0.
 
-/// An lsfg-vk `[[profile]]` entry — matches GameConf exactly.
+/// An lsfg-vk `[[profile]]` entry — matches `GameConf` exactly.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LsfgProfile {
     /// Display name shown in lsfg-vk-ui.
@@ -277,7 +277,7 @@ pub fn write_global_dll(dll: Option<String>) -> Result<()> {
 
 /// Returns `true` if ANY lsfg-vk profile has `multiplier > 1`.
 ///
-/// Used to decide whether to show a conflict warning when OptiScaler or AFMF
+/// Used to decide whether to show a conflict warning when `OptiScaler` or AFMF
 /// is also enabled (both generate frames — running both simultaneously causes
 /// visual artifacts).
 #[must_use]
@@ -287,7 +287,7 @@ pub fn has_any_active_profile() -> bool {
     }
     read_config()
         .ok()
-        .map_or(false, |cfg| cfg.profiles.iter().any(|p| p.multiplier > 1))
+        .is_some_and(|cfg| cfg.profiles.iter().any(|p| p.multiplier > 1))
 }
 
 /// Returns `true` when global video settings still allow lsfg-vk profiles.
@@ -319,7 +319,7 @@ pub fn is_active_for_game(name: &str) -> bool {
     if !is_lossless_dll_ready() {
         return false;
     }
-    read_config().ok().map_or(false, |cfg| {
+    read_config().ok().is_some_and(|cfg| {
         cfg.profiles
             .iter()
             .any(|p| p.active_in.contains(&name.to_owned()) && p.multiplier > 1)
@@ -329,6 +329,9 @@ pub fn is_active_for_game(name: &str) -> bool {
 /// Disable LSFG for all profiles by forcing multipliers to 1.
 ///
 /// Returns `Ok(true)` if at least one profile was changed.
+///
+/// # Errors
+/// Returns an error if the lsfg-vk config cannot be read or written.
 pub fn disable_all_profiles() -> Result<bool> {
     let mut cfg = read_config()?;
     let mut changed = false;
@@ -347,14 +350,14 @@ pub fn disable_all_profiles() -> Result<bool> {
 /// Disable lsfg-vk FG for a specific game by setting its multiplier to 1.
 ///
 /// Intended to resolve frame generation conflicts when the user switches to
-/// OptiScaler or AFMF as the primary backend. Does nothing if no profile exists.
+/// `OptiScaler` or AFMF as the primary backend. Does nothing if no profile exists.
 ///
 /// # Errors
 /// Returns error if config read/write fails.
 pub fn disable_for_game(name: &str) -> Result<()> {
     let mut cfg = read_config()?;
     let mut changed = false;
-    for profile in cfg.profiles.iter_mut() {
+    for profile in &mut cfg.profiles {
         if profile.active_in.contains(&name.to_owned()) && profile.multiplier > 1 {
             profile.multiplier = 1;
             changed = true;
