@@ -107,9 +107,7 @@ fn open_internal(
     name_group.add(&name_entry);
     stack.add_named(
         &wizard_step(
-            1,
-            "applications-games-symbolic",
-            &i18n("Program Name"),
+                        &i18n("Program Name"),
             &i18n(
                 "Enter the exact name of the executable you want to trigger this profile.\nExamples: minecraft, dota2, steam",
             ),
@@ -134,9 +132,7 @@ fn open_internal(
     perf_group.add_css_class("wizard-input-card");
     stack.add_named(
         &wizard_step(
-            2,
-            "speedometer-symbolic",
-            &i18n("Performance Mode"),
+                        &i18n("Performance Mode"),
             &i18n(
                 "Turbo mode prevents power-saving features to maximize framerates at the cost of higher power consumption.",
             ),
@@ -173,9 +169,7 @@ fn open_internal(
     sched_group.add(&mode_combo);
     stack.add_named(
         &wizard_step(
-            4,
-            "preferences-system-symbolic",
-            &i18n("Scheduler Priority"),
+                        &i18n("Scheduler Priority"),
             &i18n(
                 "A custom scheduler can dramatically improve frametimes and reduce stuttering. Leave blank to use the system default.",
             ),
@@ -216,8 +210,6 @@ fn open_internal(
     };
     stack.add_named(
         &wizard_step(
-            5,
-            "memory-symbolic",
             &i18n("Memory Optimization"),
             &vcache_desc,
             Some(&vcache_group),
@@ -285,9 +277,7 @@ fn open_internal(
 
     stack.add_named(
         &wizard_step(
-            6,
-            "video-display-symbolic",
-            &i18n("Display Layer"),
+                        &i18n("Display Layer"),
             &i18n(
                 "Gamescope provides an isolated compositor for the game, enabling resolution scaling, framerate limiting, and FidelityFX Super Resolution (FSR).",
             ),
@@ -321,9 +311,7 @@ fn open_internal(
 
     stack.add_named(
         &wizard_step(
-            7,
-            "video-display-symbolic",
-            &i18n("Frame Generation"),
+                        &i18n("Frame Generation"),
             &i18n(
                 "LSFG-VK inserts synthetically generated frames to multiply your framerate, providing a smoother visual experience at the cost of slight input latency.",
             ),
@@ -342,8 +330,6 @@ fn open_internal(
     idle_group.add(&idle_switch);
     stack.add_named(
         &wizard_step(
-            8,
-            "display-brightness-symbolic",
             &i18n("Idle Behavior"),
             &i18n(
                 "Inhibits the screen saver and automatic screen sleep while the game is running.",
@@ -377,9 +363,7 @@ fn open_internal(
     ai_group.add_css_class("wizard-input-card");
     stack.add_named(
         &wizard_step(
-            8,
-            "applications-graphics-symbolic",
-            &i18n("AI Graphics"),
+                        &i18n("AI Graphics"),
             &i18n(
                 "Improve image quality and performance using technologies such as DLSS, FSR, XeSS, OptiScaler and compatible neural-rendering features.\nEnable AI Graphics for this game?",
             ),
@@ -397,8 +381,6 @@ fn open_internal(
     summary_box.set_margin_start(20);
     summary_box.set_margin_end(20);
     let summary_page = wizard_step(
-        9,
-        "trophy-symbolic",
         &i18n("Profile Summary"),
         &i18n("Review your profile settings before saving."),
         Some(&summary_box),
@@ -659,8 +641,6 @@ fn update_dots(dots: &[gtk4::Box], current: usize) {
 // ── Helper: Wizard step page layout ──────────────────────────────────────
 
 fn wizard_step(
-    _step_number: usize,
-    _icon_name: &str,
     title: &str,
     description: &str,
     input: Option<&impl IsA<gtk4::Widget>>,
@@ -671,11 +651,9 @@ fn wizard_step(
     vbox.set_margin_start(24);
     vbox.set_margin_end(24);
 
-    // Icon removed to follow clean objective layout
-
     let title_lbl = gtk4::Label::new(Some(title));
     title_lbl.set_halign(gtk4::Align::Center);
-    title_lbl.add_css_class("title-2"); // Reduced from title-1
+    title_lbl.add_css_class("title-2");
     title_lbl.add_css_class("wizard-step-title");
     vbox.append(&title_lbl);
 
@@ -686,7 +664,7 @@ fn wizard_step(
     desc_lbl.set_wrap_mode(gtk4::pango::WrapMode::Word);
     desc_lbl.set_max_width_chars(60);
     desc_lbl.add_css_class("body");
-    desc_lbl.add_css_class("dim-label"); // Make text elegant and less intrusive
+    desc_lbl.add_css_class("dim-label");
     desc_lbl.add_css_class("wizard-step-desc");
     vbox.append(&desc_lbl);
 

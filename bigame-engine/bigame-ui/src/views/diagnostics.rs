@@ -174,7 +174,7 @@ fn health_group() -> adw::PreferencesGroup {
         let mut text = String::new();
         for c in &checks {
             let (icon, css) = match c.status {
-                Status::Ok => ("emblem-ok-symbolic", "success"),
+                Status::Ok => ("object-select-symbolic", "success"),
                 Status::Info => ("dialog-information-symbolic", "dim-label"),
                 Status::Warning => ("dialog-warning-symbolic", "warning"),
                 Status::Error => ("dialog-error-symbolic", "error"),
@@ -644,7 +644,7 @@ fn run_dns_benchmark() -> Vec<network::DnsResult> {
 
 fn status_icon(good: bool) -> gtk4::Image {
     let icon = gtk4::Image::from_icon_name(if good {
-        "emblem-ok-symbolic"
+        "object-select-symbolic"
     } else {
         "dialog-information-symbolic"
     });

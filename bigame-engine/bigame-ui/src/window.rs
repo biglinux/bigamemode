@@ -129,7 +129,7 @@ pub fn build(
         (
             "benchmark",
             i18n("Benchmark"),
-            "org.gnome.Settings-performance-symbolic",
+            "applications-science-symbolic",
         ),
         (
             "diagnostics",

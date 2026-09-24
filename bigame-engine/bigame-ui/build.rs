@@ -13,7 +13,11 @@ fn main() {
 
     // The bundle lists style.css and icons/hicolor/…; each is found in one of
     // these directories, so nothing has to be staged or copied first.
-    let sources = [root.join("data"), root.join("style"), root.join("usr/share")];
+    let sources = [
+        root.join("data"),
+        root.join("style"),
+        root.join("usr/share"),
+    ];
 
     let mut command = Command::new("glib-compile-resources");
     for dir in &sources {

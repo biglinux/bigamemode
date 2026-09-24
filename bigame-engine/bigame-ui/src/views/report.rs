@@ -59,7 +59,7 @@ fn section_description(section: Section) -> Option<String> {
 
 fn section_icon(section: Section) -> &'static str {
     match section {
-        Section::Verified | Section::Restored => "emblem-ok-symbolic",
+        Section::Verified | Section::Restored => "object-select-symbolic",
         Section::ManagedPerGame => "system-users-symbolic",
         Section::Skipped => "action-unavailable-symbolic",
         Section::Unavailable => "window-close-symbolic",

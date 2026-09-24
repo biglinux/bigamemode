@@ -125,7 +125,7 @@ fn step_row(step: &Step) -> adw::ActionRow {
         Step::InGame(t) => ("input-gaming-symbolic", t),
         Step::Install(t) => ("folder-download-symbolic", t),
         Step::Disable(t) => ("action-unavailable-symbolic", t),
-        Step::Keep(t) => ("emblem-ok-symbolic", t),
+        Step::Keep(t) => ("object-select-symbolic", t),
         Step::Note(t) => ("dialog-information-symbolic", t),
     };
     let r = adw::ActionRow::builder()

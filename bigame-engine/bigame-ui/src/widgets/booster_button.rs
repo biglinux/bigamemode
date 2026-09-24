@@ -82,7 +82,7 @@ impl State {
         match self {
             Self::Off => "power-profile-performance-symbolic",
             Self::Working { .. } | Self::Restoring => "content-loading-symbolic",
-            Self::On { .. } => "emblem-ok-symbolic",
+            Self::On { .. } => "object-select-symbolic",
             Self::Partial { .. } => "dialog-warning-symbolic",
             Self::Error { .. } => "dialog-error-symbolic",
         }

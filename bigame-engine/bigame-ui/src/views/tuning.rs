@@ -82,7 +82,7 @@ fn build_advanced_group(
         .build();
     scx_status.add_prefix(&gtk4::Image::from_icon_name(
         if scx.switchable().is_available() {
-            "emblem-ok-symbolic"
+            "object-select-symbolic"
         } else {
             "dialog-warning-symbolic"
         },
