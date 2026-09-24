@@ -19,25 +19,26 @@
 //! project exists to stop.
 //!
 //! [`read`] therefore accepts the file only when it is a regular file owned by
-//! root. A future falcond that writes to `/run/falcond/status` is preferred
-//! automatically, with no code change needed here.
+//! root. Newer falcond releases (checked against upstream 2.0.14) also write
+//! `/var/lib/falcond/status`, in a root-owned directory; that one is preferred
+//! whenever it exists.
 
 use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
-/// Preferred location, for a falcond that publishes under `/run`.
-pub const RUNTIME_STATUS_PATH: &str = "/run/falcond/status";
+/// Where newer falcond releases publish, in a directory only root can write.
+pub const STATE_STATUS_PATH: &str = "/var/lib/falcond/status";
 
 /// Where falcond 2.x actually writes, in world-writable `/tmp`.
 pub const STATUS_PATH: &str = "/tmp/falcond_status";
 
-/// The status file to read, preferring `/run` over `/tmp`.
+/// The status file to read, preferring falcond's state directory over `/tmp`.
 #[must_use]
 pub fn status_path() -> &'static Path {
-    let runtime = Path::new(RUNTIME_STATUS_PATH);
-    if runtime.exists() {
-        runtime
+    let state = Path::new(STATE_STATUS_PATH);
+    if state.exists() {
+        state
     } else {
         Path::new(STATUS_PATH)
     }
@@ -78,6 +79,10 @@ pub struct FalcondStatus {
     pub current_scx: String,
     /// Live: screensaver inhibit active.
     pub screensaver_inhibited: bool,
+    /// Whether falcond can protect a game's VRAM through the DMEM cgroup.
+    /// `None` when this falcond does not report it — releases before DMEM
+    /// support — which is different from "reported unavailable".
+    pub dmem_cgroup: Option<bool>,
 }
 
 /// Read and parse falcond's status.
@@ -149,6 +154,9 @@ pub fn parse(content: &str) -> FalcondStatus {
     if let Some(&v) = kv.get(&("FEATURES", "Performance Mode")) {
         status.performance_available = v == "Available";
     }
+    if let Some(&v) = kv.get(&("FEATURES", "DMEM Cgroup")) {
+        status.dmem_cgroup = Some(v == "Available");
+    }
     if let Some(&v) = kv.get(&("CONFIG", "Profile Mode")) {
         v.clone_into(&mut status.profile_mode);
     }
@@ -187,6 +195,17 @@ pub fn parse(content: &str) -> FalcondStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dmem_support_is_read_from_a_newer_falcond_and_unknown_from_an_older_one() {
+        // falcond 2.0.14's documented status output.
+        let newer = "FEATURES:\n  Performance Mode: Available\n  DMEM Cgroup: Available\n\nCONFIG:\n  Profile Mode: none\n";
+        assert_eq!(parse(newer).dmem_cgroup, Some(true));
+        // The 2.0.2 installed on the reference machine has no such line.
+        let older =
+            "FEATURES:\n  Performance Mode: Available\n\nCONFIG:\n  Profile Mode: handheld\n";
+        assert_eq!(parse(older).dmem_cgroup, None);
+    }
 
     #[test]
     fn parse_full_status() {
