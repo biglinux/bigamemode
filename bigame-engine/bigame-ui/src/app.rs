@@ -13,6 +13,44 @@ use crate::style;
 use crate::tray;
 use crate::window;
 
+thread_local! {
+    /// The tray's action channel and the application it acts on.
+    static TRAY: std::cell::RefCell<
+        Option<(std::sync::mpsc::Receiver<tray::TrayAction>, glib::WeakRef<adw::Application>)>,
+    > = const { std::cell::RefCell::new(None) };
+}
+
+/// Handle whatever the tray has sent. Called on the main thread, when the
+/// tray thread wakes it.
+pub fn drain_tray_actions() {
+    TRAY.with(|t| {
+        let guard = t.borrow();
+        let Some((rx, app)) = guard.as_ref() else {
+            return;
+        };
+        let Some(app) = app.upgrade() else {
+            return;
+        };
+        while let Ok(action) = rx.try_recv() {
+            match action {
+                tray::TrayAction::Activate => {
+                    if let Some(w) = app
+                        .active_window()
+                        .or_else(|| app.windows().into_iter().next())
+                    {
+                        w.set_visible(true);
+                        w.present();
+                    }
+                }
+                tray::TrayAction::Quit => app.quit(),
+                tray::TrayAction::SwitchProfile(name) => {
+                    tracing::info!("Tray: switching to profile '{name}'");
+                }
+            }
+        }
+    });
+}
+
 /// Reverse-domain application identifier.
 const APP_ID: &str = "com.biglinux.BiGameMode";
 
@@ -21,6 +59,14 @@ const APP_ID: &str = "com.biglinux.BiGameMode";
 /// The app stays alive in the background after the window is closed.
 /// Re-activating (e.g. via desktop file) will re-present the window.
 pub fn run() -> adw::glib::ExitCode {
+    // `--background` (from the login autostart entry) starts everything --
+    // tray, game watcher, profile offer -- without showing the window. It is
+    // taken out of the arguments because GApplication rejects options it was
+    // not told about.
+    let args: Vec<String> = std::env::args().collect();
+    let background = std::cell::Cell::new(args.iter().any(|a| a == "--background"));
+    let args: Vec<String> = args.into_iter().filter(|a| a != "--background").collect();
+
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|app| {
@@ -49,9 +95,15 @@ pub fn run() -> adw::glib::ExitCode {
 
         // Keyboard shortcuts
         app.set_accels_for_action("app.quit", &["<Control>q"]);
+
+        // Which game is running, for Home and the first-run profile offer.
+        // Started here, not with the window: the application keeps running
+        // with its window closed, and that is when games are played.
+        crate::game_watch::start();
+        crate::profile_offer::install(app);
     });
 
-    app.connect_activate(|app| {
+    app.connect_activate(move |app| {
         // Re-present existing window or build new one
         if let Some(win) = app.active_window() {
             win.present();
@@ -62,102 +114,102 @@ pub fn run() -> adw::glib::ExitCode {
                 w.set_visible(false);
                 glib::Propagation::Stop
             });
-            win.present();
+            // Started at login: stay out of the way until asked for.
+            if background.replace(false) {
+                win.set_visible(false);
+            } else {
+                win.present();
+            }
 
             // System tray — poll actions from GTK main loop
             let (tray_handle, tray_rx) = tray::spawn();
-            let app_ref = app.clone();
 
-            // Poll tray actions
-            glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
-                while let Ok(action) = tray_rx.try_recv() {
-                    match action {
-                        tray::TrayAction::Activate => {
-                            if let Some(w) = app_ref.active_window() {
-                                w.set_visible(true);
-                                w.present();
-                            }
-                        }
-                        tray::TrayAction::Quit => {
-                            app_ref.quit();
-                        }
-                        tray::TrayAction::SwitchProfile(name) => {
-                            tracing::info!("Tray: switching to profile '{name}'");
-                        }
-                    }
-                }
-                glib::ControlFlow::Continue
-            });
+            // Tray actions arrive when the tray thread wakes the main loop.
+            TRAY.with(|t| *t.borrow_mut() = Some((tray_rx, app.downgrade())));
 
-            // Update tray status periodically
-            let th_ref = tray_handle.clone();
-            glib::timeout_add_local(std::time::Duration::from_secs(2), move || {
-                let turbo_active = bigame_core::dbus::power_profile_get()
-                    .is_some_and(|p| p.eq_ignore_ascii_case("performance"));
-                let falcond_running = bigame_core::dbus::falcond_is_running();
-                let missing_runtime = detect_missing_runtime_packages();
-
-                let status = if !falcond_running {
-                    error_indicator.set_error_with_action(
-                        &i18n("Service Not Running or Crashed"),
-                        &i18n("BiGameMode background daemon (falcond) is not running.\nThis can happen if the configuration files got corrupted by an older version of the UI."),
-                        &i18n("Click 'Repair & Enable' to automatically reset corrupted configurations and start the service."),
-                        &i18n("Repair & Enable"),
-                        vec![
-                            "pkexec".into(),
-                            "sh".into(),
-                            "-c".into(),
-                            "rm -f /etc/falcond/config.conf; rm -f /usr/share/falcond/profiles/user/*.conf; systemctl enable --now falcond".into(),
-                        ],
-                    );
-                    tray::Status::Warning
-                } else if !missing_runtime.is_empty() {
-                    let missing_csv = missing_runtime.join(", ");
-                    let install_hint = install_missing_packages_hint(&missing_runtime);
-                    if let Some(cmd) = install_missing_packages_action(&missing_runtime) {
-                        let copy_cmd = install_missing_packages_shell_command(&missing_runtime)
-                            .unwrap_or_default();
-                        error_indicator.set_error_with_action_and_copy(
-                            &i18n("Missing Runtime Dependencies"),
-                            &format!(
-                                "{}: {}",
-                                i18n("Required packages were not found in the system"),
-                                missing_csv
-                            ),
-                            &install_hint,
-                            &i18n("Install Missing Packages"),
-                            cmd,
-                            &i18n("Copy Install Command"),
-                            &copy_cmd,
-                        );
-                    } else {
-                        error_indicator.set_error(
-                            &i18n("Missing Runtime Dependencies"),
-                            &format!(
-                                "{}: {}",
-                                i18n("Required packages were not found in the system"),
-                                missing_csv
-                            ),
-                            &install_hint,
-                        );
-                    }
-                    tray::Status::Warning
-                } else {
-                    error_indicator.clear();
-                    if turbo_active {
-                        tray::Status::Active
-                    } else {
-                        tray::Status::Idle
-                    }
-                };
-
-                th_ref.set_status(status);
-                glib::ControlFlow::Continue
-            });
+            start_status_loop(tray_handle, error_indicator);
         }
     });
 
-    app.run()
+    app.run_with_args(&args)
+}
+
+/// Keep the tray and the error indicator in step with the real state.
+fn start_status_loop(
+    tray_handle: tray::TrayHandle,
+    error_indicator: std::sync::Arc<crate::widgets::error_indicator::ErrorIndicator>,
+) {
+    // Tray and error indicator, from the systems that hold the state.
+    //
+    // Every ten seconds, on one cached bus connection. A stopped
+    // falcond is not an error: it is what Turbo off means. Only a
+    // unit systemd reports as failed is, and nothing offered here
+    // deletes anything -- the "Repair & Enable" action this replaces
+    // ran `rm -f` over every user profile through `sh -c`, and would
+    // have been offered on every Turbo off.
+    let systemd = bigame_core::systemd::Reader::system();
+    glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+        let unit = systemd
+            .as_ref()
+            .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
+        let turbo_on = unit
+            .as_ref()
+            .is_some_and(bigame_core::systemd::UnitState::is_active);
+        let backend_failed = unit.as_ref().is_some_and(|u| u.active_state == "failed");
+        let missing_runtime = detect_missing_runtime_packages();
+
+        let status = if backend_failed {
+            error_indicator.set_error(
+                &i18n("falcond stopped unexpectedly"),
+                &i18n(
+                    "The per-game optimization service failed, so games are not being optimized.",
+                ),
+                &i18n("Open Logs to see why. Turning Turbo off and on again restarts it."),
+            );
+            tray::Status::Warning
+        } else if !missing_runtime.is_empty() {
+            let missing_csv = missing_runtime.join(", ");
+            let install_hint = install_missing_packages_hint(&missing_runtime);
+            if let Some(cmd) = install_missing_packages_action(&missing_runtime) {
+                let copy_cmd =
+                    install_missing_packages_shell_command(&missing_runtime).unwrap_or_default();
+                error_indicator.set_error_with_action_and_copy(
+                    &i18n("Missing Runtime Dependencies"),
+                    &format!(
+                        "{}: {}",
+                        i18n("Required packages were not found in the system"),
+                        missing_csv
+                    ),
+                    &install_hint,
+                    &i18n("Install Missing Packages"),
+                    cmd,
+                    &i18n("Copy Install Command"),
+                    &copy_cmd,
+                );
+            } else {
+                error_indicator.set_error(
+                    &i18n("Missing Runtime Dependencies"),
+                    &format!(
+                        "{}: {}",
+                        i18n("Required packages were not found in the system"),
+                        missing_csv
+                    ),
+                    &install_hint,
+                );
+            }
+            tray::Status::Warning
+        } else {
+            error_indicator.clear();
+            if turbo_on {
+                tray::Status::Active
+            } else {
+                tray::Status::Idle
+            }
+        };
+
+        tray_handle.set_status(status);
+        glib::ControlFlow::Continue
+    });
 }
 
 #[must_use]
@@ -225,9 +277,16 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
         return Some(argv);
     }
     // Fallback: non-interactive pacman via pkexec so it doesn't block on stdin.
+    // Arguments are passed as an argv, never through a shell: a root command
+    // assembled into a string for `sh -c` is one quoting mistake away from
+    // running something else.
     if binary_in_path("pacman") {
-        let cmd = format!("pacman -S --needed --noconfirm {}", missing.join(" "));
-        return Some(vec!["pkexec".into(), "sh".into(), "-c".into(), cmd]);
+        let mut argv: Vec<String> = ["pkexec", "pacman", "-S", "--needed", "--noconfirm"]
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect();
+        argv.extend(missing.iter().cloned());
+        return Some(argv);
     }
     None
 }

@@ -1,15 +1,19 @@
 //! The Home screen.
 //!
-//! One decision drives this whole view: a beginner should be able to open the
-//! application, press one thing, and go and play. Everything technical lives
-//! behind Details, Tuning and Profiles.
+//! One decision drives this view: a beginner should be able to open the
+//! application, press one thing, and go and play. Turbo is that one thing —
+//! the master switch. Off, BiGame-mode does not intervene in games; on, it
+//! detects them and optimizes them.
 //!
-//! The engine runs on its own thread with its own Tokio runtime, and reports
-//! back through a channel the GTK main loop drains. That keeps every privileged
-//! call — which means D-Bus round trips and Polkit prompts — off the main
-//! thread, so the window never stops redrawing while Booster works.
+//! While a game runs, Home says which one, how it runs, and which profile is
+//! in force, with one line summarising what Turbo did and a link to the full
+//! report. Everything else lives behind that link.
+//!
+//! Transitions run on a worker thread with its own Tokio runtime and report
+//! back through a channel the GTK main loop drains, so D-Bus round trips and
+//! Polkit prompts never stall the window.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::mpsc;
 
@@ -17,60 +21,54 @@ use adw::prelude::*;
 use gtk4::glib;
 use libadwaita as adw;
 
-use bigame_core::booster::report::{Report, ReportState};
-use bigame_core::booster::{BoosterEngine, Progress};
 use bigame_core::hardware::Hardware;
+use bigame_core::running::GameIdentity;
+use bigame_core::turbo::{self, Report, Section, Step};
 
 use crate::i18n::i18n;
 use crate::widgets::booster_button::{self, BoosterButton, State};
 
 /// What the worker thread sends back to the UI.
 enum Event {
-    /// A pipeline stage began.
-    Progress(Progress),
-    /// Activation finished.
-    Activated(Box<Report>),
-    /// Activation could not start at all.
+    /// A stage began.
+    Step(Step),
+    /// The transition finished.
+    Done(Box<Report>),
+    /// It could not start at all.
     Failed(String),
-    /// Deactivation finished; carries the count that could not be restored.
-    Deactivated(usize),
 }
 
-/// How often the live tiles refresh.
-///
-/// Two seconds is a deliberate compromise: fast enough that the numbers feel
-/// live, slow enough that an idle Dashboard is not competing with the game for
-/// CPU. The audit's DBUS-01 finding was a 500 ms poll that ran forever.
+/// How often the live readings refresh with no game running.
 const TILE_REFRESH: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Refresh every this many ticks while a game runs: 10 s instead of 2 s.
+/// The readings are for glancing at, and the game is what should get the CPU.
+const IN_GAME_EVERY: u32 = 5;
 
 /// Build the Home page.
 ///
-/// Returns the page widget and a callback the window can use to show the
-/// report, so navigation stays the window's concern rather than this view's.
+/// `show_report` is how the page asks the window to open the report, so
+/// navigation stays the window's concern.
 #[must_use]
 #[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     let button = BoosterButton::new();
-    let last_report: Rc<RefCell<Option<Report>>> = Rc::new(RefCell::new(None));
+    let last_report: Rc<RefCell<Option<Report>>> = Rc::new(RefCell::new(Report::load_last()));
 
-    // ── Headline ────────────────────────────────────────────────────────
     let status = gtk4::Label::new(Some(&i18n("Checking your system…")));
     status.add_css_class("title-4");
     status.add_css_class("dim-label");
     status.set_wrap(true);
     status.set_justify(gtk4::Justification::Center);
 
-    // ── Live tiles ──────────────────────────────────────────────────────
-    let tiles = gtk4::Box::new(gtk4::Orientation::Horizontal, 24);
-    tiles.set_halign(gtk4::Align::Center);
-    let cpu_tile = Tile::new(&i18n("CPU"));
-    let gpu_tile = Tile::new(&i18n("GPU"));
-    let net_tile = Tile::new(&i18n("Network"));
-    tiles.append(cpu_tile.widget());
-    tiles.append(gpu_tile.widget());
-    tiles.append(net_tile.widget());
+    let game = GameCard::new();
 
-    // ── Details link ────────────────────────────────────────────────────
+    // ── Summary + details link ──────────────────────────────────────────
+    let summary = gtk4::Label::new(None);
+    summary.add_css_class("dim-label");
+    summary.set_wrap(true);
+    summary.set_justify(gtk4::Justification::Center);
+    summary.set_visible(false);
     let details = gtk4::Button::builder()
         .label(i18n("View optimization details"))
         .css_classes(["flat"])
@@ -87,7 +85,17 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         });
     }
 
-    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 28);
+    // ── Live tiles ──────────────────────────────────────────────────────
+    let tiles = gtk4::Box::new(gtk4::Orientation::Horizontal, 24);
+    tiles.set_halign(gtk4::Align::Center);
+    let cpu_tile = Tile::new(&i18n("CPU"));
+    let gpu_tile = Tile::new(&i18n("GPU"));
+    let net_tile = Tile::new(&i18n("Network"));
+    tiles.append(cpu_tile.widget());
+    tiles.append(gpu_tile.widget());
+    tiles.append(net_tile.widget());
+
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 24);
     column.set_halign(gtk4::Align::Center);
     column.set_valign(gtk4::Align::Center);
     column.set_margin_top(24);
@@ -96,8 +104,10 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     column.set_margin_end(18);
     column.append(&status);
     column.append(button.widget());
-    column.append(&tiles);
+    column.append(game.widget());
+    column.append(&summary);
     column.append(&details);
+    column.append(&tiles);
 
     let scroll = gtk4::ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
@@ -105,47 +115,88 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         .vexpand(true)
         .build();
 
-    // ── Initial state ───────────────────────────────────────────────────
-    // A previous session may have been killed while Booster was on. Recovery
-    // runs first so the user is never shown "Ready" while the machine is still
-    // carrying yesterday's changes.
-    // A journal means a previous run left changes in force. Report the real
-    // number from that record rather than a placeholder — "Active, 0
-    // optimizations" is exactly the kind of statement this project is trying
-    // to stop making. A record with nothing applied means nothing is in force.
-    let initial_state = match BoosterEngine::active_summary() {
-        Some(0) | None => State::Ready,
-        Some(count) => State::Active { count },
+    let turbo_on = Rc::new(Cell::new(false));
+    let show_summary = {
+        let summary = summary.clone();
+        let details = details.clone();
+        let last = Rc::clone(&last_report);
+        let turbo_on = Rc::clone(&turbo_on);
+        Rc::new(move || {
+            let text = last
+                .borrow()
+                .as_ref()
+                .filter(|r| r.turned_on && turbo_on.get())
+                .map(summary_line);
+            summary.set_visible(text.as_ref().is_some_and(|t| !t.is_empty()));
+            details.set_visible(last.borrow().is_some());
+            if let Some(text) = text {
+                summary.set_label(&text);
+            }
+        })
     };
-    button.set_state(&initial_state);
-    booster_button::set_pulse(button.widget(), initial_state == State::Ready);
 
-    // The Booster control is deliberately NOT given focus on startup.
-    //
-    // A focused button is the target of any activation the toolkit delivers —
-    // Space, Enter, or anything a compositor or accessibility tool
-    // synthesises — and this one changes system state. It was reproducible:
-    // launching the window and taking a screenshot was enough to activate
-    // Booster without anyone clicking it.
-    //
-    // Keyboard access is not lost. The button is focusable and sits in the tab
-    // order like any other, so it is one Tab away; it simply is not armed
-    // before the user has expressed any intent.
+    // ── Initial state, from the systems that hold it ────────────────────
+    // The button is deliberately NOT focused on start-up: a focused button is
+    // the target of any activation the toolkit delivers, and this one changes
+    // system state. It is one Tab away.
+    button.set_state(&State::Working {
+        step: i18n("Reading Turbo's state"),
+    });
+    {
+        let button = Rc::clone(&button);
+        let turbo_on = Rc::clone(&turbo_on);
+        let show_summary = Rc::clone(&show_summary);
+        glib::spawn_future_local(async move {
+            let state = gtk4::gio::spawn_blocking(turbo::state_blocking).await;
+            let on = matches!(state, Ok(Ok(turbo::State::On)));
+            turbo_on.set(on);
+            let state = if on {
+                State::On {
+                    detail: on_detail(crate::game_watch::current().as_ref()),
+                }
+            } else {
+                State::Off
+            };
+            button.set_state(&state);
+            booster_button::set_pulse(button.widget(), !on);
+            show_summary();
+        });
+    }
+
+    // ── The running game ────────────────────────────────────────────────
+    {
+        let game = game.clone();
+        let button = Rc::clone(&button);
+        let turbo_on = Rc::clone(&turbo_on);
+        crate::game_watch::subscribe(move |current| {
+            game.show(current, turbo_on.get());
+            if turbo_on.get() && matches!(button.state(), State::On { .. }) {
+                button.set_state(&State::On {
+                    detail: on_detail(current),
+                });
+            }
+        });
+    }
 
     // ── Activation ──────────────────────────────────────────────────────
     {
         let button = Rc::clone(&button);
         let status = status.clone();
-        let details = details.clone();
         let last = Rc::clone(&last_report);
         let show = Rc::clone(&show_report);
+        let turbo_on = Rc::clone(&turbo_on);
+        let show_summary = Rc::clone(&show_summary);
+        let game = game.clone();
         button.clone().connect_activated(move || {
             let turning_off = button.state().is_on();
-            button.set_state(if turning_off {
-                &State::Restoring
+            let working = if turning_off {
+                State::Restoring
             } else {
-                &State::Analyzing
-            });
+                State::Working {
+                    step: i18n("Reading hardware and tools"),
+                }
+            };
+            button.set_state(&working);
             booster_button::set_pulse(button.widget(), false);
 
             let (tx, rx) = mpsc::channel::<Event>();
@@ -153,45 +204,44 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
 
             let button = Rc::clone(&button);
             let status = status.clone();
-            let details = details.clone();
             let last = Rc::clone(&last);
             let show = Rc::clone(&show);
+            let turbo_on = Rc::clone(&turbo_on);
+            let show_summary = Rc::clone(&show_summary);
+            let game = game.clone();
             glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
                 while let Ok(event) = rx.try_recv() {
                     match event {
-                        Event::Progress(p) => {
-                            if let Some(state) = progress_state(&p) {
-                                button.set_state(&state);
+                        Event::Step(step) => {
+                            if !turning_off {
+                                button.set_state(&State::Working {
+                                    step: step_text(&step),
+                                });
                             }
                         }
-                        Event::Activated(report) => {
-                            apply_report(&button, &status, &details, &report);
+                        Event::Done(report) => {
                             let report = *report;
-                            // Auto-open the report only when there is something
-                            // to read: an already-optimal run has no changes to
-                            // show, and forcing a page on the user for that
-                            // would be noise.
-                            let interesting = !report.applied.is_empty();
+                            let (state, on) = finished_state(&report);
+                            turbo_on.set(on);
+                            button.set_state(&state);
+                            booster_button::set_pulse(button.widget(), !on);
+                            status.set_label(&if on {
+                                i18n("Games are optimized as they start")
+                            } else {
+                                i18n("BiGame-mode is not intervening in games")
+                            });
+                            let failed = report.count(Section::Failed) > 0;
                             *last.borrow_mut() = Some(report);
-                            if interesting {
+                            show_summary();
+                            game.show(crate::game_watch::current().as_ref(), on);
+                            crate::game_watch::check();
+                            // Open the report on its own only when something
+                            // went wrong; a clean run is summarised on Home.
+                            if failed {
                                 if let Some(r) = last.borrow().as_ref() {
                                     show(r);
                                 }
                             }
-                            return glib::ControlFlow::Break;
-                        }
-                        Event::Deactivated(failed) => {
-                            let state = if failed == 0 {
-                                status.set_label(&i18n("Your previous settings are back"));
-                                State::Ready
-                            } else {
-                                State::Error {
-                                    detail: i18n("Some settings could not be restored"),
-                                }
-                            };
-                            button.set_state(&state);
-                            booster_button::set_pulse(button.widget(), state == State::Ready);
-                            details.set_visible(false);
                             return glib::ControlFlow::Break;
                         }
                         Event::Failed(detail) => {
@@ -205,43 +255,196 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         });
     }
 
-    // ── Live tiles + first status line ──────────────────────────────────
+    // ── Turbo changed elsewhere ─────────────────────────────────────────
+    // The command-line tool, systemctl, or another session can turn falcond
+    // on or off; Home follows what systemd says rather than what it last did
+    // itself. One D-Bus read every 10 s, only while the page is on screen.
+    {
+        let button = Rc::clone(&button);
+        let turbo_on = Rc::clone(&turbo_on);
+        let last = Rc::clone(&last_report);
+        let show_summary = Rc::clone(&show_summary);
+        let game = game.clone();
+        let root = scroll.clone();
+        let systemd = bigame_core::systemd::Reader::system();
+        glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+            if !root.is_mapped() || !button.state().is_interactive() {
+                return glib::ControlFlow::Continue;
+            }
+            let Some(unit) = systemd
+                .as_ref()
+                .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+            else {
+                return glib::ControlFlow::Continue;
+            };
+            let on = if unit.is_installed() {
+                unit.is_active()
+            } else {
+                turbo_on.get()
+            };
+            if on != turbo_on.get()
+                || Report::load_last().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
+            {
+                turbo_on.set(on);
+                *last.borrow_mut() = Report::load_last();
+                button.set_state(&if on {
+                    State::On {
+                        detail: on_detail(crate::game_watch::current().as_ref()),
+                    }
+                } else {
+                    State::Off
+                });
+                booster_button::set_pulse(button.widget(), !on);
+                show_summary();
+                game.show(crate::game_watch::current().as_ref(), on);
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    // ── Live readings ───────────────────────────────────────────────────
     {
         let status = status.clone();
-        let cpu_tile = cpu_tile.clone();
-        let gpu_tile = gpu_tile.clone();
-        let net_tile = net_tile.clone();
-        let first_run = std::cell::Cell::new(true);
-
-        let refresh = move || {
-            let hw = Hardware::detect();
-            if first_run.replace(false) {
-                status.set_label(&summary_line(&hw));
-            }
-            cpu_tile.set_value(&cpu_reading(&hw));
-            gpu_tile.set_value(&gpu_reading(&hw));
-            net_tile.set_value(&net_reading());
-            glib::ControlFlow::Continue
+        let game = game.clone();
+        let root = scroll.clone();
+        // Probed once: the CPU model and render GPU do not change while the
+        // application runs, and re-probing every tick was a full hardware
+        // scan to update three numbers.
+        let hw = Rc::new(Hardware::detect());
+        status.set_label(&summary_line_machine(&hw));
+        let tick = Cell::new(0u32);
+        let refresh = Refresh {
+            update: Box::new(move || {
+                cpu_tile.set_value(&cpu_reading(&hw));
+                gpu_tile.set_value(&gpu_reading(&hw));
+                net_tile.set_value(&net_reading());
+                game.tick();
+            }),
+            root,
+            tick,
         };
-        // Populate immediately so the page is never blank, then keep it fresh.
-        let refresh_now = refresh.clone();
-        glib::idle_add_local_once(move || {
-            refresh_now();
-        });
-        glib::timeout_add_local(TILE_REFRESH, refresh);
+        // Once as soon as the page is shown, then on the timer -- otherwise
+        // the tiles read "—" until the first tick, ten seconds into a game.
+        let refresh = std::rc::Rc::new(refresh);
+        {
+            let refresh = std::rc::Rc::clone(&refresh);
+            scroll.connect_map(move |_| {
+                refresh.force();
+            });
+        }
+        glib::timeout_add_local(TILE_REFRESH, move || refresh.tick());
     }
 
     scroll.upcast()
 }
 
-/// Run the engine off the main thread.
-///
-/// A dedicated current-thread Tokio runtime is created here because the GTK
-/// main loop is not a Tokio reactor, and every privileged call in the engine
-/// goes through async zbus.
+/// The live readings' refresh: forced when the page appears, then paced.
+struct Refresh {
+    update: Box<dyn Fn()>,
+    root: gtk4::ScrolledWindow,
+    tick: Cell<u32>,
+}
+
+impl Refresh {
+    fn force(&self) {
+        (self.update)();
+    }
+
+    fn tick(&self) -> glib::ControlFlow {
+        // Nothing to do while the window is hidden or on another page.
+        if !self.root.is_mapped() {
+            return glib::ControlFlow::Continue;
+        }
+        let n = self.tick.get().wrapping_add(1);
+        self.tick.set(n);
+        let playing = crate::game_watch::current().is_some();
+        if !playing || n % IN_GAME_EVERY == 0 {
+            (self.update)();
+        }
+        glib::ControlFlow::Continue
+    }
+}
+
+/// The button's line while Turbo is on.
+fn on_detail(game: Option<&GameIdentity>) -> String {
+    match game {
+        Some(g) => format!("{} {}", i18n("Optimizing"), g.display_name),
+        None => i18n("Watching for games"),
+    }
+}
+
+fn step_text(step: &Step) -> String {
+    match step {
+        Step::Detecting => i18n("Reading hardware and tools"),
+        Step::ConfiguringProfiles => i18n("Choosing falcond's profile set"),
+        Step::SwitchingBackend => i18n("Starting per-game optimization"),
+        Step::Booster(_) => i18n("Checking global settings"),
+        Step::Restoring => i18n("Putting global settings back"),
+    }
+}
+
+/// The button's state, and whether Turbo is on, after a transition.
+fn finished_state(report: &Report) -> (State, bool) {
+    let failed = report.count(Section::Failed);
+    let backend_failed = report
+        .items
+        .iter()
+        .any(|i| i.section == Section::Failed && i.kind == turbo::Kind::GameBackend);
+    if !report.turned_on {
+        return if failed == 0 {
+            (State::Off, false)
+        } else {
+            (
+                State::Error {
+                    detail: i18n("Some settings could not be put back"),
+                },
+                false,
+            )
+        };
+    }
+    if backend_failed {
+        return (
+            State::Error {
+                detail: i18n("Per-game optimization could not be started"),
+            },
+            false,
+        );
+    }
+    let state = if failed > 0 {
+        State::Partial {
+            detail: format!("{failed} {}", i18n("did not take effect — see details")),
+        }
+    } else {
+        State::On {
+            detail: on_detail(crate::game_watch::current().as_ref()),
+        }
+    };
+    (state, true)
+}
+
+/// "2 applied · 3 per game · 1 skipped · 1 conflict avoided"
+fn summary_line(report: &Report) -> String {
+    let parts = [
+        (Section::Verified, i18n("{} applied")),
+        (Section::ManagedPerGame, i18n("{} per game")),
+        (Section::Skipped, i18n("{} skipped")),
+        (Section::ConflictAvoided, i18n("{} conflict avoided")),
+        (Section::Failed, i18n("{} failed")),
+    ];
+    parts
+        .iter()
+        .filter_map(|(section, text)| {
+            let n = report.count(*section);
+            (n > 0).then(|| text.replace("{}", &n.to_string()))
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+/// Run a transition off the main thread.
 fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
     let spawned = std::thread::Builder::new()
-        .name("bigame-booster".into())
+        .name("bigame-turbo".into())
         .spawn(move || {
             let runtime = match tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -254,93 +457,186 @@ fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
                 }
             };
             runtime.block_on(async {
-                if turning_off {
-                    match BoosterEngine::deactivate().await {
-                        Ok(outcomes) => {
-                            let failed = outcomes.iter().filter(|o| !o.status.is_ok()).count();
-                            let _ = tx.send(Event::Deactivated(failed));
-                        }
-                        Err(e) => {
-                            let _ = tx.send(Event::Failed(format!("{e:#}")));
-                        }
-                    }
-                    return;
-                }
-
-                let engine = BoosterEngine::detect();
-                let progress_tx = tx.clone();
-                match engine
-                    .activate(|p| {
-                        let _ = progress_tx.send(Event::Progress(p));
-                    })
-                    .await
-                {
-                    Ok(report) => {
-                        let _ = tx.send(Event::Activated(Box::new(report)));
-                    }
-                    Err(e) => {
-                        let _ = tx.send(Event::Failed(format!("{e:#}")));
-                    }
-                }
+                let steps = tx.clone();
+                let on_step = move |s| {
+                    let _ = steps.send(Event::Step(s));
+                };
+                let result = if turning_off {
+                    turbo::turn_off(on_step).await
+                } else {
+                    turbo::turn_on(on_step).await
+                };
+                let _ = tx.send(match result {
+                    Ok(report) => Event::Done(Box::new(report)),
+                    Err(e) => Event::Failed(format!("{e:#}")),
+                });
             });
         });
-
     if let Err(e) = spawned {
-        tracing::error!("could not start the Booster worker thread: {e}");
+        tracing::error!("could not start the Turbo worker thread: {e}");
     }
 }
 
-/// Translate an engine stage into a button state.
-///
-/// Returns `None` for stages with nothing new to say, so the label does not
-/// flicker through states the user cannot read.
-fn progress_state(progress: &Progress) -> Option<State> {
-    match progress {
-        Progress::DetectingHardware | Progress::DetectingCapabilities => Some(State::Analyzing),
-        Progress::CapturingBaseline => Some(State::Optimizing {
-            step: i18n("Recording your current settings"),
-        }),
-        Progress::Planning => Some(State::Optimizing {
-            step: i18n("Deciding what is worth changing"),
-        }),
-        Progress::Applying { knob, index, total } => Some(State::Optimizing {
-            step: format!("{knob}  ({index}/{total})"),
-        }),
-        Progress::Verifying { knob } => Some(State::Optimizing {
-            step: format!("{} {knob}", i18n("Verifying")),
-        }),
-        Progress::Finished => None,
+// ── The game card ────────────────────────────────────────────────────────────
+
+/// The running game: cover, name, how long, how it runs, and its profile.
+#[derive(Clone)]
+struct GameCard {
+    root: gtk4::Box,
+    cover: gtk4::Image,
+    name: gtk4::Label,
+    running: gtk4::Label,
+    facts: gtk4::Label,
+    profile: gtk4::Label,
+    create: gtk4::Button,
+    game: Rc<RefCell<Option<GameIdentity>>>,
+    turbo_on: Rc<Cell<bool>>,
+}
+
+impl GameCard {
+    fn new() -> Self {
+        // A fixed-size image, not a Picture: a Picture asks for the art's
+        // natural size (600x900 for Steam's covers) and stretches the card.
+        let cover = gtk4::Image::new();
+        cover.set_pixel_size(120);
+        cover.set_valign(gtk4::Align::Center);
+
+        let name = gtk4::Label::new(None);
+        name.add_css_class("title-3");
+        name.set_xalign(0.0);
+        name.set_wrap(true);
+        let running = gtk4::Label::new(None);
+        running.add_css_class("dim-label");
+        running.set_xalign(0.0);
+        let facts = gtk4::Label::new(None);
+        facts.add_css_class("caption");
+        facts.set_xalign(0.0);
+        facts.set_wrap(true);
+        let profile = gtk4::Label::new(None);
+        profile.set_xalign(0.0);
+        profile.set_wrap(true);
+        let create = gtk4::Button::builder()
+            .label(i18n("Create profile"))
+            .css_classes(["pill", "suggested-action"])
+            .halign(gtk4::Align::Start)
+            .visible(false)
+            .build();
+        create.set_action_name(Some("app.profile-review"));
+
+        let text = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+        text.set_valign(gtk4::Align::Center);
+        text.append(&name);
+        text.append(&running);
+        text.append(&facts);
+        text.append(&profile);
+        text.append(&create);
+
+        let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 16);
+        root.add_css_class("card");
+        root.set_halign(gtk4::Align::Center);
+        root.set_margin_start(6);
+        root.set_margin_end(6);
+        for side in [
+            &cover.clone().upcast::<gtk4::Widget>(),
+            &text.clone().upcast(),
+        ] {
+            side.set_margin_top(12);
+            side.set_margin_bottom(12);
+        }
+        cover.set_margin_start(12);
+        text.set_margin_end(16);
+        root.append(&cover);
+        root.append(&text);
+        root.set_visible(false);
+
+        Self {
+            root,
+            cover,
+            name,
+            running,
+            facts,
+            profile,
+            create,
+            game: Rc::new(RefCell::new(None)),
+            turbo_on: Rc::new(Cell::new(false)),
+        }
+    }
+
+    fn widget(&self) -> &gtk4::Box {
+        &self.root
+    }
+
+    fn show(&self, game: Option<&GameIdentity>, turbo_on: bool) {
+        *self.game.borrow_mut() = game.cloned();
+        self.turbo_on.set(turbo_on);
+        let Some(g) = game else {
+            self.root.set_visible(false);
+            return;
+        };
+        self.name.set_label(&g.display_name);
+        let cover = g.steam_app_id.as_ref().and_then(|id| {
+            let home = std::env::var_os("HOME")?;
+            bigame_core::games::steam_cover(std::path::Path::new(&home), id)
+        });
+        self.cover.set_visible(cover.is_some());
+        if let Some(path) = cover {
+            self.cover.set_from_file(Some(&path));
+        }
+        let mut facts = vec![match &g.runtime {
+            bigame_core::running::Runtime::Native => i18n("Native"),
+            bigame_core::running::Runtime::Proton(tool) if !tool.is_empty() => tool.clone(),
+            bigame_core::running::Runtime::Proton(_) => "Proton".into(),
+            bigame_core::running::Runtime::Wine => "Wine".into(),
+        }];
+        if g.graphics != bigame_core::running::Graphics::Unknown {
+            facts.push(g.graphics.label().to_owned());
+        }
+        facts.push(g.process_name.clone());
+        self.facts.set_label(&facts.join(" · "));
+        self.create
+            .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
+        self.root.set_visible(true);
+        self.tick();
+    }
+
+    /// Refresh what changes while the game runs.
+    fn tick(&self) {
+        let Some(g) = self.game.borrow().clone() else {
+            return;
+        };
+        if let Some(secs) = bigame_core::running::running_for(g.pid) {
+            self.running.set_label(&format!(
+                "{} · {:02}:{:02}:{:02}",
+                i18n("Running"),
+                secs / 3600,
+                (secs / 60) % 60,
+                secs % 60
+            ));
+        }
+        if !self.turbo_on.get() {
+            self.profile
+                .set_label(&i18n("Turbo is off, so this game is not being optimized"));
+            self.create.set_visible(false);
+            return;
+        }
+        let active = bigame_core::status::read().and_then(|s| s.active_profile);
+        let (text, offer) = match active.as_deref() {
+            Some("Proton") => (
+                i18n("No profile of its own yet · using falcond's general Proton profile"),
+                true,
+            ),
+            Some(name) => (format!("{} {name}", i18n("Profile")), false),
+            None => (i18n("No profile is active for this game"), true),
+        };
+        self.profile.set_label(&text);
+        self.create.set_visible(offer);
     }
 }
 
-/// Drive the button, status line and details link from a finished report.
-fn apply_report(
-    button: &Rc<BoosterButton>,
-    status: &gtk4::Label,
-    details: &gtk4::Button,
-    report: &Report,
-) {
-    let state = match report.state() {
-        ReportState::AlreadyOptimal => State::AlreadyOptimal,
-        ReportState::Active => State::Active {
-            count: report.verified_count(),
-        },
-        ReportState::Partial => State::Partial {
-            applied: report.verified_count(),
-            total: report.applied.len(),
-        },
-        ReportState::Failed => State::Error {
-            detail: i18n("No change could be applied"),
-        },
-    };
-    button.set_state(&state);
-    booster_button::set_pulse(button.widget(), false);
-    status.set_label(&report.headline());
-    details.set_visible(!report.applied.is_empty() || !report.skipped.is_empty());
-}
+// ── Readings ─────────────────────────────────────────────────────────────────
 
-/// One-line description of the machine, shown before Booster has run.
-fn summary_line(hw: &Hardware) -> String {
+/// One-line description of the machine.
+fn summary_line_machine(hw: &Hardware) -> String {
     let gpu = hw
         .render_gpu()
         .map_or_else(String::new, |g| format!(" · {}", short_gpu(g)));
@@ -384,9 +680,6 @@ fn gpu_reading(hw: &Hardware) -> String {
     let Some(gpu) = hw.render_gpu() else {
         return i18n("—");
     };
-    // Temperature is the number that matters while playing, and on this bench
-    // it only reads correctly because the render GPU is selected by role — the
-    // old code sampled the idle iGPU.
     match gpu.hwmon_u64("temp1_input") {
         Some(milli) => format!("{} °C", milli / 1000),
         None => gpu
@@ -405,7 +698,7 @@ fn net_reading() -> String {
     )
 }
 
-/// A labelled live value under the Booster control.
+/// A labelled live value.
 #[derive(Clone)]
 struct Tile {
     root: gtk4::Box,
@@ -426,8 +719,6 @@ impl Tile {
         root.set_width_request(96);
         root.append(&value);
         root.append(&caption);
-        // The caption already names the metric; without this a screen reader
-        // reads two unrelated labels.
         root.update_property(&[gtk4::accessible::Property::Label(label)]);
 
         Self { root, value }
@@ -456,36 +747,55 @@ mod tests {
             short_cpu("Intel(R) Core(TM) i7-12700K CPU @ 3.60GHz"),
             "Intel Core i7-12700K @ 3.60GHz"
         );
-        // Collapsed whitespace, no leftover double spaces.
         assert!(!short_cpu("Intel(R)  Core(TM)  i5").contains("  "));
     }
 
-    #[test]
-    fn transient_stages_map_to_a_state_and_the_final_one_does_not() {
-        assert_eq!(
-            progress_state(&Progress::DetectingHardware),
-            Some(State::Analyzing)
-        );
-        assert!(matches!(
-            progress_state(&Progress::Planning),
-            Some(State::Optimizing { .. })
-        ));
-        // Finished is handled by the report, not by a label flicker.
-        assert_eq!(progress_state(&Progress::Finished), None);
+    fn report(sections: &[Section]) -> Report {
+        Report {
+            turned_on: true,
+            at: 0,
+            items: sections
+                .iter()
+                .map(|s| turbo::Item {
+                    kind: turbo::Kind::Knob("x".into()),
+                    section: *s,
+                    owner: "falcond".into(),
+                    detail: String::new(),
+                })
+                .collect(),
+        }
     }
 
     #[test]
-    fn applying_stage_shows_position_in_the_plan() {
-        let state = progress_state(&Progress::Applying {
-            knob: "GPU power level (card1)".into(),
-            index: 2,
-            total: 3,
-        })
-        .unwrap();
-        let State::Optimizing { step } = state else {
-            panic!("expected Optimizing");
-        };
-        assert!(step.contains("GPU power level (card1)"));
-        assert!(step.contains("2/3"));
+    fn the_summary_names_only_what_happened() {
+        let r = report(&[
+            Section::Verified,
+            Section::ManagedPerGame,
+            Section::ManagedPerGame,
+            Section::Skipped,
+        ]);
+        assert_eq!(summary_line(&r), "1 applied · 2 per game · 1 skipped");
+        assert_eq!(summary_line(&report(&[])), "");
+    }
+
+    #[test]
+    fn a_backend_that_did_not_start_is_not_reported_as_on() {
+        let mut r = report(&[]);
+        r.items.push(turbo::Item {
+            kind: turbo::Kind::GameBackend,
+            section: Section::Failed,
+            owner: "falcond".into(),
+            detail: "systemd reports it failed".into(),
+        });
+        let (state, on) = finished_state(&r);
+        assert!(!on);
+        assert!(matches!(state, State::Error { .. }));
+    }
+
+    #[test]
+    fn a_partial_failure_is_on_but_says_so() {
+        let (state, on) = finished_state(&report(&[Section::Verified, Section::Failed]));
+        assert!(on);
+        assert!(matches!(state, State::Partial { .. }));
     }
 }

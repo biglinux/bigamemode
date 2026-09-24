@@ -172,12 +172,28 @@ def strip_date(text: str) -> str:
     return "\n".join(l for l in text.splitlines() if not l.startswith('"POT-Creation-Date:'))
 
 
+def translatable(text: str) -> str:
+    """What a translator sees: the strings, without timestamps or `#:`
+    source references.
+
+    The check compares this, not the whole file. Comparing references made
+    any edit that moved a line -- with no string changed at all -- fail the
+    package build, which is how main came to need a fix commit after a merge.
+    A template whose references are stale still gives translators every
+    string they need; one missing a string does not.
+    """
+    return "\n".join(
+        l for l in strip_date(text).splitlines() if not l.startswith("#:")
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--check",
         action="store_true",
-        help="exit non-zero if the template is out of date (ignoring its timestamp)",
+        help="exit non-zero if the template's strings are out of date "
+        "(ignoring its timestamp and source line references)",
     )
     args = parser.parse_args()
 
@@ -186,7 +202,7 @@ def main() -> int:
         if not POT.is_file():
             print("locale/bigame-mode.pot is missing", file=sys.stderr)
             return 1
-        if strip_date(POT.read_text(encoding="utf-8")) != strip_date(generated):
+        if translatable(POT.read_text(encoding="utf-8")) != translatable(generated):
             print(
                 "locale/bigame-mode.pot is out of date; run locale/extract-strings.py",
                 file=sys.stderr,

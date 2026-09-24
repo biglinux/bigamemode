@@ -113,6 +113,20 @@ pub enum Skipped {
         /// What was measured.
         detail: String,
     },
+    /// Another component is the single writer of this state, so Booster
+    /// leaves it alone.
+    ///
+    /// Two writers of one value is the failure this architecture exists to
+    /// prevent: each snapshots and restores independently, so whichever
+    /// restores second writes the other's changed value back as a baseline.
+    OwnedBy {
+        /// Knob title.
+        knob: String,
+        /// The component that owns it.
+        owner: String,
+        /// How it manages the knob.
+        detail: String,
+    },
     /// We could not read the current value, so we could not guarantee a
     /// rollback — and an unrestorable change is never worth making.
     NotRestorable {
@@ -221,11 +235,15 @@ impl Plan {
                     )
                 })
                 .collect();
-            plan.beneficial = calibration
-                .beneficial()
-                .into_iter()
-                .map(|f| f.knob.clone())
-                .collect();
+            // A measured improvement is trusted only under the software it
+            // was measured with; a measured regression is avoided regardless.
+            if !calibration.needs_revalidation() {
+                plan.beneficial = calibration
+                    .beneficial()
+                    .into_iter()
+                    .map(|f| f.knob.clone())
+                    .collect();
+            }
         }
         // On battery, raising sustained power draw usually costs more in
         // thermal throttling and clock ceiling than it returns. The user can
@@ -233,9 +251,9 @@ impl Plan {
         let battery = hw.power_source == PowerSource::Battery;
 
         plan.consider_power_profile(caps, snapshot, battery, owner);
-        plan.consider_cpu_governor(hw, snapshot, battery);
+        plan.consider_cpu_governor(hw, caps, snapshot, battery);
         plan.consider_gpu_dpm(hw, snapshot, battery);
-        plan.consider_vcache(hw, snapshot);
+        plan.consider_vcache(hw, caps, snapshot);
         plan.note_scheduler(caps);
         plan
     }
@@ -278,13 +296,33 @@ impl Plan {
         if self.measured_harmful(&knob) {
             return;
         }
-        // Single authority: while falcond holds a game profile it owns this
-        // knob, and it will restore its own baseline when the game exits.
-        if let PowerProfileOwner::Falcond { profile } = owner {
-            self.skipped.push(Skipped::NotBeneficial {
+        // Single writer: where falcond is installed it sets the power profile
+        // per game, from that game's profile, and restores it on exit. Booster
+        // writing it too would make two snapshots of one value.
+        if caps.falcond_installed {
+            let detail = match owner {
+                PowerProfileOwner::Falcond { profile } => format!(
+                    "falcond is managing it for '{profile}' and will restore it when the game exits"
+                ),
+                PowerProfileOwner::Booster => {
+                    "falcond sets it for each game from the game's profile and \
+                     restores it when the game exits"
+                        .to_owned()
+                }
+            };
+            self.skipped.push(Skipped::OwnedBy {
                 knob: knob.title(),
+                owner: "falcond".into(),
+                detail,
+            });
+            return;
+        }
+        if let PowerProfileOwner::Falcond { profile } = owner {
+            self.skipped.push(Skipped::OwnedBy {
+                knob: knob.title(),
+                owner: "falcond".into(),
                 detail: format!(
-                    "falcond is managing the power profile for '{profile}' and will                      restore it when the game exits"
+                    "falcond is managing it for '{profile}' and will restore it when the game exits"
                 ),
             });
             return;
@@ -340,9 +378,38 @@ impl Plan {
     }
 
     /// CPU governor → `performance`, only where the driver accepts it.
-    fn consider_cpu_governor(&mut self, hw: &Hardware, snap: &Snapshot, battery: bool) {
+    fn consider_cpu_governor(
+        &mut self,
+        hw: &Hardware,
+        caps: &Capabilities,
+        snap: &Snapshot,
+        battery: bool,
+    ) {
         let knob = Knob::CpuGovernor;
         if self.measured_harmful(&knob) {
+            return;
+        }
+        // On amd-pstate in active mode the power profile is what sets EPP, and
+        // forcing the `performance` governor pins EPP to performance and locks
+        // it -- overriding power-profiles-daemon, the component that owns that
+        // choice. Measured on a Ryzen 7 5700G in Shadow of the Tomb Raider,
+        // CPU-bound: no difference above noise. So it is left to the profile.
+        if caps.power_profiles && hw.cpu.epp_driven_by_power_profile() {
+            self.skipped.push(Skipped::OwnedBy {
+                knob: knob.title(),
+                owner: "power-profiles-daemon".into(),
+                detail: "on amd-pstate the power profile sets the CPU's energy \
+                         preference; forcing the performance governor would \
+                         override it, and measured no faster"
+                    .into(),
+            });
+            return;
+        }
+        if hw.cpu.available_governors.is_empty() {
+            self.skipped.push(Skipped::Unsupported {
+                knob: knob.title(),
+                detail: "this machine exposes no CPU frequency control".into(),
+            });
             return;
         }
         if !hw.cpu.supports_governor("performance") {
@@ -474,7 +541,7 @@ impl Plan {
     ///
     /// Only meaningful on parts that actually have the stacked cache. Most
     /// gaming workloads prefer the cache die over the higher-clocking one.
-    fn consider_vcache(&mut self, hw: &Hardware, snap: &Snapshot) {
+    fn consider_vcache(&mut self, hw: &Hardware, caps: &Capabilities, snap: &Snapshot) {
         let knob = Knob::VCacheMode;
         if self.measured_harmful(&knob) {
             return;
@@ -486,6 +553,14 @@ impl Plan {
             });
             return;
         };
+        if caps.falcond_installed {
+            self.skipped.push(Skipped::OwnedBy {
+                knob: knob.title(),
+                owner: "falcond".into(),
+                detail: "each game's profile sets the V-Cache mode while the game runs".into(),
+            });
+            return;
+        }
         let from = snap.value_of(&knob).or(vcache.current_mode.as_deref());
         let Some(from) = from else {
             self.skipped
@@ -517,10 +592,10 @@ impl Plan {
     /// prevent, so the Booster never writes it.
     fn note_scheduler(&mut self, caps: &Capabilities) {
         let support = caps.sched_ext.switchable();
-        if let Some(reason) = support.reason() {
+        if let Some(reason) = support.describe() {
             self.skipped.push(Skipped::Unsupported {
                 knob: "sched-ext scheduler".into(),
-                detail: reason.to_owned(),
+                detail: reason,
             });
         } else {
             self.skipped.push(Skipped::NotBeneficial {
@@ -567,7 +642,17 @@ mod tests {
     use crate::hardware::{Cpu, CpuVendor, Gpu, GpuVendor, Session};
     use std::path::PathBuf;
 
+    /// A machine without falcond: Booster is the only writer of every knob.
     fn caps(performance: bool, ppd: bool) -> Capabilities {
+        Capabilities {
+            falcond_installed: false,
+            falcond_running: false,
+            ..caps_with_falcond(performance, ppd)
+        }
+    }
+
+    /// A machine where falcond is the game backend.
+    fn caps_with_falcond(performance: bool, ppd: bool) -> Capabilities {
         Capabilities {
             gamescope: None,
             mangohud: false,
@@ -600,12 +685,14 @@ mod tests {
             logical_cpus: 16,
             smt: true,
             hybrid: false,
-            scaling_driver: Some("amd-pstate-epp".into()),
+            // A driver where the governor is not the power profile's to set,
+            // so Booster owns it. The amd-pstate case has its own tests.
+            scaling_driver: Some("acpi-cpufreq".into()),
             available_governors: governors.iter().map(|s| (*s).to_owned()).collect(),
             current_governor: Some("powersave".into()),
             available_epp: Vec::new(),
             current_epp: None,
-            amd_pstate_status: Some("active".into()),
+            amd_pstate_status: None,
             vcache: None,
         }
     }
@@ -829,6 +916,7 @@ mod tests {
             state: Some("disabled".into()),
             installed: vec!["lavd".into()],
             scxctl: true,
+            loader_installed: true,
             loader_service: true,
         };
         let plan = Plan::build_with_owner(&h, &c, &s, &PowerProfileOwner::Booster);
@@ -1036,8 +1124,8 @@ mod tests {
             "must not contend with falcond for the power profile"
         );
         assert!(plan.skipped.iter().any(|sk| matches!(
-            sk, Skipped::NotBeneficial { knob, detail }
-            if knob.contains("Power profile") && detail.contains("falcond")
+            sk, Skipped::OwnedBy { knob, owner, detail }
+            if knob.contains("Power profile") && owner == "falcond" && detail.contains("Cyberpunk")
         )));
         // The knobs falcond does not manage are still planned.
         assert!(plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
@@ -1059,5 +1147,79 @@ mod tests {
         let json = serde_json::to_string(&plan).unwrap();
         let back: Plan = serde_json::from_str(&json).unwrap();
         assert_eq!(back.changes.len(), plan.changes.len());
+    }
+
+    fn amd_pstate(mut h: Hardware) -> Hardware {
+        h.cpu.scaling_driver = Some("amd-pstate-epp".into());
+        h.cpu.amd_pstate_status = Some("active".into());
+        h
+    }
+
+    #[test]
+    fn with_falcond_installed_booster_leaves_it_the_power_profile() {
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let s = snap(&[(Knob::PowerProfile, Some("balanced"))]);
+        let plan = Plan::build_with_owner(
+            &h,
+            &caps_with_falcond(true, true),
+            &s,
+            &PowerProfileOwner::Booster,
+        );
+        // Even with no game running: falcond is the single writer, per game.
+        assert!(!plan.changes.iter().any(|c| c.knob == Knob::PowerProfile));
+        assert!(plan.skipped.iter().any(|sk| matches!(
+            sk, Skipped::OwnedBy { knob, owner, .. }
+            if knob.contains("Power profile") && owner == "falcond"
+        )));
+    }
+
+    #[test]
+    fn on_amd_pstate_the_governor_belongs_to_the_power_profile() {
+        let h = amd_pstate(hw(PowerSource::Ac, vec![dgpu("card1", true)]));
+        let s = snap(&[(Knob::CpuGovernor, Some("powersave"))]);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
+        assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
+        assert!(plan.skipped.iter().any(|sk| matches!(
+            sk, Skipped::OwnedBy { knob, owner, .. }
+            if knob.contains("governor") && owner == "power-profiles-daemon"
+        )));
+
+        // Without power-profiles-daemon nothing else sets it, so Booster may.
+        let alone = Plan::build_with_owner(&h, &caps(true, false), &s, &PowerProfileOwner::Booster);
+        assert!(alone.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
+    }
+
+    #[test]
+    fn the_reference_machine_gets_an_empty_plan_with_reasons() {
+        // Ryzen 7 5700G on amd-pstate-epp, falcond and power-profiles-daemon
+        // present, resting at performance/auto: every knob has an owner or a
+        // reason, and nothing is written.
+        let h = amd_pstate(hw(PowerSource::Ac, vec![dgpu("card1", true)]));
+        let s = snap(&[
+            (Knob::PowerProfile, Some("performance")),
+            (Knob::CpuGovernor, Some("performance")),
+            (
+                Knob::GpuDpmLevel {
+                    card: "card1".into(),
+                },
+                Some("auto"),
+            ),
+        ]);
+        let plan = Plan::build_with_owner(
+            &h,
+            &caps_with_falcond(true, true),
+            &s,
+            &PowerProfileOwner::Booster,
+        );
+        assert!(plan.is_empty(), "{:?}", plan.changes);
+        let owned = plan
+            .skipped
+            .iter()
+            .filter(|sk| matches!(sk, Skipped::OwnedBy { .. }))
+            .count();
+        assert_eq!(
+            owned, 2,
+            "power profile to falcond, governor to the profile"
+        );
     }
 }

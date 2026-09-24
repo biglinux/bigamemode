@@ -51,6 +51,31 @@ pub fn fingerprint(hw: &Hardware) -> String {
     format!("{hash:016x}")
 }
 
+/// The versions of the software a measurement depends on.
+///
+/// Read from pacman's local database — no process is spawned — plus the
+/// running kernel. A package that is not installed is simply absent.
+#[must_use]
+pub fn stack_versions() -> std::collections::BTreeMap<String, String> {
+    let db = std::path::Path::new("/var/lib/pacman/local");
+    let mut out = std::collections::BTreeMap::new();
+    for package in [
+        "mesa",
+        "vulkan-radeon",
+        "nvidia-utils",
+        "falcond",
+        "scx-scheds",
+    ] {
+        if let Some(version) = crate::health::package_version(db, package) {
+            out.insert(package.to_owned(), version);
+        }
+    }
+    if let Ok(kernel) = std::fs::read_to_string("/proc/sys/kernel/osrelease") {
+        out.insert("kernel".into(), kernel.trim().to_owned());
+    }
+    out
+}
+
 /// Build the inventory document.
 #[must_use]
 pub fn build(hw: &Hardware) -> Value {

@@ -50,6 +50,16 @@ pub trait BiGameDaemon {
     #[zbus(name = "SetGpuDpmLevel")]
     async fn set_gpu_dpm_level(&self, card: &str, level: &str) -> zbus::Result<()>;
 
+    /// Turn the game performance backend (falcond) on or off, persistently.
+    /// Returns systemd's active state for the unit afterwards.
+    #[zbus(name = "SetGameBackend")]
+    async fn set_game_backend(&self, enabled: bool) -> zbus::Result<String>;
+
+    /// Return falcond to its state before BiGame-mode first changed it.
+    /// Returns whether there was anything to hand back.
+    #[zbus(name = "ReleaseGameBackend")]
+    async fn release_game_backend(&self) -> zbus::Result<bool>;
+
     /// Liveness probe.
     #[zbus(name = "Ping")]
     async fn ping(&self) -> zbus::Result<String>;

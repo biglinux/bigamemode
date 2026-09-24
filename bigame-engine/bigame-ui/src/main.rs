@@ -1,7 +1,9 @@
 //! BiGame-mode Libadwaita application entry point.
 
 mod app;
+mod game_watch;
 pub mod i18n;
+mod profile_offer;
 pub mod settings;
 mod style;
 mod tray;
@@ -18,8 +20,7 @@ fn main() -> libadwaita::glib::ExitCode {
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,bigame_ui=debug,bigame_core=debug"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)

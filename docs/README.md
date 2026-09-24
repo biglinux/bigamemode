@@ -23,6 +23,17 @@ depend on it.
 | [11-BENCHMARK-LAB.md](11-BENCHMARK-LAB.md) | The method: why runs alternate, what counts as a real difference |
 | [12-FINDINGS.md](12-FINDINGS.md) | What the method found, including where the Booster was wrong |
 | [13-AAA-BENCHMARKS.md](13-AAA-BENCHMARKS.md) | Shadow of the Tomb Raider driven unattended; GPU- and CPU-bound results; the UI's own overhead |
+| [14-TURBO-AUDIT.md](14-TURBO-AUDIT.md) | What Turbo and falcond actually did, stage by stage, with evidence |
+| [15-DYNAMIC-PROFILES.md](15-DYNAMIC-PROFILES.md) | Finding the running game, offering a profile, migrating old ones |
+| [16-PERFORMANCE-BACKENDS.md](16-PERFORMANCE-BACKENDS.md) | falcond vs GameMode; who owns each piece of state |
+| [17-AUTO-CALIBRATION.md](17-AUTO-CALIBRATION.md) | What calibration does now, and what it does not yet |
+| [18-UX-REDESIGN.md](18-UX-REDESIGN.md) | Home, report, Settings, Diagnostics, Logs; controls removed because they did nothing |
+| [19-LOGGING-OBSERVABILITY.md](19-LOGGING-OBSERVABILITY.md) | The journal-based Logs page, polling removed, the UI's measured cost |
+| [20-BENCHMARK-RESULTS.md](20-BENCHMARK-RESULTS.md) | Every measurement in one table, including Turbo off vs on |
+| [21-VM-TESTS.md](21-VM-TESTS.md) | Behaviour tests on the lab VM, including crash recovery |
+| [22-AAA-VALIDATION.md](22-AAA-VALIDATION.md) | Checks against the real installed games |
+| [23-NEW-TECH-RESEARCH.md](23-NEW-TECH-RESEARCH.md) | falcond 2.0.14, scx-loader, GameMode, linuxgamebench and others |
+| [24-FINAL-VALIDATION.md](24-FINAL-VALIDATION.md) | The definition of done, criterion by criterion |
 | [FINAL-REPORT.md](FINAL-REPORT.md) | Summary, before/after, and known limitations |
 
 There is no `08-UX-REDESIGN.md`. The UX rationale is in FINAL-REPORT and in the

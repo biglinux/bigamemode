@@ -179,8 +179,43 @@ pub fn vcache_mode(mode: &str) -> Result<(), String> {
     }
 }
 
+/// Require a profile's `name` field to be the name it is saved under.
+///
+/// falcond matches processes by the `name` field, not by the file name, so
+/// without this a caller could save `Cyberpunk2077.exe.conf` containing
+/// `name = "Xorg"` and have falcond apply a game profile to the display
+/// server. Tying the two together also means a profile can always be found,
+/// and removed, by the name it matches.
+///
+/// # Errors
+/// Returns an error when the field is missing or differs from `name`.
+pub fn profile_name_matches(name: &str, payload: &str) -> Result<(), String> {
+    let field = payload.lines().find_map(|line| {
+        let rest = line.trim().strip_prefix("name")?.trim_start();
+        let value = rest.strip_prefix('=')?.trim();
+        Some(value.trim_matches('"').to_owned())
+    });
+    match field {
+        Some(f) if f == name => Ok(()),
+        Some(f) => Err(format!(
+            "the profile's name field ({f:?}) must match the name it is saved as ({name:?})"
+        )),
+        None => Err("the profile has no name field".into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_profile_can_only_match_the_process_it_is_named_for() {
+        assert!(
+            profile_name_matches("SOTTR.exe", "name = \"SOTTR.exe\"\nidle_inhibit = true\n")
+                .is_ok()
+        );
+        assert!(profile_name_matches("Cyberpunk2077.exe", "name = \"Xorg\"\n").is_err());
+        assert!(profile_name_matches("cs2", "performance_mode = true\n").is_err());
+    }
+
     use super::*;
 
     #[test]

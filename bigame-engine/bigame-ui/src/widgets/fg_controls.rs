@@ -283,7 +283,6 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
         let is_upd_save = is_updating.clone();
 
         let save_fn = Rc::new({
-            let debounce_task = Rc::new(Cell::new(None::<gtk4::glib::SourceId>));
             move || {
                 if is_upd_save.get() {
                     return;
@@ -375,28 +374,14 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                         );
                     }
 
-                    // 2. Debounce writing to bigame GameProfile (persists for next launch and triggers falcond)
-                    if let Some(task) = debounce_task.take() {
-                        task.remove();
-                    }
-                    let dt = debounce_task.clone();
-                    let dt_closure = dt.clone();
-                    dt.set(Some(gtk4::glib::timeout_add_local_once(
-                        std::time::Duration::from_millis(500),
-                        move || {
-                            gtk4::glib::spawn_future_local(async move {
-                                if let Ok(mut profile) = bigame_core::profiles::load(&name_str) {
-                                    profile.fg_multiplier = mult;
-                                    profile.fg_flow_scale = flow;
-                                    profile.fg_perf_mode = perf;
-                                    profile.fg_hdr = hdr;
-                                    profile.fg_present_mode = pres;
-                                    let _ = bigame_core::profiles::save(&profile);
-                                }
-                            });
-                            dt_closure.take();
-                        },
-                    )));
+                    // Nothing is written to the falcond profile here. These
+                    // values are lsfg-vk's, and were just written to its own
+                    // configuration above, which is also where the sliders
+                    // read them back from. Mirroring them into falcond's
+                    // profile went through the privileged helper on every
+                    // slider move and reloaded falcond each time, dropping and
+                    // re-applying the running game's profile -- for fields
+                    // falcond does not read.
                 }
             }
         });

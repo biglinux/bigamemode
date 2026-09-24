@@ -44,6 +44,57 @@ across the whole workspace.
 
 ---
 
+## Fifth pass: Turbo as the master switch
+
+Detail in [14](14-TURBO-AUDIT.md)–[24](24-FINAL-VALIDATION.md).
+
+**Finding.** Before this pass, on the reference machine, neither Turbo nor
+falcond did anything that affects performance. Turbo's plan was empty;
+falcond, running independently of Turbo, applied its *handheld* profile set on
+a desktop, and of its settings only idle inhibit took effect — every scheduler
+switch failed for want of `scx_loader`.
+
+**What changed.** Turbo now switches falcond itself, through systemd (stop
+restores a running game's profile; enablement survives reboots; the state it
+found is recorded and can be handed back). Each piece of state has one writer:
+Booster no longer touches the power profile, V-Cache, or — on amd-pstate — the
+governor. The running game is identified by its real process; a game without
+a profile is offered one by notification, built from evidence and verified
+once created. Old title-keyed profiles can be migrated with a backup. Home
+shows the game and what is in force; the report groups everything by what
+happened; Logs reads the journal once; Diagnostics says what is wrong and the
+command that fixes it. The UI's own cost on Home during a game fell from 7.38 %
+CPU and 313 wake-ups/s to 0.77 % and 9.9/s.
+
+**Defects fixed along the way,** among others: a second destructive
+"Repair" that the first audit missed; the helper unable to start on CPUs
+without the V-Cache driver; a profile's name field able to target any process;
+profile saves that restarted falcond mid-game; save dialogs that reported
+success whatever happened; placebo controls (per-game governor, custom
+scheduler flags, script fields); frame-gen sliders that reloaded falcond on
+every move.
+
+**Verified on the reference machine at the end of the pass:** the branch
+package installed; Turbo off (falcond stopped and disabled, ownership
+recorded) and on (profile set corrected handheld → desktop, falcond running);
+a profile for Shadow of the Tomb Raider created from the offer and matched by
+falcond at the next launch. Later the same morning: the package rebuilt with
+the last fixes and installed with `scx-tools`; `scx_loader` enabled; falcond
+listing sixteen schedulers. The two old profiles were migrated from Settings
+(by the user, backed up), the wrong profile created for Steam's installer
+script was removed, and the scheduler chain was verified on this machine
+(kernel ops `lavd_1.1.3`). **Then the scheduler was measured** — SotTR
+CPU-bound, none × lavd × bpfland, three alternating rounds: neither scheduler
+is faster on average (lavd +1.1 %, bpfland +1.8 %, both within noise), and
+bpfland's worst frames were worse in every run, though too scattered to call.
+So the default a new profile gets, `scx_sched = none`, is now backed by a
+measurement rather than by its absence. Getting there found and fixed five
+defects in the benchmark tooling ([13](13-AAA-BENCHMARKS.md), [20](20-BENCHMARK-RESULTS.md)).
+Diagnostics now also warns when systemd has had to restart falcond, the case
+that leaves the machine boosted ([21](21-VM-TESTS.md)).
+
+---
+
 ## Fourth pass: an AAA title, measured
 
 Detail in [13-AAA-BENCHMARKS.md](13-AAA-BENCHMARKS.md). The question this
@@ -113,7 +164,7 @@ to the tree.
 | SEC-01 | Polkit on every method, keyed on unique bus name; unreachable Polkit denies | code + unit tests |
 | SEC-02/03 | Server-side allow-list validation; property test that no accepted name escapes the directory | audit payloads asserted rejected |
 | SEC-04 | Both sudoers files deleted; nothing needs sudo | `grep` clean |
-| SEC-05 | Destructive "repair" removed | — |
+| SEC-05 | Destructive "repair" removed | — **Correction (fifth pass):** a second one survived in `app.rs` — `pkexec sh -c "rm -f …/profiles/user/*.conf …"` — and was removed then. |
 | SEC-06 | `systemctl reload-or-restart` instead of `pkill` | — |
 | — | Profile script hooks refused outright | unit test |
 | CFG-01 | Config path corrected to `config.conf` | `strings` on falcond 2.0.2 |
@@ -229,9 +280,11 @@ generate frames; the matrix and the arbitration rules are in
 ## Scheduler Strategy
 
 falcond owns it; Booster never writes it. What the project adds is honesty about
-whether it can be changed at all — the reference machine has kernel support and
+whether it can be changed at all — the reference machine had kernel support and
 sixteen schedulers installed but no `scx_loader`, so every selection in the old
-picker would have been silently discarded. That is now reported as
+picker would have been silently discarded. (`scx-tools` is installed there
+now, and lavd and bpfland measured no faster than the default in SotTR
+CPU-bound.) That is now reported as
 `ServiceDown("scx_loader service is not running")`, which is a different problem
 from unsupported hardware and has a different fix.
 

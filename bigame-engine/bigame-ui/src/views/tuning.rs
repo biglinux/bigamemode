@@ -71,10 +71,10 @@ fn build_advanced_group(
 
     let scx_status = adw::ActionRow::builder()
         .title(i18n("sched-ext availability"))
-        .subtitle(match scx.switchable().reason() {
+        .subtitle(match scx.switchable().describe() {
             // Saying *why* it cannot be switched leads to a different fix than
-            // "unsupported" would: install scx_loader, not new hardware.
-            Some(reason) => reason.to_owned(),
+            // "unsupported" would: install scx-tools, not new hardware.
+            Some(reason) => reason,
             None => i18n("Available — falcond applies the scheduler you configure above"),
         })
         .build();

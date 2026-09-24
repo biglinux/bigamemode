@@ -1,222 +1,302 @@
-//! The Booster report.
+//! The Optimization Report.
 //!
-//! This view exists to make one distinction impossible to blur: **what was
-//! changed** and **what got faster** are different claims, and only the first
-//! one is something an activation can demonstrate on its own.
+//! What Turbo did, grouped by what happened to each thing it considered:
+//! applied and verified, left to the component that owns it, skipped,
+//! unavailable, a conflict avoided, or failed. Every row says who owns the
+//! state, and its ⓘ says what the thing is.
 //!
-//! So changes are listed with their verification result, and the performance
-//! section says "not measured" unless a benchmark actually ran. Saying nothing
-//! is better than saying "+20% FPS" on the strength of a successful sysfs
-//! write, and it is what earns the numbers credibility when there are numbers
-//! to show.
+//! One distinction is kept impossible to blur: **what was changed** and **what
+//! got faster** are different claims. Changes are listed with their
+//! verification; speed is claimed only in "Measured on this machine", and only
+//! for what a benchmark here actually measured.
 
 use adw::prelude::*;
 use libadwaita as adw;
 
-use bigame_core::booster::knob::Verification;
-use bigame_core::booster::plan::Skipped;
-use bigame_core::booster::report::{AppliedChange, Report};
+use bigame_core::benchmark::calibration::Calibration;
+use bigame_core::benchmark::result::Verdict;
+use bigame_core::turbo::{Item, Kind, Report, Section};
 
 use crate::i18n::i18n;
+use crate::widgets::info;
+
+/// The report's groups, in the order they are read.
+const SECTIONS: &[Section] = &[
+    Section::Verified,
+    Section::ManagedPerGame,
+    Section::Restored,
+    Section::ConflictAvoided,
+    Section::Failed,
+    Section::Skipped,
+    Section::Unavailable,
+];
+
+fn section_title(section: Section) -> String {
+    match section {
+        Section::Verified => i18n("Applied and verified"),
+        Section::Restored => i18n("Put back"),
+        Section::ManagedPerGame => i18n("Managed per game"),
+        Section::Skipped => i18n("Skipped"),
+        Section::Unavailable => i18n("Not available on this machine"),
+        Section::ConflictAvoided => i18n("Conflicts avoided"),
+        Section::Failed => i18n("Did not take effect"),
+    }
+}
+
+fn section_description(section: Section) -> Option<String> {
+    Some(match section {
+        Section::Verified => i18n("Each was read back from the system after it was changed."),
+        Section::ManagedPerGame => i18n(
+            "Applied while each game runs by the component that owns it, and restored when the game exits.",
+        ),
+        Section::Skipped => i18n("Considered and deliberately left alone."),
+        Section::ConflictAvoided => i18n(
+            "Another tool that would control the same settings. Only one controller is used for each setting.",
+        ),
+        _ => return None,
+    })
+}
+
+fn section_icon(section: Section) -> &'static str {
+    match section {
+        Section::Verified | Section::Restored => "emblem-ok-symbolic",
+        Section::ManagedPerGame => "system-users-symbolic",
+        Section::Skipped => "action-unavailable-symbolic",
+        Section::Unavailable => "window-close-symbolic",
+        Section::ConflictAvoided => "dialog-warning-symbolic",
+        Section::Failed => "dialog-error-symbolic",
+    }
+}
+
+fn kind_title(kind: &Kind) -> String {
+    match kind {
+        Kind::GameBackend => i18n("Per-game optimization (falcond)"),
+        Kind::ProfileSet => i18n("falcond profile set"),
+        Kind::GameMode => i18n("Feral GameMode"),
+        Kind::Scheduler => i18n("sched-ext scheduler"),
+        Kind::Knob(name) => i18n(name),
+    }
+}
+
+fn kind_explanation(kind: &Kind) -> String {
+    match kind {
+        Kind::GameBackend => i18n(
+            "falcond applies a profile to each game while it runs and restores everything when it exits. Turbo turns it on and off: with Turbo off it does not run at all.",
+        ),
+        Kind::ProfileSet => i18n(
+            "falcond ships separate profile sets for desktops, handhelds and home-theatre PCs. The handheld set runs games in power-saving mode, which is the wrong set for a desktop.",
+        ),
+        Kind::GameMode => i18n(
+            "Feral GameMode does the same job as falcond. Running both would make two controllers save and restore the same settings, and the one that restores last writes the other's changes back as if they were the original. Only falcond is used.",
+        ),
+        Kind::Scheduler => i18n(
+            "sched-ext lets a scheduler loaded at runtime replace the kernel's CPU scheduler. falcond switches it per game when a profile asks for one, which needs the scx_loader service.",
+        ),
+        Kind::Knob(_) => i18n(
+            "A system-wide setting BiGame-mode's own planner considers. It is applied only if nothing else owns it and nothing measured on this machine says it is slower.",
+        ),
+    }
+}
+
+fn item_row(item: &Item) -> adw::ActionRow {
+    let title = kind_title(&item.kind);
+    // Plain text: details carry process names, paths and error messages,
+    // any of which can contain `&` or `<`.
+    let row = adw::ActionRow::builder()
+        .title(&title)
+        .subtitle(&item.detail)
+        .subtitle_lines(3)
+        .use_markup(false)
+        .build();
+    let icon = gtk4::Image::from_icon_name(section_icon(item.section));
+    icon.add_css_class("dim-label");
+    row.add_prefix(&icon);
+    let owner = gtk4::Label::new(Some(&item.owner));
+    owner.add_css_class("caption");
+    owner.add_css_class("dim-label");
+    row.add_suffix(&owner);
+    row.add_suffix(&info::button(
+        &title,
+        &format!(
+            "{}\n\n{}: {}\n{}: {}",
+            kind_explanation(&item.kind),
+            i18n("Controlled by"),
+            item.owner,
+            i18n("Outcome"),
+            section_title(item.section)
+        ),
+    ));
+    row
+}
+
+/// What is in force right now, read live — not recalled from the report.
+fn live_group() -> Option<adw::PreferencesGroup> {
+    let game = crate::game_watch::current()?;
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&format!("{} · {}", i18n("Right now"), game.display_name));
+
+    let status = bigame_core::status::read();
+    let profile = status
+        .as_ref()
+        .and_then(|s| s.active_profile.clone())
+        .map_or_else(
+            || i18n("none — Turbo is off or falcond has not matched it"),
+            |p| {
+                if p == "Proton" {
+                    i18n("falcond's general Proton profile")
+                } else {
+                    p
+                }
+            },
+        );
+    let power = bigame_core::dbus::power_profile_get().unwrap_or_else(|| i18n("unknown"));
+    let rows = [
+        (i18n("Profile"), profile),
+        (i18n("Process"), game.process_name.clone()),
+        (i18n("Graphics"), game.graphics.label().to_owned()),
+        (i18n("Power profile"), power),
+        (
+            i18n("Screen blanking"),
+            if status.as_ref().is_some_and(|s| s.screensaver_inhibited) {
+                i18n("held off while the game runs")
+            } else {
+                i18n("not held off")
+            },
+        ),
+        (
+            i18n("Scheduler"),
+            status
+                .as_ref()
+                .map(|s| s.current_scx.clone())
+                .filter(|s| !s.is_empty() && s != "(None)")
+                .unwrap_or_else(|| i18n("kernel default")),
+        ),
+    ];
+    for (title, value) in rows {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(value)
+            .use_markup(false)
+            .build();
+        group.add(&row);
+    }
+    Some(group)
+}
+
+/// What benchmarks on this machine found, with their numbers.
+fn measured_group() -> Option<adw::PreferencesGroup> {
+    let hw = bigame_core::hardware::Hardware::detect();
+    let fingerprint = bigame_core::inventory::fingerprint(&hw);
+    let calibration = Calibration::load(&Calibration::default_path()?, &fingerprint).ok()??;
+    if calibration.findings.is_empty() {
+        return None;
+    }
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Measured on this machine"));
+    let changes = calibration.stack_changes(&bigame_core::inventory::stack_versions());
+    let mut description = i18n(
+        "Only these are performance claims: each comes from alternating benchmark runs, judged against their own run-to-run variation.",
+    );
+    if !changes.is_empty() {
+        description.push_str("\n\n");
+        description.push_str(&i18n(
+            "Needs revalidation: the software changed since these were measured. Settings measured slower are still avoided; none measured faster is applied until measured again.",
+        ));
+        description.push_str(" (");
+        description.push_str(&changes.join(", "));
+        description.push(')');
+    }
+    group.set_description(Some(&description));
+    for finding in calibration.findings.values() {
+        let verdict = match finding.verdict {
+            Verdict::Improvement => i18n("faster"),
+            Verdict::Regression => i18n("slower — not applied"),
+            Verdict::WithinNoise => i18n("no difference above noise"),
+            Verdict::Inconclusive => i18n("inconclusive"),
+        };
+        let row = adw::ActionRow::builder()
+            .title(format!("{} · {verdict}", finding.knob))
+            .subtitle(format!("{:+.1}% · {}", finding.delta_pct, finding.workload))
+            .use_markup(false)
+            .build();
+        row.add_suffix(&info::button(&finding.knob, &finding.rationale));
+        group.add(&row);
+    }
+    Some(group)
+}
 
 /// Build a page presenting `report`.
 #[must_use]
 pub fn build(report: &Report) -> gtk4::Widget {
     let page = adw::PreferencesPage::new();
 
-    // ── Headline ────────────────────────────────────────────────────────
-    let summary = adw::PreferencesGroup::new();
-    summary.set_title(&report.headline());
-    if !report.machine.is_empty() {
-        summary.set_description(Some(&report.machine));
-    }
-    page.add(&summary);
-
-    // ── What changed ────────────────────────────────────────────────────
-    if !report.applied.is_empty() {
-        let group = adw::PreferencesGroup::new();
-        group.set_title(&i18n("Changes"));
-        group.set_description(Some(&i18n(
-            "Each change was read back from the system after being written.",
-        )));
-        for change in &report.applied {
-            group.add(&change_row(change));
-        }
-        page.add(&group);
-    }
-
-    // ── Contention ──────────────────────────────────────────────────────
-    // A write that was accepted but did not stick almost always means a second
-    // process is managing the same knob. That is worth calling out on its own,
-    // because it is a configuration problem rather than a transient failure.
-    let contended = report.contended();
-    if !contended.is_empty() {
-        let group = adw::PreferencesGroup::new();
-        group.set_title(&i18n("Something else is changing these settings"));
-        group.set_description(Some(&i18n(
-            "These were written successfully but the system reported a different \
-             value afterwards, which usually means another service is managing them.",
-        )));
-        for change in contended {
-            let row = adw::ActionRow::builder()
-                .title(change.knob.title())
-                .subtitle(match &change.verification {
-                    Verification::Mismatch { actual } => {
-                        format!(
-                            "{} {} — {} {}",
-                            i18n("Requested"),
-                            change.to,
-                            i18n("now reads"),
-                            actual
-                        )
-                    }
-                    _ => String::new(),
-                })
-                .build();
-            row.add_prefix(&icon("dialog-warning-symbolic", "warning"));
-            group.add(&row);
-        }
-        page.add(&group);
-    }
-
-    // ── Performance ─────────────────────────────────────────────────────
-    let perf = adw::PreferencesGroup::new();
-    perf.set_title(&i18n("Performance"));
-    let perf_row = adw::ActionRow::builder()
-        .title(report.performance_claim())
-        .build();
-    if report.measurements.is_empty() {
-        perf_row.set_subtitle(&i18n(
-            "Applying a setting proves the system changed. It does not prove a \
-             game runs faster — that needs a before-and-after benchmark.",
-        ));
-        perf_row.add_prefix(&icon("dialog-information-symbolic", "dim-label"));
+    let head = adw::PreferencesGroup::new();
+    head.set_title(&if report.turned_on {
+        i18n("Optimization Report")
     } else {
-        perf_row.add_prefix(&icon("emblem-ok-symbolic", "success"));
-    }
-    perf.add(&perf_row);
-    page.add(&perf);
+        i18n("Turbo turned off")
+    });
+    head.set_description(Some(&if report.turned_on {
+        i18n("What Turbo did when it was turned on, and why.")
+    } else {
+        i18n("What was put back when Turbo was turned off.")
+    }));
+    page.add(&head);
 
-    // ── Considered and skipped ──────────────────────────────────────────
-    if !report.skipped.is_empty() {
+    if let Some(live) = live_group() {
+        page.add(&live);
+    }
+
+    for section in SECTIONS {
+        let items: Vec<&Item> = report
+            .items
+            .iter()
+            .filter(|i| i.section == *section)
+            .collect();
+        if items.is_empty() {
+            continue;
+        }
         let group = adw::PreferencesGroup::new();
-        group.set_title(&i18n("Considered but not applied"));
-        group.set_description(Some(&i18n(
-            "Showing these is how you can tell the plan was reasoned about \
-             rather than guessed.",
-        )));
-        for skipped in &report.skipped {
-            group.add(&skipped_row(skipped));
+        group.set_title(&section_title(*section));
+        if let Some(d) = section_description(*section) {
+            group.set_description(Some(&d));
+        }
+        for item in items {
+            group.add(&item_row(item));
         }
         page.add(&group);
+    }
+
+    if let Some(measured) = measured_group() {
+        page.add(&measured);
     }
 
     page.upcast()
 }
 
-fn change_row(change: &AppliedChange) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(change.summary())
-        .subtitle(&change.rationale)
-        .build();
-
-    let (icon_name, css, status) = if let Some(error) = &change.error {
-        ("dialog-error-symbolic", "error", error.clone())
-    } else {
-        match &change.verification {
-            Verification::Confirmed => ("emblem-ok-symbolic", "success", i18n("Verified")),
-            Verification::Mismatch { actual } => (
-                "dialog-warning-symbolic",
-                "warning",
-                format!("{} {actual}", i18n("System reports")),
-            ),
-            Verification::Unreadable => (
-                "dialog-question-symbolic",
-                "warning",
-                i18n("Could not be read back"),
-            ),
-        }
-    };
-
-    row.add_prefix(&icon(icon_name, css));
-    let badge = gtk4::Label::new(Some(&status));
-    badge.add_css_class("caption");
-    badge.add_css_class(css);
-    badge.set_wrap(true);
-    badge.set_max_width_chars(28);
-    badge.set_valign(gtk4::Align::Center);
-    row.add_suffix(&badge);
-    row
-}
-
-fn skipped_row(skipped: &Skipped) -> adw::ActionRow {
-    let (title, detail, icon_name) = match skipped {
-        Skipped::Unsupported { knob, detail } => {
-            (knob.clone(), detail.clone(), "action-unavailable-symbolic")
-        }
-        Skipped::AlreadyOptimal { knob, value } => (
-            knob.clone(),
-            format!("{} {value}", i18n("Already set to")),
-            "emblem-ok-symbolic",
-        ),
-        Skipped::NotBeneficial { knob, detail } => {
-            (knob.clone(), detail.clone(), "dialog-information-symbolic")
-        }
-        // Given its own icon and wording: this is the only skip reason backed
-        // by a measurement on this machine, and it deserves to read differently
-        // from "the hardware does not support it".
-        Skipped::MeasuredHarmful { knob, detail } => (
-            knob.clone(),
-            format!("{} — {detail}", i18n("Measured slower on this machine")),
-            "speedometer-symbolic",
-        ),
-        Skipped::NotRestorable { knob } => (
-            knob.clone(),
-            i18n(
-                "Skipped because the current value could not be read, so it could not be restored",
-            ),
-            "dialog-warning-symbolic",
-        ),
-    };
-
-    let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(detail)
-        .build();
-    row.add_prefix(&icon(icon_name, "dim-label"));
-    row
-}
-
-fn icon(name: &str, css: &str) -> gtk4::Image {
-    let image = gtk4::Image::from_icon_name(name);
-    image.add_css_class(css);
-    image
-}
-
 #[cfg(test)]
 mod tests {
-    use bigame_core::booster::knob::{Knob, Verification};
-    use bigame_core::booster::report::Report;
+    use super::*;
 
     #[test]
-    fn a_report_with_no_benchmark_never_claims_a_speedup() {
-        let report = Report {
-            machine: "bench".into(),
-            applied: vec![bigame_core::booster::report::AppliedChange {
-                knob: Knob::PowerProfile,
-                from: "balanced".into(),
-                to: "performance".into(),
-                rationale: "because".into(),
-                verification: Verification::Confirmed,
-                error: None,
-            }],
-            skipped: Vec::new(),
-            measurements: Vec::new(),
-        };
-        // This is the text the view puts in the Performance group.
-        let claim = report.performance_claim();
-        assert_eq!(claim, "Performance impact not measured");
-        assert!(!claim.contains('%'));
-        assert!(!claim.to_lowercase().contains("faster"));
+    fn every_section_has_a_title_and_an_icon() {
+        for section in SECTIONS {
+            assert!(!section_title(*section).is_empty());
+            assert!(!section_icon(*section).is_empty());
+        }
+    }
+
+    #[test]
+    fn every_kind_explains_itself() {
+        for kind in [
+            Kind::GameBackend,
+            Kind::ProfileSet,
+            Kind::GameMode,
+            Kind::Scheduler,
+            Kind::Knob("Power profile".into()),
+        ] {
+            assert!(!kind_title(&kind).is_empty());
+            assert!(kind_explanation(&kind).len() > 40, "{kind:?}");
+        }
     }
 }

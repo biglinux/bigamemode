@@ -30,6 +30,18 @@
   <vendor_url>https://www.biglinux.com.br</vendor_url>
   <icon_name>com.biglinux.BiGameMode</icon_name>
 
+  <action id="com.biglinux.bigamemode.control-backend">
+    <description>Turn Turbo Mode on or off</description>
+    <description xml:lang="pt_BR">Ligar ou desligar o Modo Turbo</description>
+    <message>Authentication is required to turn Turbo Mode on or off</message>
+    <message xml:lang="pt_BR">É necessário autenticar-se para ligar ou desligar o Modo Turbo</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
   <action id="com.biglinux.bigamemode.set-cpu">
     <description>Change CPU performance settings</description>
     <description xml:lang="pt_BR">Alterar configurações de desempenho da CPU</description>

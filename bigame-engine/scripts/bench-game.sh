@@ -79,6 +79,8 @@ WINDOW=$(xdotool search --name "$WINDOW_NAME" 2>/dev/null | head -1)
 press_rerun() {
     local waited=0
     until [ "$(xdotool getactivewindow 2>/dev/null)" = "$WINDOW" ]; do
+        # A game that has exited will never take focus again.
+        xdotool getwindowname "$WINDOW" >/dev/null 2>&1 || { log "the game exited"; return 1; }
         [ $waited -eq 0 ] && log "waiting for $TITLE to regain keyboard focus"
         sleep 2; waited=$((waited + 2))
         [ $waited -ge "$TIMEOUT_S" ] && return 1
@@ -89,6 +91,25 @@ press_rerun() {
 count() { local n; n=$(grep -c "\[Benchmark\] Benchmark $1" "$GAME_LOG" 2>/dev/null); echo "${n:-0}"; }
 stops()  { count stopped; }
 starts() { count started; }
+
+# A press can be lost: the game drops input for a moment when it regains
+# focus, and under Wayland a native dialog (the Polkit prompt) can hold the
+# keyboard while X still reports the game as the active window. So a run
+# counts as started only when the game's log says it started; loading the
+# benchmark takes up to ~20 s, so a press is repeated only after 45.
+start_run() {
+    local before tries
+    before=$(starts)
+    for tries in 1 2 3; do
+        press_rerun || return 1
+        for _ in $(seq 1 45); do
+            [ "$(starts)" -gt "$before" ] && return 0
+            sleep 1
+        done
+        log "the game did not start a run (press $tries); pressing again"
+    done
+    return 1
+}
 
 wait_for_stop() {
     local before=$1 waited=0
@@ -123,6 +144,7 @@ set_profile()  { [ -n "$1" ] && powerprofilesctl set "$1" >/dev/null 2>&1; }
 
 restore() {
     [ -n "${TELEMETRY_PID:-}" ] && kill "$TELEMETRY_PID" 2>/dev/null
+    declare -F scx_stop >/dev/null && scx_stop
     [ -n "${UI_PID:-}" ] && kill -CONT "$UI_PID" 2>/dev/null
     log "restoring the machine to how it was found"
     eval "$ORIGINAL"
@@ -155,6 +177,46 @@ UI_PID=$(pgrep -x bigame-ui | head -1)
 arm_ui_polling() { arm_rest; [ -n "$UI_PID" ] && kill -CONT "$UI_PID"; }
 arm_ui_paused()  { arm_rest; [ -n "$UI_PID" ] || die "no bigame-ui is running"; kill -STOP "$UI_PID"; }
 
+# Scheduler arms. The scheduler is falcond's to set, per game, so these do not
+# set it themselves: they ask scripts/scx-switch.sh -- started once, as root,
+# under a single Polkit approval -- to rewrite the game's falcond profile and
+# have falcond reload. What the kernel reports afterwards is recorded with the
+# run, so a scheduler that did not take is visible rather than assumed.
+SCX_PID=""; SCX_READY=""
+scx_start() {
+    [ -n "$SCX_PID" ] && return 0
+    log "starting the scheduler switcher: approve the Polkit prompt"
+    # A coprocess: requests go to its stdin, replies come from its stdout, and
+    # if this script dies the pipe closes, which ends the root side and puts
+    # the profile back.
+    coproc SCX { exec pkexec "$HERE/scx-switch.sh" "${SCX_PROFILE:?set SCX_PROFILE to the falcond profile name of the game}"; }
+    local reply=""
+    read -r -t "${SCX_AUTH_TIMEOUT_S:-300}" -u "${SCX[0]}" reply
+    [ "$reply" = ready ] || die "the scheduler switcher did not start (Polkit refused, timed out, or bad profile)"
+    SCX_READY=1
+}
+scx_set() {
+    scx_start
+    echo "$1 $2" >&"${SCX[1]}"
+    SCX_NOW=""
+    read -r -t 60 -u "${SCX[0]}" SCX_NOW || die "the scheduler switcher did not answer"
+    case $SCX_NOW in ok\ *) ;; *) die "scheduler switch refused: $SCX_NOW" ;; esac
+    log "scheduler: asked $1/$2, kernel reports: ${SCX_NOW#ok }"
+}
+scx_stop() {
+    [ -n "$SCX_PID" ] || return 0
+    local pid=$SCX_PID; SCX_PID=""
+    [ -n "${SCX[1]:-}" ] && eval "exec ${SCX[1]}>&-"
+    # pkexec still waiting for its approval reads no input, so closing the
+    # pipe would not end it and the wait below would never return. It has
+    # changed nothing yet, and it still runs as this user: stop it.
+    [ -n "$SCX_READY" ] || kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+}
+arm_scx_none()    { arm_rest; scx_set none default; }
+arm_scx_lavd()    { arm_rest; scx_set lavd gaming; }
+arm_scx_bpfland() { arm_rest; scx_set bpfland gaming; }
+
 # ── session ──────────────────────────────────────────────────────────────────
 
 ARMS=("$@")
@@ -175,19 +237,21 @@ collect() {
     ls "$dest"/*_frametimes_*.txt >/dev/null 2>&1
 }
 
+# The Polkit prompt comes before the warm-up, so a refusal costs nothing.
+for arm in "${ARMS[@]}"; do case $arm in scx_*) scx_start; break ;; esac; done
+
 # Warm-up: whatever pass is running or last finished is discarded. If the game
 # is idle on its results screen, start one.
 if [ "$(starts)" -le "$(stops)" ]; then
     log "warm-up run (discarded)"
-    before=$(stops); press_rerun || die "could not start the warm-up"
-    sleep 10
+    before=$(stops); start_run || die "could not start the warm-up"
 else
     log "a pass is already running; it is the warm-up (discarded)"
     before=$(stops)
 fi
 wait_for_stop "$before" || die "the warm-up did not finish"
 
-N=${#ARMS[@]}
+N=${#ARMS[@]}; INCOMPLETE=""
 for round in $(seq 1 "$RUNS"); do
     for k in $(seq 0 $((N - 1))); do
         arm=${ARMS[$(( (k + round - 1) % N ))]}
@@ -196,10 +260,11 @@ for round in $(seq 1 "$RUNS"); do
         "arm_$arm"
         sleep "$SETTLE_S"   # let clocks, governor and temperature settle
         read_state > "$dir/state.txt"
+        printf 'sched_ext=%s\n' "$(cat /sys/kernel/sched_ext/root/ops 2>/dev/null || echo none)" >> "$dir/state.txt"
         stamp="$dir/.start"; touch "$stamp"
         "$HERE/gpu-telemetry.sh" "$CARD" "$dir/gpu.csv" & TELEMETRY_PID=$!
         before=$(stops)
-        press_rerun || { log "$arm run $round: focus never returned"; break 2; }
+        start_run || { log "$arm run $round: the game would not start a run"; INCOMPLETE=1; break 2; }
         if ! wait_for_stop "$before"; then
             log "$arm run $round: NO RESULT"
             kill "$TELEMETRY_PID" 2>/dev/null; TELEMETRY_PID=""
@@ -215,4 +280,8 @@ for round in $(seq 1 "$RUNS"); do
         rm -f "$stamp"
     done
 done
+if [ -n "${INCOMPLETE:-}" ]; then
+    log "session INCOMPLETE -- stopped at $arm run $round; results so far: $OUT"
+    exit 1
+fi
 log "session complete: $OUT"

@@ -91,12 +91,15 @@ const KNOWN: &[Known] = &[
     Known {
         app_id: "391220",
         name: "Rise of the Tomb Raider",
-        // Installed here as the Windows build under Proton. (The Feral Linux
-        // port it replaced wrote the same frametime format under its own VFS;
-        // where the Windows build writes has not been confirmed yet.)
+        // Installed here as the Windows build under Proton. It writes the
+        // same frametime format as Shadow, one file per scene -- seen in its
+        // prefix on the reference machine after a run on 2026-09-24.
         reached_by: "Options → Graphics → Run Benchmark",
         missing_library: None,
-        results: None,
+        results: Some(Results {
+            dir: "Documents/Rise of the Tomb Raider",
+            format: Format::Crystal,
+        }),
     },
     Known {
         app_id: "203160",
@@ -220,9 +223,15 @@ impl GameBenchmark {
             return Ok(None);
         }
         match results.format {
-            Format::Crystal => native::newest_since(&dir, |n| n.contains("_frametimes_"), since)?
-                .map(|f| native::read_crystal(&f))
-                .transpose(),
+            // Every scene file of the run: Rise writes one per scene.
+            Format::Crystal => {
+                let files = native::all_since(&dir, |n| n.contains("_frametimes_"), since)?;
+                if files.is_empty() {
+                    Ok(None)
+                } else {
+                    native::read_crystal_run(&files).map(Some)
+                }
+            }
             Format::Cyberpunk => {
                 native::newest_since(&dir, |n| n.starts_with("benchmark_"), since)?
                     .map(|d| native::read_cyberpunk(&d))
@@ -395,9 +404,9 @@ mod tests {
 
     #[test]
     fn an_unverified_location_is_not_guessed() {
-        let rottr = installed("391220", "/g/steamapps/common/Rise of the Tomb Raider");
-        assert!(rottr.results_dir().is_none());
-        assert!(matches!(rottr.source(), Source::MangoHud));
+        let tr2013 = installed("203160", "/g/steamapps/common/Tomb Raider");
+        assert!(tr2013.results_dir().is_none());
+        assert!(matches!(tr2013.source(), Source::MangoHud));
     }
 
     #[test]

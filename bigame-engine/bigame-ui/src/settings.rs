@@ -7,6 +7,10 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 /// Persisted user preferences.
+///
+/// A flat set of independent switches, which is what a preferences file is;
+/// grouping them to satisfy a lint would only add indirection.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -20,6 +24,8 @@ pub struct Settings {
     pub notifications_enabled: bool,
     /// Ping target for network latency telemetry.
     pub ping_target: String,
+    /// Offer a profile when a game falcond has no profile for starts.
+    pub offer_profiles: bool,
 }
 
 impl Default for Settings {
@@ -32,6 +38,7 @@ impl Default for Settings {
             dark_mode: false,
             notifications_enabled: true,
             ping_target: String::from("1.1.1.1"),
+            offer_profiles: true,
         }
     }
 }
@@ -67,4 +74,49 @@ pub fn save(settings: &Settings) {
     if let Ok(content) = toml::to_string_pretty(settings) {
         let _ = std::fs::write(&path, content);
     }
+}
+
+/// The XDG autostart entry that starts BiGame-mode hidden at login.
+fn autostart_path() -> Option<PathBuf> {
+    let config = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
+    Some(
+        config
+            .join("autostart")
+            .join("com.biglinux.BiGameMode.desktop"),
+    )
+}
+
+/// Whether BiGame-mode starts in the background at login.
+#[must_use]
+pub fn starts_at_login() -> bool {
+    autostart_path().is_some_and(|p| p.exists())
+}
+
+/// Start, or stop starting, in the background at login.
+///
+/// A per-user XDG autostart entry, so nothing system-wide changes and
+/// removing the file undoes it completely.
+///
+/// # Errors
+/// Returns an error if the entry could not be written or removed.
+pub fn set_starts_at_login(enabled: bool) -> std::io::Result<()> {
+    let Some(path) = autostart_path() else {
+        return Ok(());
+    };
+    if !enabled {
+        return match std::fs::remove_file(&path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+            _ => Ok(()),
+        };
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(
+        path,
+        "[Desktop Entry]\nType=Application\nName=BiGame-mode\nExec=bigame-ui --background\n\
+         Icon=com.biglinux.BiGameMode\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
+    )
 }

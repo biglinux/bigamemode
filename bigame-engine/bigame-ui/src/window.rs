@@ -52,7 +52,7 @@ pub fn build(
         .build();
     back_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Back to Home"))]);
 
-    let show_report: Rc<dyn Fn(&bigame_core::booster::report::Report)> = {
+    let show_report: Rc<dyn Fn(&bigame_core::turbo::Report)> = {
         let stack = view_stack.clone();
         let holder = Rc::clone(&report_holder);
         let title = page_title.clone();
@@ -342,12 +342,24 @@ pub fn build(
             let th2 = Rc::clone(&th);
             dialog.connect_response(None, move |_, response| {
                 if response != "restore" { return; }
-                // Write default falcond config via dbus
+                // Write default gamescope config (user-space), then falcond's
+                // through the helper -- off the main thread, since it may wait
+                // on a password prompt -- and say what actually happened.
+                let gamescope = bigame_core::gamescope::save_global(&bigame_core::gamescope::Config::default());
+                let overlay3 = overlay2.clone();
                 glib::spawn_future_local(async move {
-                    let _ = bigame_core::config::write(&bigame_core::config::FalcondConfig::default()).await;
+                    let falcond = gtk4::gio::spawn_blocking(|| {
+                        bigame_core::config::write_blocking(&bigame_core::config::FalcondConfig::default())
+                    })
+                    .await;
+                    let message = match (falcond, gamescope) {
+                        (Ok(Ok(())), Ok(())) => i18n("Default settings restored"),
+                        (Ok(Err(e)), _) => format!("{}: {e:#}", i18n("Could not restore falcond's settings")),
+                        (Err(_), _) => i18n("Could not restore falcond's settings"),
+                        (_, Err(e)) => format!("{}: {e:#}", i18n("Could not restore Gamescope's settings")),
+                    };
+                    overlay3.add_toast(adw::Toast::new(&message));
                 });
-                // Write default gamescope config (user-space)
-                let _ = bigame_core::gamescope::save_global(&bigame_core::gamescope::Config::default());
                 // Swap tuning page in the view stack
                 let old = th2.borrow().clone();
                 stack2.remove(&old);
@@ -356,7 +368,6 @@ pub fn build(
                 *th2.borrow_mut() = new_tuning;
                 // Navigate to tuning so user sees the reset values
                 stack2.set_visible_child_name("tuning");
-                overlay2.add_toast(adw::Toast::new(&i18n("Default settings restored")));
             });
             dialog.present(Some(&win));
         });

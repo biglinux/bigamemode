@@ -77,6 +77,13 @@ pub struct Calibration {
     pub measured: String,
     /// One finding per knob.
     pub findings: BTreeMap<String, KnobFinding>,
+    /// The software the findings were measured under: Mesa, falcond,
+    /// sched-ext and the kernel, by package.
+    ///
+    /// Empty in calibrations written before this was recorded, which are then
+    /// treated as unknown-stack rather than as stale.
+    #[serde(default)]
+    pub stack: BTreeMap<String, String>,
 }
 
 impl Calibration {
@@ -88,7 +95,37 @@ impl Calibration {
             fingerprint: fingerprint.into(),
             measured: measured.into(),
             findings: BTreeMap::new(),
+            stack: crate::inventory::stack_versions(),
         }
+    }
+
+    /// What in the software stack has changed since this was measured, as
+    /// `name: then → now`. Empty when nothing has, or when this calibration
+    /// predates recording the stack.
+    ///
+    /// A changed stack does not void a calibration outright. A setting
+    /// measured *slower* keeps being avoided — avoiding it is the safe side —
+    /// but a setting measured *faster* is not turned on again until it has
+    /// been re-measured, because a driver update is exactly what changes
+    /// such a result.
+    #[must_use]
+    pub fn stack_changes(&self, now: &BTreeMap<String, String>) -> Vec<String> {
+        self.stack
+            .iter()
+            .filter_map(|(name, then)| {
+                let current = now.get(name).map_or("(removed)", String::as_str);
+                (current != then).then(|| format!("{name}: {then} → {current}"))
+            })
+            .collect()
+    }
+
+    /// Whether this calibration needs re-measuring before its improvements
+    /// can be trusted.
+    #[must_use]
+    pub fn needs_revalidation(&self) -> bool {
+        !self
+            .stack_changes(&crate::inventory::stack_versions())
+            .is_empty()
     }
 
     /// Record what an isolation-matrix comparison found.
@@ -203,6 +240,26 @@ impl Calibration {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_changed_driver_is_named_and_an_old_calibration_is_not_stale() {
+        let mut c = Calibration::new("fp", "2026-09-23");
+        c.stack = [("mesa", "1:26.2.2-1"), ("kernel", "7.2.6")]
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect();
+        let mut now = c.stack.clone();
+        assert!(c.stack_changes(&now).is_empty());
+        now.insert("mesa".into(), "1:26.3.0-1".into());
+        assert_eq!(c.stack_changes(&now), vec!["mesa: 1:26.2.2-1 → 1:26.3.0-1"]);
+
+        // Written before the stack was recorded: unknown, not stale.
+        let old: Calibration = serde_json::from_str(
+            r#"{"schema":"bigame.calibration/1","fingerprint":"fp","measured":"d","findings":{}}"#,
+        )
+        .unwrap();
+        assert!(old.stack_changes(&now).is_empty());
+    }
+
     use super::*;
     use crate::benchmark::result::ArmSummary;
 

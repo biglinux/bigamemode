@@ -1,108 +1,142 @@
-//! Log viewer: aggregated gaming-related system logs.
+//! Logs: everything involved in a game session, in one colour-coded list.
 //!
-//! Shows logs from multiple sources:
-//! - falcond status file (`/tmp/falcond_status`)
-//! - journalctl (falcond and related gaming services)
-//! - dmesg (kernel gaming/GPU messages)
-//! - BiGame-mode application log
+//! Read from the journal in one call ([`bigame_core::logs`]), incrementally
+//! by cursor, and only while this page is on screen. The previous page ran
+//! four processes every five seconds whether or not anyone was looking.
+//!
+//! Only the severity label is coloured, so an error stands out without the
+//! whole line shouting; the message itself stays in the normal text colour.
 
+use std::cell::RefCell;
 use std::fmt::Write as _;
+use std::rc::Rc;
 use std::time::Duration;
 
 use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
+use bigame_core::logs::{Entry, Level, Source};
+
 use crate::i18n::i18n;
 
-/// Build the log viewer page with multiple log sources.
-pub fn build() -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::new();
+/// Entries kept in memory; older ones scroll away.
+const KEEP: usize = 3000;
 
-    // ── Section 1: Falcond Status ───────────────────────────────────────────
-    let status_group = adw::PreferencesGroup::new();
-    status_group.set_title(&i18n("Falcond Status"));
-    status_group.set_description(Some(&i18n("Live status from /tmp/falcond_status")));
-
-    let status_text = build_log_textview();
-    let status_scroll = build_scroll(200);
-    status_scroll.set_child(Some(&status_text));
-    status_group.add(&status_scroll);
-    page.add(&status_group);
-
-    // ── Section 2: Gaming Services Journal ──────────────────────────
-    let journal_group = adw::PreferencesGroup::new();
-    journal_group.set_title(&i18n("Gaming Services Journal"));
-    journal_group.set_description(Some(&i18n("Logs from falcond and related gaming services")));
-
-    let refresh_btn = gtk4::Button::builder()
-        .icon_name("view-refresh-symbolic")
-        .tooltip_text(i18n("Refresh"))
-        .css_classes(["circular", "flat"])
-        .build();
-    journal_group.set_header_suffix(Some(&refresh_btn));
-
-    let journal_text = build_log_textview();
-    let journal_scroll = build_scroll(300);
-    journal_scroll.set_child(Some(&journal_text));
-    journal_group.add(&journal_scroll);
-    page.add(&journal_group);
-
-    // ── Section 3: Kernel / GPU Messages ────────────────────────────────────
-    let kernel_group = adw::PreferencesGroup::new();
-    kernel_group.set_title(&i18n("Kernel &amp; GPU Messages"));
-    kernel_group.set_description(Some(&i18n(
-        "Recent dmesg entries related to GPU and gaming",
-    )));
-
-    let kernel_text = build_log_textview();
-    let kernel_scroll = build_scroll(250);
-    kernel_scroll.set_child(Some(&kernel_text));
-    kernel_group.add(&kernel_scroll);
-    page.add(&kernel_group);
-
-    // ── Section 4: Application Log ──────────────────────────────────────────
-    let app_group = adw::PreferencesGroup::new();
-    app_group.set_title(&i18n("Application Log"));
-    app_group.set_description(Some(&i18n("BiGame-mode runtime events")));
-
-    let app_text = build_log_textview();
-    let app_scroll = build_scroll(200);
-    app_scroll.set_child(Some(&app_text));
-    app_group.add(&app_scroll);
-    page.add(&app_group);
-
-    // ── Refresh button ──────────────────────────────────────────────────────
-    {
-        let s = status_text.clone();
-        let j = journal_text.clone();
-        let k = kernel_text.clone();
-        let a = app_text.clone();
-        refresh_btn.connect_clicked(move |_| {
-            refresh_all(&s, &j, &k, &a);
-        });
-    }
-
-    // ── Initial load ────────────────────────────────────────────────────────
-    refresh_all(&status_text, &journal_text, &kernel_text, &app_text);
-
-    // ── Auto-refresh every 5 seconds ────────────────────────────────────────
-    {
-        let s = status_text;
-        let j = journal_text;
-        let k = kernel_text;
-        let a = app_text;
-        glib::timeout_add_local(Duration::from_secs(5), move || {
-            refresh_all(&s, &j, &k, &a);
-            glib::ControlFlow::Continue
-        });
-    }
-
-    page
+/// What the filter shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Filter {
+    All,
+    Errors,
+    Warnings,
+    Success,
+    Only(Source),
+    KernelGpu,
 }
 
-fn build_log_textview() -> gtk4::TextView {
-    let text = gtk4::TextView::builder()
+impl Filter {
+    fn all() -> Vec<(Self, String)> {
+        vec![
+            (Self::All, i18n("All")),
+            (Self::Errors, i18n("Errors")),
+            (Self::Warnings, i18n("Warnings and errors")),
+            (Self::Success, i18n("Success")),
+            (Self::Only(Source::Falcond), "falcond".into()),
+            (Self::Only(Source::BiGame), "BiGame-mode".into()),
+            (Self::Only(Source::Helper), i18n("BiGame-mode helper")),
+            (Self::KernelGpu, i18n("Kernel and GPU")),
+            (Self::Only(Source::Gamescope), "Gamescope".into()),
+            (Self::Only(Source::Scheduler), "sched-ext".into()),
+            (Self::Only(Source::PowerProfiles), i18n("Power profiles")),
+        ]
+    }
+
+    fn accepts(self, entry: &Entry) -> bool {
+        match self {
+            Self::All => true,
+            Self::Errors => entry.level == Level::Error,
+            Self::Warnings => entry.level >= Level::Warning,
+            Self::Success => entry.level == Level::Success,
+            Self::Only(source) => entry.source == source,
+            Self::KernelGpu => entry.source == Source::Kernel,
+        }
+    }
+}
+
+struct State {
+    entries: Vec<Entry>,
+    cursor: Option<String>,
+    filter: Filter,
+    search: String,
+    loading: bool,
+}
+
+/// Build the Logs page.
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn build() -> adw::PreferencesPage {
+    let page = adw::PreferencesPage::new();
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Logs"));
+    group.set_description(Some(&i18n(
+        "falcond, BiGame-mode, the kernel's graphics drivers, Gamescope, sched-ext and power profiles, from the system journal.",
+    )));
+
+    // ── Controls ────────────────────────────────────────────────────────
+    let filters = Filter::all();
+    let names: Vec<&str> = filters.iter().map(|(_, n)| n.as_str()).collect();
+    let dropdown = gtk4::DropDown::from_strings(&names);
+    dropdown.set_tooltip_text(Some(&i18n("Show")));
+    let search = gtk4::SearchEntry::builder()
+        .placeholder_text(i18n("Search"))
+        .hexpand(true)
+        .build();
+    let live = gtk4::ToggleButton::builder()
+        .icon_name("media-playback-start-symbolic")
+        .active(true)
+        .tooltip_text(i18n("Follow new entries"))
+        .css_classes(["flat"])
+        .build();
+    let refresh = gtk4::Button::builder()
+        .icon_name("view-refresh-symbolic")
+        .tooltip_text(i18n("Refresh"))
+        .css_classes(["flat"])
+        .build();
+    let copy = gtk4::Button::builder()
+        .icon_name("edit-copy-symbolic")
+        .tooltip_text(i18n("Copy what is shown"))
+        .css_classes(["flat"])
+        .build();
+    let export = gtk4::Button::builder()
+        .icon_name("document-save-symbolic")
+        .tooltip_text(i18n("Export, with personal data masked"))
+        .css_classes(["flat"])
+        .build();
+    for (button, label) in [
+        (
+            live.upcast_ref::<gtk4::Widget>(),
+            i18n("Follow new entries"),
+        ),
+        (refresh.upcast_ref(), i18n("Refresh")),
+        (copy.upcast_ref(), i18n("Copy what is shown")),
+        (
+            export.upcast_ref(),
+            i18n("Export, with personal data masked"),
+        ),
+    ] {
+        button.update_property(&[gtk4::accessible::Property::Label(&label)]);
+    }
+    let bar = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+    bar.append(&dropdown);
+    bar.append(&search);
+    bar.append(&live);
+    bar.append(&refresh);
+    bar.append(&copy);
+    bar.append(&export);
+    group.add(&bar);
+
+    // ── The list ────────────────────────────────────────────────────────
+    let view = gtk4::TextView::builder()
         .editable(false)
         .cursor_visible(false)
         .monospace(true)
@@ -112,285 +146,308 @@ fn build_log_textview() -> gtk4::TextView {
         .left_margin(12)
         .right_margin(12)
         .build();
-    text.add_css_class("card");
-    text
-}
+    view.add_css_class("card");
+    install_tags(&view.buffer());
+    let scroll = gtk4::ScrolledWindow::builder()
+        .min_content_height(460)
+        .vexpand(true)
+        .child(&view)
+        .build();
+    scroll.set_margin_top(8);
+    group.add(&scroll);
+    let counts = gtk4::Label::new(None);
+    counts.add_css_class("caption");
+    counts.add_css_class("dim-label");
+    counts.set_xalign(0.0);
+    counts.set_margin_top(6);
+    group.add(&counts);
+    page.add(&group);
 
-fn build_scroll(min_height: i32) -> gtk4::ScrolledWindow {
-    gtk4::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk4::PolicyType::Automatic)
-        .vscrollbar_policy(gtk4::PolicyType::Automatic)
-        .min_content_height(min_height)
-        .build()
-}
+    let state = Rc::new(RefCell::new(State {
+        entries: Vec::new(),
+        cursor: None,
+        filter: Filter::All,
+        search: String::new(),
+        loading: false,
+    }));
 
-fn refresh_all(
-    status_tv: &gtk4::TextView,
-    journal_tv: &gtk4::TextView,
-    kernel_tv: &gtk4::TextView,
-    app_tv: &gtk4::TextView,
-) {
-    load_status(status_tv);
-    load_journal(journal_tv);
-    load_kernel(kernel_tv);
-    load_app_log(app_tv);
-}
+    let render = {
+        let state = Rc::clone(&state);
+        let view = view.clone();
+        let counts = counts.clone();
+        Rc::new(move || render(&state.borrow(), &view, &counts))
+    };
 
-/// Read falcond status file directly.
-fn load_status(text_view: &gtk4::TextView) {
-    let tv = text_view.clone();
-    glib::spawn_future_local(async move {
-        let text = gio::spawn_blocking(|| {
-            let status_path = bigame_core::status::status_path().display().to_string();
-            match std::fs::read_to_string(&status_path) {
-                Ok(content) if !content.trim().is_empty() => {
-                    let mut out = String::new();
-                    let _ = writeln!(out, "── {status_path} ──");
-                    out.push_str(&content);
-                    out.push_str("\n\n");
-
-                    // Also show profile files
-                    let profiles_dir = "/usr/share/falcond/profiles/user";
-                    if let Ok(entries) = std::fs::read_dir(profiles_dir) {
-                        let files: Vec<_> = entries
-                            .filter_map(std::result::Result::ok)
-                            .map(|e| e.file_name().to_string_lossy().into_owned())
-                            .collect();
-                        if files.is_empty() {
-                            out.push_str("── Saved Profiles: (none) ──\n");
-                        } else {
-                            let _ = writeln!(out, "── Saved Profiles ({}) ──", files.len());
-                            for f in &files {
-                                let _ = writeln!(out, "  • {f}");
-                            }
-                        }
-                    }
-                    out
-                }
-                Ok(_) => format!("Status file is empty: {status_path}\n\nThe falcond daemon may not be running.\nCheck: systemctl status falcond"),
-                Err(e) => format!("Cannot read {status_path}: {e}\n\nThe falcond daemon is not running or not installed.\n\nTo start it manually, you may need to install the falcond package\nor run the daemon directly."),
+    let load = {
+        let state = Rc::clone(&state);
+        let render = Rc::clone(&render);
+        let view = view.clone();
+        Rc::new(move || {
+            if state.borrow().loading {
+                return;
             }
+            state.borrow_mut().loading = true;
+            let cursor = state.borrow().cursor.clone();
+            let state = Rc::clone(&state);
+            let render = Rc::clone(&render);
+            let view = view.clone();
+            glib::spawn_future_local(async move {
+                let result =
+                    gio::spawn_blocking(move || bigame_core::logs::read(600, cursor.as_deref()))
+                        .await;
+                let mut s = state.borrow_mut();
+                s.loading = false;
+                let Ok(Ok((new, cursor))) = result else {
+                    return;
+                };
+                if cursor.is_some() {
+                    s.cursor = cursor;
+                }
+                if new.is_empty() && !s.entries.is_empty() {
+                    return;
+                }
+                s.entries.extend(new);
+                let excess = s.entries.len().saturating_sub(KEEP);
+                s.entries.drain(..excess);
+                drop(s);
+                render();
+                // Keep the newest line in view -- once GTK has laid the text
+                // out; scrolling before that is silently a no-op, which left
+                // the page opening on the oldest entry.
+                let view = view.clone();
+                glib::idle_add_local_once(move || {
+                    let buffer = view.buffer();
+                    let mark = buffer.create_mark(None, &buffer.end_iter(), false);
+                    view.scroll_mark_onscreen(&mark);
+                    buffer.delete_mark(&mark);
+                });
+            });
         })
-        .await;
+    };
 
-        if let Ok(t) = text {
-            tv.buffer().set_text(&t);
+    {
+        let state = Rc::clone(&state);
+        let render = Rc::clone(&render);
+        dropdown.connect_selected_notify(move |d| {
+            let index = usize::try_from(d.selected()).unwrap_or(0);
+            state.borrow_mut().filter = filters.get(index).map_or(Filter::All, |(f, _)| *f);
+            render();
+        });
+    }
+    {
+        let state = Rc::clone(&state);
+        let render = Rc::clone(&render);
+        search.connect_search_changed(move |e| {
+            state.borrow_mut().search = e.text().to_lowercase();
+            render();
+        });
+    }
+    {
+        let load = Rc::clone(&load);
+        refresh.connect_clicked(move |_| load());
+    }
+    {
+        let view = view.clone();
+        copy.connect_clicked(move |b| {
+            let buffer = view.buffer();
+            let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+            b.clipboard().set_text(&text);
+            crate::widgets::toast::show(b, &i18n("Copied"));
+        });
+    }
+    {
+        let state = Rc::clone(&state);
+        export.connect_clicked(move |b| export_to_file(b, &state.borrow()));
+    }
+
+    // Load when first shown, then follow while shown. Nothing runs while the
+    // page is not on screen.
+    {
+        let load = Rc::clone(&load);
+        let first = std::cell::Cell::new(true);
+        scroll.connect_map(move |_| {
+            if first.replace(false) {
+                load();
+            }
+        });
+    }
+    {
+        let load = Rc::clone(&load);
+        let scroll = scroll.clone();
+        glib::timeout_add_local(Duration::from_secs(5), move || {
+            if scroll.is_mapped() && live.is_active() {
+                load();
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    page
+}
+
+/// Severity colours, readable on light and dark backgrounds alike.
+fn install_tags(buffer: &gtk4::TextBuffer) {
+    let dark = adw::StyleManager::default().is_dark();
+    let (red, orange, green) = if dark {
+        ("#ff7b63", "#ffc057", "#8ff0a4")
+    } else {
+        ("#c01c28", "#9c6e03", "#1b7a3f")
+    };
+    let table = buffer.tag_table();
+    for (name, colour) in [("error", red), ("warning", orange), ("success", green)] {
+        let tag = gtk4::TextTag::builder()
+            .name(name)
+            .foreground(colour)
+            .weight(700)
+            .build();
+        table.add(&tag);
+    }
+    let dim = gtk4::TextTag::builder()
+        .name("dim")
+        .foreground_rgba(&gtk4::gdk::RGBA::new(0.5, 0.5, 0.5, 1.0))
+        .build();
+    table.add(&dim);
+}
+
+fn level_tag(level: Level) -> Option<&'static str> {
+    match level {
+        Level::Error => Some("error"),
+        Level::Warning => Some("warning"),
+        Level::Success => Some("success"),
+        Level::Debug => Some("dim"),
+        Level::Info => None,
+    }
+}
+
+fn time_label(us: u64) -> String {
+    let secs = i64::try_from(us / 1_000_000).unwrap_or(0);
+    glib::DateTime::from_unix_local(secs)
+        .and_then(|t| t.format("%H:%M:%S"))
+        .map(|s| s.to_string())
+        .unwrap_or_default()
+}
+
+fn visible(state: &State) -> impl Iterator<Item = &Entry> {
+    state.entries.iter().filter(move |e| {
+        state.filter.accepts(e)
+            && (state.search.is_empty() || e.message.to_lowercase().contains(&state.search))
+    })
+}
+
+fn render(state: &State, view: &gtk4::TextView, counts: &gtk4::Label) {
+    let buffer = view.buffer();
+    buffer.set_text("");
+    let mut shown = 0usize;
+    let mut end = buffer.end_iter();
+    for entry in visible(state) {
+        shown += 1;
+        buffer.insert_with_tags_by_name(&mut end, &time_label(entry.time_us), &["dim"]);
+        buffer.insert(&mut end, "  ");
+        match level_tag(entry.level) {
+            Some(tag) => buffer.insert_with_tags_by_name(&mut end, entry.level.label(), &[tag]),
+            None => buffer.insert(&mut end, entry.level.label()),
+        }
+        buffer.insert_with_tags_by_name(
+            &mut end,
+            &format!("  {:<9}", entry.source.label()),
+            &["dim"],
+        );
+        buffer.insert(&mut end, &entry.message);
+        buffer.insert(&mut end, "\n");
+    }
+    if shown == 0 {
+        buffer.set_text(&i18n("Nothing matches."));
+    }
+    let errors = state
+        .entries
+        .iter()
+        .filter(|e| e.level == Level::Error)
+        .count();
+    let warnings = state
+        .entries
+        .iter()
+        .filter(|e| e.level == Level::Warning)
+        .count();
+    counts.set_label(&format!(
+        "{shown} {} · {errors} {} · {warnings} {}",
+        i18n("shown"),
+        i18n("errors"),
+        i18n("warnings")
+    ));
+}
+
+fn export_to_file(anchor: &gtk4::Button, state: &State) {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let user = std::env::var("USER").unwrap_or_default();
+    let host = std::fs::read_to_string("/etc/hostname")
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let mut text = String::new();
+    for e in visible(state) {
+        let _ = writeln!(
+            text,
+            "{}  {}  {:<9}{}",
+            time_label(e.time_us),
+            e.level.label(),
+            e.source.label(),
+            e.message
+        );
+    }
+    let text = bigame_core::logs::redact(&text, &home, &user, &host);
+    let dialog = gtk4::FileDialog::builder()
+        .title(i18n("Export log"))
+        .initial_name("bigamemode-log.txt")
+        .build();
+    let window = anchor.root().and_downcast::<gtk4::Window>();
+    let anchor = anchor.clone();
+    dialog.save(window.as_ref(), gio::Cancellable::NONE, move |result| {
+        let Ok(file) = result else { return };
+        let Some(path) = file.path() else { return };
+        match std::fs::write(&path, text) {
+            Ok(()) => crate::widgets::toast::show(&anchor, &i18n("Log exported")),
+            Err(e) => {
+                crate::widgets::toast::show(&anchor, &format!("{}: {e}", i18n("Could not export")));
+            }
         }
     });
 }
 
-/// Read journal logs from multiple gaming-related services.
-fn load_journal(text_view: &gtk4::TextView) {
-    let tv = text_view.clone();
-    glib::spawn_future_local(async move {
-        let text = gio::spawn_blocking(|| {
-            let mut combined = String::new();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-            // Try multiple service names and approaches
-            let sources = [
-                // systemd user unit
-                vec![
-                    "journalctl",
-                    "--user-unit=falcond",
-                    "--no-pager",
-                    "-n",
-                    "50",
-                    "--reverse",
-                ],
-                // systemd system unit
-                vec![
-                    "journalctl",
-                    "-u",
-                    "falcond",
-                    "--no-pager",
-                    "-n",
-                    "50",
-                    "--reverse",
-                ],
-                // Grep for falcond/bigame keywords in full journal
-                vec![
-                    "journalctl",
-                    "--no-pager",
-                    "-n",
-                    "100",
-                    "--reverse",
-                    "--grep=falcond|bigame|scx|lsfg",
-                ],
-            ];
-
-            let labels = [
-                "falcond (user service)",
-                "falcond (system service)",
-                "System journal (gaming keywords)",
-            ];
-
-            for (args, label) in sources.iter().zip(labels.iter()) {
-                let cmd = args[0];
-                let cmd_args = &args[1..];
-                if let Ok(out) = std::process::Command::new(cmd).args(cmd_args).output() {
-                    let stdout = String::from_utf8_lossy(&out.stdout);
-                    let stderr = String::from_utf8_lossy(&out.stderr);
-                    if !stdout.trim().is_empty() && !stdout.contains("-- No entries --") {
-                        let _ = writeln!(combined, "── {label} ──");
-                        combined.push_str(stdout.trim_end());
-                        combined.push_str("\n\n");
-                    } else if !stderr.trim().is_empty() && stderr.contains("No entries") {
-                        // Skip silently
-                    }
-                }
-            }
-
-            if combined.is_empty() {
-                combined.push_str("No journal entries found for gaming services.\n\n");
-                combined.push_str("This can happen when:\n");
-                combined.push_str("  • falcond is not installed as a systemd service\n");
-                combined.push_str("  • No gaming activity has been logged yet\n");
-            }
-
-            combined
-        })
-        .await;
-
-        if let Ok(t) = text {
-            tv.buffer().set_text(&t);
+    fn entry(source: Source, level: Level, message: &str) -> Entry {
+        Entry {
+            time_us: 0,
+            source,
+            level,
+            message: message.into(),
         }
-    });
-}
+    }
 
-/// Read kernel messages related to GPU/gaming from dmesg.
-fn load_kernel(text_view: &gtk4::TextView) {
-    let tv = text_view.clone();
-    glib::spawn_future_local(async move {
-        let text = gio::spawn_blocking(|| {
-            // Use dmesg with grep for relevant keywords
-            let output = std::process::Command::new("dmesg")
-                .args(["--time-format=reltime", "--level=warn,err,info"])
-                .output();
+    #[test]
+    fn filters_select_by_severity_and_source() {
+        let e = entry(
+            Source::Falcond,
+            Level::Error,
+            "failed to switch scx scheduler",
+        );
+        let w = entry(Source::Kernel, Level::Warning, "amdgpu ring timeout");
+        let i = entry(Source::BiGame, Level::Info, "game detected");
+        assert!(Filter::Errors.accepts(&e) && !Filter::Errors.accepts(&w));
+        assert!(
+            Filter::Warnings.accepts(&e)
+                && Filter::Warnings.accepts(&w)
+                && !Filter::Warnings.accepts(&i)
+        );
+        assert!(Filter::KernelGpu.accepts(&w) && !Filter::KernelGpu.accepts(&e));
+        assert!(Filter::Only(Source::BiGame).accepts(&i));
+    }
 
-            match output {
-                Ok(out) => {
-                    let stdout = String::from_utf8_lossy(&out.stdout);
-                    let keywords = ["amdgpu", "radeon", "nvidia", "gpu", "drm", "vulkan",
-                                    "sched_ext", "scx_", "vcache"];
-
-                    let filtered: Vec<&str> = stdout
-                        .lines()
-                        .filter(|line| {
-                            let lower = line.to_lowercase();
-                            keywords.iter().any(|kw| lower.contains(kw))
-                        })
-                        .collect();
-
-                    if filtered.is_empty() {
-                        "No GPU/gaming kernel messages found.\n\nThis is normal if no GPU errors occurred.".into()
-                    } else {
-                        // Show last 50 relevant lines
-                        let start = filtered.len().saturating_sub(50);
-                        filtered[start..].join("\n")
-                    }
-                }
-                Err(e) => format!("Cannot read dmesg: {e}\n\nTry running the app with elevated privileges."),
-            }
-        })
-        .await;
-
-        if let Ok(t) = text {
-            tv.buffer().set_text(&t);
-        }
-    });
-}
-
-/// Show BiGame-mode application events.
-fn load_app_log(text_view: &gtk4::TextView) {
-    let tv = text_view.clone();
-    glib::spawn_future_local(async move {
-        let text = gio::spawn_blocking(|| {
-            let mut log = String::new();
-
-            // Power profile
-            if let Some(pp) = bigame_core::dbus::power_profile_get() {
-                let _ = writeln!(log, "Power profile: {pp}");
-            } else {
-                log.push_str("Power profile: unavailable\n");
-            }
-
-            // Falcond running?
-            let falcond = bigame_core::dbus::falcond_is_running();
-            let _ = writeln!(log, "Falcond status file exists: {falcond}");
-
-            // Installed schedulers
-            let scheds = bigame_core::sched::detect_installed();
-            let _ = writeln!(
-                log,
-                "Installed schedulers: {}",
-                if scheds.is_empty() {
-                    "none".to_string()
-                } else {
-                    scheds.join(", ")
-                }
-            );
-
-            // Profile count
-            let profiles = bigame_core::profiles::list_names();
-            let _ = writeln!(log, "Saved profiles: {}", profiles.len());
-            for p in &profiles {
-                let _ = writeln!(log, "  • {p}");
-            }
-
-            // VCache support
-            let vcache_path = "/sys/devices/system/cpu/cpu0/cpufreq/amd_3d_vcache_mode";
-            let vcache = std::path::Path::new(vcache_path).exists();
-            let _ = writeln!(log, "AMD VCache support: {vcache}");
-
-            // CPU governor
-            if let Ok(gov) =
-                std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
-            {
-                let _ = writeln!(log, "CPU governor: {}", gov.trim());
-            }
-
-            // LSFG-VK
-            let mut lsfg_active = false;
-            if let Some(status) = bigame_core::status::read() {
-                if let Some(active) = status.active_profile {
-                    let _ = writeln!(log, "Active game profile: {active}");
-                    if !active.is_empty() && active != "None" {
-                        lsfg_active = bigame_core::processes::find_by_cmdline(&active)
-                            .into_iter()
-                            .any(|pid| {
-                                bigame_core::processes::maps_contain(
-                                    pid,
-                                    &["liblsfg-vk.so", "VK_LAYER_LSFGVK", "lsfg-vk"],
-                                )
-                            });
-                    }
-                }
-            }
-            if lsfg_active {
-                log.push_str("Lossless Scaling (LSFG-VK): Active (Generating Frames)\n");
-            } else {
-                let installed =
-                    std::path::Path::new("/usr/share/vulkan/implicit_layer.d/lsfg-vk.json")
-                        .exists()
-                        || std::path::Path::new("/etc/vulkan/implicit_layer.d/lsfg-vk.json")
-                            .exists();
-                let _ = writeln!(
-                    log,
-                    "Lossless Scaling (LSFG-VK): {}",
-                    if installed {
-                        "Ready / Inactive"
-                    } else {
-                        "Not installed"
-                    }
-                );
-            }
-
-            log
-        })
-        .await;
-
-        if let Ok(t) = text {
-            tv.buffer().set_text(&t);
-        }
-    });
+    #[test]
+    fn only_notable_levels_are_coloured() {
+        assert_eq!(level_tag(Level::Info), None);
+        assert_eq!(level_tag(Level::Error), Some("error"));
+    }
 }
