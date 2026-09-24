@@ -233,7 +233,7 @@ fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
     0
 }
 
-/// Build performance/scripts widgets for the detail page.
+/// Build the performance widgets for the detail page.
 #[allow(clippy::too_many_lines)]
 fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> PerfWidgets {
     // Performance group
@@ -254,22 +254,8 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         .build();
     perf.add(&idle_inhibit);
 
-    let governor_model = gtk4::StringList::new(&[
-        "",
-        "performance",
-        "powersave",
-        "ondemand",
-        "conservative",
-        "schedutil",
-    ]);
-    let governor_row = adw::ComboRow::builder()
-        .title(i18n("CPU Governor"))
-        .subtitle(i18n("Override CPU frequency governor"))
-        .model(&governor_model)
-        .build();
-    governor_row.set_selected(find_index(&governor_model, &profile.cpu_governor));
-    perf.add(&governor_row);
-
+    // No per-game CPU governor: falcond has no such field, so the control
+    // this replaced saved a value that nothing ever applied.
     let installed = bigame_core::sched::detect_installed();
     let installed_refs: Vec<&str> = installed.iter().map(String::as_str).collect();
     let sched_model = gtk4::StringList::new(&installed_refs);
@@ -302,15 +288,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
     mode_row.set_selected(find_index(&mode_model, &profile.scx_sched_props));
     perf.add(&mode_row);
 
-    let custom_flags_row = adw::EntryRow::builder()
-        .title(i18n("Custom Scheduler Flags"))
-        .text(&profile.scx_custom_flags)
-        .build();
-    custom_flags_row.set_tooltip_text(Some(&i18n(
-        "Extra CLI flags for the sched-ext scheduler (e.g. --slice-us=800)",
-    )));
-    perf.add(&custom_flags_row);
-
+    // No custom scheduler flags either: falcond 2.0.2 does not read them.
     let vcache_model = gtk4::StringList::new(&["none", "cache", "freq"]);
     let vcache_row = adw::ComboRow::builder()
         .title(i18n("VCache Mode"))
@@ -321,21 +299,9 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
     page.add(&perf);
 
     // Scripts group
-    let scripts = adw::PreferencesGroup::new();
-    scripts.set_title(&i18n("Scripts"));
-
-    let start_row = adw::EntryRow::builder()
-        .title(i18n("Start Script"))
-        .text(profile.start_script.as_deref().unwrap_or(""))
-        .build();
-    scripts.add(&start_row);
-
-    let stop_row = adw::EntryRow::builder()
-        .title(i18n("Stop Script"))
-        .text(profile.stop_script.as_deref().unwrap_or(""))
-        .build();
-    scripts.add(&stop_row);
-    page.add(&scripts);
+    // No start/stop script fields. falcond runs them as root through /bin/sh,
+    // so the helper refuses any profile that sets one; a field whose only
+    // possible outcome is a failed save is not a feature.
 
     // Gamescope per-game overrides
     let gs_group = adw::PreferencesGroup::new();
@@ -660,17 +626,12 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
     PerfWidgets {
         perf_mode,
         idle_inhibit,
-        governor_model,
-        governor_row,
         sched_model,
         sched_row,
         mode_model,
         mode_row,
-        custom_flags_row,
         vcache_model,
         vcache_row,
-        start_row,
-        stop_row,
         gs_enable,
         gs_mode,
         gs_width,
@@ -691,17 +652,12 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 struct PerfWidgets {
     perf_mode: adw::SwitchRow,
     idle_inhibit: adw::SwitchRow,
-    governor_model: gtk4::StringList,
-    governor_row: adw::ComboRow,
     sched_model: gtk4::StringList,
     sched_row: adw::ComboRow,
     mode_model: gtk4::StringList,
     mode_row: adw::ComboRow,
-    custom_flags_row: adw::EntryRow,
     vcache_model: gtk4::StringList,
     vcache_row: adw::ComboRow,
-    start_row: adw::EntryRow,
-    stop_row: adw::EntryRow,
     gs_enable: adw::SwitchRow,
     gs_mode: adw::ComboRow,
     gs_width: adw::SpinRow,
@@ -757,23 +713,15 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
             p.name = name_row.text().to_string();
             p.performance_mode = w.perf_mode.is_active();
             p.idle_inhibit = w.idle_inhibit.is_active();
-            if let Some(v) = w.governor_model.string(w.governor_row.selected()) {
-                p.cpu_governor = v.to_string();
-            }
             if let Some(v) = w.sched_model.string(w.sched_row.selected()) {
                 p.scx_sched = v.to_string();
             }
             if let Some(v) = w.mode_model.string(w.mode_row.selected()) {
                 p.scx_sched_props = v.to_string();
             }
-            p.scx_custom_flags = w.custom_flags_row.text().to_string();
             if let Some(v) = w.vcache_model.string(w.vcache_row.selected()) {
                 p.vcache_mode = v.to_string();
             }
-            let start = w.start_row.text().to_string();
-            p.start_script = if start.is_empty() { None } else { Some(start) };
-            let stop = w.stop_row.text().to_string();
-            p.stop_script = if stop.is_empty() { None } else { Some(stop) };
 
             p.gamescope_mode = match w.gs_mode.selected() {
                 1 => bigame_core::gamescope::Mode::Enabled,
@@ -842,8 +790,22 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         btn.set_label(&i18n("Saving…"));
         let btn_ref = btn.clone();
         glib::spawn_future_local(async move {
-            let _ = bigame_core::profiles::save(&profile_clone);
-            toast::show(&btn_ref, &i18n("Profile saved"));
+            // Off the main thread: the call may wait on a Polkit password
+            // prompt, and the window must keep drawing meanwhile. And the
+            // result is reported -- it used to say "saved" whatever happened.
+            let result =
+                gio::spawn_blocking(move || bigame_core::profiles::save(&profile_clone)).await;
+            match result {
+                Ok(Ok(())) => toast::show(&btn_ref, &i18n("Profile saved")),
+                Ok(Err(e)) => {
+                    tracing::warn!(error = %format!("{e:#}"), "profile not saved");
+                    toast::show(
+                        &btn_ref,
+                        &i18n("Could not save: %s").replace("%s", &format!("{e:#}")),
+                    );
+                }
+                Err(_) => toast::show(&btn_ref, &i18n("Could not save: %s").replace("%s", "")),
+            }
             glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
                 btn_ref.set_sensitive(true);
                 btn_ref.set_label(&i18n("Save Profile"));

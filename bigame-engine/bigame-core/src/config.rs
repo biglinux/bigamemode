@@ -137,6 +137,19 @@ fn parse_otter_conf(content: &str) -> FalcondConfig {
     cfg
 }
 
+/// [`write`] for callers without a Tokio reactor — the GTK main loop, or a
+/// `gio::spawn_blocking` worker. zbus here runs on Tokio, so its async calls
+/// cannot simply be awaited from a `GLib` future.
+///
+/// # Errors
+/// Returns an error if the runtime cannot be built or the write fails.
+pub fn write_blocking(config: &FalcondConfig) -> Result<()> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(write(config))
+}
+
 /// Write falcond config via `DBus`.
 ///
 /// Uses `DBus` to write as root, then sends `SIGHUP` to falcond
