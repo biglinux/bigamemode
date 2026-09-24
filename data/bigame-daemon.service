@@ -38,7 +38,20 @@ SystemCallFilter=~@privileged @resources @mount @debug @obsolete
 # ProtectSystem=strict makes the rest of the filesystem read-only; sysfs is
 # then re-opened read-write because that is where cpufreq and amdgpu live.
 ProtectSystem=strict
-ReadWritePaths=/etc/falcond /usr/share/falcond/profiles /sys/devices/system/cpu /sys/class/drm /sys/bus/platform/drivers/amd_x3d_vcache
+#
+# A path that does not exist makes systemd refuse to start the service at all
+# (226/NAMESPACE), so everything that depends on hardware or on falcond being
+# installed carries the "-" prefix: ignored when absent. Without it, the
+# helper could not start on any CPU lacking the 3D V-Cache driver -- which is
+# most of them -- and nothing in the UI would have said why.
+ReadWritePaths=-/etc/falcond -/usr/share/falcond/profiles /sys/devices/system/cpu -/sys/class/drm -/sys/bus/platform/drivers/amd_x3d_vcache
+
+# The record of how falcond was configured before BiGame-mode first took
+# charge of it lives here, so it can be handed back exactly. Created by
+# systemd and writable despite ProtectSystem=strict; world-readable so the UI
+# can say who owns falcond.
+StateDirectory=bigame-mode
+StateDirectoryMode=0755
 
 # PrivateTmp is intentionally NOT set: falcond publishes its status to
 # /tmp/falcond_status and a private /tmp would hide it.
