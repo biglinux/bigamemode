@@ -37,6 +37,12 @@
 <tr><td>cpu_governor<td>3<td>113.0<td>115.1<td>107.8<td>116.0<td>4.0%<td>within noise
 <tr><td>rest<td>3<td>116.7<td>116.4<td>116.0<td>117.7<td>0.8%<td>within noise
 </table>
+<h2>Caveats</h2>
+<ul>
+<li>Shadow of the Tomb Raider CPU-bound: render scale at its minimum, 3440x1440 output, GPU ~84% busy; arms baseline (balanced/powersave/balance_performance), cpu_governor (baseline + governor and EPP performance), rest (performance profile). GPU DPM auto in all.
+<li>INTERFERENCE in round 3: a continuous slowdown from about 22:14:30 to 22:17:30 spans the end of baseline run-03 and the start of cpu_governor run-03 -- two arms, across a configuration change, with CPU clocks unchanged -- so it is external, not an arm effect. Its source was not identified (not the VM, not this session's tools). Rounds 1-2 alone: baseline 116.6 117.2, cpu_governor 116.0 115.1, rest 117.7 116.4 -- all within 1.5%.
+<li>power-profiles-daemon-biglinux-cpufreq.service fires on every power profile change (a path unit on PPD's state.ini); on this amd-pstate-epp machine it does not touch the governor.
+</ul>
 <h2>Method</h2>
 <ul>
 <li>3 measured runs per arm, 1 warm-up discarded.

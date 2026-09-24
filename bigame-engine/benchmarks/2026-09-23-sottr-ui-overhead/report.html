@@ -29,6 +29,13 @@
 <tr><td>ui_polling<td>3<td>115.0<td>114.8<td>114.4<td>115.8<td>0.7%<td>—
 <tr><td>ui_paused<td>3<td>116.2<td>116.4<td>115.7<td>116.6<td>0.4%<td>within noise
 </table>
+<h2>Caveats</h2>
+<ul>
+<li>The product's own overhead: the running BiGame-mode UI (installed build, 1-second dashboard poll) either polling as usual or frozen with SIGSTOP; same machine state (rest: performance profile, DPM auto) in both arms, resumed with SIGCONT afterwards.
+<li>Shadow of the Tomb Raider CPU-bound: render scale (&quot;Modificador de resolucao&quot;) at its minimum, 3440x1440 output, GPU ~84% busy. Restored afterwards and verified by diffing a following run's Settings block against 2026-09-23-sottr-power-clean.
+<li>With falcond's 'Proton' profile active, the poll forked about 32 processes a second (pgrep x4 plus timeout+grep per matching pid, 7 pids), out of 55/s system-wide.
+<li>Result: +1.1% with the UI frozen, every frozen run above every polling run, but Welch's t = 2.38 against 2.78 at three runs per arm -- reported as a suggestion, not as a measured gain.
+</ul>
 <h2>Method</h2>
 <ul>
 <li>3 measured runs per arm, 1 warm-up discarded.
