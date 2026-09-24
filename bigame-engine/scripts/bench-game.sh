@@ -123,6 +123,7 @@ set_profile()  { [ -n "$1" ] && powerprofilesctl set "$1" >/dev/null 2>&1; }
 
 restore() {
     [ -n "${TELEMETRY_PID:-}" ] && kill "$TELEMETRY_PID" 2>/dev/null
+    declare -F scx_stop >/dev/null && scx_stop
     [ -n "${UI_PID:-}" ] && kill -CONT "$UI_PID" 2>/dev/null
     log "restoring the machine to how it was found"
     eval "$ORIGINAL"
@@ -154,6 +155,42 @@ arm_cpu_governor() { arm_baseline; set_governor performance; set_epp performance
 UI_PID=$(pgrep -x bigame-ui | head -1)
 arm_ui_polling() { arm_rest; [ -n "$UI_PID" ] && kill -CONT "$UI_PID"; }
 arm_ui_paused()  { arm_rest; [ -n "$UI_PID" ] || die "no bigame-ui is running"; kill -STOP "$UI_PID"; }
+
+# Scheduler arms. The scheduler is falcond's to set, per game, so these do not
+# set it themselves: they ask scripts/scx-switch.sh -- started once, as root,
+# under a single Polkit approval -- to rewrite the game's falcond profile and
+# have falcond reload. What the kernel reports afterwards is recorded with the
+# run, so a scheduler that did not take is visible rather than assumed.
+SCX_FIFO=""
+scx_start() {
+    [ -n "$SCX_FIFO" ] && return 0
+    SCX_FIFO="${XDG_RUNTIME_DIR:-/tmp}/bgm-scx.$$"
+    mkfifo -m 600 "$SCX_FIFO" || die "cannot create $SCX_FIFO"
+    pkexec "$HERE/scx-switch.sh" "$SCX_FIFO" "${SCX_PROFILE:?set SCX_PROFILE to the falcond profile name of the game}" &
+    SCX_PID=$!
+    sleep 1
+}
+scx_set() {
+    scx_start
+    rm -f "$SCX_FIFO.ack"
+    echo "$1 $2" > "$SCX_FIFO"
+    local waited=0
+    until [ -s "$SCX_FIFO.ack" ]; do
+        sleep 0.5; waited=$((waited + 1))
+        [ $waited -ge 120 ] && die "the scheduler switcher did not answer"
+    done
+    SCX_NOW=$(cat "$SCX_FIFO.ack")
+    log "scheduler: asked $1/$2, kernel reports: $SCX_NOW"
+}
+scx_stop() {
+    [ -n "$SCX_FIFO" ] || return 0
+    echo "quit" > "$SCX_FIFO" 2>/dev/null
+    wait "${SCX_PID:-}" 2>/dev/null
+    rm -f "$SCX_FIFO" "$SCX_FIFO.ack"
+}
+arm_scx_none()    { arm_rest; scx_set none default; }
+arm_scx_lavd()    { arm_rest; scx_set lavd gaming; }
+arm_scx_bpfland() { arm_rest; scx_set bpfland gaming; }
 
 # ── session ──────────────────────────────────────────────────────────────────
 
@@ -196,6 +233,7 @@ for round in $(seq 1 "$RUNS"); do
         "arm_$arm"
         sleep "$SETTLE_S"   # let clocks, governor and temperature settle
         read_state > "$dir/state.txt"
+        printf 'sched_ext=%s\n' "$(cat /sys/kernel/sched_ext/root/ops 2>/dev/null || echo none)" >> "$dir/state.txt"
         stamp="$dir/.start"; touch "$stamp"
         "$HERE/gpu-telemetry.sh" "$CARD" "$dir/gpu.csv" & TELEMETRY_PID=$!
         before=$(stops)
