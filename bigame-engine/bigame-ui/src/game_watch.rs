@@ -77,7 +77,10 @@ pub fn check() {
                 .ok()
                 .flatten();
             watch.checking.set(false);
-            let changed = watch.current.borrow().as_ref().map(|g| g.pid) != found.as_ref().map(|g| g.pid);
+            // A game caught the moment it starts has not mapped its graphics
+            // DLLs yet; learning them later is a change worth passing on.
+            let key = |g: Option<&GameIdentity>| g.map(|g| (g.pid, g.graphics));
+            let changed = key(watch.current.borrow().as_ref()) != key(found.as_ref());
             if !changed {
                 return;
             }

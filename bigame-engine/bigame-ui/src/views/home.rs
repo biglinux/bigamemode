@@ -255,6 +255,53 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         });
     }
 
+    // ── Turbo changed elsewhere ─────────────────────────────────────────
+    // The command-line tool, systemctl, or another session can turn falcond
+    // on or off; Home follows what systemd says rather than what it last did
+    // itself. One D-Bus read every 10 s, only while the page is on screen.
+    {
+        let button = Rc::clone(&button);
+        let turbo_on = Rc::clone(&turbo_on);
+        let last = Rc::clone(&last_report);
+        let show_summary = Rc::clone(&show_summary);
+        let game = game.clone();
+        let root = scroll.clone();
+        let systemd = bigame_core::systemd::Reader::system();
+        glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+            if !root.is_mapped() || !button.state().is_interactive() {
+                return glib::ControlFlow::Continue;
+            }
+            let Some(unit) = systemd
+                .as_ref()
+                .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+            else {
+                return glib::ControlFlow::Continue;
+            };
+            let on = if unit.is_installed() {
+                unit.is_active()
+            } else {
+                turbo_on.get()
+            };
+            if on != turbo_on.get()
+                || Report::load_last().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
+            {
+                turbo_on.set(on);
+                *last.borrow_mut() = Report::load_last();
+                button.set_state(&if on {
+                    State::On {
+                        detail: on_detail(crate::game_watch::current().as_ref()),
+                    }
+                } else {
+                    State::Off
+                });
+                booster_button::set_pulse(button.widget(), !on);
+                show_summary();
+                game.show(crate::game_watch::current().as_ref(), on);
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
     // ── Live readings ───────────────────────────────────────────────────
     {
         let status = status.clone();
