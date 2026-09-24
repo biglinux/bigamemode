@@ -170,6 +170,15 @@ fn skipped_row(skipped: &Skipped) -> adw::ActionRow {
             format!("{} — {detail}", i18n("Measured slower on this machine")),
             "speedometer-symbolic",
         ),
+        Skipped::OwnedBy {
+            knob,
+            owner,
+            detail,
+        } => (
+            knob.clone(),
+            format!("{} {owner} — {detail}", i18n("Managed by")),
+            "system-users-symbolic",
+        ),
         Skipped::NotRestorable { knob } => (
             knob.clone(),
             i18n(

@@ -73,6 +73,18 @@ impl Cpu {
     pub fn supports_governor(&self, name: &str) -> bool {
         self.available_governors.iter().any(|g| g == name)
     }
+
+    /// Whether the energy preference is what a power profile sets.
+    ///
+    /// True for amd-pstate in active mode (`amd-pstate-epp`), where
+    /// power-profiles-daemon drives EPP and the governor is only the
+    /// `performance`/`powersave` pair. Forcing `performance` there overrides
+    /// the profile's choice rather than adding anything to it.
+    #[must_use]
+    pub fn epp_driven_by_power_profile(&self) -> bool {
+        self.scaling_driver.as_deref() == Some("amd-pstate-epp")
+            && self.amd_pstate_status.as_deref() == Some("active")
+    }
 }
 
 // ── GPU ──────────────────────────────────────────────────────────────────────
