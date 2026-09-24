@@ -46,3 +46,23 @@ status file) and reading it back at start-up. On the BiGame-mode side the
 useful step is detection: systemd counts the unit's restarts (`NRestarts`),
 and a restart while a profile was active is worth a health warning. Both are
 P1 in the final report.
+
+### Two more falcond 2.0.2 behaviours, found while preparing scheduler tests
+
+- **A user profile for a name falcond already ships is not applied.** With
+  `user/cs2.conf` setting `scx_sched = lavd` and falcond's own `cs2` profile
+  present, every activation used the shipped values
+  (`scx=none, perf=true, vcache=cache`), at start-up and after a reload alike,
+  and falcond never logged its `overriding profile … with user config` line.
+  Its code intends a partial override (`profiles.zig: loadUserProfiles`); in
+  practice the user file was added as a second profile of the same name and
+  lost the match. Consequence for BiGame-mode: a profile it writes for a game
+  falcond already covers (Cyberpunk 2077, CS2, …) may silently not apply. The
+  profile offer only fires when no specific profile exists, so it does not
+  create such files; editing a shipped game's profile from the Profiles page
+  would. OBSERVED; cause inside falcond NOT DETERMINED.
+- **A new process is checked at once only if its name is a `.exe`, a Wine
+  loader, or already in falcond's table**; anything else waits for the 9 s
+  rescan (`daemon.zig: shouldCheck…`). A stand-in game named `zzgame` living
+  7 s was never matched. Windows games are unaffected; a native game with only
+  a user profile can start up to 9 s before its profile applies.
