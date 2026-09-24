@@ -7,3 +7,4 @@
 //! file BiGame-mode places in its folder to get there.
 
 pub mod pe;
+pub mod scan;

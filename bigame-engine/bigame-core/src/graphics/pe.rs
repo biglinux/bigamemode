@@ -168,42 +168,68 @@ fn headers(b: &[u8]) -> Result<Headers, PeError> {
 /// entries that point outside the file are skipped rather than failing the
 /// whole parse.
 pub fn parse(b: &[u8]) -> Result<PeInfo, PeError> {
+    parse_with(b, &|off, len| {
+        b.get(off..)
+            .map(|tail| tail[..len.min(tail.len())].to_vec())
+    })
+}
+
+/// Parse from the first bytes of an image (`head`, which must hold the
+/// headers and section table) plus a positioned reader for the rest.
+///
+/// Import tables of large executables are deep in the file — Cyberpunk
+/// 2077's 740-byte table sits 53 MB into a 60 MB executable — so a file is
+/// read in small pieces at the offsets the headers give, not as a whole.
+fn parse_with(
+    head: &[u8],
+    read: &dyn Fn(usize, usize) -> Option<Vec<u8>>,
+) -> Result<PeInfo, PeError> {
     let Headers {
         machine,
         sections,
         dirs_off,
         dirs_count,
-    } = headers(b)?;
+    } = headers(head)?;
 
-    let dir = |index: usize| -> Option<u32> {
+    let dir = |index: usize| -> Option<(u32, u32)> {
         (index < dirs_count)
-            .then(|| u32_at(b, dirs_off + index * 8).ok())
+            .then(|| {
+                Some((
+                    u32_at(head, dirs_off + index * 8).ok()?,
+                    u32_at(head, dirs_off + index * 8 + 4).ok()?,
+                ))
+            })
             .flatten()
-            .filter(|&rva| rva != 0)
+            .filter(|&(rva, _)| rva != 0)
+    };
+    let name_at = |rva: u32| -> Option<String> {
+        let off = rva_to_offset(&sections, rva)?;
+        c_string(&read(off, MAX_NAME + 1)?, 0)
+    };
+    // A descriptor table's declared size bounds how much of it is read; some
+    // linkers under-report it, so at least a generous minimum is read.
+    let table = |rva: u32, size: u32, entry: usize| -> Option<Vec<u8>> {
+        let off = rva_to_offset(&sections, rva)?;
+        let len = (size as usize).max(entry * 64).min(entry * MAX_DESCRIPTORS);
+        read(off, len)
     };
 
     let mut imports = Vec::new();
-    if let Some(start) = dir(1).and_then(|rva| rva_to_offset(&sections, rva)) {
-        for i in 0..MAX_DESCRIPTORS {
-            let d = start + i * 20;
-            let Some(desc) = b.get(d..d + 20) else { break };
+    if let Some(t) = dir(1).and_then(|(rva, size)| table(rva, size, 20)) {
+        for desc in t.chunks_exact(20).take(MAX_DESCRIPTORS) {
             if desc.iter().all(|&x| x == 0) {
                 break;
             }
-            let name_rva = u32_at(b, d + 12)?;
-            if let Some(name) = rva_to_offset(&sections, name_rva).and_then(|o| c_string(b, o)) {
+            if let Some(name) = name_at(u32_at(desc, 12)?) {
                 imports.push(name);
             }
         }
     }
 
     let mut delay_imports = Vec::new();
-    if let Some(start) = dir(13).and_then(|rva| rva_to_offset(&sections, rva)) {
-        for i in 0..MAX_DESCRIPTORS {
-            let d = start + i * 32;
-            let (Ok(attributes), Ok(name_rva)) = (u32_at(b, d), u32_at(b, d + 4)) else {
-                break;
-            };
+    if let Some(t) = dir(13).and_then(|(rva, size)| table(rva, size, 32)) {
+        for desc in t.chunks_exact(32).take(MAX_DESCRIPTORS) {
+            let (attributes, name_rva) = (u32_at(desc, 0)?, u32_at(desc, 4)?);
             if name_rva == 0 {
                 break;
             }
@@ -213,7 +239,7 @@ pub fn parse(b: &[u8]) -> Result<PeInfo, PeError> {
             if attributes & 1 == 0 {
                 continue;
             }
-            if let Some(name) = rva_to_offset(&sections, name_rva).and_then(|o| c_string(b, o)) {
+            if let Some(name) = name_at(name_rva) {
                 delay_imports.push(name);
             }
         }
@@ -238,42 +264,110 @@ pub fn read_prefix(path: &Path, limit: u64) -> std::io::Result<Vec<u8>> {
     Ok(buf)
 }
 
-/// Parse a PE file on disk, reading no more than `limit` bytes of it.
+/// Parse a PE file on disk.
 ///
-/// Import tables of game executables sit well within their first few
-/// megabytes; a limit keeps a 200 MB executable from being read whole.
+/// Only the headers, the descriptor tables and the names they point to are
+/// read, at the offsets the headers give — a few kilobytes whatever the size
+/// of the file. Nothing at or beyond `limit` bytes is read.
 ///
 /// # Errors
 /// Returns an error if the file cannot be read or is not a readable PE.
 pub fn parse_file(path: &Path, limit: u64) -> anyhow::Result<PeInfo> {
-    let bytes = read_prefix(path, limit)?;
-    Ok(parse(&bytes)?)
+    use std::os::unix::fs::FileExt;
+    let file = std::fs::File::open(path)?;
+    let head = read_prefix(path, 64 * 1024)?;
+    let read = |off: usize, len: usize| -> Option<Vec<u8>> {
+        if off as u64 >= limit {
+            return None;
+        }
+        let mut buf = vec![0u8; len];
+        let n = file.read_at(&mut buf, off as u64).ok()?;
+        buf.truncate(n);
+        Some(buf)
+    };
+    Ok(parse_with(&head, &read)?)
 }
 
-/// The file version of a PE file on disk, read from its resource section only.
+/// The file version of a PE file on disk, read through its resource
+/// directory.
 ///
-/// Version resources live in `.rsrc`, usually at the end of the file — past
-/// the first 64 MB of Intel's 77 MB `XeSS` runtime, for one. The headers say
-/// where the resource directory is, so only that span is read (capped at
-/// 32 MB), not the whole file.
+/// The resource directory is a three-level tree (type, name, language) at the
+/// start of `.rsrc`; type 16 is `RT_VERSION`, and its leaf gives the RVA and
+/// size of the version block. Following it reads a few hundred bytes wherever
+/// the block is — Intel's 77 MB `XeSS` runtime keeps it past its first 64 MB.
+/// Files whose tree cannot be followed fall back to searching the first
+/// megabyte of the section.
 #[must_use]
 pub fn read_file_version(path: &Path) -> Option<String> {
-    use std::io::{Seek, SeekFrom};
-    let head = read_prefix(path, 64 * 1024).ok()?;
+    read_version_block(path).and_then(|b| file_version(&b))
+}
+
+/// The raw version resource of a PE file on disk: `VS_VERSIONINFO` with its
+/// string tables (`CompanyName`, `ProductName`, `FileDescription`, …), found
+/// as [`read_file_version`] finds it. A few hundred bytes that say who made
+/// the file, which is what telling a proxy DLL's owner needs first.
+#[must_use]
+pub fn read_version_block(path: &Path) -> Option<Vec<u8>> {
+    use std::os::unix::fs::FileExt;
+    let file = std::fs::File::open(path).ok()?;
+    let read = |off: usize, len: usize| -> Option<Vec<u8>> {
+        let mut buf = vec![0u8; len];
+        let n = file.read_at(&mut buf, off as u64).ok()?;
+        buf.truncate(n);
+        Some(buf)
+    };
+    let head = read(0, 64 * 1024)?;
     let h = headers(&head).ok()?;
     if h.dirs_count <= 2 {
         return None;
     }
-    let rva = u32_at(&head, h.dirs_off + 16).ok()?;
-    let size = u32_at(&head, h.dirs_off + 20).ok()?;
-    let offset = rva_to_offset(&h.sections, rva)?;
-    let mut file = std::fs::File::open(path).ok()?;
-    file.seek(SeekFrom::Start(offset as u64)).ok()?;
-    let mut span = Vec::new();
-    file.take(u64::from(size).min(32 << 20))
-        .read_to_end(&mut span)
-        .ok()?;
-    file_version(&span)
+    let rsrc_rva = u32_at(&head, h.dirs_off + 16).ok()?;
+    let rsrc_size = u32_at(&head, h.dirs_off + 20).ok()?;
+    let rsrc_off = rva_to_offset(&h.sections, rsrc_rva)?;
+    let tree = read(rsrc_off, (rsrc_size as usize).min(64 * 1024))?;
+
+    let leaf = version_leaf(&tree).and_then(|(rva, size)| {
+        let off = rva_to_offset(&h.sections, rva)?;
+        read(off, (size as usize).min(64 * 1024))
+    });
+    match leaf {
+        Some(block) if file_version(&block).is_some() => Some(block),
+        _ => {
+            let span = read(rsrc_off, (rsrc_size as usize).min(1 << 20))?;
+            file_version(&span).is_some().then_some(span)
+        }
+    }
+}
+
+/// Follow a resource tree (`tree` = the start of `.rsrc`) to the first
+/// `RT_VERSION` leaf, returning its data RVA and size.
+fn version_leaf(tree: &[u8]) -> Option<(u32, u32)> {
+    const RT_VERSION: u32 = 16;
+    const SUBDIR: u32 = 0x8000_0000;
+    // Entries of the directory at `off`: (name-or-id, offset-to-data).
+    let entries = |off: usize| -> Option<Vec<(u32, u32)>> {
+        let named = usize::from(u16_at(tree, off + 12).ok()?);
+        let ids = usize::from(u16_at(tree, off + 14).ok()?);
+        (0..(named + ids).min(256))
+            .map(|i| {
+                let e = off + 16 + i * 8;
+                Some((u32_at(tree, e).ok()?, u32_at(tree, e + 4).ok()?))
+            })
+            .collect()
+    };
+    let (_, types) = entries(0)?
+        .into_iter()
+        .find(|&(id, data)| id == RT_VERSION && data & SUBDIR != 0)?;
+    let (_, names) = *entries((types & !SUBDIR) as usize)?.first()?;
+    if names & SUBDIR == 0 {
+        return None;
+    }
+    let (_, lang) = *entries((names & !SUBDIR) as usize)?.first()?;
+    if lang & SUBDIR != 0 {
+        return None;
+    }
+    let data = lang as usize;
+    Some((u32_at(tree, data).ok()?, u32_at(tree, data + 4).ok()?))
 }
 
 /// Whether `marker` appears in `bytes` as ASCII or as UTF-16LE text.
