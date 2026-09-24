@@ -1,7 +1,9 @@
 //! BiGame-mode Libadwaita application entry point.
 
 mod app;
+mod game_watch;
 pub mod i18n;
+mod profile_offer;
 pub mod settings;
 mod style;
 mod tray;

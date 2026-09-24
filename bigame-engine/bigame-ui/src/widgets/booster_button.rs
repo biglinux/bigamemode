@@ -1,4 +1,4 @@
-//! The Booster Mode control.
+//! The Turbo Mode control.
 //!
 //! This replaces an `AdwSwitchRow` whose entire implementation was one
 //! discarded D-Bus call. A switch is the wrong affordance for this: it implies
@@ -17,37 +17,36 @@ use libadwaita as adw;
 use crate::i18n::i18n;
 
 /// What the control is showing.
+///
+/// Turbo is the master switch: off means BiGame-mode is not intervening in
+/// games at all; on means it may detect games and optimize them. "On" is not
+/// a count of changes -- on a machine that is already well configured Turbo
+/// can be on with nothing global to change, because the work happens per game.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum State {
-    /// Idle, ready to be activated.
-    Ready,
-    /// Reading hardware and capabilities.
-    Analyzing,
-    /// Applying and verifying changes.
-    Optimizing {
-        /// What is being changed right now.
+    /// Turbo is off.
+    Off,
+    /// A transition is running.
+    Working {
+        /// What is happening right now.
         step: String,
     },
-    /// Every planned change applied and verified.
-    Active {
-        /// How many.
-        count: usize,
+    /// Turbo is on.
+    On {
+        /// What it is doing: watching for games, or optimizing one.
+        detail: String,
     },
-    /// Nothing needed changing — the machine was already configured well.
-    AlreadyOptimal,
-    /// Some changes took and some did not.
+    /// On, but something that was attempted did not take effect.
     Partial {
-        /// Verified.
-        applied: usize,
-        /// Attempted.
-        total: usize,
+        /// What failed.
+        detail: String,
     },
-    /// Nothing could be applied.
+    /// Turbo could not be turned on.
     Error {
         /// Why.
         detail: String,
     },
-    /// Putting the captured baseline back.
+    /// Turning off.
     Restoring,
 }
 
@@ -56,14 +55,11 @@ impl State {
     #[must_use]
     pub fn title(&self) -> String {
         match self {
-            Self::Ready => i18n("Booster Mode"),
-            Self::Analyzing => i18n("Analyzing"),
-            Self::Optimizing { .. } => i18n("Optimizing"),
-            Self::Active { .. } => i18n("Booster Mode Active"),
-            Self::AlreadyOptimal => i18n("Already Optimal"),
-            Self::Partial { .. } => i18n("Partly Applied"),
-            Self::Error { .. } => i18n("Could Not Optimize"),
-            Self::Restoring => i18n("Restoring"),
+            Self::Off => i18n("Turbo Mode"),
+            Self::Working { .. } => i18n("Turning On"),
+            Self::On { .. } | Self::Partial { .. } => i18n("Turbo Mode On"),
+            Self::Error { .. } => i18n("Turbo Could Not Start"),
+            Self::Restoring => i18n("Turning Off"),
         }
     }
 
@@ -71,23 +67,12 @@ impl State {
     #[must_use]
     pub fn subtitle(&self) -> String {
         match self {
-            Self::Ready => i18n("Tap to prepare this system for gaming"),
-            Self::Analyzing => i18n("Reading hardware and capabilities"),
-            Self::Optimizing { step } => step.clone(),
-            Self::Active { count } => {
-                // Translators: {} is the number of verified optimizations.
-                ngettext_count(*count, "1 optimization active", "{} optimizations active")
+            Self::Off => i18n("Off · BiGame-mode is not intervening in games"),
+            Self::Working { step } => step.clone(),
+            Self::On { detail } | Self::Partial { detail } | Self::Error { detail } => {
+                detail.clone()
             }
-            Self::AlreadyOptimal => i18n("No changes were needed"),
-            Self::Partial { applied, total } => format!(
-                "{} {} {}",
-                applied,
-                i18n("of"),
-                // Translators: completes "N of M applied".
-                format_args!("{total} {}", i18n("applied"))
-            ),
-            Self::Error { detail } => detail.clone(),
-            Self::Restoring => i18n("Returning to your previous settings"),
+            Self::Restoring => i18n("Putting everything back as it was"),
         }
     }
 
@@ -95,11 +80,9 @@ impl State {
     #[must_use]
     pub fn icon(&self) -> &'static str {
         match self {
-            Self::Ready => "power-profile-performance-symbolic",
-            Self::Analyzing | Self::Optimizing { .. } | Self::Restoring => {
-                "content-loading-symbolic"
-            }
-            Self::Active { .. } | Self::AlreadyOptimal => "emblem-ok-symbolic",
+            Self::Off => "power-profile-performance-symbolic",
+            Self::Working { .. } | Self::Restoring => "content-loading-symbolic",
+            Self::On { .. } => "emblem-ok-symbolic",
             Self::Partial { .. } => "dialog-warning-symbolic",
             Self::Error { .. } => "dialog-error-symbolic",
         }
@@ -109,9 +92,9 @@ impl State {
     #[must_use]
     pub fn css_class(&self) -> &'static str {
         match self {
-            Self::Ready => "booster-ready",
-            Self::Analyzing | Self::Optimizing { .. } | Self::Restoring => "booster-working",
-            Self::Active { .. } | Self::AlreadyOptimal => "booster-active",
+            Self::Off => "booster-ready",
+            Self::Working { .. } | Self::Restoring => "booster-working",
+            Self::On { .. } => "booster-active",
             Self::Partial { .. } => "booster-partial",
             Self::Error { .. } => "booster-error",
         }
@@ -120,20 +103,17 @@ impl State {
     /// Whether the control accepts input in this state.
     ///
     /// Transient states are not clickable: letting someone start a second run
-    /// while the first is halfway through applying changes is how a machine
-    /// ends up in a state no snapshot describes.
+    /// while the first is halfway through is how a machine ends up in a state
+    /// no snapshot describes.
     #[must_use]
     pub fn is_interactive(&self) -> bool {
-        !matches!(
-            self,
-            Self::Analyzing | Self::Optimizing { .. } | Self::Restoring
-        )
+        !matches!(self, Self::Working { .. } | Self::Restoring)
     }
 
-    /// Whether Booster is on, and therefore whether a click turns it off.
+    /// Whether Turbo is on, and therefore whether a click turns it off.
     #[must_use]
     pub fn is_on(&self) -> bool {
-        matches!(self, Self::Active { .. } | Self::Partial { .. })
+        matches!(self, Self::On { .. } | Self::Partial { .. })
     }
 
     /// Every CSS class this widget may carry, so the old one can be removed
@@ -150,20 +130,7 @@ impl State {
     }
 }
 
-/// Simple plural selection.
-///
-/// gettext's `ngettext` is the right tool once translations carry plural forms;
-/// until the catalogue does, this keeps the English strings correct rather than
-/// emitting "1 optimizations".
-fn ngettext_count(n: usize, one: &str, many: &str) -> String {
-    if n == 1 {
-        i18n(one)
-    } else {
-        i18n(many).replace("{}", &n.to_string())
-    }
-}
-
-/// The Booster Mode control.
+/// The Turbo Mode control.
 pub struct BoosterButton {
     button: gtk4::Button,
     icon: gtk4::Image,
@@ -174,10 +141,10 @@ pub struct BoosterButton {
 }
 
 impl BoosterButton {
-    /// Build the control in its [`State::Ready`] state.
+    /// Build the control in its [`State::Off`] state.
     #[must_use]
     pub fn new() -> std::rc::Rc<Self> {
-        let icon = gtk4::Image::from_icon_name(State::Ready.icon());
+        let icon = gtk4::Image::from_icon_name(State::Off.icon());
         icon.set_pixel_size(48);
 
         let spinner = adw::Spinner::new();
@@ -189,10 +156,10 @@ impl BoosterButton {
         art.add_overlay(&spinner);
         art.set_halign(gtk4::Align::Center);
 
-        let title = gtk4::Label::new(Some(&State::Ready.title()));
+        let title = gtk4::Label::new(Some(&State::Off.title()));
         title.add_css_class("title-1");
 
-        let subtitle = gtk4::Label::new(Some(&State::Ready.subtitle()));
+        let subtitle = gtk4::Label::new(Some(&State::Off.subtitle()));
         subtitle.add_css_class("dim-label");
         subtitle.set_wrap(true);
         subtitle.set_justify(gtk4::Justification::Center);
@@ -216,8 +183,8 @@ impl BoosterButton {
 
         // Screen readers announce the state, not just the word "button".
         button.update_property(&[
-            gtk4::accessible::Property::Label(&State::Ready.title()),
-            gtk4::accessible::Property::Description(&State::Ready.subtitle()),
+            gtk4::accessible::Property::Label(&State::Off.title()),
+            gtk4::accessible::Property::Description(&State::Off.subtitle()),
         ]);
 
         std::rc::Rc::new(Self {
@@ -226,7 +193,7 @@ impl BoosterButton {
             title,
             subtitle,
             spinner,
-            state: std::cell::RefCell::new(State::Ready),
+            state: std::cell::RefCell::new(State::Off),
         })
     }
 
@@ -299,114 +266,48 @@ pub fn set_pulse(button: &gtk4::Button, pulsing: bool) {
 mod tests {
     use super::*;
 
-    #[test]
-    fn transient_states_are_not_clickable() {
-        // Starting a second run mid-apply would leave the machine in a state
-        // no snapshot describes.
-        assert!(!State::Analyzing.is_interactive());
-        assert!(!State::Optimizing { step: "x".into() }.is_interactive());
-        assert!(!State::Restoring.is_interactive());
-
-        assert!(State::Ready.is_interactive());
-        assert!(State::Active { count: 3 }.is_interactive());
-        assert!(State::AlreadyOptimal.is_interactive());
-        assert!(
-            State::Partial {
-                applied: 1,
-                total: 2
-            }
-            .is_interactive()
-        );
-        assert!(State::Error { detail: "x".into() }.is_interactive());
-    }
-
-    #[test]
-    fn only_applied_states_count_as_on() {
-        assert!(State::Active { count: 1 }.is_on());
-        assert!(
-            State::Partial {
-                applied: 1,
-                total: 2
-            }
-            .is_on()
-        );
-
-        // "Already optimal" changed nothing, so there is nothing to turn off.
-        assert!(!State::AlreadyOptimal.is_on());
-        assert!(!State::Ready.is_on());
-        assert!(!State::Error { detail: "x".into() }.is_on());
-        assert!(!State::Analyzing.is_on());
-    }
-
-    #[test]
-    fn every_state_has_a_distinct_css_class_that_is_tracked() {
-        let all = State::all_css_classes();
-        for state in [
-            State::Ready,
-            State::Analyzing,
-            State::Optimizing { step: "x".into() },
-            State::Active { count: 1 },
-            State::AlreadyOptimal,
-            State::Partial {
-                applied: 1,
-                total: 2,
+    fn all() -> Vec<State> {
+        vec![
+            State::Off,
+            State::Working { step: "x".into() },
+            State::On {
+                detail: "Watching for games".into(),
             },
-            State::Error { detail: "x".into() },
-            State::Restoring,
-        ] {
-            assert!(
-                all.contains(&state.css_class()),
-                "{:?} uses an untracked class {}",
-                state,
-                state.css_class()
-            );
-        }
-    }
-
-    #[test]
-    fn every_state_has_non_empty_text() {
-        for state in [
-            State::Ready,
-            State::Analyzing,
-            State::Optimizing {
-                step: "Applying CPU governor".into(),
-            },
-            State::Active { count: 6 },
-            State::AlreadyOptimal,
             State::Partial {
-                applied: 1,
-                total: 3,
+                detail: "1 thing failed".into(),
             },
             State::Error {
                 detail: "daemon unreachable".into(),
             },
             State::Restoring,
-        ] {
+        ]
+    }
+
+    #[test]
+    fn transient_states_are_not_clickable() {
+        assert!(!State::Working { step: "x".into() }.is_interactive());
+        assert!(!State::Restoring.is_interactive());
+        assert!(State::Off.is_interactive());
+        assert!(State::On { detail: "x".into() }.is_interactive());
+        assert!(State::Error { detail: "x".into() }.is_interactive());
+    }
+
+    #[test]
+    fn on_means_a_click_turns_it_off() {
+        assert!(State::On { detail: "x".into() }.is_on());
+        assert!(State::Partial { detail: "x".into() }.is_on());
+        assert!(!State::Off.is_on());
+        assert!(!State::Error { detail: "x".into() }.is_on());
+    }
+
+    #[test]
+    fn every_state_has_text_and_a_tracked_class() {
+        let classes = State::all_css_classes();
+        for state in all() {
             assert!(!state.title().is_empty(), "{state:?} has no title");
             assert!(!state.subtitle().is_empty(), "{state:?} has no subtitle");
             assert!(!state.icon().is_empty());
+            assert!(classes.contains(&state.css_class()), "{state:?}");
         }
-    }
-
-    #[test]
-    fn plurals_read_correctly() {
-        assert_eq!(
-            State::Active { count: 1 }.subtitle(),
-            "1 optimization active"
-        );
-        assert_eq!(
-            State::Active { count: 6 }.subtitle(),
-            "6 optimizations active"
-        );
-    }
-
-    #[test]
-    fn optimizing_shows_the_real_step() {
-        // The step text comes from the engine, so the control can never show
-        // progress for work that is not happening.
-        let s = State::Optimizing {
-            step: "Applying GPU power level (card1)".into(),
-        };
-        assert_eq!(s.subtitle(), "Applying GPU power level (card1)");
     }
 }

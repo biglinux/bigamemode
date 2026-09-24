@@ -52,7 +52,7 @@ pub fn build(
         .build();
     back_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Back to Home"))]);
 
-    let show_report: Rc<dyn Fn(&bigame_core::booster::report::Report)> = {
+    let show_report: Rc<dyn Fn(&bigame_core::turbo::Report)> = {
         let stack = view_stack.clone();
         let holder = Rc::clone(&report_holder);
         let title = page_title.clone();

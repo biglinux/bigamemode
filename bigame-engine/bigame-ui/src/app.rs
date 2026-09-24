@@ -49,6 +49,12 @@ pub fn run() -> adw::glib::ExitCode {
 
         // Keyboard shortcuts
         app.set_accels_for_action("app.quit", &["<Control>q"]);
+
+        // Which game is running, for Home and the first-run profile offer.
+        // Started here, not with the window: the application keeps running
+        // with its window closed, and that is when games are played.
+        crate::game_watch::start();
+        crate::profile_offer::install(app);
     });
 
     app.connect_activate(|app| {

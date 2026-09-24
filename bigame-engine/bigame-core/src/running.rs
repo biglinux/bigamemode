@@ -507,6 +507,37 @@ pub fn detect() -> Option<GameIdentity> {
         .map(enrich)
 }
 
+/// How long a process has been running, in seconds.
+///
+/// From its start time in `/proc/<pid>/stat` (clock ticks since boot) and the
+/// system's uptime.
+#[must_use]
+pub fn running_for(pid: u32) -> Option<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let rest = &stat[stat.rfind(')')? + 1..];
+    // Field 22 overall is starttime; 20 after the two before the comm's end.
+    let start_ticks: u64 = rest.split_whitespace().nth(19)?.parse().ok()?;
+    let uptime: f64 = std::fs::read_to_string("/proc/uptime")
+        .ok()?
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()?;
+    // SAFETY: sysconf only reads a static configuration value.
+    let hz = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
+    if hz <= 0 {
+        return None;
+    }
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let started = start_ticks as f64 / hz as f64;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some((uptime - started).max(0.0) as u64)
+}
+
 // ── Profiles, as falcond sees them ───────────────────────────────────────────
 
 /// A falcond profile that matches a process.
@@ -809,6 +840,12 @@ mod tests {
             graphics_from_maps("7f00 r-xp 0 00:00 1 /usr/lib/libGLX_mesa.so.0\n"),
             Graphics::OpenGl
         );
+    }
+
+    #[test]
+    fn this_process_has_been_running_a_short_while() {
+        let secs = running_for(std::process::id()).expect("readable");
+        assert!(secs < 3600, "{secs}");
     }
 
     #[test]
