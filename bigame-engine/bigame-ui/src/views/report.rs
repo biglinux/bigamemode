@@ -193,9 +193,20 @@ fn measured_group() -> Option<adw::PreferencesGroup> {
     }
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Measured on this machine"));
-    group.set_description(Some(&i18n(
+    let changes = calibration.stack_changes(&bigame_core::inventory::stack_versions());
+    let mut description = i18n(
         "Only these are performance claims: each comes from alternating benchmark runs, judged against their own run-to-run variation.",
-    )));
+    );
+    if !changes.is_empty() {
+        description.push_str("\n\n");
+        description.push_str(&i18n(
+            "Needs revalidation: the software changed since these were measured. Settings measured slower are still avoided; none measured faster is applied until measured again.",
+        ));
+        description.push_str(" (");
+        description.push_str(&changes.join(", "));
+        description.push(')');
+    }
+    group.set_description(Some(&description));
     for finding in calibration.findings.values() {
         let verdict = match finding.verdict {
             Verdict::Improvement => i18n("faster"),

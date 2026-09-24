@@ -235,11 +235,15 @@ impl Plan {
                     )
                 })
                 .collect();
-            plan.beneficial = calibration
-                .beneficial()
-                .into_iter()
-                .map(|f| f.knob.clone())
-                .collect();
+            // A measured improvement is trusted only under the software it
+            // was measured with; a measured regression is avoided regardless.
+            if !calibration.needs_revalidation() {
+                plan.beneficial = calibration
+                    .beneficial()
+                    .into_iter()
+                    .map(|f| f.knob.clone())
+                    .collect();
+            }
         }
         // On battery, raising sustained power draw usually costs more in
         // thermal throttling and clock ceiling than it returns. The user can
