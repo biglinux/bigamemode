@@ -21,6 +21,7 @@ pub mod network;
 pub mod polkit;
 pub mod processes;
 pub mod profiles;
+pub mod running;
 pub mod sched;
 pub mod status;
 pub mod steam;
