@@ -10,6 +10,7 @@ pub mod config;
 pub mod dbus;
 pub mod diagnostics;
 pub mod fg;
+pub mod game_settings;
 pub mod games;
 pub mod gamescope;
 pub mod governor;

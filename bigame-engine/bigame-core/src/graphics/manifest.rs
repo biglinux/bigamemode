@@ -99,6 +99,12 @@ pub struct Manifest {
     /// empty.
     #[serde(default)]
     pub created_dirs: Vec<PathBuf>,
+    /// Files the installed component writes itself at run time (its log),
+    /// that did not exist before the install. Removal keeps a copy for
+    /// diagnostics and deletes them; a file of that name that was already
+    /// there is never listed, so never touched.
+    #[serde(default)]
+    pub generated: Vec<PathBuf>,
 }
 
 /// SHA-256 of a file, as lowercase hex.
@@ -330,6 +336,7 @@ mod tests {
                 replaced: None,
             }],
             created_dirs: vec![],
+            generated: vec![],
         };
         m.save(dir.path()).unwrap();
         assert_eq!(

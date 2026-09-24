@@ -90,7 +90,8 @@ impl Cpu {
 // ── GPU ──────────────────────────────────────────────────────────────────────
 
 /// GPU manufacturer, from the PCI vendor id in the DRM device's `uevent`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GpuVendor {
     /// PCI vendor `0x1002`.
     Amd,

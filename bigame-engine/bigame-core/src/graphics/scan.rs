@@ -138,6 +138,9 @@ pub struct GameScan {
     pub anti_cheat: Vec<AntiCheat>,
     /// Engine hint.
     pub engine: Option<Engine>,
+    /// Names of the DLLs beside the executable, lowercase — evidence for the
+    /// renderers a game ships (`gfsdk_ssao_d3d12.win64.dll`, …).
+    pub exe_dir_dlls: Vec<String>,
     /// The walk stopped at its entry limit before seeing everything.
     pub truncated: bool,
 }
@@ -426,6 +429,7 @@ pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
     let mut proxies = Vec::new();
     let mut anti_cheat = Vec::new();
     let mut engine = None;
+    let mut exe_dir_dlls = Vec::new();
     for (rel, is_dir) in &files {
         let name = lower_name(rel);
         if let Some(ac) = anti_cheat_marker(&name, *is_dir) {
@@ -455,6 +459,9 @@ pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
         let beside_exe = exe_dir
             .as_ref()
             .is_some_and(|d| rel.parent().unwrap_or_else(|| Path::new("")) == d.as_path());
+        if beside_exe && has_ext(&name, "dll") {
+            exe_dir_dlls.push(name.clone());
+        }
         if beside_exe && PROXY_SLOTS.contains(&name.as_str()) {
             let full = root.join(rel);
             let block = pe::read_version_block(&full);
@@ -501,6 +508,7 @@ pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
         proxies,
         anti_cheat,
         engine,
+        exe_dir_dlls,
         truncated,
     }
 }
