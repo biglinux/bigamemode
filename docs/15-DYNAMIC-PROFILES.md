@@ -110,7 +110,7 @@ Every file is copied to `~/.local/state/bigame-mode/profiles-<time>/` first.
 |---|---|
 | Plan on the real directory | VERIFIED (dry run, shown above) |
 | Backup, re-key, clean, unresolved | TESTED (unit) |
-| Applied on the real machine | NOT DONE — needs a Polkit approval; available in Settings → Game profiles |
+| Applied on the real machine | VERIFIED — by the user from Settings → *Fix* (2026-09-24 05:48): both re-keyed, falcond fields only, the user's values kept, backup taken first; falcond loads them |
 
 ## Placebo controls found and removed
 

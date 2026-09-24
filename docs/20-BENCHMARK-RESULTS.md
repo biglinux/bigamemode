@@ -17,7 +17,7 @@ verdicts from run-to-run spread and Welch's t at 95 %. Raw data under
 | CPU governor + EPP alone | SotTR CPU-bound | −1.1 % | no difference — MEASURED |
 | CPU governor | SuperTuxKart, GPU-bound | +2.1 % | within noise — MEASURED |
 | BiGame-mode's own UI (old build) running vs frozen | SotTR CPU-bound | +1.1 % frozen | not significant — MEASURED |
-| sched-ext scheduler (none × lavd × bpfland) | SotTR CPU-bound | — | NOT MEASURED — `scx-tools` installed and `scx_loader` running since 2026-09-24 04:10, the session is ready, but it needs one Polkit approval and none was given while this pass ran (below) |
+| sched-ext scheduler (none × lavd × bpfland) | SotTR CPU-bound | one run of nine (`none`: 123.0 fps) | NOT MEASURED — the session ran on 2026-09-24 06:04 with the chain verified (falcond → `scx_loader` → kernel reported `lavd_1.1.3`), and stopped when the game was closed during the first lavd run (below) |
 | Gamescope native vs nested | — | — | NOT MEASURED |
 
 ## Turbo off vs Turbo on
@@ -55,6 +55,14 @@ against 7.38 % and 313/s (the build on `main`); hidden in the tray: 0.52 %,
   (signalling falcond's inhibitor along with falcond); all fixed
   ([13](13-AAA-BENCHMARKS.md)). The prompt then went unanswered for 20
   minutes, so the game's settings were restored and it was closed.
+  A third attempt, with the user present (06:04), proved the chain on this
+  machine — the switcher rewrote `SOTTR.exe`'s profile, falcond re-activated
+  it with `scx=lavd, mode=gaming`, and the kernel reported sched_ext
+  `enabled`, ops `lavd_1.1.3` — and measured `none` once (123.0 fps). The
+  user then needed the machine and closed the game, confirmed by the user, so
+  lavd is not implicated. The session needs ~45 minutes of an idle desktop:
+  every focus change holds the next run, and anything busy is noise in a
+  CPU-bound measurement.
 - **Other hardware.** Every result above is one CPU and one GPU. The planner's
   GPU DPM gate is local evidence, not a rule for every Radeon.
 - **Other titles.** Cyberpunk 2077 and Rise of the Tomb Raider are read

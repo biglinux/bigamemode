@@ -80,11 +80,13 @@ recorded) and on (profile set corrected handheld → desktop, falcond running);
 a profile for Shadow of the Tomb Raider created from the offer and matched by
 falcond at the next launch. Later the same morning: the package rebuilt with
 the last fixes and installed with `scx-tools`; `scx_loader` enabled; falcond
-listing sixteen schedulers. **Not yet done, each waiting for a password:** the
-migration of the two old profiles, removing a wrong profile created for
-Steam's installer script, and the scheduler measurement — ready to run, but
-its prompt went unanswered; the attempts found and fixed four defects in the
-benchmark tooling ([13](13-AAA-BENCHMARKS.md), [20](20-BENCHMARK-RESULTS.md)).
+listing sixteen schedulers. The two old profiles were migrated from Settings
+(by the user, backed up), the wrong profile created for Steam's installer
+script was removed, and the scheduler chain was verified on this machine
+(kernel ops `lavd_1.1.3`). **Not yet done:** the scheduler measurement itself
+— one run of nine before the machine was needed; it wants ~45 minutes of an
+idle desktop. The attempts found and fixed five defects in the benchmark
+tooling ([13](13-AAA-BENCHMARKS.md), [20](20-BENCHMARK-RESULTS.md)).
 Diagnostics now also warns when systemd has had to restart falcond, the case
 that leaves the machine boosted ([21](21-VM-TESTS.md)).
 

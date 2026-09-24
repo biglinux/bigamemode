@@ -43,13 +43,18 @@ lints) reports zero warnings, which is what `-D warnings` would enforce.
 
 ## Still to do on the reference machine
 
-1. Settings → *Fix* the two old profiles (the user's choice; backed up first).
-2. Remove `user/iscriptevaluator.exe.conf`, a profile created for Steam's
-   installer script before it was recognised as not-a-game (the detector has
-   excluded it since `9b406a8`).
-3. Measure a scheduler CPU-bound: the one command in
-   [20](20-BENCHMARK-RESULTS.md). It asks for the password once.
+1. Measure a scheduler CPU-bound: the one command in
+   [20](20-BENCHMARK-RESULTS.md), with the desktop left idle for ~45 minutes.
+   It asks for the password once.
 
-All three need a Polkit approval. Done on 2026-09-24: the package rebuilt at
-`9b406a8` and installed with `scx-tools`; `scx_loader` enabled; falcond
-restarted and listing the schedulers; Diagnostics reporting sched-ext OK.
+Done on 2026-09-24:
+
+| Step | Status |
+|---|---|
+| Package rebuilt at `9b406a8`, installed with `scx-tools`; `scx_loader` enabled; falcond listing the schedulers; Diagnostics reporting sched-ext OK | VERIFIED |
+| Old profiles migrated — by the user, from Settings → *Fix* (05:48): `Arc Raiders` → `PioneerGame.exe`, `Dead by Daylight` → `DeadByDaylight-Win64-Shipping.exe`, falcond fields only, the user's values kept, originals in `~/.local/state/bigame-mode/profiles-1790239687/` | VERIFIED |
+| `user/iscriptevaluator.exe.conf` removed through the helper's `DeleteProfile`; falcond reloaded, 13 profiles | VERIFIED |
+| Package rebuilt at `d495215` (the restart warning) and installed; helper and UI restarted | VERIFIED |
+| Scheduler chain on this machine: profile → falcond → `scx_loader` → kernel ops `lavd_1.1.3` | VERIFIED |
+| Scheduler measurement | NOT DONE — one run of nine; the game was closed mid-session |
+| SotTR's render scale restored after the session (`ResolutionModifier` 200 → 1000, the game had saved the minimum on exit); all 28 graphics values match the clean session | VERIFIED |
