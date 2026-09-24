@@ -42,6 +42,7 @@ depend on it.
 | [30-DLSS-TESTS.md](30-DLSS-TESTS.md) | Automated and real-machine tests, and what was not tested |
 | [31-DLSS-BENCHMARKS.md](31-DLSS-BENCHMARKS.md) | TAA vs the game's XeSS vs OptiScaler FSR, measured |
 | [32-DLSS-FINAL-REPORT.md](32-DLSS-FINAL-REPORT.md) | AI Graphics: summary, decisions, limitations, next steps |
+| [33-VM-INSTALL-TEST.md](33-VM-INSTALL-TEST.md) | Installing from GitHub on a stock BigLinux VM; SuperTuxKart end to end; what failed and the fixes |
 | [FINAL-REPORT.md](FINAL-REPORT.md) | Summary, before/after, and known limitations |
 
 There is no `08-UX-REDESIGN.md`. The UX rationale is in FINAL-REPORT and in the

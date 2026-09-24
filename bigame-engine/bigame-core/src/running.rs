@@ -358,6 +358,21 @@ fn descendants<'a>(
 /// Wine games outside Steam are found as busy `.exe` processes under Wine.
 #[must_use]
 pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
+    identify_with(procs, &HashMap::new())
+}
+
+/// [`identify`], also recognising native games outside Steam.
+///
+/// `native` maps the executable names of games this machine knows about
+/// ([`known_native_games`]) to their display names. Without it a native
+/// game started from the application menu — `SuperTuxKart` from the
+/// repositories, on the lab VM — was never taken for a game: Home kept
+/// saying *waiting for games* and no profile was offered.
+#[must_use]
+pub fn identify_with<S: std::hash::BuildHasher>(
+    procs: &[Proc],
+    native: &HashMap<String, String, S>,
+) -> Vec<GameIdentity> {
     let mut by_parent: HashMap<u32, Vec<&Proc>> = HashMap::new();
     for p in procs {
         by_parent.entry(p.ppid).or_default().push(p);
@@ -438,7 +453,89 @@ pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
             tree: vec![(p.pid, name.to_owned())],
         });
     }
+
+    // Native games outside Steam: an executable the machine lists as a game.
+    // Only the busiest process of each name counts, so a game that forks
+    // helpers under its own name is still one game.
+    let mut native_found: HashMap<&str, &Proc> = HashMap::new();
+    for p in procs.iter().filter(|p| !claimed.contains(&p.pid)) {
+        let name = falcond_name(&p.argv0);
+        if !native.contains_key(name) || is_infrastructure(name) || p.cpu_ticks < 100 {
+            continue;
+        }
+        let best = native_found.entry(name).or_insert(p);
+        if p.cpu_ticks > best.cpu_ticks {
+            *best = p;
+        }
+    }
+    for (name, p) in native_found {
+        found.push(GameIdentity {
+            display_name: native[name].clone(),
+            steam_app_id: None,
+            install_path: None,
+            compatdata_path: None,
+            pid: p.pid,
+            process_name: name.to_owned(),
+            executable: p.argv0.clone(),
+            runtime: Runtime::Native,
+            graphics: Graphics::Unknown,
+            render_card: None,
+            tree: vec![(p.pid, name.to_owned())],
+        });
+    }
     found
+}
+
+// ── Native games the machine knows about ─────────────────────────────────────
+
+/// Executable name → display name for every native game this machine lists:
+/// the menu entries in the `Game` category ([`crate::games::menu_games`]),
+/// and the process names falcond has a profile for — a profile is falcond's
+/// own statement that a process is a game.
+///
+/// Read at most once a minute: detection runs every few seconds, and a game
+/// installed meanwhile is picked up on the next read.
+#[must_use]
+pub fn known_native_games() -> HashMap<String, String> {
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+    static CACHE: Mutex<Option<(Instant, HashMap<String, String>)>> = Mutex::new(None);
+    let mut cache = CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some((at, games)) = cache.as_ref() {
+        if at.elapsed() < Duration::from_secs(60) {
+            return games.clone();
+        }
+    }
+    let games = read_native_games();
+    *cache = Some((Instant::now(), games.clone()));
+    games
+}
+
+fn read_native_games() -> HashMap<String, String> {
+    let mut games = HashMap::new();
+    // Profile names first, so a menu entry's friendlier name wins.
+    let base = Path::new(crate::profiles::SYSTEM_PROFILES_DIR);
+    for dir in [base.to_path_buf(), base.join("user")] {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let Ok(content) = std::fs::read_to_string(entry.path()) else {
+                continue;
+            };
+            if let Some(name) = profile_name_field(&content) {
+                if name != "Proton"
+                    && !name.to_ascii_lowercase().ends_with(".exe")
+                    && !is_infrastructure(&name)
+                {
+                    games.insert(name.clone(), name);
+                }
+            }
+        }
+    }
+    for game in crate::games::menu_games() {
+        games.insert(game.program, game.name);
+    }
+    games
 }
 
 // ── Enrichment (reads the live system for one process) ───────────────────────
@@ -541,7 +638,7 @@ fn enrich(mut game: GameIdentity) -> GameIdentity {
 pub fn detect() -> Option<GameIdentity> {
     let procs = snapshot();
     let ticks: HashMap<u32, u64> = procs.iter().map(|p| (p.pid, p.cpu_ticks)).collect();
-    identify(&procs)
+    identify_with(&procs, &known_native_games())
         .into_iter()
         .max_by_key(|g| ticks.get(&g.pid).copied().unwrap_or(0))
         .map(enrich)
@@ -866,6 +963,58 @@ mod tests {
             identify(&tree).is_empty(),
             "the launcher is not what falcond should key on"
         );
+    }
+
+    fn known() -> HashMap<String, String> {
+        HashMap::from([("supertuxkart".to_owned(), "SuperTuxKart".to_owned())])
+    }
+
+    #[test]
+    fn a_native_game_outside_steam_is_found_by_its_menu_entry() {
+        let procs = vec![
+            p(900, 1, "/usr/bin/kwin_wayland", 90_000),
+            p(2188074, 2000, "/usr/bin/supertuxkart", 7_600),
+        ];
+        assert!(
+            identify(&procs).is_empty(),
+            "without the list nothing is known"
+        );
+        let found = identify_with(&procs, &known());
+        assert_eq!(found.len(), 1);
+        let g = &found[0];
+        assert_eq!(g.process_name, "supertuxkart");
+        assert_eq!(g.display_name, "SuperTuxKart");
+        assert_eq!(g.runtime, Runtime::Native);
+        assert_eq!(g.pid, 2188074);
+    }
+
+    #[test]
+    fn a_native_game_is_one_game_and_an_idle_one_is_not_yet() {
+        let forks = vec![
+            p(10, 1, "/usr/bin/supertuxkart", 5_000),
+            p(11, 10, "/usr/bin/supertuxkart", 40),
+        ];
+        let found = identify_with(&forks, &known());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].pid, 10);
+        let idle = vec![p(10, 1, "/usr/bin/supertuxkart", 20)];
+        assert!(identify_with(&idle, &known()).is_empty());
+    }
+
+    #[test]
+    fn a_steam_tree_is_not_counted_twice_as_a_native_game() {
+        let procs = vec![
+            p(100, 1, "reaper|SteamLaunch AppId=4242 -- supertuxkart", 1),
+            p(
+                101,
+                100,
+                "/home/g/steamapps/common/STK/bin/supertuxkart",
+                9_000,
+            ),
+        ];
+        let found = identify_with(&procs, &known());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].steam_app_id.as_deref(), Some("4242"));
     }
 
     #[test]

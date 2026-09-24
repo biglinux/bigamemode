@@ -53,37 +53,51 @@ fn workloads_group() -> adw::PreferencesGroup {
         return group;
     }
 
-    for workload in providers {
+    let mut rows = Vec::new();
+    for workload in &providers {
         let row = adw::ActionRow::new();
         row.set_title(workload.name());
-
-        let availability = workload.availability();
-        let (subtitle, badge) = match &availability {
-            Availability::Ready => (i18n("Ready to run"), i18n("READY")),
-            Availability::NotInstalled(what) => (
-                // The install target is the actionable part, so it leads.
-                format!("{}: {what}", i18n("Not installed")),
-                i18n("MISSING"),
-            ),
-            Availability::MissingDependency(what) => (
-                format!("{}: {what}", i18n("Cannot produce a usable measurement")),
-                i18n("BLOCKED"),
-            ),
-            Availability::NeedsManualStart(what) => (
-                format!("{}: {what}", i18n("Needs to be started by hand")),
-                i18n("MANUAL"),
-            ),
-        };
-        row.set_subtitle(&subtitle);
         row.set_subtitle_lines(0);
-
-        let label = gtk4::Label::new(Some(&badge));
+        let label = gtk4::Label::new(None);
         label.add_css_class("dim-label");
         label.add_css_class("caption");
         row.add_suffix(&label);
         group.add(&row);
+        rows.push((row, label));
     }
+
+    // Availability is read again each time the page is shown: a fix the
+    // page asked for (SuperTuxKart's vsync, an install) shows without
+    // restarting the application.
+    let refresh = move || {
+        for (workload, (row, label)) in providers.iter().zip(&rows) {
+            let (subtitle, badge) = availability_text(&workload.availability());
+            row.set_subtitle(&subtitle);
+            label.set_text(&badge);
+        }
+    };
+    refresh();
+    group.connect_map(move |_| refresh());
     group
+}
+
+fn availability_text(availability: &Availability) -> (String, String) {
+    match availability {
+        Availability::Ready => (i18n("Ready to run"), i18n("READY")),
+        Availability::NotInstalled(what) => (
+            // The install target is the actionable part, so it leads.
+            format!("{}: {what}", i18n("Not installed")),
+            i18n("MISSING"),
+        ),
+        Availability::MissingDependency(what) => (
+            format!("{}: {what}", i18n("Cannot produce a usable measurement")),
+            i18n("BLOCKED"),
+        ),
+        Availability::NeedsManualStart(what) => (
+            format!("{}: {what}", i18n("Needs to be started by hand")),
+            i18n("MANUAL"),
+        ),
+    }
 }
 
 /// What measurement concluded about each setting on this machine.

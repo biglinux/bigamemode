@@ -67,6 +67,9 @@ pub fn run() -> adw::glib::ExitCode {
     let background = std::cell::Cell::new(args.iter().any(|a| a == "--background"));
     let args: Vec<String> = args.into_iter().filter(|a| a != "--background").collect();
 
+    // The name notifications and the desktop show; left unset, GLib uses the
+    // program name, and the profile offer arrived signed "bigame-ui".
+    adw::glib::set_application_name("BiGame-mode");
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|app| {

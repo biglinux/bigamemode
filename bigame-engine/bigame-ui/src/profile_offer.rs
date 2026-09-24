@@ -116,7 +116,7 @@ pub fn install(app: &adw::Application) {
         #[weak]
         app,
         move |_, param| {
-            if let Some(process) = param.and_then(glib::Variant::str) {
+            if let Some(process) = param.and_then(glib::Variant::str).filter(|p| !p.is_empty()) {
                 show_review(&app, process);
             }
         }

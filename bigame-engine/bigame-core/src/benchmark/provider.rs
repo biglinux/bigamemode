@@ -288,9 +288,14 @@ impl BenchmarkProvider for SuperTuxKart {
             return Availability::Ready;
         };
         if let Some(cap) = Self::frame_cap(&config) {
+            // Out of the box STK writes vsync on and max_fps 120 on its first
+            // launch, so every new install lands here; the limit is not in
+            // the game's menus, so say exactly what to change and where.
             return Availability::MissingDependency(format!(
                 "{cap} — a capped workload cannot show a difference between two \
-                 configurations, however large it is"
+                 configurations, however large it is. With SuperTuxKart closed, set \
+                 swap-interval-vsync=\"0\" and max_fps=\"1000\" in {}",
+                config.join("config.xml").display()
             ));
         }
         Availability::Ready

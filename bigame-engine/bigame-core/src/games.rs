@@ -30,6 +30,10 @@ pub enum Source {
     Lutris,
     /// Heroic — Epic, GOG, Amazon or a sideloaded title.
     Heroic,
+    /// A native game in the application menu (a `.desktop` entry in the
+    /// `Game` category): from the distribution's repositories, or installed
+    /// by hand.
+    Native,
 }
 
 impl Source {
@@ -40,6 +44,7 @@ impl Source {
             Self::Steam => "Steam",
             Self::Lutris => "Lutris",
             Self::Heroic => "Heroic",
+            Self::Native => "Native",
         }
     }
 
@@ -48,7 +53,7 @@ impl Source {
     pub fn icon(self) -> &'static str {
         match self {
             Self::Steam => "applications-games-symbolic",
-            Self::Lutris | Self::Heroic => "application-x-executable-symbolic",
+            Self::Lutris | Self::Heroic | Self::Native => "application-x-executable-symbolic",
         }
     }
 }
@@ -119,10 +124,222 @@ pub fn detect_all() -> Vec<DetectedGame> {
     detect_steam(home, &mut games);
     detect_lutris(home, &mut games);
     detect_heroic(home, &mut games);
+    detect_native(&mut games);
 
     games.sort_by_key(|g| g.name.to_lowercase());
     games.dedup_by(|a, b| a.name == b.name && a.source == b.source);
     games
+}
+
+// ── The application menu ─────────────────────────────────────────────────────
+
+/// Programs listed as games that are not games here: launchers, stores,
+/// tools, game streaming (the game runs elsewhere) — and BiGame-mode itself,
+/// whose menu entry is in the Game category too.
+const NOT_GAMES: &[&str] = &[
+    "bigame-ui",
+    "steam",
+    "lutris",
+    "heroic",
+    "legendary",
+    "bottles",
+    "itch",
+    "minigalaxy",
+    "gamehub",
+    "playonlinux",
+    "protonup-qt",
+    "protonplus",
+    "gamescope",
+    "mangohud",
+    "mangojuice",
+    "goverlay",
+    "flatpak",
+    "xdg-open",
+    "steamtinkerlaunch",
+    // Game streaming: the game runs on another machine.
+    "moonlight",
+    "sunshine",
+    "big-remote-play",
+    "chiaki",
+    "chiaki-ng",
+    "greenlight",
+    "nvidia geforce now",
+    "geforcenow",
+];
+
+/// A game in the application menu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MenuGame {
+    /// The entry's `Name`.
+    pub name: String,
+    /// The process name falcond will see (the basename of the program).
+    pub program: String,
+    /// `Exec` as an argument vector, field codes (`%U`, `%f`, …) removed.
+    pub argv: Vec<String>,
+}
+
+/// A menu entry, when the entry is a game.
+///
+/// Reads only the `[Desktop Entry]` group (actions such as `SuperTuxKart`'s
+/// *Software Render* live in groups of their own), requires the `Game`
+/// category, and takes the program from `Exec` past `env` and its
+/// `VAR=value` assignments. Launchers and entries that start a game through
+/// a launcher (`steam steam://rungameid/…`, `flatpak run …`) are not games
+/// here: their process is the launcher, and Steam's are found by their tree.
+#[must_use]
+pub fn menu_game(content: &str) -> Option<MenuGame> {
+    let mut in_entry = false;
+    let (mut exec, mut name, mut categories) = (None, None, None);
+    let mut hidden = false;
+    let mut application = false;
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_entry = line == "[Desktop Entry]";
+            continue;
+        }
+        if !in_entry {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        match key.trim() {
+            "Exec" => exec = Some(value.trim().to_owned()),
+            "Name" => name = Some(value.trim().to_owned()),
+            "Categories" => categories = Some(value.to_owned()),
+            "Type" => application = value.trim() == "Application",
+            "Hidden" | "NoDisplay" => hidden |= value.trim() == "true",
+            _ => {}
+        }
+    }
+    if !application || hidden {
+        return None;
+    }
+    categories?.split(';').find(|c| c.trim() == "Game")?;
+    let argv: Vec<String> = exec_arguments(&exec?)
+        .into_iter()
+        .filter(|a| !(a.len() == 2 && a.starts_with('%')))
+        .collect();
+    let program = argv
+        .iter()
+        .find(|t| *t != "env" && (t.starts_with('/') || !t.contains('=')))?;
+    let program = crate::running::falcond_name(program).to_owned();
+    if program.is_empty()
+        || NOT_GAMES.contains(&program.to_ascii_lowercase().as_str())
+        || crate::running::is_infrastructure(&program)
+    {
+        return None;
+    }
+    let name = name.unwrap_or_else(|| program.clone());
+    Some(MenuGame {
+        name,
+        program,
+        argv,
+    })
+}
+
+/// Every game in the application menu: `XDG_DATA_HOME` and each of
+/// `XDG_DATA_DIRS`, the first entry of a name winning, as the menu does.
+#[must_use]
+pub fn menu_games() -> Vec<MenuGame> {
+    let data_home = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")));
+    let data_dirs = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|d| !d.is_empty())
+        .unwrap_or_else(|| "/usr/local/share:/usr/share".to_owned());
+    let dirs = data_home
+        .into_iter()
+        .chain(data_dirs.split(':').map(PathBuf::from))
+        .map(|d| d.join("applications"));
+    let mut seen = std::collections::HashSet::new();
+    let mut games = Vec::new();
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+        paths.sort();
+        for path in paths {
+            if path.extension().is_none_or(|e| e != "desktop") {
+                continue;
+            }
+            let Some(id) = path.file_name().map(std::borrow::ToOwned::to_owned) else {
+                continue;
+            };
+            if !seen.insert(id) {
+                continue;
+            }
+            if let Some(game) = std::fs::read_to_string(&path)
+                .ok()
+                .as_deref()
+                .and_then(menu_game)
+            {
+                games.push(game);
+            }
+        }
+    }
+    games
+}
+
+/// Native games from the menu, unless a launcher already listed the same
+/// executable. They start directly, so they can be measured.
+fn detect_native(games: &mut Vec<DetectedGame>) {
+    for game in menu_games() {
+        if games.iter().any(|g| g.executables.contains(&game.program)) {
+            continue;
+        }
+        games.push(DetectedGame {
+            name: game.name,
+            source: Source::Native,
+            app_id: None,
+            install_path: None,
+            executables: vec![game.program],
+            cover: None,
+            launch_command: Some(game.argv),
+        });
+    }
+}
+
+/// The arguments of a desktop entry's `Exec`: split on spaces, except inside
+/// double quotes, where `\"`, `\\`, `` \` `` and `\$` are escapes (Desktop
+/// Entry Specification, *The Exec key*). A quoted path with spaces is one
+/// argument.
+fn exec_arguments(exec: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut quoted = false;
+    let mut started = false;
+    let mut chars = exec.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                started = true;
+            }
+            '\\' if quoted => {
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            }
+            c if c.is_whitespace() && !quoted => {
+                if started {
+                    args.push(std::mem::take(&mut current));
+                    started = false;
+                }
+            }
+            c => {
+                current.push(c);
+                started = true;
+            }
+        }
+    }
+    if started {
+        args.push(current);
+    }
+    args
 }
 
 // ── Steam ────────────────────────────────────────────────────────────────────
@@ -620,6 +837,63 @@ fn heroic_cover(base: &Path, title: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const STK_DESKTOP: &str = "[Desktop Entry]\nName=SuperTuxKart\nName[pt_BR]=SuperTuxKart\nExec=supertuxkart\nType=Application\nCategories=Game;ArcadeGame;\nActions=SoftwareRender;\n\n[Desktop Action SoftwareRender]\nName=Software Render\nExec=SoftwareRender supertuxkart\n";
+
+    #[test]
+    fn a_menu_entry_in_the_game_category_is_a_game() {
+        let stk = menu_game(STK_DESKTOP).unwrap();
+        assert_eq!(stk.program, "supertuxkart");
+        assert_eq!(stk.name, "SuperTuxKart");
+        assert_eq!(stk.argv, ["supertuxkart"]);
+        let env = "[Desktop Entry]\nType=Application\nName=Xonotic\nExec=env SDL_VIDEODRIVER=wayland /usr/bin/xonotic-sdl %U\nCategories=Game;ActionGame;\n";
+        let xonotic = menu_game(env).unwrap();
+        assert_eq!(xonotic.program, "xonotic-sdl");
+        assert_eq!(xonotic.name, "Xonotic");
+        // The field code goes; env and its assignment stay, so the command
+        // still runs the game with them.
+        assert_eq!(
+            xonotic.argv,
+            ["env", "SDL_VIDEODRIVER=wayland", "/usr/bin/xonotic-sdl"]
+        );
+    }
+
+    #[test]
+    fn launchers_tools_and_hidden_entries_are_not_games() {
+        let steam_shortcut = "[Desktop Entry]\nType=Application\nName=Hades\nExec=steam steam://rungameid/1145360\nCategories=Game;\n";
+        let bigame = "[Desktop Entry]\nType=Application\nName=BiGame-mode\nExec=bigame-ui\nCategories=Game;System;Settings;\n";
+        let flatpak = "[Desktop Entry]\nType=Application\nName=0 A.D.\nExec=/usr/bin/flatpak run com.play0ad.zeroad\nCategories=Game;\n";
+        let hidden =
+            "[Desktop Entry]\nType=Application\nName=X\nExec=x\nNoDisplay=true\nCategories=Game;\n";
+        let editor = "[Desktop Entry]\nType=Application\nName=Kate\nExec=kate %U\nCategories=Qt;KDE;Utility;TextEditor;\n";
+        let gamepad_tool =
+            "[Desktop Entry]\nType=Application\nName=Pad\nExec=pad\nCategories=GamepadTool;\n";
+        for entry in [
+            steam_shortcut,
+            bigame,
+            flatpak,
+            hidden,
+            editor,
+            gamepad_tool,
+        ] {
+            assert_eq!(menu_game(entry), None, "{entry}");
+        }
+    }
+
+    #[test]
+    fn a_quoted_exec_path_with_spaces_is_one_program() {
+        assert_eq!(
+            exec_arguments(r#""/home/g/Games/My Game/run game" --fullscreen %U"#),
+            ["/home/g/Games/My Game/run game", "--fullscreen", "%U"]
+        );
+        let entry = "[Desktop Entry]\nType=Application\nName=My Game\nExec=\"/home/g/Games/My Game/run game\" --fullscreen\nCategories=Game;\n";
+        let game = menu_game(entry).unwrap();
+        assert_eq!(game.program, "run game");
+        assert_eq!(game.name, "My Game");
+        let streaming = "[Desktop Entry]\nType=Application\nName=NVIDIA GeForce NOW\nExec=\"/home/g/.local/share/applications/NVIDIA GeForce NOW\"\nCategories=Game;\n";
+        assert_eq!(menu_game(streaming), None);
+    }
+
     use std::fs;
 
     fn tempdir(name: &str) -> PathBuf {

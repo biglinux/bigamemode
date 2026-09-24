@@ -22,10 +22,18 @@ fn init_tracing() {
 
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
-    let _ = tracing_subscriber::fmt()
+    // Started from the menu, the output is the journal: it timestamps each
+    // line itself, and colour codes would show up as `[2m…[0m`.
+    let terminal = std::io::IsTerminal::is_terminal(&std::io::stdout());
+    let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(true)
         .with_thread_names(false)
-        .compact()
-        .try_init();
+        .with_ansi(terminal)
+        .compact();
+    let _ = if terminal {
+        builder.try_init()
+    } else {
+        builder.without_time().try_init()
+    };
 }

@@ -21,6 +21,27 @@ use crate::video_config::VideoConfig;
 
 // ── LaunchPlan ────────────────────────────────────────────────────────────────
 
+/// What the machine offers a launch: Gamescope (and what it accepts), and a
+/// graphical session for it to nest in.
+///
+/// Detected for a real launch. Tests describe it instead: a package built on
+/// a server, in a chroot or over ssh has neither, and the plan a test checks
+/// must not depend on the machine that happens to run it.
+#[derive(Debug, Clone)]
+struct Host {
+    gamescope: Option<crate::capabilities::GamescopeCaps>,
+    session: crate::hardware::Session,
+}
+
+impl Host {
+    fn detect() -> Self {
+        Self {
+            gamescope: crate::capabilities::Capabilities::detect().gamescope,
+            session: crate::hardware::Hardware::detect().session,
+        }
+    }
+}
+
 /// Fully resolved plan to launch a game with all BiGame-mode video settings applied.
 #[derive(Debug, Clone)]
 pub struct LaunchPlan {
@@ -51,6 +72,26 @@ impl LaunchPlan {
     /// `executable="steam"` with `-applaunch`).
     #[must_use]
     pub fn build_with_args_for_game(
+        executable: &str,
+        executable_args: &[String],
+        logical_game: &str,
+        video: &VideoConfig,
+        gs_override: Option<&gamescope::Config>,
+    ) -> Self {
+        Self::build_on(
+            &Host::detect(),
+            executable,
+            executable_args,
+            logical_game,
+            video,
+            gs_override,
+        )
+    }
+
+    /// [`Self::build_with_args_for_game`] on a given machine rather than this
+    /// one.
+    fn build_on(
+        host: &Host,
         executable: &str,
         executable_args: &[String],
         logical_game: &str,
@@ -118,14 +159,8 @@ impl LaunchPlan {
         } else {
             gamescope::Mode::Auto
         };
-        let caps = crate::capabilities::Capabilities::detect().gamescope;
         let merged = Self::merge_gamescope_config(upscaling, gs_override);
-        let decision = gamescope::decide(
-            mode,
-            &merged,
-            caps.as_ref(),
-            crate::hardware::Hardware::detect().session,
-        );
+        let decision = gamescope::decide(mode, &merged, host.gamescope.as_ref(), host.session);
         tracing::info!(
             target: "gamescope",
             game = logical_game,
@@ -507,10 +542,34 @@ mod tests {
     use super::*;
     use crate::models::{GamescopeFilter, WineFsrMode};
 
+    /// A desktop with Gamescope installed, whatever runs the tests.
+    fn desktop() -> Host {
+        Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: Vec::new(),
+            }),
+            session: crate::hardware::Session::Wayland,
+        }
+    }
+
+    fn build(exe: &str, video: &VideoConfig, gs: Option<&gamescope::Config>) -> LaunchPlan {
+        LaunchPlan::build_on(&desktop(), exe, &[], exe, video, gs)
+    }
+
+    fn build_with_args(
+        exe: &str,
+        args: &[String],
+        video: &VideoConfig,
+        gs: Option<&gamescope::Config>,
+    ) -> LaunchPlan {
+        LaunchPlan::build_on(&desktop(), exe, args, exe, video, gs)
+    }
+
     #[test]
     fn test_launch_plan_no_gamescope_returns_exe() {
         let video = VideoConfig::default(); // gamescope_enabled = false
-        let plan = LaunchPlan::build("myapp", &video, None);
+        let plan = build("myapp", &video, None);
         assert_eq!(plan.program, "myapp");
         assert!(plan.args.is_empty());
         assert!(plan.env.is_empty());
@@ -522,7 +581,7 @@ mod tests {
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Fsr;
         video.upscaling.gamescope_sharpness = 5;
-        let plan = LaunchPlan::build("myapp", &video, None);
+        let plan = build("myapp", &video, None);
         assert_eq!(plan.program, "gamescope");
         // The removed `--fsr` flag must never appear; it aborts the launch.
         assert!(!plan.args.iter().any(|a| a == "--fsr"));
@@ -535,11 +594,36 @@ mod tests {
     }
 
     #[test]
+    fn gamescope_turned_on_but_absent_launches_the_game_itself() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let host = Host {
+            gamescope: None,
+            session: crate::hardware::Session::Wayland,
+        };
+        let plan = LaunchPlan::build_on(&host, "myapp", &[], "myapp", &video, None);
+        assert_eq!(plan.program, "myapp");
+        assert!(plan.args.is_empty());
+    }
+
+    #[test]
+    fn no_graphical_session_launches_the_game_itself() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let host = Host {
+            session: crate::hardware::Session::Tty,
+            ..desktop()
+        };
+        let plan = LaunchPlan::build_on(&host, "myapp", &[], "myapp", &video, None);
+        assert_eq!(plan.program, "myapp");
+    }
+
+    #[test]
     fn test_launch_plan_nis_filter() {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Nis;
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
             assert_eq!(plan.args[f_pos + 1], "nis");
         }
@@ -551,7 +635,7 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Integer;
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
             assert_eq!(plan.args[f_pos + 1], "pixel");
         }
@@ -562,7 +646,7 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.wine_fsr_enabled = true;
         video.upscaling.wine_fsr_mode = WineFsrMode::Ultra;
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         assert_eq!(plan.env.get("WINE_FULLSCREEN_FSR").unwrap(), "1");
         assert_eq!(plan.env.get("WINE_FULLSCREEN_FSR_MODE").unwrap(), "ultra");
     }
@@ -576,7 +660,7 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.vkbasalt_enabled = true;
         video.upscaling.vkbasalt_config_path = Some(tmp.to_string_lossy().into_owned());
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         assert_eq!(plan.env.get("ENABLE_VKBASALT").unwrap(), "1");
         assert_eq!(
             plan.env.get("VKBASALT_CONFIG_FILE").unwrap(),
@@ -593,7 +677,7 @@ mod tests {
             "[frame_gen]\nenabled = true\nbackend = \"afmf\"\nafmf_experimental_enabled = true\n",
         )
         .unwrap();
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         assert!(!plan.env.contains_key("RADV_PERFTEST"));
         assert!(plan.env.is_empty());
     }
@@ -642,7 +726,7 @@ mod tests {
         video.upscaling.base_height = 720;
         video.upscaling.target_width = 1920;
         video.upscaling.target_height = 1080;
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         let args = &plan.args;
         let w_pos = args.iter().position(|a| a == "-w").unwrap();
         assert_eq!(args[w_pos + 1], "1280");
@@ -659,7 +743,7 @@ mod tests {
         video.upscaling.gamescope_filter = GamescopeFilter::Fsr;
 
         let args = vec!["-applaunch".to_string(), "750920".to_string()];
-        let plan = LaunchPlan::build_with_args("steam", &args, &video, None);
+        let plan = build_with_args("steam", &args, &video, None);
 
         assert_eq!(plan.program, "steam");
         assert_eq!(plan.args, args);
@@ -750,7 +834,7 @@ mod tests {
         video.upscaling.wine_fsr_enabled = true;
         video.upscaling.wine_fsr_mode = WineFsrMode::Quality;
 
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         let opts = plan.as_steam_launch_options().expect("plan adds settings");
 
         assert!(opts.ends_with(" -- %command%"), "got {opts}");
@@ -766,8 +850,8 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.wine_fsr_enabled = true;
         video.upscaling.vkbasalt_enabled = true;
-        let a = LaunchPlan::build("game", &video, None).as_steam_launch_options();
-        let b = LaunchPlan::build("game", &video, None).as_steam_launch_options();
+        let a = build("game", &video, None).as_steam_launch_options();
+        let b = build("game", &video, None).as_steam_launch_options();
         assert_eq!(a, b);
         assert!(a.is_some());
     }
@@ -775,13 +859,13 @@ mod tests {
     #[test]
     fn a_plan_that_adds_nothing_produces_no_launch_options() {
         let video = VideoConfig::default();
-        let plan = LaunchPlan::build("game", &video, None);
+        let plan = build("game", &video, None);
         assert_eq!(plan.as_steam_launch_options(), None);
     }
 
     #[test]
     fn values_needing_shell_quoting_are_omitted_not_mangled() {
-        let mut plan = LaunchPlan::build("game", &VideoConfig::default(), None);
+        let mut plan = build("game", &VideoConfig::default(), None);
         plan.env.insert("SAFE".into(), "1".into());
         plan.env.insert("RISKY".into(), "has spaces".into());
         let opts = plan.as_steam_launch_options().unwrap();
@@ -795,7 +879,7 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         let args = vec!["-applaunch".to_string(), "1808500".to_string()];
-        let plan = LaunchPlan::build_with_args("steam", &args, &video, None);
+        let plan = build_with_args("steam", &args, &video, None);
         assert_eq!(plan.program, "steam");
         assert_eq!(plan.args, args);
     }
