@@ -87,19 +87,53 @@ fn ai_graphics_group() -> adw::PreferencesGroup {
             let group = group.clone();
             let rows = rows.clone();
             glib::spawn_future_local(async move {
-                let found = gio::spawn_blocking(|| {
-                    bigame_core::graphics::installed()
+                let (gpu, gpus, found) = gio::spawn_blocking(|| {
+                    let hw = bigame_core::hardware::Hardware::detect();
+                    let found = bigame_core::graphics::installed()
                         .into_iter()
                         .map(|t| {
                             let status = bigame_core::graphics::status(&t);
-                            (t, status)
+                            let version = bigame_core::graphics::manifest::Manifest::load(
+                                &bigame_core::graphics::state_dir(),
+                                &t.key(),
+                            )
+                            .ok()
+                            .flatten()
+                            .map(|m| m.source.version);
+                            (t, status, version)
                         })
-                        .collect::<Vec<_>>()
+                        .collect::<Vec<_>>();
+                    (
+                        bigame_core::graphics::report::render_gpu(&hw),
+                        hw.gpus.len(),
+                        found,
+                    )
                 })
                 .await
                 .unwrap_or_default();
                 for r in rows.borrow_mut().drain(..) {
                     group.remove(&r);
+                }
+                if let Some(g) = gpu {
+                    let mut sub = g.userspace.clone().unwrap_or_else(|| g.driver.clone());
+                    sub.push_str(" · ");
+                    sub.push_str(&match g.dlss() {
+                        Some(true) => i18n("DLSS runs on this GPU"),
+                        Some(false) => i18n("DLSS does not run on this GPU; FSR and XeSS do"),
+                        None => i18n("whether DLSS runs on this GPU is not known"),
+                    });
+                    if gpus > 1 {
+                        sub.push_str(" · ");
+                        sub.push_str(&i18n("one of more than one GPU; games run on this one"));
+                    }
+                    let row = adw::ActionRow::builder()
+                        .title(format!("{} {}", i18n("Graphics card for games:"), g.name))
+                        .subtitle(sub)
+                        .use_markup(false)
+                        .build();
+                    row.set_subtitle_lines(0);
+                    group.add(&row);
+                    rows.borrow_mut().push(row);
                 }
                 if found.is_empty() {
                     let empty = adw::ActionRow::builder()
@@ -111,10 +145,14 @@ fn ai_graphics_group() -> adw::PreferencesGroup {
                     rows.borrow_mut().push(empty);
                     return;
                 }
-                for (target, status) in found {
+                for (target, status, version) in found {
+                    let status = crate::views::ai_graphics::status_text(&status);
                     let row = adw::ActionRow::builder()
                         .title(&target.name)
-                        .subtitle(crate::views::ai_graphics::status_text(&status))
+                        .subtitle(match version {
+                            Some(v) => format!("OptiScaler {v} · {status}"),
+                            None => status,
+                        })
                         .use_markup(false)
                         .build();
                     let open = gtk4::Button::builder()

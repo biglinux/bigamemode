@@ -278,6 +278,19 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         }
         if g.renders_game {
             let _ = write!(sub, " · {}", i18n("renders the game"));
+        } else if r.gpus.len() > 1 {
+            let _ = write!(sub, " · {}", i18n("expected to render the game"));
+        }
+        if g.vendor == bigame_core::hardware::GpuVendor::Nvidia {
+            let _ = write!(
+                sub,
+                " · {}",
+                match g.dlss() {
+                    Some(true) => i18n("runs DLSS"),
+                    Some(false) => i18n("does not run DLSS"),
+                    None => i18n("DLSS support not known"),
+                }
+            );
         }
         details.add_row(&row(&i18n("Graphics card"), &sub));
     }

@@ -477,8 +477,60 @@ pub fn is_system_profile(name: &str) -> bool {
 /// Returns error if the profile cannot be loaded or the target path is unwritable.
 pub fn export(name: &str, dest: &Path) -> Result<()> {
     let profile = load(name)?;
-    let content = toml::to_string_pretty(&profile).context("serialize profile for export")?;
+    let ai = crate::game_settings::load(name)
+        .map(|s| s.ai_graphics)
+        .unwrap_or_default();
+    let content = export_text(&profile, &ai)?;
     std::fs::write(dest, content).with_context(|| format!("write export: {}", dest.display()))
+}
+
+/// A profile as an export file: the profile, then — when AI Graphics was set
+/// up for the game — its choices as `[ai_graphics]`. Only intent travels:
+/// no paths, no installed files, nothing about this machine's update
+/// offers; the game is analysed again wherever the file is imported.
+///
+/// # Errors
+/// Returns an error if serialization fails.
+pub fn export_text(
+    profile: &GameProfile,
+    ai: &crate::graphics::config::AiGraphicsConfig,
+) -> Result<String> {
+    let mut content = toml::to_string_pretty(profile).context("serialize profile for export")?;
+    if *ai != crate::graphics::config::AiGraphicsConfig::default() {
+        let portable = crate::graphics::config::AiGraphicsConfig {
+            skipped_update: None,
+            ..ai.clone()
+        };
+        #[derive(Serialize)]
+        struct Section<'a> {
+            ai_graphics: &'a crate::graphics::config::AiGraphicsConfig,
+        }
+        content.push('\n');
+        content.push_str(
+            &toml::to_string_pretty(&Section {
+                ai_graphics: &portable,
+            })
+            .context("serialize AI Graphics for export")?,
+        );
+    }
+    Ok(content)
+}
+
+/// The AI Graphics choices in an export file, if it has them.
+///
+/// # Errors
+/// Returns an error if the section is there but does not parse.
+pub fn imported_ai_graphics(
+    content: &str,
+) -> Result<Option<crate::graphics::config::AiGraphicsConfig>> {
+    #[derive(Deserialize)]
+    struct Section {
+        #[serde(default)]
+        ai_graphics: Option<crate::graphics::config::AiGraphicsConfig>,
+    }
+    Ok(toml::from_str::<Section>(content)
+        .context("parse the AI Graphics section")?
+        .ai_graphics)
 }
 
 /// Import a profile from a local TOML file into the user profiles directory.
@@ -491,7 +543,13 @@ pub fn import(src: &Path) -> Result<String> {
     let profile: GameProfile = toml::from_str(&content).context("parse imported profile TOML")?;
     anyhow::ensure!(!profile.name.is_empty(), "imported profile has no name");
     let name = profile.name.clone();
+    let ai = imported_ai_graphics(&content)?;
     save(&profile)?;
+    if let Some(ai) = ai {
+        let mut settings = crate::game_settings::load(&name).unwrap_or_default();
+        settings.ai_graphics = ai;
+        crate::game_settings::save(&name, &settings)?;
+    }
     Ok(name)
 }
 
@@ -623,6 +681,40 @@ some_future_falcond_key = 42
         // Without real directories, resolve_path falls back to system
         let rp = resolve_path("test_game");
         assert!(rp.to_string_lossy().contains("test_game.conf"));
+    }
+
+    #[test]
+    fn an_export_carries_the_ai_graphics_choice_and_no_path() {
+        use crate::graphics::config::{AiGraphicsConfig, Mode, Upscaler, VersionPolicy};
+        let p = GameProfile {
+            name: "SOTTR.exe".into(),
+            ..GameProfile::default()
+        };
+        // Nothing set up: nothing written, and an old export reads as none.
+        let plain = export_text(&p, &AiGraphicsConfig::default()).unwrap();
+        assert!(!plain.contains("ai_graphics"));
+        assert_eq!(imported_ai_graphics(&plain).unwrap(), None);
+
+        let ai = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            upscaler: Upscaler::Fsr,
+            version: VersionPolicy::Pinned("0.9.4".into()),
+            skipped_update: Some("0.9.5".into()),
+            ..AiGraphicsConfig::default()
+        };
+        let text = export_text(&p, &ai).unwrap();
+        assert!(!text.contains('/'), "portable: no paths\n{text}");
+        assert!(!text.contains("skipped_update"), "{text}");
+        let back: GameProfile = toml::from_str(&text).unwrap();
+        assert_eq!(back.name, "SOTTR.exe");
+        let back_ai = imported_ai_graphics(&text).unwrap().unwrap();
+        assert_eq!(
+            back_ai,
+            AiGraphicsConfig {
+                skipped_update: None,
+                ..ai
+            }
+        );
     }
 
     #[test]
