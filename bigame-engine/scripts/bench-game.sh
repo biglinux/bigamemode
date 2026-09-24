@@ -123,6 +123,7 @@ set_profile()  { [ -n "$1" ] && powerprofilesctl set "$1" >/dev/null 2>&1; }
 
 restore() {
     [ -n "${TELEMETRY_PID:-}" ] && kill "$TELEMETRY_PID" 2>/dev/null
+    [ -n "${UI_PID:-}" ] && kill -CONT "$UI_PID" 2>/dev/null
     log "restoring the machine to how it was found"
     eval "$ORIGINAL"
     set_profile "$profile"; set_governor "$governor"; set_epp "$epp"; set_dpm "$dpm"
@@ -143,6 +144,16 @@ arm_rest()      { set_profile performance; set_governor performance; set_epp per
 # The same, with the GPU pinned to its highest fixed DPM state -- what the
 # Booster did before it consulted measurements.
 arm_gpu_dpm_level() { arm_rest; set_dpm high; }
+# The distribution default with only the CPU governor and EPP raised -- the
+# CPU knob isolated, for a workload where the CPU is what limits the frame rate.
+arm_cpu_governor() { arm_baseline; set_governor performance; set_epp performance; }
+# The product's own overhead: the same machine state, with the running
+# BiGame-mode UI either polling as usual or frozen with SIGSTOP. Frozen rather
+# than closed, so nothing it owns is restored or torn down; SIGCONT resumes it
+# exactly where it was, and restore() always sends it.
+UI_PID=$(pgrep -x bigame-ui | head -1)
+arm_ui_polling() { arm_rest; [ -n "$UI_PID" ] && kill -CONT "$UI_PID"; }
+arm_ui_paused()  { arm_rest; [ -n "$UI_PID" ] || die "no bigame-ui is running"; kill -STOP "$UI_PID"; }
 
 # ── session ──────────────────────────────────────────────────────────────────
 
