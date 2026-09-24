@@ -6,5 +6,7 @@
 //! game*: which upscaler and frame generator it uses, and any DLL or config
 //! file BiGame-mode places in its folder to get there.
 
+pub mod manifest;
 pub mod pe;
 pub mod scan;
+pub mod transaction;
