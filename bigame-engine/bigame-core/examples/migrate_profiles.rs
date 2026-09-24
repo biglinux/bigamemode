@@ -10,35 +10,31 @@ fn main() -> anyhow::Result<()> {
     let plan = migration::plan(user, &installed);
     for action in &plan {
         match action {
-            Action::Rekey { file, from, to, .. } => println!("REKEY      {}  '{from}' → '{to}'", file.display()),
-            Action::Clean { file, name, .. } => println!("CLEAN      {}  '{name}' (drop fields falcond ignores)", file.display()),
+            Action::Rekey { file, from, to, .. } => {
+                println!("REKEY      {}  '{from}' → '{to}'", file.display());
+            }
+            Action::Clean { file, name, .. } => println!(
+                "CLEAN      {}  '{name}' (drop fields falcond ignores)",
+                file.display()
+            ),
             Action::Keep { file, reason } => println!("KEEP       {}  ({reason})", file.display()),
-            Action::Unresolved { file, name } => println!("UNRESOLVED {}  '{name}': no installed game has that title", file.display()),
+            Action::Unresolved { file, name } => println!(
+                "UNRESOLVED {}  '{name}': no installed game has that title",
+                file.display()
+            ),
         }
     }
     if !apply {
         println!("\n(dry run — nothing changed; pass --apply to migrate)");
         return Ok(());
     }
-    let state = std::env::var_os("HOME").map(|h| Path::new(&h).join(".local/state/bigame-mode")).unwrap();
-    let dest = migration::backup(user, &state)?;
-    println!("backup: {}", dest.display());
-    let proxy = bigame_core::dbus_client::daemon_proxy_blocking()?;
-    for action in &plan {
-        match action {
-            Action::Rekey { file, to, content, .. } => {
-                proxy.save_profile(to, content)?;
-                let old = file.file_stem().unwrap().to_string_lossy();
-                proxy.delete_profile(&old)?;
-                println!("migrated {old} → {to}");
-            }
-            Action::Clean { file, content, .. } => {
-                let stem = file.file_stem().unwrap().to_string_lossy();
-                proxy.save_profile(&stem, content)?;
-                println!("cleaned {stem}");
-            }
-            _ => {}
-        }
+    let state = std::env::var_os("HOME")
+        .map(|h| Path::new(&h).join(".local/state/bigame-mode"))
+        .ok_or_else(|| anyhow::anyhow!("HOME is not set"))?;
+    let (backup, done) = migration::apply(&plan, user, &state)?;
+    println!("backup: {}", backup.display());
+    for line in done {
+        println!("migrated: {line}");
     }
     Ok(())
 }

@@ -213,6 +213,67 @@ pub fn backup(user_dir: &Path, backup_root: &Path) -> anyhow::Result<PathBuf> {
     Ok(dest)
 }
 
+/// Whether a plan changes anything.
+#[must_use]
+pub fn needs_migration(plan: &[Action]) -> bool {
+    plan.iter()
+        .any(|a| matches!(a, Action::Rekey { .. } | Action::Clean { .. }))
+}
+
+/// Carry out `plan` through the helper, after backing up `user_dir`.
+///
+/// Returns the backup directory and one line per change made.
+///
+/// # Errors
+/// Returns an error if the backup fails — in which case nothing was changed —
+/// or if the helper refuses a change part-way, in which case the backup holds
+/// everything as it was.
+pub fn apply(
+    plan: &[Action],
+    user_dir: &Path,
+    backup_root: &Path,
+) -> anyhow::Result<(PathBuf, Vec<String>)> {
+    let dest = backup(user_dir, backup_root)?;
+    let proxy = crate::dbus_client::daemon_proxy_blocking()?;
+    let mut done = Vec::new();
+    for action in plan {
+        match action {
+            Action::Rekey {
+                file,
+                from,
+                to,
+                content,
+            } => {
+                proxy.save_profile(to, content)?;
+                let old = file
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                // Only after the new one is saved: a failure leaves both, not neither.
+                if old != *to {
+                    proxy.delete_profile(&old)?;
+                }
+                done.push(format!("{from} → {to}"));
+            }
+            Action::Clean {
+                file,
+                name,
+                content,
+            } => {
+                let stem = file
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                proxy.save_profile(&stem, content)?;
+                done.push(format!("{name}: removed fields falcond ignores"));
+            }
+            Action::Keep { .. } | Action::Unresolved { .. } => {}
+        }
+    }
+    tracing::info!(backup = %dest.display(), changes = done.len(), "profiles migrated");
+    Ok((dest, done))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

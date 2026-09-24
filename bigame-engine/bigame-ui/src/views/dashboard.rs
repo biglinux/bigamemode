@@ -454,12 +454,18 @@ fn spawn_telemetry_poller(
     ram_spark: crate::widgets::sparkline::SparkHandle,
 ) {
     glib::spawn_future_local(async move {
-        let mut prev_active_profile: Option<String> = None;
-        let mut first_tick = true;
         let mut prev_disk: Option<(u64, u64)> = None;
         let mut prev_is_lsfg = false;
         let mut prev_runtime: Option<(bool, bool, bool, bool, bool)> = None;
         loop {
+            // Nothing is read while this page is not on screen -- including
+            // the one-per-second `ping`, which used to run for as long as
+            // the application did, game or no game. Game launch and exit
+            // notifications moved to the application-wide game watcher.
+            if !ping_val.is_mapped() {
+                glib::timeout_future(POLL_INTERVAL).await;
+                continue;
+            }
             // CPU
             let cpu_text = gio::spawn_blocking(read_cpu_freq)
                 .await
@@ -564,30 +570,6 @@ fn spawn_telemetry_poller(
                 .await
                 .ok()
                 .flatten();
-
-            // Notify on game launch/exit via falcond active_profile transitions
-            let notif_enabled = crate::settings::load().notifications_enabled;
-            if notif_enabled && !first_tick {
-                let current_profile = falcond.as_ref().and_then(|s| s.active_profile.clone());
-                match (&prev_active_profile, &current_profile) {
-                    (None, Some(name)) => send_notification(
-                        "game-launch",
-                        &i18n("Game Launched"),
-                        &i18n("Falcond profile active: %s").replace("%s", name),
-                    ),
-                    (Some(_), None) => send_notification(
-                        "game-exit",
-                        &i18n("Game Exited"),
-                        &i18n("Falcond returned to idle"),
-                    ),
-                    _ => {}
-                }
-                prev_active_profile = current_profile;
-            } else if first_tick {
-                // Initialise tracker without triggering a spurious notification
-                prev_active_profile = falcond.as_ref().and_then(|s| s.active_profile.clone());
-                first_tick = false;
-            }
 
             apply_falcond_status(
                 falcond.as_ref(),
@@ -798,16 +780,6 @@ fn read_gpu_temp() -> (String, &'static str) {
         }
     }
     ("N/A".into(), "temp-normal")
-}
-
-/// Send a desktop notification via `GApplication`.
-fn send_notification(id: &str, title: &str, body: &str) {
-    let notification = gio::Notification::new(title);
-    notification.set_body(Some(body));
-    notification.set_icon(&gio::ThemedIcon::new("input-gaming-symbolic"));
-    if let Some(app) = gio::Application::default() {
-        app.send_notification(Some(id), &notification);
-    }
 }
 
 /// Read aggregate disk sectors (read, written) from `/proc/diskstats`.

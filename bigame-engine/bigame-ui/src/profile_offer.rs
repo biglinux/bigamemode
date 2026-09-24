@@ -32,6 +32,7 @@ const NOTIFICATION_ID: &str = "profile-offer";
 
 thread_local! {
     static OFFERED: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+    static LAST_GAME: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 /// Games the user asked never to be asked about again.
@@ -69,6 +70,9 @@ fn decline_forever(process: &str) {
 
 /// Whether this game should be offered a profile now.
 fn should_offer(game: &GameIdentity) -> bool {
+    if !crate::settings::load().offer_profiles {
+        return false;
+    }
     let turbo_on = bigame_core::systemd::Reader::system()
         .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
         .is_some_and(|u| u.is_active());
@@ -129,8 +133,18 @@ pub fn install(app: &adw::Application) {
         move |game| {
             let Some(game) = game.cloned() else {
                 app.withdraw_notification(NOTIFICATION_ID);
+                if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take()) {
+                    if crate::settings::load().notifications_enabled {
+                        let n = gio::Notification::new(&format!("{name} {}", i18n("closed")));
+                        n.set_body(Some(&i18n(
+                            "Everything the game's profile changed has been put back.",
+                        )));
+                        app.send_notification(Some("game-exit"), &n);
+                    }
+                }
                 return;
             };
+            LAST_GAME.with(|g| *g.borrow_mut() = Some(game.display_name.clone()));
             glib::spawn_future_local(async move {
                 let check = game.clone();
                 let offer = gio::spawn_blocking(move || should_offer(&check))
@@ -139,6 +153,8 @@ pub fn install(app: &adw::Application) {
                 if offer {
                     OFFERED.with(|o| o.borrow_mut().insert(game.process_name.clone()));
                     notify_offer(&app, &game);
+                } else if crate::settings::load().notifications_enabled {
+                    notify_detected(&app, &game);
                 }
             });
         }
@@ -165,6 +181,31 @@ fn notify_offer(app: &adw::Application, game: &GameIdentity) {
     );
     app.send_notification(Some(NOTIFICATION_ID), &notification);
     tracing::info!(process = %game.process_name, "offered a profile");
+}
+
+/// A game started and Turbo is handling it: say which profile is in force.
+fn notify_detected(app: &adw::Application, game: &GameIdentity) {
+    let turbo_on = bigame_core::systemd::Reader::system()
+        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+        .is_some_and(|u| u.is_active());
+    if !turbo_on {
+        return;
+    }
+    let profile = bigame_core::status::read()
+        .and_then(|s| s.active_profile)
+        .map_or_else(
+            || i18n("no profile yet"),
+            |p| {
+                if p == "Proton" {
+                    i18n("falcond's general Proton profile")
+                } else {
+                    p
+                }
+            },
+        );
+    let n = gio::Notification::new(&format!("{} · {}", i18n("Turbo"), game.display_name));
+    n.set_body(Some(&format!("{}: {profile}", i18n("Profile"))));
+    app.send_notification(Some("game-launch"), &n);
 }
 
 fn recommendation_for(process: &str) -> Option<(GameIdentity, Recommendation)> {

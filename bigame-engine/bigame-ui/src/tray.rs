@@ -127,7 +127,7 @@ impl ksni::Tray for BiGameTray {
     }
 
     fn activate(&mut self, _x: i32, _y: i32) {
-        let _ = self.tx.send(TrayAction::Activate);
+        notify(&self.tx, TrayAction::Activate);
     }
 
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
@@ -136,7 +136,7 @@ impl ksni::Tray for BiGameTray {
                 label: i18n("Show Dashboard"),
                 icon_name: "view-restore-symbolic".into(),
                 activate: Box::new(|tray: &mut Self| {
-                    let _ = tray.tx.send(TrayAction::Activate);
+                    notify(&tray.tx, TrayAction::Activate);
                 }),
                 ..Default::default()
             }),
@@ -151,7 +151,7 @@ impl ksni::Tray for BiGameTray {
                 items.push(ksni::MenuItem::Standard(ksni::menu::StandardItem {
                     label,
                     activate: Box::new(move |tray: &mut Self| {
-                        let _ = tray.tx.send(TrayAction::SwitchProfile(name.clone()));
+                        notify(&tray.tx, TrayAction::SwitchProfile(name.clone()));
                     }),
                     ..Default::default()
                 }));
@@ -163,7 +163,7 @@ impl ksni::Tray for BiGameTray {
             label: i18n("Quit"),
             icon_name: String::from("application-exit"),
             activate: Box::new(|tray: &mut Self| {
-                let _ = tray.tx.send(TrayAction::Quit);
+                notify(&tray.tx, TrayAction::Quit);
             }),
             ..Default::default()
         }));
@@ -192,6 +192,17 @@ impl TrayHandle {
 }
 
 /// Spawn system tray in a background thread. Returns a handle to update it and a receiver for actions.
+/// Send an action and wake the GTK main loop to handle it.
+///
+/// Instead of the main loop polling the channel four times a second for as
+/// long as the application ran, the tray thread asks it to drain the channel
+/// when -- and only when -- there is something in it.
+fn notify(tx: &mpsc::Sender<TrayAction>, action: TrayAction) {
+    if tx.send(action).is_ok() {
+        gtk4::glib::MainContext::default().invoke(crate::app::drain_tray_actions);
+    }
+}
+
 pub fn spawn() -> (TrayHandle, mpsc::Receiver<TrayAction>) {
     let (tx, rx) = mpsc::channel();
     let status = Arc::new(RwLock::new(Status::Idle));

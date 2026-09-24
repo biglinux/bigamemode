@@ -13,6 +13,44 @@ use crate::style;
 use crate::tray;
 use crate::window;
 
+thread_local! {
+    /// The tray's action channel and the application it acts on.
+    static TRAY: std::cell::RefCell<
+        Option<(std::sync::mpsc::Receiver<tray::TrayAction>, glib::WeakRef<adw::Application>)>,
+    > = const { std::cell::RefCell::new(None) };
+}
+
+/// Handle whatever the tray has sent. Called on the main thread, when the
+/// tray thread wakes it.
+pub fn drain_tray_actions() {
+    TRAY.with(|t| {
+        let guard = t.borrow();
+        let Some((rx, app)) = guard.as_ref() else {
+            return;
+        };
+        let Some(app) = app.upgrade() else {
+            return;
+        };
+        while let Ok(action) = rx.try_recv() {
+            match action {
+                tray::TrayAction::Activate => {
+                    if let Some(w) = app
+                        .active_window()
+                        .or_else(|| app.windows().into_iter().next())
+                    {
+                        w.set_visible(true);
+                        w.present();
+                    }
+                }
+                tray::TrayAction::Quit => app.quit(),
+                tray::TrayAction::SwitchProfile(name) => {
+                    tracing::info!("Tray: switching to profile '{name}'");
+                }
+            }
+        }
+    });
+}
+
 /// Reverse-domain application identifier.
 const APP_ID: &str = "com.biglinux.BiGameMode";
 
@@ -21,6 +59,14 @@ const APP_ID: &str = "com.biglinux.BiGameMode";
 /// The app stays alive in the background after the window is closed.
 /// Re-activating (e.g. via desktop file) will re-present the window.
 pub fn run() -> adw::glib::ExitCode {
+    // `--background` (from the login autostart entry) starts everything --
+    // tray, game watcher, profile offer -- without showing the window. It is
+    // taken out of the arguments because GApplication rejects options it was
+    // not told about.
+    let args: Vec<String> = std::env::args().collect();
+    let background = std::cell::Cell::new(args.iter().any(|a| a == "--background"));
+    let args: Vec<String> = args.into_iter().filter(|a| a != "--background").collect();
+
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|app| {
@@ -57,7 +103,7 @@ pub fn run() -> adw::glib::ExitCode {
         crate::profile_offer::install(app);
     });
 
-    app.connect_activate(|app| {
+    app.connect_activate(move |app| {
         // Re-present existing window or build new one
         if let Some(win) = app.active_window() {
             win.present();
@@ -68,38 +114,24 @@ pub fn run() -> adw::glib::ExitCode {
                 w.set_visible(false);
                 glib::Propagation::Stop
             });
-            win.present();
+            // Started at login: stay out of the way until asked for.
+            if background.replace(false) {
+                win.set_visible(false);
+            } else {
+                win.present();
+            }
 
             // System tray — poll actions from GTK main loop
             let (tray_handle, tray_rx) = tray::spawn();
-            let app_ref = app.clone();
 
-            // Poll tray actions
-            glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
-                while let Ok(action) = tray_rx.try_recv() {
-                    match action {
-                        tray::TrayAction::Activate => {
-                            if let Some(w) = app_ref.active_window() {
-                                w.set_visible(true);
-                                w.present();
-                            }
-                        }
-                        tray::TrayAction::Quit => {
-                            app_ref.quit();
-                        }
-                        tray::TrayAction::SwitchProfile(name) => {
-                            tracing::info!("Tray: switching to profile '{name}'");
-                        }
-                    }
-                }
-                glib::ControlFlow::Continue
-            });
+            // Tray actions arrive when the tray thread wakes the main loop.
+            TRAY.with(|t| *t.borrow_mut() = Some((tray_rx, app.downgrade())));
 
             start_status_loop(tray_handle, error_indicator);
         }
     });
 
-    app.run()
+    app.run_with_args(&args)
 }
 
 /// Keep the tray and the error indicator in step with the real state.
