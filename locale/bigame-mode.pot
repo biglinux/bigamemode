@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-24 02:13-0300\n"
+"POT-Creation-Date: 2026-09-24 02:27-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -302,6 +302,10 @@ msgstr ""
 msgid "Advanced: sets RADV_PERFTEST=afmf. Full AFMF requires amdgpu-pro; \n             on RADV (open driver) this is experimental."
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:40
+msgid "All"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:1256
 msgid "All features are available and ready"
 msgstr ""
@@ -337,10 +341,6 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:17
 msgid "Appearance"
-msgstr ""
-
-#: bigame-engine/bigame-ui/src/views/logs.rs:66
-msgid "Application Log"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/report.rs:36
@@ -433,12 +433,12 @@ msgstr ""
 msgid "BiGame-mode has no profile for this game yet. This is the profile it would create, and why each value was chosen."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/home.rs:231
-msgid "BiGame-mode is not intervening in games"
+#: bigame-engine/bigame-ui/src/views/logs.rs:46
+msgid "BiGame-mode helper"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:67
-msgid "BiGame-mode runtime events"
+#: bigame-engine/bigame-ui/src/views/home.rs:231
+msgid "BiGame-mode is not intervening in games"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:1061
@@ -590,6 +590,10 @@ msgstr ""
 msgid "Controlled by"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:249
+msgid "Copied"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/video.rs:381
 msgid "Copies dxgi.dll/nvngx.dll from source directory into game prefix on launch"
 msgstr ""
@@ -604,6 +608,11 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:155
 msgid "Copy diagnostics report"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:107
+#: bigame-engine/bigame-ui/src/views/logs.rs:121
+msgid "Copy what is shown"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:281
@@ -621,6 +630,10 @@ msgstr ""
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1155
 #: bigame-engine/bigame-ui/src/views/profiles.rs:938
 msgid "Could not delete profile: %s"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:404
+msgid "Could not export"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:543
@@ -873,6 +886,10 @@ msgstr ""
 msgid "Enter the exact name of the executable you want to trigger this profile.\nExamples: minecraft, dota2, steam"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:41
+msgid "Errors"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:489
 msgid "Everything a supporter needs about this machine. Your username, home \n         directory, hostname and public network addresses are removed as the \n         report is built."
 msgstr ""
@@ -888,6 +905,15 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:882
 msgid "Export failed: %s"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:393
+msgid "Export log"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:112
+#: bigame-engine/bigame-ui/src/views/logs.rs:124
+msgid "Export, with personal data masked"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:309
@@ -921,10 +947,6 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:234
 msgid "Falcond Daemon"
-msgstr ""
-
-#: bigame-engine/bigame-ui/src/views/logs.rs:24
-msgid "Falcond Status"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:576
@@ -961,6 +983,11 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:631
 msgid "Flow Scale (25-100%)"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:118
+#: bigame-engine/bigame-ui/src/views/logs.rs:97
+msgid "Follow new entries"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:21
@@ -1111,10 +1138,6 @@ msgstr ""
 
 #: data/com.biglinux.BiGameMode.desktop:5
 msgid "Gaming Performance Control"
-msgstr ""
-
-#: bigame-engine/bigame-ui/src/views/logs.rs:35
-msgid "Gaming Services Journal"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/tray.rs:110
@@ -1285,8 +1308,8 @@ msgstr ""
 msgid "Keep Screen Awake"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:53
-msgid "Kernel &amp; GPU Messages"
+#: bigame-engine/bigame-ui/src/views/logs.rs:47
+msgid "Kernel and GPU"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:374
@@ -1350,17 +1373,14 @@ msgstr ""
 msgid "Leave off to use the global defaults"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:25
-msgid "Live status from /tmp/falcond_status"
+#: bigame-engine/bigame-ui/src/views/logs.rs:402
+msgid "Log exported"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:80
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:101
 #: bigame-engine/bigame-ui/src/window.rs:139
 msgid "Logs"
-msgstr ""
-
-#: bigame-engine/bigame-ui/src/views/logs.rs:36
-msgid "Logs from falcond and related gaming services"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:556
@@ -1628,6 +1648,10 @@ msgstr ""
 msgid "Nothing has been measured on this hardware yet. Until it has, \n             settings are chosen from what the hardware reports it supports, \n             which is a weaker basis than a measurement."
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:353
+msgid "Nothing matches."
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:47
 msgid "Notifications"
 msgstr ""
@@ -1801,6 +1825,10 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/report.rs:154
 msgid "Power profile"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:50
+msgid "Power profiles"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:121
@@ -1978,10 +2006,6 @@ msgstr ""
 msgid "Real-time Telemetry"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:54
-msgid "Recent dmesg entries related to GPU and gaming"
-msgstr ""
-
 #: bigame-engine/bigame-ui/src/views/profiles.rs:648
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:225
 msgid "Recommended"
@@ -1991,7 +2015,8 @@ msgstr ""
 msgid "Recommended flow to make Turbo features work in-game"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:40
+#: bigame-engine/bigame-ui/src/views/logs.rs:102
+#: bigame-engine/bigame-ui/src/views/logs.rs:120
 msgid "Refresh"
 msgstr ""
 
@@ -2209,6 +2234,10 @@ msgstr ""
 msgid "Scripts"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:91
+msgid "Search"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:581
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:76
 msgid "Select Lossless.dll"
@@ -2241,6 +2270,10 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:1343
 msgid "Setup Assistant (step-by-step)"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:89
+msgid "Show"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/tray.rs:136
@@ -2339,6 +2372,10 @@ msgstr ""
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:242
 #: bigame-engine/bigame-ui/src/views/dashboard.rs:400
 msgid "Stopped"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:43
+msgid "Success"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:488
@@ -2550,6 +2587,10 @@ msgstr ""
 msgid "Waiting"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:42
+msgid "Warnings and errors"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/home.rs:296
 msgid "Watching for games"
 msgstr ""
@@ -2662,6 +2703,10 @@ msgstr ""
 msgid "does not actively manage latency under load"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:368
+msgid "errors"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/report.rs:83
 msgid "falcond applies a profile to each game while it runs and restores everything when it exits. Turbo turns it on and off: with Turbo off it does not run at all."
 msgstr ""
@@ -2692,6 +2737,10 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/report.rs:143
 msgid "falcond's general Proton profile"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:81
+msgid "falcond, BiGame-mode, the kernel's graphics drivers, Gamescope, sched-ext and power profiles, from the system journal."
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/report.rs:197
@@ -2759,6 +2808,10 @@ msgstr ""
 msgid "sched-ext scheduler"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/views/logs.rs:367
+msgid "shown"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/report.rs:198
 msgid "slower — not applied"
 msgstr ""
@@ -2787,6 +2840,10 @@ msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/video.rs:177
 msgid "vkBasalt Post-Processing"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/logs.rs:369
+msgid "warnings"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/home.rs:352

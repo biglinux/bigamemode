@@ -16,6 +16,7 @@ pub mod governor;
 pub mod hardware;
 pub mod inventory;
 pub mod launcher;
+pub mod logs;
 pub mod models;
 pub mod network;
 pub mod polkit;
