@@ -15,6 +15,8 @@ depends=(
     'glib2'
     'gtk4'
     'libadwaita'
+    'hicolor-icon-theme'
+    'bash'  # falcond-diag
 
     # The privileged helper: a system-bus service started by systemd, every
     # method authorised through Polkit.
