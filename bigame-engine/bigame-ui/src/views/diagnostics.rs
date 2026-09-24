@@ -56,11 +56,71 @@ const PROBE_DOMAINS: &[&str] = &[
 pub fn build() -> gtk4::Widget {
     let page = adw::PreferencesPage::new();
     page.add(&health_group());
+    page.add(&ai_graphics_group());
     page.add(&background_group());
     page.add(&steam_group());
     page.add(&network_group());
     page.add(&report_group());
     page.upcast()
+}
+
+// ── AI Graphics ─────────────────────────────────────────────────────────────
+
+/// Games BiGame-mode placed graphics files in, each with what is happening
+/// now — read from what the game loaded and `OptiScaler`'s own log — and a
+/// way into its AI Graphics page (details, repair, restore, report).
+fn ai_graphics_group() -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("AI Graphics"));
+    group.set_description(Some(&i18n(
+        "Games BiGame-mode has installed upscaler files into. Open one for its details, to \
+         repair it, to restore the game's own files, or to save a support report.",
+    )));
+    let empty = adw::ActionRow::builder()
+        .title(i18n("None"))
+        .subtitle(i18n("AI Graphics has not changed any game"))
+        .use_markup(false)
+        .build();
+    group.add(&empty);
+    let group_ref = group.clone();
+    glib::spawn_future_local(async move {
+        let found = gio::spawn_blocking(|| {
+            bigame_core::graphics::installed()
+                .into_iter()
+                .map(|t| {
+                    let status = bigame_core::graphics::status(&t);
+                    (t, status)
+                })
+                .collect::<Vec<_>>()
+        })
+        .await
+        .unwrap_or_default();
+        if found.is_empty() {
+            return;
+        }
+        group_ref.remove(&empty);
+        for (target, status) in found {
+            let row = adw::ActionRow::builder()
+                .title(&target.name)
+                .subtitle(crate::views::ai_graphics::status_text(&status))
+                .use_markup(false)
+                .build();
+            let open = gtk4::Button::builder()
+                .icon_name("go-next-symbolic")
+                .valign(gtk4::Align::Center)
+                .tooltip_text(i18n("Open"))
+                .css_classes(["flat"])
+                .build();
+            let t = target.clone();
+            open.connect_clicked(move |b| {
+                crate::views::ai_graphics::open(b, t.clone(), None);
+            });
+            row.add_suffix(&open);
+            row.set_activatable_widget(Some(&open));
+            group_ref.add(&row);
+        }
+    });
+    group
 }
 
 // ── Background load ─────────────────────────────────────────────────────────

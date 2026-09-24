@@ -9,6 +9,8 @@
 
 use serde::Serialize;
 
+use super::text::N_;
+
 /// A technology that can be active for a game.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -112,28 +114,32 @@ pub const RULES: &[Rule] = &[
         T::AntiCheat,
         V::Blocked,
         B::Upstream,
-        "OptiScaler is loaded into the game as a DLL; its own documentation says not to use it in online games, and anti-cheat can ban for it",
+        N_(
+            "OptiScaler is loaded into the game as a DLL; its own documentation says not to use it in online games, and anti-cheat can ban for it",
+        ),
     ),
     r(
         T::OptiScalerFrameGen,
         T::AntiCheat,
         V::Blocked,
         B::Upstream,
-        "OptiScaler is loaded into the game as a DLL; anti-cheat can ban for it",
+        N_("OptiScaler is loaded into the game as a DLL; anti-cheat can ban for it"),
     ),
     r(
         T::ReShade,
         T::AntiCheat,
         V::Blocked,
         B::Upstream,
-        "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs",
+        N_(
+            "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs",
+        ),
     ),
     r(
         T::RenoDx,
         T::AntiCheat,
         V::Blocked,
         B::Upstream,
-        "RenoDX needs ReShade's add-on build, which is for single-player games only",
+        N_("RenoDX needs ReShade's add-on build, which is for single-player games only"),
     ),
     // ── Upscalers: one at a time ───────────────────────────────────────────
     r(
@@ -141,84 +147,92 @@ pub const RULES: &[Rule] = &[
         T::NativeXess,
         V::SupportedWithConditions,
         B::TestedHere,
-        "OptiScaler takes over the game's XeSS: choose XeSS in the game's menu, and OptiScaler runs its own upscaler in its place",
+        N_(
+            "OptiScaler takes over the game's XeSS: choose XeSS in the game's menu, and OptiScaler runs its own upscaler in its place",
+        ),
     ),
     r(
         T::OptiScalerUpscaler,
         T::NativeFsr,
         V::SupportedWithConditions,
         B::Upstream,
-        "OptiScaler takes over the game's FSR: choose FSR in the game's menu",
+        N_("OptiScaler takes over the game's FSR: choose FSR in the game's menu"),
     ),
     r(
         T::OptiScalerUpscaler,
         T::NativeDlss,
         V::SupportedWithConditions,
         B::Upstream,
-        "OptiScaler takes over the game's DLSS: choose DLSS in the game's menu; on AMD and Intel this needs GPU spoofing",
+        N_(
+            "OptiScaler takes over the game's DLSS: choose DLSS in the game's menu; on AMD and Intel this needs GPU spoofing",
+        ),
     ),
     r(
         T::OptiScalerUpscaler,
         T::GamescopeUpscaling,
         V::Conflict,
         B::Principle,
-        "two upscalers in series: Gamescope would scale an image OptiScaler has already scaled; let the game render at the display's resolution",
+        N_(
+            "two upscalers in series: Gamescope would scale an image OptiScaler has already scaled; let the game render at the display's resolution",
+        ),
     ),
     r(
         T::OptiScalerUpscaler,
         T::WineFsr,
         V::Conflict,
         B::Principle,
-        "Wine's FSR upscales a lower fullscreen resolution — a second upscaler on top of OptiScaler's",
+        N_(
+            "Wine's FSR upscales a lower fullscreen resolution — a second upscaler on top of OptiScaler's",
+        ),
     ),
     r(
         T::NativeDlss,
         T::GamescopeUpscaling,
         V::Conflict,
         B::Principle,
-        "two upscalers in series: the game already upscales to its output resolution",
+        N_("two upscalers in series: the game already upscales to its output resolution"),
     ),
     r(
         T::NativeFsr,
         T::GamescopeUpscaling,
         V::Conflict,
         B::Principle,
-        "two upscalers in series: the game already upscales to its output resolution",
+        N_("two upscalers in series: the game already upscales to its output resolution"),
     ),
     r(
         T::NativeXess,
         T::GamescopeUpscaling,
         V::Conflict,
         B::Principle,
-        "two upscalers in series: the game already upscales to its output resolution",
+        N_("two upscalers in series: the game already upscales to its output resolution"),
     ),
     r(
         T::NativeDlss,
         T::WineFsr,
         V::Conflict,
         B::Principle,
-        "two upscalers in series",
+        N_("two upscalers in series"),
     ),
     r(
         T::NativeFsr,
         T::WineFsr,
         V::Conflict,
         B::Principle,
-        "two upscalers in series",
+        N_("two upscalers in series"),
     ),
     r(
         T::NativeXess,
         T::WineFsr,
         V::Conflict,
         B::Principle,
-        "two upscalers in series",
+        N_("two upscalers in series"),
     ),
     r(
         T::GamescopeUpscaling,
         T::WineFsr,
         V::Conflict,
         B::Principle,
-        "two upscalers in series",
+        N_("two upscalers in series"),
     ),
     // ── Frame generation: one at a time ────────────────────────────────────
     r(
@@ -226,21 +240,23 @@ pub const RULES: &[Rule] = &[
         T::LsfgVk,
         V::Conflict,
         B::Principle,
-        "two frame generators in series interpolate interpolated frames",
+        N_("two frame generators in series interpolate interpolated frames"),
     ),
     r(
         T::NativeFrameGen,
         T::LsfgVk,
         V::Conflict,
         B::Principle,
-        "two frame generators in series interpolate interpolated frames",
+        N_("two frame generators in series interpolate interpolated frames"),
     ),
     r(
         T::NativeFrameGen,
         T::OptiScalerFrameGen,
         V::Conflict,
         B::Upstream,
-        "OptiScaler's frame generation replaces the game's; keep the game's off when OptiScaler's is on",
+        N_(
+            "OptiScaler's frame generation replaces the game's; keep the game's off when OptiScaler's is on",
+        ),
     ),
     // ── Upscaler + a frame generator: different jobs ───────────────────────
     r(
@@ -248,14 +264,18 @@ pub const RULES: &[Rule] = &[
         T::LsfgVk,
         V::SupportedWithConditions,
         B::Principle,
-        "different jobs (upscaling, then frame generation), but lsfg-vk upstream asks for no other Vulkan layers and does not support VRR",
+        N_(
+            "different jobs (upscaling, then frame generation), but lsfg-vk upstream asks for no other Vulkan layers and does not support VRR",
+        ),
     ),
     r(
         T::OptiScalerUpscaler,
         T::OptiScalerFrameGen,
         V::Experimental,
         B::Upstream,
-        "OptiScaler's frame generation needs its upscaler on; reported to work, not established here — and it raises latency",
+        N_(
+            "OptiScaler's frame generation needs its upscaler on; reported to work, not established here — and it raises latency",
+        ),
     ),
     // ── Overlays and effects ───────────────────────────────────────────────
     r(
@@ -263,49 +283,59 @@ pub const RULES: &[Rule] = &[
         T::MangoHud,
         V::Supported,
         B::TestedHere,
-        "the overlay showed normally with OptiScaler loaded",
+        N_("the overlay showed normally with OptiScaler loaded"),
     ),
     r(
         T::OptiScalerFrameGen,
         T::MangoHud,
         V::SupportedWithConditions,
         B::Upstream,
-        "MangoHud counts generated frames: the number shown is presented frames, not rendered ones",
+        N_(
+            "MangoHud counts generated frames: the number shown is presented frames, not rendered ones",
+        ),
     ),
     r(
         T::LsfgVk,
         T::MangoHud,
         V::SupportedWithConditions,
         B::Upstream,
-        "MangoHud misses lsfg-vk's frames if it loads before it; lsfg-vk upstream suggests disabling other layers",
+        N_(
+            "MangoHud misses lsfg-vk's frames if it loads before it; lsfg-vk upstream suggests disabling other layers",
+        ),
     ),
     r(
         T::OptiScalerUpscaler,
         T::ReShade,
         V::SupportedWithConditions,
         B::Upstream,
-        "only one can be dxgi.dll: ReShade goes in OptiScaler's plugins folder, or is loaded by OptiScaler (LoadReshade)",
+        N_(
+            "only one can be dxgi.dll: ReShade goes in OptiScaler's plugins folder, or is loaded by OptiScaler (LoadReshade)",
+        ),
     ),
     r(
         T::OptiScalerUpscaler,
         T::RenoDx,
         V::Experimental,
         B::None,
-        "RenoDX runs as a ReShade add-on loaded through OptiScaler; not established, and RenoDX does not support Linux officially",
+        N_(
+            "RenoDX runs as a ReShade add-on loaded through OptiScaler; not established, and RenoDX does not support Linux officially",
+        ),
     ),
     r(
         T::RenoDx,
         T::Hdr,
         V::SupportedWithConditions,
         B::Upstream,
-        "needs an HDR swapchain (DXVK_HDR=1 and an HDR-capable display and compositor) and no other HDR conversion (AutoHDR, RTX HDR)",
+        N_(
+            "needs an HDR swapchain (DXVK_HDR=1 and an HDR-capable display and compositor) and no other HDR conversion (AutoHDR, RTX HDR)",
+        ),
     ),
     r(
         T::ReShade,
         T::RenoDx,
         V::SupportedWithConditions,
         B::Upstream,
-        "RenoDX needs ReShade 6.8+ with full add-on support",
+        N_("RenoDX needs ReShade 6.8+ with full add-on support"),
     ),
 ];
 
@@ -321,7 +351,7 @@ pub fn check(a: Tech, b: Tech) -> Rule {
             a,
             b,
             verdict: Verdict::Unknown,
-            why: "not established either way",
+            why: N_("not established either way"),
             basis: Basis::None,
         })
 }

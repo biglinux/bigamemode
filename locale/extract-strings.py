@@ -31,8 +31,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 POTFILES = ROOT / "locale" / "POTFILES.in"
 POT = ROOT / "locale" / "bigame-mode.pot"
 
-# `i18n(` / `i18n (` followed by a string literal.
-CALL = re.compile(r"\bi18n\s*\(\s*")
+# `i18n(` / `i18n (` followed by a string literal — and `N_(`, the no-op
+# marker bigame-core uses for text it builds for the UI to translate (core has
+# no gettext of its own; the UI calls `i18n` on the marked template).
+CALL = re.compile(r"\b(?:i18n|N_)\s*\(\s*")
 # Desktop/AppStream files: Name=, Comment=, GenericName=, Keywords=
 DESKTOP_KEY = re.compile(r"^(Name|GenericName|Comment|Keywords)\s*=\s*(.+)$")
 XML_TAG = re.compile(r"<(name|summary|caption|p)>([^<]+)</\1>")

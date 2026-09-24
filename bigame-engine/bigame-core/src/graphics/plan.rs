@@ -12,6 +12,8 @@
 //! upstream documents but nobody has checked here is "Compatible"; one that
 //! depends on spoofing or is reported but not established is
 //! "Experimental".
+//!
+//! Every sentence is a [`Text`]: a translatable template and its values.
 
 use std::path::PathBuf;
 
@@ -23,9 +25,10 @@ use super::pe::Machine;
 use super::report::{Confidence, Report};
 use super::rules::{self, Tech};
 use super::scan::ProxyOwner;
+use super::text::{N_, Text};
 use crate::hardware::GpuVendor;
 
-/// How good a plan is (§42: no false precision — five levels).
+/// How good a plan is (no false precision — five levels).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Standing {
@@ -46,15 +49,29 @@ pub enum Standing {
 #[serde(rename_all = "snake_case", tag = "kind", content = "text")]
 pub enum Step {
     /// Something to select in the game's own menu.
-    InGame(String),
+    InGame(Text),
     /// Something BiGame-mode would install.
-    Install(String),
+    Install(Text),
     /// Something BiGame-mode would turn off for this game.
-    Disable(String),
+    Disable(Text),
     /// Something left as it is, on purpose.
-    Keep(String),
+    Keep(Text),
     /// Information.
-    Note(String),
+    Note(Text),
+}
+
+impl Step {
+    /// The sentence.
+    #[must_use]
+    pub fn text(&self) -> &Text {
+        match self {
+            Self::InGame(t)
+            | Self::Install(t)
+            | Self::Disable(t)
+            | Self::Keep(t)
+            | Self::Note(t) => t,
+        }
+    }
 }
 
 /// A plan.
@@ -63,7 +80,7 @@ pub struct Plan {
     /// How good.
     pub standing: Standing,
     /// One line: what the game will run.
-    pub summary: String,
+    pub summary: Text,
     /// The steps, in order.
     pub steps: Vec<Step>,
     /// `OptiScaler` configuration, when the plan installs it.
@@ -91,10 +108,10 @@ pub struct Context {
     pub mangohud: bool,
 }
 
-fn nothing(standing: Standing, summary: &str, steps: Vec<Step>) -> Plan {
+fn nothing(standing: Standing, summary: Text, steps: Vec<Step>) -> Plan {
     Plan {
         standing,
-        summary: summary.to_owned(),
+        summary,
         steps,
         optiscaler: None,
         files: Vec::new(),
@@ -103,18 +120,13 @@ fn nothing(standing: Standing, summary: &str, steps: Vec<Step>) -> Plan {
     }
 }
 
-/// The game's own upscaler that is best for `vendor`, as a menu instruction.
-fn native_choice(r: &Report, vendor: GpuVendor) -> Option<(String, Tech)> {
+/// The game's own upscaler that is best for `vendor`: its name (a product
+/// name, not translated) and technology.
+fn native_choice(r: &Report, vendor: GpuVendor) -> Option<(&'static str, Tech)> {
     let n = &r.native;
-    let dlss = n
-        .dlss
-        .as_ref()
-        .map(|_| ("DLSS".to_owned(), Tech::NativeDlss));
-    let fsr = n.fsr.as_ref().map(|_| ("FSR".to_owned(), Tech::NativeFsr));
-    let xess = n
-        .xess
-        .as_ref()
-        .map(|_| ("XeSS".to_owned(), Tech::NativeXess));
+    let dlss = n.dlss.as_ref().map(|_| ("DLSS", Tech::NativeDlss));
+    let fsr = n.fsr.as_ref().map(|_| ("FSR", Tech::NativeFsr));
+    let xess = n.xess.as_ref().map(|_| ("XeSS", Tech::NativeXess));
     match vendor {
         GpuVendor::Nvidia => dlss.or(xess).or(fsr),
         GpuVendor::Intel => xess.or(fsr),
@@ -130,62 +142,68 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     if cfg.mode == Mode::Off {
         return nothing(
             Standing::NotRecommended,
-            "AI Graphics is off for this game",
+            Text::plain(N_("AI Graphics is off for this game")),
             vec![],
         );
     }
     let vendor = r.gpu().map_or(GpuVendor::Other, |g| g.vendor);
     let fsr4 = r.gpu().is_some_and(super::report::GpuInfo::fsr4);
     let native = native_choice(r, vendor);
-    let keep_native = |why: &str| -> Plan {
-        match &native {
+    let keep_native = |why: Text| -> Plan {
+        match native {
             Some((name, _)) => nothing(
                 Standing::Recommended,
-                &format!("the game's own {name}"),
+                Text::with(N_("the game's own %s"), [name]),
                 vec![
-                    Step::InGame(format!(
-                        "choose {name} (Quality) in the game's graphics menu"
+                    Step::InGame(Text::with(
+                        N_("choose %s (Quality) in the game's graphics menu"),
+                        [name],
                     )),
-                    Step::Keep(format!("no files are changed: {why}")),
+                    Step::Keep(Text::plain(N_("no files are changed"))),
+                    Step::Note(why),
                 ],
             ),
             None => nothing(
                 Standing::NotRecommended,
-                "no upscaler available",
-                vec![Step::Note(format!(
-                    "the game ships no DLSS, FSR or XeSS, and {why}"
-                ))],
+                Text::plain(N_("no upscaler available")),
+                vec![
+                    Step::Note(Text::plain(N_("the game ships no DLSS, FSR or XeSS"))),
+                    Step::Note(why),
+                ],
             ),
         }
     };
 
     // Accounts first.
     if let Some(ac) = r.anti_cheat.first() {
-        let mut p = keep_native("graphics injection is disabled for games with anti-cheat");
+        let mut p = keep_native(Text::plain(N_(
+            "graphics injection is disabled for games with anti-cheat",
+        )));
         p.steps.insert(
             0,
-            Step::Note(format!(
-                "{} protects this game ({}): external graphics injection is disabled to avoid \
-                 compatibility problems or account penalties",
-                ac.name,
-                ac.evidence.display()
+            Step::Note(Text::with(
+                N_("%s protects this game (%s): external graphics injection is disabled to avoid compatibility problems or account penalties"),
+                [ac.name.clone(), ac.evidence.display().to_string()],
             )),
         );
-        if native.is_none() {
-            p.standing = Standing::Blocked;
-        }
-        p.summary = if native.is_some() {
-            format!("{} — injection blocked by {}", p.summary, ac.name)
+        p.summary = if let Some((name, _)) = native {
+            Text::with(
+                N_("the game's own %s — injection blocked by %s"),
+                [name.to_owned(), ac.name.clone()],
+            )
         } else {
-            format!("blocked by {}", ac.name)
+            p.standing = Standing::Blocked;
+            Text::with(N_("blocked by %s"), [ac.name.clone()])
         };
         return p;
     }
     if r.machine == Some(Machine::X86) {
-        return keep_native("OptiScaler exists only for 64-bit games and this one is 32-bit");
+        return keep_native(Text::plain(N_(
+            "OptiScaler exists only for 64-bit games and this one is 32-bit",
+        )));
     }
     if cfg.mode == Mode::Advanced && cfg.layer == Layer::Native {
-        return keep_native("Native was chosen");
+        return keep_native(Text::plain(N_("only the game's own options were chosen")));
     }
 
     // Where OptiScaler would take over, and what it would run.
@@ -211,70 +229,78 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         _ => false,
     };
     if want_output == Output::Dlss && vendor == GpuVendor::Nvidia && n.dlss.is_some() {
-        return keep_native("DLSS is the game's own feature and runs natively on this GPU");
+        return keep_native(Text::plain(N_(
+            "DLSS is the game's own feature and runs natively on this GPU",
+        )));
     }
     if !optiscaler_worth_it {
-        return keep_native(if vendor == GpuVendor::Amd {
-            "FSR 4 needs an RDNA 4 GPU under Proton, so OptiScaler would bring nothing the game does not have"
+        return keep_native(Text::plain(if vendor == GpuVendor::Amd {
+            N_(
+                "FSR 4 needs an RDNA 4 GPU under Proton, so OptiScaler would bring nothing the game does not have",
+            )
         } else {
-            "the game's own upscaler is the best this GPU runs"
-        });
+            N_("the game's own upscaler is the best this GPU runs")
+        }));
     }
     let (input, input_name, standing, input_why) = if n.xess.is_some() {
         (
             Input::Xess,
             "XeSS",
             Standing::Recommended,
-            "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on this machine",
+            N_(
+                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on this machine",
+            ),
         )
     } else if n.fsr.is_some() {
         (
             Input::Fsr,
             "FSR",
             Standing::Compatible,
-            "OptiScaler takes over the game's FSR — documented upstream, not yet checked on this machine",
+            N_(
+                "OptiScaler takes over the game's FSR — documented upstream, not yet checked on this machine",
+            ),
         )
     } else if n.dlss.is_some() {
         (
             Input::Dlss,
             "DLSS",
             Standing::Experimental,
-            "the game has only DLSS, which it hides on this GPU: OptiScaler has to report an NVIDIA GPU (spoofing), which can send the game down NVIDIA-only code paths",
+            N_(
+                "the game has only DLSS, which it hides on this GPU: OptiScaler has to report an NVIDIA GPU (spoofing), which can send the game down NVIDIA-only code paths",
+            ),
         )
     } else {
         return nothing(
             Standing::NotRecommended,
-            "no upscaler for OptiScaler to take over",
-            vec![Step::Note(
-                "OptiScaler replaces an upscaler the game already has; this game ships none".into(),
-            )],
+            Text::plain(N_("no upscaler for OptiScaler to take over")),
+            vec![Step::Note(Text::plain(N_(
+                "OptiScaler replaces an upscaler the game already has; this game ships none",
+            )))],
         );
     };
     let api = r.api.api.unwrap_or(Api::Dx12);
-    let slot = match r
+    if let Some(p) = r
         .proxies
         .iter()
         .find(|p| p.slot == "dxgi.dll" && p.owner != ProxyOwner::OptiScaler)
     {
-        None => "dxgi.dll".to_owned(),
-        Some(p) => {
-            return nothing(
-                Standing::NotRecommended,
-                "the DLL slot OptiScaler needs is taken",
-                vec![Step::Note(format!(
-                    "dxgi.dll beside the game belongs to {:?}; it is not overwritten. Remove it, or \
-                     load it through OptiScaler, before AI Graphics can install OptiScaler",
-                    p.owner
-                ))],
-            );
-        }
-    };
+        return nothing(
+            Standing::NotRecommended,
+            Text::plain(N_("the DLL slot OptiScaler needs is taken")),
+            vec![Step::Note(Text::with(
+                N_(
+                    "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler",
+                ),
+                [format!("{:?}", p.owner)],
+            ))],
+        );
+    }
     let frame_gen = match (cfg.mode, cfg.frame_generation) {
         (Mode::Advanced, FrameGeneration::OptiScaler) if cfg.experimental => FrameGen::OptiFgFsr,
         _ => FrameGen::Off,
     };
     let o = optiscaler::Options {
-        proxy: slot,
+        proxy: "dxgi.dll".to_owned(),
         api,
         input,
         output: want_output,
@@ -302,57 +328,61 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     );
 
     let mut steps = vec![
-        Step::Install(format!(
-            "OptiScaler {} as {} beside the game, with {} configured as the output",
-            optiscaler::Release::recommended().version,
-            o.proxy,
-            output_name
+        Step::Install(Text::with(
+            N_("OptiScaler %s as %s beside the game, with %s configured as the output"),
+            [
+                optiscaler::Release::recommended().version,
+                o.proxy.clone(),
+                output_name.to_owned(),
+            ],
         )),
-        Step::InGame(format!(
-            "choose {input_name} in the game's graphics menu, at the quality you want — OptiScaler runs {output_name} in its place"
+        Step::InGame(Text::with(
+            N_(
+                "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place",
+            ),
+            [input_name, output_name],
         )),
-        Step::Note(input_why.to_owned()),
-        Step::Keep(
-            "every file that is replaced is backed up first, and Remove puts it back".into(),
-        ),
+        Step::Note(Text::plain(input_why)),
+        Step::Keep(Text::plain(N_(
+            "every file that is replaced is backed up first, and Restore puts it back",
+        ))),
     ];
     if r.api.confidence >= Confidence::Likely {
-        steps.push(Step::Note(format!(
-            "the game's API is not certain yet ({}); it is confirmed the first time the game runs",
-            r.api.evidence.join("; ")
-        )));
+        steps.push(Step::Note(Text::plain(N_(
+            "the game's graphics API is not certain yet; it is confirmed the first time the game runs",
+        ))));
     }
     let mut disable = Vec::new();
     let mut active = vec![Tech::OptiScalerUpscaler];
     if ctx.gamescope_upscaling {
         disable.push(Tech::GamescopeUpscaling);
-        steps.push(Step::Disable(
-            "Gamescope upscaling for this game: two upscalers in series".into(),
-        ));
+        steps.push(Step::Disable(Text::plain(N_(
+            "Gamescope upscaling for this game: two upscalers in series",
+        ))));
     }
     if ctx.wine_fsr {
         disable.push(Tech::WineFsr);
-        steps.push(Step::Disable(
-            "Wine FSR for this game: two upscalers in series".into(),
-        ));
+        steps.push(Step::Disable(Text::plain(N_(
+            "Wine FSR for this game: two upscalers in series",
+        ))));
     }
     let mut standing = standing;
     if frame_gen != FrameGen::Off {
         active.push(Tech::OptiScalerFrameGen);
         standing = standing.max(Standing::Experimental);
-        steps.push(Step::Note(
-            "frame generation raises the presented frame rate, not the rendered one, and adds latency".into(),
-        ));
+        steps.push(Step::Note(Text::plain(N_(
+            "frame generation raises the presented frame rate, not the rendered one, and adds latency",
+        ))));
         if ctx.lsfg {
             disable.push(Tech::LsfgVk);
-            steps.push(Step::Disable(
-                "lsfg-vk for this game: two frame generators in series".into(),
-            ));
+            steps.push(Step::Disable(Text::plain(N_(
+                "lsfg-vk for this game: two frame generators in series",
+            ))));
         }
         if n.frame_gen() {
-            steps.push(Step::InGame(
-                "turn the game's own frame generation off".into(),
-            ));
+            steps.push(Step::InGame(Text::plain(N_(
+                "turn the game's own frame generation off",
+            ))));
         }
     } else if ctx.lsfg {
         active.push(Tech::LsfgVk);
@@ -363,7 +393,10 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     let problems = rules::problems(&active);
     Plan {
         standing,
-        summary: format!("{output_name} through OptiScaler, from the game's {input_name}"),
+        summary: Text::with(
+            N_("%s through OptiScaler, from the game's %s"),
+            [output_name, input_name],
+        ),
         steps,
         optiscaler: Some(o),
         files,
@@ -439,7 +472,10 @@ mod tests {
             &Context::default(),
         );
         assert_eq!(p.standing, Standing::Recommended);
-        assert_eq!(p.summary, "FSR 4 through OptiScaler, from the game's XeSS");
+        assert_eq!(
+            p.summary.english(),
+            "FSR 4 through OptiScaler, from the game's XeSS"
+        );
         let o = p.optiscaler.unwrap();
         assert_eq!(
             (o.input, o.output, o.proxy.as_str()),
@@ -453,7 +489,7 @@ mod tests {
         assert!(
             p.steps
                 .iter()
-                .any(|s| matches!(s, Step::InGame(t) if t.contains("XeSS")))
+                .any(|s| matches!(s, Step::InGame(t) if t.english().contains("XeSS")))
         );
     }
 
@@ -466,7 +502,7 @@ mod tests {
         );
         assert_eq!(p.standing, Standing::Recommended);
         assert!(p.optiscaler.is_none() && p.files.is_empty());
-        assert_eq!(p.summary, "the game's own XeSS");
+        assert_eq!(p.summary.english(), "the game's own XeSS");
     }
 
     #[test]
@@ -476,7 +512,7 @@ mod tests {
             &recommended(),
             &Context::default(),
         );
-        assert_eq!(p.summary, "the game's own DLSS");
+        assert_eq!(p.summary.english(), "the game's own DLSS");
         assert!(p.files.is_empty());
     }
 
@@ -489,7 +525,7 @@ mod tests {
         });
         let p = plan(&r, &recommended(), &Context::default());
         assert!(p.optiscaler.is_none() && p.files.is_empty());
-        assert!(p.summary.contains("blocked by Easy Anti-Cheat"));
+        assert!(p.summary.english().contains("blocked by Easy Anti-Cheat"));
         r.native = Native::default();
         assert_eq!(
             plan(&r, &recommended(), &Context::default()).standing,

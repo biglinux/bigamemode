@@ -25,6 +25,7 @@ use crate::i18n::i18n;
 struct Page {
     target: Target,
     cfg: RefCell<AiGraphicsConfig>,
+    analysis: RefCell<Option<Analysis>>,
     body: gtk4::Box,
     apply: gtk4::Button,
     repair: gtk4::Button,
@@ -95,6 +96,21 @@ fn confidence_text(c: Confidence) -> String {
     }
 }
 
+/// A sentence from bigame-core, translated: the template through gettext,
+/// then its values filled in.
+fn tr(t: &bigame_core::graphics::text::Text) -> String {
+    bigame_core::graphics::text::Text::fill(&i18n(t.template), &t.args)
+}
+
+/// Start a sentence with a capital: core writes steps as clauses ("choose
+/// `XeSS` in the game's menu"), and a row title reads as a sentence.
+fn sentence(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
+}
+
 fn row(title: &str, subtitle: &str) -> adw::ActionRow {
     adw::ActionRow::builder()
         .title(title)
@@ -113,7 +129,7 @@ fn step_row(step: &Step) -> adw::ActionRow {
         Step::Note(t) => ("dialog-information-symbolic", t),
     };
     let r = adw::ActionRow::builder()
-        .title(text)
+        .title(sentence(&tr(text)))
         .use_markup(false)
         .build();
     r.set_title_lines(0);
@@ -138,7 +154,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
 
     // ── Recommendation ───────────────────────────────────────────────
     let rec = adw::PreferencesGroup::new();
-    rec.set_title(&p.summary);
+    rec.set_title(&sentence(&tr(&p.summary)));
     let (standing, class) = standing_text(p.standing);
     let badge = gtk4::Label::new(Some(&standing));
     badge.add_css_class(class);
@@ -179,7 +195,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     for problem in &p.problems {
         rec.add(&row(
             &format!("{:?} + {:?}", problem.a, problem.b),
-            problem.why,
+            &i18n(problem.why),
         ));
     }
     page.body.append(&rec);
@@ -215,7 +231,7 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
     }
     details.add_row(&row(&i18n("Graphics API"), &api_sub));
     for e in &r.api.evidence {
-        details.add_row(&row("", e));
+        details.add_row(&row("", &tr(e)));
     }
     if let Some(g) = r.gpu() {
         let mut sub = g.name.clone();
@@ -403,6 +419,7 @@ fn refresh(page: &Rc<Page>) {
         busy(&page, None);
         if let Ok(a) = analysis {
             render(&page, &a);
+            *page.analysis.borrow_mut() = Some(a);
         }
     });
 }
@@ -442,6 +459,11 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
         &i18n("AI Graphics"),
         &target.name,
     )));
+    let report_btn = gtk4::Button::builder()
+        .icon_name("document-save-symbolic")
+        .tooltip_text(i18n("Save a support report"))
+        .build();
+    header.pack_end(&report_btn);
 
     let body = gtk4::Box::new(gtk4::Orientation::Vertical, 18);
     body.set_margin_top(12);
@@ -504,6 +526,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
     let page = Rc::new(Page {
         target,
         cfg: RefCell::new(cfg),
+        analysis: RefCell::new(None),
         body,
         apply: apply.clone(),
         repair: repair.clone(),
@@ -608,6 +631,35 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 };
                 overlay.add_toast(adw::Toast::new(&text));
                 refresh(&page);
+            });
+        });
+    }
+
+    {
+        let page = page.clone();
+        let overlay = overlay.clone();
+        report_btn.connect_clicked(move |_| {
+            let Some(a) = page.analysis.borrow().clone() else {
+                return;
+            };
+            let page = page.clone();
+            let overlay = overlay.clone();
+            glib::spawn_future_local(async move {
+                busy(&page, Some(&i18n("Writing the report…")));
+                let target = page.target.clone();
+                let dest = glib::user_special_dir(glib::UserDirectory::Downloads)
+                    .unwrap_or_else(glib::home_dir);
+                let result = gio::spawn_blocking(move || {
+                    bigame_core::graphics::support::write_report(&target, &a, &dest)
+                })
+                .await;
+                busy(&page, None);
+                let text = match result {
+                    Ok(Ok(path)) => format!("{} {}", i18n("Report saved to"), path.display()),
+                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not write the report")),
+                    Err(_) => i18n("Could not write the report"),
+                };
+                overlay.add_toast(adw::Toast::new(&text));
             });
         });
     }

@@ -15,6 +15,8 @@ pub mod report;
 pub mod rules;
 pub mod runtime;
 pub mod scan;
+pub mod support;
+pub mod text;
 pub mod transaction;
 
 use std::path::{Path, PathBuf};
@@ -61,6 +63,31 @@ pub fn launch_disables(state: &Path, process: &str) -> Vec<rules::Tech> {
     } else {
         Vec::new()
     }
+}
+
+/// Every game BiGame-mode has placed files in, as targets.
+#[must_use]
+pub fn installed() -> Vec<Target> {
+    let state = state_dir();
+    let Ok(dirs) = std::fs::read_dir(&state) else {
+        return Vec::new();
+    };
+    let mut out: Vec<Target> = dirs
+        .flatten()
+        .filter_map(|d| {
+            let key = d.file_name().to_string_lossy().into_owned();
+            let m = manifest::Manifest::load(&state, &key).ok().flatten()?;
+            let process = m.process.clone()?;
+            Some(Target {
+                name: process.clone(),
+                app_id: key.strip_prefix("steam-").map(str::to_owned),
+                process,
+                install_root: m.install_root.clone(),
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
 }
 
 /// A game AI Graphics works on.
@@ -219,6 +246,40 @@ pub fn status(target: &Target) -> runtime::Status {
         &|pid| std::fs::read_to_string(format!("/proc/{pid}/maps")).ok(),
         &runtime::fresh_log,
     )
+}
+
+/// The status for a game that is running, from its identity — no process
+/// scan. `None` when BiGame-mode has installed nothing in it.
+#[must_use]
+pub fn status_running(game: &crate::running::GameIdentity) -> Option<runtime::Status> {
+    let root = game.install_path.as_ref()?;
+    let key = manifest::game_key(game.steam_app_id.as_deref(), &game.process_name, root);
+    let installed = manifest::Manifest::load(&state_dir(), &key)
+        .ok()
+        .flatten()?;
+    let exe_dir = installed
+        .entries
+        .iter()
+        .find(|e| {
+            e.path
+                .file_name()
+                .is_some_and(|n| n.eq_ignore_ascii_case("OptiScaler.ini"))
+        })
+        .map_or_else(
+            || root.clone(),
+            |e| {
+                installed
+                    .install_root
+                    .join(e.path.parent().unwrap_or_else(|| Path::new("")))
+            },
+        );
+    let age = runtime::process_age(game.pid)?;
+    Some(runtime::status(
+        Some(&installed),
+        Some((game.pid, exe_dir.as_path(), age)),
+        &|pid| std::fs::read_to_string(format!("/proc/{pid}/maps")).ok(),
+        &runtime::fresh_log,
+    ))
 }
 
 /// Carry out `plan` for `target`: download (or reuse) the pinned

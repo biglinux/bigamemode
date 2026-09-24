@@ -13,6 +13,7 @@ use super::manifest::Manifest;
 use super::optiscaler::Api;
 use super::pe::Machine;
 use super::scan::{AntiCheat, ComponentKind, GameScan, Proxy};
+use super::text::{N_, Text};
 use crate::hardware::{GpuVendor, Hardware};
 use crate::running::{GameIdentity, Graphics, Runtime};
 
@@ -38,7 +39,7 @@ pub struct ApiEvidence {
     /// How sure.
     pub confidence: Confidence,
     /// What pointed there, in words.
-    pub evidence: Vec<String>,
+    pub evidence: Vec<Text>,
     /// The translation layer seen in the running game (`VKD3D-Proton`, `DXVK`).
     pub translation: Option<&'static str>,
 }
@@ -148,7 +149,11 @@ impl Report {
 
 /// Decide the API from the running process, the executable's imports, and
 /// the renderer-specific DLLs the game ships.
+///
+/// One linear ladder of evidence, strongest first; splitting it would hide
+/// the order, which is the point.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
     let mut evidence = Vec::new();
     let translation = match running {
@@ -158,7 +163,9 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
     };
     match running {
         Some(Graphics::Vkd3dProton) => {
-            evidence.push("the running game has VKD3D-Proton (Direct3D 12) loaded".to_owned());
+            evidence.push(Text::plain(N_(
+                "the running game has VKD3D-Proton (Direct3D 12) loaded",
+            )));
             return ApiEvidence {
                 api: Some(Api::Dx12),
                 confidence: Confidence::Fact,
@@ -167,7 +174,9 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
             };
         }
         Some(Graphics::Vulkan) => {
-            evidence.push("the running game renders with Vulkan directly".to_owned());
+            evidence.push(Text::plain(N_(
+                "the running game renders with Vulkan directly",
+            )));
             return ApiEvidence {
                 api: Some(Api::Vulkan),
                 confidence: Confidence::Fact,
@@ -177,13 +186,15 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
         }
         Some(Graphics::Dxvk) => {
             // DXVK covers D3D8 to D3D11; only D3D11 matters for upscalers.
-            evidence.push("the running game has DXVK (Direct3D 11 or older) loaded".to_owned());
+            evidence.push(Text::plain(N_(
+                "the running game has DXVK (Direct3D 11 or older) loaded",
+            )));
         }
         _ => {}
     }
     let links = |dll: &str| scan.executable_pe.as_ref().is_some_and(|p| p.links(dll));
     if links("d3d12.dll") {
-        evidence.push("the executable links d3d12.dll".to_owned());
+        evidence.push(Text::with(N_("the executable links %s"), ["d3d12.dll"]));
         return ApiEvidence {
             api: Some(Api::Dx12),
             confidence: Confidence::Detected,
@@ -192,7 +203,7 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
         };
     }
     if links("vulkan-1.dll") {
-        evidence.push("the executable links vulkan-1.dll".to_owned());
+        evidence.push(Text::with(N_("the executable links %s"), ["vulkan-1.dll"]));
         return ApiEvidence {
             api: Some(Api::Vulkan),
             confidence: Confidence::Detected,
@@ -202,7 +213,7 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
     }
     if links("d3d11.dll") || running == Some(Graphics::Dxvk) {
         if links("d3d11.dll") {
-            evidence.push("the executable links d3d11.dll".to_owned());
+            evidence.push(Text::with(N_("the executable links %s"), ["d3d11.dll"]));
         }
         return ApiEvidence {
             api: Some(Api::Dx11),
@@ -223,14 +234,14 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
         .filter(|d| d.contains("d3d12") || d.contains("dx12"))
         .collect();
     if !dx12_libs.is_empty() {
-        evidence.push(format!(
-            "the game ships Direct3D 12 libraries ({}); it may also have a DX11 renderer",
-            dx12_libs
+        evidence.push(Text::with(
+            N_("the game ships Direct3D 12 libraries (%s); it may also have a DX11 renderer"),
+            [dx12_libs
                 .iter()
                 .take(3)
                 .map(|s| s.as_str())
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(", ")],
         ));
         return ApiEvidence {
             api: Some(Api::Dx12),
@@ -239,10 +250,9 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
             translation,
         };
     }
-    evidence.push(
-        "nothing in the game's files names its API; DX12 is assumed until the game is seen running"
-            .to_owned(),
-    );
+    evidence.push(Text::plain(N_(
+        "nothing in the game's files names its API; DX12 is assumed until the game is seen running",
+    )));
     ApiEvidence {
         api: Some(Api::Dx12),
         confidence: Confidence::Assumed,
@@ -443,14 +453,14 @@ mod tests {
             None,
         );
         assert_eq!((e.api, e.confidence), (Some(Api::Dx12), Confidence::Likely));
-        assert!(e.evidence[0].contains("gfsdk_ssao_d3d12"));
+        assert!(e.evidence[0].english().contains("gfsdk_ssao_d3d12"));
     }
 
     #[test]
     fn with_no_evidence_the_assumption_says_it_is_one() {
         let e = api_evidence(&scan_with(&["kernel32.dll"], &[]), None);
         assert_eq!(e.confidence, Confidence::Assumed);
-        assert!(e.evidence[0].contains("assumed"));
+        assert!(e.evidence[0].english().contains("assumed"));
     }
 
     #[test]
