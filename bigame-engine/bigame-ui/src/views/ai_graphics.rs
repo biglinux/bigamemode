@@ -176,7 +176,11 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     // ── Recommendation ───────────────────────────────────────────────
     let rec = adw::PreferencesGroup::new();
     rec.set_title(&sentence(&tr(&p.summary)));
-    rec.set_description(Some(&if r.installed.is_some() {
+    rec.set_description(Some(&if r.installed.is_some() && p.optiscaler.is_none() {
+        i18n(
+            "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back.",
+        )
+    } else if r.installed.is_some() {
         i18n("What BiGame-mode installed for this game. Restore puts the game's own files back.")
     } else {
         i18n("What BiGame-mode would do. Nothing changes until you press Apply.")
@@ -691,9 +695,14 @@ fn save_settings(page: &Page) {
 #[allow(clippy::too_many_lines)]
 pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>) {
     tracing::info!(target: "graphics", game = %target.process, "AI Graphics page opened");
-    let mut cfg = bigame_core::game_settings::load(&target.process)
-        .map(|s| s.ai_graphics)
-        .unwrap_or_default();
+    let mut cfg = match bigame_core::game_settings::load(&target.process) {
+        Ok(s) => s.ai_graphics,
+        Err(e) => {
+            tracing::warn!(target: "graphics", game = %target.process, error = %e,
+                "the game's AI Graphics settings do not read; starting from the defaults");
+            AiGraphicsConfig::default()
+        }
+    };
     if let Some(m) = mode {
         cfg.mode = m;
     }

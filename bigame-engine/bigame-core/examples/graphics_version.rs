@@ -46,6 +46,10 @@ fn main() -> anyhow::Result<()> {
         "install" => {
             let p = plan();
             println!("plan: {} [{:?}]", p.summary.english(), p.standing);
+            // As the page's Apply does: the choice is saved with the install.
+            let mut s = bigame_core::game_settings::load(&target.process).unwrap_or_default();
+            s.ai_graphics = cfg.clone();
+            bigame_core::game_settings::save(&target.process, &s)?;
             print(&graphics::install(&target, &p, &cfg.version)?);
         }
         "offer" => println!("{:#?}", graphics::update_offer(&target, &cfg)),

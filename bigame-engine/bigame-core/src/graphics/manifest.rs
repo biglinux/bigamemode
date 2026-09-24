@@ -260,18 +260,11 @@ impl Manifest {
     /// # Errors
     /// Returns an error if it exists and cannot be removed.
     pub fn delete(state_dir: &Path, game_key: &str) -> Result<()> {
-        let path = Self::path(state_dir, game_key);
-        match std::fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e.into()),
+        match std::fs::remove_file(Self::path(state_dir, game_key)) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
         }
-        // The game's folder in the state, once nothing is left in it (kept
-        // copies of edited configs stay, and so does the folder then).
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::remove_dir(dir);
-        }
-        Ok(())
     }
 }
 

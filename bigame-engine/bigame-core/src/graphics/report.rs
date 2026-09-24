@@ -473,6 +473,25 @@ fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<
     (gpus, render)
 }
 
+/// `scan` without the files BiGame-mode added to the game: an `OptiScaler`
+/// install brings AMD's FSR DLLs, and a game does not "ship FSR" because
+/// BiGame-mode put them there. A file BiGame-mode *replaced* stays — the
+/// game had its own there.
+fn without_added(scan: &GameScan, installed: Option<&Manifest>) -> GameScan {
+    let mut s = scan.clone();
+    if let Some(m) = installed {
+        let added: Vec<String> = m
+            .entries
+            .iter()
+            .filter(|e| e.replaced.is_none())
+            .map(|e| e.path.to_string_lossy().to_ascii_lowercase())
+            .collect();
+        s.components
+            .retain(|c| !added.contains(&c.path.to_string_lossy().to_ascii_lowercase()));
+    }
+    s
+}
+
 /// Build the report for a scanned game.
 ///
 /// `running` is the game's identity when it is running now — which turns the
@@ -486,6 +505,7 @@ pub fn build(
     hw: &Hardware,
     installed: Option<Manifest>,
 ) -> Report {
+    let scan = &without_added(scan, installed.as_ref());
     let version = |k: ComponentKind| {
         scan.component(k)
             .map(|c| c.version.clone().unwrap_or_else(|| "present".into()))
@@ -694,6 +714,59 @@ mod tests {
             (Some(Api::Dx11), Confidence::Fact)
         );
         assert!(r.listed.is_some());
+    }
+
+    #[test]
+    fn files_bigame_mode_added_are_not_the_games_own_upscalers() {
+        use crate::graphics::manifest::{Backup, Entry, FileKind, Source, State};
+        use crate::graphics::scan::Component;
+        let comp = |kind, path: &str| Component {
+            kind,
+            path: path.into(),
+            version: None,
+        };
+        let scan = GameScan {
+            components: vec![
+                comp(ComponentKind::Xess, "libxess.dll"),
+                comp(ComponentKind::Fsr, "amd_fidelityfx_dx12.dll"),
+                comp(ComponentKind::DlssSuperResolution, "nvngx_dlss.dll"),
+            ],
+            ..GameScan::default()
+        };
+        let entry = |path: &str, replaced: bool| Entry {
+            path: path.into(),
+            sha256: String::new(),
+            kind: FileKind::Binary,
+            replaced: replaced.then(|| Backup {
+                path: "/b".into(),
+                sha256: String::new(),
+                size: 0,
+            }),
+        };
+        let m = Manifest {
+            schema: 1,
+            game_key: "steam-750920".into(),
+            process: None,
+            title: None,
+            install_root: "/g".into(),
+            source: Source::default(),
+            started_at: 0,
+            state: State::Installed,
+            // FSR added by an OptiScaler install; XeSS replaced by a newer one.
+            entries: vec![
+                entry("AMD_FidelityFX_DX12.dll", false),
+                entry("libxess.dll", true),
+            ],
+            created_dirs: vec![],
+            generated: vec![],
+            previous: None,
+        };
+        let kinds = |s: &GameScan| s.components.iter().map(|c| c.kind).collect::<Vec<_>>();
+        assert_eq!(
+            kinds(&without_added(&scan, Some(&m))),
+            [ComponentKind::Xess, ComponentKind::DlssSuperResolution]
+        );
+        assert_eq!(kinds(&without_added(&scan, None)).len(), 3);
     }
 
     #[test]

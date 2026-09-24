@@ -91,7 +91,9 @@ pub enum Layer {
     Auto,
     /// Only what the game ships; no files are placed.
     Native,
-    /// `OptiScaler`.
+    /// `OptiScaler`. Written `optiscaler`; `opti_scaler`, as earlier versions
+    /// wrote it, still reads.
+    #[serde(rename = "optiscaler", alias = "opti_scaler")]
     OptiScaler,
 }
 
@@ -109,6 +111,7 @@ pub enum FrameGeneration {
     /// The game's own frame generation.
     Native,
     /// `OptiScaler`'s (`OptiFG`, FSR frame generation output). Experimental.
+    #[serde(rename = "optiscaler", alias = "opti_scaler")]
     OptiScaler,
 }
 
@@ -233,6 +236,21 @@ mod tests {
         .unwrap();
         assert_eq!(old.version, VersionPolicy::Pinned("0.9.4".into()));
         assert_eq!(old.skipped_update, None);
+    }
+
+    #[test]
+    fn optiscaler_is_written_as_people_type_it_and_the_old_spelling_still_reads() {
+        let c: AiGraphicsConfig = toml::from_str(
+            "mode = \"advanced\"\nlayer = \"optiscaler\"\nframe_generation = \"opti_scaler\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            (c.layer, c.frame_generation),
+            (Layer::OptiScaler, FrameGeneration::OptiScaler)
+        );
+        let text = toml::to_string(&c).unwrap();
+        assert!(text.contains("layer = \"optiscaler\""), "{text}");
+        assert!(!text.contains("opti_scaler"), "{text}");
     }
 
     #[test]
