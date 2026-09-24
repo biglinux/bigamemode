@@ -17,6 +17,7 @@ pub mod hardware;
 pub mod inventory;
 pub mod launcher;
 pub mod logs;
+pub mod migration;
 pub mod models;
 pub mod network;
 pub mod polkit;
