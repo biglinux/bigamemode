@@ -155,6 +155,11 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     // ── Recommendation ───────────────────────────────────────────────
     let rec = adw::PreferencesGroup::new();
     rec.set_title(&sentence(&tr(&p.summary)));
+    rec.set_description(Some(&if r.installed.is_some() {
+        i18n("What BiGame-mode installed for this game. Restore puts the game's own files back.")
+    } else {
+        i18n("What BiGame-mode would do. Nothing changes until you press Apply.")
+    }));
     let (standing, class) = standing_text(p.standing);
     let badge = gtk4::Label::new(Some(&standing));
     badge.add_css_class(class);
@@ -239,7 +244,8 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
             let _ = write!(sub, " · {u}");
         }
         if let Some(v) = g.vram {
-            let _ = write!(sub, " · {} GB", v >> 30);
+            // Rounded: drivers report a little under the marketed size.
+            let _ = write!(sub, " · {} GB", (v + (1 << 29)) >> 30);
         }
         if g.renders_game {
             let _ = write!(sub, " · {}", i18n("renders the game"));
@@ -424,6 +430,19 @@ fn refresh(page: &Rc<Page>) {
     });
 }
 
+/// Files cannot change while the game runs (its DLLs are loaded, and a
+/// change takes effect only at the next start). Checked here, in the UI's
+/// language, before core's own check would refuse in English.
+fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool {
+    if graphics::is_running(&page.target) {
+        overlay.add_toast(adw::Toast::new(&i18n(
+            "Close the game first: its files are in use, and a change takes effect at the next start",
+        )));
+        return true;
+    }
+    false
+}
+
 fn save_settings(page: &Page) {
     let mut s = bigame_core::game_settings::load(&page.target.process).unwrap_or_default();
     s.ai_graphics = page.cfg.borrow().clone();
@@ -439,6 +458,7 @@ fn save_settings(page: &Page) {
 /// it yields helpers with a single caller, so the length lint is allowed.
 #[allow(clippy::too_many_lines)]
 pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>) {
+    tracing::info!(target: "graphics", game = %target.process, "AI Graphics page opened");
     let mut cfg = bigame_core::game_settings::load(&target.process)
         .map(|s| s.ai_graphics)
         .unwrap_or_default();
@@ -546,6 +566,9 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
+                if refuse_while_running(&page, &overlay) {
+                    return;
+                }
                 busy(&page, Some(&i18n("Downloading, checking and installing…")));
                 save_settings(&page);
                 let target = page.target.clone();
@@ -578,6 +601,9 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
+                if refuse_while_running(&page, &overlay) {
+                    return;
+                }
                 busy(&page, Some(&i18n("Checking files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || graphics::repair(&target)).await;
@@ -600,6 +626,9 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
+                if refuse_while_running(&page, &overlay) {
+                    return;
+                }
                 busy(&page, Some(&i18n("Restoring the game's own files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || graphics::remove(&target)).await;

@@ -68,6 +68,7 @@ fn main() -> anyhow::Result<()> {
         key: &key,
         root,
         process: Some(&args[2]),
+        title: None,
     };
     let m = transaction::apply(
         &state,

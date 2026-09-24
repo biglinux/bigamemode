@@ -213,6 +213,7 @@ mod tests {
             schema: SCHEMA,
             game_key: "k".into(),
             process: None,
+            title: None,
             install_root: root.to_path_buf(),
             source: Source::default(),
             started_at: 0,

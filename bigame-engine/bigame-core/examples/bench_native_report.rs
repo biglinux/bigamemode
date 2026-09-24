@@ -128,12 +128,26 @@ struct MetricReport {
 }
 
 fn main() -> Result<()> {
+    // `--vary=KEY,KEY`: game settings that may differ *between* arms because
+    // they are what is being compared (an upscaler setting). Within an arm
+    // every setting must still match, and across arms every other one.
+    let vary: Vec<String> = std::env::args()
+        .find_map(|a| a.strip_prefix("--vary=").map(str::to_owned))
+        .map(|v| v.split(',').map(str::to_owned).collect())
+        .unwrap_or_default();
+    let positional: Vec<String> = std::env::args()
+        .skip(1)
+        .filter(|a| !a.starts_with("--"))
+        .collect();
     let dir = PathBuf::from(
-        std::env::args()
-            .nth(1)
-            .context("usage: bench_native_report <session-dir> [baseline-arm]")?,
+        positional
+            .first()
+            .context("usage: bench_native_report <session-dir> [baseline-arm] [--vary=KEY,...]")?,
     );
-    let baseline = std::env::args().nth(2).unwrap_or_else(|| "baseline".into());
+    let baseline = positional
+        .get(1)
+        .cloned()
+        .unwrap_or_else(|| "baseline".into());
 
     let mut arms: BTreeMap<String, Vec<Run>> = BTreeMap::new();
     for arm in std::fs::read_dir(&dir)?
@@ -161,11 +175,17 @@ fn main() -> Result<()> {
     }
     anyhow::ensure!(!arms.is_empty(), "no runs found under {}", dir.display());
 
-    // Same experiment throughout, or nothing.
+    // Same experiment throughout, or nothing — except the settings named in
+    // --vary, which may differ between arms but not within one.
     let reference = &arms.values().next().unwrap()[0].native.settings;
     for (arm, runs) in &arms {
+        let arm_reference = &runs[0].native.settings;
         for run in runs {
-            let differ = native::settings_differ(reference, &run.native.settings);
+            let mut differ: Vec<String> = native::settings_differ(reference, &run.native.settings)
+                .into_iter()
+                .filter(|d| !vary.iter().any(|k| d.starts_with(&format!("{k}: "))))
+                .collect();
+            differ.extend(native::settings_differ(arm_reference, &run.native.settings));
             if !differ.is_empty() {
                 bail!(
                     "{arm}/{}: the game's settings changed during the session ({}); \
@@ -225,6 +245,14 @@ fn main() -> Result<()> {
     ];
 
     let mut md = format!("# {workload}: every metric\n\n");
+    if !vary.is_empty() {
+        md.push_str(&format!(
+            "The arms differ by design in {} (the settings being compared); every \
+             other setting is identical across all runs, and every setting is \
+             identical within each arm.\n\n",
+            vary.join(", ")
+        ));
+    }
     md.push_str(&format!(
         "Graphics settings identical across all {} runs: {} at {}x{}, VSync {}.\n\n",
         arms.values().map(Vec::len).sum::<usize>(),

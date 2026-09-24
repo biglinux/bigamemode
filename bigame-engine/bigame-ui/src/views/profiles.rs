@@ -1149,7 +1149,14 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     let popover = gtk4::PopoverMenu::from_model(Some(&menu));
     popover.set_parent(anchor);
     popover.insert_action_group("card", Some(&group));
-    popover.connect_closed(gtk4::prelude::WidgetExt::unparent);
+    // `closed` is emitted before the chosen item's action is activated;
+    // unparenting right away detached the popover — and the "card" actions
+    // inserted on it — first, so no item in this menu did anything. Let the
+    // activation run, then unparent.
+    popover.connect_closed(|p| {
+        let p = p.clone();
+        glib::idle_add_local_once(move || p.unparent());
+    });
     popover.popup();
 }
 

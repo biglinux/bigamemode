@@ -197,6 +197,18 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         };
         return p;
     }
+    if r.executable.is_none() || r.runtime.as_deref() == Some("native") {
+        // No Windows executable: a native Linux game. OptiScaler, and the
+        // DLL-slot approach it rests on, are for Windows games under Proton
+        // or Wine; a native game's own options are all there is.
+        let mut p = keep_native(Text::plain(N_(
+            "this is a native Linux game: OptiScaler works with Windows games under Proton or Wine",
+        )));
+        if native.is_none() {
+            p.summary = Text::plain(N_("native Linux game: nothing for AI Graphics to do"));
+        }
+        return p;
+    }
     if r.machine == Some(Machine::X86) {
         return keep_native(Text::plain(N_(
             "OptiScaler exists only for 64-bit games and this one is 32-bit",
@@ -625,6 +637,16 @@ mod tests {
             &ctx,
         );
         assert_eq!(p.optiscaler.unwrap().frame_gen, FrameGen::Off);
+    }
+
+    #[test]
+    fn a_native_linux_game_gets_a_plain_explanation_and_no_files() {
+        let mut r = report(Native::default(), gpu(GpuVendor::Amd, Some(4)));
+        r.executable = None;
+        r.machine = None;
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.files.is_empty() && p.optiscaler.is_none());
+        assert!(p.summary.english().contains("native Linux game"));
     }
 
     #[test]

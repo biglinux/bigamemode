@@ -42,6 +42,8 @@ pub struct Game<'a> {
     pub root: &'a Path,
     /// The process name it runs as, when known.
     pub process: Option<&'a str>,
+    /// The game's title, when known.
+    pub title: Option<&'a str>,
 }
 
 /// A file to place.
@@ -256,6 +258,7 @@ pub fn apply(
         schema: SCHEMA,
         game_key: game_key.to_owned(),
         process: game.process.map(str::to_owned),
+        title: game.title.map(str::to_owned),
         install_root: install_root.to_path_buf(),
         source,
         started_at,
@@ -527,6 +530,7 @@ mod tests {
             key: "g",
             root: &fx.game,
             process: Some("Game.exe"),
+            title: Some("Game"),
         }
     }
 

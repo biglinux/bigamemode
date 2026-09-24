@@ -79,7 +79,7 @@ pub fn installed() -> Vec<Target> {
             let m = manifest::Manifest::load(&state, &key).ok().flatten()?;
             let process = m.process.clone()?;
             Some(Target {
-                name: process.clone(),
+                name: m.title.clone().unwrap_or_else(|| process.clone()),
                 app_id: key.strip_prefix("steam-").map(str::to_owned),
                 process,
                 install_root: m.install_root.clone(),
@@ -282,6 +282,12 @@ pub fn status_running(game: &crate::running::GameIdentity) -> Option<runtime::St
     ))
 }
 
+/// Whether `target` is running now.
+#[must_use]
+pub fn is_running(target: &Target) -> bool {
+    running_as(target).is_some()
+}
+
 /// Carry out `plan` for `target`: download (or reuse) the pinned
 /// `OptiScaler` release, build the payload and apply it as a transaction.
 ///
@@ -320,6 +326,7 @@ pub fn install(target: &Target, plan: &plan::Plan) -> anyhow::Result<manifest::M
             key: &key,
             root: &target.install_root,
             process: Some(&target.process),
+            title: Some(&target.name),
         },
         cached.source(),
         &files,
@@ -410,6 +417,7 @@ mod tests {
                 key: "steam-750920",
                 root: &game,
                 process: Some("SOTTR.exe"),
+                title: None,
             },
             manifest::Source::default(),
             &[PlannedFile {

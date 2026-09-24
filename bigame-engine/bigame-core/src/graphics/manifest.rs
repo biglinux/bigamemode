@@ -89,6 +89,9 @@ pub struct Manifest {
     /// this manifest.
     #[serde(default)]
     pub process: Option<String>,
+    /// The game's title, for lists that show installed games.
+    #[serde(default)]
+    pub title: Option<String>,
     /// The install folder every entry is relative to.
     pub install_root: PathBuf,
     /// What was installed.
@@ -325,6 +328,7 @@ mod tests {
             schema: SCHEMA,
             game_key: "steam-750920".into(),
             process: Some("SOTTR.exe".into()),
+            title: Some("Shadow of the Tomb Raider".into()),
             install_root: "/games/sottr".into(),
             source: Source {
                 component: "optiscaler".into(),
