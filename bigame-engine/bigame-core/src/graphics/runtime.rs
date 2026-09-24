@@ -212,6 +212,7 @@ mod tests {
         Manifest {
             schema: SCHEMA,
             game_key: "k".into(),
+            process: None,
             install_root: root.to_path_buf(),
             source: Source::default(),
             started_at: 0,

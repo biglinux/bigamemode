@@ -328,37 +328,15 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                         return;
                     }
 
-                    // Cross-tab mutual exclusion: if LSFG is enabled in Tuning,
-                    // disable OptiScaler path from Video settings to avoid conflicts.
+                    // A multiplier above 1 here means lsfg-vk is wanted:
+                    // make it the frame-generation backend, so the Video
+                    // page and the launch agree with Tuning.
                     if mult > 1 {
                         let mut vcfg = bigame_core::video_config::load();
-                        let mut changed = false;
-                        if vcfg.frame_gen.optiscaler_enabled {
-                            vcfg.frame_gen.optiscaler_enabled = false;
-                            changed = true;
-                        }
-                        if vcfg.frame_gen.backend
-                            == bigame_core::models::FrameGenBackend::OptiScaler
-                        {
+                        if vcfg.frame_gen.backend != bigame_core::models::FrameGenBackend::LsfgVk {
                             vcfg.frame_gen.backend = bigame_core::models::FrameGenBackend::LsfgVk;
-                            changed = true;
-                        }
-                        if changed {
                             if let Err(e) = bigame_core::video_config::save(&vcfg) {
-                                tracing::warn!(
-                                    "failed to persist LSFG/OptiScaler mutual exclusion: {e:#}"
-                                );
-                            } else {
-                                crate::widgets::toast::show(
-                                    &target_row_for_toast,
-                                    &i18n(
-                                        "OptiScaler disabled automatically (LSFG enabled in Tuning)",
-                                    ),
-                                );
-                                tracing::info!(
-                                    profile = %name_str,
-                                    "mutual exclusion applied: LSFG enabled -> OptiScaler disabled"
-                                );
+                                tracing::warn!("failed to select lsfg-vk as the backend: {e:#}");
                             }
                         }
                     }

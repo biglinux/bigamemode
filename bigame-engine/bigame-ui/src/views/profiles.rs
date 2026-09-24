@@ -993,6 +993,15 @@ fn build_library() -> Vec<game_card::Entry> {
             launch_command: game.launch_command.clone(),
             system_profile: has_profile && bigame_core::profiles::is_system_profile(&key),
             key_is_verified: game.has_real_executable(),
+            target: game
+                .install_path
+                .clone()
+                .map(|root| bigame_core::graphics::Target {
+                    name: game.name.clone(),
+                    process: key.clone(),
+                    app_id: game.app_id.clone(),
+                    install_root: root,
+                }),
             has_profile,
             key,
         });
@@ -1013,6 +1022,7 @@ fn build_library() -> Vec<game_card::Entry> {
             launch_command: None,
             has_profile: true,
             system_profile: bigame_core::profiles::is_system_profile(name),
+            target: None,
         });
     }
 
@@ -1045,6 +1055,9 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     if entry.launch_command.is_some() {
         menu.append(Some(&i18n("Measure the difference")), Some("card.measure"));
     }
+    if entry.target.is_some() {
+        menu.append(Some(&i18n("AI Graphics…")), Some("card.ai"));
+    }
     if entry.has_profile {
         menu.append(Some(&i18n("Edit profile")), Some("card.edit"));
         if !entry.system_profile {
@@ -1064,6 +1077,15 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
             crate::views::measure_dialog::present(&anchor, &title, &command);
         });
         group.add_action(&measure);
+    }
+
+    if let Some(target) = entry.target.clone() {
+        let ai = gio::SimpleAction::new("ai", None);
+        let anchor = anchor.clone();
+        ai.connect_activate(move |_, _| {
+            crate::views::ai_graphics::open(&anchor, target.clone(), None);
+        });
+        group.add_action(&ai);
     }
 
     let edit = gio::SimpleAction::new("edit", None);

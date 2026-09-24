@@ -1,4 +1,5 @@
-//! Game launch orchestration: gamescope wrapping, env var injection, `OptiScaler` staging.
+//! Game launch orchestration: gamescope wrapping and env var injection, with
+//! the Harmony Policy keeping technologies that do the same job from stacking.
 //!
 //! Merges per-game `gamescope::Config` (profile) with global `VideoConfig` (video settings)
 //! into a single `LaunchPlan` ready to `spawn()`.
@@ -11,14 +12,11 @@
 //!    specifies none of its own.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
 use crate::gamescope;
-use crate::models::{
-    FrameGenBackend, FrameGenSettings, GamescopeFilter, UpscalingSettings, WineFsrMode,
-};
+use crate::models::{FrameGenBackend, GamescopeFilter, UpscalingSettings, WineFsrMode};
 use crate::video_config::VideoConfig;
 
 // ── LaunchPlan ────────────────────────────────────────────────────────────────
@@ -68,9 +66,19 @@ impl LaunchPlan {
         // independent layers (docs/02-PERFORMANCE-AUTHORITY.md), so the gate is
         // gone: what the user configured is what gets applied.
         // Apply runtime harmony policy so enabled technologies do not conflict.
-        let effective_video = Self::apply_harmony_policy(logical_game, video);
+        let mut effective_video = Self::apply_harmony_policy(logical_game, video);
+        // Harmony Policy 2.0: a game BiGame-mode installed OptiScaler into
+        // already upscales; Gamescope and Wine FSR would be second upscalers.
+        let disables =
+            crate::graphics::launch_disables(&crate::graphics::state_dir(), logical_game);
+        let gs_local = Self::apply_graphics_disables(
+            logical_game,
+            &disables,
+            &mut effective_video,
+            gs_override,
+        );
+        let gs_override = gs_local.as_ref();
         let upscaling = &effective_video.upscaling;
-        let frame_gen = &effective_video.frame_gen;
 
         // `steam -applaunch` starts the *client*, which then starts the game in
         // a separate process tree. Wrapping this command would put Gamescope
@@ -101,7 +109,6 @@ impl LaunchPlan {
         Self::check_and_warn_conflicts(logical_game, &effective_video);
 
         collect_upscaling_env(upscaling, &mut env);
-        collect_framegen_env(frame_gen, &mut env);
 
         // ── Decide program + args ─────────────────────────────────────────────
         // The tri-state lives on the profile; when no profile is supplied the
@@ -155,116 +162,83 @@ impl LaunchPlan {
 
     /// Apply conflict-resolution policy and return an effective launch config.
     ///
-    /// Policy goals:
-    /// - Keep user intent whenever possible.
-    /// - Prevent double frame-generation pipelines at launch time.
-    /// - Auto-heal common conflicts instead of only warning.
+    /// Only lsfg-vk remains a global frame-generation backend; per-game
+    /// frame generation through `OptiScaler` is a game's AI Graphics and is
+    /// reconciled by [`Self::apply_graphics_disables`]. lsfg-vk without its
+    /// `Lossless.dll` would load and do nothing, so it is switched off.
     fn apply_harmony_policy(executable: &str, video: &VideoConfig) -> VideoConfig {
         let mut effective = video.clone();
-
-        if !effective.frame_gen.enabled {
-            return effective;
-        }
-
-        match effective.frame_gen.backend {
-            FrameGenBackend::OptiScaler | FrameGenBackend::Afmf => {
-                // If lsfg-vk is active for this game, disable it for this game automatically.
-                if crate::fg::is_active_for_game(executable) {
-                    match crate::fg::disable_for_game(executable) {
-                        Ok(()) => tracing::info!(
-                            game = executable,
-                            backend = ?effective.frame_gen.backend,
-                            "harmony policy: disabled lsfg-vk for this game to avoid double frame generation"
-                        ),
-                        Err(e) => tracing::warn!(
-                            game = executable,
-                            backend = ?effective.frame_gen.backend,
-                            error = %e,
-                            "harmony policy: failed to disable conflicting lsfg-vk profile"
-                        ),
-                    }
-                }
+        if effective.frame_gen.enabled
+            && effective.frame_gen.backend == FrameGenBackend::LsfgVk
+            && !crate::fg::is_lossless_dll_ready()
+        {
+            effective.frame_gen.enabled = false;
+            if let Err(e) = crate::fg::disable_all_profiles() {
+                tracing::warn!(
+                    game = executable,
+                    error = %e,
+                    "harmony policy: failed to disable lsfg profiles after missing Lossless.dll"
+                );
             }
-            FrameGenBackend::LsfgVk => {
-                if !crate::fg::is_lossless_dll_ready() {
-                    effective.frame_gen.enabled = false;
-                    if let Err(e) = crate::fg::disable_all_profiles() {
-                        tracing::warn!(
-                            game = executable,
-                            error = %e,
-                            "harmony policy: failed to disable lsfg profiles after missing Lossless.dll"
-                        );
-                    }
-                    tracing::warn!(
-                        game = executable,
-                        "harmony policy: LSFG-VK disabled because Lossless.dll path is missing/invalid"
-                    );
-                    return effective;
-                }
-
-                // lsfg-vk backend: keep only lsfg path and neutralize other FG toggles.
-                if effective.frame_gen.optiscaler_enabled {
-                    effective.frame_gen.optiscaler_enabled = false;
-                    tracing::info!(
-                        game = executable,
-                        "harmony policy: disabled OptiScaler staging because backend=lsfg-vk"
-                    );
-                }
-                if effective.frame_gen.afmf_experimental_enabled {
-                    effective.frame_gen.afmf_experimental_enabled = false;
-                    tracing::info!(
-                        game = executable,
-                        "harmony policy: disabled AFMF experimental vars because backend=lsfg-vk"
-                    );
-                }
-            }
-            FrameGenBackend::None => {}
+            tracing::warn!(
+                game = executable,
+                "harmony policy: LSFG-VK disabled because Lossless.dll path is missing/invalid"
+            );
         }
-
         effective
+    }
+
+    /// Turn off, for this launch only, what the game's AI Graphics makes a
+    /// second upscaler (see `graphics::rules`). The global settings are not
+    /// changed; the returned Gamescope config replaces the per-game one when
+    /// its render size had to go.
+    fn apply_graphics_disables(
+        game: &str,
+        disables: &[crate::graphics::rules::Tech],
+        video: &mut VideoConfig,
+        gs_override: Option<&gamescope::Config>,
+    ) -> Option<gamescope::Config> {
+        use crate::graphics::rules::Tech;
+        let mut gs = gs_override.cloned();
+        if disables.contains(&Tech::WineFsr) && video.upscaling.wine_fsr_enabled {
+            video.upscaling.wine_fsr_enabled = false;
+            tracing::info!(target: "graphics", game, "harmony: Wine FSR off for this launch — OptiScaler already upscales");
+        }
+        if disables.contains(&Tech::GamescopeUpscaling) {
+            let scaled =
+                video.upscaling.base_width > 0 || gs.as_ref().is_some_and(|g| g.render_width > 0);
+            // Gamescope upscales only when it renders below its output size;
+            // without a render size the game renders at the output, and
+            // Gamescope still wraps it if the user wanted that for anything else.
+            video.upscaling.base_width = 0;
+            video.upscaling.base_height = 0;
+            if let Some(g) = gs.as_mut() {
+                g.render_width = 0;
+                g.render_height = 0;
+            }
+            if scaled {
+                tracing::info!(target: "graphics", game, "harmony: Gamescope upscaling off for this launch — OptiScaler already upscales");
+            }
+        }
+        gs
     }
 
     // ── Conflict detection ─────────────────────────────────────────────────────
 
-    /// Emit structured warnings for any known frame generation conflicts.
+    /// Emit structured warnings for launch conflicts.
     ///
-    /// Two frame generators in series produce doubled and corrupted frames,
-    /// not more frames:
-    ///
-    /// - `OptiScaler`/AFMF generate at the game's render level;
-    /// - lsfg-vk generates at the Vulkan present level.
-    ///
-    /// One of the two has to be disabled.
+    /// lsfg-vk selected but its `Lossless.dll` missing is the one left at the
+    /// global level; per-game conflicts are reported by the game's AI
+    /// Graphics plan.
     fn check_and_warn_conflicts(executable: &str, video: &VideoConfig) {
-        if !video.frame_gen.enabled {
-            return;
-        }
-        match video.frame_gen.backend {
-            FrameGenBackend::OptiScaler | FrameGenBackend::Afmf => {
-                // Conflict: OptiScaler/AFMF + lsfg-vk active for same game
-                if crate::fg::is_active_for_game(executable) {
-                    tracing::warn!(
-                        game = executable,
-                        backend = ?video.frame_gen.backend,
-                        "FRAME GEN CONFLICT: {} has lsfg-vk FG enabled AND {:?} selected — \
-                         disable one to avoid rendering artifacts",
-                        executable,
-                        video.frame_gen.backend,
-                    );
-                }
-            }
-            FrameGenBackend::LsfgVk => {
-                // Conflict: lsfg-vk backend but OptiScaler staging also enabled
-                if video.frame_gen.optiscaler_enabled {
-                    tracing::warn!(
-                        game = executable,
-                        "FRAME GEN CONFLICT: lsfg-vk backend + OptiScaler staging both active for '{}' — \
-                     disable 'Stage OptiScaler DLLs' to avoid conflicts",
-                        executable,
-                    );
-                }
-            }
-            FrameGenBackend::None => {}
+        if video.frame_gen.enabled
+            && video.frame_gen.backend == FrameGenBackend::LsfgVk
+            && !crate::fg::is_lossless_dll_ready()
+        {
+            tracing::warn!(
+                game = executable,
+                "lsfg-vk is selected but its Lossless.dll is not configured"
+            );
         }
     }
 
@@ -500,7 +474,6 @@ fn build_gamescope_argv(
 pub fn build_persistent_env(video: &crate::video_config::VideoConfig) -> HashMap<String, String> {
     let mut env = HashMap::new();
     collect_upscaling_env(&video.upscaling, &mut env);
-    collect_framegen_env(&video.frame_gen, &mut env);
     env
 }
 
@@ -527,110 +500,12 @@ fn collect_upscaling_env(upscaling: &UpscalingSettings, env: &mut HashMap<String
     }
 }
 
-/// Insert frame generation env vars if enabled.
-fn collect_framegen_env(fg: &FrameGenSettings, env: &mut HashMap<String, String>) {
-    if !fg.enabled {
-        return;
-    }
-    if fg.backend == FrameGenBackend::Afmf && fg.afmf_experimental_enabled {
-        // Override string format: "KEY=VALUE" or just "RADV_PERFTEST=afmf" fallback
-        let override_str = fg
-            .afmf_env_override
-            .as_deref()
-            .unwrap_or("RADV_PERFTEST=afmf");
-        if let Some((key, val)) = override_str.split_once('=') {
-            env.insert(key.to_string(), val.to_string());
-        } else {
-            env.insert("RADV_PERFTEST".into(), "afmf".into());
-        }
-    }
-}
-
-// ── OptiScaler DLL staging ─────────────────────────────────────────────────────
-
-/// Copy `OptiScaler` DLLs from `source_dir` into `game_dir`.
-///
-/// Files copied (if present): `dxgi.dll`, `nvngx.dll`, `_nvngx.dll`, `OptiScaler.ini`.
-/// Missing files in source are silently skipped.
-///
-/// # Errors
-/// Returns `Err` if `game_dir` cannot be created or any present DLL cannot be copied.
-pub fn stage_optiscaler_dlls(source_dir: &Path, game_dir: &Path) -> Result<()> {
-    const DLLS: &[&str] = &["dxgi.dll", "nvngx.dll", "_nvngx.dll", "OptiScaler.ini"];
-
-    std::fs::create_dir_all(game_dir)
-        .with_context(|| format!("create game dir: {}", game_dir.display()))?;
-
-    for name in DLLS {
-        let src = source_dir.join(name);
-        if !src.exists() {
-            continue; // Optional — skip missing files
-        }
-        let dst = game_dir.join(name);
-        std::fs::copy(&src, &dst)
-            .with_context(|| format!("copy {name}: {} → {}", src.display(), dst.display()))?;
-    }
-    Ok(())
-}
-
-/// Stage `OptiScaler` DLLs if enabled and source found. Logs on failure.
-///
-/// Silently does nothing if `OptiScaler` is disabled, backend is not `OptiScaler`,
-/// source dir is not found, or `game_dir` is `None`.
-pub fn maybe_stage_optiscaler(fg: &FrameGenSettings, game_dir: Option<&Path>) {
-    if !fg.enabled || !fg.optiscaler_enabled || fg.backend != FrameGenBackend::OptiScaler {
-        return;
-    }
-    let Some(game_dir) = game_dir else {
-        tracing::debug!("OptiScaler staging skipped: game install path unknown");
-        return;
-    };
-    let Some(src) = resolve_optiscaler_source(fg) else {
-        tracing::warn!(
-            "OptiScaler staging skipped: source dir not found (set it in Video → Frame Generation → OptiScaler Source Directory)"
-        );
-        return;
-    };
-    if let Err(e) = stage_optiscaler_dlls(&src, game_dir) {
-        tracing::warn!("OptiScaler staging failed: {e:#}");
-    } else {
-        tracing::info!(
-            "OptiScaler staged from {} → {}",
-            src.display(),
-            game_dir.display()
-        );
-    }
-}
-
-/// Resolve the `OptiScaler` source directory from settings or well-known locations.
-///
-/// Returns `None` if no valid directory is found.
-#[must_use]
-pub fn resolve_optiscaler_source(fg: &FrameGenSettings) -> Option<PathBuf> {
-    // Configured path takes priority
-    if let Some(dir) = &fg.optiscaler_source_dir {
-        let p = PathBuf::from(dir);
-        if p.is_dir() {
-            return Some(p);
-        }
-    }
-    // Well-known fallback install locations
-    let home = std::env::var("HOME").ok()?;
-    let candidates = [
-        PathBuf::from(&home).join(".local/share/optiscaler"),
-        PathBuf::from("/usr/share/optiscaler"),
-        PathBuf::from("/usr/local/share/optiscaler"),
-        PathBuf::from("/opt/optiscaler"),
-    ];
-    candidates.into_iter().find(|p| p.is_dir())
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{FrameGenBackend, GamescopeFilter, WineFsrMode};
+    use crate::models::{GamescopeFilter, WineFsrMode};
 
     #[test]
     fn test_launch_plan_no_gamescope_returns_exe() {
@@ -712,34 +587,51 @@ mod tests {
     }
 
     #[test]
-    fn test_launch_plan_afmf_env() {
-        let mut video = VideoConfig::default();
-        video.frame_gen.enabled = true;
-        video.frame_gen.backend = FrameGenBackend::Afmf;
-        video.frame_gen.afmf_experimental_enabled = true;
+    fn an_old_afmf_or_optiscaler_setting_sets_nothing() {
+        // AFMF set RADV_PERFTEST=afmf, an option RADV does not have.
+        let video: VideoConfig = toml::from_str(
+            "[frame_gen]\nenabled = true\nbackend = \"afmf\"\nafmf_experimental_enabled = true\n",
+        )
+        .unwrap();
         let plan = LaunchPlan::build("game", &video, None);
-        assert_eq!(plan.env.get("RADV_PERFTEST").unwrap(), "afmf");
+        assert!(!plan.env.contains_key("RADV_PERFTEST"));
+        assert!(plan.env.is_empty());
     }
 
     #[test]
-    fn test_launch_plan_afmf_custom_env_override() {
+    fn graphics_disables_drop_wine_fsr_and_gamescope_render_size_for_the_launch_only() {
+        use crate::graphics::rules::Tech;
         let mut video = VideoConfig::default();
-        video.frame_gen.enabled = true;
-        video.frame_gen.backend = FrameGenBackend::Afmf;
-        video.frame_gen.afmf_experimental_enabled = true;
-        video.frame_gen.afmf_env_override = Some("CUSTOM_VAR=value123".into());
-        let plan = LaunchPlan::build("game", &video, None);
-        assert_eq!(plan.env.get("CUSTOM_VAR").unwrap(), "value123");
-        assert!(!plan.env.contains_key("RADV_PERFTEST"));
-    }
-
-    #[test]
-    fn test_launch_plan_framegen_disabled_no_env() {
-        let mut video = VideoConfig::default();
-        video.frame_gen.enabled = false;
-        video.frame_gen.afmf_experimental_enabled = true; // should not fire if disabled
-        let plan = LaunchPlan::build("game", &video, None);
-        assert!(!plan.env.contains_key("RADV_PERFTEST"));
+        video.upscaling.wine_fsr_enabled = true;
+        video.upscaling.base_width = 1720;
+        video.upscaling.base_height = 720;
+        let gs = gamescope::Config {
+            render_width: 1720,
+            render_height: 720,
+            output_width: 3440,
+            output_height: 1440,
+            ..gamescope::Config::default()
+        };
+        let global = video.clone();
+        let out = LaunchPlan::apply_graphics_disables(
+            "SOTTR.exe",
+            &[Tech::GamescopeUpscaling, Tech::WineFsr],
+            &mut video,
+            Some(&gs),
+        )
+        .unwrap();
+        assert!(!video.upscaling.wine_fsr_enabled);
+        assert_eq!((video.upscaling.base_width, out.render_width), (0, 0));
+        assert_eq!(out.output_width, 3440, "the output size stays");
+        assert!(
+            global.upscaling.wine_fsr_enabled,
+            "the caller's settings are untouched"
+        );
+        // Nothing to disable: nothing changes.
+        let mut v2 = global.clone();
+        let same = LaunchPlan::apply_graphics_disables("x", &[], &mut v2, Some(&gs)).unwrap();
+        assert!(v2.upscaling.wine_fsr_enabled);
+        assert_eq!((v2.upscaling.base_width, same.render_width), (1720, 1720));
     }
 
     #[test]
@@ -906,21 +798,5 @@ mod tests {
         let plan = LaunchPlan::build_with_args("steam", &args, &video, None);
         assert_eq!(plan.program, "steam");
         assert_eq!(plan.args, args);
-    }
-
-    #[test]
-    fn test_stage_optiscaler_dlls_copies_existing() {
-        let src_dir = std::env::temp_dir().join(format!("optiscaler_src_{}", std::process::id()));
-        let dst_dir = std::env::temp_dir().join(format!("optiscaler_dst_{}", std::process::id()));
-        std::fs::create_dir_all(&src_dir).unwrap();
-        // Create a fake DLL
-        std::fs::write(src_dir.join("dxgi.dll"), b"FAKE").unwrap();
-
-        stage_optiscaler_dlls(&src_dir, &dst_dir).unwrap();
-        assert!(dst_dir.join("dxgi.dll").exists());
-
-        // Cleanup
-        let _ = std::fs::remove_dir_all(&src_dir);
-        let _ = std::fs::remove_dir_all(&dst_dir);
     }
 }

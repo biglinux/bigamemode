@@ -76,7 +76,7 @@ pub fn build() -> adw::PreferencesPage {
 
     // lsfg-vk implicit layer status (static check — installation-level)
     // Covers both package naming variants and all standard Vulkan layer dirs.
-    let lsfg_installed = lsfg_is_installed();
+    let lsfg_installed = bigame_core::fg::layer_installed();
     let lsfg_row = adw::ActionRow::builder()
         .title(i18n("Frame Generation (lsfg-vk)"))
         .subtitle(i18n(
@@ -675,8 +675,6 @@ fn spawn_telemetry_poller(
             let fg_enabled = runtime.cfg.frame_gen.enabled
                 && runtime.cfg.frame_gen.backend != bigame_core::models::FrameGenBackend::None;
             let fg_active = match runtime.cfg.frame_gen.backend {
-                bigame_core::models::FrameGenBackend::OptiScaler => runtime.optiscaler_active,
-                bigame_core::models::FrameGenBackend::Afmf => runtime.afmf_active,
                 bigame_core::models::FrameGenBackend::LsfgVk => runtime.lsfg_active,
                 bigame_core::models::FrameGenBackend::None => false,
             };
@@ -709,29 +707,6 @@ fn spawn_telemetry_poller(
                 has_active_game,
             );
 
-            let fg_conflict = turbo_enabled
-                && has_active_game
-                && runtime.cfg.frame_gen.enabled
-                && ((matches!(
-                    runtime.cfg.frame_gen.backend,
-                    bigame_core::models::FrameGenBackend::OptiScaler
-                        | bigame_core::models::FrameGenBackend::Afmf
-                ) && runtime.lsfg_enabled
-                    && runtime.lsfg_active)
-                    || (runtime.cfg.frame_gen.backend
-                        == bigame_core::models::FrameGenBackend::LsfgVk
-                        && runtime.cfg.frame_gen.optiscaler_enabled
-                        && runtime.optiscaler_active));
-            if fg_conflict {
-                framegen_rt_badge.set_text(&i18n("Conflict"));
-                framegen_rt_badge.remove_css_class("success-badge");
-                framegen_rt_badge.remove_css_class("warning-badge");
-                framegen_rt_badge.remove_css_class("dim-label");
-                framegen_rt_badge.add_css_class("error-badge");
-                framegen_rt_row.set_subtitle(&i18n(
-                    "Conflicting frame generation pipelines detected (disable one backend)",
-                ));
-            }
             glib::timeout_future(POLL_INTERVAL).await;
         }
     });
@@ -957,15 +932,13 @@ struct VideoRuntime {
     gamescope_active: bool,
     wine_fsr_active: bool,
     vkbasalt_active: bool,
-    optiscaler_active: bool,
-    afmf_active: bool,
 }
 
 /// Collect runtime feature flags for the current game context.
 #[must_use]
 fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     let cfg = bigame_core::video_config::load();
-    let lsfg_installed = lsfg_is_installed();
+    let lsfg_installed = bigame_core::fg::layer_installed();
     let lsfg_enabled = bigame_core::fg::has_any_active_profile();
     let Some(game) = active_game else {
         return VideoRuntime {
@@ -984,11 +957,7 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     let vkbasalt_active = pids
         .iter()
         .any(|pid| process_env_has_key(*pid, "ENABLE_VKBASALT"));
-    let afmf_active = pids
-        .iter()
-        .any(|pid| process_env_contains(*pid, "RADV_PERFTEST", "afmf"));
     let lsfg_active = is_lsfg_active(&pids);
-    let optiscaler_active = is_optiscaler_active(&pids);
 
     VideoRuntime {
         cfg,
@@ -998,8 +967,6 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
         gamescope_active,
         wine_fsr_active,
         vkbasalt_active,
-        optiscaler_active,
-        afmf_active,
     }
 }
 
@@ -1017,8 +984,6 @@ fn build_runtime_diagnostics_report() -> String {
 
     let backend = match runtime.cfg.frame_gen.backend {
         bigame_core::models::FrameGenBackend::None => "None",
-        bigame_core::models::FrameGenBackend::OptiScaler => "OptiScaler",
-        bigame_core::models::FrameGenBackend::Afmf => "AFMF",
         bigame_core::models::FrameGenBackend::LsfgVk => "lsfg-vk",
     };
 
@@ -1035,7 +1000,7 @@ fn build_runtime_diagnostics_report() -> String {
     };
 
     format!(
-        "{title}\n\n- {pp_k}: {pp}\n- {turbo_k}: {turbo}\n- {game_k}: {game}\n\n{cfg_title}\n- gamescope_enabled: {gs_cfg}\n- wine_fsr_enabled: {wine_cfg}\n- vkbasalt_enabled: {vkb_cfg}\n- framegen_enabled: {fg_cfg}\n- framegen_backend: {backend}\n\n{det_title}\n- gamescope_active: {gs_det}\n- wine_fsr_active: {wine_det}\n- vkbasalt_active: {vkb_det}\n- afmf_active: {afmf_det}\n- optiscaler_staged: {opti_det}\n- lsfg_installed: {lsfg_inst}\n- lsfg_active: {lsfg_det}\n",
+        "{title}\n\n- {pp_k}: {pp}\n- {turbo_k}: {turbo}\n- {game_k}: {game}\n\n{cfg_title}\n- gamescope_enabled: {gs_cfg}\n- wine_fsr_enabled: {wine_cfg}\n- vkbasalt_enabled: {vkb_cfg}\n- framegen_enabled: {fg_cfg}\n- framegen_backend: {backend}\n\n{det_title}\n- gamescope_active: {gs_det}\n- wine_fsr_active: {wine_det}\n- vkbasalt_active: {vkb_det}\n- lsfg_installed: {lsfg_inst}\n- lsfg_active: {lsfg_det}\n",
         title = i18n("BiGameMode Runtime Diagnostics"),
         pp_k = i18n("Power Profile"),
         pp = pp,
@@ -1053,8 +1018,6 @@ fn build_runtime_diagnostics_report() -> String {
         gs_det = runtime.gamescope_active,
         wine_det = runtime.wine_fsr_active,
         vkb_det = runtime.vkbasalt_active,
-        afmf_det = runtime.afmf_active,
-        opti_det = runtime.optiscaler_active,
         lsfg_inst = runtime.lsfg_installed,
         lsfg_det = runtime.lsfg_active,
     ) + &guidance
@@ -1134,19 +1097,6 @@ fn process_env_has_key(pid: u32, key: &str) -> bool {
 }
 
 #[must_use]
-fn process_env_contains(pid: u32, key: &str, needle: &str) -> bool {
-    let path = format!("/proc/{pid}/environ");
-    let Ok(bytes) = std::fs::read(path) else {
-        return false;
-    };
-    bytes
-        .split(|b| *b == 0)
-        .filter_map(|entry| std::str::from_utf8(entry).ok())
-        .find_map(|s| s.strip_prefix(&format!("{key}=")))
-        .is_some_and(|v| v.contains(needle))
-}
-
-#[must_use]
 fn is_gamescope_running() -> bool {
     !bigame_core::processes::find_by_cmdline("gamescope").is_empty()
 }
@@ -1156,26 +1106,6 @@ fn is_lsfg_active(pids: &[u32]) -> bool {
     pids.iter().any(|&pid| {
         bigame_core::processes::maps_contain(pid, &["liblsfg-vk.so", "VK_LAYER_LSFGVK", "lsfg-vk"])
     })
-}
-
-#[must_use]
-fn is_optiscaler_active(pids: &[u32]) -> bool {
-    pids.iter()
-        .any(|&pid| bigame_core::processes::maps_contain(pid, &["nvngx.dll", "OptiScaler"]))
-}
-
-/// Check whether the lsfg-vk Vulkan implicit layer is installed.
-fn lsfg_is_installed() -> bool {
-    const LAYER_PATHS: &[&str] = &[
-        "/etc/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
-        "/etc/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
-        "/usr/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
-        "/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
-        "/usr/local/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
-        "/usr/local/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
-    ];
-    LAYER_PATHS.iter().any(|p| std::path::Path::new(p).exists())
-        || std::path::Path::new("/usr/lib/liblsfg-vk.so").exists()
 }
 
 /// Build Troubleshooting section: lists solvable issues + hardware limitations.
@@ -1203,7 +1133,7 @@ fn build_troubleshooting_group() -> adw::PreferencesGroup {
     }
 
     // lsfg-vk: solvable via package install
-    if !lsfg_is_installed() {
+    if !bigame_core::fg::layer_installed() {
         let row = make_troubleshoot_row(
             &i18n("Frame Generation (lsfg-vk) not installed"),
             &i18n("Install lsfg-vk to enable Vulkan frame generation"),
@@ -1548,13 +1478,11 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
         let exe = game.profile_key().to_owned();
         let source = game.source.label();
         let game_name = game.name.clone();
-        let install_path = game.install_path.clone();
         gs_btn.connect_clicked(move |b| {
             let gs_cfg = bigame_core::profiles::load(&exe)
                 .ok()
                 .and_then(|p| p.gamescope);
             let btn_ref = b.clone();
-            let game_dir = install_path.clone();
             let exe_for_launch = exe.clone();
             let game_name_for_launch = game_name.clone();
             let game_name_for_result = game_name.clone();
@@ -1573,13 +1501,6 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
                     );
 
                     let video = bigame_core::video_config::load();
-                    // For Steam applaunch path we avoid invasive staging to keep launch stable.
-                    if launch_program != "steam" {
-                        bigame_core::launcher::maybe_stage_optiscaler(
-                            &video.frame_gen,
-                            game_dir.as_deref(),
-                        );
-                    }
 
                     bigame_core::launcher::LaunchPlan::build_with_args_for_game(
                         &launch_program,

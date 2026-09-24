@@ -251,6 +251,22 @@ pub fn read_global_dll() -> Option<String> {
     read_config().ok()?.global.dll
 }
 
+/// Whether the lsfg-vk Vulkan layer is installed (system-wide or in
+/// `/usr/local`).
+#[must_use]
+pub fn layer_installed() -> bool {
+    const LAYERS: &[&str] = &[
+        "/etc/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
+        "/etc/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
+        "/usr/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
+        "/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
+        "/usr/local/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
+        "/usr/local/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
+    ];
+    LAYERS.iter().any(|p| std::path::Path::new(p).exists())
+        || std::path::Path::new("/usr/lib/liblsfg-vk.so").exists()
+}
+
 /// Returns `true` when a valid Lossless.dll path is configured and exists.
 #[must_use]
 pub fn is_lossless_dll_ready() -> bool {
@@ -372,26 +388,22 @@ pub fn disable_for_game(name: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::global_state_allows_lsfg;
-    use crate::models::{FrameGenBackend, FrameGenMode, FrameGenSettings};
+    use crate::models::{FrameGenBackend, FrameGenSettings};
 
     #[test]
     fn test_global_state_allows_lsfg_only_for_enabled_lsfg_backend() {
         let disabled = FrameGenSettings::default();
         assert!(!global_state_allows_lsfg(&disabled));
 
-        let optiscaler = FrameGenSettings {
+        let off = FrameGenSettings {
             enabled: true,
-            backend: FrameGenBackend::OptiScaler,
-            mode: FrameGenMode::Fsr3,
-            ..FrameGenSettings::default()
+            backend: FrameGenBackend::None,
         };
-        assert!(!global_state_allows_lsfg(&optiscaler));
+        assert!(!global_state_allows_lsfg(&off));
 
         let lsfg = FrameGenSettings {
             enabled: true,
             backend: FrameGenBackend::LsfgVk,
-            mode: FrameGenMode::Fsr3,
-            ..FrameGenSettings::default()
         };
         assert!(global_state_allows_lsfg(&lsfg));
     }

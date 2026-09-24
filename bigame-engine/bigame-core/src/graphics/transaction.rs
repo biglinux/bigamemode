@@ -33,6 +33,17 @@ use super::manifest::{
     self, Backup, Entry, FileKind, Manifest, SCHEMA, Source, State, resolve_inside, sha256_file,
 };
 
+/// The game a transaction is for.
+#[derive(Debug, Clone, Copy)]
+pub struct Game<'a> {
+    /// Stable key ([`manifest::game_key`]).
+    pub key: &'a str,
+    /// Install folder every path is relative to.
+    pub root: &'a Path,
+    /// The process name it runs as, when known.
+    pub process: Option<&'a str>,
+}
+
 /// A file to place.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedFile {
@@ -188,12 +199,12 @@ fn dirs_to_create(install_root: &Path, files: &[PlannedFile]) -> Vec<PathBuf> {
 /// backup cannot be made and verified, or placing or validating fails.
 pub fn apply(
     state_dir: &Path,
-    game_key: &str,
-    install_root: &Path,
+    game: &Game<'_>,
     source: Source,
     files: &[PlannedFile],
     generated: &[PathBuf],
 ) -> Result<Manifest> {
+    let (game_key, install_root) = (game.key, game.root);
     if let Some(existing) = Manifest::load(state_dir, game_key)? {
         bail!(
             "{game_key} already has {} {} installed ({:?}); remove it first",
@@ -244,6 +255,7 @@ pub fn apply(
     let mut m = Manifest {
         schema: SCHEMA,
         game_key: game_key.to_owned(),
+        process: game.process.map(str::to_owned),
         install_root: install_root.to_path_buf(),
         source,
         started_at,
@@ -510,6 +522,14 @@ mod tests {
         }
     }
 
+    fn g(fx: &Fixture) -> Game<'_> {
+        Game {
+            key: "g",
+            root: &fx.game,
+            process: Some("Game.exe"),
+        }
+    }
+
     fn src() -> Source {
         Source {
             component: "optiscaler".into(),
@@ -547,7 +567,7 @@ mod tests {
                 FileKind::Binary,
             ),
         ];
-        let m = apply(&fx.state, "g", &fx.game, src(), &files, &[]).unwrap();
+        let m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
         assert_eq!(m.state, State::Installed);
         assert_eq!(read(&fx.game.join("dxgi.dll")), b"optiscaler dxgi");
         assert!(fx.game.join("D3D12_Optiscaler/D3D12Core.dll").is_file());
@@ -577,7 +597,7 @@ mod tests {
         let fx = fixture();
         std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
         let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
-        apply(&fx.state, "g", &fx.game, src(), &files, &[]).unwrap();
+        apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
         std::fs::write(fx.game.join("dxgi.dll"), b"reshade installed later").unwrap();
         let out = remove(&fx.state, "g").unwrap();
         assert_eq!(out, [FileOutcome::KeptChanged("dxgi.dll".into())]);
@@ -588,7 +608,7 @@ mod tests {
     fn an_edited_config_is_kept_as_a_copy_before_it_is_removed() {
         let fx = fixture();
         let files = [planned(&fx, "OptiScaler.ini", b"a=1", FileKind::Config)];
-        apply(&fx.state, "g", &fx.game, src(), &files, &[]).unwrap();
+        apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
         std::fs::write(fx.game.join("OptiScaler.ini"), b"a=2 (user)").unwrap();
         let out = remove(&fx.state, "g").unwrap();
         let FileOutcome::EditedCopyKept(_, copy) = &out[0] else {
@@ -604,8 +624,7 @@ mod tests {
         std::fs::write(fx.game.join("winmm.dll"), b"original").unwrap();
         apply(
             &fx.state,
-            "g",
-            &fx.game,
+            &g(&fx),
             src(),
             &[planned(&fx, "winmm.dll", b"ours", FileKind::Binary)],
             &[],
@@ -634,7 +653,7 @@ mod tests {
             planned(&fx, "dxgi.dll", b"ours", FileKind::Binary),
             planned(&fx, "ro/nvngx.dll", b"ours", FileKind::Binary),
         ];
-        let err = apply(&fx.state, "g", &fx.game, src(), &files, &[]).unwrap_err();
+        let err = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap_err();
         std::fs::set_permissions(&ro, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert!(format!("{err:#}").contains("rolled back"), "{err:#}");
         assert_eq!(read(&fx.game.join("dxgi.dll")), b"original");
@@ -651,7 +670,7 @@ mod tests {
             planned(&fx, "dxgi.dll", b"ours", FileKind::Binary),
             planned(&fx, "blocker/nvngx.dll", b"ours", FileKind::Binary),
         ];
-        assert!(apply(&fx.state, "g", &fx.game, src(), &files, &[]).is_err());
+        assert!(apply(&fx.state, &g(&fx), src(), &files, &[]).is_err());
         assert_eq!(read(&fx.game.join("dxgi.dll")), b"original");
         assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
         assert!(
@@ -665,7 +684,7 @@ mod tests {
         let fx = fixture();
         std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
         let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
-        let mut m = apply(&fx.state, "g", &fx.game, src(), &files, &[]).unwrap();
+        let mut m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
         // Pretend the process died after placing but before committing.
         m.state = State::Applying;
         m.save(&fx.state).unwrap();
@@ -688,7 +707,7 @@ mod tests {
                 kind: FileKind::Binary,
             };
             assert!(
-                apply(&fx.state, "g", &fx.game, src(), &[f], &[]).is_err(),
+                apply(&fx.state, &g(&fx), src(), &[f], &[]).is_err(),
                 "{rel}"
             );
         }
@@ -704,17 +723,9 @@ mod tests {
             path: "DXGI.dll".into(),
             ..a.clone()
         };
-        assert!(apply(&fx.state, "g", &fx.game, src(), &[a.clone(), b], &[]).is_err());
-        apply(
-            &fx.state,
-            "g",
-            &fx.game,
-            src(),
-            std::slice::from_ref(&a),
-            &[],
-        )
-        .unwrap();
-        assert!(apply(&fx.state, "g", &fx.game, src(), &[a], &[]).is_err());
+        assert!(apply(&fx.state, &g(&fx), src(), &[a.clone(), b], &[]).is_err());
+        apply(&fx.state, &g(&fx), src(), std::slice::from_ref(&a), &[]).unwrap();
+        assert!(apply(&fx.state, &g(&fx), src(), &[a], &[]).is_err());
     }
 
     #[test]
@@ -722,7 +733,7 @@ mod tests {
         let fx = fixture();
         let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
         let logs = [PathBuf::from("OptiScaler.log")];
-        apply(&fx.state, "g", &fx.game, src(), &files, &logs).unwrap();
+        apply(&fx.state, &g(&fx), src(), &files, &logs).unwrap();
         std::fs::write(fx.game.join("OptiScaler.log"), b"run log").unwrap();
         remove(&fx.state, "g").unwrap();
         assert!(!fx.game.join("OptiScaler.log").exists());
@@ -733,7 +744,7 @@ mod tests {
 
         // A log that was there before the install is not ours.
         std::fs::write(fx.game.join("OptiScaler.log"), b"someone else's").unwrap();
-        let m = apply(&fx.state, "g", &fx.game, src(), &files, &logs).unwrap();
+        let m = apply(&fx.state, &g(&fx), src(), &files, &logs).unwrap();
         assert!(m.generated.is_empty());
         remove(&fx.state, "g").unwrap();
         assert_eq!(read(&fx.game.join("OptiScaler.log")), b"someone else's");
@@ -746,7 +757,7 @@ mod tests {
             planned(&fx, "dxgi.dll", b"ours", FileKind::Binary),
             planned(&fx, "OptiScaler.ini", b"cfg", FileKind::Config),
         ];
-        let m = apply(&fx.state, "g", &fx.game, src(), &files, &[]).unwrap();
+        let m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
         std::fs::remove_file(fx.game.join("dxgi.dll")).unwrap();
         std::fs::write(fx.game.join("OptiScaler.ini"), b"user edit").unwrap();
         assert_eq!(
@@ -763,8 +774,7 @@ mod tests {
         std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
         let m = apply(
             &fx.state,
-            "g",
-            &fx.game,
+            &g(&fx),
             src(),
             &[planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)],
             &[],

@@ -1,5 +1,6 @@
 //! View modules for the main `AdwViewStack` pages.
 
+pub mod ai_graphics;
 pub mod benchmark;
 pub mod dashboard;
 pub mod diagnostics;

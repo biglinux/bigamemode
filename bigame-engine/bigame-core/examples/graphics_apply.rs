@@ -64,10 +64,14 @@ fn main() -> anyhow::Result<()> {
     )?;
     let exe_dir = exe.parent().unwrap_or(Path::new("")).to_path_buf();
     let files = optiscaler::payload(&cached, &o, &exe_dir, &state.join(&key).join("staging"))?;
+    let game = transaction::Game {
+        key: &key,
+        root,
+        process: Some(&args[2]),
+    };
     let m = transaction::apply(
         &state,
-        &key,
-        root,
+        &game,
         cached.source(),
         &files,
         &[exe_dir.join("OptiScaler.log")],

@@ -85,6 +85,10 @@ pub struct Manifest {
     pub schema: u32,
     /// Stable key for the game (`steam-750920`, …).
     pub game_key: String,
+    /// The process name the game runs as (`SOTTR.exe`) — how a launch finds
+    /// this manifest.
+    #[serde(default)]
+    pub process: Option<String>,
     /// The install folder every entry is relative to.
     pub install_root: PathBuf,
     /// What was installed.
@@ -320,6 +324,7 @@ mod tests {
         let m = Manifest {
             schema: SCHEMA,
             game_key: "steam-750920".into(),
+            process: Some("SOTTR.exe".into()),
             install_root: "/games/sottr".into(),
             source: Source {
                 component: "optiscaler".into(),
