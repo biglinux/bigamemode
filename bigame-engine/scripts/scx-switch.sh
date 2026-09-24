@@ -32,7 +32,7 @@ BACKUP=$(mktemp)
 cp -p "$PROFILE" "$BACKUP"
 restore() {
     cp -p "$BACKUP" "$PROFILE"; rm -f "$BACKUP"
-    systemctl kill -s HUP falcond 2>/dev/null
+    systemctl kill --kill-whom=main -s HUP falcond 2>/dev/null
 }
 trap restore EXIT
 trap 'exit 1' INT TERM HUP
@@ -48,7 +48,7 @@ while read -r sched mode; do
     fi
     sed -i -e "s/^scx_sched = .*/scx_sched = $sched/" \
            -e "s/^scx_sched_props = .*/scx_sched_props = $mode/" "$PROFILE"
-    systemctl kill -s HUP falcond
+    systemctl kill --kill-whom=main -s HUP falcond
     # Verify against the kernel, not against the request.
     for _ in $(seq 1 50); do
         now=$(ops)
