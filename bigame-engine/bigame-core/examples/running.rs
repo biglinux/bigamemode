@@ -12,7 +12,7 @@ fn main() {
             let mode = bigame_core::config::read()
                 .map(|c| c.profile_mode)
                 .unwrap_or_default();
-            println!("{:#?}", g);
+            println!("{g:#?}");
             println!("detected in {took:?}");
             println!(
                 "falcond profile for '{}': {:?}",

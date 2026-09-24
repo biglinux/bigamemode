@@ -92,3 +92,42 @@ pub async fn unit_state(connection: &zbus::Connection, unit: &str) -> zbus::Resu
         active_state: proxy.active_state().await?,
     })
 }
+
+/// A reusable, blocking view of systemd for callers without a Tokio reactor
+/// (the GTK main loop). Holds one bus connection for its lifetime rather than
+/// opening one per question.
+pub struct Reader {
+    connection: zbus::blocking::Connection,
+}
+
+impl Reader {
+    /// Connect to the system bus.
+    #[must_use]
+    pub fn system() -> Option<Self> {
+        zbus::blocking::Connection::system()
+            .ok()
+            .map(|connection| Self { connection })
+    }
+
+    /// A unit's state, or `None` if systemd could not be asked.
+    #[must_use]
+    pub fn unit_state(&self, unit: &str) -> Option<UnitState> {
+        let manager = ManagerProxyBlocking::new(&self.connection).ok()?;
+        let Ok(unit_file_state) = manager.get_unit_file_state(unit) else {
+            return Some(UnitState {
+                unit_file_state: "not-found".into(),
+                active_state: "inactive".into(),
+            });
+        };
+        let path = manager.load_unit(unit).ok()?;
+        let proxy = UnitProxyBlocking::builder(&self.connection)
+            .path(path)
+            .ok()?
+            .build()
+            .ok()?;
+        Some(UnitState {
+            unit_file_state,
+            active_state: proxy.active_state().ok()?,
+        })
+    }
+}

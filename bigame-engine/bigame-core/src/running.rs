@@ -426,7 +426,11 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
         Graphics::WineD3d
     } else if has("d3d11.dll") || has("d3d10core.dll") || has("d3d9.dll") || has("d3d8.dll") {
         Graphics::Dxvk
-    } else if libraries.iter().any(|l| l.ends_with(".dll")) {
+    } else if libraries.iter().any(|l| {
+        Path::new(l)
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("dll"))
+    }) {
         Graphics::Unknown
     } else if libraries.iter().any(|l| l.starts_with("libvulkan_")) || has("libvulkan.so.1") {
         Graphics::Vulkan

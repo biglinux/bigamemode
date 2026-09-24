@@ -142,34 +142,6 @@ impl ErrorIndicator {
         self.button.set_visible(true);
     }
 
-    /// Set error with an action button that runs a command when clicked.
-    /// `cmd` is split into program + args (e.g. `["sudo", "-n", "systemctl", "enable", "--now", "falcond"]`).
-    pub fn set_error_with_action(
-        &self,
-        title: &str,
-        msg: &str,
-        solution: &str,
-        action_label: &str,
-        cmd: Vec<String>,
-    ) {
-        if let Ok(mut t) = self.error_title.lock() {
-            *t = title.to_string();
-        }
-        if let Ok(mut m) = self.error_msg.lock() {
-            *m = msg.to_string();
-        }
-        if let Ok(mut s) = self.solution.lock() {
-            *s = solution.to_string();
-        }
-        if let Ok(mut a) = self.action.lock() {
-            *a = Some((action_label.to_string(), cmd));
-        }
-        if let Ok(mut c) = self.copy_action.lock() {
-            *c = None;
-        }
-        self.button.set_visible(true);
-    }
-
     /// Set error with install action and optional copy-command action.
     pub fn set_error_with_action_and_copy(
         &self,
