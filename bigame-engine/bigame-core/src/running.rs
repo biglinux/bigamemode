@@ -595,7 +595,7 @@ struct OpenGpu {
 /// Which of the GPUs a process has open it renders on.
 ///
 /// A game can hold more than one: on a hybrid laptop DXVK renders on the
-/// GeForce through `/dev/nvidia0` while the compositor path keeps the iGPU's
+/// NVIDIA card through `/dev/nvidia0` while the compositor path keeps the iGPU's
 /// render node open, and under `DRI_PRIME` both render nodes are open. So:
 /// the NVIDIA driver's own node first (the proprietary driver renders only
 /// through it); then, among several render nodes, the card that is not the
@@ -636,9 +636,7 @@ fn nvidia_device(minor: u32) -> Option<std::path::PathBuf> {
                 l.strip_prefix("Device Minor:")
                     .and_then(|v| v.trim().parse::<u32>().ok())
             })?;
-            (m == minor).then(|| {
-                std::path::Path::new("/sys/bus/pci/devices").join(e.file_name())
-            })
+            (m == minor).then(|| std::path::Path::new("/sys/bus/pci/devices").join(e.file_name()))
         })
 }
 
@@ -673,11 +671,14 @@ fn render_card(pid: u32) -> Option<String> {
         let Some(card) = card_of_device(&device) else {
             continue;
         };
-        if open.iter().any(|g| g.card == card && g.nvidia_node == nvidia_node) {
+        if open
+            .iter()
+            .any(|g| g.card == card && g.nvidia_node == nvidia_node)
+        {
             continue;
         }
-        let boot_vga = std::fs::read_to_string(device.join("boot_vga"))
-            .is_ok_and(|v| v.trim() == "1");
+        let boot_vga =
+            std::fs::read_to_string(device.join("boot_vga")).is_ok_and(|v| v.trim() == "1");
         open.push(OpenGpu {
             card,
             nvidia_node,
@@ -851,13 +852,19 @@ mod tests {
         // The lab laptop: card1 = i915 (boot display, drives eDP), card0 =
         // GTX 1050 Ti. DXVK holds /dev/nvidia0; the iGPU's render node is
         // open too, and comes first in the fd table.
-        let open = [open_gpu("card1", false, true), open_gpu("card0", true, false)];
+        let open = [
+            open_gpu("card1", false, true),
+            open_gpu("card0", true, false),
+        ];
         assert_eq!(choose_render_gpu(&open), Some("card0"));
     }
 
     #[test]
     fn under_dri_prime_the_secondary_card_is_the_one_rendering() {
-        let open = [open_gpu("card0", false, true), open_gpu("card1", false, false)];
+        let open = [
+            open_gpu("card0", false, true),
+            open_gpu("card1", false, false),
+        ];
         assert_eq!(choose_render_gpu(&open), Some("card1"));
     }
 

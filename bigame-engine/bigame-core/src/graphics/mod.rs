@@ -337,7 +337,10 @@ pub fn is_running(target: &Target) -> bool {
 
 /// The release `policy` means, fetching the release list first if the
 /// policy names a release not known yet.
-fn release_for(cache: &Path, policy: &config::VersionPolicy) -> anyhow::Result<optiscaler::Release> {
+fn release_for(
+    cache: &Path,
+    policy: &config::VersionPolicy,
+) -> anyhow::Result<optiscaler::Release> {
     let known = versions::load(cache);
     versions::resolve(cache, policy, &known).or_else(|first| {
         if matches!(policy, config::VersionPolicy::Recommended) {
@@ -514,19 +517,21 @@ pub fn go_back(target: &Target, plan: &plan::Plan) -> anyhow::Result<manifest::M
 #[must_use]
 pub fn update_offer(target: &Target, cfg: &config::AiGraphicsConfig) -> Option<versions::Offer> {
     let m = manifest::Manifest::load(&state_dir(), &target.key()).ok()??;
-    (m.state == manifest::State::Installed && m.source.component == optiscaler::COMPONENT).then(|| {
-        let known = versions::load_fresh(&optiscaler::cache_dir());
-        versions::Offer {
-            available: versions::offer(
-                &m.source.version,
-                &cfg.version,
-                cfg.skipped_update.as_deref(),
-                &known,
-            ),
-            installed: m.source.version.clone(),
-            previous: m.previous.map(|p| p.version),
-        }
-    })
+    (m.state == manifest::State::Installed && m.source.component == optiscaler::COMPONENT).then(
+        || {
+            let known = versions::load_fresh(&optiscaler::cache_dir());
+            versions::Offer {
+                available: versions::offer(
+                    &m.source.version,
+                    &cfg.version,
+                    cfg.skipped_update.as_deref(),
+                    &known,
+                ),
+                installed: m.source.version.clone(),
+                previous: m.previous.map(|p| p.version),
+            }
+        },
+    )
 }
 
 /// Remove everything BiGame-mode placed in `target`, restoring originals.

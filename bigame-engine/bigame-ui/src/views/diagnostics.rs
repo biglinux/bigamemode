@@ -69,6 +69,8 @@ pub fn build() -> gtk4::Widget {
 /// Games BiGame-mode placed graphics files in, each with what is happening
 /// now — read from what the game loaded and `OptiScaler`'s own log — and a
 /// way into its AI Graphics page (details, repair, restore, report).
+// Linear widget building: one group, its rows and their refresh.
+#[allow(clippy::too_many_lines)]
 fn ai_graphics_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("AI Graphics"));

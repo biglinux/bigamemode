@@ -17,7 +17,10 @@ use bigame_core::graphics::{
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    anyhow::ensure!(args.len() >= 2, "usage: graphics_version <process> <action> [<version>]");
+    anyhow::ensure!(
+        args.len() >= 2,
+        "usage: graphics_version <process> <action> [<version>]"
+    );
     let target = graphics::target_for_process(&args[0])
         .ok_or_else(|| anyhow::anyhow!("no installed game runs as {}", args[0]))?;
     let mut cfg = AiGraphicsConfig {
@@ -47,7 +50,9 @@ fn main() -> anyhow::Result<()> {
         }
         "offer" => println!("{:#?}", graphics::update_offer(&target, &cfg)),
         "update" => {
-            let v = args.get(2).ok_or_else(|| anyhow::anyhow!("which version?"))?;
+            let v = args
+                .get(2)
+                .ok_or_else(|| anyhow::anyhow!("which version?"))?;
             let cache = optiscaler::cache_dir();
             let known = versions::load_fresh(&cache);
             let to = versions::resolve(&cache, &VersionPolicy::Pinned(v.clone()), &known)?;

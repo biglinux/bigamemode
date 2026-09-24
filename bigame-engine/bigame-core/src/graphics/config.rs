@@ -220,12 +220,17 @@ mod tests {
                 ..AiGraphicsConfig::default()
             };
             let text = toml::to_string(&c).unwrap();
-            assert_eq!(toml::from_str::<AiGraphicsConfig>(&text).unwrap(), c, "{text}");
+            assert_eq!(
+                toml::from_str::<AiGraphicsConfig>(&text).unwrap(),
+                c,
+                "{text}"
+            );
         }
         // A config saved before "latest" and skipping existed still loads.
-        let old: AiGraphicsConfig =
-            toml::from_str("mode = \"advanced\"\n[version]\npolicy = \"pinned\"\nversion = \"0.9.4\"\n")
-                .unwrap();
+        let old: AiGraphicsConfig = toml::from_str(
+            "mode = \"advanced\"\n[version]\npolicy = \"pinned\"\nversion = \"0.9.4\"\n",
+        )
+        .unwrap();
         assert_eq!(old.version, VersionPolicy::Pinned("0.9.4".into()));
         assert_eq!(old.skipped_update, None);
     }

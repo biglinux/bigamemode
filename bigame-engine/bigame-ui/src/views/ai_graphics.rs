@@ -17,11 +17,11 @@ use libadwaita as adw;
 use bigame_core::graphics::config::{
     AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler, VersionPolicy,
 };
-use bigame_core::graphics::rules::Tech;
-use bigame_core::graphics::versions::Offer;
 use bigame_core::graphics::plan::{Standing, Step};
 use bigame_core::graphics::report::Confidence;
+use bigame_core::graphics::rules::Tech;
 use bigame_core::graphics::runtime::Status;
+use bigame_core::graphics::versions::Offer;
 use bigame_core::graphics::{self, Analysis, Target};
 
 use crate::i18n::i18n;
@@ -247,6 +247,8 @@ fn render(page: &Rc<Page>, a: &Analysis) {
 }
 
 /// "What was found": the evidence behind the plan, for whoever wants it.
+// Linear widget building, as `open`.
+#[allow(clippy::too_many_lines)]
 fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGroup {
     let found = adw::PreferencesGroup::new();
     let details = adw::ExpanderRow::builder()
@@ -363,6 +365,8 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
     found
 }
 
+// Linear widget building, as `open`.
+#[allow(clippy::too_many_lines)]
 fn advanced_group(page: &Rc<Page>) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     let exp = adw::ExpanderRow::builder()
@@ -427,7 +431,9 @@ fn advanced_group(page: &Rc<Page>) -> adw::PreferencesGroup {
     ]);
     let version_row = adw::ComboRow::builder()
         .title(i18n("OptiScaler version"))
-        .subtitle(i18n("Used for the next install; an installed game is updated only when you choose"))
+        .subtitle(i18n(
+            "Used for the next install; an installed game is updated only when you choose",
+        ))
         .model(&versions)
         .build();
     version_row.set_selected(match cfg.version {

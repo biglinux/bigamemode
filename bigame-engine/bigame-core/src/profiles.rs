@@ -495,16 +495,16 @@ pub fn export_text(
     profile: &GameProfile,
     ai: &crate::graphics::config::AiGraphicsConfig,
 ) -> Result<String> {
+    #[derive(Serialize)]
+    struct Section<'a> {
+        ai_graphics: &'a crate::graphics::config::AiGraphicsConfig,
+    }
     let mut content = toml::to_string_pretty(profile).context("serialize profile for export")?;
     if *ai != crate::graphics::config::AiGraphicsConfig::default() {
         let portable = crate::graphics::config::AiGraphicsConfig {
             skipped_update: None,
             ..ai.clone()
         };
-        #[derive(Serialize)]
-        struct Section<'a> {
-            ai_graphics: &'a crate::graphics::config::AiGraphicsConfig,
-        }
         content.push('\n');
         content.push_str(
             &toml::to_string_pretty(&Section {

@@ -1063,7 +1063,15 @@ mod tests {
         assert_eq!(get_ini(t, "framegen", "enabled").as_deref(), Some("true"));
         assert_eq!(get_ini(t, "Upscalers", "Enabled").as_deref(), Some("false"));
         assert_eq!(get_ini(t, "Log", "LogToFile"), None);
-        assert_eq!(get_ini(&set_ini(t, "FrameGen", "Enabled", "false"), "FrameGen", "Enabled").as_deref(), Some("false"));
+        assert_eq!(
+            get_ini(
+                &set_ini(t, "FrameGen", "Enabled", "false"),
+                "FrameGen",
+                "Enabled"
+            )
+            .as_deref(),
+            Some("false")
+        );
     }
 
     #[test]
@@ -1073,7 +1081,8 @@ mod tests {
 [1] [I] FSR4Upgrade RDNA4: true, RDNA3: false, Fsr4Update: true
 [2] [I] NVSDK_NGX_D3D12_CreateFeature Creating new fsr31 upscaler
 ";
-        let loaded = format!("{head}[3] [I] UpdateFfxApiProvider amdxcffx64 loaded from game folder\n");
+        let loaded =
+            format!("{head}[3] [I] UpdateFfxApiProvider amdxcffx64 loaded from game folder\n");
         let f = read_log(&loaded);
         // Loaded is not proof: which model runs is logged only at debug level.
         assert_eq!(f.amdxcffx64, Some(true));

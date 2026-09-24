@@ -240,7 +240,9 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     if cfg.mode == Mode::Recommended && prefer == Some(Prefer::Nothing) {
         return nothing(
             Standing::NotRecommended,
-            Text::plain(N_("the game list says AI Graphics brings nothing to this game")),
+            Text::plain(N_(
+                "the game list says AI Graphics brings nothing to this game",
+            )),
             vec![Step::Keep(Text::plain(N_("no files are changed")))],
         );
     }
@@ -275,7 +277,9 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             Standing::NotRecommended,
             Text::plain(N_("DLSS does not run on this GPU")),
             vec![Step::Note(Text::with(
-                N_("DLSS and DLAA need an NVIDIA RTX GPU; this game renders on %s. Choose FSR or XeSS instead"),
+                N_(
+                    "DLSS and DLAA need an NVIDIA RTX GPU; this game renders on %s. Choose FSR or XeSS instead",
+                ),
                 [gpu],
             ))],
         );
@@ -307,17 +311,18 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     } else {
         None
     };
-    let learned = game_input.and_then(|i| {
-        super::outcomes::learned(&ctx.measured.iter().collect::<Vec<_>>(), i)
-    });
-    let learned_output = learned.as_ref().filter(|l| l.better()).and_then(|l| {
-        match l.output.as_str() {
-            "fsr" => Some(Output::Fsr),
-            "xess" => Some(Output::Xess),
-            "dlss" if dlss_runs => Some(Output::Dlss),
-            _ => None,
-        }
-    });
+    let learned = game_input
+        .and_then(|i| super::outcomes::learned(&ctx.measured.iter().collect::<Vec<_>>(), i));
+    let learned_output =
+        learned
+            .as_ref()
+            .filter(|l| l.better())
+            .and_then(|l| match l.output.as_str() {
+                "fsr" => Some(Output::Fsr),
+                "xess" => Some(Output::Xess),
+                "dlss" if dlss_runs => Some(Output::Dlss),
+                _ => None,
+            });
     // Against the game's own DLSS on an RTX card nothing measured here
     // compares: the runs were against the game's other upscaler.
     let measured_better = cfg.mode == Mode::Recommended
@@ -689,7 +694,10 @@ mod tests {
     #[test]
     fn nvidia_rtx_with_native_dlss_installs_nothing() {
         let p = plan(
-            &report(sottr(), named(GpuVendor::Nvidia, "AD104 [GeForce RTX 4070 Ti]")),
+            &report(
+                sottr(),
+                named(GpuVendor::Nvidia, "AD104 [GeForce RTX 4070 Ti]"),
+            ),
             &recommended(),
             &Context::default(),
         );
@@ -702,7 +710,11 @@ mod tests {
         // The lab laptop's GTX 1050 Ti with Shadow of the Tomb Raider, which
         // ships DLSS 2.3 and XeSS 1.1.
         let gtx = named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]");
-        let p = plan(&report(sottr(), gtx.clone()), &recommended(), &Context::default());
+        let p = plan(
+            &report(sottr(), gtx.clone()),
+            &recommended(),
+            &Context::default(),
+        );
         assert_eq!(p.summary.english(), "the game's own XeSS");
         assert!(p.files.is_empty());
         assert!(
@@ -712,7 +724,11 @@ mod tests {
         );
         // A model the database does not name is not promised DLSS either.
         let unknown = named(GpuVendor::Nvidia, "10de:9999");
-        let p = plan(&report(sottr(), unknown), &recommended(), &Context::default());
+        let p = plan(
+            &report(sottr(), unknown),
+            &recommended(),
+            &Context::default(),
+        );
         assert_eq!(p.summary.english(), "the game's own XeSS");
         // Asked for by hand, DLSS is refused with the reason.
         let adv = AiGraphicsConfig {
@@ -746,7 +762,11 @@ mod tests {
         };
         let p = plan(&r, &recommended(), &Context::default());
         assert!(note(&p), "{:#?}", p.steps);
-        assert!(p.steps.iter().any(|s| s.text().english().contains("GTX 1050 Ti")));
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("GTX 1050 Ti"))
+        );
         // Once the game has the GeForce open, it is a fact: no note.
         r.gpus[0].renders_game = true;
         assert!(!note(&plan(&r, &recommended(), &Context::default())));
@@ -855,9 +875,10 @@ mod tests {
             "FSR 3.1 through OptiScaler, from the game's XeSS"
         );
         assert!(
-            p.steps
-                .iter()
-                .any(|s| s.text().english().starts_with("measured on this computer: +14.7 %")),
+            p.steps.iter().any(|s| s
+                .text()
+                .english()
+                .starts_with("measured on this computer: +14.7 %")),
             "{:#?}",
             p.steps
         );
@@ -910,7 +931,11 @@ mod tests {
         r.listed = entry("block = \"crashes with a proxy dxgi.dll\"");
         let p = plan(&r, &recommended(), &Context::default());
         assert!(p.optiscaler.is_none() && p.files.is_empty());
-        assert!(p.steps.iter().any(|s| s.text().english().contains("crashes with a proxy")));
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("crashes with a proxy"))
+        );
 
         // RDNA 4 would get OptiScaler FSR 4; the list prefers the game's own.
         let mut r = rdna4();
@@ -935,11 +960,18 @@ mod tests {
 
         // On a GTX, "optiscaler" makes it the plan, with the note of the
         // tested version.
-        let mut r = report(sottr(), named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]"));
+        let mut r = report(
+            sottr(),
+            named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]"),
+        );
         r.listed = entry("prefer = \"optiscaler\"\ntested_optiscaler = \"0.9.4\"");
         let p = plan(&r, &recommended(), &Context::default());
         assert!(p.optiscaler.is_some(), "{:#?}", p.steps);
-        assert!(p.steps.iter().any(|s| s.text().english().contains("tested with OptiScaler 0.9.4")));
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("tested with OptiScaler 0.9.4"))
+        );
 
         // Anti-cheat still wins over a list that asks for OptiScaler.
         let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
@@ -948,7 +980,11 @@ mod tests {
             name: "Easy Anti-Cheat".into(),
             evidence: "EasyAntiCheat/".into(),
         }];
-        assert!(plan(&r, &recommended(), &Context::default()).optiscaler.is_none());
+        assert!(
+            plan(&r, &recommended(), &Context::default())
+                .optiscaler
+                .is_none()
+        );
     }
 
     #[test]

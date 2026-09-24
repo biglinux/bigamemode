@@ -100,8 +100,7 @@ pub struct GameDb {
 
 fn parse(text: &str, origin: Origin) -> Result<Vec<Entry>, toml::de::Error> {
     let f: File = toml::from_str(text)?;
-    Ok(f
-        .game
+    Ok(f.game
         .into_iter()
         .filter(|e| e.steam_app_id.is_some() || e.exe.is_some())
         .map(|mut e| {
@@ -197,7 +196,10 @@ block = "crashes with any proxy DLL"
             "not toml",
         ] {
             let db = GameDb::from_texts(Some(bad));
-            assert!(db.entries.iter().all(|e| e.origin == Origin::Carried), "{bad}");
+            assert!(
+                db.entries.iter().all(|e| e.origin == Origin::Carried),
+                "{bad}"
+            );
             assert!(db.lookup(Some("750920"), "SOTTR.exe").is_some());
         }
         // An entry that names no game is dropped.

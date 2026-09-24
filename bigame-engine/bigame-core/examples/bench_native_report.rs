@@ -385,17 +385,25 @@ fn main() -> Result<()> {
             .split(',')
             .map(|pair| {
                 let (arm, setup) = pair.split_once('=').context("--setups: <arm>=<setup>")?;
-                let setup = Setup::parse(setup).with_context(|| format!("unknown setup {setup:?}"))?;
-                anyhow::ensure!(arms.contains_key(arm), "--setups names arm {arm:?}, which has no runs");
+                let setup =
+                    Setup::parse(setup).with_context(|| format!("unknown setup {setup:?}"))?;
+                anyhow::ensure!(
+                    arms.contains_key(arm),
+                    "--setups names arm {arm:?}, which has no runs"
+                );
                 Ok((arm.to_owned(), setup))
             })
             .collect::<Result<_>>()?;
-        let optiscaler = std::env::args().find_map(|a| a.strip_prefix("--optiscaler=").map(str::to_owned));
+        let optiscaler =
+            std::env::args().find_map(|a| a.strip_prefix("--optiscaler=").map(str::to_owned));
         let gpu = bigame_core::graphics::report::render_gpu_name(&hw).context("no GPU")?;
-        let resolution = [("FullscreenWidth", "FullscreenHeight"), ("renderWidth", "renderHeight")]
-            .iter()
-            .find_map(|(w, h)| reference.get(*w).zip(reference.get(*h)))
-            .map(|(w, h)| format!("{w}x{h}"));
+        let resolution = [
+            ("FullscreenWidth", "FullscreenHeight"),
+            ("renderWidth", "renderHeight"),
+        ]
+        .iter()
+        .find_map(|(w, h)| reference.get(*w).zip(reference.get(*h)))
+        .map(|(w, h)| format!("{w}x{h}"));
         let date = workload.split('-').take(3).collect::<Vec<_>>().join("-");
         let measurements: Vec<Measurement> = setups
             .into_iter()

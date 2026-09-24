@@ -281,7 +281,14 @@ mod tests {
                 output: "fsr".into()
             })
         );
-        for bad in ["", "native", "native:", "optiscaler:xess", "native:../x", "x:y"] {
+        for bad in [
+            "",
+            "native",
+            "native:",
+            "optiscaler:xess",
+            "native:../x",
+            "x:y",
+        ] {
             assert_eq!(Setup::parse(bad), None, "{bad:?}");
         }
     }
@@ -292,7 +299,11 @@ mod tests {
         // FSR from XeSS Quality.
         let ms = [
             m("native:xess", &[93.9, 94.2, 94.4], &[62.3, 66.3, 64.8]),
-            m("optiscaler:xess:fsr", &[99.0, 98.7, 98.7], &[61.0, 60.5, 60.9]),
+            m(
+                "optiscaler:xess:fsr",
+                &[99.0, 98.7, 98.7],
+                &[61.0, 60.5, 60.9],
+            ),
         ];
         let refs: Vec<&Measurement> = ms.iter().collect();
         let l = learned(&refs, "xess").unwrap();
@@ -315,7 +326,11 @@ mod tests {
 
         let floor = [
             m("native:xess", &[50.0, 50.2, 50.1], &[40.0, 40.1, 40.2]),
-            m("optiscaler:xess:fsr", &[55.0, 55.1, 55.2], &[30.0, 30.2, 30.1]),
+            m(
+                "optiscaler:xess:fsr",
+                &[55.0, 55.1, 55.2],
+                &[30.0, 30.2, 30.1],
+            ),
         ];
         let l = learned(&floor.iter().collect::<Vec<_>>(), "xess").unwrap();
         assert_eq!((l.fps, l.low), (Verdict::Improvement, Verdict::Regression));

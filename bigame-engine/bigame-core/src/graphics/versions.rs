@@ -163,7 +163,9 @@ pub fn resolve(cache: &Path, policy: &VersionPolicy, known: &Known) -> Result<Re
             // Never older than what BiGame-mode was tested with.
             Some(l) if compare_versions(&l.version, &recommended.version).is_gt() => Ok(l.clone()),
             Some(_) => Ok(recommended),
-            None => bail!("the latest OptiScaler release is not known yet; check for updates first"),
+            None => {
+                bail!("the latest OptiScaler release is not known yet; check for updates first")
+            }
         },
         VersionPolicy::Pinned(v) if *v == recommended.version => Ok(recommended),
         VersionPolicy::Pinned(v) => optiscaler::cached_version(cache, v)
@@ -222,8 +224,9 @@ pub fn offer(
         return None;
     }
     let latest = known.latest()?;
-    (compare_versions(&latest.version, installed).is_gt() && skipped != Some(latest.version.as_str()))
-        .then(|| latest.clone())
+    (compare_versions(&latest.version, installed).is_gt()
+        && skipped != Some(latest.version.as_str()))
+    .then(|| latest.clone())
 }
 
 /// What an update offer looks like for one game.
@@ -298,7 +301,9 @@ mod tests {
             Release::recommended()
         );
         assert_eq!(
-            resolve(dir.path(), &VersionPolicy::Latest, &k).unwrap().version,
+            resolve(dir.path(), &VersionPolicy::Latest, &k)
+                .unwrap()
+                .version,
             "0.10.0"
         );
         assert_eq!(

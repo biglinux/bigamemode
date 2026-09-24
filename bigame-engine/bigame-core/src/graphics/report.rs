@@ -79,18 +79,22 @@ impl GpuInfo {
     /// (tensor cores, Turing or later). `None` when the model does not say.
     #[must_use]
     pub fn dlss(&self) -> Option<bool> {
-        (self.vendor == GpuVendor::Nvidia)
-            .then(|| nvidia_dlss(&self.name).0)
-            .unwrap_or(Some(false))
+        if self.vendor == GpuVendor::Nvidia {
+            nvidia_dlss(&self.name).0
+        } else {
+            Some(false)
+        }
     }
 
     /// Whether DLSS Frame Generation runs on this GPU (RTX 40 and later —
     /// Ada and Blackwell). `None` when the model does not say.
     #[must_use]
     pub fn dlss_fg(&self) -> Option<bool> {
-        (self.vendor == GpuVendor::Nvidia)
-            .then(|| nvidia_dlss(&self.name).1)
-            .unwrap_or(Some(false))
+        if self.vendor == GpuVendor::Nvidia {
+            nvidia_dlss(&self.name).1
+        } else {
+            Some(false)
+        }
     }
 }
 
@@ -101,7 +105,7 @@ impl GpuInfo {
 /// DLSS needs tensor cores: every RTX-branded card has them, no GTX, GT, MX
 /// or pre-Turing Quadro does, and the GTX 16 series (TU116/TU117) is Turing
 /// without them. Frame generation needs Ada's optical-flow hardware or later
-/// (AD1xx, GB2xx). A name that fits none of this is unknown, not "yes".
+/// (`AD1xx`, `GB2xx`). A name that fits none of this is unknown, not "yes".
 #[must_use]
 pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
     let chip = name
@@ -116,7 +120,13 @@ pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
         || chip.starts_with("TU116")
         || chip.starts_with("TU117");
     let non_rtx_brand = [
-        "GTX", "GEFORCE GT ", "GEFORCE MX", "QUADRO P", "QUADRO M", "QUADRO K", "TITAN X",
+        "GTX",
+        "GEFORCE GT ",
+        "GEFORCE MX",
+        "QUADRO P",
+        "QUADRO M",
+        "QUADRO K",
+        "TITAN X",
         "TITAN V",
     ]
     .iter()
@@ -135,7 +145,8 @@ pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
             .chars()
             .take_while(char::is_ascii_digit)
             .collect();
-        model.len() == 4 && (model.starts_with("40") || model.starts_with("50"))
+        model.len() == 4
+            && (model.starts_with("40") || model.starts_with("50"))
             && upper.contains("GEFORCE")
     });
     let fg = match sr {
@@ -217,6 +228,7 @@ impl Report {
     /// Take in the game's entry in the game list. Its API fills in only
     /// where detection is weaker than reading the game's files: what the
     /// running game shows, or its files say, is never replaced.
+    #[must_use]
     pub fn with_listing(mut self, entry: Option<super::gamedb::Entry>) -> Self {
         if let Some(e) = &entry {
             if let Some(api) = e.api {
@@ -599,19 +611,35 @@ mod tests {
     fn dlss_needs_an_rtx_card_and_frame_generation_needs_ada_or_later() {
         // Names exactly as /usr/share/hwdata/pci.ids has them.
         for (name, sr, fg) in [
-            ("GP107M [GeForce GTX 1050 Ti Mobile]", Some(false), Some(false)),
+            (
+                "GP107M [GeForce GTX 1050 Ti Mobile]",
+                Some(false),
+                Some(false),
+            ),
             ("GP104 [GeForce GTX 1080]", Some(false), Some(false)),
             ("GP108 [GeForce GT 1030]", Some(false), Some(false)),
             ("TU117 [GeForce GTX 1650]", Some(false), Some(false)),
-            ("TU117M [GeForce GTX 1650 Ti Mobile]", Some(false), Some(false)),
+            (
+                "TU117M [GeForce GTX 1650 Ti Mobile]",
+                Some(false),
+                Some(false),
+            ),
             ("TU106 [GeForce RTX 2060 Rev. A]", Some(true), Some(false)),
             ("TU102GL [Quadro RTX 6000/8000]", Some(true), Some(false)),
             ("GA102 [GeForce RTX 3090]", Some(true), Some(false)),
-            ("GA106M [GeForce RTX 3060 Mobile / Max-Q]", Some(true), Some(false)),
+            (
+                "GA106M [GeForce RTX 3060 Mobile / Max-Q]",
+                Some(true),
+                Some(false),
+            ),
             ("GA102GL [RTX A6000]", Some(true), Some(false)),
             ("AD102 [GeForce RTX 4090]", Some(true), Some(true)),
             ("AD104 [GeForce RTX 4070 Ti]", Some(true), Some(true)),
-            ("AD104GL [RTX 4000 SFF Ada Generation]", Some(true), Some(true)),
+            (
+                "AD104GL [RTX 4000 SFF Ada Generation]",
+                Some(true),
+                Some(true),
+            ),
             ("GB202 [GeForce RTX 5090]", Some(true), Some(true)),
             ("GB206 [GeForce RTX 5060 Ti]", Some(true), Some(true)),
             // No chip code: the brand alone.
@@ -654,11 +682,17 @@ mod tests {
         };
         // SotTR from its files alone is only "likely DX12".
         let r = base(Some(Api::Dx12), Confidence::Likely).with_listing(entry.clone());
-        assert_eq!((r.api.api, r.api.confidence), (Some(Api::Dx12), Confidence::Detected));
+        assert_eq!(
+            (r.api.api, r.api.confidence),
+            (Some(Api::Dx12), Confidence::Detected)
+        );
         assert_eq!(r.api.evidence.len(), 1);
         // Seen running with DXVK (the DX11 renderer): that stays.
         let r = base(Some(Api::Dx11), Confidence::Fact).with_listing(entry);
-        assert_eq!((r.api.api, r.api.confidence), (Some(Api::Dx11), Confidence::Fact));
+        assert_eq!(
+            (r.api.api, r.api.confidence),
+            (Some(Api::Dx11), Confidence::Fact)
+        );
         assert!(r.listed.is_some());
     }
 
@@ -675,12 +709,18 @@ mod tests {
             rdna: None,
             renders_game: false,
         };
-        assert_eq!(g(GpuVendor::Amd, "Navi 44 [Radeon RX 9060 XT]").dlss(), Some(false));
+        assert_eq!(
+            g(GpuVendor::Amd, "Navi 44 [Radeon RX 9060 XT]").dlss(),
+            Some(false)
+        );
         assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").dlss_fg(), Some(false));
         assert_eq!(
             g(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]").dlss(),
             Some(false)
         );
-        assert_eq!(g(GpuVendor::Nvidia, "AD102 [GeForce RTX 4090]").dlss_fg(), Some(true));
+        assert_eq!(
+            g(GpuVendor::Nvidia, "AD102 [GeForce RTX 4090]").dlss_fg(),
+            Some(true)
+        );
     }
 }

@@ -301,9 +301,7 @@ pub fn has_any_active_profile() -> bool {
     if !is_lossless_dll_ready() {
         return false;
     }
-    read_config()
-        .ok()
-        .is_some_and(|cfg| cfg.profiles.iter().any(|p| p.multiplier > 1))
+    read_config().is_ok_and(|cfg| cfg.profiles.iter().any(|p| p.multiplier > 1))
 }
 
 /// Returns `true` when global video settings still allow lsfg-vk profiles.
@@ -335,7 +333,7 @@ pub fn is_active_for_game(name: &str) -> bool {
     if !is_lossless_dll_ready() {
         return false;
     }
-    read_config().ok().is_some_and(|cfg| {
+    read_config().is_ok_and(|cfg| {
         cfg.profiles
             .iter()
             .any(|p| p.active_in.contains(&name.to_owned()) && p.multiplier > 1)

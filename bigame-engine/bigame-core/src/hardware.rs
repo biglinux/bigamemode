@@ -462,12 +462,12 @@ fn detect_gpus() -> Vec<Gpu> {
 /// memory in sysfs:
 /// - NVIDIA: every NVIDIA GPU on PCI is discrete (Tegra is not on PCI). The
 ///   proprietary driver exposes no VRAM attributes at all, so a VRAM test
-///   would call a GeForce "integrated" and send a hybrid laptop's games to the
+///   would call an NVIDIA card "integrated" and send a hybrid laptop's games to the
 ///   iGPU.
 /// - AMD: dedicated VRAM with a memory vendor (APUs carve theirs out of RAM
 ///   and leave the vendor blank).
 /// - Intel: integrated graphics sit on the root bus (`0000:00:02.0`); an Arc
-///   card sits behind a PCIe bridge, on another bus.
+///   card sits behind a PCI Express bridge, on another bus.
 #[must_use]
 pub fn looks_discrete(
     vendor: GpuVendor,
@@ -809,10 +809,25 @@ core id\t\t: 1
     fn discrete_comes_from_each_vendors_own_evidence() {
         // The lab laptop: i915 at 0000:00:02.0, GTX 1050 Ti Mobile on the
         // proprietary driver at 0000:01:00.0 with no VRAM attributes.
-        assert!(looks_discrete(GpuVendor::Nvidia, "0000:01:00.0", false, None));
-        assert!(!looks_discrete(GpuVendor::Intel, "0000:00:02.0", false, None));
+        assert!(looks_discrete(
+            GpuVendor::Nvidia,
+            "0000:01:00.0",
+            false,
+            None
+        ));
+        assert!(!looks_discrete(
+            GpuVendor::Intel,
+            "0000:00:02.0",
+            false,
+            None
+        ));
         // Arc behind a PCIe bridge.
-        assert!(looks_discrete(GpuVendor::Intel, "0000:03:00.0", false, None));
+        assert!(looks_discrete(
+            GpuVendor::Intel,
+            "0000:03:00.0",
+            false,
+            None
+        ));
         // RX 9060 XT vs the Cezanne iGPU's 512 MiB carve-out.
         assert!(looks_discrete(
             GpuVendor::Amd,
