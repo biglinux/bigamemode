@@ -73,18 +73,42 @@ ocioso, verde: ativo, amarelo: aviso, vermelho: erro).
 
 ### BigLinux / Manjaro / Arch Linux (recomendado)
 
-O pacote depende do `falcond`, disponível nos repositórios do BigLinux.
+**1. Ative o repositório BigCommunity (community-extra).** O `falcond` e o
+`lsfg-vk` vêm dele, e ele não vem ativado numa instalação padrão do BigLinux.
+Sem ele, a instalação para com *"falcond: alvo não encontrado"*.
 
 ```bash
+# Chave que assina os pacotes do repositório
+sudo pacman-key --keyserver hkps://keyserver.ubuntu.com \
+    --recv-keys AECEEE84E52BBFAA9F1C9DF01EA0CEEEB09B44A3
+sudo pacman-key --lsign-key AECEEE84E52BBFAA9F1C9DF01EA0CEEEB09B44A3
+
+# Repositório, no fim do /etc/pacman.conf
+sudo tee -a /etc/pacman.conf <<'CONF'
+
+[community-extra]
+SigLevel = PackageRequired
+Server = https://repo.communitybig.org/extra/$arch
+CONF
+
+sudo pacman -Sy
+```
+
+**2. Ferramentas de compilação e o próprio BiGame-mode.**
+
+```bash
+sudo pacman -S --needed base-devel git
 git clone https://github.com/ruscher/bigamemode.git
 cd bigamemode
 makepkg -si
 ```
 
-O `makepkg` baixa o código do GitHub, compila o workspace Rust em modo
-release, verifica o catálogo de traduções, roda os testes e instala tudo.
-Para trocar o escalonador de CPU pelo falcond, instale também os
-escalonadores sched-ext:
+O `makepkg` instala o que falta para compilar (Rust, gettext…), baixa o
+código do GitHub, compila o workspace Rust em modo release, verifica o
+catálogo de traduções, roda os testes e instala tudo.
+
+**3. Opcional, mas recomendado:** os escalonadores sched-ext, para o falcond
+trocar o escalonador de CPU durante o jogo:
 
 ```bash
 sudo pacman -S scx-tools scx-scheds
