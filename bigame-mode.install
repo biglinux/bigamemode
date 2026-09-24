@@ -1,0 +1,26 @@
+post_install() {
+    cat <<'MSG'
+==> BiGame-mode: open it from the application menu ("BiGame-mode").
+    The privileged helper (bigame-daemon) starts on demand over D-Bus.
+    For sched-ext scheduler switching, install scx-tools and scx-scheds.
+MSG
+}
+
+post_upgrade() {
+    # A running helper keeps the old binary until it restarts.
+    systemctl try-restart bigame-daemon.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+    # Give falcond back as it was before BiGame-mode first took charge of it
+    # (enabled or not, running or not). Does nothing if it never did.
+    busctl call --timeout=10 com.biglinux.BiGameMode /com/biglinux/BiGameMode \
+        com.biglinux.BiGameMode ReleaseGameBackend >/dev/null 2>&1 || :
+    systemctl stop bigame-daemon.service >/dev/null 2>&1 || :
+
+    cat <<'MSG'
+==> Games changed by AI Graphics keep their OptiScaler files until restored.
+    Use "Restore Game Graphics" in BiGame-mode before removing it, or
+    reinstall later: the backups in ~/.local/state/bigame-mode/graphics stay.
+MSG
+}

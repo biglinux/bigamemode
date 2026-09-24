@@ -16,23 +16,28 @@ ps aux | grep -E "falcond|bigame" | grep -v grep
 echo
 
 echo "4. Status do scx (sched_ext):"
-systemctl status scx.service --no-pager 2>/dev/null || echo "scx.service não encontrado"
+# falcond troca o escalonador pelo scx_loader (pacote scx-tools).
+systemctl status scx_loader.service --no-pager 2>/dev/null || echo "scx_loader.service não encontrado (instale scx-tools)"
+cat /sys/kernel/sched_ext/state 2>/dev/null && cat /sys/kernel/sched_ext/root/ops 2>/dev/null
 ls /usr/bin/scx_* 2>/dev/null || echo "Nenhum scheduler scx encontrado"
 echo
 
+echo "4b. Estado publicado pelo falcond:"
+cat /var/lib/falcond/status 2>/dev/null || cat /tmp/falcond_status 2>/dev/null || echo "sem arquivo de estado"
+echo
+
 echo "5. Diretórios e permissões:"
-ls -la /run/falcond 2>/dev/null || echo "/run/falcond não existe"
 ls -la /var/lib/falcond 2>/dev/null || echo "/var/lib/falcond não existe"
 ls -la /var/log/falcond 2>/dev/null || echo "/var/log/falcond não existe"
 ls -la /etc/falcond 2>/dev/null || echo "/etc/falcond não existe"
 echo
 
-echo "6. Configurações:"
-if [ -f /etc/falcond/falcond.conf ]; then
-    echo "--- /etc/falcond/falcond.conf ---"
-    cat /etc/falcond/falcond.conf
+echo "6. Configurações (perfis de usuário em /usr/share/falcond/profiles/user):"
+if [ -f /etc/falcond/config.conf ]; then
+    echo "--- /etc/falcond/config.conf ---"
+    cat /etc/falcond/config.conf
 else
-    echo "/etc/falcond/falcond.conf não encontrado"
+    echo "/etc/falcond/config.conf não encontrado"
 fi
 echo
 
