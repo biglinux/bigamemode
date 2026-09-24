@@ -586,25 +586,34 @@ fn spawn_telemetry_poller(
             .unwrap_or_else(|_| "N/A".into());
             power_row.set_subtitle(&pp_text);
 
-            let turbo_enabled = pp_text.eq_ignore_ascii_case("performance");
+            // Turbo is falcond as systemd reports it, the same answer Home
+            // gives. This row used to read "performance power profile" as
+            // Turbo, and said Inactive while Turbo was on.
+            let turbo_enabled = matches!(
+                gio::spawn_blocking(bigame_core::turbo::state_blocking).await,
+                Ok(Ok(bigame_core::turbo::State::On))
+            );
             if turbo_enabled {
                 turbo_badge.set_text(&i18n("Active"));
                 turbo_badge.remove_css_class("warning-badge");
                 turbo_badge.remove_css_class("error-badge");
                 turbo_badge.add_css_class("success-badge");
-                turbo_row.set_subtitle(&i18n("Performance profile active"));
+                turbo_row.set_subtitle(&i18n("Games are optimized as they start"));
             } else {
                 turbo_badge.set_text(&i18n("Inactive"));
                 turbo_badge.remove_css_class("success-badge");
                 turbo_badge.remove_css_class("error-badge");
                 turbo_badge.add_css_class("warning-badge");
-                turbo_row.set_subtitle(&i18n("Enable Booster Mode to apply video optimizations"));
+                turbo_row.set_subtitle(&i18n("Off · BiGame-mode is not intervening in games"));
             }
 
+            // falcond's active profile is the game's process name, but only
+            // while Turbo runs falcond; the game watch sees it either way.
             let active_game = falcond
                 .as_ref()
                 .and_then(|s| s.active_profile.clone())
-                .filter(|p| !p.is_empty() && p != "None");
+                .filter(|p| !p.is_empty() && p != "None")
+                .or_else(|| crate::game_watch::current().map(|g| g.process_name));
             let has_active_game = active_game.is_some();
 
             let runtime = gio::spawn_blocking({
@@ -650,7 +659,6 @@ fn spawn_telemetry_poller(
                 &gamescope_rt_badge,
                 runtime.cfg.upscaling.gamescope_enabled,
                 runtime.gamescope_active,
-                turbo_enabled,
                 has_active_game,
             );
 
@@ -659,7 +667,6 @@ fn spawn_telemetry_poller(
                 &wine_fsr_rt_badge,
                 runtime.cfg.upscaling.wine_fsr_enabled,
                 runtime.wine_fsr_active,
-                turbo_enabled,
                 has_active_game,
             );
 
@@ -668,7 +675,6 @@ fn spawn_telemetry_poller(
                 &vkbasalt_rt_badge,
                 runtime.cfg.upscaling.vkbasalt_enabled,
                 runtime.vkbasalt_active,
-                turbo_enabled,
                 has_active_game,
             );
 
@@ -703,7 +709,6 @@ fn spawn_telemetry_poller(
                 &framegen_rt_badge,
                 fg_enabled,
                 fg_active,
-                turbo_enabled,
                 has_active_game,
             );
 
@@ -974,7 +979,8 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
 #[must_use]
 fn build_runtime_diagnostics_report() -> String {
     let pp = bigame_core::dbus::power_profile_get().unwrap_or_else(|| i18n("Unavailable"));
-    let turbo = pp.eq_ignore_ascii_case("performance");
+    let turbo =
+        bigame_core::turbo::state_blocking().is_ok_and(|s| s == bigame_core::turbo::State::On);
     let st = bigame_core::status::read();
     let active = st
         .as_ref()
@@ -1026,13 +1032,15 @@ fn build_runtime_diagnostics_report() -> String {
 /// Each flag drives one independent aspect of the row's appearance; bundling
 /// them into a struct would only move the same parameters behind a name.
 #[allow(clippy::fn_params_excessive_bools)]
-/// Update feature row + badge based on config/runtime/turbo/game state.
+/// Update feature row + badge based on config, runtime and game state.
+///
+/// Not on Turbo: the launcher applies presentation settings whether or not
+/// Turbo is on (audit LNCH-01), so "requires Turbo" was not true.
 fn apply_runtime_feature_status(
     row: &adw::ActionRow,
     badge: &gtk4::Label,
     enabled: bool,
     detected_active: bool,
-    turbo_enabled: bool,
     has_active_game: bool,
 ) {
     if !enabled {
@@ -1042,15 +1050,6 @@ fn apply_runtime_feature_status(
         badge.remove_css_class("error-badge");
         badge.add_css_class("dim-label");
         row.set_subtitle(&i18n("Disabled in settings"));
-        return;
-    }
-    if !turbo_enabled {
-        badge.set_text(&i18n("Blocked"));
-        badge.remove_css_class("success-badge");
-        badge.remove_css_class("dim-label");
-        badge.remove_css_class("error-badge");
-        badge.add_css_class("warning-badge");
-        row.set_subtitle(&i18n("Requires Turbo Mode (Booster)"));
         return;
     }
     if !has_active_game {
