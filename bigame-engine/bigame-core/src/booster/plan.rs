@@ -136,6 +136,12 @@ pub struct Plan {
     /// consulted.
     #[serde(skip)]
     harmful: BTreeMap<String, String>,
+    /// Knobs measurement on this machine found faster, by calibration key.
+    ///
+    /// Some knobs are applied only when they are in here: those whose name
+    /// promises speed but whose measured effect has so far been the opposite.
+    #[serde(skip)]
+    beneficial: std::collections::BTreeSet<String>,
 }
 
 impl Plan {
@@ -214,6 +220,11 @@ impl Plan {
                         ),
                     )
                 })
+                .collect();
+            plan.beneficial = calibration
+                .beneficial()
+                .into_iter()
+                .map(|f| f.knob.clone())
                 .collect();
         }
         // On battery, raising sustained power draw usually costs more in
@@ -383,6 +394,15 @@ impl Plan {
     /// Only the card games actually render on is touched. Leaving an idle iGPU
     /// pinned high wastes power for nothing, and is precisely the mistake the
     /// old first-card-wins telemetry walk would have led to.
+    ///
+    /// **Applied only where measurement on this machine found it faster.**
+    /// Every measurement taken of it so far says the opposite: on amdgpu,
+    /// `high` pins the highest *fixed* DPM state and takes the firmware's
+    /// boost out of the loop, and on a Radeon RX 9060 XT that cost 7.5 % in a
+    /// GPU-bound `SuperTuxKart` and 8.3 % in Shadow of the Tomb Raider — the
+    /// card held 2.64 GHz and 102 W where `auto` reached 3.23 GHz and 162 W.
+    /// One card is not every card, so it stays available to a calibration
+    /// that finds it helps; it is not a default.
     fn consider_gpu_dpm(&mut self, hw: &Hardware, snap: &Snapshot, battery: bool) {
         let Some(gpu) = hw.render_gpu() else {
             self.skipped.push(Skipped::Unsupported {
@@ -409,6 +429,18 @@ impl Plan {
                 .push(Skipped::NotRestorable { knob: knob.title() });
             return;
         };
+        if !self.beneficial.contains(knob.calibration_key()) {
+            self.skipped.push(Skipped::NotBeneficial {
+                knob: knob.title(),
+                detail: "left to the driver: forcing 'high' pins the highest fixed \
+                         power state and gives up boost clocks above it, and it has \
+                         only ever been measured slower (8.3% in Shadow of the Tomb \
+                         Raider on a Radeon RX 9060 XT). It is applied only after a \
+                         benchmark on this machine shows it helps."
+                    .into(),
+            });
+            return;
+        }
         if from == "high" {
             self.skipped.push(Skipped::AlreadyOptimal {
                 knob: knob.title(),
@@ -648,9 +680,11 @@ mod tests {
         let ids: Vec<String> = plan.changes.iter().map(|c| c.knob.id()).collect();
         assert!(ids.contains(&"power_profile".to_owned()));
         assert!(ids.contains(&"cpu_governor".to_owned()));
-        assert!(ids.contains(&"gpu_dpm_level:card1".to_owned()));
-        // Only the render GPU, never the idle iGPU.
-        assert!(!ids.iter().any(|i| i.contains("card0")));
+        // Forcing GPU DPM needs evidence first, and the skip says so.
+        assert!(!ids.iter().any(|i| i.starts_with("gpu_dpm")));
+        assert!(plan.skipped.iter().any(|s| matches!(
+            s, Skipped::NotBeneficial { knob, detail } if knob.contains("GPU") && detail.contains("benchmark")
+        )));
         // Every change explains itself.
         assert!(plan.changes.iter().all(|c| !c.rationale.is_empty()));
         assert!(plan.changes.iter().all(|c| c.from != c.to));
@@ -827,14 +861,14 @@ mod tests {
             ),
         ]);
 
-        // With no measurement, the knob is planned on hardware support alone.
+        // With no measurement, forcing DPM is not planned at all.
         let plain = Plan::build_calibrated(&h, &c, &s, None);
         assert!(
-            plain
+            !plain
                 .changes
                 .iter()
                 .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
-            "without evidence the planner falls back to what the hardware supports"
+            "hardware support alone is not a reason to force GPU DPM"
         );
 
         // The real measurement from this machine: forcing DPM high was slower.
@@ -893,8 +927,9 @@ mod tests {
             Some("high"),
         )]);
 
+        // Even with no measurement, "high" is not called optimal.
         let uninformed = Plan::build_calibrated(&h, &c, &s, None);
-        assert!(uninformed.skipped.iter().any(|sk| matches!(
+        assert!(!uninformed.skipped.iter().any(|sk| matches!(
             sk,
             Skipped::AlreadyOptimal { knob, .. } if knob.contains("GPU")
         )));
@@ -920,6 +955,37 @@ mod tests {
             sk,
             Skipped::MeasuredHarmful { knob, .. } if knob.contains("GPU")
         )));
+    }
+
+    #[test]
+    fn gpu_dpm_is_applied_where_this_machine_measured_it_faster() {
+        use crate::benchmark::calibration::Calibration;
+        use crate::benchmark::result::{ArmSummary, Comparison};
+
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let c = caps(true, true);
+        let s = snap(&[(
+            Knob::GpuDpmLevel {
+                card: "card1".into(),
+            },
+            Some("auto"),
+        )]);
+        let mut calibration = Calibration::new("fp", "2026-09-23");
+        calibration.record(
+            "some-game",
+            &Comparison::new(
+                "avg_fps",
+                ArmSummary::new("rest", vec![80.0, 80.4, 79.8, 80.2]).unwrap(),
+                ArmSummary::new("gpu_dpm_level", vec![86.0, 86.3, 85.9, 86.1]).unwrap(),
+            ),
+        );
+        let plan = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
+        assert!(
+            plan.changes
+                .iter()
+                .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
+            "a measured improvement is exactly the evidence the gate asks for"
+        );
     }
 
     #[test]
