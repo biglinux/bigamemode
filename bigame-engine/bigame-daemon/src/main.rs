@@ -369,11 +369,17 @@ fn find_vcache_attribute() -> Option<PathBuf> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing::subscriber::set_global_default(
-        FmtSubscriber::builder()
-            .with_max_level(Level::INFO)
-            .finish(),
-    )
+    // Under systemd the output is the journal, which timestamps every line
+    // itself and shows colour codes as `[2m…[0m` in `journalctl`.
+    let terminal = std::io::IsTerminal::is_terminal(&std::io::stdout());
+    let builder = FmtSubscriber::builder()
+        .with_max_level(Level::INFO)
+        .with_ansi(terminal);
+    if terminal {
+        tracing::subscriber::set_global_default(builder.finish())
+    } else {
+        tracing::subscriber::set_global_default(builder.without_time().finish())
+    }
     .expect("install tracing subscriber");
 
     info!("starting bigame-daemon");
