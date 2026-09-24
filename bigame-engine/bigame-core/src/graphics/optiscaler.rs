@@ -153,13 +153,7 @@ pub fn parse_latest(json: &str) -> Result<Release> {
 /// BiGame-mode's cache for `OptiScaler` releases, shared by every game.
 #[must_use]
 pub fn cache_dir() -> PathBuf {
-    std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .unwrap_or_else(|| {
-            PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| "/tmp".into())).join(".cache")
-        })
-        .join("bigame-mode/graphics/optiscaler")
+    crate::paths::cache_home().join("bigame-mode/graphics/optiscaler")
 }
 
 /// A release that is in the cache, checked and unpacked.
@@ -330,6 +324,8 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
     run(
         "curl",
         &[
+            // First, or it is ignored: no ~/.curlrc may change what this does.
+            "--disable".as_ref(),
             "--fail".as_ref(),
             "--silent".as_ref(),
             "--show-error".as_ref(),
@@ -340,6 +336,13 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
             "=https".as_ref(),
             "--max-filesize".as_ref(),
             release.size.to_string().as_ref(),
+            // A stalled server fails the download instead of hanging it.
+            "--connect-timeout".as_ref(),
+            "20".as_ref(),
+            "--speed-limit".as_ref(),
+            "1024".as_ref(),
+            "--speed-time".as_ref(),
+            "60".as_ref(),
             "--output".as_ref(),
             part.as_os_str(),
             url.as_ref(),

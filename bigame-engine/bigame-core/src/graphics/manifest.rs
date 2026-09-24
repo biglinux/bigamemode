@@ -224,6 +224,15 @@ impl Manifest {
                 m.schema
             );
         }
+        // The key names the directories removal deletes; a manifest must not
+        // be able to point it elsewhere.
+        if m.game_key != game_key {
+            bail!(
+                "{} belongs to another game ({})",
+                path.display(),
+                m.game_key
+            );
+        }
         for e in &m.entries {
             check_relative(&e.path)?;
         }

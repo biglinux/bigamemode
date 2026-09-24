@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use super::config::{AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler};
+use super::config::{AiGraphicsConfig, Layer, Mode, Upscaler};
 use super::optiscaler::{self, Api, FrameGen, Input, Output};
 use super::pe::Machine;
 use super::report::{Confidence, Report};
@@ -307,9 +307,10 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             ))],
         );
     }
-    let frame_gen = match (cfg.mode, cfg.frame_generation) {
-        (Mode::Advanced, FrameGeneration::OptiScaler) if cfg.experimental => FrameGen::OptiFgFsr,
-        _ => FrameGen::Off,
+    let frame_gen = if cfg.optiscaler_frame_generation() {
+        FrameGen::OptiFgFsr
+    } else {
+        FrameGen::Off
     };
     let o = optiscaler::Options {
         proxy: "dxgi.dll".to_owned(),
@@ -420,6 +421,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graphics::config::FrameGeneration;
     use crate::graphics::report::{ApiEvidence, GpuInfo, Native};
     use crate::graphics::scan::{AntiCheat, Proxy};
 

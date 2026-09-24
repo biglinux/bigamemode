@@ -78,9 +78,25 @@ pub fn run() -> adw::glib::ExitCode {
         // Intentionally leak the guard — app should never release.
         std::mem::forget(app.hold());
 
-        // Falcond D-Bus status service: re-broadcasts /tmp/falcond_status as D-Bus signal.
-        // External tools subscribe to com.biglinux.BiGameMode1 instead of polling the file.
+        // Re-broadcasts falcond's status file as a D-Bus signal, so other tools
+        // can subscribe to com.biglinux.BiGameMode1 instead of reading the file.
         bigame_core::dbus::service::start();
+
+        // An AI Graphics apply cut short by a crash or a power loss is rolled
+        // back before anything reads the game's files.
+        std::thread::spawn(|| {
+            match bigame_core::graphics::transaction::recover(&bigame_core::graphics::state_dir()) {
+                Ok(done) => {
+                    for (game, outcome) in done {
+                        match outcome {
+                            Ok(_) => tracing::info!(target: "graphics", game, "interrupted apply rolled back"),
+                            Err(e) => tracing::warn!(target: "graphics", game, error = %e, "interrupted apply could not be rolled back"),
+                        }
+                    }
+                }
+                Err(e) => tracing::warn!(target: "graphics", error = %e, "could not check for interrupted applies"),
+            }
+        });
 
         // Quit action for explicit exit
         let quit = adw::gio::ActionEntry::builder("quit")

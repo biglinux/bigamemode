@@ -25,14 +25,7 @@ use std::path::{Path, PathBuf};
 /// `$XDG_STATE_HOME/bigame-mode/graphics`.
 #[must_use]
 pub fn state_dir() -> PathBuf {
-    std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .unwrap_or_else(|| {
-            PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| "/tmp".into()))
-                .join(".local/state")
-        })
-        .join("bigame-mode/graphics")
+    crate::paths::state_home().join("bigame-mode/graphics")
 }
 
 /// The installed manifest for the game that runs as `process`, if
@@ -58,11 +51,17 @@ pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Man
 /// upscalers in series.
 #[must_use]
 pub fn launch_disables(state: &Path, process: &str) -> Vec<rules::Tech> {
-    if manifest_for_process(state, process).is_some() {
-        vec![rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr]
-    } else {
-        Vec::new()
+    if manifest_for_process(state, process).is_none() {
+        return Vec::new();
     }
+    let mut off = vec![rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr];
+    // OptiScaler generating frames: lsfg-vk would be a second generator.
+    if crate::game_settings::load(process)
+        .is_ok_and(|s| s.ai_graphics.optiscaler_frame_generation())
+    {
+        off.push(rules::Tech::LsfgVk);
+    }
+    off
 }
 
 /// Every game BiGame-mode has placed files in, as targets.

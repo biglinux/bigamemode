@@ -219,12 +219,9 @@ pub fn menu_game(content: &str) -> Option<MenuGame> {
     categories?.split(';').find(|c| c.trim() == "Game")?;
     let argv: Vec<String> = exec_arguments(&exec?)
         .into_iter()
-        .filter(|a| !(a.len() == 2 && a.starts_with('%')))
+        .filter_map(|a| expand_field_codes(&a))
         .collect();
-    let program = argv
-        .iter()
-        .find(|t| *t != "env" && (t.starts_with('/') || !t.contains('=')))?;
-    let program = crate::running::falcond_name(program).to_owned();
+    let program = crate::running::falcond_name(program_of(&argv)?).to_owned();
     if program.is_empty()
         || NOT_GAMES.contains(&program.to_ascii_lowercase().as_str())
         || crate::running::is_infrastructure(&program)
@@ -239,13 +236,98 @@ pub fn menu_game(content: &str) -> Option<MenuGame> {
     })
 }
 
+/// Programs that start another one and then become, or wait for, it: the
+/// game is what they run, and it is the game's process a profile must match.
+const WRAPPERS: &[&str] = &[
+    "env",
+    "prime-run",
+    "gamemoderun",
+    "mangohud",
+    "nice",
+    "ionice",
+    "gamescope",
+];
+
+/// The program an `Exec` line really runs, past [`WRAPPERS`], their options,
+/// `VAR=value` assignments, and Gamescope's own arguments up to `--`.
+fn program_of(argv: &[String]) -> Option<&str> {
+    let mut rest = argv.iter().map(String::as_str).peekable();
+    while let Some(arg) = rest.next() {
+        let base = crate::running::falcond_name(arg);
+        if !WRAPPERS.contains(&base) {
+            return Some(arg);
+        }
+        if base == "gamescope" {
+            rest.find(|a| *a == "--")?;
+            continue;
+        }
+        // Options, their values (env -u NAME, env -C DIR, nice -n 5, …) and
+        // assignments come before the program.
+        while let Some(next) = rest.peek() {
+            if next.starts_with('-') {
+                let takes_value = matches!(*next, "-u" | "-C" | "-n" | "-c" | "-t" | "-p");
+                rest.next();
+                if takes_value {
+                    rest.next();
+                }
+            } else if next.contains('=') && !next.starts_with('/') {
+                rest.next();
+            } else {
+                break;
+            }
+        }
+    }
+    None
+}
+
+/// Apply the Desktop Entry field codes to one argument: `%f`/`%F`/`%u`/`%U`
+/// (files and URLs, of which there are none) remove the argument when it is
+/// all they are and vanish inside one; `%%` is a percent sign; the rest
+/// (`%i`, `%c`, `%k`, deprecated ones) are dropped.
+fn expand_field_codes(arg: &str) -> Option<String> {
+    if matches!(arg, "%f" | "%F" | "%u" | "%U" | "%i" | "%c" | "%k") {
+        return None;
+    }
+    let mut out = String::with_capacity(arg.len());
+    let mut chars = arg.chars();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
+            continue;
+        }
+        if chars.next() == Some('%') {
+            out.push('%');
+        }
+    }
+    Some(out)
+}
+
+/// Whether `path` can be run here directly: an executable ELF binary or a
+/// script with a `#!` line. A Windows `.exe` from a Wine runner cannot, and
+/// starting one outside its prefix measures nothing.
+fn runs_natively(path: &Path) -> bool {
+    use std::io::Read;
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(meta) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !meta.is_file() || meta.permissions().mode() & 0o111 == 0 {
+        return false;
+    }
+    let mut magic = [0u8; 4];
+    std::fs::File::open(path)
+        .and_then(|mut f| f.read_exact(&mut magic))
+        .is_ok_and(|()| &magic == b"\x7fELF" || magic.starts_with(b"#!"))
+}
+
 /// Every game in the application menu: `XDG_DATA_HOME` and each of
 /// `XDG_DATA_DIRS`, the first entry of a name winning, as the menu does.
 #[must_use]
 pub fn menu_games() -> Vec<MenuGame> {
     let data_home = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")));
+        .filter(|p| p.is_absolute())
+        .or_else(|| Some(crate::paths::home_dir().join(".local/share")));
     let data_dirs = std::env::var("XDG_DATA_DIRS")
         .ok()
         .filter(|d| !d.is_empty())
@@ -645,7 +727,7 @@ fn detect_lutris(home: &Path, games: &mut Vec<DetectedGame>) {
         // Only a path that still exists is offered as launchable; a stale
         // Lutris entry pointing at a deleted directory is worse than none.
         let launch_command = exe_path
-            .filter(|p| p.is_file())
+            .filter(|p| runs_natively(p))
             .map(|p| vec![p.to_string_lossy().into_owned()]);
         games.push(DetectedGame {
             cover: lutris_cover(home, slug),
@@ -774,7 +856,7 @@ fn detect_heroic(home: &Path, games: &mut Vec<DetectedGame>) {
             let launch_command = executables
                 .first()
                 .map(|exe| vec![entry.path().join(exe).to_string_lossy().into_owned()])
-                .filter(|cmd| std::path::Path::new(&cmd[0]).is_file());
+                .filter(|cmd| runs_natively(Path::new(&cmd[0])));
             games.push(DetectedGame {
                 cover: heroic_cover(&base, &title),
                 executables,
@@ -856,6 +938,47 @@ mod tests {
             xonotic.argv,
             ["env", "SDL_VIDEODRIVER=wayland", "/usr/bin/xonotic-sdl"]
         );
+    }
+
+    #[test]
+    fn wrappers_and_field_codes_are_seen_through() {
+        let entry = |exec: &str| {
+            format!("[Desktop Entry]\nType=Application\nName=G\nExec={exec}\nCategories=Game;\n")
+        };
+        for (exec, program) in [
+            ("/usr/bin/env FOO=1 game", "game"),
+            ("env -u DISPLAY game --x", "game"),
+            ("prime-run game", "game"),
+            ("gamemoderun mangohud game", "game"),
+            ("gamescope -w 1920 -h 1080 -- game", "game"),
+            ("nice -n 5 /opt/g/game", "game"),
+        ] {
+            assert_eq!(menu_game(&entry(exec)).unwrap().program, program, "{exec}");
+        }
+        let game = menu_game(&entry("game --file=%f --level=100%% %U")).unwrap();
+        assert_eq!(game.argv, ["game", "--file=", "--level=100%"]);
+        assert!(menu_game(&entry("prime-run")).is_none());
+    }
+
+    #[test]
+    fn only_a_native_executable_is_launchable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = crate::tests::tempdir("runs-natively");
+        let write = |name: &str, bytes: &[u8], mode: u32| {
+            let p = dir.join(name);
+            std::fs::write(&p, bytes).unwrap();
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(mode)).unwrap();
+            p
+        };
+        assert!(runs_natively(&write(
+            "run.sh",
+            b"#!/bin/sh\nexec game\n",
+            0o755
+        )));
+        assert!(runs_natively(&write("game", b"\x7fELF\x02\x01", 0o755)));
+        assert!(!runs_natively(&write("Game.exe", b"MZ\x90\x00", 0o755)));
+        assert!(!runs_natively(&write("noexec", b"\x7fELF\x02\x01", 0o644)));
+        assert!(!runs_natively(&dir.join("missing")));
     }
 
     #[test]

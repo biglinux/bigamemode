@@ -183,12 +183,7 @@ pub fn build() -> adw::PreferencesPage {
         gtk4::glib::spawn_future_local(async move {
             let result = gio::spawn_blocking(|| {
                 let report = build_runtime_diagnostics_report();
-                let path = std::env::var("HOME")
-                    .map_or_else(
-                        |_| std::path::PathBuf::from("/tmp"),
-                        std::path::PathBuf::from,
-                    )
-                    .join("bigame-diagnostics.log");
+                let path = bigame_core::paths::home_dir().join("bigame-diagnostics.log");
                 std::fs::write(&path, report)
                     .map(|()| path)
                     .map_err(|e| format!("{}: {}", i18n("Failed to save diagnostics"), e))
@@ -1313,76 +1308,17 @@ fn refresh_detected_games_group(trigger: &impl IsA<gtk4::Widget>) {
     page.add(&build_games_group());
 }
 
-/// Resolve how a detected game should be launched.
-///
-/// Returns `(program, args)`:
-/// - Steam: `("steam", ["-applaunch", "<appid>"])`
-/// - Others: `(executable, [])` (direct process launch)
-#[must_use]
-fn resolve_launch_command(source: &str, executable: &str) -> (String, Vec<String>) {
-    if source == "Steam" {
-        if let Some(appid) = find_steam_appid_by_installdir(executable) {
-            return ("steam".to_string(), vec!["-applaunch".to_string(), appid]);
-        }
-        tracing::warn!(
-            source = %source,
-            executable = %executable,
-            "steam appid not found by installdir; falling back to direct launch"
-        );
+/// How a detected game is started from here: Steam titles through the client
+/// (`steam -applaunch <id>`), others with the command their launcher entry
+/// gives. `None` when there is neither, rather than guessing a program name
+/// and running whatever the PATH resolves it to.
+fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<(String, Vec<String>)> {
+    if game.source == bigame_core::games::Source::Steam {
+        let id = game.app_id.clone()?;
+        return Some(("steam".to_owned(), vec!["-applaunch".to_owned(), id]));
     }
-    (executable.to_string(), Vec::new())
-}
-
-/// Search Steam appmanifest files and return appid for matching `installdir`.
-#[must_use]
-fn find_steam_appid_by_installdir(installdir: &str) -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let steam_dirs = [
-        std::path::Path::new(&home).join(".steam/steam/steamapps"),
-        std::path::Path::new(&home).join(".local/share/Steam/steamapps"),
-    ];
-
-    for dir in steam_dirs {
-        let Ok(entries) = std::fs::read_dir(dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let is_manifest = path
-                .file_name()
-                .is_some_and(|n| n.to_string_lossy().starts_with("appmanifest_"));
-            if !is_manifest {
-                continue;
-            }
-            let Ok(content) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            let mut appid: Option<String> = None;
-            let mut dir_name: Option<String> = None;
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("\"appid\"") {
-                    let parts: Vec<&str> = trimmed.split('"').collect();
-                    if parts.len() >= 4 {
-                        appid = Some(parts[3].to_string());
-                    }
-                }
-                if trimmed.starts_with("\"installdir\"") {
-                    let parts: Vec<&str> = trimmed.split('"').collect();
-                    if parts.len() >= 4 {
-                        dir_name = Some(parts[3].to_string());
-                    }
-                }
-            }
-            if dir_name.as_deref() == Some(installdir) {
-                if let Some(id) = appid {
-                    return Some(id);
-                }
-            }
-        }
-    }
-
-    None
+    let (program, args) = game.launch_command.as_ref()?.split_first()?;
+    Some((program.clone(), args.to_vec()))
 }
 
 /// The process name a profile for `game` should be keyed on.
@@ -1464,32 +1400,32 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
             row.add_suffix(&btn);
         }
 
-        // Gamescope launch button — uses launcher::LaunchPlan to apply
-        // VideoConfig (upscaling filter, Wine FSR, vkBasalt, frame gen env vars)
-        // on top of per-game profile gamescope settings. OptiScaler DLLs are
-        // staged into the game directory when configured and install path is known.
-        let gs_btn = gtk4::Button::builder()
-            .label(i18n("Launch (Turbo)"))
-            .tooltip_text(i18n("Launch game with BiGameMode video features"))
-            .valign(gtk4::Align::Center)
-            .css_classes(["suggested-action"])
-            .build();
+        // Launch with the video settings (Gamescope, Wine FSR, vkBasalt, frame
+        // generation) applied on top of the game's own profile.
+        let Some((launch_program, launch_args)) = launch_command(game) else {
+            group.add(&row);
+            continue;
+        };
         let exe = game.profile_key().to_owned();
         let source = game.source.label();
         let game_name = game.name.clone();
+        let gs_btn = gtk4::Button::builder()
+            .label(i18n("Launch (Turbo)"))
+            .tooltip_text(i18n("Launch the game with BiGame-mode's video settings"))
+            .valign(gtk4::Align::Center)
+            .css_classes(["suggested-action"])
+            .build();
         gs_btn.connect_clicked(move |b| {
             let gs_cfg = bigame_core::profiles::load(&exe)
                 .ok()
                 .and_then(|p| p.gamescope);
             let btn_ref = b.clone();
             let exe_for_launch = exe.clone();
+            let (launch_program, launch_args) = (launch_program.clone(), launch_args.clone());
             let game_name_for_launch = game_name.clone();
             let game_name_for_result = game_name.clone();
             gtk4::glib::spawn_future_local(async move {
                 let result = gio::spawn_blocking(move || {
-                    let (launch_program, launch_args) =
-                        resolve_launch_command(source, &exe_for_launch);
-
                     tracing::info!(
                         game = %game_name_for_launch,
                         source = %source,

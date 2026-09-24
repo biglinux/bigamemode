@@ -55,14 +55,9 @@ impl Journal {
     /// recovery is needed.
     #[must_use]
     pub fn path() -> PathBuf {
-        let base = std::env::var_os("XDG_STATE_HOME").map_or_else(
-            || {
-                PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                    .join(".local/state")
-            },
-            PathBuf::from,
-        );
-        base.join("bigame-mode").join("booster-journal.json")
+        crate::paths::state_home()
+            .join("bigame-mode")
+            .join("booster-journal.json")
     }
 
     /// Current boot id, or an empty string if unreadable.

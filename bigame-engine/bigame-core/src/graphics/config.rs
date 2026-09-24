@@ -164,6 +164,15 @@ impl AiGraphicsConfig {
     pub fn enabled(&self) -> bool {
         self.mode != Mode::Off
     }
+
+    /// Whether `OptiScaler`'s frame generation is chosen: Advanced, with the
+    /// experimental combinations allowed.
+    #[must_use]
+    pub fn optiscaler_frame_generation(&self) -> bool {
+        self.mode == Mode::Advanced
+            && self.frame_generation == FrameGeneration::OptiScaler
+            && self.experimental
+    }
 }
 
 #[cfg(test)]

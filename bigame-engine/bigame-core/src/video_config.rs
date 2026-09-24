@@ -28,10 +28,7 @@ fn config_path() -> PathBuf {
 }
 
 fn config_dir() -> PathBuf {
-    std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".config"),
-        PathBuf::from,
-    )
+    crate::paths::config_home()
 }
 
 /// Load video config from disk. Returns defaults on any error (missing file, parse fail).
@@ -87,11 +84,9 @@ pub fn save_to(cfg: &VideoConfig, path: &Path) -> Result<()> {
 }
 
 fn env_file_path() -> PathBuf {
-    let base = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".config"),
-        PathBuf::from,
-    );
-    base.join("environment.d").join("bigame-mode.conf")
+    crate::paths::config_home()
+        .join("environment.d")
+        .join("bigame-mode.conf")
 }
 
 /// Write `~/.config/environment.d/bigame-mode.conf` with persistent video env vars.

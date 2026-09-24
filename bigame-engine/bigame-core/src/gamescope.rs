@@ -360,14 +360,9 @@ impl Config {
 
 /// Global default Gamescope config path.
 fn global_config_path() -> std::path::PathBuf {
-    let config = std::env::var("XDG_CONFIG_HOME").map_or_else(
-        |_| {
-            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".config")
-        },
-        std::path::PathBuf::from,
-    );
-    config.join("bigame-mode").join("gamescope.toml")
+    crate::paths::config_home()
+        .join("bigame-mode")
+        .join("gamescope.toml")
 }
 
 /// Load the global default Gamescope config, falling back to defaults.

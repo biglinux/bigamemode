@@ -150,6 +150,10 @@ impl LaunchPlan {
         Self::check_and_warn_conflicts(logical_game, &effective_video);
 
         collect_upscaling_env(upscaling, &mut env);
+        if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
+            // The lsfg-vk layer's own off switch (its `disable_environment`).
+            env.insert("DISABLE_LSFG".to_owned(), "1".to_owned());
+        }
 
         // ── Decide program + args ─────────────────────────────────────────────
         // The tri-state lives on the profile; when no profile is supplied the
@@ -358,44 +362,62 @@ impl LaunchPlan {
     /// Returns an error if the binary is not found or the process fails to
     /// start.
     pub fn spawn(self) -> Result<std::process::Child> {
-        use std::os::unix::process::CommandExt;
-
         let mut cmd = std::process::Command::new(&self.program);
         cmd.args(&self.args);
         cmd.envs(&self.env);
-        // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
-        // calling process, which between fork and exec is the child alone.
-        unsafe {
-            cmd.pre_exec(|| {
-                if libc::setpgid(0, 0) == 0 {
-                    Ok(())
-                } else {
-                    Err(std::io::Error::last_os_error())
-                }
-            });
-        }
+        in_own_process_group(&mut cmd);
         cmd.spawn()
             .with_context(|| format!("spawn '{}'", self.program))
     }
 }
 
+/// Start `cmd` as the leader of a new process group, so [`terminate`] can
+/// reach everything it starts — a wrapper script's game included.
+pub fn in_own_process_group(cmd: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt;
+    // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
+    // calling process, which between fork and exec is the child alone.
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::setpgid(0, 0) == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        });
+    }
+}
+
 /// Ask a spawned game and everything it started to exit.
 ///
-/// Sends `SIGTERM` to the child's whole process group — which
-/// [`LaunchPlan::spawn`] created for exactly this purpose — then reaps the
-/// direct child. Signalling only the child would leave a wrapper's grandchildren
-/// running, which is the orphan this exists to prevent.
+/// Signals the child's whole process group — created by
+/// [`in_own_process_group`] for exactly this purpose — so a wrapper's
+/// grandchildren go too. `SIGTERM` first; a group still there after a few
+/// seconds gets `SIGKILL`, so a game that ignores the request cannot hang the
+/// caller.
 ///
 /// # Errors
 /// Returns an error if the process could not be reaped.
 pub fn terminate(child: &mut std::process::Child) -> Result<()> {
     let pid = i32::try_from(child.id()).context("child pid does not fit in pid_t")?;
-    // SAFETY: a negative pid addresses the process group led by `pid`, which is
-    // the group spawn() created. An already-exited group yields ESRCH, which is
-    // not an error worth reporting here.
-    unsafe {
-        libc::kill(-pid, libc::SIGTERM);
+    let signal_group = |signal| {
+        // SAFETY: a negative pid addresses the process group led by `pid`.
+        // An already-exited group yields ESRCH, which is not worth reporting.
+        unsafe {
+            libc::kill(-pid, signal);
+        }
+    };
+    signal_group(libc::SIGTERM);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::time::Instant::now() < deadline {
+        if child.try_wait().context("reap game process")?.is_some() {
+            // The leader is gone; anything it left behind is not.
+            signal_group(libc::SIGKILL);
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
+    signal_group(libc::SIGKILL);
     child.wait().context("reap game process")?;
     Ok(())
 }

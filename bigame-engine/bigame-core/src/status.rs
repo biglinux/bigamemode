@@ -111,7 +111,15 @@ pub fn read_from(path: &Path) -> Option<FalcondStatus> {
         }
         return None;
     }
-    let content = std::fs::read_to_string(path).ok()?;
+    let mut content = String::new();
+    std::io::Read::read_to_string(
+        &mut std::io::Read::take(
+            std::fs::File::open(path).ok()?,
+            crate::watch::MAX_WATCHED_BYTES,
+        ),
+        &mut content,
+    )
+    .ok()?;
     Some(parse(&content))
 }
 

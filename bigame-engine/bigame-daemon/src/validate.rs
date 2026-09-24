@@ -100,7 +100,10 @@ const SCRIPT_KEYS: &[&str] = &["start_script", "stop_script"];
 /// repeated keys, or script hooks.
 pub fn profile_payload(content: &str) -> Result<(), String> {
     payload(content)?;
-    if content.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+    if content
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\t')
+    {
         return Err("profile contains control characters".into());
     }
     let mut seen = std::collections::HashSet::new();

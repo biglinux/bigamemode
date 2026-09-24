@@ -203,14 +203,9 @@ pub mod service {
 
         tracing::info!("falcond D-Bus status service registered as {BUS_NAME}");
 
-        // Audit DBUS-01: this loop used to re-read the status file every
-        // 500 ms for the life of the process — two wakeups a second, forever,
-        // in an application whose purpose is to stay out of a game's way.
-        //
-        // falcond owns no D-Bus name to subscribe to, so the file really is the
-        // only channel; but watching it costs nothing while nothing happens.
-        // The watcher thread blocks in the kernel and only speaks when the
-        // contents actually change.
+        // falcond owns no D-Bus name to subscribe to, so its status file is the
+        // only channel. It is watched, not polled: the watcher thread blocks in
+        // the kernel and speaks only when the contents change.
         let path = crate::status::status_path();
         let Some(mut changes) = crate::watch::watch_file(path) else {
             tracing::warn!(
@@ -231,6 +226,11 @@ pub mod service {
                 return Ok(());
             };
             changes = returned;
+            // The same check as every other read: in /tmp, before falcond has
+            // created it, the file can be anyone's.
+            if !crate::status::is_trustworthy(path) {
+                continue;
+            }
 
             let iface_ref = conn
                 .object_server()

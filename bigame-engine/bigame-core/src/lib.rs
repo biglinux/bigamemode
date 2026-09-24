@@ -23,6 +23,7 @@ pub mod logs;
 pub mod migration;
 pub mod models;
 pub mod network;
+pub mod paths;
 pub mod polkit;
 pub mod processes;
 pub mod profiles;

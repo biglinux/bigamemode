@@ -170,12 +170,18 @@ fn record_run(
     wrapped.extend(cmd.iter().cloned());
 
     let (program, argv) = wrapped.split_first().context("empty workload command")?;
-    let mut child = std::process::Command::new(program)
+    let mut command = std::process::Command::new(program);
+    command
         .args(argv)
         .env("MANGOHUD_CONFIGFILE", &config_path)
         .env("MANGOHUD", "1")
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    // Its own process group, so ending the run ends the game even when the
+    // command is a wrapper script: a game left running would still be there
+    // in the next arm and skew it.
+    crate::launcher::in_own_process_group(&mut command);
+    let mut child = command
         .spawn()
         .with_context(|| format!("spawn workload: {program}"))?;
 
@@ -193,8 +199,7 @@ fn record_run(
         std::thread::sleep(Duration::from_millis(250));
     }
 
-    let _ = child.kill();
-    let _ = child.wait();
+    let _ = crate::launcher::terminate(&mut child);
     std::thread::sleep(Duration::from_millis(500));
 
     let Some(capture_path) = benchmark::newest_capture_in(log_dir)? else {

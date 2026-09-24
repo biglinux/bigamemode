@@ -193,13 +193,7 @@ fn spawn_worker(tx: mpsc::Sender<Event>, command: Vec<String>) {
 
 /// Where `MangoHud` writes its captures.
 fn log_directory() -> std::path::PathBuf {
-    let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
-        || {
-            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".cache")
-        },
-        std::path::PathBuf::from,
-    );
+    let base = bigame_core::paths::cache_home();
     base.join("bigame-mode").join("benchmark")
 }
 

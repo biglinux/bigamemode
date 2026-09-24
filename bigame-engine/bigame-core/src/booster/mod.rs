@@ -354,22 +354,6 @@ impl BoosterEngine {
         }
         Ok(outcomes)
     }
-
-    /// Recover after a crash or an unclean shutdown.
-    ///
-    /// Call once at start-up. If a journal is present it means a previous run
-    /// left the machine in Booster state without ever being turned off, so the
-    /// baseline is restored before the user sees anything.
-    ///
-    /// # Errors
-    /// Returns an error if the journal could not be read.
-    pub async fn recover() -> Result<Vec<RestoreOutcome>> {
-        if Journal::load()?.is_none() {
-            return Ok(Vec::new());
-        }
-        tracing::info!(target: "booster", "found an unfinished Booster session; restoring baseline");
-        Self::deactivate().await
-    }
 }
 
 #[cfg(test)]
