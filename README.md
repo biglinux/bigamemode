@@ -24,13 +24,13 @@ fazer, e nada é chamado de melhoria sem medição.**
 | Página | O que faz |
 |---|---|
 | **Início** | O **Turbo**, a chave principal. Desligado, o BiGame-mode não interfere em jogo nenhum; ligado, o falcond aplica o perfil de cada jogo. Mostra o jogo em execução, o perfil ativo e o estado dos Gráficos com IA. |
-| **Detalhes** | Telemetria em tempo real: frequência, temperatura e uso de CPU e GPU, memória, disco, perfil de energia, escalonador e latência de rede. |
+| **Detalhes** | Telemetria em tempo real: frequência de CPU e GPU, temperatura da GPU, memória, disco e latência de rede; perfil de energia, escalonador ativo e o que está de fato ligado no jogo em execução. |
 | **Perfis** | Jogos do Steam, Lutris, Heroic e do menu de aplicativos (jogos nativos, como o SuperTuxKart do pacman), cada um com seu perfil: modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, Gamescope, MangoHud e lsfg-vk. Um **assistente** explica cada opção em linguagem simples, e quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
 | **Gráficos com IA** | No menu ⋮ de cada jogo: analisa o jogo (API gráfica, DLSS/XeSS/FSR que ele já traz, DLLs de proxy, anti-cheat), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. |
 | **Ajustes** | Configuração global do falcond e as opções do Gamescope detectadas da versão instalada. |
-| **Vídeo** | Upscaling espacial padrão (Gamescope FSR/NIS, Wine FSR, vkBasalt) e geração de quadros com lsfg-vk. |
+| **Vídeo** | Upscaling espacial (Gamescope FSR/NIS, Wine FSR, vkBasalt) para os jogos iniciados pelo BiGame-mode, e geração de quadros com lsfg-vk. |
 | **Benchmark** | Quais medições são possíveis nesta máquina e o que já foi medido. Para jogos que abrem diretamente, **Medir a diferença** (no menu do jogo) compara com e sem otimizações, em várias execuções alternadas. |
-| **Diagnóstico** | Saúde do sistema com a correção de cada problema, um relatório para suporte e medições de rede. Somente leitura. |
+| **Diagnóstico** | Saúde do sistema com a correção de cada problema, um relatório para suporte e medições de rede. Só muda algo quando você pede — por exemplo, limpar opções de lançamento da Steam que chamam um programa ausente. |
 | **Registros** | Tudo o que importa numa sessão de jogo, do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
 | **Configurações** | O que o BiGame-mode faz sozinho, e **Devolver**, que entrega o falcond exatamente como estava antes. |
 

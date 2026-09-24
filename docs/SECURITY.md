@@ -45,7 +45,7 @@ an administrator's password.
 |---|---|
 | Profile name | `[A-Za-z0-9 ._+-]`, 1–128 bytes, no leading `.`, no `..`, no leading or trailing space — a separator cannot be expressed |
 | Profile `name` field | must equal the name it is saved under; otherwise `X.conf` containing `name = "Xorg"` would make falcond treat the display server as a game |
-| Profile content | ≤ 64 KiB; no NUL or other control characters (a bare `\r` is a line break to some parsers); no quoted or repeated keys (one parser keeps the first value, another the last); **no `start_script` / `stop_script`** — falcond runs them as root through `/bin/sh` |
+| Profile content | ≤ 64 KiB; no NUL or other control characters (a bare `\r` is a line break to some parsers); keys compared with any quotes removed, and none repeated (one parser keeps the first value, another the last); **no `start_script` / `stop_script`** — falcond runs them as root through `/bin/sh` |
 | falcond configuration | ≤ 64 KiB, no NUL |
 | Governor / EPP | `[a-z0-9_-]`, and one of the values the kernel lists in `scaling_available_governors` / `energy_performance_available_preferences` — an arbitrary governor name would make cpufreq load a `cpufreq_<name>` module |
 | DRM card | `card` followed by 1–3 digits |

@@ -46,7 +46,7 @@ machine. The raw data of every result is in `bigame-engine/benchmarks/`.
 |---|---|
 | `scripts/bench-game.sh` | a game's built-in benchmark, alternating arms in one launch (Shadow of the Tomb Raider's `[R]` rerun), with GPU telemetry. `GAME`, `RUNS`, `LABEL`, `SCX_PROFILE` |
 | `scripts/bench-lab.sh` | SuperTuxKart A/B sessions. `RUNS`, `LABEL` |
-| `scripts/gpu-telemetry.sh` | GPU clock, power, temperature and utilisation 4×/s, without forking (a forking sampler raised the spread from 1.4 % to 6 %) |
+| `scripts/gpu-telemetry.sh` | GPU clock, power, temperature and utilisation 4×/s, without forking (a forking sampler raised the run-to-run spread from about 1.4 % to about 9 %) |
 | `scripts/scx-switch.sh` | the root side of scheduler sessions: one Polkit approval, the profile restored when the session ends |
 | `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a `bench-game.sh` session |
 | `cargo run -p bigame-core --example bench_report -- <session> <baseline>` | verdicts for a `bench-lab.sh` session |

@@ -131,7 +131,10 @@ apply → verify → report → restore**.
   build chroot.
 - Games started from BiGame-mode run in their own process group, so ending one
   ends everything it started, including a wrapper script's game.
-- `steam -applaunch` is not wrapped: it starts the client, not the game.
+- `steam -applaunch` is not wrapped: it starts the client, not the game. A game
+  started through the Steam client gets falcond's profile (falcond matches its
+  process) and AI Graphics (the files are in its folder), but not the launch
+  pipeline's Gamescope and environment settings.
 - **Harmony policy** — two technologies doing the same job never run in series:
   - lsfg-vk selected without its `Lossless.dll` is switched off for the launch;
   - a game with OptiScaler installed launches without Wine FSR and without a
