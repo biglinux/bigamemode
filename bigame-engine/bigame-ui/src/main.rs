@@ -12,6 +12,12 @@ mod widgets;
 mod window;
 
 fn main() -> libadwaita::glib::ExitCode {
+    // The support report the Diagnostics page shows, for a terminal or a
+    // bug report: no window, no display needed.
+    if std::env::args().skip(1).any(|a| a == "--diagnostics") {
+        print!("{}", bigame_core::diagnostics::report(false));
+        return libadwaita::glib::ExitCode::SUCCESS;
+    }
     init_tracing();
     i18n::init();
     app::run()

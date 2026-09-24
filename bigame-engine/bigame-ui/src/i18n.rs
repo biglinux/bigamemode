@@ -10,16 +10,17 @@ const LOCALE_DIR: &str = "/usr/share/locale";
 
 /// Initialize gettext for the application.
 ///
-/// Respects `BIGAME_LOCALEDIR` env var for development/testing.
-/// Falls back to `/usr/share/locale` when not set (production).
-///
-/// # Panics
-/// Panics if locale binding fails (missing system locale support).
+/// `BIGAME_LOCALEDIR` points at compiled catalogues during development;
+/// otherwise the installed ones in `/usr/share/locale` are used. A failure
+/// leaves the interface in English rather than stopping it from starting.
 pub fn init() {
     let locale_dir = std::env::var("BIGAME_LOCALEDIR").unwrap_or_else(|_| LOCALE_DIR.to_owned());
     gettextrs::setlocale(LocaleCategory::LcAll, "");
-    gettextrs::bindtextdomain(GETTEXT_DOMAIN, &locale_dir).expect("bindtextdomain");
-    gettextrs::textdomain(GETTEXT_DOMAIN).expect("textdomain");
+    if let Err(e) = gettextrs::bindtextdomain(GETTEXT_DOMAIN, &locale_dir)
+        .and_then(|_| gettextrs::textdomain(GETTEXT_DOMAIN).map(|_| ()))
+    {
+        tracing::warn!(error = %e, "translations unavailable; using English");
+    }
 }
 
 /// Translate a string via gettext.

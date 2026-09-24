@@ -16,7 +16,6 @@ depends=(
     'gtk4'
     'libadwaita'
     'hicolor-icon-theme'
-    'bash'  # falcond-diag
 
     # The privileged helper: a system-bus service started by systemd, every
     # method authorised through Polkit.
@@ -121,7 +120,6 @@ package() {
         "${pkgdir}/usr/bin/bigame-ui"
     install -Dm755 bigame-engine/target/release/bigame-daemon \
         "${pkgdir}/usr/bin/bigame-daemon"
-    install -Dm755 usr/bin/falcond-diag "${pkgdir}/usr/bin/falcond-diag"
 
     # Desktop integration.
     install -Dm644 data/com.biglinux.BiGameMode.desktop \
