@@ -132,7 +132,7 @@ fn looks_like_process(name: &str, installed: &[DetectedGame]) -> bool {
 #[must_use]
 pub fn plan_file(file: &Path, content: &str, installed: &[DetectedGame]) -> Action {
     let pairs = fields(content);
-    let written_by_bigame = pairs
+    let has_old_bigame_fields = pairs
         .iter()
         .any(|(k, _)| BIGAME_FIELDS.contains(&k.as_str()));
     let Some(name) = crate::running::profile_name_field(content) else {
@@ -141,10 +141,10 @@ pub fn plan_file(file: &Path, content: &str, installed: &[DetectedGame]) -> Acti
             reason: "has no name field".into(),
         };
     };
-    if !written_by_bigame {
+    if !has_old_bigame_fields {
         return Action::Keep {
             file: file.to_path_buf(),
-            reason: "not written by BiGame-mode".into(),
+            reason: "falcond fields only: nothing to migrate".into(),
         };
     }
     if looks_like_process(&name, installed) {
