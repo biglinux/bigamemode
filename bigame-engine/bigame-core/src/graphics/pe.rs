@@ -253,7 +253,7 @@ pub fn parse_file(path: &Path, limit: u64) -> anyhow::Result<PeInfo> {
 /// The file version of a PE file on disk, read from its resource section only.
 ///
 /// Version resources live in `.rsrc`, usually at the end of the file — past
-/// the first 64 MB of Intel's 77 MB XeSS runtime, for one. The headers say
+/// the first 64 MB of Intel's 77 MB `XeSS` runtime, for one. The headers say
 /// where the resource directory is, so only that span is read (capped at
 /// 32 MB), not the whole file.
 #[must_use]
@@ -333,6 +333,8 @@ pub fn file_version(bytes: &[u8]) -> Option<String> {
 }
 
 #[cfg(test)]
+// Test images are a few hundred bytes; no offset in them can truncate.
+#[allow(clippy::cast_possible_truncation)]
 pub(crate) mod fixture {
     //! A tiny PE32+ image builder, so the parser is tested against bytes whose
     //! every field is known, not against whatever DLLs a machine happens to have.
