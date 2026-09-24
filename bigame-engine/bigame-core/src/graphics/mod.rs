@@ -7,6 +7,7 @@
 //! file BiGame-mode places in its folder to get there.
 
 pub mod manifest;
+pub mod optiscaler;
 pub mod pe;
 pub mod scan;
 pub mod transaction;
