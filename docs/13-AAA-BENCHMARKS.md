@@ -46,7 +46,7 @@ Frames of 1 s or longer are therefore counted as transitions and set aside,
 and the count is reported. This is the only place the computed average differs
 from the game's (81.8 against 77.9 in that run — exactly the 7.8 s).
 
-### Two bugs found on the way
+### Bugs found on the way
 
 - **Two prefixes.** `compatdata/750920` exists in both Steam libraries. The one
   in the home library is stale; the game, and its results, are on the games
@@ -54,6 +54,21 @@ from the game's (81.8 against 77.9 in that run — exactly the 7.8 s).
   provider now take the prefix from the library holding the game's manifest.
 - **Summary files end in a NUL byte**, which makes `grep` treat them as binary
   and print nothing. Rust's reader is unaffected; the harness uses `grep -a`.
+- **A press can be lost.** The first scheduler session's warm-up press did
+  nothing: the game drops input for a moment when it regains focus, and under
+  Wayland the native Polkit dialog held the keyboard while X still reported
+  the game as the active window, so the focus guard passed. The harness waited
+  out its ten-minute timeout. A run now counts as started only when the game's
+  log says `Benchmark started`; a press is repeated after 45 s, never sooner,
+  because loading the benchmark takes up to ~20 s. The focus guard is still
+  what keeps keys out of other applications: XTEST input cannot reach a
+  Wayland window at all, only X ones.
+- **The scheduler switcher could outlive the harness.** Its first version read
+  requests from a FIFO; had the harness died, the root helper would have
+  blocked on the FIFO (or spun, once it was removed) with the game's profile
+  still rewritten, and its replies went to a path the caller controlled. It
+  now runs as a coprocess over stdin/stdout: the harness ending, however it
+  ends, closes the pipe, and the helper puts the profile back.
 
 ---
 
