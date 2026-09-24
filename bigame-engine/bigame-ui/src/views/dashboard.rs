@@ -1416,7 +1416,7 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
     for game in detected.iter().take(20) {
         let row = adw::ActionRow::builder()
             .title(&*game.name)
-            .subtitle(game.source.label())
+            .subtitle(crate::views::profiles::source_label(game.source))
             .build();
         row.add_prefix(&gtk4::Image::from_icon_name("applications-games-symbolic"));
 

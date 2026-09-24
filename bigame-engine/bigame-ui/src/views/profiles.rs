@@ -74,16 +74,14 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
 
     group.add(&list_box);
 
-    // Initial population
-    refresh_profile_list(&list_box, nav_view);
-
-    // Refresh list whenever user navigates back from a detail/create page.
+    // Filled whenever the list comes on screen: the first time the page is
+    // shown, on return from a detail or create page, and after a profile was
+    // made elsewhere — from Home or the notification offer, which on the lab
+    // VM left the new profile missing here until the rescan button.
     {
         let lb = list_box.clone();
         let nav_ref = nav_view.clone();
-        nav_view.connect_popped(move |_, _| {
-            refresh_profile_list(&lb, &nav_ref);
-        });
+        list_box.connect_map(move |_| refresh_profile_list(&lb, &nav_ref));
     }
 
     // Refreshing is driven by navigation and by the explicit button above,
@@ -988,7 +986,7 @@ fn build_library() -> Vec<game_card::Entry> {
         let has_profile = profile_names.iter().any(|n| n == &key);
         entries.push(game_card::Entry {
             title: game.name.clone(),
-            source: game.source.label().to_owned(),
+            source: source_label(game.source),
             cover: game.cover.clone(),
             launch_command: game.launch_command.clone(),
             system_profile: has_profile && bigame_core::profiles::is_system_profile(&key),
@@ -1028,6 +1026,15 @@ fn build_library() -> Vec<game_card::Entry> {
 
     entries.sort_by_key(|e| e.title.to_lowercase());
     entries
+}
+
+/// Where a game came from, for display: launchers by their names, a game from
+/// the application menu in the user's language.
+pub(crate) fn source_label(source: bigame_core::games::Source) -> String {
+    match source {
+        bigame_core::games::Source::Native => i18n("Native"),
+        other => other.label().to_owned(),
+    }
 }
 
 /// Whether a profile name could plausibly be a process name.
