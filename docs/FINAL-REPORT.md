@@ -44,6 +44,42 @@ across the whole workspace.
 
 ---
 
+## Fifth pass: Turbo as the master switch
+
+Detail in [14](14-TURBO-AUDIT.md)–[24](24-FINAL-VALIDATION.md).
+
+**Finding.** Before this pass, on the reference machine, neither Turbo nor
+falcond did anything that affects performance. Turbo's plan was empty;
+falcond, running independently of Turbo, applied its *handheld* profile set on
+a desktop, and of its settings only idle inhibit took effect — every scheduler
+switch failed for want of `scx_loader`.
+
+**What changed.** Turbo now switches falcond itself, through systemd (stop
+restores a running game's profile; enablement survives reboots; the state it
+found is recorded and can be handed back). Each piece of state has one writer:
+Booster no longer touches the power profile, V-Cache, or — on amd-pstate — the
+governor. The running game is identified by its real process; a game without
+a profile is offered one by notification, built from evidence and verified
+once created. Old title-keyed profiles can be migrated with a backup. Home
+shows the game and what is in force; the report groups everything by what
+happened; Logs reads the journal once; Diagnostics says what is wrong and the
+command that fixes it. The UI's own cost on Home during a game fell from 7.38 %
+CPU and 313 wake-ups/s to 0.77 % and 9.9/s.
+
+**Defects fixed along the way,** among others: a second destructive
+"Repair" that the first audit missed; the helper unable to start on CPUs
+without the V-Cache driver; a profile's name field able to target any process;
+profile saves that restarted falcond mid-game; save dialogs that reported
+success whatever happened; placebo controls (per-game governor, custom
+scheduler flags, script fields); frame-gen sliders that reloaded falcond on
+every move.
+
+**Not yet done on the reference machine** (needs a Polkit approval): installing
+this build, a live Turbo off/on, creating a profile from the offer, the
+migration, and a scheduler measurement after installing `scx-tools`.
+
+---
+
 ## Fourth pass: an AAA title, measured
 
 Detail in [13-AAA-BENCHMARKS.md](13-AAA-BENCHMARKS.md). The question this
@@ -113,7 +149,7 @@ to the tree.
 | SEC-01 | Polkit on every method, keyed on unique bus name; unreachable Polkit denies | code + unit tests |
 | SEC-02/03 | Server-side allow-list validation; property test that no accepted name escapes the directory | audit payloads asserted rejected |
 | SEC-04 | Both sudoers files deleted; nothing needs sudo | `grep` clean |
-| SEC-05 | Destructive "repair" removed | — |
+| SEC-05 | Destructive "repair" removed | — **Correction (fifth pass):** a second one survived in `app.rs` — `pkexec sh -c "rm -f …/profiles/user/*.conf …"` — and was removed then. |
 | SEC-06 | `systemctl reload-or-restart` instead of `pkill` | — |
 | — | Profile script hooks refused outright | unit test |
 | CFG-01 | Config path corrected to `config.conf` | `strings` on falcond 2.0.2 |
