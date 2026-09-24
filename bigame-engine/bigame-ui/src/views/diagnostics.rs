@@ -8,6 +8,8 @@
 //! identifiers as it builds rather than filtering afterwards. The page never
 //! sees an unredacted version, so there is nothing here that could leak one.
 
+use std::fmt::Write as _;
+
 use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
@@ -53,6 +55,7 @@ const PROBE_DOMAINS: &[&str] = &[
 #[must_use]
 pub fn build() -> gtk4::Widget {
     let page = adw::PreferencesPage::new();
+    page.add(&health_group());
     page.add(&background_group());
     page.add(&steam_group());
     page.add(&network_group());
@@ -61,6 +64,92 @@ pub fn build() -> gtk4::Widget {
 }
 
 // ── Background load ─────────────────────────────────────────────────────────
+
+/// Is everything a game needs here, and does it work? Each row says what was
+/// found and, when something is wrong, the command that fixes it — copied,
+/// never run: a fix that needs root is the user's to run, and nothing here
+/// deletes anything.
+fn health_group() -> adw::PreferencesGroup {
+    use bigame_core::health::Status;
+
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("System health"));
+    group.set_description(Some(&i18n(
+        "What games need on this machine, and whether it works.",
+    )));
+    let copy_all = gtk4::Button::builder()
+        .icon_name("edit-copy-symbolic")
+        .tooltip_text(i18n("Copy all checks"))
+        .css_classes(["flat"])
+        .build();
+    copy_all.update_property(&[gtk4::accessible::Property::Label(&i18n("Copy all checks"))]);
+    group.set_header_suffix(Some(&copy_all));
+    let placeholder = adw::ActionRow::builder().title(i18n("Checking…")).build();
+    group.add(&placeholder);
+
+    let group_ref = group.clone();
+    glib::spawn_future_local(async move {
+        let checks = gio::spawn_blocking(bigame_core::health::collect)
+            .await
+            .unwrap_or_default();
+        group_ref.remove(&placeholder);
+        let mut text = String::new();
+        for c in &checks {
+            let (icon, css) = match c.status {
+                Status::Ok => ("emblem-ok-symbolic", "success"),
+                Status::Info => ("dialog-information-symbolic", "dim-label"),
+                Status::Warning => ("dialog-warning-symbolic", "warning"),
+                Status::Error => ("dialog-error-symbolic", "error"),
+                Status::NotApplicable => ("action-unavailable-symbolic", "dim-label"),
+            };
+            let row = adw::ActionRow::builder()
+                .title(&c.title)
+                .subtitle(&c.detail)
+                .subtitle_lines(3)
+                .build();
+            let image = gtk4::Image::from_icon_name(icon);
+            image.add_css_class(css);
+            row.add_prefix(&image);
+            if let Some(fix) = &c.fix {
+                let fix_label = gtk4::Label::new(Some(fix));
+                fix_label.add_css_class("caption");
+                fix_label.add_css_class("monospace");
+                fix_label.set_selectable(true);
+                fix_label.set_wrap(true);
+                fix_label.set_max_width_chars(40);
+                row.add_suffix(&fix_label);
+                let copy = gtk4::Button::builder()
+                    .icon_name("edit-copy-symbolic")
+                    .tooltip_text(i18n("Copy"))
+                    .valign(gtk4::Align::Center)
+                    .css_classes(["flat"])
+                    .build();
+                let fix = fix.clone();
+                copy.connect_clicked(move |b| {
+                    b.clipboard().set_text(&fix);
+                    crate::widgets::toast::show(b, &i18n("Copied"));
+                });
+                row.add_suffix(&copy);
+            }
+            group_ref.add(&row);
+            let _ = writeln!(
+                text,
+                "{:?}\t{}\t{}{}",
+                c.status,
+                c.title,
+                c.detail,
+                c.fix
+                    .as_ref()
+                    .map_or_else(String::new, |f| format!("\t→ {f}"))
+            );
+        }
+        copy_all.connect_clicked(move |b| {
+            b.clipboard().set_text(&text);
+            crate::widgets::toast::show(b, &i18n("Copied"));
+        });
+    });
+    group
+}
 
 /// What else is using the CPU right now.
 ///
