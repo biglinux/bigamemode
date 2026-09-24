@@ -180,7 +180,7 @@ arm_ui_paused()  { arm_rest; [ -n "$UI_PID" ] || die "no bigame-ui is running"; 
 # under a single Polkit approval -- to rewrite the game's falcond profile and
 # have falcond reload. What the kernel reports afterwards is recorded with the
 # run, so a scheduler that did not take is visible rather than assumed.
-SCX_PID=""
+SCX_PID=""; SCX_READY=""
 scx_start() {
     [ -n "$SCX_PID" ] && return 0
     log "starting the scheduler switcher: approve the Polkit prompt"
@@ -191,6 +191,7 @@ scx_start() {
     local reply=""
     read -r -t "${SCX_AUTH_TIMEOUT_S:-300}" -u "${SCX[0]}" reply
     [ "$reply" = ready ] || die "the scheduler switcher did not start (Polkit refused, timed out, or bad profile)"
+    SCX_READY=1
 }
 scx_set() {
     scx_start
@@ -204,6 +205,10 @@ scx_stop() {
     [ -n "$SCX_PID" ] || return 0
     local pid=$SCX_PID; SCX_PID=""
     [ -n "${SCX[1]:-}" ] && eval "exec ${SCX[1]}>&-"
+    # pkexec still waiting for its approval reads no input, so closing the
+    # pipe would not end it and the wait below would never return. It has
+    # changed nothing yet, and it still runs as this user: stop it.
+    [ -n "$SCX_READY" ] || kill "$pid" 2>/dev/null
     wait "$pid" 2>/dev/null
 }
 arm_scx_none()    { arm_rest; scx_set none default; }
