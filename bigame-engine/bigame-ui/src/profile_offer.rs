@@ -30,6 +30,9 @@ use crate::i18n::i18n;
 
 const NOTIFICATION_ID: &str = "profile-offer";
 
+/// How long a game must have been running before a profile is offered.
+const SETTLE_SECS: u64 = 20;
+
 thread_local! {
     static OFFERED: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
     static LAST_GAME: RefCell<Option<String>> = const { RefCell::new(None) };
@@ -77,6 +80,12 @@ fn should_offer(game: &GameIdentity) -> bool {
         .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
         .is_some_and(|u| u.is_active());
     if !turbo_on {
+        return false;
+    }
+    // A process that has only just started may be a helper that runs before
+    // the game -- Steam's installer script did exactly that -- so the offer
+    // waits until the process has lived a while.
+    if bigame_core::running::running_for(game.pid).is_none_or(|secs| secs < SETTLE_SECS) {
         return false;
     }
     if OFFERED.with(|o| o.borrow().contains(&game.process_name))
@@ -146,6 +155,16 @@ pub fn install(app: &adw::Application) {
             };
             LAST_GAME.with(|g| *g.borrow_mut() = Some(game.display_name.clone()));
             glib::spawn_future_local(async move {
+                // Wait until the process has settled, then ask again whether it
+                // is still the running game.
+                let age = bigame_core::running::running_for(game.pid).unwrap_or(0);
+                if age < SETTLE_SECS {
+                    glib::timeout_future_seconds(u32::try_from(SETTLE_SECS - age).unwrap_or(20))
+                        .await;
+                }
+                if crate::game_watch::current().map(|g| g.pid) != Some(game.pid) {
+                    return;
+                }
                 let check = game.clone();
                 let offer = gio::spawn_blocking(move || should_offer(&check))
                     .await

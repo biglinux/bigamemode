@@ -237,6 +237,11 @@ const INFRASTRUCTURE: &[&str] = &[
     "xalia.exe",
     "iexplore.exe",
     "d3ddriverquery64.exe",
+    // Steam's installer-script runner: it runs inside the game's Proton tree
+    // on a first launch, before the game itself. Taken for the game on the
+    // reference machine, it was offered -- and given -- a profile.
+    "iscriptevaluator.exe",
+    "installscript.exe",
     // Helpers games ship
     "crashpad_handler.exe",
     "unitycrashhandler64.exe",
@@ -250,11 +255,46 @@ const INFRASTRUCTURE: &[&str] = &[
     "gameoverlayui",
 ];
 
+/// falcond's own list of processes that are never games
+/// (`/usr/share/falcond/system.conf`), read once.
+///
+/// Using falcond's list as well as ours means the two can never disagree
+/// about what a game is: anything falcond would refuse to profile, BiGame-mode
+/// will not offer a profile for either.
+fn falcond_system_processes() -> &'static [String] {
+    static LIST: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    LIST.get_or_init(|| {
+        std::fs::read_to_string("/usr/share/falcond/system.conf")
+            .map(|text| parse_system_processes(&text))
+            .unwrap_or_default()
+    })
+}
+
+/// The quoted names in a `system_processes = [ … ]` array, lowercased.
+#[must_use]
+pub fn parse_system_processes(text: &str) -> Vec<String> {
+    let Some(start) = text.find("system_processes") else {
+        return Vec::new();
+    };
+    let rest = &text[start..];
+    let Some(open) = rest.find('[') else {
+        return Vec::new();
+    };
+    let close = rest[open..].find(']').map_or(rest.len(), |c| open + c);
+    rest[open + 1..close]
+        .split('"')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_ascii_lowercase)
+        .collect()
+}
+
 /// Whether a process name is machinery rather than a game.
 #[must_use]
 pub fn is_infrastructure(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     INFRASTRUCTURE.contains(&lower.as_str())
+        || falcond_system_processes().contains(&lower)
         || lower.starts_with("wine")
         // Crash handlers by their usual names -- not any name containing
         // "crash", which would also exclude Crash Bandicoot.
@@ -763,6 +803,46 @@ mod tests {
             "a game, not a crash handler"
         );
         assert!(!is_infrastructure("DeadByDaylight-Win64-Shipping.exe"));
+    }
+
+    #[test]
+    fn steams_installer_script_is_not_the_game() {
+        // What happened on the reference machine: Rise of the Tomb Raider's
+        // first launch ran iscriptevaluator.exe in the game's tree first.
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=391220 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "python3|/s/steamapps/common/Proton - Experimental/proton waitforexitandrun x",
+                5,
+            ),
+            p(
+                3,
+                2,
+                "C:\\Program Files (x86)\\Steam\\bin\\iscriptevaluator.exe|--get-current-step 391220",
+                900,
+            ),
+        ];
+        assert!(
+            identify(&tree).is_empty(),
+            "the installer helper is not a game"
+        );
+    }
+
+    #[test]
+    fn falconds_system_process_list_is_parsed() {
+        let conf = "system_processes = [\n  \"steam.exe\",\n  \"iscriptevaluator.exe\",\n  \"SteelSeriesGG.exe\",\n]\n";
+        assert_eq!(
+            parse_system_processes(conf),
+            vec!["steam.exe", "iscriptevaluator.exe", "steelseriesgg.exe"]
+        );
+        assert!(parse_system_processes("nothing here").is_empty());
     }
 
     #[test]

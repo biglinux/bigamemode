@@ -178,6 +178,62 @@ pub fn read_crystal(frametimes: &Path) -> Result<NativeRun> {
     Ok(run)
 }
 
+/// Read one run that the game split across several scene files.
+///
+/// Rise of the Tomb Raider writes one frametimes/summary pair per scene
+/// (Spine of the Mountain, Prophet's Tomb, Geothermal Valley); the run is all
+/// of them. Frames are concatenated in the order given, transitions summed,
+/// and the settings taken from the first scene — the report refuses a session
+/// whose settings differ, so scenes of one run always agree. The game's own
+/// per-scene averages are not combined into one figure.
+///
+/// # Errors
+/// Returns an error if any file cannot be read.
+pub fn read_crystal_run(files: &[PathBuf]) -> Result<NativeRun> {
+    let mut run = NativeRun::default();
+    for (i, file) in files.iter().enumerate() {
+        let scene = read_crystal(file)?;
+        if i == 0 {
+            run.settings = scene.settings;
+            run.frame_generation = scene.frame_generation;
+            run.reported_avg_fps = scene.reported_avg_fps;
+        } else {
+            run.reported_avg_fps = None;
+            run.frame_generation |= scene.frame_generation;
+        }
+        run.capture
+            .frametimes_ms
+            .extend(scene.capture.frametimes_ms);
+        run.capture.duration_s += scene.capture.duration_s;
+        run.transitions += scene.transitions;
+        run.files.extend(scene.files);
+    }
+    Ok(run)
+}
+
+/// Every entry in `dir` whose name matches, modified at or after `since`,
+/// oldest first.
+///
+/// # Errors
+/// Returns an error when the directory cannot be read.
+pub fn all_since(
+    dir: &Path,
+    matches: impl Fn(&str) -> bool,
+    since: SystemTime,
+) -> Result<Vec<PathBuf>> {
+    let mut found: Vec<(SystemTime, PathBuf)> = std::fs::read_dir(dir)
+        .with_context(|| format!("read {}", dir.display()))?
+        .flatten()
+        .filter(|e| matches(&e.file_name().to_string_lossy()))
+        .filter_map(|e| {
+            let modified = e.metadata().and_then(|m| m.modified()).ok()?;
+            (modified >= since).then(|| (modified, e.path()))
+        })
+        .collect();
+    found.sort();
+    Ok(found.into_iter().map(|(_, p)| p).collect())
+}
+
 // ── REDengine 4 ──────────────────────────────────────────────────────────────
 
 /// Parse `Cyberpunk 2077`'s `frames.csv`.
@@ -456,6 +512,37 @@ mod tests {
             settings_differ(&a, &b),
             vec!["FullscreenWidth: 3440 → 1920"]
         );
+    }
+
+    #[test]
+    fn a_run_split_across_scenes_is_one_capture() {
+        let dir = std::env::temp_dir().join(format!("bgm-scenes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let a = dir.join("SpineOfTheMountain_H_frametimes_1.txt");
+        let b = dir.join("ProphetsTomb_H_frametimes_2.txt");
+        std::fs::write(
+            &a,
+            " Frame, Time (ms), Delta (ms)\n1, 0, 0\n2, 5, 5.0\n3, 10, 5.0\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &b,
+            " Frame, Time (ms), Delta (ms)\n1, 0, 0\n2, 1500, 1500.0\n3, 1510, 10.0\n",
+        )
+        .unwrap();
+        let run = read_crystal_run(&[a, b]).unwrap();
+        assert_eq!(run.capture.frametimes_ms, vec![5.0, 5.0, 10.0]);
+        assert_eq!(
+            run.transitions, 1,
+            "the scene load in the second file is set aside"
+        );
+        assert!((run.capture.duration_s - 0.020).abs() < 1e-9);
+        assert_eq!(
+            run.reported_avg_fps, None,
+            "per-scene averages are not combined"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
