@@ -34,7 +34,9 @@ impl Default for Settings {
             window_width: 800,
             window_height: 600,
             maximized: false,
-            last_tab: String::from("dashboard"),
+            // Home is where a first start lands: Turbo is the one thing a
+            // beginner needs (views/home.rs).
+            last_tab: String::from("home"),
             dark_mode: false,
             notifications_enabled: true,
             ping_target: String::from("1.1.1.1"),

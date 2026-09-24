@@ -53,6 +53,8 @@ pub fn build() -> adw::PreferencesPage {
 /// of everyone else only makes the page harder to read.
 ///
 /// Nothing here is a hidden setting — each row states what it writes and where.
+// One group, built top to bottom; splitting it would scatter the rows.
+#[allow(clippy::too_many_lines)]
 fn build_advanced_group(
     shared: &Rc<RefCell<bigame_core::config::FalcondConfig>>,
 ) -> adw::PreferencesGroup {
@@ -127,8 +129,10 @@ fn build_advanced_group(
         let built = sample.to_args(gs);
         let preview = adw::ActionRow::builder()
             .title(i18n("Example command line"))
-            .subtitle(format!("gamescope {} -- <game>", built.args.join(" ")))
-            .use_markup(false)
+            .subtitle(format!(
+                "gamescope {} -- &lt;game&gt;",
+                built.args.join(" ")
+            ))
             .build();
         preview.set_subtitle_selectable(true);
         expander.add_row(&preview);
