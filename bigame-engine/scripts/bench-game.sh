@@ -79,6 +79,8 @@ WINDOW=$(xdotool search --name "$WINDOW_NAME" 2>/dev/null | head -1)
 press_rerun() {
     local waited=0
     until [ "$(xdotool getactivewindow 2>/dev/null)" = "$WINDOW" ]; do
+        # A game that has exited will never take focus again.
+        xdotool getwindowname "$WINDOW" >/dev/null 2>&1 || { log "the game exited"; return 1; }
         [ $waited -eq 0 ] && log "waiting for $TITLE to regain keyboard focus"
         sleep 2; waited=$((waited + 2))
         [ $waited -ge "$TIMEOUT_S" ] && return 1
@@ -249,7 +251,7 @@ else
 fi
 wait_for_stop "$before" || die "the warm-up did not finish"
 
-N=${#ARMS[@]}
+N=${#ARMS[@]}; INCOMPLETE=""
 for round in $(seq 1 "$RUNS"); do
     for k in $(seq 0 $((N - 1))); do
         arm=${ARMS[$(( (k + round - 1) % N ))]}
@@ -262,7 +264,7 @@ for round in $(seq 1 "$RUNS"); do
         stamp="$dir/.start"; touch "$stamp"
         "$HERE/gpu-telemetry.sh" "$CARD" "$dir/gpu.csv" & TELEMETRY_PID=$!
         before=$(stops)
-        start_run || { log "$arm run $round: the game would not start a run"; break 2; }
+        start_run || { log "$arm run $round: the game would not start a run"; INCOMPLETE=1; break 2; }
         if ! wait_for_stop "$before"; then
             log "$arm run $round: NO RESULT"
             kill "$TELEMETRY_PID" 2>/dev/null; TELEMETRY_PID=""
@@ -278,4 +280,8 @@ for round in $(seq 1 "$RUNS"); do
         rm -f "$stamp"
     done
 done
+if [ -n "${INCOMPLETE:-}" ]; then
+    log "session INCOMPLETE -- stopped at $arm run $round; results so far: $OUT"
+    exit 1
+fi
 log "session complete: $OUT"
