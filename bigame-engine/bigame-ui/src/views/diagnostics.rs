@@ -102,31 +102,35 @@ fn health_group() -> adw::PreferencesGroup {
                 Status::Error => ("dialog-error-symbolic", "error"),
                 Status::NotApplicable => ("action-unavailable-symbolic", "dim-label"),
             };
+            let subtitle = match &c.fix {
+                Some(fix) => format!("{}\n→ {}", c.detail, fix.text()),
+                None => c.detail.clone(),
+            };
+            // Plain text: a fix like `sudo pacman -S … && sudo systemctl …`
+            // is invalid Pango markup, and a row with markup on renders an
+            // invalid subtitle as nothing at all.
             let row = adw::ActionRow::builder()
                 .title(&c.title)
-                .subtitle(&c.detail)
-                .subtitle_lines(3)
+                .subtitle(&subtitle)
+                .subtitle_lines(4)
+                .use_markup(false)
                 .build();
             let image = gtk4::Image::from_icon_name(icon);
             image.add_css_class(css);
             row.add_prefix(&image);
-            if let Some(fix) = &c.fix {
-                let fix_label = gtk4::Label::new(Some(fix));
-                fix_label.add_css_class("caption");
-                fix_label.add_css_class("monospace");
-                fix_label.set_selectable(true);
-                fix_label.set_wrap(true);
-                fix_label.set_max_width_chars(40);
-                row.add_suffix(&fix_label);
+            if let Some(bigame_core::health::Fix::Command(command)) = &c.fix {
                 let copy = gtk4::Button::builder()
                     .icon_name("edit-copy-symbolic")
-                    .tooltip_text(i18n("Copy"))
+                    .tooltip_text(i18n("Copy the command"))
                     .valign(gtk4::Align::Center)
                     .css_classes(["flat"])
                     .build();
-                let fix = fix.clone();
+                copy.update_property(&[gtk4::accessible::Property::Label(&i18n(
+                    "Copy the command",
+                ))]);
+                let command = command.clone();
                 copy.connect_clicked(move |b| {
-                    b.clipboard().set_text(&fix);
+                    b.clipboard().set_text(&command);
                     crate::widgets::toast::show(b, &i18n("Copied"));
                 });
                 row.add_suffix(&copy);
@@ -140,7 +144,7 @@ fn health_group() -> adw::PreferencesGroup {
                 c.detail,
                 c.fix
                     .as_ref()
-                    .map_or_else(String::new, |f| format!("\t→ {f}"))
+                    .map_or_else(String::new, |f| format!("\t→ {}", f.text()))
             );
         }
         copy_all.connect_clicked(move |b| {

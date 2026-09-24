@@ -308,6 +308,7 @@ fn show_review(app: &adw::Application, process: &str) {
             .title(format!("{} = {}", d.key, d.value))
             .subtitle(format!("{} — {}", i18n(d.evidence.label()), d.why))
             .subtitle_lines(4)
+            .use_markup(false)
             .build();
         list.append(&row);
     }

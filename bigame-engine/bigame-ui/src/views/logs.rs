@@ -211,10 +211,16 @@ pub fn build() -> adw::PreferencesPage {
                 s.entries.drain(..excess);
                 drop(s);
                 render();
-                // Keep the newest line in view.
-                let buffer = view.buffer();
-                let mut end = buffer.end_iter();
-                view.scroll_to_iter(&mut end, 0.0, false, 0.0, 1.0);
+                // Keep the newest line in view -- once GTK has laid the text
+                // out; scrolling before that is silently a no-op, which left
+                // the page opening on the oldest entry.
+                let view = view.clone();
+                glib::idle_add_local_once(move || {
+                    let buffer = view.buffer();
+                    let mark = buffer.create_mark(None, &buffer.end_iter(), false);
+                    view.scroll_mark_onscreen(&mark);
+                    buffer.delete_mark(&mark);
+                });
             });
         })
     };

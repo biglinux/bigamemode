@@ -266,27 +266,56 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let hw = Rc::new(Hardware::detect());
         status.set_label(&summary_line_machine(&hw));
         let tick = Cell::new(0u32);
-        let refresh = move || {
-            // Nothing to do while the window is hidden or on another page.
-            if !root.is_mapped() {
-                return glib::ControlFlow::Continue;
-            }
-            let n = tick.get().wrapping_add(1);
-            tick.set(n);
-            let playing = crate::game_watch::current().is_some();
-            if playing && n % IN_GAME_EVERY != 0 {
-                return glib::ControlFlow::Continue;
-            }
-            cpu_tile.set_value(&cpu_reading(&hw));
-            gpu_tile.set_value(&gpu_reading(&hw));
-            net_tile.set_value(&net_reading());
-            game.tick();
-            glib::ControlFlow::Continue
+        let refresh = Refresh {
+            update: Box::new(move || {
+                cpu_tile.set_value(&cpu_reading(&hw));
+                gpu_tile.set_value(&gpu_reading(&hw));
+                net_tile.set_value(&net_reading());
+                game.tick();
+            }),
+            root,
+            tick,
         };
-        glib::timeout_add_local(TILE_REFRESH, refresh);
+        // Once as soon as the page is shown, then on the timer -- otherwise
+        // the tiles read "—" until the first tick, ten seconds into a game.
+        let refresh = std::rc::Rc::new(refresh);
+        {
+            let refresh = std::rc::Rc::clone(&refresh);
+            scroll.connect_map(move |_| {
+                refresh.force();
+            });
+        }
+        glib::timeout_add_local(TILE_REFRESH, move || refresh.tick());
     }
 
     scroll.upcast()
+}
+
+/// The live readings' refresh: forced when the page appears, then paced.
+struct Refresh {
+    update: Box<dyn Fn()>,
+    root: gtk4::ScrolledWindow,
+    tick: Cell<u32>,
+}
+
+impl Refresh {
+    fn force(&self) {
+        (self.update)();
+    }
+
+    fn tick(&self) -> glib::ControlFlow {
+        // Nothing to do while the window is hidden or on another page.
+        if !self.root.is_mapped() {
+            return glib::ControlFlow::Continue;
+        }
+        let n = self.tick.get().wrapping_add(1);
+        self.tick.set(n);
+        let playing = crate::game_watch::current().is_some();
+        if !playing || n % IN_GAME_EVERY == 0 {
+            (self.update)();
+        }
+        glib::ControlFlow::Continue
+    }
 }
 
 /// The button's line while Turbo is on.
@@ -407,7 +436,7 @@ fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
 #[derive(Clone)]
 struct GameCard {
     root: gtk4::Box,
-    cover: gtk4::Picture,
+    cover: gtk4::Image,
     name: gtk4::Label,
     running: gtk4::Label,
     facts: gtk4::Label,
@@ -419,11 +448,11 @@ struct GameCard {
 
 impl GameCard {
     fn new() -> Self {
-        let cover = gtk4::Picture::new();
-        cover.set_size_request(80, 120);
-        cover.set_content_fit(gtk4::ContentFit::Cover);
-        cover.add_css_class("card");
-        cover.set_can_shrink(true);
+        // A fixed-size image, not a Picture: a Picture asks for the art's
+        // natural size (600x900 for Steam's covers) and stretches the card.
+        let cover = gtk4::Image::new();
+        cover.set_pixel_size(120);
+        cover.set_valign(gtk4::Align::Center);
 
         let name = gtk4::Label::new(None);
         name.add_css_class("title-3");
@@ -504,7 +533,7 @@ impl GameCard {
         });
         self.cover.set_visible(cover.is_some());
         if let Some(path) = cover {
-            self.cover.set_filename(Some(&path));
+            self.cover.set_from_file(Some(&path));
         }
         let mut facts = vec![match &g.runtime {
             bigame_core::running::Runtime::Native => i18n("Native"),

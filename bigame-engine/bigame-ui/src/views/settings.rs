@@ -116,6 +116,7 @@ pub fn build() -> adw::PreferencesPage {
     let migrate = adw::ActionRow::builder()
         .title(i18n("Profiles from an older BiGame-mode"))
         .subtitle(i18n("Checking…"))
+        .use_markup(false)
         .build();
     let migrate_button = gtk4::Button::builder()
         .label(i18n("Fix"))

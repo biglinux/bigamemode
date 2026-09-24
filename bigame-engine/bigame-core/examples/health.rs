@@ -8,7 +8,7 @@ fn main() {
             c.detail
         );
         if let Some(fix) = c.fix {
-            println!("{:<39}→ {fix}", "");
+            println!("{:<39}→ {}", "", fix.text());
         }
     }
 }

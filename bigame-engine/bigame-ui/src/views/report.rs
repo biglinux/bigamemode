@@ -100,10 +100,13 @@ fn kind_explanation(kind: &Kind) -> String {
 
 fn item_row(item: &Item) -> adw::ActionRow {
     let title = kind_title(&item.kind);
+    // Plain text: details carry process names, paths and error messages,
+    // any of which can contain `&` or `<`.
     let row = adw::ActionRow::builder()
         .title(&title)
         .subtitle(&item.detail)
         .subtitle_lines(3)
+        .use_markup(false)
         .build();
     let icon = gtk4::Image::from_icon_name(section_icon(item.section));
     icon.add_css_class("dim-label");
@@ -173,6 +176,7 @@ fn live_group() -> Option<adw::PreferencesGroup> {
         let row = adw::ActionRow::builder()
             .title(title)
             .subtitle(value)
+            .use_markup(false)
             .build();
         group.add(&row);
     }
@@ -202,6 +206,7 @@ fn measured_group() -> Option<adw::PreferencesGroup> {
         let row = adw::ActionRow::builder()
             .title(format!("{} · {verdict}", finding.knob))
             .subtitle(format!("{:+.1}% · {}", finding.delta_pct, finding.workload))
+            .use_markup(false)
             .build();
         row.add_suffix(&info::button(&finding.knob, &finding.rationale));
         group.add(&row);

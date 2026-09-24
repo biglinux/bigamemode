@@ -30,6 +30,25 @@ pub enum Status {
     NotApplicable,
 }
 
+/// What to do about a problem.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum Fix {
+    /// A command to copy and run. Never run for the user.
+    Command(String),
+    /// Something to do in BiGame-mode or elsewhere.
+    Advice(String),
+}
+
+impl Fix {
+    /// The text, whichever kind it is.
+    #[must_use]
+    pub fn text(&self) -> &str {
+        match self {
+            Self::Command(s) | Self::Advice(s) => s,
+        }
+    }
+}
+
 /// One check.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Check {
@@ -40,7 +59,7 @@ pub struct Check {
     /// What was found, in a sentence.
     pub detail: String,
     /// What to do about it, when anything.
-    pub fix: Option<String>,
+    pub fix: Option<Fix>,
 }
 
 fn check(title: &str, status: Status, detail: impl Into<String>, fix: Option<&str>) -> Check {
@@ -48,7 +67,14 @@ fn check(title: &str, status: Status, detail: impl Into<String>, fix: Option<&st
         title: title.to_owned(),
         status,
         detail: detail.into(),
-        fix: fix.map(str::to_owned),
+        // Commands are recognisable; everything else is advice.
+        fix: fix.map(|f| {
+            if f.starts_with("sudo ") || f.starts_with("journalctl ") {
+                Fix::Command(f.to_owned())
+            } else {
+                Fix::Advice(f.to_owned())
+            }
+        }),
     }
 }
 
@@ -372,7 +398,7 @@ mod tests {
     fn no_check_offers_to_delete_anything() {
         for c in collect() {
             if let Some(fix) = &c.fix {
-                assert!(!fix.contains("rm "), "{}: {fix}", c.title);
+                assert!(!fix.text().contains("rm "), "{}: {fix:?}", c.title);
             }
         }
     }
