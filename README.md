@@ -35,7 +35,7 @@ Em respeito a essa comunidade e para garantir que todos tenham a melhor experiê
 |---|---|
 | **Início** | O **Turbo**, a chave principal. Desligado, o BiGame-mode não interfere em jogo nenhum; ligado, o falcond é habilitado e iniciado (confirmado pelo systemd e pelo próprio estado do falcond) e aplica o perfil de cada jogo. Mostra o jogo em execução, o perfil ativo e o estado dos Gráficos com IA. |
 | **Detalhes** | Telemetria em tempo real: frequência, temperatura e uso de CPU e GPU, perfil de energia, escalonador sched-ext ativo e latência de rede. |
-| **Perfis** | Jogos encontrados no Steam, Lutris e Heroic, cada um com seu perfil do falcond (modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, scripts) e as opções do BiGame-mode (Gamescope, MangoHud, lsfg-vk). Inclui um **assistente passo a passo** que explica cada opção em linguagem simples. Quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
+| **Perfis** | Jogos encontrados no Steam, Lutris e Heroic e os jogos nativos do menu de aplicativos (como o SuperTuxKart instalado pelo pacman), cada um com seu perfil do falcond (modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, scripts) e as opções do BiGame-mode (Gamescope, MangoHud, lsfg-vk). Inclui um **assistente passo a passo** que explica cada opção em linguagem simples. Quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
 | **Gráficos com IA** | No menu ⋮ de cada jogo: analisa os arquivos do jogo (API gráfica, upscalers que ele já traz — DLSS, XeSS, FSR — e suas versões, DLLs de proxy, anti-cheat), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. |
 | **Ajustes** | Configuração global do falcond: escalonador padrão, V-Cache, intervalo de varredura, opções do Gamescope detectadas da versão instalada. |
 | **Vídeo** | Upscaling espacial padrão (Gamescope FSR, Wine FSR, vkBasalt) e geração de quadros com lsfg-vk, quando instalado. |
@@ -307,6 +307,9 @@ helper, e um Flatpak não pode instalar um serviço root com Polkit e systemd.
 ### Jogos e gráficos
 
 - **Steam, Lutris, Heroic** — biblioteca detectada nos arquivos de cada um.
+- **Jogos nativos** — entradas `.desktop` da categoria `Game` (repositórios
+  ou instalados à mão) entram na biblioteca e são reconhecidos em execução,
+  assim como os processos para os quais o falcond tem perfil.
   As opções de lançamento do Steam são editadas com o Steam fechado, com
   backup e releitura.
 - **Proton / Wine, DXVK, VKD3D-Proton** — traduzem DirectX 9–11 e 12 para
