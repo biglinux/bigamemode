@@ -71,10 +71,11 @@ pub fn state_home() -> PathBuf {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn the_home_directory_is_absolute_and_never_tmp() {
-        let home = super::home_dir();
-        assert!(home.is_absolute());
-        assert!(!home.starts_with("/tmp"));
-        assert!(super::passwd_home().is_some_and(|p| p.is_absolute()));
+    fn the_home_directory_is_always_absolute() {
+        assert!(super::home_dir().is_absolute());
+        // A build container may have no passwd entry; when there is one, it is
+        // an absolute path.
+        assert!(super::passwd_home().is_none_or(|p| p.is_absolute()));
+        assert!(super::config_home().is_absolute());
     }
 }

@@ -96,8 +96,13 @@ impl Drop for FileWatch {
 pub fn watch_file(path: &Path) -> Option<mpsc::Receiver<String>> {
     fn read_capped(path: &Path) -> Option<String> {
         use std::io::Read;
+        use std::os::unix::fs::OpenOptionsExt;
         let mut text = String::new();
-        std::fs::File::open(path)
+        // Never blocks (a FIFO under the name) and never follows a symlink.
+        std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(path)
             .ok()?
             .take(MAX_WATCHED_BYTES)
             .read_to_string(&mut text)

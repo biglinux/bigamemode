@@ -250,7 +250,7 @@ fn program_of(argv: &[String]) -> Option<&str> {
         // assignments come before the program.
         while let Some(next) = rest.peek() {
             if next.starts_with('-') {
-                let takes_value = matches!(*next, "-u" | "-C" | "-n" | "-c" | "-t" | "-p");
+                let takes_value = matches!(*next, "-u" | "-C" | "-n" | "-c" | "-p");
                 rest.next();
                 if takes_value {
                     rest.next();
@@ -936,6 +936,7 @@ mod tests {
             ("gamemoderun mangohud game", "game"),
             ("gamescope -w 1920 -h 1080 -- game", "game"),
             ("nice -n 5 /opt/g/game", "game"),
+            ("ionice -t -c 3 game", "game"),
         ] {
             assert_eq!(menu_game(&entry(exec)).unwrap().program, program, "{exec}");
         }

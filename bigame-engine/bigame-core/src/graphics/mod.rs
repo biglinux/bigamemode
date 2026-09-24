@@ -47,15 +47,21 @@ pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Man
 }
 
 /// What a launch of `process` must turn off: with `OptiScaler` upscaling in the
-/// game, Gamescope upscaling and Wine FSR would be second upscalers in series.
+/// game, Gamescope upscaling and Wine FSR would be second upscalers in series,
+/// and with its frame generation chosen, lsfg-vk a second frame generator.
+///
+/// `state` holds the manifests, `settings` the per-game settings
+/// ([`crate::game_settings::dir`]). The settings are read under the name the
+/// manifest records, which is the name AI Graphics saved them under, whatever
+/// the case of `process`.
 #[must_use]
-pub fn launch_disables(state: &Path, process: &str) -> Vec<rules::Tech> {
-    if manifest_for_process(state, process).is_none() {
+pub fn launch_disables(state: &Path, settings: &Path, process: &str) -> Vec<rules::Tech> {
+    let Some(m) = manifest_for_process(state, process) else {
         return Vec::new();
-    }
+    };
     let mut off = vec![rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr];
-    // OptiScaler generating frames: lsfg-vk would be a second generator.
-    if crate::game_settings::load(process)
+    let name = m.process.as_deref().unwrap_or(process);
+    if crate::game_settings::load_from(settings, name)
         .is_ok_and(|s| s.ai_graphics.optiscaler_frame_generation())
     {
         off.push(rules::Tech::LsfgVk);
@@ -406,7 +412,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (state, game) = (dir.path().join("state"), dir.path().join("game"));
         std::fs::create_dir_all(&game).unwrap();
-        assert!(launch_disables(&state, "SOTTR.exe").is_empty());
+        let settings = dir.path().join("settings");
+        assert!(launch_disables(&state, &settings, "SOTTR.exe").is_empty());
         let src = dir.path().join("dxgi");
         std::fs::write(&src, b"x").unwrap();
         apply(
@@ -427,9 +434,18 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            launch_disables(&state, "sottr.exe"),
+            launch_disables(&state, &settings, "sottr.exe"),
             [rules::Tech::GamescopeUpscaling, rules::Tech::WineFsr]
         );
-        assert!(launch_disables(&state, "other.exe").is_empty());
+        assert!(launch_disables(&state, &settings, "other.exe").is_empty());
+
+        // OptiScaler's frame generation chosen: lsfg-vk goes too, found under
+        // the name the game was saved as whatever the launch spells it.
+        let mut chosen = crate::game_settings::GameSettings::default();
+        chosen.ai_graphics.mode = config::Mode::Advanced;
+        chosen.ai_graphics.frame_generation = config::FrameGeneration::OptiScaler;
+        chosen.ai_graphics.experimental = true;
+        crate::game_settings::save_to(&settings, "SOTTR.exe", &chosen).unwrap();
+        assert!(launch_disables(&state, &settings, "sottr.exe").contains(&rules::Tech::LsfgVk));
     }
 }

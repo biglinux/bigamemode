@@ -213,16 +213,16 @@ pub mod service {
             let received =
                 tokio::task::spawn_blocking(move || changes.recv().ok().map(|c| (c, changes)))
                     .await;
-            let Ok(Some((content, returned))) = received else {
+            let Ok(Some((_, returned))) = received else {
                 tracing::debug!("falcond status watcher stopped");
                 return Ok(());
             };
             changes = returned;
-            // The same check as every other read: in /tmp, before falcond has
-            // created it, the file can be anyone's.
-            if !crate::status::is_trustworthy(path) {
+            // The watcher only says the file changed. What is broadcast is read
+            // the way every status read is, from a root-owned regular file.
+            let Some(content) = crate::status::read_trusted(path) else {
                 continue;
-            }
+            };
 
             let iface_ref = conn
                 .object_server()

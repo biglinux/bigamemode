@@ -105,8 +105,11 @@ impl LaunchPlan {
         let mut effective_video = Self::apply_harmony_policy(logical_game, video);
         // A game BiGame-mode installed OptiScaler into already upscales;
         // Gamescope and Wine FSR would be second upscalers.
-        let disables =
-            crate::graphics::launch_disables(&crate::graphics::state_dir(), logical_game);
+        let disables = crate::graphics::launch_disables(
+            &crate::graphics::state_dir(),
+            &crate::game_settings::dir(),
+            logical_game,
+        );
         let gs_local = Self::apply_graphics_disables(
             logical_game,
             &disables,
@@ -119,11 +122,9 @@ impl LaunchPlan {
         // `steam -applaunch` starts the *client*, which then starts the game in
         // a separate process tree. Wrapping this command would put Gamescope
         // around the Steam client, not around the game, so the plan is left
-        // alone here on purpose.
-        //
-        // Steam launches get the same settings through per-game launch
-        // options instead: [`LaunchPlan::as_steam_launch_options`] renders the
-        // plan into the string Steam understands, and `crate::steam` writes it.
+        // alone here on purpose: a game started through the Steam client gets
+        // none of these video settings. falcond's per-game profile still
+        // applies to it, since falcond matches the game's process.
         if Self::is_steam_applaunch_command(executable, executable_args) {
             tracing::info!(
                 game = logical_game,

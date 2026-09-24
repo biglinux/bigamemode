@@ -91,8 +91,9 @@ const SCRIPT_KEYS: &[&str] = &["start_script", "stop_script"];
 /// These checks read lines the way this function does, and falcond has its
 /// own parser, so anything the two could read differently is refused
 /// outright: control characters (a bare `\r` is a line break to some
-/// parsers and not to others), quoted keys, and a key given twice (where one
-/// parser keeps the first value and another the last).
+/// parsers and not to others) and a key given twice, even once quoted (one
+/// parser keeps the first value, another the last). Keys are compared with
+/// their quotes removed, so a quoted `"start_script"` is still a script hook.
 ///
 /// # Errors
 /// Returns an error for oversized payloads, NUL or other control characters,

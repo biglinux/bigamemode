@@ -1,15 +1,9 @@
-//! Steam per-game launch options.
+//! Steam per-game launch options: reading them, and clearing them.
 //!
-//! The launch pipeline cannot wrap `steam -applaunch` (the client starts the
-//! game in its own process tree), so without this nothing it builds —
-//! Gamescope, `MangoHud`, the upscaling and frame-generation variables — would
-//! reach the way most people start games. `environment.d` covers only
-//! environment variables, never Gamescope, and only after a re-login.
-//!
-//! The mechanism Steam itself provides is the per-game **launch options**
-//! string, where `%command%` stands for the game's own command line. Writing
-//! `gamescope … -- %command%` there is what makes a wrapper apply to a Steam
-//! launch.
+//! Launch options are the string Steam runs a game with, `%command%` standing
+//! for the game's own command line. Diagnostics reads them to find options
+//! that call a program which is not installed — a leftover that makes the game
+//! fail to start — and offers to clear them.
 //!
 //! Editing Steam's configuration is delicate and this module is built around
 //! that:

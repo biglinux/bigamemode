@@ -101,26 +101,42 @@ pub fn read() -> Option<FalcondStatus> {
 /// treating a spoofed file as absent is the safe reading.
 #[must_use]
 pub fn read_from(path: &Path) -> Option<FalcondStatus> {
-    if !is_trustworthy(path) {
-        if path.exists() {
-            tracing::warn!(
-                target: "security",
-                path = %path.display(),
-                "ignoring falcond status: not a root-owned regular file"
-            );
-        }
+    let content = read_trusted(path);
+    if content.is_none() && path.exists() {
+        tracing::warn!(
+            target: "security",
+            path = %path.display(),
+            "ignoring falcond status: not a root-owned regular file"
+        );
+    }
+    content.as_deref().map(parse)
+}
+
+/// The status file's text, if it is a root-owned regular file.
+///
+/// The check is made on the descriptor that is then read (`fstat`), so the
+/// file cannot be swapped between check and read. The open neither follows a
+/// symlink nor blocks: in `/tmp`, before falcond has created it, the name can
+/// be anyone's, including a FIFO that would hang a blocking open for ever.
+/// At most [`crate::watch::MAX_WATCHED_BYTES`] are read.
+#[must_use]
+pub fn read_trusted(path: &Path) -> Option<String> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .ok()?;
+    let meta = file.metadata().ok()?;
+    if !meta.is_file() || meta.uid() != 0 {
         return None;
     }
     let mut content = String::new();
-    std::io::Read::read_to_string(
-        &mut std::io::Read::take(
-            std::fs::File::open(path).ok()?,
-            crate::watch::MAX_WATCHED_BYTES,
-        ),
-        &mut content,
-    )
-    .ok()?;
-    Some(parse(&content))
+    file.take(crate::watch::MAX_WATCHED_BYTES)
+        .read_to_string(&mut content)
+        .ok()?;
+    Some(content)
 }
 
 /// Parse status file content into structured data.
@@ -203,6 +219,19 @@ pub fn parse(content: &str) -> FalcondStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_fifo_or_a_users_file_under_the_name_is_refused_without_blocking() {
+        let dir = crate::tests::tempdir("status-trust");
+        let fifo = dir.join("falcond_status");
+        let name = std::ffi::CString::new(fifo.as_os_str().as_encoded_bytes()).unwrap();
+        // SAFETY: mkfifo only creates the node named by a valid C string.
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o644) }, 0);
+        assert_eq!(read_trusted(&fifo), None);
+        let own = dir.join("owned_by_me");
+        std::fs::write(&own, "CURRENT_STATUS:\n").unwrap();
+        assert_eq!(read_trusted(&own), None, "not root-owned");
+    }
 
     #[test]
     fn dmem_support_is_read_from_a_newer_falcond_and_unknown_from_an_older_one() {

@@ -324,8 +324,11 @@ fn write_atomic(path: &Path, content: &[u8], mode: u32) -> Result<()> {
         let _ = std::fs::remove_file(&tmp);
         return Err(e.into());
     }
-    // The rename is durable only once the directory entry is.
-    std::fs::File::open(dir)?.sync_all()?;
+    // The rename is durable only once the directory entry is. The file has
+    // already been replaced, so a failure here is reported, not returned.
+    if let Err(e) = std::fs::File::open(dir).and_then(|d| d.sync_all()) {
+        warn!(dir = %dir.display(), error = %e, "could not sync the directory after a write");
+    }
     Ok(())
 }
 
