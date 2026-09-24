@@ -13,6 +13,7 @@ pub mod fg;
 pub mod games;
 pub mod gamescope;
 pub mod governor;
+pub mod graphics;
 pub mod hardware;
 pub mod health;
 pub mod inventory;
