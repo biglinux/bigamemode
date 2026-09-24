@@ -3,22 +3,22 @@
 Branch `feature/turbo-dynamic-profiles`. Statuses are exact: **VERIFIED**
 means observed on a real system, **TESTED** means automated tests, and
 **IMPLEMENTED** means written and compiled but not yet observed working end to
-end. The one thing that blocked more end-to-end verification on the
-reference machine was a Polkit approval to install the package, which was
-not available while this pass ran; everything that needed it is marked.
+end. The package was installed on the reference machine near the end of the
+pass, and the Turbo switch, the profile-set correction and the first-run
+profile were then verified there.
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| Turbo really controls the flow | VERIFIED on the VM; IMPLEMENTED on the reference machine | `SetGameBackend`/`turbo on/off` on falcond 2.0.2 with a stand-in game ([21](21-VM-TESTS.md)) |
-| falcond intervenes only per Turbo's policy | VERIFIED on the VM | off = stopped and disabled; T2 shows the stop restores |
+| Turbo really controls the flow | VERIFIED | reference machine, 2026-09-24 03:12: off → falcond `inactive/disabled`, ownership recorded (`enabled`, running); on → `active/enabled`, profile set corrected handheld → desktop, 12 profiles loaded; also on the VM with a stand-in game ([21](21-VM-TESTS.md)) |
+| falcond intervenes only per Turbo's policy | VERIFIED | off = stopped and disabled on the reference machine; T2 on the VM shows the stop restores a running game's profile |
 | No two components control the same state | TESTED; reference-machine plan VERIFIED | `Skipped::OwnedBy`; dry run: power profile → falcond, governor → power-profiles-daemon ([16](16-PERFORMANCE-BACKENDS.md)) |
 | Game detected automatically | VERIFIED | Shadow of the Tomb Raider, live |
 | Real executable identified | VERIFIED | `SOTTR.exe`, among 17 processes |
-| Profile can be created on first run | IMPLEMENTED | offer, review, save, verify; not run live (Polkit) |
-| Profile applied/reloaded and verified | VERIFIED on the VM (reload keeps the PID; profile re-applied); IMPLEMENTED in the UI | |
+| Profile can be created on first run | VERIFIED | with Shadow of the Tomb Raider running and no profile, the offer appeared and *Create profile* was clicked (02:55); `SOTTR.exe.conf` holds exactly the recommended falcond fields |
+| Profile applied/reloaded and verified | VERIFIED | next launch: falcond `matched … profile='SOTTR.exe'`, status `ACTIVE_PROFILE: SOTTR.exe`, Home shows *Perfil SOTTR.exe*; reload keeping the PID verified on the VM |
 | Home shows the current game | VERIFIED | screenshot |
 | Home shows what is really active | VERIFIED | profile read from falcond; "general Proton profile" shown as such |
-| Optimization details understandable | IMPLEMENTED | not seen with a real Turbo report (needs the package) |
+| Optimization details understandable | PARTIAL | Home's summary read from the real Turbo report (*2 aplicados · 2 por jogo · 1 ignorados*); the report page itself not screenshotted — it is not reachable without a click |
 | Logs useful and colour-coded | VERIFIED | screenshot; falcond's info-level failures shown as errors |
 | Settings simplified | VERIFIED | screenshot |
 | Info for technical options | PARTIAL | report, Settings, offer; not yet Details/Profiles/Tuning/Video/Benchmark |
@@ -30,10 +30,10 @@ not available while this pass ran; everything that needed it is marked.
 | Gamescope zombie | VERIFIED fixed (previous pass) | children reaped |
 | UI has low overhead | MEASURED | 0.77 % CPU, 9.9 wake-ups/s on Home in-game (was 7.38 %, 313/s) |
 | Tests pass | TESTED | 430 tests; `cargo fmt --check`; `cargo clippy --workspace --all-targets` 0 warnings |
-| Package installs | TESTED as a build | `makepkg` from the branch succeeded (its own `check()` ran the tests); installation awaits Polkit |
+| Package installs | VERIFIED | branch package installed on the reference machine (03:10); helper restarted and exposes `SetGameBackend` |
 | Application starts | VERIFIED | the branch build ran on the reference machine |
 | Games still start normally | VERIFIED | SotTR launched through Steam throughout |
-| Translations still work | TESTED | catalogue check passes; all 138 strings added in this pass translated for pt_BR; other languages fall back to English for them |
+| Translations still work | VERIFIED | installed UI shows *Modo Turbo ligado*, *Perfil*, *2 aplicados · 2 por jogo*; all strings added in this pass translated for pt_BR; other languages fall back to English for them |
 | Documentation reflects reality | this set, 14–24 | |
 
 ## `cargo clippy -- -D warnings --all-features`
@@ -41,13 +41,10 @@ not available while this pass ran; everything that needed it is marked.
 The workspace defines no features, and clippy (with the workspace's pedantic
 lints) reports zero warnings, which is what `-D warnings` would enforce.
 
-## To finish on the reference machine
+## Still to do on the reference machine
 
-1. Install the branch package (one Polkit approval).
-2. Turbo on: expect the profile set corrected handheld → desktop (one approval
-   for the config write), falcond running, report as in [14](14-TURBO-AUDIT.md).
-3. With Shadow of the Tomb Raider running: accept the profile offer; expect
-   `ACTIVE_PROFILE: SOTTR.exe`.
-4. Settings → *Fix* the two old profiles.
-5. Install `scx-tools`, enable `scx_loader`, and measure a scheduler
-   CPU-bound with `scripts/bench-game.sh`.
+1. Settings → *Fix* the two old profiles (the user's choice; backed up first).
+2. Install `scx-tools`, enable `scx_loader`, restart falcond, and measure a
+   scheduler CPU-bound with `scripts/bench-game.sh`.
+3. Reinstall once more to pick up the last UI commit (late graphics path,
+   following Turbo changed elsewhere), verified so far with the branch build.

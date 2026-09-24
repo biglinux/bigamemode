@@ -84,8 +84,8 @@ for this game*.
 
 | Check | Status |
 |---|---|
-| Offer, review, create and verify | IMPLEMENTED — compiles, tested units; NOT TESTED live (needs the new package installed and a Polkit approval) |
-| Wayland (KDE) notification path | NOT TESTED live |
+| Offer, review, create and verify | VERIFIED — Shadow of the Tomb Raider on the reference machine: offer shown, *Create profile* clicked, `SOTTR.exe.conf` written with the recommended fields, matched and active at the next launch |
+| Wayland (KDE) notification path | VERIFIED — offer and game-detected notifications shown on KDE Wayland |
 | X11 | NOT TESTED — X11 session unavailable |
 | Gamescope session | NOT TESTED |
 

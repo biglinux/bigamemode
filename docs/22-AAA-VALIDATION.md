@@ -9,7 +9,7 @@ in this pass, beyond the benchmark sessions of [13](13-AAA-BENCHMARKS.md).
 | Shadow of the Tomb Raider | Detection cost | MEASURED — 9–10 ms, no forks |
 | Shadow of the Tomb Raider | Home card: cover from the local Steam cache, time running, runtime/graphics/process, "no profile of its own yet · using falcond's general Proton profile" | VERIFIED on screen |
 | Shadow of the Tomb Raider | falcond has no specific profile for it — only the generic Proton fallback applies | VERIFIED (`matching_profile` → none; status `ACTIVE_PROFILE: Proton`) |
-| Shadow of the Tomb Raider | Profile created from the offer, then verified active | NOT TESTED — creation needs a Polkit approval; not available while this pass ran |
+| Shadow of the Tomb Raider | Profile created from the offer, then verified active | VERIFIED — created by clicking the offer (02:55); at the next launch falcond matched `SOTTR.exe` and reported it active |
 | Shadow of the Tomb Raider | Game graphics settings restored after the CPU-bound sessions (a DirectX 12 slip during restoration caught and undone) | VERIFIED — settings block identical to the clean session's |
 | Cyberpunk 2077 | Result files parsed and cross-checked | VERIFIED (earlier pass) |
 | Cyberpunk 2077 | Identified while running | NOT TESTED |

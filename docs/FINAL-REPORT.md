@@ -74,9 +74,13 @@ success whatever happened; placebo controls (per-game governor, custom
 scheduler flags, script fields); frame-gen sliders that reloaded falcond on
 every move.
 
-**Not yet done on the reference machine** (needs a Polkit approval): installing
-this build, a live Turbo off/on, creating a profile from the offer, the
-migration, and a scheduler measurement after installing `scx-tools`.
+**Verified on the reference machine at the end of the pass:** the branch
+package installed; Turbo off (falcond stopped and disabled, ownership
+recorded) and on (profile set corrected handheld → desktop, falcond running);
+a profile for Shadow of the Tomb Raider created from the offer and matched by
+falcond at the next launch. **Not yet done:** the migration of the two old
+profiles (the user's choice), and a scheduler measurement after installing
+`scx-tools`.
 
 ---
 
