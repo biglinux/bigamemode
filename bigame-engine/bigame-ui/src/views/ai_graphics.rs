@@ -77,10 +77,7 @@ fn upscaler_name(backend: &str) -> String {
 fn standing_text(s: Standing) -> (String, &'static str) {
     match s {
         Standing::Recommended => (i18n("Recommended"), "success"),
-        Standing::Compatible => (
-            i18n("Compatible — not yet checked on this machine"),
-            "accent",
-        ),
+        Standing::Compatible => (i18n("Compatible — not yet verified in practice"), "accent"),
         Standing::Experimental => (i18n("Experimental"), "warning"),
         Standing::NotRecommended => (i18n("Not recommended"), "dim-label"),
         Standing::Blocked => (i18n("Blocked"), "error"),

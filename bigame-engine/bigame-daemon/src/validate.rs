@@ -264,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_the_exact_sec_02_payloads() {
+    fn rejects_path_traversal_payloads() {
         // Traversal names that would write into /etc as root if accepted.
         for name in [
             "../../../../../etc/cron.d/pwn",

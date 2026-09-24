@@ -134,7 +134,7 @@ fn parse_otter_conf(content: &str) -> FalcondConfig {
     cfg
 }
 
-/// [`write`] for callers without a Tokio reactor — the GTK main loop, or a
+/// [`write()`] for callers without a Tokio reactor — the GTK main loop, or a
 /// `gio::spawn_blocking` worker. zbus here runs on Tokio, so its async calls
 /// cannot simply be awaited from a `GLib` future.
 ///

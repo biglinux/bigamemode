@@ -189,8 +189,8 @@ impl Plan {
 
     /// Build a plan with an explicit power-profile owner.
     ///
-    /// Split out from [`Plan::build`] so the arbitration can be tested without
-    /// a running falcond.
+    /// The owner is a parameter so the arbitration can be tested without a
+    /// running falcond.
     #[must_use]
     pub fn build_with_owner(
         hw: &Hardware,
@@ -1179,7 +1179,7 @@ mod tests {
     }
 
     #[test]
-    fn the_reference_machine_gets_an_empty_plan_with_reasons() {
+    fn an_already_tuned_amd_pstate_machine_gets_an_empty_plan_with_reasons() {
         // Ryzen 7 5700G on amd-pstate-epp, falcond and power-profiles-daemon
         // present, resting at performance/auto: every knob has an owner or a
         // reason, and nothing is written.

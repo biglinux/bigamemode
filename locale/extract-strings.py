@@ -70,10 +70,8 @@ def read_rust_literal(text: str, i: int) -> tuple[str, int] | None:
             nxt = text[j + 1]
             if nxt == "\n":
                 # Rust: a backslash at the end of a line skips the newline and
-                # every whitespace character that starts the next line. Keeping
-                # them made the template's msgid differ from the string the
-                # program asks gettext for, so no such string could ever be
-                # translated.
+                # every whitespace character that starts the next line. The
+                # msgid must be the string the program asks gettext for.
                 j += 2
                 while j < len(text) and text[j] in " \t\n\r":
                     j += 1

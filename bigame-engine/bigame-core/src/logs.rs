@@ -114,7 +114,7 @@ const KERNEL_KEYWORDS: &[&str] = &[
 
 /// The journal matches for every source, OR-ed with `+`.
 ///
-/// Kernel records are included whole and filtered by [`KERNEL_KEYWORDS`]
+/// Kernel records are included whole and filtered by keyword
 /// here, because journald matches fields exactly and cannot select by
 /// message content without `--grep`, which scans everything.
 #[must_use]

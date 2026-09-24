@@ -306,7 +306,7 @@ CURRENT_STATUS:
     }
 
     #[test]
-    fn the_real_falcond_status_is_trusted_on_this_machine() {
+    fn the_real_falcond_status_is_trusted_when_present() {
         // When falcond is running it owns /tmp/falcond_status as root, and
         // that file must be trusted.
         let path = Path::new(STATUS_PATH);

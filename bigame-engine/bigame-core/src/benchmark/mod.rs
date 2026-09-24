@@ -441,7 +441,7 @@ const METRICS: &[Metric] = &[
 ///
 /// `baseline_runs` must contain at least two runs of the *same* configuration;
 /// with fewer there is no evidence about repeatability and every metric is
-/// reported as [`Outcome::NotMeasured`].
+/// reported as [`crate::booster::report::Outcome::NotMeasured`].
 #[must_use]
 pub fn compare_runs(
     baseline_runs: &[FrameStats],

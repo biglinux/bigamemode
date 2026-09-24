@@ -259,7 +259,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "XeSS",
             Standing::Recommended,
             N_(
-                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on this machine",
+                "OptiScaler takes over the game's XeSS — verified with Shadow of the Tomb Raider on an AMD RDNA 4 card",
             ),
         )
     } else if n.fsr.is_some() {
@@ -268,7 +268,7 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "FSR",
             Standing::Compatible,
             N_(
-                "OptiScaler takes over the game's FSR — documented upstream, not yet checked on this machine",
+                "OptiScaler takes over the game's FSR — documented upstream, not yet verified by BiGame-mode",
             ),
         )
     } else if n.dlss.is_some() {
