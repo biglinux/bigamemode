@@ -1,5 +1,13 @@
 # 32 — AI Graphics: final report
 
+> **Second pass, 2026-09-24:** [34](34-AI-GRAPHICS-AUDIT.md) audits this
+> report against the specification on a hybrid Intel + GeForce GTX laptop and
+> fixes fourteen defects (the iGPU planned as the game's GPU, DLSS offered on a
+> GTX, OptiScaler making the game exit at start on a GTX, repair using the wrong OptiScaler version, a false "Failed", the
+> game's "own FSR" that BiGame-mode had placed …). Next steps 1, 4 and 6 below
+> are done there; 1 in the form the evidence allows (FSR 3.1 is proven from
+> the log, FSR 4 still only by the overlay).
+
 Branch `feature/ai-graphics-dlss`, from `main` at `2b82012`, 2026-09-24.
 Development documentation; the application does not read it. Statuses are
 exact: VERIFIED (observed on the reference machine), TESTED (automated),

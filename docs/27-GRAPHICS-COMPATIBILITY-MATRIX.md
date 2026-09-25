@@ -28,7 +28,7 @@ code), *principle* (follows from what the two do), *none*.
 | Native DLSS / FSR / XeSS + Gamescope upscaling | **CONFLICT** | principle | the game already upscales to its output |
 | Native DLSS / FSR / XeSS + Wine FSR | **CONFLICT** | principle | two upscalers |
 | Gamescope upscaling + Wine FSR | **CONFLICT** | principle | two upscalers |
-| OptiScaler frame generation + lsfg-vk | **CONFLICT** | principle | two frame generators |
+| OptiScaler frame generation + lsfg-vk | **CONFLICT** | principle | two frame generators — the launch turns lsfg-vk off for the game (`DISABLE_LSFG=1`, the `disable_environment` of lsfg-vk v1.0.0's layer manifest) whenever the `OptiScaler.ini` in the game has `[FrameGen] Enabled=true` |
 | Native frame generation + lsfg-vk | **CONFLICT** | principle | two frame generators |
 | Native frame generation + OptiScaler frame generation | **CONFLICT** | upstream | OptiScaler's replaces the game's: turn the game's off |
 | OptiScaler (upscaling) + lsfg-vk | SUPPORTED WITH CONDITIONS | principle | different jobs; lsfg-vk asks for no other Vulkan layers and has no VRR |
@@ -50,14 +50,19 @@ code), *principle* (follows from what the two do), *none*.
   be active.
 - **Launch**: the Harmony Policy applies the plan's list when the game is
   launched, so the global settings stay as they are and the conflict never
-  reaches the game.
+  reaches the game. A game with OptiScaler installed always gets Gamescope
+  upscaling and Wine FSR off; lsfg-vk is turned off too when OptiScaler's
+  frame generation is on in the game's own `OptiScaler.ini` — read at launch,
+  because OptiScaler's overlay writes its changes there. (Before 2026-09-24's
+  second pass the plan listed lsfg-vk but the launch did not act on it.)
 - **Anti-cheat**: a game with any anti-cheat marker gets no injection at all,
   in Recommended or Advanced; the plan still points to the game's own
   upscaler, which is a menu setting.
 
 ## Not tested here
 
-Native DLSS (no NVIDIA GPU), XeSS on Intel hardware, HDR (display not
+Native DLSS (no RTX GPU: the second machine has a GTX 1050 Ti, which the
+game itself refuses DLSS on — its menu greys the option out), XeSS on Intel hardware, HDR (display not
 HDR-capable in this setup), Gamescope nested sessions with OptiScaler, and
 lsfg-vk (not installed on the reference machine): NOT TESTED — hardware or
 software unavailable. Their verdicts above are upstream's or the principle's.

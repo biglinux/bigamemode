@@ -39,7 +39,7 @@ folder (`tempfile`); no test touches a real game.
 | Proton game with only DLSS (Rise of the Tomb Raider) | plan Experimental (spoofing + fakenvapi), as designed. Not installed |
 | 32-bit Proton game without upscalers (Tomb Raider 2013) | plan Not recommended: no upscaler, 32-bit. Not installed |
 | Native Linux Vulkan game | planner path TESTED; live: SuperTuxKart's Lutris record has no install folder, so no target — NOT TESTED live |
-| Game with native DLSS on NVIDIA | NOT TESTED — no NVIDIA GPU |
+| Game with native DLSS on NVIDIA | NOT TESTED — no RTX GPU on either machine (second pass: a GTX, which cannot run DLSS; see below) |
 | Game with an existing `dxgi.dll` (ReShade / DXVK / Special K) | TESTED with fixtures; NOT TESTED live — none installed here |
 | Game with ReShade or OptiScaler already installed by hand | TESTED with fixtures (owner detection, slot refusal, `OptiScaler` recognised as its own) |
 | Anti-cheat title | TESTED with fixtures; NOT TESTED live — deliberately: no protected game is a test bench |
@@ -47,6 +47,28 @@ folder (`tempfile`); no test touches a real game.
 | Profile wizard AI Graphics step | VERIFIED on screen (pt_BR) |
 | Card menu → AI Graphics… | VERIFIED — and found that **no** item of that menu worked before (popover unparented before the action ran); fixed |
 | Translations | VERIFIED: the page, wizard step, Home line and Diagnostics section in pt_BR; 502 of 810 strings translated (every string this work added; the 308 left predate it) |
+
+## Second pass, on the lab laptop (2026-09-24)
+
+Core i7-7700HQ, **Intel HD 630 + GeForce GTX 1050 Ti Mobile** (hybrid, NVIDIA
+580.178.04), 1920×1080, Proton Experimental, KDE Wayland. The audit and the
+fixes are in [34](34-AI-GRAPHICS-AUDIT.md). New automated tests are listed
+there (§5); the counts are in its §7.
+
+| Case | Result |
+|---|---|
+| Render GPU on a hybrid laptop, game not running | VERIFIED: was the **HD 630** before the fix, the GTX after; the plan says which GPU it is for until the game runs |
+| Render GPU with the game running | VERIFIED: SotTR through Proton holds `/dev/nvidia0` ×79 and the GTX's `renderD129`; `render_card: card0` (the GTX); the API becomes a *Fact* (VKD3D-Proton loaded); the two-GPU note disappears |
+| DLSS on a GTX | VERIFIED: plan → *the game's own XeSS*, no mention of DLSS; the game's own menu greys *NVIDIA RTX DLSS* out on this card, the same conclusion |
+| OptiScaler versions, CLI (`graphics_version`) | VERIFIED on SotTR: install **0.9.3** pinned (release list fetched, archive checked) → offer 0.9.4 → update → Repair after deleting a placed DLL (0.9.4's hash back) → Go back → Repair after deleting `dxgi.dll` (**0.9.3's** `dxgi.dll` back — the old code would have fetched 0.9.4's) → remove → **189 files byte-identical** |
+| OptiScaler versions, UI (AT-SPI, pt_BR) | VERIFIED: Diagnostics GPU row (*o DLSS não roda nesta GPU; FSR e XeSS rodam · uma de mais de uma GPU*); the page's installed version and *Atualização disponível: 0.9.4*; **Atualizar** → 0.9.4 with 0.9.3 kept; **Voltar** → 0.9.3; **Pular** → `skipped_update = "0.9.4"` saved, offer gone; **Restaurar os gráficos do jogo** → *Nada instalado*, folder byte-identical again. Found defects 8, 9 and 11 of [34](34-AI-GRAPHICS-AUDIT.md) |
+| Measurements → plan | VERIFIED as plumbing with the test machine's recorded session (refused for recording on this machine by fingerprint, then accepted with the fingerprint removed, into a throw-away state): plan *FSR 3.1 through OptiScaler … measured on this computer: +4.9 %*. The real record on this machine comes from its own benchmark ([31](31-DLSS-BENCHMARKS.md)) |
+| Game list | VERIFIED: SotTR's API *Likely* → *Detected* from the carried entry |
+| OptiScaler in a real run on NVIDIA | VERIFIED after a fix: with the default ini the game exited 4 s after start (OptiScaler's DLSS path on a GTX); with `[DLSS] Enabled=false` launcher, game and 8 benchmark passes ran; status *Active (fsr31), FSR 3.1*, render 1280×720 → 1920×1080 |
+| A-B-A benchmark | VERIFIED — [31](31-DLSS-BENCHMARKS.md#lab-laptop-geforce-gtx-1050-ti-mobile); recorded in the local measurements; plan reports +13.4 % and does not promote (floor inconclusive) |
+| Folder after everything | VERIFIED: 189 original files byte-identical; `vkd3d-proton.cache` (VKD3D-Proton's, not in any manifest) left alone |
+| Anti-cheat title | NOT TESTED live: the *Arc Raiders* and *Metal Slug Awakening* folders here are 12 KB and 652 KB remnants, not installed games |
+| lsfg-vk | NOT TESTED live — not installed; the `DISABLE_LSFG` variable is taken from lsfg-vk v1.0.0's own layer manifest |
 
 ## Not done
 
