@@ -121,6 +121,23 @@ pub fn vulkan_32bit(vendor: GpuVendor, lib32: &Path) -> (bool, &'static str) {
     (lib32.join(file).exists(), package)
 }
 
+/// The command that brings power-profiles-daemon back.
+///
+/// `BigLinux` starts the daemon from its own unit, which also picks the driver,
+/// and masks the stock one: enabling the stock unit there starts a second
+/// daemon that cannot own the bus name and fails until systemd gives up.
+#[must_use]
+pub fn power_profiles_fix(unit_dir: &Path) -> &'static str {
+    if unit_dir
+        .join("power-profiles-daemon-biglinux.service")
+        .exists()
+    {
+        "sudo systemctl enable power-profiles-daemon-biglinux && sudo systemctl restart power-profiles-daemon-biglinux"
+    } else {
+        "sudo systemctl enable --now power-profiles-daemon"
+    }
+}
+
 /// A warning when systemd has had to restart falcond on its own.
 ///
 /// falcond records the machine's state when a game's profile activates and
@@ -269,7 +286,7 @@ pub fn collect() -> Vec<Check> {
             "power-profiles-daemon",
             Status::Warning,
             "not reachable: game profiles cannot switch the power profile",
-            Some("sudo systemctl enable --now power-profiles-daemon"),
+            Some(power_profiles_fix(Path::new("/usr/lib/systemd/system"))),
         )
     });
 
@@ -397,6 +414,26 @@ mod tests {
             one.fix,
             Some(Fix::Command("journalctl -u falcond -b".into()))
         );
+    }
+
+    #[test]
+    fn power_profiles_are_restarted_through_biglinux_s_own_unit_where_it_has_one() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            power_profiles_fix(dir.path()),
+            "sudo systemctl enable --now power-profiles-daemon"
+        );
+        std::fs::write(
+            dir.path().join("power-profiles-daemon-biglinux.service"),
+            "",
+        )
+        .unwrap();
+        let fix = power_profiles_fix(dir.path());
+        assert!(
+            fix.contains("restart power-profiles-daemon-biglinux"),
+            "{fix}"
+        );
+        assert!(!fix.contains("--now power-profiles-daemon"), "{fix}");
     }
 
     #[test]

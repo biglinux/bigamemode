@@ -206,11 +206,7 @@ const INFRASTRUCTURE: &[&str] = &[
     "steam.exe",
     "steamwebhelper",
     "steamservice.exe",
-    "srt-bwrap",
-    "pv-adverb",
-    "pressure-vessel-wrap",
-    "steam-runtime-launcher-service",
-    "steam-runtime-launch-client",
+    "steam-launch-wrapper",
     "python3",
     "python",
     "sh",
@@ -255,6 +251,21 @@ const INFRASTRUCTURE: &[&str] = &[
     "gameoverlayui",
 ];
 
+/// Name prefixes of the Steam Linux Runtime's own programs (pressure-vessel
+/// and steam-runtime-tools): the container, its logger, and the probes it
+/// runs while the container starts, which are named after the architecture
+/// they check (`i386-linux-gnu-capsule-capture-libs`, …). While they run they
+/// are the only non-Wine processes in the game's tree, and the busiest.
+const STEAM_RUNTIME_PREFIXES: &[&str] = &[
+    "pressure-vessel-",
+    "pv-",
+    "srt-",
+    "steam-runtime-",
+    "x86_64-linux-gnu-",
+    "i386-linux-gnu-",
+    "aarch64-linux-gnu-",
+];
+
 /// falcond's own list of processes that are never games
 /// (`/usr/share/falcond/system.conf`), read once.
 ///
@@ -296,6 +307,7 @@ pub fn is_infrastructure(name: &str) -> bool {
     INFRASTRUCTURE.contains(&lower.as_str())
         || falcond_system_processes().contains(&lower)
         || lower.starts_with("wine")
+        || STEAM_RUNTIME_PREFIXES.iter().any(|p| lower.starts_with(p))
         // Crash handlers by their usual names -- not any name containing
         // "crash", which would also exclude Crash Bandicoot.
         || ["crashhandler", "crash_handler", "crashreport", "crashpad", "crashsender"]
@@ -1058,6 +1070,60 @@ mod tests {
             identify(&tree).is_empty(),
             "the installer helper is not a game"
         );
+    }
+
+    #[test]
+    fn the_steam_runtime_starting_up_is_not_the_game() {
+        // Shadow of the Tomb Raider on the lab laptop: Steam runs the install
+        // script through `proton run`, so there is no `waitforexitandrun` to
+        // name the Proton tool, and the runtime's probes are the busiest
+        // processes left in the tree.
+        let rt = "/usr/lib/pressure-vessel/from-host/libexec/steam-runtime-tools-0";
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=750920 Install=1 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "/s/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap|--args 26",
+                2,
+            ),
+            p(3, 2, &format!("{rt}/pv-adverb|--generate-locales"), 3),
+            p(
+                4,
+                3,
+                &format!("{rt}/i386-linux-gnu-capsule-capture-libs|--dest=/tmp"),
+                60,
+            ),
+            p(5, 3, &format!("{rt}/x86_64-linux-gnu-check-vulkan|"), 40),
+            p(6, 3, &format!("{rt}/srt-logger|--sh-syntax"), 10),
+            p(
+                7,
+                3,
+                "/s/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-service|",
+                5,
+            ),
+            p(
+                8,
+                3,
+                "python3|/s/steamapps/common/Proton - Experimental/proton run /h/.local/share/Steam/legacycompat/iscriptevaluator.exe",
+                30,
+            ),
+            p(9, 8, "C:\\windows\\system32\\wineboot.exe|--init", 200),
+            p(
+                10,
+                8,
+                "C:\\Program Files (x86)\\Steam\\legacycompat\\iscriptevaluator.exe|legacycompat\\evaluatorscript_750920.vdf",
+                100,
+            ),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
+        assert!(!is_infrastructure("SOTTR.exe"));
+        assert!(!is_infrastructure("supertuxkart"));
     }
 
     #[test]
