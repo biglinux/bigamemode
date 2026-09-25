@@ -91,6 +91,7 @@ measured again.
 | as E with the game's XeSS at Quality (1280×720 → 1080p) | same | 51.8 fps presented, 1 % low 24.1, p99 30.7 ms, 18 stutters against E's 131 — smoother, below 60 | the better-paced choice | arm G |
 | lsfg-vk 1.0.0 x2 (the user's Lossless.dll) on top of F, entry written by BiGame-mode, A B A B | same | rendered (the game's count) 38 / 39 → **27 / 27**; presented (MangoHud) 41.3 / 42.3 → **57.9 / 57.0**; frames over twice the median 70 / 132 → 1329 / 908 | more frames shown, −30 % rendered, worse pacing | `2026-09-25-sottr-gtx1050ti-lsfg` |
 | Turbo off versus on (falcond per-game profile: power profile and governor performance, idle inhibit), on top of F, A B A B | same | rendered 40 / 36 vs 39 / 37; presented 43.0 / 39.2 vs 42.8 / 41.4; CPU package 87–88 vs 88–89 °C | no difference: GPU-bound at the GTX's power limit | `2026-09-25-sottr-gtx1050ti-turbo` |
+| sched-ext `lavd`, `bpfland` vs none, set in the game's falcond profile (falcond loads it at game start, unloads it after; checked in `/sys/kernel/sched_ext`), A B C C B A + A B C | SotTR, lab laptop, same settings | rendered frames 5863 ± 175 / 6097 ± 196 / 6136 ± 215 (+4.0 %, +4.7 %); Welch's t 1.5 and 1.7, under the 95 % critical value; every arm drifted up through the evening | no difference | `2026-09-25-sottr-gtx1050ti-scheduler` |
 
 What follows for the code:
 

@@ -27,7 +27,7 @@ to the one that adds this page.
 | NVIDIA detected correctly | Yes | card0 / renderD129, GTX 1050 Ti Mobile, no DLSS |
 | PRIME validated | Yes | `glxinfo` through a BiGame-mode launch plan: NVIDIA's OpenGL instead of Intel; `DRI_PRIME=1` shown to give zink |
 | NVIDIA telemetry | Yes | NVML matches `nvidia-smi`; clock, load, temperature, VRAM, P-state and power-limit reason (board power not reported by this GPU) |
-| sched_ext tested | **No** | detection, scheduler list and scx_loader availability fixed and checked; switching a scheduler needs administrator authentication that could not be given unattended, so no scheduler was measured |
+| sched_ext tested | Yes | lavd and bpfland set in the game's falcond profile (the user typed the password for each save); falcond loaded them at game start and unloaded them after (`/sys/kernel/sched_ext`); nine runs, no measurable difference |
 | power-profiles-daemon tested | Yes | ownership of the governor, the BigLinux companion, game cycle |
 | Gamescope tested | Partly | options read from the installed 3.16.28; the game ran inside Gamescope (720p → 1080p FSR) rendering on the GTX; `--prefer-vk-device` found to break nested Gamescope on this laptop and removed; no valid performance run |
 | MangoHud tested | Yes | frame logs for every run; used as the presented-frames counter |
@@ -42,6 +42,10 @@ to the one that adds this page.
 | Regressions checked | Yes | full suite and package build after the last change |
 | Benchmarks have real data | Yes | `bigame-engine/benchmarks/2026-09-25-sottr-gtx1050ti-*` |
 | Final documentation | Yes | this page and the ones it links |
+| lsfg-vk as a package dependency | Yes | `PKGBUILD` `depends` |
+| MangoHud per game (off / on / forced) | Yes | Profiles row; Steam game checked: refused while Steam ran, `MANGOHUD=1 %command%` written, overlay in the game, removed again |
+| Diagnostics messages ready for translation | Yes | 42 templates in the catalogue (`health.rs` in POTFILES), shown in English until translated |
+| Tomb Raider profile corrected | Yes | frame generation x3 removed (`fg_multiplier = 1`), dead fields gone, `scx_sched = none` as measured |
 
 ## Measured results
 
@@ -51,6 +55,7 @@ to the one that adds this page.
 | lsfg-vk x2 | **+37 % presented, −30 % rendered**, worse pacing |
 | OptiScaler frame generation | 60.7 fps presented; **unstable** (Xid 69, Xid 31) |
 | Turbo (performance profile and governor) | **no measurable difference** (38.0 vs 38.0 rendered) |
+| sched-ext lavd / bpfland | **no measurable difference** (+4.0 % / +4.7 % rendered, within noise) |
 | DX11 instead of DX12 | **slower** (33.9 fps, 1 % low 7.7) |
 | Async compute off | **slower** (33 vs 40) |
 | XeSS off at 60 % resolution vs XeSS Performance | faster (40 vs 36) |
@@ -59,7 +64,6 @@ to the one that adds this page.
 ## Pending — what could not be validated here
 
 - **Battery**: this laptop has none.
-- **sched-ext schedulers**: need administrator authentication per switch.
 - **Gamescope performance**: functional only; the benchmark navigation does
   not handle the scaled menu.
 - **RTX paths** (DLSS, DLSS frame generation), **X11**, Mesa discrete GPUs
@@ -67,7 +71,7 @@ to the one that adds this page.
 - **Latency**: no instrument.
 - **falcond keeping its `Proton` profile** once, right after it started: an
   upstream behaviour, reported here, not changed.
-- **Health messages** are English only.
+- **Health messages** are ready for translation but not translated yet.
 - The package must be installed (`sudo pacman -U`) for the fixes to reach the
   installed application; everything above ran from the branch's builds.
 

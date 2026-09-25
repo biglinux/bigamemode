@@ -68,6 +68,10 @@ measurable gain**. The game is GPU-bound with the GTX at its power limit.
 **No measurable difference**
 
 - Turbo (power profile and governor performance).
+- sched-ext `lavd` and `bpfland` against none, set in the game's falcond
+  profile (nine runs, A B C C B A + A B C): rendered frames +4.0 % and
+  +4.7 %, within the noise (Welch's t 1.5 and 1.7), with every arm drifting
+  up through the evening. The game's profile keeps `scx_sched = none`.
 
 **Slower**
 
@@ -81,10 +85,6 @@ measurable gain**. The game is GPU-bound with the GTX at its power limit.
 
 **Not measured**
 
-- sched-ext schedulers: switching one needs administrator authentication
-  (scx_loader's `auth_admin_keep`, or saving the falcond profile), which
-  could not be given unattended. The earlier measurement on the reference
-  desktop found none faster ([BENCHMARKS.md](BENCHMARKS.md)).
 - Gamescope performance: the game ran inside Gamescope (720p → 1080p, FSR),
   rendering on the GTX with Gamescope compositing on the Intel GPU, but the
   automated benchmark could not navigate the scaled menu, so no valid run
