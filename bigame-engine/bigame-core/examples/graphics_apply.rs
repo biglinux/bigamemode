@@ -4,7 +4,12 @@
 //!
 //! Usage:
 //!   `graphics_apply <process-name>`
+//!   `graphics_apply <process-name> --frame-generation`
 //!   `graphics_apply <process-name> --remove`
+//!
+//! `--frame-generation` is the page's Choose yourself with `OptiScaler`'s frame
+//! generation on (experimental), saved to the game's settings as the page
+//! would, so the launch rules see it.
 use bigame_core::graphics::{self, config};
 
 fn main() -> anyhow::Result<()> {
@@ -22,9 +27,23 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let cfg = config::AiGraphicsConfig {
-        mode: config::Mode::Recommended,
-        ..config::AiGraphicsConfig::default()
+    let cfg = if args.iter().any(|a| a == "--frame-generation") {
+        let cfg = config::AiGraphicsConfig {
+            mode: config::Mode::Advanced,
+            layer: config::Layer::OptiScaler,
+            frame_generation: config::FrameGeneration::OptiScaler,
+            experimental: true,
+            ..config::AiGraphicsConfig::default()
+        };
+        let mut settings = bigame_core::game_settings::load(process).unwrap_or_default();
+        settings.ai_graphics = cfg.clone();
+        bigame_core::game_settings::save(process, &settings)?;
+        cfg
+    } else {
+        config::AiGraphicsConfig {
+            mode: config::Mode::Recommended,
+            ..config::AiGraphicsConfig::default()
+        }
     };
     let analysis = graphics::analyze(&target, &cfg);
     println!(

@@ -81,6 +81,12 @@ pub fn snapshot() -> Vec<Proc> {
                 .next()
                 .map(|a| String::from_utf8_lossy(a).into_owned())
                 .unwrap_or_default();
+            // No command line: a kernel thread, or a process on its way
+            // out. Neither is a game, and an exiting one in a game's tree
+            // was once reported as the game, with no name.
+            if argv0.is_empty() {
+                return None;
+            }
             let cmdline = String::from_utf8_lossy(
                 &raw.iter()
                     .map(|b| if *b == 0 { b' ' } else { *b })
@@ -398,7 +404,7 @@ pub fn identify_with<S: std::hash::BuildHasher>(
         let proton = proton_tool(&tree);
         let candidates: Vec<&&Proc> = tree
             .iter()
-            .filter(|p| !is_infrastructure(falcond_name(&p.argv0)))
+            .filter(|p| !p.argv0.is_empty() && !is_infrastructure(falcond_name(&p.argv0)))
             .collect();
         // In a Proton tree the game is a Windows binary. A Linux helper inside
         // the container -- an overlay, a wrapper -- must not outrank a game
@@ -1124,6 +1130,28 @@ mod tests {
         assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
         assert!(!is_infrastructure("SOTTR.exe"));
         assert!(!is_infrastructure("supertuxkart"));
+    }
+
+    #[test]
+    fn a_process_without_a_command_line_is_not_the_game() {
+        // A process on its way out has an empty cmdline. Left in the pool it
+        // was once chosen, and Home announced a game with no name.
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=750920 --",
+                1,
+            ),
+            p(2, 1, "", 500),
+            p(
+                3,
+                1,
+                "/s/SteamLinuxRuntime_4/pressure-vessel/bin/srt-logger|",
+                5,
+            ),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
     }
 
     #[test]

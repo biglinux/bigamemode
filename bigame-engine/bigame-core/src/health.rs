@@ -7,7 +7,7 @@
 //! Checks are cheap enough to run when the Diagnostics page opens: file reads,
 //! pacman's local database, one D-Bus ping. No processes are spawned.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
@@ -160,6 +160,72 @@ pub fn restart_check(restarts: u32) -> Option<Check> {
     })
 }
 
+/// A warning when the CPU has hit its temperature limit since boot.
+///
+/// The kernel counts every time a core or the package was slowed for heat
+/// (`thermal_throttle` under each CPU). A CPU that throttles is capped by its
+/// cooling, not by any setting: a performance power profile only adds heat,
+/// and a game measured 91 °C on a laptop lost a fifth of its clock. The
+/// counts are per core; the package ones are the same on every core.
+#[must_use]
+pub fn cpu_throttle_check(cpu_dir: &Path) -> Option<Check> {
+    let read = |cpu: &Path, name: &str| -> Option<u64> {
+        std::fs::read_to_string(cpu.join("thermal_throttle").join(name))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    };
+    let cpus: Vec<PathBuf> = std::fs::read_dir(cpu_dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                n.strip_prefix("cpu")
+                    .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
+            })
+        })
+        .collect();
+    let mut cores: u64 = 0;
+    let mut package: u64 = 0;
+    let mut package_ms: u64 = 0;
+    let mut any = false;
+    for cpu in &cpus {
+        if let Some(n) = read(cpu, "core_throttle_count") {
+            any = true;
+            cores += n;
+        }
+        package = package.max(read(cpu, "package_throttle_count").unwrap_or(0));
+        package_ms = package_ms.max(read(cpu, "package_throttle_total_time_ms").unwrap_or(0));
+    }
+    if !any {
+        return None;
+    }
+    let events = cores.max(package);
+    Some(if events == 0 {
+        check(
+            "CPU temperature",
+            Status::Ok,
+            "no thermal throttling since boot",
+            None,
+        )
+    } else {
+        check(
+            "CPU temperature",
+            Status::Warning,
+            format!(
+                "the CPU hit its temperature limit {events} time{} since boot ({} s slowed in total): its cooling caps its speed, and a performance power profile adds heat",
+                if events == 1 { "" } else { "s" },
+                package_ms / 1000
+            ),
+            Some(
+                "Keep the vents clear; on a laptop, measure whether Turbo helps this game (Measure the difference) before keeping it on",
+            ),
+        )
+    })
+}
+
 /// Run every check.
 ///
 /// One flat list, top to bottom, so each check reads on its own.
@@ -302,6 +368,11 @@ pub fn collect() -> Vec<Check> {
         check("Feral GameMode", Status::Ok, "not installed · no conflict with falcond", None)
     });
 
+    // CPU cooling
+    if let Some(c) = cpu_throttle_check(Path::new("/sys/devices/system/cpu")) {
+        out.push(c);
+    }
+
     // Graphics
     match hw.render_gpu() {
         Some(gpu) => {
@@ -434,6 +505,39 @@ mod tests {
             "{fix}"
         );
         assert!(!fix.contains("--now power-profiles-daemon"), "{fix}");
+    }
+
+    #[test]
+    fn a_throttled_cpu_is_a_warning_and_a_cool_one_is_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            cpu_throttle_check(dir.path()),
+            None,
+            "no counters, no check"
+        );
+        for (cpu, core, pkg, ms) in [("cpu0", 0, 0, 0), ("cpu1", 0, 0, 0)] {
+            let t = dir.path().join(cpu).join("thermal_throttle");
+            std::fs::create_dir_all(&t).unwrap();
+            std::fs::write(t.join("core_throttle_count"), core.to_string()).unwrap();
+            std::fs::write(t.join("package_throttle_count"), pkg.to_string()).unwrap();
+            std::fs::write(t.join("package_throttle_total_time_ms"), ms.to_string()).unwrap();
+        }
+        std::fs::create_dir_all(dir.path().join("cpufreq")).unwrap();
+        let cool = cpu_throttle_check(dir.path()).unwrap();
+        assert_eq!(cool.status, Status::Ok);
+        // The lab laptop after three benchmark runs.
+        let t = dir.path().join("cpu1").join("thermal_throttle");
+        std::fs::write(t.join("core_throttle_count"), "1799").unwrap();
+        std::fs::write(t.join("package_throttle_count"), "47").unwrap();
+        std::fs::write(t.join("package_throttle_total_time_ms"), "14300").unwrap();
+        let hot = cpu_throttle_check(dir.path()).unwrap();
+        assert_eq!(hot.status, Status::Warning);
+        assert!(
+            hot.detail.contains("1799 times") && hot.detail.contains("14 s"),
+            "{}",
+            hot.detail
+        );
+        assert!(matches!(hot.fix, Some(Fix::Advice(_))));
     }
 
     #[test]
