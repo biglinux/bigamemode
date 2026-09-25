@@ -58,12 +58,16 @@ Vulkan enumerates the Intel GPU first, the GTX second, llvmpipe third.
 - **Now.** `hardware::offload_for` decides whether games need offload (the
   games' GPU drives no output while another does) and by which switch (NVIDIA's
   variables for the proprietary driver, `DRI_PRIME=pci-…` for Mesa). The
-  launcher sets them for games BiGame-mode starts, and Gamescope composites on
-  the games' GPU (`--prefer-vk-device 10de:1c8c`) when the installed version
-  has the option. Proof: `glxinfo -B` through a BiGame-mode launch plan reports
-  `NVIDIA GeForce GTX 1050 Ti/PCIe/SSE2`, OpenGL 4.6.0 NVIDIA 580.178.04, where
-  it reports the Intel GPU without it; Gamescope logs
-  `selecting physical device 'NVIDIA GeForce GTX 1050 Ti'`.
+  launcher sets them for games BiGame-mode starts. Proof: `glxinfo -B` through
+  a BiGame-mode launch plan reports `NVIDIA GeForce GTX 1050 Ti/PCIe/SSE2`,
+  OpenGL 4.6.0 NVIDIA 580.178.04, where it reports the Intel GPU without it.
+- **Gamescope composites where the display is.** Told to composite on the GTX
+  (`--prefer-vk-device 10de:1c8c`, which BiGame-mode briefly added), nested
+  Gamescope selected the GTX, logged `returned zero modifiers for DRM format`
+  and never showed a window: it could not hand its frames to KWin on the Intel
+  GPU. Without the option it composites on the Intel GPU, shows the game, and
+  the game inside still renders on the GTX (its only NVIDIA context is
+  `SOTTR.exe`). BiGame-mode no longer passes it.
 - **Limit.** A game the Steam client starts runs in Steam's process tree;
   BiGame-mode cannot set its environment. Proton games do not need it. A native
   OpenGL game started by Steam needs `prime-run %command%` in its launch

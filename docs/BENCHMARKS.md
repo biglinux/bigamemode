@@ -86,9 +86,11 @@ measured again.
 | the same in DX11 (DXVK) | same | 33.9 fps, 1 % low 7.7, 464 stutters: CPU 91–98 %, GPU 30–60 % — the DXVK path is CPU-bound on this throttling i7-7700HQ; scene 2 ran at 19–21 fps | slower, and worse paced | arm B |
 | DX12, XeSS off, the game's resolution modifier at 60 % (1152×648, TAA) | same | 40 fps (the game's own average; GPU-limited 97 %) — more pixels than XeSS Performance, yet faster: XeSS's own cost on this GPU exceeds what its lower render resolution saves | faster than XeSS | arm C |
 | as C with async compute and high-precision render targets off (registry) | same | 33 fps, the game's CPU thread 47 fps average against 65: async compute is worth keeping on Pascal under VKD3D-Proton | slower | arm D |
-| DX12, XeSS Performance → OptiScaler 0.9.4 FSR 3.1 with OptiFG frame generation, installed by AI Graphics (Choose yourself, experimental) | same | **60.7 fps presented** (MangoHud, 6652 frames in 110 s), 1 % low 18.7; the game's menu went from 41 to 71 fps | the only arm at 60; presented frames, not rendered ones, and more latency | arm E |
+| DX12, XeSS Performance → OptiScaler 0.9.4 FSR 3.1 with OptiFG frame generation, installed by AI Graphics (Choose yourself, experimental) | same | **60.7 fps presented** (MangoHud, 6652 frames in 110 s), 1 % low 18.7; the game's menu went from 41 to 71 fps | presented frames, not rendered ones, and more latency; **unstable on this GTX**: NVIDIA Xid 69 in this arm and Xid 31 in the next play session, which ended the game — removed from the game | arm E |
 | as E without frame generation (OptiScaler FSR 3.1 from XeSS Performance) | same | 40.6 fps rendered, 1 % low 13.7: **+12 %** over the game's XeSS (arm A), the same gain as the day before at High | faster | arm F |
-| as E with the game's XeSS at Quality (1280×720 → 1080p) | same | 51.8 fps presented, 1 % low 24.1, p99 30.7 ms, 18 stutters against E's 131 — smoother, below 60 | the better-paced choice; E the only one at 60 | arm G |
+| as E with the game's XeSS at Quality (1280×720 → 1080p) | same | 51.8 fps presented, 1 % low 24.1, p99 30.7 ms, 18 stutters against E's 131 — smoother, below 60 | the better-paced choice | arm G |
+| lsfg-vk 1.0.0 x2 (the user's Lossless.dll) on top of F, entry written by BiGame-mode, A B A B | same | rendered (the game's count) 38 / 39 → **27 / 27**; presented (MangoHud) 41.3 / 42.3 → **57.9 / 57.0**; frames over twice the median 70 / 132 → 1329 / 908 | more frames shown, −30 % rendered, worse pacing | `2026-09-25-sottr-gtx1050ti-lsfg` |
+| Turbo off versus on (falcond per-game profile: power profile and governor performance, idle inhibit), on top of F, A B A B | same | rendered 40 / 36 vs 39 / 37; presented 43.0 / 39.2 vs 42.8 / 41.4; CPU package 87–88 vs 88–89 °C | no difference: GPU-bound at the GTX's power limit | `2026-09-25-sottr-gtx1050ti-turbo` |
 
 What follows for the code:
 
@@ -112,11 +114,16 @@ What follows for the code:
   36–40 fps rendered whatever the resolution, and DX11 only moves the limit to
   the CPU. Nothing an upscaler does reaches 60 there, so the plan says so when
   every measurement of a game is far below 60, and names frame generation as
-  the one thing that presents more frames than are rendered (arm E: 60.7 presented from about 33 rendered;
-  arm G, at XeSS Quality, 51.8 with far better pacing). It stays the user's
-  choice.
-- On that laptop the CPU hit its temperature limit 1799 times in a morning of
-  benchmarks (14 s slowed). Diagnostics now reports the kernel's throttle
+  the one thing that presents more frames than are rendered. lsfg-vk x2
+  presented 57–58 from 27 rendered, stable; OptiScaler's frame generation
+  presented 60.7 (arm E) but raised NVIDIA Xid errors on the GTX. It stays
+  the user's choice.
+- Turbo (falcond's per-game profile) was applied and verified — power
+  profile and governor performance in the game, restored after — and made
+  no measurable difference in this GPU-bound game.
+- On that laptop the CPU hit its temperature limit all day: on cpu0, core
+  throttling events went from 373 to 14 219 and the package spent 289 s
+  slowed. Diagnostics now reports the kernel's throttle
   counters: a CPU capped by its cooling is not helped by a performance
   governor, and the check says so.
 - The game's `XESS` registry value 1 is *Performance* in its menu and 3 is
