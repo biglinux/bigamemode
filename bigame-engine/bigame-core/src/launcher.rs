@@ -33,8 +33,6 @@ struct Host {
     session: crate::hardware::Session,
     /// How to reach the games' GPU when another GPU drives the display.
     offload: Option<crate::hardware::Offload>,
-    /// The games' GPU as `vendor:device`, for Gamescope's `--prefer-vk-device`.
-    games_gpu: Option<String>,
 }
 
 impl Host {
@@ -44,10 +42,6 @@ impl Host {
         Self {
             gamescope: crate::capabilities::Capabilities::detect().gamescope,
             offload: render.and_then(|i| crate::hardware::offload_for(&hw.gpus, i)),
-            games_gpu: render
-                .and_then(|i| hw.gpus.get(i))
-                .map(|g| g.pci_id.to_ascii_lowercase())
-                .filter(|id| !id.is_empty()),
             session: hw.session,
         }
     }
@@ -491,14 +485,13 @@ fn build_gamescope_argv(
     let caps = host.gamescope.clone().unwrap_or_default();
     let cfg = LaunchPlan::merge_gamescope_config(upscaling, gs_override);
 
-    let (mut argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
-    // Offloaded: Gamescope composites on the GPU the game renders on, rather
-    // than copying every frame to the panel's GPU first.
-    if host.offload.is_some() && caps.has_flag("prefer-vk-device") {
-        if let Some(id) = &host.games_gpu {
-            argv.splice(0..0, ["--prefer-vk-device".to_owned(), id.clone()]);
-        }
-    }
+    // Gamescope is left to composite on the GPU that drives the display. Told
+    // to use the discrete GPU of a hybrid laptop (`--prefer-vk-device`), nested
+    // Gamescope never showed a window on the lab laptop (GTX 1050 Ti rendering,
+    // Intel HD 630 driving the panel): it could not hand its frames to the
+    // compositor. The game inside still renders on the discrete GPU, through
+    // the offload variables it inherits.
+    let (argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
     for u in &unsupported {
         tracing::warn!(
             target: "gamescope",
@@ -561,12 +554,11 @@ mod tests {
             }),
             session: crate::hardware::Session::Wayland,
             offload: None,
-            games_gpu: None,
         }
     }
 
-    /// The lab laptop: GTX 1050 Ti with no panel, Gamescope that knows
-    /// `--prefer-vk-device`.
+    /// The lab laptop: GTX 1050 Ti with no panel, and a Gamescope that knows
+    /// `--prefer-vk-device` (which must not be used there).
     fn hybrid_laptop() -> Host {
         Host {
             gamescope: Some(crate::capabilities::GamescopeCaps {
@@ -580,7 +572,6 @@ mod tests {
             }),
             session: crate::hardware::Session::Wayland,
             offload: Some(crate::hardware::Offload::Nvidia),
-            games_gpu: Some("10de:1c8c".into()),
         }
     }
 
@@ -623,15 +614,13 @@ mod tests {
     }
 
     #[test]
-    fn gamescope_on_a_hybrid_laptop_composites_on_the_games_gpu() {
+    fn gamescope_on_a_hybrid_laptop_composites_where_the_display_is() {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         let plan = LaunchPlan::build_on(&hybrid_laptop(), "game", &[], "game", &video, None);
         assert_eq!(plan.program, "gamescope");
-        assert_eq!(
-            plan.args[..2],
-            ["--prefer-vk-device".to_owned(), "10de:1c8c".to_owned()]
-        );
+        // Composited on the discrete GPU, nested Gamescope showed no window.
+        assert!(!plan.args.iter().any(|a| a == "--prefer-vk-device"));
         // The game still receives the offload variables through Gamescope.
         assert!(
             plan.env.contains_key("__VK_LAYER_NV_optimus")
