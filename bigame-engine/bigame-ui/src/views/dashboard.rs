@@ -8,8 +8,27 @@ use libadwaita as adw;
 
 use crate::i18n::i18n;
 
-/// Telemetry polling interval.
+/// Telemetry polling interval while the window has focus.
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
+
+/// Polling interval while the window is open but not focused — behind other
+/// windows, or behind a game. GTK cannot tell an occluded window from a
+/// visible one, and polling at 1 s there cost 4.4 % of a core over two
+/// hours of games on the lab laptop for readings nobody could see.
+const BACKGROUND_INTERVAL: Duration = Duration::from_secs(5);
+
+/// How long to wait before the next reading of the page `widget` is on.
+fn next_poll(widget: &impl IsA<gtk4::Widget>) -> Duration {
+    let focused = widget
+        .root()
+        .and_downcast::<gtk4::Window>()
+        .is_some_and(|w| w.is_active());
+    if focused {
+        POLL_INTERVAL
+    } else {
+        BACKGROUND_INTERVAL
+    }
+}
 
 /// Build the Dashboard view with live telemetry polling.
 ///
@@ -448,6 +467,7 @@ fn spawn_telemetry_poller(
 ) {
     glib::spawn_future_local(async move {
         let mut prev_disk: Option<(u64, u64)> = None;
+        let mut last_ping: Option<std::time::Instant> = None;
         let mut prev_is_lsfg = false;
         let mut prev_runtime: Option<(bool, bool, bool, bool, bool)> = None;
         loop {
@@ -487,18 +507,21 @@ fn spawn_telemetry_poller(
             }
             prev_disk = cur_disk;
 
-            // Ping
-            let target = crate::settings::load().ping_target;
-            let ping_text = gio::spawn_blocking(move || read_ping_latency(&target))
-                .await
-                .unwrap_or_else(|_| i18n("N/A"));
-            ping_val.set_text(&ping_text);
-            if let Some(ms) = ping_text
-                .split_whitespace()
-                .next()
-                .and_then(|s| s.parse::<f64>().ok())
-            {
-                ping_spark.push(ms);
+            // Ping: a process each time, so every 5 s rather than every tick.
+            if last_ping.is_none_or(|t| t.elapsed() >= BACKGROUND_INTERVAL) {
+                last_ping = Some(std::time::Instant::now());
+                let target = crate::settings::load().ping_target;
+                let ping_text = gio::spawn_blocking(move || read_ping_latency(&target))
+                    .await
+                    .unwrap_or_else(|_| i18n("N/A"));
+                ping_val.set_text(&ping_text);
+                if let Some(ms) = ping_text
+                    .split_whitespace()
+                    .next()
+                    .and_then(|s| s.parse::<f64>().ok())
+                {
+                    ping_spark.push(ms);
+                }
             }
 
             // RAM
@@ -668,7 +691,7 @@ fn spawn_telemetry_poller(
                 has_active_game,
             );
 
-            glib::timeout_future(POLL_INTERVAL).await;
+            glib::timeout_future(next_poll(&ping_val)).await;
         }
     });
 }
@@ -766,7 +789,7 @@ fn spawn_gpu_poller(
                     row.set_subtitle(&role);
                 }
             }
-            glib::timeout_future(POLL_INTERVAL).await;
+            glib::timeout_future(next_poll(&temp_val)).await;
         }
     });
 }
