@@ -23,6 +23,8 @@ use crate::graphics::config::AiGraphicsConfig;
 pub struct GameSettings {
     /// AI Graphics.
     pub ai_graphics: AiGraphicsConfig,
+    /// `MangoHud` for this game: off, on (Vulkan layer) or forced (wrapper).
+    pub mangohud: crate::mangohud::Mode,
 }
 
 /// The folder the per-game files are in.

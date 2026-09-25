@@ -217,6 +217,10 @@ impl LaunchPlan {
             _ => gamescope::Mode::Auto,
         };
         let merged = Self::merge_gamescope_config(upscaling, gs_override);
+        // MangoHud chosen for this game (Profiles). It does not by itself make
+        // Automatic wrap the game in Gamescope; when Gamescope runs anyway it
+        // becomes Gamescope's own overlay, --mangoapp.
+        let mangohud = crate::mangohud::mode_for(logical_game);
         let decision = gamescope::decide(mode, &merged, host.gamescope.as_ref(), host.session);
         tracing::info!(
             target: "gamescope",
@@ -226,15 +230,33 @@ impl LaunchPlan {
             "gamescope decision"
         );
         if decision.use_gamescope {
+            let mut gs = gs_override.cloned().unwrap_or_default();
+            if mangohud != crate::mangohud::Mode::Off {
+                gs.mangoapp = true;
+            }
+            let gs_override = (gs_override.is_some() || gs.mangoapp).then_some(&gs);
             let (program, args) =
                 build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
             Self { program, args, env }
         } else {
-            Self {
+            // On: MangoHud's Vulkan layer. Forced: its wrapper, which also
+            // reaches OpenGL games.
+            let mut plan = Self {
                 program: executable.to_string(),
                 args: executable_args.to_vec(),
                 env,
+            };
+            match mangohud {
+                crate::mangohud::Mode::On => {
+                    plan.env.insert("MANGOHUD".into(), "1".into());
+                }
+                crate::mangohud::Mode::Forced => {
+                    plan.args
+                        .insert(0, std::mem::replace(&mut plan.program, "mangohud".into()));
+                }
+                crate::mangohud::Mode::Off => {}
             }
+            plan
         }
     }
 
