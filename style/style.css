@@ -223,7 +223,8 @@
     outline-offset: -2px;
 }
 
-/* The cover keeps its rounded corners while the image is clipped to fill. */
+/* The poster: a fixed 2:3 box the cover is painted over, so a card is the
+ * same size with a placeholder, a portrait cover or a landscape capsule. */
 .game-cover-frame {
     border-radius: 8px;
     background-color: alpha(@window_fg_color, 0.08);
@@ -240,6 +241,21 @@
     border-radius: 6px;
     background-color: alpha(#000, 0.65);
     color: #fff;
+}
+
+/* The actions sit over the bottom of the poster and appear by opacity alone,
+ * so revealing them moves nothing: hovering a card never pushes its
+ * neighbours. They are made targetable together with the class. */
+.game-card-actions {
+    padding: 8px;
+    border-radius: 0 0 8px 8px;
+    background-image: linear-gradient(to top, alpha(#000, 0.78), alpha(#000, 0.55) 70%, alpha(#000, 0));
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.game-card-actions.revealed {
+    opacity: 1;
 }
 
 /* Profile indicator. Paired with a tooltip and with the status line under the

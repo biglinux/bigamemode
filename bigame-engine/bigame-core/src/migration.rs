@@ -284,7 +284,9 @@ mod tests {
             app_id: Some("1".into()),
             install_path: None,
             executables: vec![exe.into()],
+            launch_file: None,
             cover: None,
+            icon: None,
             launch_command: None,
         }
     }

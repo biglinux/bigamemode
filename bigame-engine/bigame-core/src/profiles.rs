@@ -234,6 +234,63 @@ pub fn list_names() -> Vec<String> {
     names
 }
 
+/// One profile on disk, as the library sees it.
+///
+/// falcond matches a process against the profile's `name` field, and the
+/// ones it ships are not named after it (`cyberpunk2077.conf` carries
+/// `name = "Cyberpunk2077.exe"`), so a game is matched on the field and a
+/// file is opened by its stem.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileRef {
+    /// The file's stem: what [`load`] and [`delete`] take.
+    pub stem: String,
+    /// The `name` field: the process falcond matches. The stem when the file
+    /// has none.
+    pub name: String,
+    /// Whether the file is one falcond ships rather than the user's.
+    pub system: bool,
+}
+
+impl ProfileRef {
+    /// Whether this profile is for `process`.
+    #[must_use]
+    pub fn matches(&self, process: &str) -> bool {
+        self.name == process || self.stem == process
+    }
+}
+
+/// Every profile on disk, user ones first. A user file and a system file with
+/// the same stem are one profile, the user's.
+#[must_use]
+pub fn index() -> Vec<ProfileRef> {
+    let mut refs: Vec<ProfileRef> = Vec::new();
+    for (dir, system) in [(USER_PROFILES_DIR, false), (SYSTEM_PROFILES_DIR, true)] {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_none_or(|e| e != "conf") {
+                continue;
+            }
+            let Some(stem) = path.file_stem().map(|s| s.to_string_lossy().into_owned()) else {
+                continue;
+            };
+            if refs.iter().any(|r| r.stem == stem) {
+                continue;
+            }
+            let name = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|c| crate::running::profile_name_field(&c))
+                .filter(|n| !n.is_empty())
+                .unwrap_or_else(|| stem.clone());
+            refs.push(ProfileRef { stem, name, system });
+        }
+    }
+    refs.sort_by(|a, b| a.stem.cmp(&b.stem));
+    refs
+}
+
 /// Load a profile by name. Checks user dir first, then system.
 ///
 /// Supports both TOML (quoted strings) and `otter_conf` (bare identifiers) formats.
