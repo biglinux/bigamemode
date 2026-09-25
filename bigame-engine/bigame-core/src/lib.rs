@@ -18,6 +18,7 @@ pub mod hardware;
 pub mod health;
 pub mod inventory;
 pub mod launcher;
+pub mod library;
 pub mod logs;
 pub mod migration;
 pub mod models;

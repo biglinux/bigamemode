@@ -104,10 +104,31 @@ apply → verify → report → restore**.
 - The global configuration is `/etc/falcond/config.conf`; system profiles are
   in `/usr/share/falcond/profiles/` (and `handheld/`, `htpc/`), user profiles
   in `…/user/`.
-- The library comes from Steam, Lutris and Heroic, and from the application
-  menu: `.desktop` entries in the `Game` category are native games, launched
-  with their `Exec` line (past wrappers such as `env`, `prime-run`,
-  `gamemoderun` or `gamescope … --`).
+- The library (`library.rs`) is the installed games, each with the profile
+  that matches one of its process names, if any. Profiles are looked up for
+  games, never turned into games: falcond ships profiles for titles that may
+  not be installed. The user's profiles that match no installed game are
+  reported apart and never deleted by a scan.
+- Games come from Steam, Lutris, Heroic and the application menu
+  (`games.rs`), and each launcher's record is checked against the disk
+  before it counts: a Steam manifest needs its `StateFlags` *FullyInstalled*
+  bit and a non-empty install directory; a Lutris configuration needs the
+  file it would run (`exe` or `main_file`, resolved against `working_dir` or
+  the prefix; `$GAMEDIR` cannot be resolved without Lutris's database, so
+  such entries are skipped); Heroic's store caches and the backends'
+  `installed.json` need the install directory; a `.desktop` entry in the
+  `Game` category needs its program on `PATH` (past wrappers such as `env`,
+  `prime-run`, `gamemoderun` or `gamescope … --`), or, for `flatpak run`,
+  the application's metadata, whose `command` is the process. Entries that
+  also list `PackageManager`, `Utility`, `Settings`, `System` or
+  `Development` are stores and tools, not games. The Flatpak installations
+  of Steam, Lutris and Heroic are read as well.
+- One card per game: the same title from two launchers is folded by Steam
+  or Flatpak id, install directory or launch file, in the order Steam,
+  Heroic, Lutris, menu.
+- Detection is a plain filesystem read (about 40 ms for twenty titles) and
+  runs off the main thread; the grid on screen is replaced only when the
+  library changed.
 - The running game is identified from `/proc` without spawning processes: the
   Steam reaper tree (`AppId=`), Wine `.exe` processes, native menu games, and
   names falcond has a profile for. Launchers, stores, game streaming and

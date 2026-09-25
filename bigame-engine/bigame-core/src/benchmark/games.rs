@@ -224,7 +224,9 @@ mod tests {
                 app_id: Some(sottr.app_id.into()),
                 install_path: None,
                 executables: vec!["SOTTR.exe".into()],
+                launch_file: None,
                 cover: None,
+                icon: None,
                 launch_command: None,
             }),
         };
