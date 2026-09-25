@@ -114,6 +114,8 @@ pub struct Gpu {
     pub vendor: GpuVendor,
     /// `vendor:device` PCI id, e.g. `1002:7590`.
     pub pci_id: String,
+    /// PCI address, e.g. `0000:01:00.0`; empty when not on PCI.
+    pub pci_slot: String,
     /// Kernel driver bound to the device (`amdgpu`, `nvidia`, `i915`, `xe`).
     pub driver: String,
     /// The card's `hwmon` directory, when it exposes one.
@@ -424,10 +426,12 @@ fn detect_gpus() -> Vec<Gpu> {
         // APUs carve their aperture out of system RAM and leave it blank.
         let has_vram_vendor = read_trim(device_path.join("mem_info_vram_vendor")).is_some();
         let vendor = gpu_vendor_from_pci_id(&pci_id);
+        let discrete = looks_discrete(vendor, &slot, has_vram_vendor, vram_total_bytes);
         gpus.push(Gpu {
-            discrete: looks_discrete(vendor, &slot, has_vram_vendor, vram_total_bytes),
+            discrete,
             vendor,
             pci_id,
+            pci_slot: slot,
             driver,
             hwmon: find_hwmon(&device_path),
             connected_outputs: connected_outputs_for(&name),
@@ -583,6 +587,78 @@ fn detect_displays() -> Vec<Display> {
     }
     out.sort_by(|a, b| a.connector.cmp(&b.connector));
     out
+}
+
+// ── Hybrid graphics ──────────────────────────────────────────────────────────
+
+/// How a program is sent to render on the discrete GPU of a machine whose
+/// display is driven by another GPU (PRIME render offload).
+///
+/// Each driver stack has its own switch, and the wrong one half-works: on the
+/// NVIDIA proprietary driver `DRI_PRIME=1` gives OpenGL through zink on top of
+/// NVIDIA's Vulkan rather than NVIDIA's own OpenGL. Vulkan and DXVK/VKD3D
+/// games pick the discrete GPU by themselves; OpenGL games render on the GPU
+/// that drives the display unless told otherwise.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Offload {
+    /// NVIDIA proprietary driver: libglvnd's vendor selection plus the
+    /// Optimus Vulkan layer filter.
+    Nvidia,
+    /// A Mesa driver (amdgpu, nouveau, i915/xe dGPU): `DRI_PRIME` naming the
+    /// card by PCI address, unambiguous with more than two GPUs.
+    DriPrime(String),
+}
+
+impl Offload {
+    /// The environment that sends a program to the discrete GPU.
+    #[must_use]
+    pub fn env(&self) -> Vec<(&'static str, String)> {
+        match self {
+            Self::Nvidia => vec![
+                ("__NV_PRIME_RENDER_OFFLOAD", "1".to_owned()),
+                ("__GLX_VENDOR_LIBRARY_NAME", "nvidia".to_owned()),
+                ("__VK_LAYER_NV_optimus", "NVIDIA_only".to_owned()),
+            ],
+            Self::DriPrime(tag) => vec![("DRI_PRIME", tag.clone())],
+        }
+    }
+
+    /// Short name of the mechanism, for reports.
+    #[must_use]
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Nvidia => "NVIDIA PRIME render offload",
+            Self::DriPrime(_) => "DRI_PRIME",
+        }
+    }
+}
+
+/// Whether games must be offloaded to `gpus[render]`, and how.
+///
+/// Offload applies when the games' GPU drives no connected output while
+/// another GPU does: the laptop layout, where the integrated GPU owns the
+/// panel. A discrete card that drives a monitor itself needs nothing.
+#[must_use]
+pub fn offload_for(gpus: &[Gpu], render: usize) -> Option<Offload> {
+    let g = gpus.get(render)?;
+    let another_drives_display = gpus
+        .iter()
+        .enumerate()
+        .any(|(i, o)| i != render && !o.connected_outputs.is_empty());
+    if gpus.len() < 2 || !g.connected_outputs.is_empty() || !another_drives_display {
+        return None;
+    }
+    if g.driver == "nvidia" {
+        return Some(Offload::Nvidia);
+    }
+    if g.pci_slot.is_empty() {
+        return None;
+    }
+    // Mesa's form: `pci-0000_03_00_0`.
+    Some(Offload::DriPrime(format!(
+        "pci-{}",
+        g.pci_slot.replace([':', '.'], "_")
+    )))
 }
 
 /// Largest `WxH` listed in a DRM connector's `modes` file.
@@ -758,6 +834,7 @@ core id\t\t: 1
             device_path: PathBuf::from("/dev/null"),
             vendor: GpuVendor::Amd,
             pci_id: String::new(),
+            pci_slot: String::new(),
             driver: "amdgpu".into(),
             hwmon: None,
             connected_outputs: outputs.iter().map(|s| (*s).to_owned()).collect(),
@@ -765,6 +842,48 @@ core id\t\t: 1
             discrete,
             dpm_level_path: None,
         }
+    }
+
+    fn hybrid(driver: &str, dgpu_outputs: &[&str]) -> Vec<Gpu> {
+        let mut dgpu = gpu("card0", true, None, dgpu_outputs);
+        dgpu.driver = driver.into();
+        dgpu.pci_slot = "0000:01:00.0".into();
+        let mut igpu = gpu("card1", false, None, &["eDP-1"]);
+        igpu.driver = "i915".into();
+        igpu.pci_slot = "0000:00:02.0".into();
+        vec![dgpu, igpu]
+    }
+
+    #[test]
+    fn a_laptop_dgpu_is_offloaded_by_its_own_driver_stack() {
+        // The lab laptop: GTX 1050 Ti with no panel, HD 630 on eDP.
+        let nv = hybrid("nvidia", &[]);
+        let o = offload_for(&nv, 0).unwrap();
+        assert_eq!(o, Offload::Nvidia);
+        assert!(
+            o.env()
+                .contains(&("__NV_PRIME_RENDER_OFFLOAD", "1".to_owned()))
+        );
+        assert!(
+            !o.env().iter().any(|(k, _)| *k == "DRI_PRIME"),
+            "zink, not NVIDIA's GL"
+        );
+        // The same laptop with an AMD dGPU: Mesa's DRI_PRIME, by address.
+        let amd = hybrid("amdgpu", &[]);
+        assert_eq!(
+            offload_for(&amd, 0),
+            Some(Offload::DriPrime("pci-0000_01_00_0".into()))
+        );
+    }
+
+    #[test]
+    fn no_offload_where_the_games_gpu_drives_a_display_or_is_alone() {
+        // External monitor on the dGPU: it renders and presents itself.
+        assert_eq!(offload_for(&hybrid("nvidia", &["HDMI-A-1"]), 0), None);
+        // The integrated GPU as the games' GPU needs nothing either.
+        assert_eq!(offload_for(&hybrid("nvidia", &[]), 1), None);
+        // One GPU.
+        assert_eq!(offload_for(&[gpu("card0", true, None, &["DP-1"])], 0), None);
     }
 
     #[test]

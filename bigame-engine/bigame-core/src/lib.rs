@@ -13,6 +13,7 @@ pub mod fg;
 pub mod game_settings;
 pub mod games;
 pub mod gamescope;
+pub mod gpu_telemetry;
 pub mod graphics;
 pub mod hardware;
 pub mod health;

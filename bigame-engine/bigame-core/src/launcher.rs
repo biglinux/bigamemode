@@ -31,13 +31,24 @@ use crate::video_config::VideoConfig;
 struct Host {
     gamescope: Option<crate::capabilities::GamescopeCaps>,
     session: crate::hardware::Session,
+    /// How to reach the games' GPU when another GPU drives the display.
+    offload: Option<crate::hardware::Offload>,
+    /// The games' GPU as `vendor:device`, for Gamescope's `--prefer-vk-device`.
+    games_gpu: Option<String>,
 }
 
 impl Host {
     fn detect() -> Self {
+        let hw = crate::hardware::Hardware::detect();
+        let render = crate::hardware::pick_render_gpu(&hw.gpus);
         Self {
             gamescope: crate::capabilities::Capabilities::detect().gamescope,
-            session: crate::hardware::Hardware::detect().session,
+            offload: render.and_then(|i| crate::hardware::offload_for(&hw.gpus, i)),
+            games_gpu: render
+                .and_then(|i| hw.gpus.get(i))
+                .map(|g| g.pci_id.to_ascii_lowercase())
+                .filter(|id| !id.is_empty()),
+            session: hw.session,
         }
     }
 }
@@ -143,6 +154,17 @@ impl LaunchPlan {
         Self::check_and_warn_conflicts(logical_game, &effective_video);
 
         collect_upscaling_env(upscaling, &mut env);
+        // On a hybrid laptop an OpenGL game renders on the GPU that drives the
+        // panel unless it is offloaded; Vulkan games pick the discrete GPU
+        // anyway, and the offload variables do not change what they choose.
+        // A value the user already set in their environment wins.
+        if let Some(offload) = &host.offload {
+            for (k, v) in offload.env() {
+                if std::env::var_os(k).is_none() {
+                    env.insert(k.to_owned(), v);
+                }
+            }
+        }
         if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
             // The lsfg-vk layer's own off switch (its `disable_environment`).
             env.insert("DISABLE_LSFG".to_owned(), "1".to_owned());
@@ -167,7 +189,7 @@ impl LaunchPlan {
         );
         if decision.use_gamescope {
             let (program, args) =
-                build_gamescope_argv(executable, executable_args, upscaling, gs_override);
+                build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
             Self { program, args, env }
         } else {
             Self {
@@ -421,17 +443,23 @@ impl LaunchPlan {
 /// 2. the per-game profile's render resolution;
 /// 3. nothing, leaving Gamescope to follow the game.
 fn build_gamescope_argv(
+    host: &Host,
     executable: &str,
     executable_args: &[String],
     upscaling: &UpscalingSettings,
     gs_override: Option<&gamescope::Config>,
 ) -> (String, Vec<String>) {
-    let caps = crate::capabilities::Capabilities::detect()
-        .gamescope
-        .unwrap_or_default();
+    let caps = host.gamescope.clone().unwrap_or_default();
     let cfg = LaunchPlan::merge_gamescope_config(upscaling, gs_override);
 
-    let (argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
+    let (mut argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
+    // Offloaded: Gamescope composites on the GPU the game renders on, rather
+    // than copying every frame to the panel's GPU first.
+    if host.offload.is_some() && caps.has_flag("prefer-vk-device") {
+        if let Some(id) = &host.games_gpu {
+            argv.splice(0..0, ["--prefer-vk-device".to_owned(), id.clone()]);
+        }
+    }
     for u in &unsupported {
         tracing::warn!(
             target: "gamescope",
@@ -493,7 +521,83 @@ mod tests {
                 flags: Vec::new(),
             }),
             session: crate::hardware::Session::Wayland,
+            offload: None,
+            games_gpu: None,
         }
+    }
+
+    /// The lab laptop: GTX 1050 Ti with no panel, Gamescope that knows
+    /// `--prefer-vk-device`.
+    fn hybrid_laptop() -> Host {
+        Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: vec![
+                    "prefer-vk-device".into(),
+                    "F".into(),
+                    "w".into(),
+                    "h".into(),
+                ],
+            }),
+            session: crate::hardware::Session::Wayland,
+            offload: Some(crate::hardware::Offload::Nvidia),
+            games_gpu: Some("10de:1c8c".into()),
+        }
+    }
+
+    #[test]
+    fn a_game_started_on_a_hybrid_laptop_is_offloaded_to_the_discrete_gpu() {
+        let video = VideoConfig::default();
+        let plan = LaunchPlan::build_on(
+            &hybrid_laptop(),
+            "supertuxkart",
+            &[],
+            "supertuxkart",
+            &video,
+            None,
+        );
+        if std::env::var_os("__NV_PRIME_RENDER_OFFLOAD").is_none() {
+            assert_eq!(
+                plan.env
+                    .get("__NV_PRIME_RENDER_OFFLOAD")
+                    .map(String::as_str),
+                Some("1")
+            );
+            assert_eq!(
+                plan.env
+                    .get("__GLX_VENDOR_LIBRARY_NAME")
+                    .map(String::as_str),
+                Some("nvidia")
+            );
+        }
+        assert!(!plan.env.contains_key("DRI_PRIME"));
+        // Nothing of the sort on a desktop whose dGPU drives the monitor.
+        let plan = LaunchPlan::build_on(
+            &desktop(),
+            "supertuxkart",
+            &[],
+            "supertuxkart",
+            &video,
+            None,
+        );
+        assert!(!plan.env.contains_key("__NV_PRIME_RENDER_OFFLOAD"));
+    }
+
+    #[test]
+    fn gamescope_on_a_hybrid_laptop_composites_on_the_games_gpu() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let plan = LaunchPlan::build_on(&hybrid_laptop(), "game", &[], "game", &video, None);
+        assert_eq!(plan.program, "gamescope");
+        assert_eq!(
+            plan.args[..2],
+            ["--prefer-vk-device".to_owned(), "10de:1c8c".to_owned()]
+        );
+        // The game still receives the offload variables through Gamescope.
+        assert!(
+            plan.env.contains_key("__VK_LAYER_NV_optimus")
+                || std::env::var_os("__VK_LAYER_NV_optimus").is_some()
+        );
     }
 
     fn build(exe: &str, video: &VideoConfig, gs: Option<&gamescope::Config>) -> LaunchPlan {
@@ -541,7 +645,7 @@ mod tests {
         video.upscaling.gamescope_enabled = true;
         let host = Host {
             gamescope: None,
-            session: crate::hardware::Session::Wayland,
+            ..desktop()
         };
         let plan = LaunchPlan::build_on(&host, "myapp", &[], "myapp", &video, None);
         assert_eq!(plan.program, "myapp");

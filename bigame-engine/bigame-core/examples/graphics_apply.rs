@@ -4,12 +4,14 @@
 //!
 //! Usage:
 //!   `graphics_apply <process-name>`
+//!   `graphics_apply <process-name> --fsr`
 //!   `graphics_apply <process-name> --frame-generation`
 //!   `graphics_apply <process-name> --remove`
 //!
-//! `--frame-generation` is the page's Choose yourself with `OptiScaler`'s frame
-//! generation on (experimental), saved to the game's settings as the page
-//! would, so the launch rules see it.
+//! `--fsr` and `--frame-generation` are the page's Choose yourself: FSR
+//! through `OptiScaler`, the second with `OptiScaler`'s frame generation on
+//! (experimental). Either is saved to the game's settings as the page would,
+//! so the launch rules see it.
 use bigame_core::graphics::{self, config};
 
 fn main() -> anyhow::Result<()> {
@@ -27,12 +29,18 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let cfg = if args.iter().any(|a| a == "--frame-generation") {
+    let frame_generation = args.iter().any(|a| a == "--frame-generation");
+    let cfg = if frame_generation || args.iter().any(|a| a == "--fsr") {
         let cfg = config::AiGraphicsConfig {
             mode: config::Mode::Advanced,
+            upscaler: config::Upscaler::Fsr,
             layer: config::Layer::OptiScaler,
-            frame_generation: config::FrameGeneration::OptiScaler,
-            experimental: true,
+            frame_generation: if frame_generation {
+                config::FrameGeneration::OptiScaler
+            } else {
+                config::FrameGeneration::Off
+            },
+            experimental: frame_generation,
             ..config::AiGraphicsConfig::default()
         };
         let mut settings = bigame_core::game_settings::load(process).unwrap_or_default();

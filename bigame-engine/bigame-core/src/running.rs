@@ -604,6 +604,8 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
 struct OpenGpu {
     /// DRM card (`card0`).
     card: String,
+    /// PCI address of the card (`0000:01:00.0`).
+    pci_slot: String,
     /// Opened through the NVIDIA driver's own node (`/dev/nvidia0`).
     nvidia_node: bool,
     /// The firmware's boot display adapter.
@@ -697,13 +699,45 @@ fn render_card(pid: u32) -> Option<String> {
         }
         let boot_vga =
             std::fs::read_to_string(device.join("boot_vga")).is_ok_and(|v| v.trim() == "1");
+        let pci_slot = device
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
         open.push(OpenGpu {
             card,
+            pci_slot,
             nvidia_node,
             boot_vga,
         });
     }
+    let open = drop_enumerated_only(open, pid, crate::gpu_telemetry::nvidia_graphics_pids);
     choose_render_gpu(&open).map(str::to_owned)
+}
+
+/// Remove the NVIDIA cards `pid` has open without rendering on them.
+///
+/// Enumerating Vulkan devices opens `/dev/nvidia0` and the card's render
+/// node, so a game on the integrated GPU holds NVIDIA nodes too (checked with
+/// `vkcube --gpu_number 0` on the lab laptop: seven `/dev/nvidia0` fds). The
+/// driver's list of processes with a graphics context tells them apart; when
+/// it cannot be read, nothing is removed.
+fn drop_enumerated_only(
+    open: Vec<OpenGpu>,
+    pid: u32,
+    contexts: impl Fn(&str) -> Option<Vec<u32>>,
+) -> Vec<OpenGpu> {
+    let idle: Vec<String> = open
+        .iter()
+        .filter(|g| g.nvidia_node)
+        .filter(|g| contexts(&g.pci_slot).is_some_and(|pids| !pids.contains(&pid)))
+        .map(|g| g.card.clone())
+        .collect();
+    if idle.is_empty() {
+        return open;
+    }
+    open.into_iter()
+        .filter(|g| !idle.contains(&g.card))
+        .collect()
 }
 
 /// Fill in what the launcher and the live process can say.
@@ -861,9 +895,36 @@ mod tests {
     fn open_gpu(card: &str, nvidia_node: bool, boot_vga: bool) -> OpenGpu {
         OpenGpu {
             card: card.into(),
+            pci_slot: if card == "card0" {
+                "0000:01:00.0"
+            } else {
+                "0000:00:02.0"
+            }
+            .into(),
             nvidia_node,
             boot_vga,
         }
+    }
+
+    #[test]
+    fn nvidia_nodes_held_only_for_enumeration_do_not_make_it_the_render_gpu() {
+        // vkcube --gpu_number 0 on the lab laptop: Intel renders, yet
+        // /dev/nvidia0 and renderD129 (card0) are open beside renderD128.
+        let held = || {
+            vec![
+                open_gpu("card0", true, false),
+                open_gpu("card0", false, false),
+                open_gpu("card1", false, true),
+            ]
+        };
+        let no_context = drop_enumerated_only(held(), 42, |_| Some(vec![7, 9]));
+        assert_eq!(choose_render_gpu(&no_context), Some("card1"));
+        // The process does hold a context on the GeForce: it renders there.
+        let context = drop_enumerated_only(held(), 42, |_| Some(vec![42]));
+        assert_eq!(choose_render_gpu(&context), Some("card0"));
+        // NVML unavailable: nothing is removed, as before.
+        let unknown = drop_enumerated_only(held(), 42, |_| None);
+        assert_eq!(choose_render_gpu(&unknown), Some("card0"));
     }
 
     #[test]

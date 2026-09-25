@@ -160,6 +160,41 @@ pub fn restart_check(restarts: u32) -> Option<Check> {
     })
 }
 
+/// Hybrid graphics: which GPU games go to, and how they get there.
+///
+/// Nothing to report on a machine with one GPU, or where the games' GPU
+/// drives the display itself. On a laptop whose panel belongs to the
+/// integrated GPU, Proton games pick the discrete one on their own; an OpenGL
+/// game needs PRIME render offload, which BiGame-mode sets for games it
+/// starts but cannot set for a game Steam starts.
+#[must_use]
+pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
+    let render = crate::hardware::pick_render_gpu(&hw.gpus)?;
+    let offload = crate::hardware::offload_for(&hw.gpus, render)?;
+    let gpu = &hw.gpus[render];
+    let vendor = match gpu.vendor {
+        GpuVendor::Nvidia => "NVIDIA",
+        GpuVendor::Amd => "AMD",
+        GpuVendor::Intel => "Intel",
+        GpuVendor::Other => "discrete",
+    };
+    let steam = if prime_run {
+        "a native Linux game started by Steam needs `prime-run %command%` in its launch options"
+    } else {
+        "a native Linux game started by Steam needs the offload variables in its launch options"
+    };
+    Some(check(
+        "Hybrid graphics",
+        Status::Ok,
+        format!(
+            "games render on the {vendor} GPU ({}); games BiGame-mode starts use {}; Proton games choose it by themselves; {steam}",
+            gpu.card,
+            offload.label()
+        ),
+        None,
+    ))
+}
+
 /// A warning when the CPU has hit its temperature limit since boot.
 ///
 /// The kernel counts every time a core or the package was slowed for heat
@@ -368,6 +403,11 @@ pub fn collect() -> Vec<Check> {
         check("Feral GameMode", Status::Ok, "not installed · no conflict with falcond", None)
     });
 
+    // Hybrid graphics
+    if let Some(c) = hybrid_check(&hw, crate::capabilities::which("prime-run").is_some()) {
+        out.push(c);
+    }
+
     // CPU cooling
     if let Some(c) = cpu_throttle_check(Path::new("/sys/devices/system/cpu")) {
         out.push(c);
@@ -538,6 +578,41 @@ mod tests {
             hot.detail
         );
         assert!(matches!(hot.fix, Some(Fix::Advice(_))));
+    }
+
+    #[test]
+    fn a_hybrid_laptop_is_told_where_games_render_and_how() {
+        use crate::hardware::{Gpu, Session};
+        let g = |card: &str, driver: &str, vendor: GpuVendor, discrete: bool, out: &[&str]| Gpu {
+            card: card.into(),
+            device_path: std::path::PathBuf::new(),
+            vendor,
+            pci_id: String::new(),
+            pci_slot: "0000:01:00.0".into(),
+            driver: driver.into(),
+            hwmon: None,
+            connected_outputs: out.iter().map(|s| (*s).to_owned()).collect(),
+            vram_total_bytes: None,
+            discrete,
+            dpm_level_path: None,
+        };
+        let mut hw = Hardware::detect();
+        hw.session = Session::Wayland;
+        hw.gpus = vec![
+            g("card0", "nvidia", GpuVendor::Nvidia, true, &[]),
+            g("card1", "i915", GpuVendor::Intel, false, &["eDP-1"]),
+        ];
+        let c = hybrid_check(&hw, true).unwrap();
+        assert_eq!(c.status, Status::Ok);
+        assert!(
+            c.detail.contains("NVIDIA PRIME render offload"),
+            "{}",
+            c.detail
+        );
+        assert!(c.detail.contains("prime-run %command%"), "{}", c.detail);
+        // A desktop whose dGPU drives the monitor: nothing to say.
+        hw.gpus = vec![g("card0", "nvidia", GpuVendor::Nvidia, true, &["DP-1"])];
+        assert_eq!(hybrid_check(&hw, true), None);
     }
 
     #[test]

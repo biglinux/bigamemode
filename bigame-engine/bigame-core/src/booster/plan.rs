@@ -709,6 +709,7 @@ mod tests {
             device_path: PathBuf::from("/sys/class/drm").join(card).join("device"),
             vendor: GpuVendor::Amd,
             pci_id: "1002:7590".into(),
+            pci_slot: "0000:03:00.0".into(),
             driver: "amdgpu".into(),
             hwmon: None,
             connected_outputs: vec!["DP-1".into()],

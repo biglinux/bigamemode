@@ -31,7 +31,7 @@ pub fn build() -> adw::PreferencesPage {
 
     let (cpu_card, cpu_val, cpu_spark) = make_dashboard_card(&i18n("CPU Freq"), "cpu-symbolic");
     let (gpu_card, gpu_val, gpu_spark) =
-        make_dashboard_card(&i18n("GPU Freq"), "video-display-symbolic");
+        make_dashboard_card(&i18n("GPU"), "video-display-symbolic");
     let (temp_card, temp_val, temp_spark) =
         make_dashboard_card(&i18n("GPU Temp"), "freon-gpu-temperature-symbolic");
     row1.append(&cpu_card);
@@ -52,6 +52,13 @@ pub fn build() -> adw::PreferencesPage {
     metrics_vbox.append(&row2);
     metrics_group.add(&metrics_vbox);
     page.add(&metrics_group);
+
+    // Graphics cards: which one renders the game. On a hybrid laptop the GPU
+    // cards above follow that one, not the most powerful card.
+    let hw = bigame_core::hardware::Hardware::detect();
+    let (gpus_group, gpu_rows) = build_gpus_group(&hw);
+    page.add(&gpus_group);
+    spawn_gpu_poller(hw.gpus, gpu_rows, gpu_val, temp_val, gpu_spark, temp_spark);
 
     // Performance status. The Turbo control lives on Home and is deliberately
     // not duplicated here: two controls writing the same state conflict.
@@ -264,8 +271,6 @@ pub fn build() -> adw::PreferencesPage {
     // Live telemetry + daemon status polling (1Hz, main thread context)
     spawn_telemetry_poller(
         cpu_val,
-        gpu_val,
-        temp_val,
         disk_val,
         ping_val,
         ram_val,
@@ -286,8 +291,6 @@ pub fn build() -> adw::PreferencesPage {
         framegen_rt_row,
         framegen_rt_badge,
         cpu_spark,
-        gpu_spark,
-        temp_spark,
         disk_spark,
         ping_spark,
         ram_spark,
@@ -419,8 +422,6 @@ fn read_cpu_model_sync() -> String {
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn spawn_telemetry_poller(
     cpu_val: gtk4::Label,
-    gpu_val: gtk4::Label,
-    temp_val: gtk4::Label,
     disk_val: gtk4::Label,
     ping_val: gtk4::Label,
     ram_val: gtk4::Label,
@@ -441,8 +442,6 @@ fn spawn_telemetry_poller(
     framegen_rt_row: adw::ActionRow,
     framegen_rt_badge: gtk4::Label,
     cpu_spark: crate::widgets::sparkline::SparkHandle,
-    gpu_spark: crate::widgets::sparkline::SparkHandle,
-    temp_spark: crate::widgets::sparkline::SparkHandle,
     disk_spark: crate::widgets::sparkline::SparkHandle,
     ping_spark: crate::widgets::sparkline::SparkHandle,
     ram_spark: crate::widgets::sparkline::SparkHandle,
@@ -472,41 +471,6 @@ fn spawn_telemetry_poller(
                 cpu_val.set_text(&format!("{:.1} GHz", mhz / 1000.0));
             } else {
                 cpu_val.set_text(&cpu_text);
-            }
-
-            // GPU freq
-            let gpu_text = gio::spawn_blocking(read_gpu_freq)
-                .await
-                .unwrap_or_else(|_| i18n("N/A"));
-            gpu_val.set_text(&gpu_text);
-            if let Ok(mhz) = gpu_text
-                .trim_end_matches(|c: char| !c.is_ascii_digit())
-                .parse::<f64>()
-            {
-                gpu_spark.push(mhz);
-            }
-
-            // GPU temp
-            let (temp_text, css_class) = gio::spawn_blocking(read_gpu_temp)
-                .await
-                .unwrap_or((i18n("N/A"), "temp-normal"));
-            temp_val.remove_css_class("temp-normal");
-            temp_val.remove_css_class("temp-warm");
-            temp_val.remove_css_class("temp-hot");
-            temp_val.add_css_class(css_class);
-            temp_val.set_text(&temp_text);
-            temp_spark.set_color(match css_class {
-                "temp-warm" => Some((1.0, 0.65, 0.0)),
-                "temp-hot" => Some((0.9, 0.15, 0.15)),
-                _ => None,
-            });
-            if let Ok(c) = temp_text
-                .chars()
-                .take_while(char::is_ascii_digit)
-                .collect::<String>()
-                .parse::<f64>()
-            {
-                temp_spark.push(c);
             }
 
             // Disk I/O
@@ -709,49 +673,110 @@ fn spawn_telemetry_poller(
     });
 }
 
+/// One row per GPU, titled with its model; the poller fills in its role.
+fn build_gpus_group(
+    hw: &bigame_core::hardware::Hardware,
+) -> (adw::PreferencesGroup, Vec<(String, adw::ActionRow)>) {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Graphics cards"));
+    group.set_description(Some(&i18n(
+        "Which card renders the running game. The GPU readings above follow that card.",
+    )));
+    let (infos, _) = bigame_core::graphics::report::gpu_infos(hw, None);
+    let rows = infos
+        .into_iter()
+        .map(|g| {
+            let row = adw::ActionRow::builder()
+                .title(&g.name)
+                .subtitle(g.userspace.clone().unwrap_or_else(|| g.driver.clone()))
+                .use_markup(false)
+                .build();
+            group.add(&row);
+            (g.card, row)
+        })
+        .collect();
+    (group, rows)
+}
+
+/// Readings of the card games use — the one the running game has open, or
+/// the expected one — and each card's role.
+fn spawn_gpu_poller(
+    gpus: Vec<bigame_core::hardware::Gpu>,
+    rows: Vec<(String, adw::ActionRow)>,
+    load_val: gtk4::Label,
+    temp_val: gtk4::Label,
+    load_spark: crate::widgets::sparkline::SparkHandle,
+    temp_spark: crate::widgets::sparkline::SparkHandle,
+) {
+    glib::spawn_future_local(async move {
+        loop {
+            if !temp_val.is_mapped() {
+                glib::timeout_future(POLL_INTERVAL).await;
+                continue;
+            }
+            let game = crate::game_watch::current();
+            let game_card = game.as_ref().and_then(|g| g.render_card.clone());
+            let game_name = game.map(|g| g.display_name);
+            let list = gpus.clone();
+            let read = gio::spawn_blocking(move || {
+                let at = bigame_core::gpu_telemetry::games_gpu(&list, game_card.as_deref());
+                let samples: Vec<_> = list
+                    .iter()
+                    .map(bigame_core::gpu_telemetry::sample)
+                    .collect();
+                (at, samples)
+            })
+            .await;
+            if let Ok((at, samples)) = read {
+                if let Some(s) = at.and_then(|i| samples.get(i)) {
+                    load_val.set_text(&crate::gpu_reading::load_text(s));
+                    if let Some(v) = crate::gpu_reading::spark_value(s) {
+                        load_spark.push(v);
+                    }
+                    let (text, class) = crate::gpu_reading::temp_text(s);
+                    for c in ["temp-normal", "temp-warm", "temp-hot"] {
+                        temp_val.remove_css_class(c);
+                    }
+                    temp_val.add_css_class(class);
+                    temp_val.set_text(&text);
+                    temp_spark.set_color(match class {
+                        "temp-warm" => Some((1.0, 0.65, 0.0)),
+                        "temp-hot" => Some((0.9, 0.15, 0.15)),
+                        _ => None,
+                    });
+                    if let Some(t) = s.temp_c {
+                        temp_spark.push(t);
+                    }
+                }
+                for (i, (card, row)) in rows.iter().enumerate() {
+                    let s = samples.iter().find(|s| &s.card == card);
+                    let mut role = match (&game_name, at == Some(i)) {
+                        (Some(name), true) => i18n("Renders %s").replace("%s", name),
+                        (None, true) => i18n("Games start here"),
+                        _ => i18n("Available"),
+                    };
+                    if let Some(s) = s {
+                        role.push_str(" · ");
+                        role.push_str(&if s.asleep {
+                            i18n("Asleep")
+                        } else {
+                            crate::gpu_reading::load_text(s)
+                        });
+                    }
+                    row.set_subtitle(&role);
+                }
+            }
+            glib::timeout_future(POLL_INTERVAL).await;
+        }
+    });
+}
+
 /// Read CPU core 0 frequency from sysfs (synchronous, run on background thread).
 fn read_cpu_freq() -> String {
     std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
         .map_or_else(|| i18n("N/A"), |khz| format!("{} MHz", khz / 1000))
-}
-
-/// Read AMD GPU frequency from sysfs (synchronous, run on background thread).
-fn read_gpu_freq() -> String {
-    let Ok(content) = std::fs::read_to_string("/sys/class/drm/card1/device/pp_dpm_sclk") else {
-        return i18n("N/A");
-    };
-    // Active frequency line contains '*', format: "1: 1800Mhz *"
-    for line in content.lines() {
-        if line.contains('*') {
-            if let Some(freq) = line.split_whitespace().nth(1) {
-                return freq.to_owned();
-            }
-        }
-    }
-    i18n("N/A")
-}
-
-/// Read GPU temperature from hwmon (synchronous, run on background thread).
-///
-/// Returns (formatted string, CSS class for color coding).
-fn read_gpu_temp() -> (String, &'static str) {
-    for i in 0..10 {
-        let path = format!("/sys/class/hwmon/hwmon{i}/temp1_input");
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(millideg) = content.trim().parse::<i64>() {
-                let celsius = millideg / 1000;
-                let class = match celsius {
-                    0..=60 => "temp-normal",
-                    61..=80 => "temp-warm",
-                    _ => "temp-hot",
-                };
-                return (format!("{celsius}°C"), class);
-            }
-        }
-    }
-    (i18n("N/A"), "temp-normal")
 }
 
 /// Read aggregate disk sectors (read, written) from `/proc/diskstats`.
