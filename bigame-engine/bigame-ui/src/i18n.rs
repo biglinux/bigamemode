@@ -35,3 +35,10 @@ pub fn i18n(s: &str) -> String {
 pub fn ni18n(singular: &str, plural: &str, n: usize) -> String {
     ngettext(singular, plural, u32::try_from(n).unwrap_or(u32::MAX)).replace("%n", &n.to_string())
 }
+
+/// A sentence from bigame-core, translated: the template through gettext,
+/// then its values filled in.
+#[must_use]
+pub fn tr(t: &bigame_core::graphics::text::Text) -> String {
+    bigame_core::graphics::text::Text::fill(&i18n(t.template), &t.args)
+}

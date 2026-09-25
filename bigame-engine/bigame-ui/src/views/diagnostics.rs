@@ -21,7 +21,7 @@ use std::time::Duration;
 
 use bigame_core::network::{self, Resolver};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 use crate::widgets::toast;
 
 /// Resolvers offered for comparison, alongside whatever the system uses.
@@ -239,11 +239,11 @@ fn health_group() -> adw::PreferencesGroup {
                         all,
                         "{:?}\t{}\t{}{}",
                         c.status,
-                        c.title,
-                        c.detail,
+                        tr(&c.title),
+                        tr(&c.detail),
                         c.fix
                             .as_ref()
-                            .map_or_else(String::new, |f| format!("\t→ {}", f.text()))
+                            .map_or_else(String::new, |f| format!("\t→ {}", fix_text(f)))
                     );
                 }
                 *text.borrow_mut() = all;
@@ -252,6 +252,14 @@ fn health_group() -> adw::PreferencesGroup {
     };
     group.connect_map(move |_| fill());
     group
+}
+
+/// A fix as shown: advice translated, a command as it is.
+fn fix_text(fix: &bigame_core::health::Fix) -> String {
+    match fix {
+        bigame_core::health::Fix::Command(c) => c.clone(),
+        bigame_core::health::Fix::Advice(t) => tr(t),
+    }
 }
 
 /// One check of the system health: its state, what was found and, when
@@ -267,14 +275,14 @@ fn health_row(c: &bigame_core::health::Check) -> adw::ActionRow {
         Status::NotApplicable => ("action-unavailable-symbolic", "dim-label"),
     };
     let subtitle = match &c.fix {
-        Some(fix) => format!("{}\n→ {}", c.detail, fix.text()),
-        None => c.detail.clone(),
+        Some(fix) => format!("{}\n→ {}", tr(&c.detail), fix_text(fix)),
+        None => tr(&c.detail),
     };
     // Plain text: a fix like `sudo pacman -S … && sudo systemctl …`
     // is invalid Pango markup, and a row with markup on renders an
     // invalid subtitle as nothing at all.
     let row = adw::ActionRow::builder()
-        .title(&c.title)
+        .title(tr(&c.title))
         .subtitle(&subtitle)
         .subtitle_lines(4)
         .use_markup(false)
