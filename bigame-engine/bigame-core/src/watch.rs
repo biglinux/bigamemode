@@ -1,14 +1,10 @@
 //! Filesystem change notification.
 //!
-//! Audit finding DBUS-01: the falcond status service re-read
-//! `/tmp/falcond_status` every 500 ms for the entire life of the process and
-//! diffed the whole string — two wakeups a second, forever, in an application
-//! whose stated purpose is to stay out of a game's way.
-//!
-//! falcond does not own a D-Bus name to subscribe to, so the file really is the
-//! only channel. But watching a file and polling it are different things:
-//! `inotify` blocks until the kernel has something to say, which costs nothing
-//! while nothing is happening.
+//! falcond does not own a D-Bus name to subscribe to, so its status file is the
+//! only channel — and it is watched, never polled: an application whose purpose
+//! is to stay out of a game's way must not wake up on a timer. `inotify` blocks
+//! until the kernel has something to say, which costs nothing while nothing is
+//! happening.
 //!
 //! The watch is on the **parent directory**, not the file. falcond rewrites its
 //! status by creating a new file and renaming it into place, which replaces the
@@ -18,6 +14,10 @@
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::mpsc;
+
+/// The most of a watched file that is read. A status file is a few hundred
+/// bytes; a file another user made huge must not be read to exhaustion.
+pub const MAX_WATCHED_BYTES: u64 = 64 * 1024;
 
 /// Events worth waking up for.
 ///
@@ -94,6 +94,21 @@ impl Drop for FileWatch {
 /// Returns `None` when a watch could not be established.
 #[must_use]
 pub fn watch_file(path: &Path) -> Option<mpsc::Receiver<String>> {
+    fn read_capped(path: &Path) -> Option<String> {
+        use std::io::Read;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut text = String::new();
+        // Never blocks (a FIFO under the name) and never follows a symlink.
+        std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(path)
+            .ok()?
+            .take(MAX_WATCHED_BYTES)
+            .read_to_string(&mut text)
+            .ok()?;
+        Some(text)
+    }
     let watch = FileWatch::new(path)?;
     let (tx, rx) = mpsc::channel();
     let path = path.to_owned();
@@ -114,9 +129,7 @@ pub fn watch_file(path: &Path) -> Option<mpsc::Receiver<String>> {
                 //
                 // A zero-byte status file is never meaningful anyway: the next
                 // event carries the actual data.
-                let current = std::fs::read_to_string(&path)
-                    .ok()
-                    .filter(|c| !c.is_empty());
+                let current = read_capped(&path).filter(|c| !c.is_empty());
                 if let Some(content) = current {
                     if last.as_ref() != Some(&content) {
                         if tx.send(content.clone()).is_err() {

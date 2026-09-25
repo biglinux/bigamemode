@@ -3,7 +3,8 @@
 //! Every value carries where it came from ([`Evidence`]) and why. Nothing is
 //! chosen because of its name: a scheduler is not picked because the game is
 //! a shooter, and "performance" is not assumed to be faster because of what it
-//! is called — the one GPU setting named for speed measured 8 % slower here.
+//! is called: forcing the GPU DPM level to `high`, the one setting named for
+//! speed, measured 8 % slower on an RX 9060 XT.
 //!
 //! Sources, in the order they are consulted:
 //!
@@ -12,15 +13,16 @@
 //! 3. what falcond's own base profiles do,
 //! 4. what was measured on this machine.
 //!
-//! The profile contains **only falcond's fields**. Earlier profiles written by
-//! this project also carried BiGame-mode's frame-generation settings into
-//! falcond's directory, where falcond ignores them and nothing reads them back.
+//! The profile contains **only falcond's fields**: falcond ignores anything
+//! else, and BiGame-mode's own per-game settings live in
+//! [`crate::game_settings`].
 
 use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
 
 use crate::capabilities::Capabilities;
+use crate::graphics::text::N_;
 use crate::hardware::{Hardware, PowerSource};
 use crate::running::GameIdentity;
 
@@ -47,12 +49,12 @@ impl Evidence {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Fact => "Fact",
-            Self::CapabilityOnly => "Supported, not measured",
-            Self::UpstreamDefault => "falcond default, not measured here",
-            Self::LocallyMeasured => "Measured on this machine",
-            Self::Regression => "Measured slower — avoided",
-            Self::Unsupported => "Not available on this machine",
+            Self::Fact => N_("Fact"),
+            Self::CapabilityOnly => N_("Supported, not measured"),
+            Self::UpstreamDefault => N_("falcond default, not measured here"),
+            Self::LocallyMeasured => N_("Measured on this machine"),
+            Self::Regression => N_("Measured slower — avoided"),
+            Self::Unsupported => N_("Not available on this machine"),
         }
     }
 }
@@ -113,7 +115,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         "name",
         &game.process_name,
         Evidence::Fact,
-        "the process falcond sees for this game; the profile applies whenever it runs",
+        N_("the process falcond sees for this game; the profile applies whenever it runs"),
     )];
 
     let battery = hardware.power_source == PowerSource::Battery;
@@ -122,17 +124,21 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "performance_mode",
             "false",
             Evidence::CapabilityOnly,
-            "on battery, holding the performance power profile costs more in heat and \
+            N_(
+                "on battery, holding the performance power profile costs more in heat and \
              throttling than it returns",
+            ),
         )
     } else {
         decide(
             "performance_mode",
             "true",
             Evidence::UpstreamDefault,
-            "switches to the performance power profile while the game runs and back \
-             afterwards, as falcond's own profiles do; on the reference machine it \
-             measured no faster than balanced, so it is not a speed claim",
+            N_(
+                "switches to the performance power profile while the game runs and back \
+             afterwards, as falcond's own profiles do; in BiGame-mode's measurements \
+             it was no faster than balanced, so it is not a speed claim",
+            ),
         )
     });
 
@@ -141,8 +147,10 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "scx_sched",
             "none",
             Evidence::CapabilityOnly,
-            "sched-ext is available, but no scheduler has been measured faster for this \
+            N_(
+                "sched-ext is available, but no scheduler has been measured faster for this \
              game here; calibrating the game can change that",
+            ),
         ),
         Some(why) => decide("scx_sched", "none", Evidence::Unsupported, why),
     };
@@ -151,7 +159,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         "scx_sched_props",
         "default",
         Evidence::Fact,
-        "no scheduler is set, so its mode has no effect",
+        N_("no scheduler is set, so its mode has no effect"),
     ));
 
     decisions.push(if hardware.cpu.vcache.is_some() {
@@ -159,14 +167,14 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "vcache_mode",
             "cache",
             Evidence::UpstreamDefault,
-            "prefers the cache-stacked CCD while the game runs, as falcond's profiles do",
+            N_("prefers the cache-stacked CCD while the game runs, as falcond's profiles do"),
         )
     } else {
         decide(
             "vcache_mode",
             "none",
             Evidence::Unsupported,
-            "this CPU has no 3D V-Cache",
+            N_("this CPU has no 3D V-Cache"),
         )
     });
 
@@ -174,7 +182,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         "idle_inhibit",
         "true",
         Evidence::CapabilityOnly,
-        "keeps the screen from blanking while playing with a controller",
+        N_("keeps the screen from blanking while playing with a controller"),
     ));
 
     Recommendation {

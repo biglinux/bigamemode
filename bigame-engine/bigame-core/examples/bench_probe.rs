@@ -1,8 +1,7 @@
 //! Report what this machine looks like to BiGame-mode.
 //!
-//! Exists to be run on machines other than the one the code was written on.
-//! Hardware detection is the easiest place to accidentally encode "the
-//! developer's computer" as an assumption -- that a `card0` exists, that
+//! Meant to be run on many machines: hardware detection is the easiest place
+//! to encode one computer as an assumption -- that a `card0` exists, that
 //! cpufreq is present, that a GPU exposes a DPM control -- and the only way to
 //! find those assumptions is to run the detection somewhere they are false.
 use bigame_core::benchmark::provider;

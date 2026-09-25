@@ -45,8 +45,8 @@ die() { log "ERROR: $*"; exit 1; }
 
 # The prefix in the library that holds the game's manifest. Not simply the first
 # compatdata/<id> found: Steam leaves the old one behind when a game moves to
-# another library, and on this machine the home library still has a stale
-# prefix for a game that now lives, and writes its results, on another disk.
+# another library, so a stale prefix elsewhere can shadow the one the game
+# writes its results to.
 steam_prefix() {
     local id=$1 lib
     while read -r lib; do
@@ -160,11 +160,11 @@ trap restore EXIT INT TERM
 
 # The distribution default: what an untouched machine runs.
 arm_baseline()  { set_profile balanced; set_governor powersave; set_epp balance_performance; set_dpm auto; }
-# The performance power profile with the GPU left to its firmware -- what the
-# calibrated Booster now produces.
+# The performance power profile with the GPU left to its firmware -- the
+# calibrated Booster's plan.
 arm_rest()      { set_profile performance; set_governor performance; set_epp performance; set_dpm auto; }
-# The same, with the GPU pinned to its highest fixed DPM state -- what the
-# Booster did before it consulted measurements.
+# The same, with the GPU pinned to its highest fixed DPM state -- the plan
+# without calibration.
 arm_gpu_dpm_level() { arm_rest; set_dpm high; }
 # The distribution default with only the CPU governor and EPP raised -- the
 # CPU knob isolated, for a workload where the CPU is what limits the frame rate.

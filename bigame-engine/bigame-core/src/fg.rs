@@ -293,9 +293,9 @@ pub fn write_global_dll(dll: Option<String>) -> Result<()> {
 
 /// Returns `true` if ANY lsfg-vk profile has `multiplier > 1`.
 ///
-/// Used to decide whether to show a conflict warning when `OptiScaler` or AFMF
-/// is also enabled (both generate frames — running both simultaneously causes
-/// visual artifacts).
+/// The dashboard reports lsfg-vk frame generation as enabled from this, so a
+/// second frame generator in series (which causes visual artifacts) can be
+/// seen.
 #[must_use]
 pub fn has_any_active_profile() -> bool {
     if !is_lossless_dll_ready() {

@@ -24,6 +24,12 @@ ProtectKernelLogs=yes
 ProtectClock=yes
 ProtectHostname=yes
 ProtectControlGroups=yes
+# It reads no other process's /proc, no /dev and no /tmp (the status file
+# falcond publishes there is read by the UI, not by the helper).
+ProtectProc=invisible
+ProcSubset=pid
+PrivateDevices=yes
+PrivateTmp=yes
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
@@ -33,29 +39,25 @@ RestrictAddressFamilies=AF_UNIX
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources @mount @debug @obsolete
+UMask=0022
 
-# Writes are confined to the two locations the helper actually touches.
-# ProtectSystem=strict makes the rest of the filesystem read-only; sysfs is
-# then re-opened read-write because that is where cpufreq and amdgpu live.
+# Writes are confined to the locations the helper touches: the rest of the
+# filesystem is read-only. ProtectKernelTunables is deliberately absent: the
+# DRM card and V-Cache attributes are reached through symlinks into
+# /sys/devices, which it would make read-only.
 ProtectSystem=strict
 #
 # A path that does not exist makes systemd refuse to start the service at all
 # (226/NAMESPACE), so everything that depends on hardware or on falcond being
-# installed carries the "-" prefix: ignored when absent. Without it, the
-# helper could not start on any CPU lacking the 3D V-Cache driver -- which is
-# most of them -- and nothing in the UI would have said why.
+# installed carries the "-" prefix: ignored when absent.
 ReadWritePaths=-/etc/falcond -/usr/share/falcond/profiles /sys/devices/system/cpu -/sys/class/drm -/sys/bus/platform/drivers/amd_x3d_vcache
 
 # The record of how falcond was configured before BiGame-mode first took
-# charge of it lives here, so it can be handed back exactly. Created by
-# systemd and writable despite ProtectSystem=strict; world-readable so the UI
-# can say who owns falcond.
+# charge of it, so it can be handed back exactly. Created by systemd and
+# writable despite ProtectSystem=strict; world-readable so the UI can say who
+# owns falcond.
 StateDirectory=bigame-mode
 StateDirectoryMode=0755
-
-# PrivateTmp is intentionally NOT set: falcond publishes its status to
-# /tmp/falcond_status and a private /tmp would hide it.
-PrivateTmp=no
 
 [Install]
 WantedBy=multi-user.target

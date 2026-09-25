@@ -6,8 +6,8 @@
 //! workload, and silently launching a game because someone pressed a button
 //! would be worse than not measuring at all.
 //!
-//! The method follows what [`docs/09-BENCHMARKS.md`] specifies, and each rule
-//! exists because skipping it produces a confident wrong answer:
+//! The method has four rules, and each exists because skipping it produces a
+//! confident wrong answer:
 //!
 //! * **Alternate the arms** (A-B-A-B, not AA-BB) so a machine warming up over
 //!   the session does not hand all its drift to whichever arm ran last.
@@ -159,10 +159,10 @@ fn record_run(
     //
     // The environment variable only enables MangoHud's *Vulkan* implicit
     // layer. Plenty of games are OpenGL — SuperTuxKart among them — and for
-    // those the wrapper's LD_PRELOAD is what attaches the overlay. Setting the
-    // variable alone produced no capture at all and, because the failure is an
-    // empty directory rather than an error, it looked like the game had simply
-    // rendered nothing.
+    // those the wrapper's LD_PRELOAD is what attaches the overlay. The
+    // variable alone yields no capture, and because the failure is an empty
+    // directory rather than an error, it looks as if the game rendered
+    // nothing.
     let mut wrapped: Vec<String> = Vec::new();
     if crate::capabilities::which("mangohud").is_some() {
         wrapped.push("mangohud".to_owned());
@@ -170,12 +170,18 @@ fn record_run(
     wrapped.extend(cmd.iter().cloned());
 
     let (program, argv) = wrapped.split_first().context("empty workload command")?;
-    let mut child = std::process::Command::new(program)
+    let mut command = std::process::Command::new(program);
+    command
         .args(argv)
         .env("MANGOHUD_CONFIGFILE", &config_path)
         .env("MANGOHUD", "1")
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    // Its own process group, so ending the run ends the game even when the
+    // command is a wrapper script: a game left running would still be there
+    // in the next arm and skew it.
+    crate::launcher::in_own_process_group(&mut command);
+    let mut child = command
         .spawn()
         .with_context(|| format!("spawn workload: {program}"))?;
 
@@ -193,8 +199,7 @@ fn record_run(
         std::thread::sleep(Duration::from_millis(250));
     }
 
-    let _ = child.kill();
-    let _ = child.wait();
+    let _ = crate::launcher::terminate(&mut child);
     std::thread::sleep(Duration::from_millis(500));
 
     let Some(capture_path) = benchmark::newest_capture_in(log_dir)? else {

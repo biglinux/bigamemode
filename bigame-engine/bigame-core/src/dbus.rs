@@ -41,14 +41,6 @@ where
         .ok()
 }
 
-/// Check if falcond service is running by looking for its status file.
-#[must_use]
-pub fn falcond_is_running() -> bool {
-    // A root-owned status file is the evidence; a file in world-writable /tmp
-    // that anyone could have created is not.
-    crate::status::is_trustworthy(crate::status::status_path())
-}
-
 // ── PowerProfiles ───────────────────────────────────────────────────────────
 
 /// Proxy for `net.hadess.PowerProfiles` (power-profiles-daemon).
@@ -138,7 +130,7 @@ pub fn power_profiles_available() -> Vec<String> {
 /// Whether a well-known name currently has an owner on the system bus.
 ///
 /// Used to tell "the service is installed but not running" apart from "the
-/// feature does not exist here" — the distinction audit finding SCX-02 needed.
+/// feature does not exist here": the two have different fixes.
 #[must_use]
 pub fn system_service_running(name: &str) -> bool {
     let name = name.to_owned();
@@ -203,14 +195,9 @@ pub mod service {
 
         tracing::info!("falcond D-Bus status service registered as {BUS_NAME}");
 
-        // Audit DBUS-01: this loop used to re-read the status file every
-        // 500 ms for the life of the process — two wakeups a second, forever,
-        // in an application whose purpose is to stay out of a game's way.
-        //
-        // falcond owns no D-Bus name to subscribe to, so the file really is the
-        // only channel; but watching it costs nothing while nothing happens.
-        // The watcher thread blocks in the kernel and only speaks when the
-        // contents actually change.
+        // falcond owns no D-Bus name to subscribe to, so its status file is the
+        // only channel. It is watched, not polled: the watcher thread blocks in
+        // the kernel and speaks only when the contents change.
         let path = crate::status::status_path();
         let Some(mut changes) = crate::watch::watch_file(path) else {
             tracing::warn!(
@@ -226,11 +213,16 @@ pub mod service {
             let received =
                 tokio::task::spawn_blocking(move || changes.recv().ok().map(|c| (c, changes)))
                     .await;
-            let Ok(Some((content, returned))) = received else {
+            let Ok(Some((_, returned))) = received else {
                 tracing::debug!("falcond status watcher stopped");
                 return Ok(());
             };
             changes = returned;
+            // The watcher only says the file changed. What is broadcast is read
+            // the way every status read is, from a root-owned regular file.
+            let Some(content) = crate::status::read_trusted(path) else {
+                continue;
+            };
 
             let iface_ref = conn
                 .object_server()

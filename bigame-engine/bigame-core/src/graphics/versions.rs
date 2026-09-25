@@ -90,8 +90,8 @@ fn now() -> u64 {
 
 /// Fetch the release list from GitHub and save it.
 ///
-/// `curl` with an argument vector, HTTPS only, size-capped, with a time
-/// limit — the same rules as a download.
+/// `curl` with an argument vector, no `~/.curlrc`, HTTPS only, size-capped,
+/// with a time limit — the same rules as a download.
 ///
 /// # Errors
 /// Returns an error if the request fails or lists no usable release; the
@@ -100,6 +100,10 @@ pub fn refresh(cache: &Path) -> Result<Known> {
     let json = optiscaler::run(
         "curl",
         &[
+            // First, or it is ignored: no ~/.curlrc may change what this does.
+            "--disable".as_ref(),
+            "--connect-timeout".as_ref(),
+            "20".as_ref(),
             "--fail".as_ref(),
             "--silent".as_ref(),
             "--show-error".as_ref(),

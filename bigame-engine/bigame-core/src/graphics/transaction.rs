@@ -84,12 +84,6 @@ pub enum FileState {
     Changed,
 }
 
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 /// Copy `src` over `target` atomically: a temporary file in the target's own
 /// folder (same filesystem, so the rename is atomic), synced, then renamed.
 fn place(src: &Path, target: &Path) -> Result<()> {
@@ -98,9 +92,26 @@ fn place(src: &Path, target: &Path) -> Result<()> {
         .context("target has no file name")?
         .to_string_lossy();
     let tmp = target.with_file_name(format!(".{name}.bigame-new"));
-    std::fs::copy(src, &tmp)
-        .with_context(|| format!("copy {} → {}", src.display(), tmp.display()))?;
-    std::fs::File::open(&tmp)?.sync_all()?;
+    // The game folder is not ours: a file (or a symlink to anything) may
+    // already sit under the temporary name. Removing it does not follow a
+    // link, and the new file is created exclusively, never through one.
+    match std::fs::remove_file(&tmp) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).with_context(|| format!("remove {}", tmp.display())),
+    }
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut out = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&tmp)
+            .with_context(|| format!("create {}", tmp.display()))?;
+        std::io::copy(&mut std::fs::File::open(src)?, &mut out)
+            .with_context(|| format!("copy {} → {}", src.display(), tmp.display()))?;
+        out.sync_all()?;
+    }
     // Checked again right before the rename: the target must not have become
     // a symlink since the transaction began.
     if std::fs::symlink_metadata(target).is_ok_and(|m| m.file_type().is_symlink()) {
@@ -149,6 +160,13 @@ fn back_up_originals(
                     std::fs::create_dir_all(copy.parent().context("backup path has no parent")?)?;
                     std::fs::copy(target, &copy)
                         .with_context(|| format!("back up {}", target.display()))?;
+                    // On disk before the journal and the replacement: after a
+                    // power cut the rename can persist while an unsynced
+                    // backup does not, and the original would be gone.
+                    std::fs::File::open(&copy)?.sync_all()?;
+                    if let Some(dir) = copy.parent() {
+                        std::fs::File::open(dir)?.sync_all()?;
+                    }
                     if sha256_file(&copy)? != orig_sha {
                         bail!("backup of {} does not match the original", target.display());
                     }
@@ -218,7 +236,7 @@ pub fn apply(
     if files.is_empty() {
         bail!("nothing to install");
     }
-    let started_at = now();
+    let started_at = crate::unix_now();
     let backup_root = Manifest::backup_dir(state_dir, game_key).join(started_at.to_string());
 
     // 1. Check, and hash what will be placed.
@@ -348,7 +366,7 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
                 }
                 FileKind::Config => {
                     let keep = Manifest::backup_dir(state_dir, &m.game_key)
-                        .join(format!("edited-{}", now()))
+                        .join(format!("edited-{}", crate::unix_now()))
                         .join(&e.path);
                     std::fs::create_dir_all(keep.parent().context("no parent")?)?;
                     std::fs::copy(&target, &keep)?;
@@ -728,6 +746,25 @@ mod tests {
         }
         assert!(!fx.payload.join("dxgi.dll").exists());
         assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_symlink_under_the_temporary_name_is_not_written_through() {
+        let fx = fixture();
+        let victim = fx.payload.join("victim.txt");
+        std::fs::write(&victim, b"keep me").unwrap();
+        std::os::unix::fs::symlink(&victim, fx.game.join(".dxgi.dll.bigame-new")).unwrap();
+        let f = planned(&fx, "dxgi.dll", b"new dll", FileKind::Binary);
+        apply(&fx.state, &g(&fx), src(), &[f], &[]).unwrap();
+        assert_eq!(std::fs::read(&victim).unwrap(), b"keep me");
+        let placed = fx.game.join("dxgi.dll");
+        assert!(
+            !std::fs::symlink_metadata(&placed)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read(&placed).unwrap(), b"new dll");
     }
 
     #[test]

@@ -122,7 +122,6 @@ impl ErrorIndicator {
         &self.button
     }
 
-    #[allow(dead_code)]
     pub fn set_error(&self, title: &str, msg: &str, solution: &str) {
         if let Ok(mut t) = self.error_title.lock() {
             *t = title.to_string();

@@ -1,7 +1,18 @@
-//! Profiles view: game profile list with navigation to detail/editor.
+//! Profiles view: the game library, with navigation to a profile editor.
 //!
-//! Uses `bigame_core::profiles` for CRUD operations.
-//! Saves via pkexec to user profiles directory.
+//! The grid shows installed games — what `bigame_core::library` found on
+//! disk — and, on each, whether a profile exists. Profiles are never turned
+//! into cards: falcond ships profiles for titles that may not be installed,
+//! and a card for one would be a game the machine does not have. The user's
+//! own profiles that match no installed game are listed apart, collapsed,
+//! so they stay reachable and are never deleted by the scan.
+//!
+//! The scan runs off the main thread. The grid that is on screen stays until
+//! the new library is ready, and is rebuilt only when something changed, so
+//! coming back from the editor neither freezes the window nor flickers.
+//!
+//! Uses `bigame_core::profiles` for CRUD operations. Saves go through the
+//! privileged helper (D-Bus, Polkit) into falcond's user profile directory.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -12,7 +23,7 @@ use libadwaita as adw;
 
 use bigame_core::profiles::GameProfile;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 use crate::widgets::game_card;
 use crate::widgets::toast;
 
@@ -25,6 +36,24 @@ pub fn build() -> adw::NavigationView {
     nav_view
 }
 
+/// The library page's widgets and the last library shown in them.
+struct LibraryView {
+    nav: adw::NavigationView,
+    /// `grid` or `empty`.
+    stack: gtk4::Stack,
+    grid: gtk4::FlowBox,
+    refresh_btn: gtk4::Button,
+    /// The user's profiles with no installed game, collapsed under the grid.
+    others_group: adw::PreferencesGroup,
+    others: adw::ExpanderRow,
+    /// Rows added to `others`, removed before the next fill.
+    other_rows: RefCell<Vec<adw::ActionRow>>,
+    /// The library on screen; a scan whose result equals it changes nothing.
+    shown: RefCell<Option<bigame_core::library::Library>>,
+    /// Whether a scan is running, and whether one was asked for meanwhile.
+    scanning: RefCell<(bool, bool)>,
+}
+
 /// Build the profile list page.
 #[allow(clippy::too_many_lines)]
 fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
@@ -33,22 +62,40 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Game Library"));
     group.set_description(Some(&i18n(
-        "Games found on this system, and the profiles that tune them.",
+        "Games installed on this computer, and the profiles that tune them.",
     )));
 
-    // A poster grid rather than a list. The reference design this follows is a
-    // library of cover art, and a library reads far faster as pictures than as
-    // rows of text — especially when most entries are titles the user
-    // recognises by their box art.
-    let list_box = gtk4::FlowBox::builder()
+    // A poster grid rather than a list: a library reads far faster as cover
+    // art than as rows of text, especially when most entries are titles the
+    // user recognises by their box art. Cards are a fixed size (see
+    // `game_card`), so the grid only ever changes its number of columns; the
+    // cells share the row's spare width, and each card sits centred in its
+    // cell.
+    let grid = gtk4::FlowBox::builder()
         .selection_mode(gtk4::SelectionMode::None)
         .homogeneous(true)
-        .column_spacing(18)
+        .column_spacing(12)
         .row_spacing(18)
         .min_children_per_line(2)
-        .max_children_per_line(10)
+        .max_children_per_line(8)
         .valign(gtk4::Align::Start)
         .build();
+
+    let empty = adw::StatusPage::builder()
+        .icon_name("applications-games-symbolic")
+        .title(i18n("No games found"))
+        .description(i18n(
+            "Install a game through Steam, Lutris, Heroic or the application menu, then rescan.",
+        ))
+        .build();
+    empty.add_css_class("compact");
+
+    let stack = gtk4::Stack::new();
+    stack.add_named(&grid, Some("grid"));
+    stack.add_named(&empty, Some("empty"));
+    stack.set_vhomogeneous(false);
+    stack.set_hhomogeneous(false);
+    group.add(&stack);
 
     // Action buttons
     let add_btn = gtk4::Button::builder()
@@ -71,30 +118,50 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     hdr.append(&import_btn);
     hdr.append(&add_btn);
     group.set_header_suffix(Some(&hdr));
+    page.add(&group);
 
-    group.add(&list_box);
+    // Profiles of the user's that match no installed game: written by hand
+    // for a game no launcher lists, imported, or left from a game since
+    // removed. They are not games, so they are not cards, but they are the
+    // user's and stay editable here. Hidden when there are none.
+    let others_group = adw::PreferencesGroup::new();
+    others_group.set_visible(false);
+    let others = adw::ExpanderRow::builder()
+        .subtitle(i18n(
+            "Profiles of yours that match no installed game. They stay until you delete them.",
+        ))
+        .build();
+    others_group.add(&others);
+    page.add(&others_group);
 
-    // Filled whenever the list comes on screen: the first time the page is
+    let view = Rc::new(LibraryView {
+        nav: nav_view.clone(),
+        stack,
+        grid,
+        refresh_btn: refresh_btn.clone(),
+        others_group,
+        others,
+        other_rows: RefCell::new(Vec::new()),
+        shown: RefCell::new(None),
+        scanning: RefCell::new((false, false)),
+    });
+
+    // Rescanned whenever the list comes on screen: the first time the page is
     // shown, on return from a detail or create page, and after a profile was
-    // made elsewhere — from Home or the notification offer, which on the lab
-    // VM left the new profile missing here until the rescan button.
+    // made elsewhere (from Home or the notification offer). The grid already
+    // on screen stays until the scan is done.
     {
-        let lb = list_box.clone();
-        let nav_ref = nav_view.clone();
-        list_box.connect_map(move |_| refresh_profile_list(&lb, &nav_ref));
+        let on_map = Rc::clone(&view);
+        view.grid.connect_map(move |_| refresh_library(&on_map));
     }
 
     // Refreshing is driven by navigation and by the explicit button above,
-    // not by a timer. The previous two-second poll rebuilt every row forever,
-    // which with cover art would mean re-reading the whole library twice a
-    // second in a window the user may not even be looking at.
+    // not by a timer: with cover art, a poll would re-read the whole library
+    // in a window the user may not even be looking at.
     {
-        let lb = list_box.clone();
-        let nav_ref = nav_view.clone();
-        refresh_btn.connect_clicked(move |_| refresh_profile_list(&lb, &nav_ref));
+        let view = Rc::clone(&view);
+        refresh_btn.connect_clicked(move |_| refresh_library(&view));
     }
-
-    page.add(&group);
 
     // "New Profile" → empty detail page
     {
@@ -106,8 +173,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
 
     // Import profile from file
     {
-        let nav = nav_view.clone();
-        let lb = list_box.clone();
+        let view = Rc::clone(&view);
         import_btn.connect_clicked(move |btn| {
             let dialog = gtk4::FileDialog::builder()
                 .title(i18n("Import Profile"))
@@ -115,14 +181,13 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let filter = gtk4::FileFilter::new();
             filter.add_pattern("*.conf");
             filter.add_pattern("*.toml");
-            filter.set_name(Some("Profile files (*.conf, *.toml)"));
+            filter.set_name(Some(&format!("{} (*.conf, *.toml)", i18n("Profile files"))));
             let filters = gio::ListStore::new::<gtk4::FileFilter>();
             filters.append(&filter);
             dialog.set_filters(Some(&filters));
 
             let btn_ref = btn.clone();
-            let nav_ref = nav.clone();
-            let lb_ref = lb.clone();
+            let view = Rc::clone(&view);
             let win = btn.root().and_downcast::<gtk4::Window>();
             dialog.open(win.as_ref(), gio::Cancellable::NONE, move |result| {
                 if let Ok(file) = result {
@@ -131,8 +196,8 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                             match bigame_core::profiles::import(&path) {
                                 Ok(name) => {
                                     toast::show(&btn_ref, &i18n("Profile imported"));
-                                    refresh_profile_list(&lb_ref, &nav_ref);
-                                    nav_ref.push(&build_detail_page(&name));
+                                    refresh_library(&view);
+                                    view.nav.push(&build_detail_page(&name));
                                 }
                                 Err(e) => {
                                     toast::show(
@@ -150,8 +215,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
 
     // Drag-and-drop import
     {
-        let nav = nav_view.clone();
-        let list_box = list_box.clone();
+        let view = Rc::clone(&view);
         let drop_target =
             gtk4::DropTarget::new(gio::File::static_type(), gtk4::gdk::DragAction::COPY);
         drop_target.connect_drop(move |target, value, _x, _y| {
@@ -161,16 +225,15 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let Some(path) = file.path() else {
                 return false;
             };
-            let list_box_ref = list_box.clone();
-            let nav_ref = nav.clone();
+            let view = Rc::clone(&view);
             let target_ref = target.clone();
             gtk4::glib::spawn_future_local(async move {
                 if let Ok(name) = bigame_core::profiles::import(&path) {
-                    crate::views::profiles::refresh_profile_list(&list_box_ref, &nav_ref);
+                    refresh_library(&view);
                     if let Some(widget) = target_ref.widget() {
                         toast::show(&widget, &i18n("Profile imported via drag-and-drop"));
                     }
-                    nav_ref.push(&build_detail_page(&name));
+                    view.nav.push(&build_detail_page(&name));
                 }
             });
             true
@@ -179,7 +242,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     }
 
     // AdwPreferencesPage clamps its content to form width, which is right for
-    // settings and wrong for a poster grid — it held the library to three
+    // settings and wrong for a poster grid — it holds the library to three
     // columns on a 1250 px window. The page keeps its structure and margins,
     // but the clamp is widened so the grid can use the space it has.
     if let Some(clamp) = find_clamp(page.upcast_ref::<gtk4::Widget>()) {
@@ -222,7 +285,7 @@ fn build_detail_page(profile_name: &str) -> adw::NavigationPage {
 }
 
 /// Find index of `needle` in a `StringList`.
-fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
+pub(crate) fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
     for i in 0..model.n_items() {
         if model.string(i).as_deref() == Some(needle) {
             return i;
@@ -252,8 +315,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         .build();
     perf.add(&idle_inhibit);
 
-    // No per-game CPU governor: falcond has no such field, so the control
-    // this replaced saved a value that nothing ever applied.
+    // No per-game CPU governor: falcond has no such field.
     let installed = bigame_core::sched::detect_installed();
     let installed_refs: Vec<&str> = installed.iter().map(String::as_str).collect();
     let sched_model = gtk4::StringList::new(&installed_refs);
@@ -316,7 +378,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
 
     // When Gamescope runs: automatically, always, or never.
     //
-    // A plain on/off switch was the wrong shape. Some titles are worse inside
+    // A plain on/off switch is the wrong shape. Some titles are worse inside
     // Gamescope — overlay, input and HDR problems — and some simply do not
     // need it; wrapping a game that gains nothing adds a compositor, a copy and
     // a frame of latency for no benefit.
@@ -546,7 +608,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
             .modal(true)
             .build();
         let f = gtk4::FileFilter::new();
-        f.set_name(Some("DLL files (*.dll)"));
+        f.set_name(Some(&format!("{} (*.dll)", i18n("DLL files"))));
         f.add_pattern("*.dll");
         let filters = gio::ListStore::new::<gtk4::FileFilter>();
         filters.append(&f);
@@ -789,8 +851,8 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         let btn_ref = btn.clone();
         glib::spawn_future_local(async move {
             // Off the main thread: the call may wait on a Polkit password
-            // prompt, and the window must keep drawing meanwhile. And the
-            // result is reported -- it used to say "saved" whatever happened.
+            // prompt, and the window must keep drawing meanwhile. The result
+            // is reported, whichever it is.
             let result =
                 gio::spawn_blocking(move || bigame_core::profiles::save(&profile_clone)).await;
             match result {
@@ -880,9 +942,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
             let btn_ref = btn.clone();
             dialog.connect_response(None, move |_dlg, response| {
                 if response == "delete" {
-                    // Report what happened, not what was attempted. This used
-                    // to show "Profile deleted" and then drop the future that
-                    // would have done the deleting.
+                    // Report what happened, not what was attempted.
                     let n = name.clone();
                     btn_ref.set_sensitive(false);
                     let feedback = btn_ref.clone();
@@ -928,104 +988,131 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         .build()
 }
 
-/// Rebuild the library grid from installed games plus existing profiles.
+/// Scan the machine off the main thread and show the result.
 ///
-/// The two sources are merged rather than concatenated. A detected game and a
-/// profile keyed on that game's executable are the same card — which is the
-/// whole point of keying profiles on the process name, and is what makes the
-/// "already has a profile" state visible at a glance.
-pub(crate) fn refresh_profile_list(list_box: &gtk4::FlowBox, nav: &adw::NavigationView) {
-    while let Some(child) = list_box.first_child() {
-        list_box.remove(&child);
+/// One scan at a time: a request made while one runs is honoured once it
+/// finishes, so a burst of requests (import, then map) costs two scans, not
+/// a pile-up. What is on screen is replaced only when the library changed.
+fn refresh_library(view: &Rc<LibraryView>) {
+    {
+        let mut scanning = view.scanning.borrow_mut();
+        if scanning.0 {
+            scanning.1 = true;
+            return;
+        }
+        scanning.0 = true;
     }
+    // A discreet sign of work in the button that asks for it.
+    view.refresh_btn.set_child(Some(&adw::Spinner::new()));
+    view.refresh_btn.set_sensitive(false);
 
-    let entries = build_library();
-    if entries.is_empty() {
-        let empty = adw::StatusPage::builder()
-            .icon_name("applications-games-symbolic")
-            .title(i18n("No games found"))
-            .description(i18n(
-                "Install a game through Steam, Lutris or Heroic, or create a profile by hand.",
-            ))
-            .build();
-        list_box.insert(&empty, -1);
-        return;
+    let view = Rc::clone(view);
+    glib::spawn_future_local(async move {
+        let library = gio::spawn_blocking(bigame_core::library::scan)
+            .await
+            .unwrap_or_default();
+        if view.shown.borrow().as_ref() != Some(&library) {
+            show_library(&view, &library);
+            *view.shown.borrow_mut() = Some(library);
+        }
+        view.refresh_btn.set_icon_name("view-refresh-symbolic");
+        view.refresh_btn.set_sensitive(true);
+        let again = {
+            let mut scanning = view.scanning.borrow_mut();
+            scanning.0 = false;
+            std::mem::take(&mut scanning.1)
+        };
+        if again {
+            refresh_library(&view);
+        }
+    });
+}
+
+/// Put `library` on screen, in one pass, so the change is one frame.
+fn show_library(view: &Rc<LibraryView>, library: &bigame_core::library::Library) {
+    while let Some(child) = view.grid.first_child() {
+        view.grid.remove(&child);
     }
-
-    for entry in entries {
-        let nav_activate = nav.clone();
-        let nav_menu = nav.clone();
+    for entry in &library.games {
+        let entry = card_entry(entry);
+        let nav_activate = view.nav.clone();
+        let nav_menu = view.nav.clone();
         let card = game_card::build(
             &entry,
-            move |entry| {
-                // Existing profile opens for editing; a new one starts from the
-                // game's real process name, which is the whole fix for profiles
-                // that never matched anything.
-                if entry.has_profile {
-                    nav_activate.push(&build_detail_page(&entry.key));
-                } else {
-                    nav_activate.push(&build_detail_page_for(&GameProfile {
-                        name: entry.key.clone(),
-                        ..GameProfile::default()
-                    }));
-                }
-            },
+            move |entry| open_profile(entry, &nav_activate),
             move |entry, anchor| show_card_menu(entry, anchor, &nav_menu),
         );
-        list_box.insert(&card, -1);
+        view.grid.insert(&card, -1);
+    }
+    view.stack
+        .set_visible_child_name(if library.games.is_empty() {
+            "empty"
+        } else {
+            "grid"
+        });
+
+    for row in view.other_rows.borrow_mut().drain(..) {
+        view.others.remove(&row);
+    }
+    let others = &library.unmatched_profiles;
+    view.others_group.set_visible(!others.is_empty());
+    view.others.set_title(&ni18n(
+        "%n profile without an installed game",
+        "%n profiles without an installed game",
+        others.len(),
+    ));
+    for profile in others {
+        let row = adw::ActionRow::builder()
+            .title(&profile.name)
+            .subtitle(i18n("Custom profile"))
+            .activatable(true)
+            .build();
+        row.add_suffix(&gtk4::Image::from_icon_name("go-next-symbolic"));
+        let nav = view.nav.clone();
+        let stem = profile.stem.clone();
+        row.connect_activated(move |_| nav.push(&build_detail_page(&stem)));
+        view.others.add_row(&row);
+        view.other_rows.borrow_mut().push(row);
     }
 }
 
-/// Merge detected games and existing profiles into one list of cards.
-fn build_library() -> Vec<game_card::Entry> {
-    let profile_names = bigame_core::profiles::list_names();
-    let mut entries: Vec<game_card::Entry> = Vec::new();
-
-    for game in bigame_core::games::detect_all() {
-        let key = game.profile_key().to_owned();
-        let has_profile = profile_names.iter().any(|n| n == &key);
-        entries.push(game_card::Entry {
-            title: game.name.clone(),
-            source: source_label(game.source),
-            cover: game.cover.clone(),
-            launch_command: game.launch_command.clone(),
-            system_profile: has_profile && bigame_core::profiles::is_system_profile(&key),
-            key_is_verified: game.has_real_executable(),
-            target: game
-                .install_path
-                .clone()
-                .map(|root| bigame_core::graphics::Target {
-                    name: game.name.clone(),
-                    process: key.clone(),
-                    app_id: game.app_id.clone(),
-                    install_root: root,
-                }),
-            has_profile,
-            key,
-        });
+/// A library entry as its card shows it.
+fn card_entry(entry: &bigame_core::library::Entry) -> game_card::Entry {
+    let game = &entry.game;
+    let key = entry.key().to_owned();
+    game_card::Entry {
+        title: game.name.clone(),
+        source: source_label(game.source),
+        cover: game.cover.clone(),
+        icon: game.icon.clone(),
+        has_profile: entry.profile.is_some(),
+        system_profile: entry.profile.as_ref().is_some_and(|p| p.system),
+        profile_stem: entry.profile.as_ref().map(|p| p.stem.clone()),
+        launch_command: game.launch_command.clone(),
+        key_is_verified: game.has_real_executable(),
+        target: game
+            .install_path
+            .clone()
+            .map(|root| bigame_core::graphics::Target {
+                name: game.name.clone(),
+                process: key.clone(),
+                app_id: game.app_id.clone(),
+                install_root: root,
+            }),
+        key,
     }
+}
 
-    // Profiles with no matching installed game — the ones falcond ships, plus
-    // anything the user wrote by hand.
-    for name in &profile_names {
-        if entries.iter().any(|e| &e.key == name) {
-            continue;
-        }
-        entries.push(game_card::Entry {
-            key_is_verified: looks_like_a_process_name(name),
-            title: name.clone(),
-            key: name.clone(),
-            source: i18n("Profile"),
-            cover: None,
-            launch_command: None,
-            has_profile: true,
-            system_profile: bigame_core::profiles::is_system_profile(name),
-            target: None,
-        });
+/// Open a card's profile: the existing file for editing, or a new profile
+/// keyed on the game's real process name, so falcond can match it.
+fn open_profile(entry: &game_card::Entry, nav: &adw::NavigationView) {
+    match &entry.profile_stem {
+        Some(stem) => nav.push(&build_detail_page(stem)),
+        None => nav.push(&build_detail_page_for(&GameProfile {
+            name: entry.key.clone(),
+            ..GameProfile::default()
+        })),
     }
-
-    entries.sort_by_key(|e| e.title.to_lowercase());
-    entries
 }
 
 /// Where a game came from, for display: launchers by their names, a game from
@@ -1035,23 +1122,6 @@ pub(crate) fn source_label(source: bigame_core::games::Source) -> String {
         bigame_core::games::Source::Native => i18n("Native"),
         other => other.label().to_owned(),
     }
-}
-
-/// Whether a profile name could plausibly be a process name.
-///
-/// falcond matches `/proc/<pid>/comm`, so a profile named after a display title
-/// can never activate. This is exactly the damage the old game detection did on
-/// this machine: it wrote profiles called `Arc Raiders` and `Dead by Daylight`
-/// while the processes are `PioneerGame.exe` and
-/// `DeadByDaylight-Win64-Shipping.exe`.
-///
-/// The check is deliberately conservative — a name containing a space and no
-/// file extension is the signature of a display title, and everything else is
-/// given the benefit of the doubt. Its only effect is to show a warning, so a
-/// false positive costs a tooltip and a false negative costs nothing that was
-/// not already broken.
-fn looks_like_a_process_name(name: &str) -> bool {
-    !name.contains(' ') || name.contains('.')
 }
 
 /// Overflow menu for one card.
@@ -1099,20 +1169,11 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     {
         let nav = nav.clone();
         let entry = entry.clone();
-        edit.connect_activate(move |_, _| {
-            if entry.has_profile {
-                nav.push(&build_detail_page(&entry.key));
-            } else {
-                nav.push(&build_detail_page_for(&GameProfile {
-                    name: entry.key.clone(),
-                    ..GameProfile::default()
-                }));
-            }
-        });
+        edit.connect_activate(move |_, _| open_profile(&entry, &nav));
     }
     group.add_action(&edit);
 
-    if entry.has_profile && !entry.system_profile {
+    if let Some(stem) = entry.profile_stem.clone().filter(|_| !entry.system_profile) {
         let delete = gio::SimpleAction::new("delete", None);
         let entry = entry.clone();
         let anchor_ref = anchor.clone();
@@ -1130,16 +1191,16 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
             dialog.set_default_response(Some("cancel"));
             dialog.set_close_response("cancel");
 
-            let key = entry.key.clone();
+            let stem = stem.clone();
             let anchor_inner = anchor_ref.clone();
             dialog.connect_response(None, move |_, response| {
                 if response != "delete" {
                     return;
                 }
-                let key = key.clone();
+                let stem = stem.clone();
                 let anchor = anchor_inner.clone();
                 glib::spawn_future_local(async move {
-                    match bigame_core::profiles::delete(&key) {
+                    match bigame_core::profiles::delete(&stem) {
                         Ok(()) => toast::show(&anchor, &i18n("Profile deleted")),
                         Err(e) => toast::show(
                             &anchor,
@@ -1157,41 +1218,12 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     popover.set_parent(anchor);
     popover.insert_action_group("card", Some(&group));
     // `closed` is emitted before the chosen item's action is activated;
-    // unparenting right away detached the popover — and the "card" actions
-    // inserted on it — first, so no item in this menu did anything. Let the
+    // unparenting right away would detach the popover — and the "card"
+    // actions inserted on it — first, so no item would do anything. Let the
     // activation run, then unparent.
     popover.connect_closed(|p| {
         let p = p.clone();
         glib::idle_add_local_once(move || p.unparent());
     });
     popover.popup();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::looks_like_a_process_name;
-
-    #[test]
-    fn display_titles_are_flagged_as_unmatched_profiles() {
-        // The two profiles the old detection wrote on this bench.
-        assert!(!looks_like_a_process_name("Arc Raiders"));
-        assert!(!looks_like_a_process_name("Dead by Daylight"));
-    }
-
-    #[test]
-    fn real_process_names_are_accepted() {
-        for name in [
-            "PioneerGame.exe",
-            "DeadByDaylight-Win64-Shipping.exe",
-            "cs2",
-            "Cyberpunk2077.exe",
-            "Civ7_linux_Vulkan_FinalRelease",
-            "ffxiv_dx11.exe",
-            // A space is fine when there is also an extension — Lutris titles
-            // such as "Power Bomberman.exe" really do run under that name.
-            "Power Bomberman.exe",
-        ] {
-            assert!(looks_like_a_process_name(name), "{name} should be accepted");
-        }
-    }
 }

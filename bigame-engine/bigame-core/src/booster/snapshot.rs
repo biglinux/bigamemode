@@ -1,10 +1,9 @@
 //! Baseline capture and exact restoration.
 //!
-//! The rule this module exists to enforce is the one audit finding BST-02
-//! broke: **restore what was there, never what we assume was there.** The old
-//! Booster turned off by writing the literal string `balanced`, which silently
-//! demoted a machine resting in `performance` and a laptop resting in
-//! `power-saver`. A snapshot removes the guess entirely.
+//! The rule this module enforces: **restore what was there, never what we
+//! assume was there.** Turning off by writing a fixed `balanced` would silently
+//! demote a machine resting in `performance` or a laptop resting in
+//! `power-saver`; a snapshot removes the guess entirely.
 
 use std::collections::BTreeMap;
 
@@ -48,7 +47,7 @@ impl Snapshot {
             );
         }
         Self {
-            taken_at: now_secs(),
+            taken_at: crate::unix_now(),
             entries,
         }
     }
@@ -76,38 +75,21 @@ impl Snapshot {
     /// wrote is not a restoration, it is a new change, and it fails in exactly
     /// the ways a new change can.
     ///
-    /// This was not theoretical. An early run captured `cpu_epp` while the
-    /// machine sat in `power-saver`, never planned it, and then tried to write
-    /// `power` back during rollback — which the driver refused, because with
-    /// the governor at `performance` the only accepted EPP is `performance`.
-    /// The knob reached the right value moments later anyway, when the power
-    /// profile it depends on was restored.
+    /// For example, `cpu_epp` captured as `power` on a machine in
+    /// `power-saver` but never planned: writing it back is refused, because
+    /// with the governor at `performance` the only accepted EPP is
+    /// `performance` — and needless, since restoring the power profile it
+    /// depends on already puts it back.
     ///
-    /// That also explains the ordering: knobs are restored in reverse
-    /// application order, the usual transactional discipline, so a knob is put
-    /// back before whatever was changed on top of it.
+    /// Knobs are restored in reverse application order, the usual
+    /// transactional discipline, so a knob is put back before whatever was
+    /// changed on top of it.
     pub async fn restore_applied(&self, knob_ids: &[String]) -> Vec<RestoreOutcome> {
         let mut out = Vec::new();
         for id in knob_ids.iter().rev() {
             let Some(entry) = self.entries.get(id) else {
                 continue;
             };
-            out.push(self.restore_one(entry).await);
-        }
-        out
-    }
-
-    /// Restore every captured knob that currently differs from its baseline.
-    ///
-    /// Use [`Snapshot::restore_applied`] for normal rollback. This exists for
-    /// the recovery path, where a journal records a baseline but the list of
-    /// applied knobs cannot be trusted.
-    pub async fn restore(&self) -> Vec<RestoreOutcome> {
-        let mut out = Vec::new();
-        for entry in self.entries.values() {
-            if entry.value.is_none() {
-                continue; // never captured — nothing to restore to
-            }
             out.push(self.restore_one(entry).await);
         }
         out
@@ -194,12 +176,6 @@ impl RestoreStatus {
     }
 }
 
-pub(super) fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,8 +200,8 @@ mod tests {
 
     #[test]
     fn records_the_value_that_was_actually_there() {
-        // The regression BST-02: this machine rests in `performance`, so
-        // restoring must target `performance`, not a hardcoded `balanced`.
+        // A machine resting in `performance` is restored to `performance`,
+        // not to a hardcoded `balanced`.
         let snap = snapshot_of(&[(Knob::PowerProfile, Some("performance"))]);
         assert_eq!(snap.value_of(&Knob::PowerProfile), Some("performance"));
         assert_ne!(snap.value_of(&Knob::PowerProfile), Some("balanced"));

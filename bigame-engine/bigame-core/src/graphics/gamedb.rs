@@ -113,10 +113,7 @@ fn parse(text: &str, origin: Origin) -> Result<Vec<Entry>, toml::de::Error> {
 /// `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml`.
 #[must_use]
 pub fn user_path() -> PathBuf {
-    crate::game_settings::dir()
-        .parent()
-        .map_or_else(crate::game_settings::dir, std::path::Path::to_path_buf)
-        .join("graphics-games.toml")
+    crate::paths::config_home().join("bigame-mode/graphics-games.toml")
 }
 
 impl GameDb {

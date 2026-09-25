@@ -1,17 +1,17 @@
 //! Network measurement.
 //!
 //! This module measures; it does not tune. That split is deliberate, because
-//! "gaming network optimization" is where placebo concentrates, and the brief
-//! is explicit about two traps in particular:
+//! "gaming network optimization" is where placebo concentrates, and two traps
+//! matter in particular:
 //!
 //! * **DNS latency is not game latency.** A resolver's lookup time affects how
 //!   long a name takes to resolve. Once the game has the server's address, the
 //!   resolver has nothing to do with the round-trip time of match traffic. The
 //!   two are reported as separate things here and must stay separate in the UI.
-//! * **Measure the link that carries the traffic.** This bench has 42 network
-//!   interfaces — Docker bridges, `ZeroTier`, Tailscale, veth pairs. Anything that
-//!   enumerates interfaces picks the wrong one, so [`primary_link`] follows the
-//!   default route instead.
+//! * **Measure the link that carries the traffic.** A desktop can have dozens
+//!   of interfaces — Docker bridges, `ZeroTier`, Tailscale, veth pairs. Anything
+//!   that enumerates interfaces picks the wrong one, so [`primary_link`] follows
+//!   the default route instead.
 
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::path::Path;
@@ -52,9 +52,9 @@ impl Link {
     /// under load.
     ///
     /// Reported so the UI can say "already good" rather than offering to enable
-    /// something that is on. On this bench `fq_codel` is the kernel default
-    /// already, and claiming credit for it would be exactly the kind of
-    /// invented improvement this project is trying to stop.
+    /// something that is on: `fq_codel` is the default qdisc on most
+    /// distribution kernels, and claiming credit for it would be exactly the
+    /// kind of invented improvement this project refuses to make.
     #[must_use]
     pub fn has_modern_qdisc(&self) -> bool {
         self.qdisc
@@ -180,8 +180,8 @@ impl LatencyStats {
         samples_ms.sort_by(f64::total_cmp);
         Some(Self {
             min_ms: samples_ms[0],
-            median_ms: percentile(&samples_ms, 50.0),
-            p95_ms: percentile(&samples_ms, 95.0),
+            median_ms: crate::benchmark::percentile(&samples_ms, 50.0),
+            p95_ms: crate::benchmark::percentile(&samples_ms, 95.0),
             jitter_ms,
             samples: samples_ms.len(),
             lost,
@@ -199,21 +199,6 @@ impl LatencyStats {
         let ratio = self.lost as f64 / total as f64;
         ratio
     }
-}
-
-/// Nearest-rank percentile of a pre-sorted slice.
-#[must_use]
-pub fn percentile(sorted: &[f64], p: f64) -> f64 {
-    if sorted.is_empty() {
-        return 0.0;
-    }
-    #[allow(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
-    let rank = ((p / 100.0) * sorted.len() as f64).ceil() as usize;
-    sorted[rank.saturating_sub(1).min(sorted.len() - 1)]
 }
 
 // ── DNS ──────────────────────────────────────────────────────────────────────
@@ -369,16 +354,6 @@ pub fn dns_disclaimer() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn percentiles_use_nearest_rank() {
-        let s = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        assert!((percentile(&s, 50.0) - 5.0).abs() < f64::EPSILON);
-        assert!((percentile(&s, 95.0) - 10.0).abs() < f64::EPSILON);
-        assert!((percentile(&s, 100.0) - 10.0).abs() < f64::EPSILON);
-        assert!((percentile(&s, 0.0) - 1.0).abs() < f64::EPSILON);
-        assert!((percentile(&[], 50.0)).abs() < f64::EPSILON);
-    }
 
     #[test]
     fn median_resists_a_single_outlier() {
@@ -542,9 +517,9 @@ mod tests {
 
     #[test]
     fn primary_link_follows_the_default_route() {
-        // This bench has 42 interfaces — docker bridges, ZeroTier, Tailscale,
-        // veth pairs. Whatever comes back must be the routed one, never a
-        // virtual device that merely happens to sort first.
+        // A machine can have many virtual interfaces (docker bridges,
+        // ZeroTier, Tailscale, veth pairs); whatever comes back must be the
+        // routed one, never a virtual device that merely happens to sort first.
         let Some(link) = primary_link() else {
             return; // no connectivity in this environment
         };

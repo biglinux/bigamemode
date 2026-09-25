@@ -25,7 +25,7 @@ use bigame_core::hardware::Hardware;
 use bigame_core::running::GameIdentity;
 use bigame_core::turbo::{self, Report, Section, Step};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 use crate::widgets::booster_button::{self, BoosterButton, State};
 
 /// What the worker thread sends back to the UI.
@@ -308,8 +308,8 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let game = game.clone();
         let root = scroll.clone();
         // Probed once: the CPU model and render GPU do not change while the
-        // application runs, and re-probing every tick was a full hardware
-        // scan to update three numbers.
+        // application runs, and re-probing every tick would be a full
+        // hardware scan to update three numbers.
         let hw = Rc::new(Hardware::detect());
         status.set_label(&summary_line_machine(&hw));
         let tick = Cell::new(0u32);
@@ -368,7 +368,7 @@ impl Refresh {
 /// The button's line while Turbo is on.
 fn on_detail(game: Option<&GameIdentity>) -> String {
     match game {
-        Some(g) => format!("{} {}", i18n("Optimizing"), g.display_name),
+        Some(g) => i18n("Optimizing %s").replace("%s", &g.display_name),
         None => i18n("Watching for games"),
     }
 }
@@ -412,7 +412,11 @@ fn finished_state(report: &Report) -> (State, bool) {
     }
     let state = if failed > 0 {
         State::Partial {
-            detail: format!("{failed} {}", i18n("did not take effect — see details")),
+            detail: ni18n(
+                "%n did not take effect — see details",
+                "%n did not take effect — see details",
+                failed,
+            ),
         }
     } else {
         State::On {
@@ -424,21 +428,38 @@ fn finished_state(report: &Report) -> (State, bool) {
 
 /// "2 applied · 3 per game · 1 skipped · 1 conflict avoided"
 fn summary_line(report: &Report) -> String {
-    let parts = [
-        (Section::Verified, i18n("{} applied")),
-        (Section::ManagedPerGame, i18n("{} per game")),
-        (Section::Skipped, i18n("{} skipped")),
-        (Section::ConflictAvoided, i18n("{} conflict avoided")),
-        (Section::Failed, i18n("{} failed")),
-    ];
-    parts
-        .iter()
-        .filter_map(|(section, text)| {
-            let n = report.count(*section);
-            (n > 0).then(|| text.replace("{}", &n.to_string()))
-        })
-        .collect::<Vec<_>>()
-        .join(" · ")
+    let count = |section| report.count(section);
+    [
+        (
+            Section::Verified,
+            ni18n("%n applied", "%n applied", count(Section::Verified)),
+        ),
+        (
+            Section::ManagedPerGame,
+            ni18n("%n per game", "%n per game", count(Section::ManagedPerGame)),
+        ),
+        (
+            Section::Skipped,
+            ni18n("%n skipped", "%n skipped", count(Section::Skipped)),
+        ),
+        (
+            Section::ConflictAvoided,
+            ni18n(
+                "%n conflict avoided",
+                "%n conflicts avoided",
+                count(Section::ConflictAvoided),
+            ),
+        ),
+        (
+            Section::Failed,
+            ni18n("%n failed", "%n failed", count(Section::Failed)),
+        ),
+    ]
+    .into_iter()
+    .filter(|(section, _)| count(*section) > 0)
+    .map(|(_, text)| text)
+    .collect::<Vec<_>>()
+    .join(" · ")
 }
 
 /// Run a transition off the main thread.
@@ -649,7 +670,7 @@ impl GameCard {
                 i18n("No profile of its own yet · using falcond's general Proton profile"),
                 true,
             ),
-            Some(name) => (format!("{} {name}", i18n("Profile")), false),
+            Some(name) => (i18n("Profile %s").replace("%s", name), false),
             None => (i18n("No profile is active for this game"), true),
         };
         self.profile.set_label(&text);
@@ -681,9 +702,9 @@ fn short_cpu(model: &str) -> String {
 
 fn short_gpu(gpu: &bigame_core::hardware::Gpu) -> String {
     match gpu.vendor {
-        bigame_core::hardware::GpuVendor::Amd => "AMD GPU".into(),
-        bigame_core::hardware::GpuVendor::Nvidia => "NVIDIA GPU".into(),
-        bigame_core::hardware::GpuVendor::Intel => "Intel GPU".into(),
+        bigame_core::hardware::GpuVendor::Amd => i18n("%s GPU").replace("%s", "AMD"),
+        bigame_core::hardware::GpuVendor::Nvidia => i18n("%s GPU").replace("%s", "NVIDIA"),
+        bigame_core::hardware::GpuVendor::Intel => i18n("%s GPU").replace("%s", "Intel"),
         bigame_core::hardware::GpuVendor::Other => gpu.driver.clone(),
     }
 }

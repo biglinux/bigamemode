@@ -109,10 +109,7 @@ impl Default for Outcomes {
 /// `$XDG_STATE_HOME/bigame-mode/graphics-outcomes.json`.
 #[must_use]
 pub fn path() -> PathBuf {
-    super::state_dir()
-        .parent()
-        .map_or_else(super::state_dir, Path::to_path_buf)
-        .join("graphics-outcomes.json")
+    crate::paths::state_home().join("bigame-mode/graphics-outcomes.json")
 }
 
 /// The record at `path` (empty when there is none or it cannot be read — a

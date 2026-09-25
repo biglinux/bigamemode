@@ -2,8 +2,7 @@
 //!
 //! Each check says what it found, why it matters, and what to do about it —
 //! a command to copy when there is one. Nothing here changes the system, and
-//! nothing offers to "repair" by deleting: the first audit found a button that
-//! did exactly that.
+//! nothing offers to "repair" by deleting.
 //!
 //! Checks are cheap enough to run when the Diagnostics page opens: file reads,
 //! pacman's local database, one D-Bus ping. No processes are spawned.
@@ -128,7 +127,7 @@ pub fn vulkan_32bit(vendor: GpuVendor, lib32: &Path) -> (bool, &'static str) {
 /// puts it back when the game exits. An instance restarted mid-game (after a
 /// crash, or a kill) finds the game already running and records the
 /// *boosted* state as the one to restore, so the machine stays boosted after
-/// the game — reproduced on the lab VM (`docs/21-VM-TESTS.md`).
+/// the game.
 #[must_use]
 pub fn restart_check(restarts: u32) -> Option<Check> {
     (restarts > 0).then(|| {

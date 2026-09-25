@@ -213,13 +213,6 @@ pub fn backup(user_dir: &Path, backup_root: &Path) -> anyhow::Result<PathBuf> {
     Ok(dest)
 }
 
-/// Whether a plan changes anything.
-#[must_use]
-pub fn needs_migration(plan: &[Action]) -> bool {
-    plan.iter()
-        .any(|a| matches!(a, Action::Rekey { .. } | Action::Clean { .. }))
-}
-
 /// Carry out `plan` through the helper, after backing up `user_dir`.
 ///
 /// Returns the backup directory and one line per change made.
@@ -291,12 +284,14 @@ mod tests {
             app_id: Some("1".into()),
             install_path: None,
             executables: vec![exe.into()],
+            launch_file: None,
             cover: None,
+            icon: None,
             launch_command: None,
         }
     }
 
-    /// The file an older BiGame-mode wrote on the reference machine.
+    /// A profile as older BiGame-mode versions wrote it.
     const ARC: &str = "name = \"Arc Raiders\"\nperformance_mode = true\nscx_sched = none\nscx_sched_props = default\nvcache_mode = none\nidle_inhibit = false\ncpu_governor = \"\"\nscx_custom_flags = \"\"\nenabled = true\nfg_multiplier = 1\nfg_flow_scale = 100\nfg_perf_mode = false\n";
 
     #[test]

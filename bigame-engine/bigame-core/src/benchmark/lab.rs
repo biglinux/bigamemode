@@ -106,10 +106,6 @@ impl Session {
     /// is evidence, and evidence that phones home or needs a network to render
     /// is not evidence anyone should have to trust. It also means the file
     /// still works in five years, attached to an email, opened offline.
-    ///
-    /// Every run is plotted individually rather than only its arm's mean,
-    /// because the spread is the part that decides whether the difference
-    /// means anything, and a bar chart of two averages hides exactly that.
     #[must_use]
     pub fn to_html(&self, comparisons: &[Comparison]) -> String {
         let mut out = String::new();

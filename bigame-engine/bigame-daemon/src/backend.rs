@@ -2,8 +2,7 @@
 //!
 //! Turbo is the master switch: off means falcond does not run, so nothing
 //! intervenes in a game; on means it runs and applies profiles. The service
-//! is the switch because it is the only one that works — measured against
-//! falcond 2.0.2 on the lab VM:
+//! is the switch because it is the only one that works (falcond 2.0.2):
 //!
 //! * `systemctl stop` with a profile active restores that profile's snapshot
 //!   before exiting (falcond's `deinit` deactivates first). Off is a clean
@@ -54,9 +53,15 @@ pub struct Ownership {
 }
 
 impl Ownership {
-    fn load() -> Option<Self> {
-        let text = std::fs::read_to_string(OWNERSHIP_RECORD).ok()?;
-        serde_json::from_str(&text).ok()
+    /// The record, or `None` when there is none. A record that cannot be read
+    /// is an error, not "none": treated as absent, the backend could never be
+    /// released, and it would never be re-recorded either.
+    fn load() -> anyhow::Result<Option<Self>> {
+        match std::fs::read_to_string(OWNERSHIP_RECORD) {
+            Ok(text) => Ok(Some(serde_json::from_str(&text)?)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
@@ -154,7 +159,7 @@ pub async fn set_enabled(
 /// Returns an error if systemd refuses a change. The record is kept in that
 /// case so a later attempt can finish.
 pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Ownership>> {
-    let Some(record) = Ownership::load() else {
+    let Some(record) = Ownership::load()? else {
         return Ok(None);
     };
     let manager = manager(connection).await?;
@@ -183,11 +188,10 @@ pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Own
 
 /// Ask a running falcond to re-read its configuration and profiles.
 ///
-/// SIGHUP, which falcond handles as a reload. The previous helper used
-/// `systemctl reload-or-restart`, and falcond's unit has no `ExecReload`, so
-/// every profile save *restarted* it — tearing down the profile of a game that
-/// was running. A stopped falcond is left stopped: Turbo decides that, not a
-/// profile save.
+/// SIGHUP, which falcond handles as a reload. Not `systemctl
+/// reload-or-restart`: falcond's unit has no `ExecReload`, so that restarts it
+/// and tears down the profile of a game that is running. A stopped falcond is
+/// left stopped: Turbo decides that, not a profile save.
 pub async fn reload(connection: &zbus::Connection) {
     let running = state(connection)
         .await

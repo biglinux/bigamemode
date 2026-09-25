@@ -1,8 +1,7 @@
 //! Logs: everything involved in a game session, in one colour-coded list.
 //!
 //! Read from the journal in one call ([`bigame_core::logs`]), incrementally
-//! by cursor, and only while this page is on screen. The previous page ran
-//! four processes every five seconds whether or not anyone was looking.
+//! by cursor, and only while this page is on screen.
 //!
 //! Only the severity label is coloured, so an error stands out without the
 //! whole line shouting; the message itself stays in the normal text colour.
@@ -18,7 +17,7 @@ use libadwaita as adw;
 
 use bigame_core::logs::{Entry, Level, Source};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 
 /// Entries kept in memory; older ones scroll away.
 const KEEP: usize = 3000;
@@ -212,8 +211,8 @@ pub fn build() -> adw::PreferencesPage {
                 drop(s);
                 render();
                 // Keep the newest line in view -- once GTK has laid the text
-                // out; scrolling before that is silently a no-op, which left
-                // the page opening on the oldest entry.
+                // out; scrolling before that is silently a no-op and the page
+                // would open on the oldest entry.
                 let view = view.clone();
                 glib::idle_add_local_once(move || {
                     let buffer = view.buffer();
@@ -368,12 +367,14 @@ fn render(state: &State, view: &gtk4::TextView, counts: &gtk4::Label) {
         .iter()
         .filter(|e| e.level == Level::Warning)
         .count();
-    counts.set_label(&format!(
-        "{shown} {} · {errors} {} · {warnings} {}",
-        i18n("shown"),
-        i18n("errors"),
-        i18n("warnings")
-    ));
+    counts.set_label(
+        &[
+            ni18n("%n shown", "%n shown", shown),
+            ni18n("%n error", "%n errors", errors),
+            ni18n("%n warning", "%n warnings", warnings),
+        ]
+        .join(" · "),
+    );
 }
 
 fn export_to_file(anchor: &gtk4::Button, state: &State) {

@@ -67,9 +67,8 @@ impl LaunchPlan {
 
     /// Build a launch plan and evaluate policy against a logical game id.
     ///
-    /// `logical_game` should be the profile/process identifier representing the real game
-    /// (for example, Steam `installdir`). It can differ from `executable` (for example,
-    /// `executable="steam"` with `-applaunch`).
+    /// `logical_game` is the process name the game's profile is keyed on. It can differ
+    /// from `executable` (for example, `executable="steam"` with `-applaunch`).
     #[must_use]
     pub fn build_with_args_for_game(
         executable: &str,
@@ -98,20 +97,19 @@ impl LaunchPlan {
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
     ) -> Self {
-        // Audit LNCH-01: this used to return early unless power-profiles-daemon
-        // reported `performance`, silently dropping Gamescope, Wine FSR,
-        // vkBasalt and every frame-generation variable. A user who turned
-        // Booster off lost their upscaler with no visible cause.
-        //
-        // Presentation-layer settings are not a CPU power policy. The two are
-        // independent layers (docs/02-PERFORMANCE-AUTHORITY.md), so the gate is
-        // gone: what the user configured is what gets applied.
-        // Apply runtime harmony policy so enabled technologies do not conflict.
+        // Presentation-layer settings (Gamescope, Wine FSR, vkBasalt, frame
+        // generation) are not a CPU power policy and do not depend on the power
+        // profile: what the user configured is applied whatever Booster or
+        // Turbo are doing. The harmony policy keeps enabled technologies from
+        // conflicting.
         let mut effective_video = Self::apply_harmony_policy(logical_game, video);
-        // Harmony Policy 2.0: a game BiGame-mode installed OptiScaler into
-        // already upscales; Gamescope and Wine FSR would be second upscalers.
-        let disables =
-            crate::graphics::launch_disables(&crate::graphics::state_dir(), logical_game);
+        // A game BiGame-mode installed OptiScaler into already upscales;
+        // Gamescope and Wine FSR would be second upscalers.
+        let disables = crate::graphics::launch_disables(
+            &crate::graphics::state_dir(),
+            &crate::game_settings::dir(),
+            logical_game,
+        );
         let gs_local = Self::apply_graphics_disables(
             logical_game,
             &disables,
@@ -124,14 +122,9 @@ impl LaunchPlan {
         // `steam -applaunch` starts the *client*, which then starts the game in
         // a separate process tree. Wrapping this command would put Gamescope
         // around the Steam client, not around the game, so the plan is left
-        // alone here on purpose.
-        //
-        // That is not the whole answer, though. Audit LNCH-02: since Steam is
-        // how most people launch games, leaving it at "we skip this case" made
-        // the entire video pipeline inert in the common path. The mechanism
-        // Steam provides is per-game launch options, so
-        // [`LaunchPlan::as_steam_launch_options`] renders the same plan into
-        // the string Steam understands, and `crate::steam` writes it.
+        // alone here on purpose: a game started through the Steam client gets
+        // none of these video settings. falcond's per-game profile still
+        // applies to it, since falcond matches the game's process.
         if Self::is_steam_applaunch_command(executable, executable_args) {
             tracing::info!(
                 game = logical_game,
@@ -148,16 +141,12 @@ impl LaunchPlan {
         // ── Environment variables ─────────────────────────────────────────────
         let mut env = HashMap::new();
         Self::check_and_warn_conflicts(logical_game, &effective_video);
-        // OptiScaler's frame generation is on in this game: lsfg-vk would be
-        // a second frame generator. Its layer manifest honours DISABLE_LSFG,
-        // which turns it off for this launch without touching its config.
-        if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
-            env.insert("DISABLE_LSFG".into(), "1".into());
-            tracing::info!(target: "graphics", game = logical_game,
-                "harmony: lsfg-vk off for this launch — OptiScaler generates frames");
-        }
 
         collect_upscaling_env(upscaling, &mut env);
+        if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
+            // The lsfg-vk layer's own off switch (its `disable_environment`).
+            env.insert("DISABLE_LSFG".to_owned(), "1".to_owned());
+        }
 
         // ── Decide program + args ─────────────────────────────────────────────
         // The tri-state lives on the profile; when no profile is supplied the
@@ -187,20 +176,6 @@ impl LaunchPlan {
                 env,
             }
         }
-    }
-
-    /// Build a launch plan for `executable`.
-    ///
-    /// `video` is the global video config. `gs_override` is the per-game gamescope
-    /// profile (resolution, framerate limit, `MangoHud` toggle); it is merged with the
-    /// global upscaling filter chosen in `video`.
-    #[must_use]
-    pub fn build(
-        executable: &str,
-        video: &VideoConfig,
-        gs_override: Option<&gamescope::Config>,
-    ) -> Self {
-        Self::build_with_args(executable, &[], video, gs_override)
     }
 
     /// Apply conflict-resolution policy and return an effective launch config.
@@ -296,61 +271,6 @@ impl LaunchPlan {
             .any(|arg| arg.eq_ignore_ascii_case("-applaunch"))
     }
 
-    /// Check for known launch conflicts and emit `tracing::warn` entries.
-    ///
-    /// Called internally during `build()`; also publicly available for pre-launch
-    /// UI validation (show dialogs before actually launching).
-    pub fn check_conflicts(executable: &str, video: &VideoConfig) {
-        Self::check_and_warn_conflicts(executable, video);
-    }
-
-    /// Render this plan as a Steam per-game launch options string.
-    ///
-    /// Steam substitutes `%command%` with the game's own command line, so the
-    /// result is `VAR=value … gamescope … -- %command%`. Writing that into the
-    /// game's launch options is what makes the plan apply to a Steam launch —
-    /// the one path `build_with_args_for_game` deliberately cannot wrap.
-    ///
-    /// Returns `None` when the plan adds nothing, so a game with no settings is
-    /// not given an empty wrapper.
-    #[must_use]
-    pub fn as_steam_launch_options(&self) -> Option<String> {
-        let mut parts: Vec<String> = Vec::new();
-
-        // Sorted so the same plan always renders the same string — otherwise
-        // every save would look like a change to Steam and to the user.
-        let mut keys: Vec<&String> = self.env.keys().collect();
-        keys.sort();
-        for key in keys {
-            let value = &self.env[key];
-            // Steam runs this through a shell and its own config format has no
-            // escaping; anything needing quoting is dropped rather than risked.
-            if value.contains([' ', '"', '\'', '\\', '\n']) {
-                tracing::warn!(
-                    target: "launch",
-                    key,
-                    "value needs shell quoting; omitted from Steam launch options"
-                );
-                continue;
-            }
-            parts.push(format!("{key}={value}"));
-        }
-
-        if self.program == "gamescope" {
-            // Everything up to the `--` separator; the game command follows it,
-            // and for Steam that is `%command%`.
-            let sep = self.args.iter().position(|a| a == "--");
-            let gs_args = sep.map_or(&self.args[..], |i| &self.args[..i]);
-            parts.push("gamescope".to_owned());
-            parts.extend(gs_args.iter().cloned());
-        }
-
-        if parts.is_empty() {
-            return None;
-        }
-        Some(format!("{} -- %command%", parts.join(" ")))
-    }
-
     /// Spawn the game as described by this plan.
     ///
     /// The child is placed in its own **process group**, so the whole tree can
@@ -359,51 +279,66 @@ impl LaunchPlan {
     /// execs the real binary as a grandchild — and without this, killing the
     /// returned handle kills only the wrapper and leaves the game running.
     ///
-    /// That is not hypothetical: launching `SuperTuxKart` through this pipeline
-    /// left `bin/supertuxkart` alive after the handle was killed and waited on.
-    ///
     /// # Errors
     /// Returns an error if the binary is not found or the process fails to
     /// start.
     pub fn spawn(self) -> Result<std::process::Child> {
-        use std::os::unix::process::CommandExt;
-
         let mut cmd = std::process::Command::new(&self.program);
         cmd.args(&self.args);
         cmd.envs(&self.env);
-        // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
-        // calling process, which between fork and exec is the child alone.
-        unsafe {
-            cmd.pre_exec(|| {
-                if libc::setpgid(0, 0) == 0 {
-                    Ok(())
-                } else {
-                    Err(std::io::Error::last_os_error())
-                }
-            });
-        }
+        in_own_process_group(&mut cmd);
         cmd.spawn()
             .with_context(|| format!("spawn '{}'", self.program))
     }
 }
 
+/// Start `cmd` as the leader of a new process group, so [`terminate`] can
+/// reach everything it starts — a wrapper script's game included.
+pub fn in_own_process_group(cmd: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt;
+    // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
+    // calling process, which between fork and exec is the child alone.
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::setpgid(0, 0) == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        });
+    }
+}
+
 /// Ask a spawned game and everything it started to exit.
 ///
-/// Sends `SIGTERM` to the child's whole process group — which
-/// [`LaunchPlan::spawn`] created for exactly this purpose — then reaps the
-/// direct child. Signalling only the child would leave a wrapper's grandchildren
-/// running, which is the orphan this exists to prevent.
+/// Signals the child's whole process group — created by
+/// [`in_own_process_group`] for exactly this purpose — so a wrapper's
+/// grandchildren go too. `SIGTERM` first; a group still there after a few
+/// seconds gets `SIGKILL`, so a game that ignores the request cannot hang the
+/// caller.
 ///
 /// # Errors
 /// Returns an error if the process could not be reaped.
 pub fn terminate(child: &mut std::process::Child) -> Result<()> {
     let pid = i32::try_from(child.id()).context("child pid does not fit in pid_t")?;
-    // SAFETY: a negative pid addresses the process group led by `pid`, which is
-    // the group spawn() created. An already-exited group yields ESRCH, which is
-    // not an error worth reporting here.
-    unsafe {
-        libc::kill(-pid, libc::SIGTERM);
+    let signal_group = |signal| {
+        // SAFETY: a negative pid addresses the process group led by `pid`.
+        // An already-exited group yields ESRCH, which is not worth reporting.
+        unsafe {
+            libc::kill(-pid, signal);
+        }
+    };
+    signal_group(libc::SIGTERM);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::time::Instant::now() < deadline {
+        if child.try_wait().context("reap game process")?.is_some() {
+            // The leader is gone; anything it left behind is not.
+            signal_group(libc::SIGKILL);
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
+    signal_group(libc::SIGKILL);
     child.wait().context("reap game process")?;
     Ok(())
 }
@@ -444,9 +379,9 @@ impl LaunchPlan {
             },
             // `UpscalingSettings::gamescope_filter` defaults to `Fsr` rather
             // than to "none", so it says nothing about whether the user wants
-            // upscaling — only which filter they would use if they did. Reading
-            // it unconditionally made the Auto decision believe every profile
-            // had requested FSR, and wrap every game.
+            // upscaling — only which filter they would use if they did. Read
+            // unconditionally, it would make every profile look as if it had
+            // requested FSR, and the Auto decision would wrap every game.
             //
             // It is therefore honoured only when the user has actually turned
             // Gamescope upscaling on; otherwise the per-game override decides.
@@ -460,9 +395,9 @@ impl LaunchPlan {
                 base.filter
             },
             // Same reasoning as the filter above: `UpscalingSettings` carries a
-            // sharpness even when Gamescope upscaling is off, and reading it
-            // unconditionally silently overrode whatever the per-game profile
-            // asked for. A profile requesting sharpness 4 was emitting 0.
+            // sharpness even when Gamescope upscaling is off, and read
+            // unconditionally it would override whatever the per-game profile
+            // asks for.
             sharpness: if upscaling.gamescope_enabled {
                 upscaling.clamped_sharpness()
             } else {
@@ -520,7 +455,7 @@ pub fn build_persistent_env(video: &crate::video_config::VideoConfig) -> HashMap
     env
 }
 
-/// Insert Wine FSR env vars if enabled.
+/// Insert the Wine FSR and vkBasalt variables for whichever is enabled.
 fn collect_upscaling_env(upscaling: &UpscalingSettings, env: &mut HashMap<String, String>) {
     if upscaling.wine_fsr_enabled {
         env.insert("WINE_FULLSCREEN_FSR".into(), "1".into());
@@ -596,7 +531,6 @@ mod tests {
         if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
             assert_eq!(plan.args[f_pos + 1], "fsr");
         }
-        // Separator before exe
         let sep_pos = plan.args.iter().position(|a| a == "--").unwrap();
         assert_eq!(plan.args[sep_pos + 1], "myapp");
     }
@@ -680,7 +614,8 @@ mod tests {
 
     #[test]
     fn an_old_afmf_or_optiscaler_setting_sets_nothing() {
-        // AFMF set RADV_PERFTEST=afmf, an option RADV does not have.
+        // A saved `afmf` backend still loads but sets nothing:
+        // `RADV_PERFTEST=afmf` is not an option RADV has.
         let video: VideoConfig = toml::from_str(
             "[frame_gen]\nenabled = true\nbackend = \"afmf\"\nafmf_experimental_enabled = true\n",
         )
@@ -764,8 +699,8 @@ mod tests {
     #[test]
     fn a_per_game_profile_keeps_its_own_filter_and_sharpness() {
         // The global UpscalingSettings carry a filter and a sharpness even
-        // when Gamescope upscaling is off. Reading them unconditionally
-        // overrode the profile: a profile asking for sharpness 4 emitted 0.
+        // when Gamescope upscaling is off; they must not override the
+        // profile's.
         let video = VideoConfig::default(); // gamescope_enabled = false
         let profile = gamescope::Config {
             filter: gamescope::Filter::Nis,
@@ -833,52 +768,6 @@ mod tests {
         // SAFETY: signal 0 only probes whether the group still exists.
         let alive = unsafe { libc::kill(-pid, 0) } == 0;
         assert!(!alive, "the process group should be gone");
-    }
-
-    #[test]
-    fn steam_launch_options_render_env_and_gamescope() {
-        let mut video = VideoConfig::default();
-        video.upscaling.gamescope_enabled = true;
-        video.upscaling.wine_fsr_enabled = true;
-        video.upscaling.wine_fsr_mode = WineFsrMode::Quality;
-
-        let plan = build("game", &video, None);
-        let opts = plan.as_steam_launch_options().expect("plan adds settings");
-
-        assert!(opts.ends_with(" -- %command%"), "got {opts}");
-        assert!(opts.contains("WINE_FULLSCREEN_FSR=1"));
-        assert!(opts.contains("gamescope"));
-        // The separator appears exactly once, at the end.
-        assert_eq!(opts.matches(" -- ").count(), 1);
-    }
-
-    #[test]
-    fn steam_launch_options_are_stable_across_builds() {
-        // An unstable ordering would make every save look like a change.
-        let mut video = VideoConfig::default();
-        video.upscaling.wine_fsr_enabled = true;
-        video.upscaling.vkbasalt_enabled = true;
-        let a = build("game", &video, None).as_steam_launch_options();
-        let b = build("game", &video, None).as_steam_launch_options();
-        assert_eq!(a, b);
-        assert!(a.is_some());
-    }
-
-    #[test]
-    fn a_plan_that_adds_nothing_produces_no_launch_options() {
-        let video = VideoConfig::default();
-        let plan = build("game", &video, None);
-        assert_eq!(plan.as_steam_launch_options(), None);
-    }
-
-    #[test]
-    fn values_needing_shell_quoting_are_omitted_not_mangled() {
-        let mut plan = build("game", &VideoConfig::default(), None);
-        plan.env.insert("SAFE".into(), "1".into());
-        plan.env.insert("RISKY".into(), "has spaces".into());
-        let opts = plan.as_steam_launch_options().unwrap();
-        assert!(opts.contains("SAFE=1"));
-        assert!(!opts.contains("RISKY"));
     }
 
     #[test]

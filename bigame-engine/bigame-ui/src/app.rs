@@ -6,7 +6,6 @@
 use adw::prelude::*;
 use gtk4::glib;
 use libadwaita as adw;
-use std::path::PathBuf;
 
 use crate::i18n::i18n;
 use crate::style;
@@ -68,7 +67,7 @@ pub fn run() -> adw::glib::ExitCode {
     let args: Vec<String> = args.into_iter().filter(|a| a != "--background").collect();
 
     // The name notifications and the desktop show; left unset, GLib uses the
-    // program name, and the profile offer arrived signed "bigame-ui".
+    // program name and notifications are signed "bigame-ui".
     adw::glib::set_application_name("BiGame-mode");
     let app = adw::Application::builder().application_id(APP_ID).build();
 
@@ -78,16 +77,30 @@ pub fn run() -> adw::glib::ExitCode {
         // Intentionally leak the guard — app should never release.
         std::mem::forget(app.hold());
 
-        // Falcond D-Bus status service: re-broadcasts /tmp/falcond_status as D-Bus signal.
-        // External tools subscribe to com.biglinux.BiGameMode1 instead of polling the file.
+        // Re-broadcasts falcond's status file as a D-Bus signal, so other tools
+        // can subscribe to com.biglinux.BiGameMode1 instead of reading the file.
         bigame_core::dbus::service::start();
 
-        // Quit action for explicit exit
+        // An AI Graphics apply cut short by a crash or a power loss is rolled
+        // back before anything reads the game's files.
+        std::thread::spawn(|| {
+            match bigame_core::graphics::transaction::recover(&bigame_core::graphics::state_dir()) {
+                Ok(done) => {
+                    for (game, outcome) in done {
+                        match outcome {
+                            Ok(_) => tracing::info!(target: "graphics", game, "interrupted apply rolled back"),
+                            Err(e) => tracing::warn!(target: "graphics", game, error = %e, "interrupted apply could not be rolled back"),
+                        }
+                    }
+                }
+                Err(e) => tracing::warn!(target: "graphics", error = %e, "could not check for interrupted applies"),
+            }
+        });
+
         let quit = adw::gio::ActionEntry::builder("quit")
             .activate(|app: &adw::Application, _, _| app.quit())
             .build();
 
-        // About dialog action
         let about = adw::gio::ActionEntry::builder("about")
             .activate(|app: &adw::Application, _, _| {
                 show_about_dialog(app);
@@ -96,7 +109,6 @@ pub fn run() -> adw::glib::ExitCode {
 
         app.add_action_entries([quit, about]);
 
-        // Keyboard shortcuts
         app.set_accels_for_action("app.quit", &["<Control>q"]);
 
         // Which game is running, for Home and the first-run profile offer.
@@ -147,9 +159,7 @@ fn start_status_loop(
     // Every ten seconds, on one cached bus connection. A stopped
     // falcond is not an error: it is what Turbo off means. Only a
     // unit systemd reports as failed is, and nothing offered here
-    // deletes anything -- the "Repair & Enable" action this replaces
-    // ran `rm -f` over every user profile through `sh -c`, and would
-    // have been offered on every Turbo off.
+    // deletes anything.
     let systemd = bigame_core::systemd::Reader::system();
     glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
         let unit = systemd
@@ -220,7 +230,7 @@ fn detect_missing_runtime_packages() -> Vec<String> {
     let cfg = bigame_core::video_config::load();
     let mut missing = Vec::new();
 
-    if cfg.upscaling.gamescope_enabled && !binary_in_path("gamescope") {
+    if cfg.upscaling.gamescope_enabled && bigame_core::capabilities::which("gamescope").is_none() {
         missing.push("gamescope".to_string());
     }
     // vkbasalt is a Vulkan implicit layer (no CLI binary). Detect via layer manifest or libvkbasalt.so.
@@ -274,7 +284,7 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
         return None;
     }
     // Prefer pamac-installer (full GUI window with graphical polkit auth).
-    if binary_in_path("pamac-installer") {
+    if bigame_core::capabilities::which("pamac-installer").is_some() {
         let mut argv = vec!["pamac-installer".to_string()];
         argv.extend(missing.iter().cloned());
         return Some(argv);
@@ -283,7 +293,7 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
     // Arguments are passed as an argv, never through a shell: a root command
     // assembled into a string for `sh -c` is one quoting mistake away from
     // running something else.
-    if binary_in_path("pacman") {
+    if bigame_core::capabilities::which("pacman").is_some() {
         let mut argv: Vec<String> = ["pkexec", "pacman", "-S", "--needed", "--noconfirm"]
             .iter()
             .map(|s| (*s).to_owned())
@@ -299,22 +309,13 @@ fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> 
     if missing.is_empty() {
         return None;
     }
-    if binary_in_path("pamac-installer") {
+    if bigame_core::capabilities::which("pamac-installer").is_some() {
         return Some(format!("pamac-installer {}", missing.join(" ")));
     }
-    if binary_in_path("pacman") {
+    if bigame_core::capabilities::which("pacman").is_some() {
         return Some(format!("sudo pacman -S --needed {}", missing.join(" ")));
     }
     None
-}
-
-#[must_use]
-fn binary_in_path(binary: &str) -> bool {
-    let Some(path) = std::env::var_os("PATH") else {
-        return false;
-    };
-
-    std::env::split_paths(&path).any(|dir: PathBuf| dir.join(binary).is_file())
 }
 
 /// Present the About dialog with system information.

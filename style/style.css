@@ -1,6 +1,6 @@
-/* BiGame-mode — Booster Mode visual identity
+/* BiGame-mode — Turbo Mode visual identity
  *
- * The Booster control is the one thing on the Home screen, so it carries the
+ * The Turbo control is the one thing on the Home screen, so it carries the
  * only strong colour in the application. Everything else stays libadwaita
  * default on purpose: a page where one element is emphatic reads as a clear
  * hierarchy, a page where five are reads as noise.
@@ -75,7 +75,8 @@
  * too, so the animation stops even if the widget class was left on. */
 @media (prefers-reduced-motion: reduce) {
     .booster-button,
-    .booster-button.booster-pulse {
+    .booster-button.booster-pulse,
+    .error-indicator {
         animation: none;
         transition: none;
     }
@@ -86,17 +87,6 @@
 .booster-button:focus-visible {
     outline: 2px solid @accent_color;
     outline-offset: 3px;
-}
-
-/* Telemetry gauge rows */
-.telemetry-row {
-    padding: 8px 16px;
-}
-
-.telemetry-value {
-    font-weight: bold;
-    font-size: 1.2em;
-    color: @accent_fg_color;
 }
 
 /* Temperature color coding */
@@ -110,11 +100,6 @@
 
 .temp-hot {
     color: @error_color;
-}
-
-/* Dashboard section spacing */
-.dashboard-section {
-    margin: 12px;
 }
 
 /* Sparkline chart embedded in telemetry rows */
@@ -132,45 +117,7 @@
     border: 1px solid alpha(@borders, 0.2);
 }
 
-.hero-card {
-    border-radius: 12px;
-    padding: 16px 20px;
-    border: 1px solid alpha(@accent_color, 0.12);
-    background-color: @card_bg_color;
-}
-
-/* ── Stat cards (CPU GHz / GPU °C / RAM %) ───────────────────────── */
-.stat-card {
-    border-radius: 12px;
-    padding: 12px 16px;
-    background-color: @card_bg_color;
-    border: 1px solid alpha(@borders, 0.2);
-}
-
-.stat-value {
-    font-size: 1.4em;
-    font-weight: 600;
-    margin-top: 2px;
-}
-
-.stat-label {
-    font-size: 0.78em;
-    font-weight: 500;
-    opacity: 0.6;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-/* ── Pill status badges ──────────────────────────────────────────── */
-.badge {
-    font-size: 0.75em;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background-color: alpha(@accent_bg_color, 0.15);
-    color: @accent_fg_color;
-}
-
+/* ── Status badges ────────────────────────────────────────────────── */
 .success-badge {
     background-color: alpha(@success_color, 0.15);
     color: @success_color;
@@ -186,28 +133,7 @@
     color: @error_color;
 }
 
-/* ── Usage progress bars ─────────────────────────────────────────── */
-.usage-bar {
-    border-radius: 6px;
-    min-height: 6px;
-}
-
-.usage-bar trough {
-    background-color: alpha(@view_fg_color, 0.12);
-    border-radius: 6px;
-    min-height: 6px;
-}
-
-.usage-bar progress {
-    border-radius: 6px;
-    min-height: 6px;
-}
-
-.usage-bar.success progress { background-color: @success_color; }
-.usage-bar.warning progress { background-color: @warning_color; }
-.usage-bar.error progress   { background-color: @error_color; }
-
-/* ── Wizard progress dots (Welcome-inspired) ─────────────────────── */
+/* ── Wizard progress dots ─────────────────────────────────────────── */
 .progress-dot {
     min-width: 10px;
     min-height: 10px;
@@ -227,31 +153,12 @@
     background: alpha(@accent_bg_color, 0.45);
 }
 
-/* ── Wizard step layout (BigLinux Welcome-inspired) ──────────────── */
-.wizard-step-icon {
-    min-width: 56px;
-    min-height: 56px;
-    color: @accent_bg_color;
-    opacity: 0.9;
-}
-
+/* ── Wizard step layout ───────────────────────────────────────────── */
 .wizard-step-title {
     font-size: 32px;
     font-weight: 900;
     letter-spacing: -0.8px;
     margin-bottom: 4px;
-}
-
-.wizard-step-counter {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    padding: 6px 16px;
-    border-radius: 100px;
-    background: alpha(@accent_bg_color, 0.12);
-    color: @accent_color;
-    margin-bottom: 16px;
 }
 
 .wizard-step-desc {
@@ -262,7 +169,7 @@
     margin-bottom: 24px;
 }
 
-/* Glassmorphism input card — matches Welcome's .info-card */
+/* Wizard input card */
 .wizard-input-card {
     background: alpha(@card_bg_color, 0.55);
     border-radius: 16px;
@@ -273,63 +180,30 @@
                 0 1px 3px alpha(black, 0.02);
 }
 
-/* ── Highlighted Action Card (Remote Play style) ─────────────────── */
-.suggested-action-card {
-    background: alpha(@accent_bg_color, 0.08);
-    border: 1px solid alpha(@accent_bg_color, 0.2);
-    border-radius: 18px;
-    padding: 24px;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.suggested-action-card:hover {
-    background: alpha(@accent_bg_color, 0.12);
-    border: 1px solid alpha(@accent_bg_color, 0.5);
-    box-shadow: 0 12px 32px alpha(black, 0.08),
-                0 0 0 1px alpha(@accent_bg_color, 0.1);
-    transform: translateY(-4px);
-}
-
-.suggested-action-card:active {
-    transform: translateY(-1px);
-    background: alpha(@accent_bg_color, 0.2);
-}
-
-/* ── Systray Status Indicators ───────────────────────────────────── */
-.status-indicator-blue { color: #3584e4; }
-.status-indicator-green { color: #2ec27e; }
-.status-indicator-yellow { color: #e5a50a; }
-.status-indicator-red { color: #e01b24; }
-
-/* ── Error Indicator Button ──────────────────────────────────────── */
+/* ── Error indicator (header bar) ────────────────────────────────── */
 .error-indicator {
-    color: #e5a50a; /* Warning yellow/orange */
-    background: alpha(#e5a50a, 0.15);
+    color: @warning_color;
+    background: alpha(@warning_color, 0.15);
     border-radius: 50%;
     margin-right: 8px;
     transition: all 0.3s ease;
-}
-
-.error-indicator:hover {
-    background: alpha(#e5a50a, 0.3);
-    color: #f6d32d;
-    box-shadow: 0 0 8px alpha(#e5a50a, 0.4);
-}
-
-@keyframes pulse-warning {
-    0% { box-shadow: 0 0 0 0 alpha(#e5a50a, 0.4); }
-    70% { box-shadow: 0 0 0 10px alpha(#e5a50a, 0); }
-    100% { box-shadow: 0 0 0 0 alpha(#e5a50a, 0); }
-}
-
-.error-indicator {
     animation: pulse-warning 2s infinite;
 }
 
+.error-indicator:hover {
+    background: alpha(@warning_color, 0.3);
+    box-shadow: 0 0 8px alpha(@warning_color, 0.4);
+}
+
+@keyframes pulse-warning {
+    0% { box-shadow: 0 0 0 0 alpha(@warning_color, 0.4); }
+    70% { box-shadow: 0 0 0 10px alpha(@warning_color, 0); }
+    100% { box-shadow: 0 0 0 0 alpha(@warning_color, 0); }
+}
 
 /* ── Game library cards ──────────────────────────────────────────────
  *
- * A poster grid, reinterpreting the reference design in libadwaita terms.
+ * A poster grid.
  * Colours are palette tokens rather than fixed hexes so the grid follows the
  * desktop's light/dark and accent settings instead of imposing its own.
  */
@@ -349,7 +223,8 @@
     outline-offset: -2px;
 }
 
-/* The cover keeps its rounded corners while the image is clipped to fill. */
+/* The poster: a fixed 2:3 box the cover is painted over, so a card is the
+ * same size with a placeholder, a portrait cover or a landscape capsule. */
 .game-cover-frame {
     border-radius: 8px;
     background-color: alpha(@window_fg_color, 0.08);
@@ -366,6 +241,21 @@
     border-radius: 6px;
     background-color: alpha(#000, 0.65);
     color: #fff;
+}
+
+/* The actions sit over the bottom of the poster and appear by opacity alone,
+ * so revealing them moves nothing: hovering a card never pushes its
+ * neighbours. They are made targetable together with the class. */
+.game-card-actions {
+    padding: 8px;
+    border-radius: 0 0 8px 8px;
+    background-image: linear-gradient(to top, alpha(#000, 0.78), alpha(#000, 0.55) 70%, alpha(#000, 0));
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.game-card-actions.revealed {
+    opacity: 1;
 }
 
 /* Profile indicator. Paired with a tooltip and with the status line under the

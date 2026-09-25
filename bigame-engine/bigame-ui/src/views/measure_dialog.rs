@@ -1,6 +1,6 @@
 //! "Measure the difference" — the honest answer to "did that help?".
 //!
-//! Deliberately not part of pressing Booster Mode. Measuring launches the game
+//! Deliberately not part of pressing Turbo. Measuring launches the game
 //! several times and takes minutes; doing that because someone pressed a
 //! performance button would be worse than not measuring at all. It is offered
 //! per game, from the card menu, and only for games that can be started
@@ -40,9 +40,9 @@ enum Event {
 
 /// Ask whether to measure `game`, and do it if the answer is yes.
 pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String]) {
-    // Whether there is anything to compare is known before any launch. On the
-    // lab VM (no cpufreq, a virtual GPU) the plan was empty: the dialog
-    // promised six launches and five minutes, then reported a failure.
+    // Whether there is anything to compare is known before any launch: on a
+    // machine with nothing to change (no cpufreq, a virtual GPU) the plan is
+    // empty, and six launches and five minutes would end in a failure.
     let anchor = parent.as_ref().clone();
     let title = title.to_owned();
     let command = command.to_vec();
@@ -193,13 +193,7 @@ fn spawn_worker(tx: mpsc::Sender<Event>, command: Vec<String>) {
 
 /// Where `MangoHud` writes its captures.
 fn log_directory() -> std::path::PathBuf {
-    let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
-        || {
-            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".cache")
-        },
-        std::path::PathBuf::from,
-    );
+    let base = bigame_core::paths::cache_home();
     base.join("bigame-mode").join("benchmark")
 }
 

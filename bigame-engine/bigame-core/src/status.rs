@@ -101,18 +101,42 @@ pub fn read() -> Option<FalcondStatus> {
 /// treating a spoofed file as absent is the safe reading.
 #[must_use]
 pub fn read_from(path: &Path) -> Option<FalcondStatus> {
-    if !is_trustworthy(path) {
-        if path.exists() {
-            tracing::warn!(
-                target: "security",
-                path = %path.display(),
-                "ignoring falcond status: not a root-owned regular file"
-            );
-        }
+    let content = read_trusted(path);
+    if content.is_none() && path.exists() {
+        tracing::warn!(
+            target: "security",
+            path = %path.display(),
+            "ignoring falcond status: not a root-owned regular file"
+        );
+    }
+    content.as_deref().map(parse)
+}
+
+/// The status file's text, if it is a root-owned regular file.
+///
+/// The check is made on the descriptor that is then read (`fstat`), so the
+/// file cannot be swapped between check and read. The open neither follows a
+/// symlink nor blocks: in `/tmp`, before falcond has created it, the name can
+/// be anyone's, including a FIFO that would hang a blocking open for ever.
+/// At most [`crate::watch::MAX_WATCHED_BYTES`] are read.
+#[must_use]
+pub fn read_trusted(path: &Path) -> Option<String> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .ok()?;
+    let meta = file.metadata().ok()?;
+    if !meta.is_file() || meta.uid() != 0 {
         return None;
     }
-    let content = std::fs::read_to_string(path).ok()?;
-    Some(parse(&content))
+    let mut content = String::new();
+    file.take(crate::watch::MAX_WATCHED_BYTES)
+        .read_to_string(&mut content)
+        .ok()?;
+    Some(content)
 }
 
 /// Parse status file content into structured data.
@@ -197,11 +221,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_fifo_or_a_users_file_under_the_name_is_refused_without_blocking() {
+        let dir = crate::tests::tempdir("status-trust");
+        let fifo = dir.join("falcond_status");
+        let name = std::ffi::CString::new(fifo.as_os_str().as_encoded_bytes()).unwrap();
+        // SAFETY: mkfifo only creates the node named by a valid C string.
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o644) }, 0);
+        assert_eq!(read_trusted(&fifo), None);
+        let own = dir.join("owned_by_me");
+        std::fs::write(&own, "CURRENT_STATUS:\n").unwrap();
+        assert_eq!(read_trusted(&own), None, "not root-owned");
+    }
+
+    #[test]
     fn dmem_support_is_read_from_a_newer_falcond_and_unknown_from_an_older_one() {
         // falcond 2.0.14's documented status output.
         let newer = "FEATURES:\n  Performance Mode: Available\n  DMEM Cgroup: Available\n\nCONFIG:\n  Profile Mode: none\n";
         assert_eq!(parse(newer).dmem_cgroup, Some(true));
-        // The 2.0.2 installed on the reference machine has no such line.
+        // falcond 2.0.2 has no such line.
         let older =
             "FEATURES:\n  Performance Mode: Available\n\nCONFIG:\n  Profile Mode: handheld\n";
         assert_eq!(parse(older).dmem_cgroup, None);
@@ -298,8 +335,9 @@ CURRENT_STATUS:
     }
 
     #[test]
-    fn the_real_falcond_status_is_trusted_on_this_machine() {
-        // falcond is running here and owns /tmp/falcond_status as root.
+    fn the_real_falcond_status_is_trusted_when_present() {
+        // When falcond is running it owns /tmp/falcond_status as root, and
+        // that file must be trusted.
         let path = Path::new(STATUS_PATH);
         if path.exists() {
             assert!(

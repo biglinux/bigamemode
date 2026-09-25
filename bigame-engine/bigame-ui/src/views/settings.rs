@@ -7,7 +7,7 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, ni18n};
 use crate::settings;
 use crate::widgets::info;
 
@@ -50,13 +50,12 @@ pub fn build() -> adw::PreferencesPage {
     let owner = adw::ActionRow::builder()
         .title(i18n("Hand falcond back"))
         .subtitle(match bigame_core::turbo::owned_since() {
-            Some(t) => format!(
-                "{} {}",
-                i18n("BiGame-mode has managed falcond since"),
-                glib::DateTime::from_unix_local(i64::try_from(t).unwrap_or(0))
+            Some(t) => i18n("BiGame-mode has managed falcond since %s").replace(
+                "%s",
+                &glib::DateTime::from_unix_local(i64::try_from(t).unwrap_or(0))
                     .and_then(|d| d.format("%x %X"))
                     .map(|s| s.to_string())
-                    .unwrap_or_default()
+                    .unwrap_or_default(),
             ),
             None => i18n("BiGame-mode has not changed falcond's service"),
         })
@@ -157,9 +156,10 @@ pub fn build() -> adw::PreferencesPage {
                 migrate.set_subtitle(&i18n("None need fixing"));
                 return;
             }
-            migrate.set_subtitle(&format!(
-                "{fixable} {}",
-                i18n("can never match their game as they are")
+            migrate.set_subtitle(&ni18n(
+                "%n can never match its game as it is",
+                "%n can never match their game as they are",
+                fixable,
             ));
             button.set_visible(true);
             let migrate = migrate.clone();

@@ -16,17 +16,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// Who must perform the write.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Privilege {
-    /// Writable by the calling user.
-    User,
-    /// Mediated by another daemon that runs its own authorization
-    /// (power-profiles-daemon, which has its own Polkit actions).
-    Delegated,
-    /// Requires our root helper, and therefore a Polkit check.
-    Root,
-}
+use crate::graphics::text::N_;
 
 /// Identifies one piece of system state.
 ///
@@ -68,11 +58,11 @@ impl Knob {
     #[must_use]
     pub fn title(&self) -> String {
         match self {
-            Self::PowerProfile => "Power profile".into(),
-            Self::CpuGovernor => "CPU governor".into(),
-            Self::CpuEpp => "CPU energy preference".into(),
-            Self::GpuDpmLevel { card } => format!("GPU power level ({card})"),
-            Self::VCacheMode => "3D V-Cache mode".into(),
+            Self::PowerProfile => N_("Power profile").into(),
+            Self::CpuGovernor => N_("CPU governor").into(),
+            Self::CpuEpp => N_("CPU energy preference").into(),
+            Self::GpuDpmLevel { card } => N_("GPU power level (%s)").replace("%s", card),
+            Self::VCacheMode => N_("3D V-Cache mode").into(),
         }
     }
 
@@ -90,17 +80,6 @@ impl Knob {
             Self::CpuEpp => "cpu_epp",
             Self::GpuDpmLevel { .. } => "gpu_dpm_level",
             Self::VCacheMode => "vcache_mode",
-        }
-    }
-
-    /// Who is allowed to write this knob.
-    #[must_use]
-    pub fn privilege(&self) -> Privilege {
-        match self {
-            Self::PowerProfile => Privilege::Delegated,
-            Self::CpuGovernor | Self::CpuEpp | Self::GpuDpmLevel { .. } | Self::VCacheMode => {
-                Privilege::Root
-            }
         }
     }
 
@@ -179,8 +158,9 @@ impl Knob {
     ///
     /// Returns `Ok(())` only when the write was *attempted successfully*. It
     /// does **not** mean the system now holds that value — that is what
-    /// [`Knob::verify`] is for, and the two are kept separate on purpose. Audit
-    /// finding BST-01 was exactly a write whose result nobody checked.
+    /// [`Knob::verify`] is for, and the two are kept separate on purpose: an
+    /// unchecked write is how a control reports success while the system stays
+    /// unchanged.
     ///
     /// # Errors
     /// Returns an error if the value is not accepted here, or if the write
@@ -341,19 +321,6 @@ mod tests {
     }
 
     #[test]
-    fn privilege_is_declared_per_knob() {
-        assert_eq!(Knob::PowerProfile.privilege(), Privilege::Delegated);
-        assert_eq!(Knob::CpuGovernor.privilege(), Privilege::Root);
-        assert_eq!(
-            Knob::GpuDpmLevel {
-                card: "card1".into()
-            }
-            .privilege(),
-            Privilege::Root
-        );
-    }
-
-    #[test]
     fn journal_round_trip_preserves_knob_identity() {
         // Journals outlive the process; a knob must deserialize to itself.
         let knob = Knob::GpuDpmLevel {
@@ -390,8 +357,9 @@ mod tests {
 
     #[test]
     fn governor_knob_reflects_this_machine() {
-        // amd-pstate-epp on the bench offers exactly performance + powersave,
-        // so an `ondemand` plan must be rejected before it is ever attempted.
+        // Only values the driver lists are accepted (amd-pstate-epp offers just
+        // `performance` and `powersave`), so a plan for anything else is
+        // rejected before it reaches the helper.
         let allowed = Knob::CpuGovernor.allowed_values();
         if allowed.is_empty() {
             return; // no cpufreq on this host; nothing to assert

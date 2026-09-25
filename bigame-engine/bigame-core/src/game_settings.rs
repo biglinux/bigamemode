@@ -28,13 +28,7 @@ pub struct GameSettings {
 /// The folder the per-game files are in.
 #[must_use]
 pub fn dir() -> PathBuf {
-    std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .unwrap_or_else(|| {
-            PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| "/tmp".into())).join(".config")
-        })
-        .join("bigame-mode/games")
+    crate::paths::config_home().join("bigame-mode/games")
 }
 
 /// Whether `name` can be a file name here: the same characters a profile name

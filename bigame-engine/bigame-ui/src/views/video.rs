@@ -1,12 +1,11 @@
 //! Advanced Video Settings view: spatial upscaling and frame generation.
 //!
-//! Settings are stored globally in `$XDG_CONFIG_HOME/bigame-mode/video.toml`.
-//! They represent system-wide defaults on game launch; future work will allow
-//! per-profile overrides.
+//! Settings are stored globally in `$XDG_CONFIG_HOME/bigame-mode/video.toml` as
+//! the defaults for every launch; a game's profile overrides the Gamescope part.
 //!
 //! Layout:
 //! - `AdwExpanderRow` "Spatial Upscaling" (Gamescope filter, Wine FSR, vkBasalt)
-//! - `AdwExpanderRow` "Frame Generation" (`OptiScaler`, AFMF, lsfg-vk)
+//! - `AdwPreferencesGroup` "Frame Generation" (lsfg-vk)
 
 use adw::prelude::*;
 use libadwaita as adw;
@@ -118,7 +117,6 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     );
     expander.add_row(&sharpness_row);
 
-    // ── Wine/Proton FSR ──────────────────────────────────────────────────────
     // ── Render resolution (game draws at this res, 0 = game native) ─────────
     let render_width = make_res_spinbutton(cfg.upscaling.base_width, 7680);
     let render_height = make_res_spinbutton(cfg.upscaling.base_height, 4320);
@@ -143,6 +141,7 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     );
     expander.add_row(&target_res_row);
 
+    // ── Wine/Proton FSR ──────────────────────────────────────────────────────
     let wine_row = adw::SwitchRow::builder()
         .title(i18n("Wine/Proton Fullscreen FSR"))
         .subtitle(i18n(
@@ -157,7 +156,7 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
         &i18n("Performance"),
         &i18n("Balanced"),
         &i18n("Quality"),
-        "Ultra",
+        &i18n("Ultra"),
     ]);
     let wine_quality_row = adw::ComboRow::new();
     wine_quality_row.set_title(&i18n("Wine FSR Quality"));
@@ -295,10 +294,7 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
 ///
 /// Upscaling and frame generation through `OptiScaler` are per game, in each
 /// game's AI Graphics (Profiles), where they are planned, installed with a
-/// backup and verified. The controls this group used to have — an
-/// `OptiScaler` backend that copied DLLs over the game's own, an "AFMF"
-/// backend setting a `RADV_PERFTEST` option RADV does not have, a mode and an
-/// on-screen indicator nothing read — did nothing, or harm, and are gone.
+/// backup and verified.
 fn build_framegen_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Frame Generation"));

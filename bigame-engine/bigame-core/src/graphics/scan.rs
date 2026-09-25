@@ -87,6 +87,24 @@ pub enum ProxyOwner {
     Unknown,
 }
 
+impl ProxyOwner {
+    /// A name for the UI; the two that are not product names are marked for
+    /// translation.
+    #[must_use]
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::OptiScaler => "OptiScaler",
+            Self::ReShade => "ReShade",
+            Self::SpecialK => "Special K",
+            Self::Dxvk => "DXVK",
+            Self::DgVoodoo => "dgVoodoo 2",
+            Self::AsiLoader => "Ultimate ASI Loader",
+            Self::Microsoft => super::text::N_("Microsoft system DLL"),
+            Self::Unknown => super::text::N_("unknown"),
+        }
+    }
+}
+
 /// A DLL in one of the slots graphics mods load through.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Proxy {

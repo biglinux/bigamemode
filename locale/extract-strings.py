@@ -4,15 +4,13 @@
 Why this exists rather than plain xgettext: xgettext has no Rust mode. Run
 against Rust with `--language=C` it reads lifetimes (`&'a str`) as unterminated
 character constants and bails; with `--language=Python` it mis-parses byte and
-raw strings. A previous attempt to work around that produced a template
-containing 34 strings, 36 of whose source references pointed into
-`src/cargo-home/registry/` — the catalogues were carrying strings from the
-gettext-rs crate itself and almost none of the application's own.
+raw strings, and pointed at the build tree it also collects the strings of
+vendored crates under `src/cargo-home/registry/` (gettext-rs among them).
 
-The application funnels every translatable string through one helper, `i18n`,
-so a focused extractor is both simpler and more accurate than a general one. It
-understands the Rust string literals actually used here: normal literals with
-escapes, and raw literals (`r"…"`, `r#"…"#`).
+The application funnels every translatable string through `i18n` (and
+`ni18n` for counts), so a focused extractor is both simpler and more accurate
+than a general one. It understands the Rust string literals actually used
+here: normal literals with escapes, and raw literals (`r"…"`, `r#"…"#`).
 
 Usage:
     locale/extract-strings.py                 # write locale/bigame-mode.pot
@@ -35,6 +33,8 @@ POT = ROOT / "locale" / "bigame-mode.pot"
 # marker bigame-core uses for text it builds for the UI to translate (core has
 # no gettext of its own; the UI calls `i18n` on the marked template).
 CALL = re.compile(r"\b(?:i18n|N_)\s*\(\s*")
+# `ni18n("singular", "plural", n)`: a count-dependent message.
+PLURAL_CALL = re.compile(r"\bni18n\s*\(\s*")
 # Desktop/AppStream files: Name=, Comment=, GenericName=, Keywords=
 DESKTOP_KEY = re.compile(r"^(Name|GenericName|Comment|Keywords)\s*=\s*(.+)$")
 XML_TAG = re.compile(r"<(name|summary|caption|p)>([^<]+)</\1>")
@@ -70,10 +70,8 @@ def read_rust_literal(text: str, i: int) -> tuple[str, int] | None:
             nxt = text[j + 1]
             if nxt == "\n":
                 # Rust: a backslash at the end of a line skips the newline and
-                # every whitespace character that starts the next line. Keeping
-                # them made the template's msgid differ from the string the
-                # program asks gettext for, so no such string could ever be
-                # translated.
+                # every whitespace character that starts the next line. The
+                # msgid must be the string the program asks gettext for.
                 j += 2
                 while j < len(text) and text[j] in " \t\n\r":
                     j += 1
@@ -108,16 +106,28 @@ def escape_po(value: str) -> str:
     )
 
 
-def extract_rust(path: pathlib.Path) -> list[tuple[str, int]]:
+def extract_rust(path: pathlib.Path) -> list[tuple[str, str | None, int]]:
+    """(msgid, msgid_plural or None, line) for every call in `path`."""
     text = path.read_text(encoding="utf-8")
-    found: list[tuple[str, int]] = []
+    found: list[tuple[str, str | None, int]] = []
     for match in CALL.finditer(text):
         literal = read_rust_literal(text, match.end())
         if literal is None:
             continue  # i18n(variable) — nothing static to extract
         value, _ = literal
         if value:
-            found.append((value, text.count("\n", 0, match.start()) + 1))
+            found.append((value, None, text.count("\n", 0, match.start()) + 1))
+    for match in PLURAL_CALL.finditer(text):
+        singular = read_rust_literal(text, match.end())
+        if singular is None:
+            continue
+        rest = re.match(r"\s*,\s*", text[singular[1] :])
+        if rest is None:
+            continue
+        plural = read_rust_literal(text, singular[1] + rest.end())
+        if plural is None:
+            continue
+        found.append((singular[0], plural[0], text.count("\n", 0, match.start()) + 1))
     return found
 
 
@@ -145,6 +155,7 @@ def extract_xml(path: pathlib.Path) -> list[tuple[str, int]]:
 
 def build_pot() -> str:
     entries: dict[str, list[str]] = {}
+    plurals: dict[str, str] = {}
     for rel in POTFILES.read_text(encoding="utf-8").split():
         path = ROOT / rel
         if not path.is_file():
@@ -153,18 +164,20 @@ def build_pot() -> str:
         if path.suffix == ".rs":
             found = extract_rust(path)
         elif path.suffix == ".desktop":
-            found = extract_desktop(path)
+            found = [(v, None, n) for v, n in extract_desktop(path)]
         elif path.suffix == ".xml":
-            found = extract_xml(path)
+            found = [(v, None, n) for v, n in extract_xml(path)]
         else:
             continue
-        for value, line in found:
+        for value, plural, line in found:
             entries.setdefault(value, []).append(f"{rel}:{line}")
+            if plural is not None:
+                plurals[value] = plural
 
     date = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M%z")
     out = [
         "# Translation template for BiGame-mode.",
-        "# Copyright (C) BigLinux",
+        "# Copyright (C) Rafael Ruscher",
         "# This file is distributed under the same license as the bigame-mode package.",
         "#",
         'msgid ""',
@@ -179,6 +192,7 @@ def build_pot() -> str:
         '"MIME-Version: 1.0\\n"',
         '"Content-Type: text/plain; charset=UTF-8\\n"',
         '"Content-Transfer-Encoding: 8bit\\n"',
+        '"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\\n"',
         "",
     ]
     # Sorted so regenerating without source changes produces no diff.
@@ -186,7 +200,12 @@ def build_pot() -> str:
         for ref in sorted(set(entries[value])):
             out.append(f"#: {ref}")
         out.append(f'msgid "{escape_po(value)}"')
-        out.append('msgstr ""')
+        if value in plurals:
+            out.append(f'msgid_plural "{escape_po(plurals[value])}"')
+            out.append('msgstr[0] ""')
+            out.append('msgstr[1] ""')
+        else:
+            out.append('msgstr ""')
         out.append("")
     return "\n".join(out)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sample GPU clock, power, temperature and utilisation while something runs.
 #
-# Written because a frame rate alone cannot explain itself. When a configuration
+# A frame rate alone cannot explain itself. When a configuration
 # that forces the highest DPM state turns out to be slower than one that lets
 # the firmware choose, the clocks are where the reason is: a forced state can
 # sit *below* the opportunistic boost the automatic algorithm reaches, or push
@@ -9,13 +9,11 @@
 #
 # ## Why this spawns no processes
 #
-# The first version of this sampler called `cat` once per sensor plus `date` and
-# `awk` per sample -- eight processes, four times a second, about 1400 forks
-# over a single benchmark run. That is not free. Measured against a session run
-# without it, it raised the run-to-run spread of the workload from 1.4% to
-# around 9%, which is larger than most differences a benchmark is trying to
-# detect. An instrument that perturbs what it measures by more than the effect
-# size is not an instrument.
+# Forking per sensor per sample (`cat` once per sensor plus `date` and `awk`:
+# eight processes, four times a second, about 1400 forks over a benchmark run)
+# raises the workload's run-to-run spread from about 1.4% to about 9%, larger
+# than most differences a benchmark is trying to detect. An instrument that
+# perturbs what it measures by more than the effect size is not an instrument.
 #
 # Everything below is therefore a bash builtin: `read` for the sensors,
 # `EPOCHREALTIME` for the clock, arithmetic in the shell, and a single
@@ -41,9 +39,8 @@ peek() {
 }
 
 # A fork-free timer. `sleep` is not a bash builtin, so calling it once per
-# sample would put back a third of the process churn this rewrite removed;
-# a read with a timeout on an empty pipe waits just as accurately and forks
-# once, at setup, instead of twice a second forever.
+# sample would fork on every sample; a read with a timeout on an empty pipe
+# waits just as accurately and forks once, at setup.
 exec {timer}<> <(:) 2>/dev/null || timer=""
 nap() {
     if [ -n "$timer" ]; then

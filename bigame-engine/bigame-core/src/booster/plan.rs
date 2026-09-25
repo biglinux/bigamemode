@@ -1,8 +1,7 @@
 //! Planning — deciding what is worth changing on *this* machine.
 //!
 //! The planner is the only place in the engine allowed to have an opinion, and
-//! it is held to the brief's standard: every change it proposes must answer
-//! what it alters, why that can help, what hardware it needs, how support was
+//! every change it proposes must answer what it alters, why that can help, what hardware it needs, how support was
 //! detected, and how it will be undone. A candidate that cannot answer all five
 //! is not planned.
 //!
@@ -63,7 +62,7 @@ pub enum Risk {
     Thermal,
 }
 
-/// One proposed change, with the full justification the brief requires.
+/// One proposed change, with its full justification.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Change {
     /// What is being changed.
@@ -165,15 +164,6 @@ impl Plan {
         self.changes.is_empty()
     }
 
-    /// Build a plan for this machine.
-    ///
-    /// `snapshot` must already have been captured: the planner refuses to plan
-    /// anything it could not put back.
-    #[must_use]
-    pub fn build(hw: &Hardware, caps: &Capabilities, snapshot: &Snapshot) -> Self {
-        Self::build_with_owner(hw, caps, snapshot, &power_profile_owner())
-    }
-
     /// Build a plan that defers to what was measured on this machine.
     ///
     /// Measurement outranks every other reason to apply a knob. A setting the
@@ -181,12 +171,12 @@ impl Plan {
     /// and that this machine has been measured to be *slower* with, is not
     /// applied -- and the report says so, with the numbers.
     ///
-    /// The concrete case this was built for: forcing an amdgpu card's DPM level
-    /// to `high` sounds like the fastest setting and is not. It pins the card
-    /// to its highest *fixed* state and takes the firmware's opportunistic
-    /// boost out of the loop. Measured on a Radeon RX 9060 XT, `auto` averaged
-    /// 3042 MHz and reached 3331; `high` sat at 2640 MHz and drew 40 W less of
-    /// a 170 W budget. The frame rate fell 7.5%.
+    /// The concrete case: forcing an amdgpu card's DPM level to `high` sounds
+    /// like the fastest setting and is not. It pins the card to its highest
+    /// *fixed* state and takes the firmware's opportunistic boost out of the
+    /// loop. On a Radeon RX 9060 XT, `auto` averages 3042 MHz and reaches 3331;
+    /// `high` holds 2640 MHz and draws 40 W less of a 170 W budget, and the
+    /// frame rate is 7.5% lower.
     #[must_use]
     pub fn build_calibrated(
         hw: &Hardware,
@@ -199,8 +189,8 @@ impl Plan {
 
     /// Build a plan with an explicit power-profile owner.
     ///
-    /// Split out from [`Plan::build`] so the arbitration can be tested without
-    /// a running falcond.
+    /// The owner is a parameter so the arbitration can be tested without a
+    /// running falcond.
     #[must_use]
     pub fn build_with_owner(
         hw: &Hardware,
@@ -392,8 +382,8 @@ impl Plan {
         // On amd-pstate in active mode the power profile is what sets EPP, and
         // forcing the `performance` governor pins EPP to performance and locks
         // it -- overriding power-profiles-daemon, the component that owns that
-        // choice. Measured on a Ryzen 7 5700G in Shadow of the Tomb Raider,
-        // CPU-bound: no difference above noise. So it is left to the profile.
+        // choice -- for no gain above noise (measured on a Ryzen 7 5700G in a
+        // CPU-bound Shadow of the Tomb Raider). So it is left to the profile.
         if caps.power_profiles && hw.cpu.epp_driven_by_power_profile() {
             self.skipped.push(Skipped::OwnedBy {
                 knob: knob.title(),
@@ -458,16 +448,15 @@ impl Plan {
 
     /// Render GPU `power_dpm_force_performance_level` → `high`.
     ///
-    /// Only the card games actually render on is touched. Leaving an idle iGPU
-    /// pinned high wastes power for nothing, and is precisely the mistake the
-    /// old first-card-wins telemetry walk would have led to.
+    /// Only the card games actually render on is touched: an idle iGPU pinned
+    /// high wastes power for nothing.
     ///
-    /// **Applied only where measurement on this machine found it faster.**
-    /// Every measurement taken of it so far says the opposite: on amdgpu,
-    /// `high` pins the highest *fixed* DPM state and takes the firmware's
-    /// boost out of the loop, and on a Radeon RX 9060 XT that cost 7.5 % in a
-    /// GPU-bound `SuperTuxKart` and 8.3 % in Shadow of the Tomb Raider — the
-    /// card held 2.64 GHz and 102 W where `auto` reached 3.23 GHz and 162 W.
+    /// **Applied only where measurement on this machine found it faster.** On
+    /// amdgpu, `high` pins the highest *fixed* DPM state and takes the
+    /// firmware's boost out of the loop; on a Radeon RX 9060 XT that costs
+    /// 7.5 % in a GPU-bound `SuperTuxKart` and 8.3 % in Shadow of the Tomb
+    /// Raider — the card holds 2.64 GHz and 102 W where `auto` reaches 3.23 GHz
+    /// and 162 W.
     /// One card is not every card, so it stays available to a calibration
     /// that finds it helps; it is not a default.
     fn consider_gpu_dpm(&mut self, hw: &Hardware, snap: &Snapshot, battery: bool) {
@@ -587,9 +576,8 @@ impl Plan {
 
     /// The scheduler is falcond's to own — we only explain why it is not ours.
     ///
-    /// See `docs/02-PERFORMANCE-AUTHORITY.md`: two writers contending for
-    /// `sched_ext` is exactly the class of conflict this architecture exists to
-    /// prevent, so the Booster never writes it.
+    /// Two writers contending for `sched_ext` undo each other's changes, so the
+    /// Booster never writes it.
     fn note_scheduler(&mut self, caps: &Capabilities) {
         let support = caps.sched_ext.switchable();
         if let Some(reason) = support.describe() {
@@ -779,7 +767,8 @@ mod tests {
 
     #[test]
     fn plans_nothing_on_a_machine_that_is_already_optimal() {
-        // The bench's real resting state.
+        // Nothing left to change: performance profile and governor, DPM
+        // already `high`.
         let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
         let s = snap(&[
             (Knob::PowerProfile, Some("performance")),
@@ -959,7 +948,7 @@ mod tests {
             "hardware support alone is not a reason to force GPU DPM"
         );
 
-        // The real measurement from this machine: forcing DPM high was slower.
+        // A calibration in which forcing DPM `high` measured slower.
         let mut calibration = Calibration::new("fp", "2026-09-23");
         calibration.record(
             "supertuxkart-gpu-bound",
@@ -1003,9 +992,9 @@ mod tests {
         use crate::benchmark::calibration::Calibration;
         use crate::benchmark::result::{ArmSummary, Comparison};
 
-        // The case that made this ordering matter. The machine is already at
-        // dpm=high, so the planner's first instinct is "already optimal" --
-        // which is the opposite of what was measured.
+        // Why measured harm is checked first: the machine is already at
+        // dpm=high, so "already optimal" would be the planner's answer -- the
+        // opposite of what was measured.
         let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
         let c = caps(true, true);
         let s = snap(&[(
@@ -1190,7 +1179,7 @@ mod tests {
     }
 
     #[test]
-    fn the_reference_machine_gets_an_empty_plan_with_reasons() {
+    fn an_already_tuned_amd_pstate_machine_gets_an_empty_plan_with_reasons() {
         // Ryzen 7 5700G on amd-pstate-epp, falcond and power-profiles-daemon
         // present, resting at performance/auto: every knob has an owner or a
         // reason, and nothing is written.
