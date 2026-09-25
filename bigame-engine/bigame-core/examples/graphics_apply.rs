@@ -56,6 +56,7 @@ fn main() -> anyhow::Result<()> {
         output: optiscaler::Output::Fsr,
         frame_gen: optiscaler::FrameGen::Off,
         nvidia: false,
+        dlss: false,
         watermark: args.iter().any(|a| a == "--watermark"),
     };
     let cached = optiscaler::fetch(

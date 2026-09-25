@@ -570,6 +570,13 @@ pub struct Options {
     pub frame_gen: FrameGen,
     /// Whether the GPU is NVIDIA (spoofing is never needed then).
     pub nvidia: bool,
+    /// Whether the GPU runs DLSS (an RTX card). `OptiScaler` turns its DLSS
+    /// path on for *any* NVIDIA GPU when the game ships `nvngx_dlss.dll`
+    /// (`dllmain.cpp`, v0.9.4); on a GTX the driver refuses DLSS and the game
+    /// exits at start. So on NVIDIA without DLSS it is turned off, and
+    /// `OptiScaler` takes the path it takes on AMD and Intel.
+    #[serde(default)]
+    pub dlss: bool,
     /// Show `OptiScaler`'s FSR 4 watermark, which says whether FSR 4 really
     /// runs or fell back to FSR 3 — for validation.
     pub watermark: bool,
@@ -612,6 +619,9 @@ pub fn ini_settings(o: &Options) -> Vec<(&'static str, &'static str, String)> {
     // the game down NVIDIA code paths, so it is turned off.
     let spoof = o.input == Input::Dlss && !o.nvidia;
     s.push(("Spoofing", "Dxgi", spoof.to_string()));
+    if o.nvidia && !o.dlss {
+        s.push(("DLSS", "Enabled", "false".to_owned()));
+    }
     if o.watermark && o.output == Output::Fsr {
         s.push(("FSR", "Fsr4EnableWatermark", "true".to_owned()));
     }
@@ -872,6 +882,7 @@ mod tests {
             output,
             frame_gen: FrameGen::Off,
             nvidia: false,
+            dlss: false,
             watermark: false,
         }
     }
@@ -1055,6 +1066,31 @@ mod tests {
         assert_eq!(f.errors.len(), 1);
         assert!(f.errors[0].contains("amd_fidelityfx_dx12.dll"));
         assert_eq!(read_log(""), LogFindings::default());
+    }
+
+    #[test]
+    fn optiscalers_dlss_path_is_off_on_an_nvidia_card_that_cannot_run_dlss() {
+        let dlss_off = |o: &Options| {
+            ini_settings(o)
+                .iter()
+                .any(|(s, k, v)| *s == "DLSS" && *k == "Enabled" && v == "false")
+        };
+        let base = opts(Input::Xess, Output::Fsr, Api::Dx12);
+        // The lab laptop's GTX 1050 Ti: SotTR exited at start without this.
+        let gtx = Options {
+            nvidia: true,
+            dlss: false,
+            ..base.clone()
+        };
+        assert!(dlss_off(&gtx));
+        let rtx = Options {
+            nvidia: true,
+            dlss: true,
+            ..base.clone()
+        };
+        assert!(!dlss_off(&rtx));
+        // AMD and Intel: OptiScaler turns it off itself.
+        assert!(!dlss_off(&base));
     }
 
     #[test]

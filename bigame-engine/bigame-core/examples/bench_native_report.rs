@@ -164,9 +164,12 @@ fn main() -> Result<()> {
             continue;
         }
         let mut runs = Vec::new();
+        // Run folders only: an arm may also keep files beside them (a
+        // component's log from that session).
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(arm.path())?
             .flatten()
             .map(|e| e.path())
+            .filter(|p| p.is_dir())
             .collect();
         dirs.sort();
         for run_dir in dirs {

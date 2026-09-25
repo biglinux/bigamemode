@@ -165,15 +165,27 @@ pub struct Learned {
     pub fps_change_pct: f64,
     /// 1 % low, the same way; `Inconclusive` when lows were not recorded.
     pub low: Verdict,
-    /// Measured runs in the smaller arm.
-    pub runs: usize,
+    /// Measured runs of the game's own upscaler.
+    pub native_runs: usize,
+    /// Measured runs of `OptiScaler`.
+    pub optiscaler_runs: usize,
 }
 
 impl Learned {
-    /// Faster here, and the frame-time floor no worse: worth recommending.
+    /// Faster here, and the frame-time floor shown to be no worse: worth
+    /// recommending. A floor that varied too much to compare is not "no
+    /// worse" — see [`Self::faster_floor_unknown`].
     #[must_use]
     pub fn better(&self) -> bool {
-        self.fps == Verdict::Improvement && self.low != Verdict::Regression
+        self.fps == Verdict::Improvement
+            && matches!(self.low, Verdict::Improvement | Verdict::WithinNoise)
+    }
+
+    /// Faster on average, but the 1 % low could not be compared: a gain to
+    /// report, not one to recommend on its own.
+    #[must_use]
+    pub fn faster_floor_unknown(&self) -> bool {
+        self.fps == Verdict::Improvement && self.low == Verdict::Inconclusive
     }
 
     /// Measured, and not better: slower, no faster than the noise, or a
@@ -241,7 +253,8 @@ pub fn learned(measurements: &[&Measurement], input: &str) -> Option<Learned> {
     Some(Learned {
         input: input.to_owned(),
         output: output.to_owned(),
-        runs: fps.baseline.runs.len().min(fps.candidate.runs.len()),
+        native_runs: fps.baseline.runs.len(),
+        optiscaler_runs: fps.candidate.runs.len(),
         fps: fps.verdict,
         fps_change_pct: fps.delta_pct,
         low,
@@ -311,7 +324,34 @@ mod tests {
         assert!((l.fps_change_pct - 4.9).abs() < 0.2, "{}", l.fps_change_pct);
         assert_ne!(l.low, Verdict::Regression);
         assert!(l.better() && !l.not_better());
-        assert_eq!((l.output.as_str(), l.runs), ("fsr", 3));
+        assert_eq!(
+            (l.output.as_str(), l.native_runs, l.optiscaler_runs),
+            ("fsr", 3, 3)
+        );
+    }
+
+    #[test]
+    fn a_gain_with_a_floor_too_scattered_to_compare_is_reported_not_recommended() {
+        // The lab laptop's GTX 1050 Ti session (docs/31): two launches of the
+        // game's XeSS, one of OptiScaler FSR; average clearly up, 1 % lows
+        // varying 9 % run to run.
+        let ms = [
+            m("native:xess", &[15.9, 15.7, 15.5], &[9.2, 11.0, 10.3]),
+            m("native:xess", &[16.6, 16.8], &[11.9, 10.6]),
+            m(
+                "optiscaler:xess:fsr",
+                &[18.2, 18.3, 18.3],
+                &[10.5, 10.2, 8.7],
+            ),
+        ];
+        let l = learned(&ms.iter().collect::<Vec<_>>(), "xess").unwrap();
+        assert_eq!(
+            (l.fps, l.low),
+            (Verdict::Improvement, Verdict::Inconclusive)
+        );
+        assert!(l.faster_floor_unknown());
+        assert!(!l.better() && !l.not_better());
+        assert_eq!((l.native_runs, l.optiscaler_runs), (5, 3));
     }
 
     #[test]
@@ -347,7 +387,7 @@ mod tests {
         ];
         let l = learned(&one_run.iter().collect::<Vec<_>>(), "xess").unwrap();
         assert_eq!(l.fps, Verdict::Inconclusive);
-        assert!(!l.better() && !l.not_better());
+        assert!(!l.better() && !l.not_better() && !l.faster_floor_unknown());
     }
 
     #[test]

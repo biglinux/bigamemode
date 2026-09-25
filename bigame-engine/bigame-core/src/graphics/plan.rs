@@ -352,7 +352,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     };
     let measured_note = learned.as_ref().map(|l| {
         let change = format!("{:+.1} %", l.fps_change_pct);
-        let runs = l.runs.to_string();
+        let runs = format!("{} / {}", l.native_runs, l.optiscaler_runs);
         let input = match l.input.as_str() {
             "xess" => "XeSS",
             "fsr" => "FSR",
@@ -360,17 +360,22 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         };
         if l.better() {
             Text::with(
-                N_("measured on this computer: %s average frame rate over the game's own %s, %s runs each, with the 1% low no worse"),
+                N_("measured on this computer: %s average frame rate over the game's own %s, with the 1% low no worse (runs, game's own / OptiScaler: %s)"),
+                [change, input.to_owned(), runs],
+            )
+        } else if l.faster_floor_unknown() {
+            Text::with(
+                N_("measured on this computer: OptiScaler gave %s average frame rate over the game's own %s, but the 1% low varied too much between runs to tell whether frame pacing is as good, so it is not chosen by itself — pick it under Choose yourself (runs, game's own / OptiScaler: %s)"),
                 [change, input.to_owned(), runs],
             )
         } else if l.not_better() {
             Text::with(
-                N_("measured on this computer: OptiScaler was not better than the game's own %s (%s average frame rate, %s runs each)"),
+                N_("measured on this computer: OptiScaler was not better than the game's own %s (%s average frame rate; runs, game's own / OptiScaler: %s)"),
                 [input.to_owned(), change, runs],
             )
         } else {
             Text::with(
-                N_("measured on this computer, but not enough to decide (%s runs each)"),
+                N_("measured on this computer, but not enough to decide (runs, game's own / OptiScaler: %s)"),
                 [runs],
             )
         }
@@ -381,17 +386,17 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         )));
     }
     if !optiscaler_worth_it {
-        let mut p = keep_native(Text::plain(if vendor == GpuVendor::Amd {
-            N_(
-                "FSR 4 needs an RDNA 4 GPU under Proton, so OptiScaler would bring nothing the game does not have",
-            )
-        } else {
-            N_("the game's own upscaler is the best this GPU runs")
+        // What this machine measured is the reason, when there is one; the
+        // general one ("the best this GPU runs") would contradict it.
+        return keep_native(measured_note.unwrap_or_else(|| {
+            Text::plain(if vendor == GpuVendor::Amd {
+                N_(
+                    "FSR 4 needs an RDNA 4 GPU under Proton, so OptiScaler would bring nothing the game does not have",
+                )
+            } else {
+                N_("the game's own upscaler is the best this GPU runs")
+            })
         }));
-        if let Some(t) = measured_note {
-            p.steps.push(Step::Note(t));
-        }
-        return p;
     }
     let (input, input_name, standing, input_why) = if n.xess.is_some() {
         (
@@ -472,6 +477,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         output: want_output,
         frame_gen,
         nvidia: vendor == GpuVendor::Nvidia,
+        dlss: dlss_runs,
         watermark: false,
     };
     let output_name = match want_output {
@@ -854,7 +860,8 @@ mod tests {
             resolution: None,
             optiscaler_version: Some("0.9.4".into()),
             avg_fps: fps.to_vec(),
-            low_1pct: vec![],
+            // Steady 1 % lows, the same in every arm: "no worse".
+            low_1pct: vec![30.0, 30.2, 30.1],
         }
     }
 
@@ -899,6 +906,39 @@ mod tests {
                 .iter()
                 .any(|s| s.text().english().contains("OptiScaler was not better"))
         );
+    }
+
+    #[test]
+    fn a_gain_whose_floor_could_not_be_compared_is_shown_but_not_chosen() {
+        let gtx = named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]");
+        let scattered = |setup: &str, fps: &[f64], low: &[f64]| {
+            let mut m = measured(setup, fps);
+            m.low_1pct = low.to_vec();
+            m
+        };
+        let ctx = Context {
+            measured: vec![
+                scattered("native:xess", &[15.9, 15.7, 15.5], &[9.2, 11.0, 10.3]),
+                scattered("native:xess", &[16.6, 16.8], &[11.9, 10.6]),
+                scattered(
+                    "optiscaler:xess:fsr",
+                    &[18.2, 18.3, 18.3],
+                    &[10.5, 10.2, 8.7],
+                ),
+            ],
+            ..Context::default()
+        };
+        let p = plan(&report(sottr(), gtx), &recommended(), &ctx);
+        assert_eq!(p.summary.english(), "the game's own XeSS");
+        assert!(p.files.is_empty());
+        let note = p
+            .steps
+            .iter()
+            .map(|s| s.text().english())
+            .find(|t| t.starts_with("measured on this computer"))
+            .unwrap();
+        assert!(note.contains("+13.5 %") && note.contains("5 / 3"), "{note}");
+        assert!(!note.contains("no worse"), "{note}");
     }
 
     #[test]
