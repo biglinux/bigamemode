@@ -73,6 +73,114 @@ impl Release {
     }
 }
 
+/// Every usable stable release in the GitHub API response for
+/// `repos/optiscaler/OptiScaler/releases`, newest first.
+///
+/// The asset is found by extension, not by name (its suffix changes between
+/// releases), and must be the only `.7z`. Only a release that GitHub marks
+/// as neither a draft nor a pre-release, and whose asset carries a SHA-256
+/// digest, is accepted — without a published digest there is nothing to
+/// check a download against. One that fails these checks is left out, not
+/// guessed at.
+///
+/// # Errors
+/// Returns an error if the response is not a JSON list of releases.
+pub fn parse_releases(json: &str) -> Result<Vec<Release>> {
+    let list: Vec<ApiRelease> = serde_json::from_str(json).context("GitHub releases JSON")?;
+    let mut out: Vec<Release> = list
+        .into_iter()
+        .filter_map(|r| release_from_api(r).ok())
+        .collect();
+    out.sort_by(|a, b| compare_versions(&b.version, &a.version));
+    out.dedup_by(|a, b| a.version == b.version);
+    Ok(out)
+}
+
+/// Order two release versions (`0.9.4`, `0.10.0`, `0.9.2a`) by their numeric
+/// parts, then by the rest.
+#[must_use]
+pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    fn parts(v: &str) -> Vec<(u64, String)> {
+        v.trim_start_matches('v')
+            .split(['.', '-'])
+            .map(|p| {
+                let digits: String = p.chars().take_while(char::is_ascii_digit).collect();
+                (
+                    digits.parse().unwrap_or(0),
+                    p[digits.len()..].to_ascii_lowercase(),
+                )
+            })
+            .collect()
+    }
+    parts(a).cmp(&parts(b))
+}
+
+#[derive(Deserialize)]
+struct ApiAsset {
+    name: String,
+    size: u64,
+    digest: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ApiRelease {
+    tag_name: String,
+    draft: bool,
+    prerelease: bool,
+    published_at: Option<String>,
+    assets: Vec<ApiAsset>,
+}
+
+fn release_from_api(api: ApiRelease) -> Result<Release> {
+    ensure!(
+        !api.draft && !api.prerelease,
+        "{} is not a stable release",
+        api.tag_name
+    );
+    let archives: Vec<&ApiAsset> = api
+        .assets
+        .iter()
+        .filter(|a| {
+            Path::new(&a.name)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("7z"))
+        })
+        .collect();
+    ensure!(
+        archives.len() == 1,
+        "expected one .7z asset in {}, found {}",
+        api.tag_name,
+        archives.len()
+    );
+    let a = archives[0];
+    let sha = a
+        .digest
+        .as_deref()
+        .and_then(|d| d.strip_prefix("sha256:"))
+        .filter(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+        .with_context(|| format!("{} has no SHA-256 digest to check against", a.name))?;
+    ensure!(
+        a.name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)),
+        "unexpected asset name {:?}",
+        a.name
+    );
+    Ok(Release {
+        version: api.tag_name.trim_start_matches('v').to_owned(),
+        tag: api.tag_name,
+        asset: a.name.clone(),
+        sha256: sha.to_ascii_lowercase(),
+        size: a.size,
+        published: api
+            .published_at
+            .unwrap_or_default()
+            .chars()
+            .take(10)
+            .collect(),
+    })
+}
+
 /// BiGame-mode's cache for `OptiScaler` releases, shared by every game.
 #[must_use]
 pub fn cache_dir() -> PathBuf {
@@ -120,6 +228,18 @@ pub fn cached(cache: &Path, release: &Release) -> Option<Cached> {
     (c.release.sha256 == release.sha256 && c.dir.join("OptiScaler.dll").is_file()).then_some(c)
 }
 
+/// The cached copy of version `version`, whatever release it came from —
+/// how a game's installed version is found again without the network.
+#[must_use]
+pub fn cached_version(cache: &Path, version: &str) -> Option<Cached> {
+    if version.is_empty() || version.contains(['/', '\\']) || version.starts_with('.') {
+        return None;
+    }
+    let text = std::fs::read_to_string(cache.join(version).join("release.json")).ok()?;
+    let c: Cached = serde_json::from_str(&text).ok()?;
+    (c.release.version == version && c.dir.join("OptiScaler.dll").is_file()).then_some(c)
+}
+
 /// Check an archive listing before anything is extracted.
 ///
 /// `verbose` is `bsdtar -tvf` output (for entry types), `names` is
@@ -151,7 +271,7 @@ pub fn check_listing(verbose: &str, names: &str) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
-fn run(program: &str, args: &[&std::ffi::OsStr]) -> Result<String> {
+pub(super) fn run(program: &str, args: &[&std::ffi::OsStr]) -> Result<String> {
     let out = std::process::Command::new(program)
         .args(args)
         .output()
@@ -298,6 +418,29 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
     Ok(c)
 }
 
+/// The value of `key` in `[section]` of an ini text (the first uncommented
+/// occurrence), compared case-insensitively as `OptiScaler` does.
+#[must_use]
+pub fn get_ini(text: &str, section: &str, key: &str) -> Option<String> {
+    let mut inside = false;
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(name) = t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+            inside = name.trim().eq_ignore_ascii_case(section);
+            continue;
+        }
+        if !inside || t.starts_with(';') || t.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = t.split_once('=') {
+            if k.trim().eq_ignore_ascii_case(key) {
+                return Some(v.trim().to_owned());
+            }
+        }
+    }
+    None
+}
+
 /// Set `key` in `[section]` of an ini text, keeping everything else —
 /// comments, order, the user's other settings — as it was.
 ///
@@ -418,6 +561,13 @@ pub struct Options {
     pub frame_gen: FrameGen,
     /// Whether the GPU is NVIDIA (spoofing is never needed then).
     pub nvidia: bool,
+    /// Whether the GPU runs DLSS (an RTX card). `OptiScaler` turns its DLSS
+    /// path on for *any* NVIDIA GPU when the game ships `nvngx_dlss.dll`
+    /// (`dllmain.cpp`, v0.9.4); on a GTX the driver refuses DLSS and the game
+    /// exits at start. So on NVIDIA without DLSS it is turned off, and
+    /// `OptiScaler` takes the path it takes on AMD and Intel.
+    #[serde(default)]
+    pub dlss: bool,
     /// Show `OptiScaler`'s FSR 4 watermark, which says whether FSR 4 really
     /// runs or fell back to FSR 3 — for validation.
     pub watermark: bool,
@@ -460,6 +610,9 @@ pub fn ini_settings(o: &Options) -> Vec<(&'static str, &'static str, String)> {
     // the game down NVIDIA code paths, so it is turned off.
     let spoof = o.input == Input::Dlss && !o.nvidia;
     s.push(("Spoofing", "Dxgi", spoof.to_string()));
+    if o.nvidia && !o.dlss {
+        s.push(("DLSS", "Enabled", "false".to_owned()));
+    }
     if o.watermark && o.output == Output::Fsr {
         s.push(("FSR", "Fsr4EnableWatermark", "true".to_owned()));
     }
@@ -573,6 +726,11 @@ pub struct LogFindings {
     pub upscalers: Vec<String>,
     /// The FSR 4 line: `RDNA4: true, RDNA3: false, Fsr4Update: true`.
     pub fsr4: Option<String>,
+    /// Whether AMD's FSR 4 runtime (`amdxcffx64.dll`) was loaded: `Some(true)`
+    /// for `amdxcffx64 loaded from …`, `Some(false)` for `Failed to load
+    /// amdxcffx64.dll` — after which `OptiScaler` goes on with FSR 3.1. `None`
+    /// when it did not try.
+    pub amdxcffx64: Option<bool>,
     /// Lines that say something failed.
     pub errors: Vec<String>,
 }
@@ -582,6 +740,28 @@ impl LogFindings {
     #[must_use]
     pub fn current_upscaler(&self) -> Option<&str> {
         self.upscalers.last().map(String::as_str)
+    }
+
+    /// `Some(3)` when the log proves the `fsr31` backend runs FSR 3.1;
+    /// `None` when it does not settle it. Never 4.
+    ///
+    /// FSR 4 needs `Fsr4Update: true` *and* AMD's runtime loaded
+    /// (`FSR4Upgrade.cpp`): without either, the backend is FSR 3.1 — that much
+    /// the log proves. The reverse does not hold: the runtime loaded is not
+    /// FSR 4 running (Proton's own `amdxcffx64.dll` has been reported to run
+    /// the FSR 3 model on RDNA 4), and `OptiScaler` logs the model it picks only
+    /// at debug level. Only its on-screen watermark says, so BiGame-mode
+    /// never claims FSR 4 from a log.
+    #[must_use]
+    pub fn fsr_generation(&self) -> Option<u8> {
+        if !self.current_upscaler()?.starts_with("fsr31") {
+            return None;
+        }
+        let fsr4_off = self
+            .fsr4
+            .as_deref()
+            .is_some_and(|l| l.contains("Fsr4Update: false"));
+        (fsr4_off || self.amdxcffx64 == Some(false)).then_some(3)
     }
 }
 
@@ -619,10 +799,21 @@ pub fn read_log(text: &str) -> LogFindings {
         if line.contains("Fsr4Update:") {
             f.fsr4 = line.find("RDNA4:").map(|i| line[i..].trim().to_owned());
         }
-        let failed = line.contains("can't load")
-            || line.contains("Upscaler can't created")
-            || line.contains("Failed to load")
-            || line.contains("] [E] ");
+        if line.contains("amdxcffx64 loaded") {
+            f.amdxcffx64 = Some(true);
+        }
+        // A warning, not a failure: OptiScaler goes on with FSR 3.1. Under
+        // Proton this is the usual case — the DLL comes with AMD's Windows
+        // driver.
+        let fsr4_runtime_missing = line.contains("Failed to load amdxcffx64");
+        if fsr4_runtime_missing {
+            f.amdxcffx64 = Some(false);
+        }
+        let failed = !fsr4_runtime_missing
+            && (line.contains("can't load")
+                || line.contains("Upscaler can't created")
+                || line.contains("Failed to load")
+                || line.contains("] [E] "));
         if failed {
             let msg = line
                 .splitn(3, "] ")
@@ -650,6 +841,7 @@ mod tests {
             output,
             frame_gen: FrameGen::Off,
             nvidia: false,
+            dlss: false,
             watermark: false,
         }
     }
@@ -812,6 +1004,109 @@ mod tests {
         assert_eq!(f.errors.len(), 1);
         assert!(f.errors[0].contains("amd_fidelityfx_dx12.dll"));
         assert_eq!(read_log(""), LogFindings::default());
+    }
+
+    #[test]
+    fn optiscalers_dlss_path_is_off_on_an_nvidia_card_that_cannot_run_dlss() {
+        let dlss_off = |o: &Options| {
+            ini_settings(o)
+                .iter()
+                .any(|(s, k, v)| *s == "DLSS" && *k == "Enabled" && v == "false")
+        };
+        let base = opts(Input::Xess, Output::Fsr, Api::Dx12);
+        // The lab laptop's GTX 1050 Ti: SotTR exited at start without this.
+        let gtx = Options {
+            nvidia: true,
+            dlss: false,
+            ..base.clone()
+        };
+        assert!(dlss_off(&gtx));
+        let rtx = Options {
+            nvidia: true,
+            dlss: true,
+            ..base.clone()
+        };
+        assert!(!dlss_off(&rtx));
+        // AMD and Intel: OptiScaler turns it off itself.
+        assert!(!dlss_off(&base));
+    }
+
+    #[test]
+    fn ini_values_are_read_from_their_own_section() {
+        let t = "[FrameGen]\n; Enabled=true\nEnabled=true\n[Upscalers]\nEnabled=false\n";
+        assert_eq!(get_ini(t, "framegen", "enabled").as_deref(), Some("true"));
+        assert_eq!(get_ini(t, "Upscalers", "Enabled").as_deref(), Some("false"));
+        assert_eq!(get_ini(t, "Log", "LogToFile"), None);
+        assert_eq!(
+            get_ini(
+                &set_ini(t, "FrameGen", "Enabled", "false"),
+                "FrameGen",
+                "Enabled"
+            )
+            .as_deref(),
+            Some("false")
+        );
+    }
+
+    #[test]
+    fn the_log_proves_fsr_3_1_but_never_fsr_4() {
+        // Messages as FSR4Upgrade.cpp (v0.9.4) writes them.
+        let head = "\
+[1] [I] FSR4Upgrade RDNA4: true, RDNA3: false, Fsr4Update: true
+[2] [I] NVSDK_NGX_D3D12_CreateFeature Creating new fsr31 upscaler
+";
+        let loaded =
+            format!("{head}[3] [I] UpdateFfxApiProvider amdxcffx64 loaded from game folder\n");
+        let f = read_log(&loaded);
+        // Loaded is not proof: which model runs is logged only at debug level.
+        assert_eq!(f.amdxcffx64, Some(true));
+        assert_eq!(f.fsr_generation(), None);
+        assert!(f.errors.is_empty());
+
+        // The usual case under Proton: no AMD Windows driver, so no
+        // amdxcffx64.dll. OptiScaler warns and runs FSR 3.1 — not a failure.
+        let missing = format!("{head}[3] [W] UpdateFfxApiProvider Failed to load amdxcffx64.dll\n");
+        let f = read_log(&missing);
+        assert_eq!(f.fsr_generation(), Some(3));
+        assert!(f.errors.is_empty(), "{:?}", f.errors);
+
+        // Not an RDNA 3/4 GPU: FSR 4 is off from the start.
+        let off = "[1] [I] FSR4Upgrade RDNA4: false, RDNA3: false, Fsr4Update: false\n[2] [I] f Creating new fsr31 upscaler\n";
+        assert_eq!(read_log(off).fsr_generation(), Some(3));
+
+        // FSR 4 on, but nothing said about the runtime yet: not settled.
+        assert_eq!(read_log(head).fsr_generation(), None);
+        // Not an FSR backend at all.
+        assert_eq!(
+            read_log("[1] [I] f Creating new xess upscaler\n").fsr_generation(),
+            None
+        );
+    }
+
+    #[test]
+    fn only_a_stable_release_with_one_archive_and_a_digest_is_taken_from_the_api() {
+        let one = |j: &str| {
+            parse_releases(&format!("[{j}]"))
+                .unwrap()
+                .into_iter()
+                .next()
+        };
+        let json = r#"{"tag_name":"v0.9.5","draft":false,"prerelease":false,"published_at":"2026-10-01T10:00:00Z",
+            "assets":[{"name":"Optiscaler_0.9.5-final.7z","size":100,"digest":"sha256:ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}]}"#;
+        let r = one(json).unwrap();
+        assert_eq!(
+            (r.tag.as_str(), r.version.as_str(), r.published.as_str()),
+            ("v0.9.5", "0.9.5", "2026-10-01")
+        );
+        assert_eq!(
+            r.sha256,
+            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        );
+        assert!(one(&json.replace(r#""prerelease":false"#, r#""prerelease":true"#)).is_none());
+        assert!(one(&json.replace("sha256:ABCDEF", "md5:ABCDEF")).is_none());
+        assert!(one(&json.replace(".7z", ".7z/../../x")).is_none());
+        let two = json.replace("}]}", r#"},{"name":"b.7z","size":1,"digest":null}]}"#);
+        assert!(one(&two).is_none());
     }
 
     #[test]

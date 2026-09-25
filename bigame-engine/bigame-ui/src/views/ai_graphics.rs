@@ -14,10 +14,13 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use bigame_core::graphics::config::{AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler};
+use bigame_core::graphics::config::{
+    AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler, VersionPolicy,
+};
 use bigame_core::graphics::plan::{Standing, Step};
 use bigame_core::graphics::report::Confidence;
 use bigame_core::graphics::runtime::Status;
+use bigame_core::graphics::versions::Offer;
 use bigame_core::graphics::{self, Analysis, Target};
 
 use crate::i18n::{i18n, ni18n};
@@ -27,6 +30,10 @@ struct Page {
     cfg: RefCell<AiGraphicsConfig>,
     analysis: RefCell<Option<Analysis>>,
     body: gtk4::Box,
+    /// Where the installed version and any update offer go, filled once the
+    /// offer is known (it may take a network request).
+    versions: RefCell<Option<gtk4::Box>>,
+    overlay: adw::ToastOverlay,
     apply: gtk4::Button,
     repair: gtk4::Button,
     remove: gtk4::Button,
@@ -49,9 +56,15 @@ pub fn status_text(s: &Status) -> String {
         Status::Loaded { .. } => {
             i18n("Loaded — choose the upscaler named in the steps in the game's graphics menu")
         }
-        Status::Active { upscaler, .. } => {
-            format!("{} ({})", i18n("Active"), upscaler_name(upscaler))
-        }
+        Status::Active {
+            upscaler,
+            fsr_generation,
+            ..
+        } => format!(
+            "{} ({})",
+            i18n("Active"),
+            upscaler_name(upscaler, *fsr_generation)
+        ),
         Status::NotDetected => i18n("Installed, but the game did not load it"),
         Status::Failed { errors } => format!(
             "{}: {}",
@@ -61,10 +74,17 @@ pub fn status_text(s: &Status) -> String {
     }
 }
 
-/// `OptiScaler` backend ids, as people know them. FSR 4 is never claimed
-/// from the backend alone: `fsr31` runs FSR 4 only where the GPU and the
-/// runtime allow it, which the log does not say.
-fn upscaler_name(backend: &str) -> String {
+/// `OptiScaler` backend ids, as people know them. FSR 4 is never claimed:
+/// `fsr31` is "FSR 3.1" when the log proves it (`generation`), and plain
+/// "FSR" otherwise — only `OptiScaler`'s own overlay can say FSR 4.
+fn upscaler_name(backend: &str, generation: Option<u8>) -> String {
+    match (backend, generation) {
+        ("fsr31" | "fsr31_12", Some(3)) => "FSR 3.1".to_owned(),
+        _ => upscaler_family(backend),
+    }
+}
+
+fn upscaler_family(backend: &str) -> String {
     match backend {
         "fsr31" | "fsr31_12" => i18n("FSR"),
         "fsr21" | "fsr22" | "fsr21_12" | "fsr22_12" => i18n("FSR 2"),
@@ -152,7 +172,11 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     // ── Recommendation ───────────────────────────────────────────────
     let rec = adw::PreferencesGroup::new();
     rec.set_title(&sentence(&tr(&p.summary)));
-    rec.set_description(Some(&if r.installed.is_some() {
+    rec.set_description(Some(&if r.installed.is_some() && p.optiscaler.is_none() {
+        i18n(
+            "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back.",
+        )
+    } else if r.installed.is_some() {
         i18n("What BiGame-mode installed for this game. Restore puts the game's own files back.")
     } else {
         i18n("What BiGame-mode would do. Nothing changes until you press Apply.")
@@ -167,7 +191,9 @@ fn render(page: &Rc<Page>, a: &Analysis) {
             "BiGame-mode picks the fewest components that give the best result for this game on \
              this GPU. If the game's own upscaler is already the best, nothing is installed. \
              OptiScaler is used where it adds something the game lacks — FSR 4 on RDNA 4 \
-             graphics cards. Frame generation is never switched on by itself: it raises the \
+             graphics cards — or where a benchmark on this computer measured it faster, with \
+             the 1% low no worse. Measurements stay on this computer. DLSS is offered only \
+             on NVIDIA RTX cards. Frame generation is never switched on by itself: it raises the \
              presented frame rate, not the rendered one, and adds latency. Games with \
              anti-cheat get no injection at all.",
         ),
@@ -202,6 +228,12 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     }
     page.body.append(&rec);
 
+    // ── OptiScaler version (installed games) ─────────────────────────
+    let versions = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    versions.set_visible(false);
+    page.body.append(&versions);
+    *page.versions.borrow_mut() = Some(versions);
+
     // ── Choose yourself ──────────────────────────────────────────────
     page.body.append(&advanced_group(page));
 
@@ -215,6 +247,8 @@ fn render(page: &Rc<Page>, a: &Analysis) {
 }
 
 /// "What was found": the evidence behind the plan, for whoever wants it.
+// Linear widget building, as `open`.
+#[allow(clippy::too_many_lines)]
 fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGroup {
     let found = adw::PreferencesGroup::new();
     let details = adw::ExpanderRow::builder()
@@ -246,6 +280,19 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         }
         if g.renders_game {
             let _ = write!(sub, " · {}", i18n("renders the game"));
+        } else if r.gpus.len() > 1 {
+            let _ = write!(sub, " · {}", i18n("expected to render the game"));
+        }
+        if g.vendor == bigame_core::hardware::GpuVendor::Nvidia {
+            let _ = write!(
+                sub,
+                " · {}",
+                match g.dlss() {
+                    Some(true) => i18n("runs DLSS"),
+                    Some(false) => i18n("does not run DLSS"),
+                    None => i18n("DLSS support not known"),
+                }
+            );
         }
         details.add_row(&row(&i18n("Graphics card"), &sub));
     }
@@ -317,6 +364,8 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
     found
 }
 
+// Linear widget building, as `open`.
+#[allow(clippy::too_many_lines)]
 fn advanced_group(page: &Rc<Page>) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     let exp = adw::ExpanderRow::builder()
@@ -361,6 +410,49 @@ fn advanced_group(page: &Rc<Page>) -> adw::PreferencesGroup {
         .active(cfg.experimental)
         .build();
     exp.add_row(&exp_row);
+
+    // Which OptiScaler release: the tested one, the newest stable one, or
+    // one version kept — the installed one, or the one already pinned.
+    let tested = bigame_core::graphics::optiscaler::Release::recommended().version;
+    let keep_version = match &cfg.version {
+        VersionPolicy::Pinned(v) => v.clone(),
+        _ => page
+            .analysis
+            .borrow()
+            .as_ref()
+            .and_then(|a| a.report.installed.as_ref())
+            .map_or_else(|| tested.clone(), |m| m.source.version.clone()),
+    };
+    let versions = gtk4::StringList::new(&[
+        &format!("{} ({tested})", i18n("Tested with BiGame-mode")),
+        &i18n("Latest stable"),
+        &format!("{} ({keep_version})", i18n("Keep one version")),
+    ]);
+    let version_row = adw::ComboRow::builder()
+        .title(i18n("OptiScaler version"))
+        .subtitle(i18n(
+            "Used for the next install; an installed game is updated only when you choose",
+        ))
+        .model(&versions)
+        .build();
+    version_row.set_selected(match cfg.version {
+        VersionPolicy::Recommended => 0,
+        VersionPolicy::Latest => 1,
+        VersionPolicy::Pinned(_) => 2,
+    });
+    {
+        let page = page.clone();
+        version_row.connect_selected_notify(move |r| {
+            page.cfg.borrow_mut().version = match r.selected() {
+                1 => VersionPolicy::Latest,
+                2 => VersionPolicy::Pinned(keep_version.clone()),
+                _ => VersionPolicy::Recommended,
+            };
+            save_settings(&page);
+            refresh(&page);
+        });
+    }
+    exp.add_row(&version_row);
 
     let update = {
         let page = page.clone();
@@ -419,10 +511,133 @@ fn refresh(page: &Rc<Page>) {
         let cfg = page.cfg.borrow().clone();
         let analysis = gio::spawn_blocking(move || graphics::analyze(&target, &cfg)).await;
         busy(&page, None);
-        if let Ok(a) = analysis {
-            render(&page, &a);
-            *page.analysis.borrow_mut() = Some(a);
+        let Ok(a) = analysis else {
+            return;
+        };
+        let installed = a.report.installed.is_some();
+        // Stored first: the page reads it while it is built.
+        *page.analysis.borrow_mut() = Some(a.clone());
+        render(&page, &a);
+        if installed {
+            let target = page.target.clone();
+            let cfg = page.cfg.borrow().clone();
+            if let Ok(Some(offer)) =
+                gio::spawn_blocking(move || graphics::update_offer(&target, &cfg)).await
+            {
+                render_versions(&page, &offer);
+            }
         }
+    });
+}
+
+/// The installed `OptiScaler` version, and — never applied by itself — a
+/// newer release to take or leave, or the previous version to go back to.
+fn render_versions(page: &Rc<Page>, offer: &Offer) {
+    let Some(slot) = page.versions.borrow().clone() else {
+        return;
+    };
+    while let Some(child) = slot.first_child() {
+        slot.remove(&child);
+    }
+    let group = adw::PreferencesGroup::new();
+    group.set_title("OptiScaler");
+    let pinned = matches!(page.cfg.borrow().version, VersionPolicy::Pinned(_));
+    group.add(&row(
+        &format!("{} {}", i18n("Installed version"), offer.installed),
+        &if pinned {
+            i18n("Kept at this version: newer releases are not offered")
+        } else {
+            i18n("Newer releases are offered here; nothing is updated by itself")
+        },
+    ));
+    if let Some(new) = &offer.available {
+        let r = adw::ActionRow::builder()
+            .title(format!("{} {}", i18n("Update available:"), new.version))
+            .subtitle(i18n(
+                "The current version stays one click away. Updating while a version works is your choice.",
+            ))
+            .use_markup(false)
+            .build();
+        r.set_subtitle_lines(0);
+        let buttons = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+        buttons.set_valign(gtk4::Align::Center);
+        let update = gtk4::Button::with_label(&i18n("Update"));
+        update.add_css_class("suggested-action");
+        let skip = gtk4::Button::with_label(&i18n("Skip"));
+        let keep = gtk4::Button::with_label(&i18n("Keep this version"));
+        for b in [&keep, &skip, &update] {
+            buttons.append(b);
+        }
+        r.add_suffix(&buttons);
+        group.add(&r);
+        {
+            let (page, new) = (page.clone(), new.clone());
+            update.connect_clicked(move |_| change_version(&page, Some(new.clone())));
+        }
+        {
+            let (page, v) = (page.clone(), new.version.clone());
+            skip.connect_clicked(move |_| {
+                page.cfg.borrow_mut().skipped_update = Some(v.clone());
+                save_settings(&page);
+                refresh(&page);
+            });
+        }
+        {
+            let (page, v) = (page.clone(), offer.installed.clone());
+            keep.connect_clicked(move |_| {
+                page.cfg.borrow_mut().version = VersionPolicy::Pinned(v.clone());
+                save_settings(&page);
+                refresh(&page);
+            });
+        }
+    }
+    if let Some(prev) = &offer.previous {
+        let r = row(
+            &format!("{} {}", i18n("Before the last update:"), prev),
+            &i18n("Go back if the new version does not work as well in this game"),
+        );
+        let back = gtk4::Button::with_label(&i18n("Go back"));
+        back.set_valign(gtk4::Align::Center);
+        r.add_suffix(&back);
+        group.add(&r);
+        let page = page.clone();
+        back.connect_clicked(move |_| change_version(&page, None));
+    }
+    slot.append(&group);
+    slot.set_visible(true);
+}
+
+/// Update to `to`, or go back to the previous version (`None`).
+fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler::Release>) {
+    let page = page.clone();
+    glib::spawn_future_local(async move {
+        if refuse_while_running(&page, &page.overlay) {
+            return;
+        }
+        busy(&page, Some(&i18n("Downloading, checking and installing…")));
+        let target = page.target.clone();
+        let cfg = page.cfg.borrow().clone();
+        let result = gio::spawn_blocking(move || {
+            let plan = graphics::analyze(&target, &cfg).plan;
+            match &to {
+                Some(r) => graphics::update(&target, &plan, r),
+                None => graphics::go_back(&target, &plan),
+            }
+        })
+        .await;
+        busy(&page, None);
+        let text = match result {
+            Ok(Ok(m)) => format!(
+                "{} {} — {}",
+                i18n("OptiScaler"),
+                m.source.version,
+                i18n("installed; the previous version can be restored here")
+            ),
+            Ok(Err(e)) => format!("{}: {e:#}", i18n("Not updated")),
+            Err(_) => i18n("Not updated"),
+        };
+        page.overlay.add_toast(adw::Toast::new(&text));
+        refresh(&page);
     });
 }
 
@@ -455,9 +670,14 @@ fn save_settings(page: &Page) {
 #[allow(clippy::too_many_lines)]
 pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>) {
     tracing::info!(target: "graphics", game = %target.process, "AI Graphics page opened");
-    let mut cfg = bigame_core::game_settings::load(&target.process)
-        .map(|s| s.ai_graphics)
-        .unwrap_or_default();
+    let mut cfg = match bigame_core::game_settings::load(&target.process) {
+        Ok(s) => s.ai_graphics,
+        Err(e) => {
+            tracing::warn!(target: "graphics", game = %target.process, error = %e,
+                "the game's AI Graphics settings do not read; starting from the defaults");
+            AiGraphicsConfig::default()
+        }
+    };
     if let Some(m) = mode {
         cfg.mode = m;
     }
@@ -544,6 +764,8 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
         cfg: RefCell::new(cfg),
         analysis: RefCell::new(None),
         body,
+        versions: RefCell::new(None),
+        overlay: overlay.clone(),
         apply: apply.clone(),
         repair: repair.clone(),
         remove: remove.clone(),
@@ -571,7 +793,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 let cfg = page.cfg.borrow().clone();
                 let result = gio::spawn_blocking(move || {
                     let a = graphics::analyze(&target, &cfg);
-                    graphics::install(&target, &a.plan)
+                    graphics::install(&target, &a.plan, &cfg.version)
                 })
                 .await;
                 busy(&page, None);

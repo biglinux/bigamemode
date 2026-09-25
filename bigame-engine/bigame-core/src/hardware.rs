@@ -417,18 +417,20 @@ fn detect_gpus() -> Vec<Gpu> {
         let uevent = std::fs::read_to_string(device_path.join("uevent")).unwrap_or_default();
         let pci_id = uevent_field(&uevent, "PCI_ID").unwrap_or_default();
         let driver = uevent_field(&uevent, "DRIVER").unwrap_or_default();
+        let slot = uevent_field(&uevent, "PCI_SLOT_NAME").unwrap_or_default();
         let vram_total_bytes =
             read_trim(device_path.join("mem_info_vram_total")).and_then(|s| s.parse::<u64>().ok());
         // A dedicated memory vendor string is only populated for real VRAM;
         // APUs carve their aperture out of system RAM and leave it blank.
         let has_vram_vendor = read_trim(device_path.join("mem_info_vram_vendor")).is_some();
+        let vendor = gpu_vendor_from_pci_id(&pci_id);
         gpus.push(Gpu {
-            vendor: gpu_vendor_from_pci_id(&pci_id),
+            discrete: looks_discrete(vendor, &slot, has_vram_vendor, vram_total_bytes),
+            vendor,
             pci_id,
             driver,
             hwmon: find_hwmon(&device_path),
             connected_outputs: connected_outputs_for(&name),
-            discrete: has_vram_vendor && vram_total_bytes.is_some_and(|v| v > 1 << 30),
             vram_total_bytes,
             dpm_level_path: {
                 let p = device_path.join("power_dpm_force_performance_level");
@@ -440,6 +442,37 @@ fn detect_gpus() -> Vec<Gpu> {
     }
     gpus.sort_by(|a, b| a.card.cmp(&b.card));
     gpus
+}
+
+/// Whether a GPU is a discrete card rather than an integrated one.
+///
+/// Each vendor needs its own evidence, because only `amdgpu` publishes its
+/// memory in sysfs:
+/// - NVIDIA: every NVIDIA GPU on PCI is discrete (Tegra is not on PCI). The
+///   proprietary driver exposes no VRAM attributes at all, so a VRAM test
+///   would call an NVIDIA card "integrated" and send a hybrid laptop's games to the
+///   iGPU.
+/// - AMD: dedicated VRAM with a memory vendor (APUs carve theirs out of RAM
+///   and leave the vendor blank).
+/// - Intel: integrated graphics sit on the root bus (`0000:00:02.0`); an Arc
+///   card sits behind a PCI Express bridge, on another bus.
+#[must_use]
+pub fn looks_discrete(
+    vendor: GpuVendor,
+    pci_slot: &str,
+    has_vram_vendor: bool,
+    vram: Option<u64>,
+) -> bool {
+    let big_vram = vram.is_some_and(|v| v > 1 << 30);
+    match vendor {
+        GpuVendor::Nvidia => true,
+        GpuVendor::Amd => has_vram_vendor && big_vram,
+        GpuVendor::Intel => pci_slot
+            .split(':')
+            .nth(1)
+            .is_some_and(|bus| !bus.is_empty() && bus != "00"),
+        GpuVendor::Other => big_vram,
+    }
 }
 
 /// True for `card0`, `card12`; false for `card0-DP-1`, `renderD128`, `version`.
@@ -759,6 +792,45 @@ core id\t\t: 1
             gpu("card1", true, Some(8_589_934_592), &[]),
         ];
         assert_eq!(pick_render_gpu(&gpus), Some(1));
+    }
+
+    #[test]
+    fn discrete_comes_from_each_vendors_own_evidence() {
+        // The lab laptop: i915 at 0000:00:02.0, GTX 1050 Ti Mobile on the
+        // proprietary driver at 0000:01:00.0 with no VRAM attributes.
+        assert!(looks_discrete(
+            GpuVendor::Nvidia,
+            "0000:01:00.0",
+            false,
+            None
+        ));
+        assert!(!looks_discrete(
+            GpuVendor::Intel,
+            "0000:00:02.0",
+            false,
+            None
+        ));
+        // Arc behind a PCIe bridge.
+        assert!(looks_discrete(
+            GpuVendor::Intel,
+            "0000:03:00.0",
+            false,
+            None
+        ));
+        // RX 9060 XT vs the Cezanne iGPU's 512 MiB carve-out.
+        assert!(looks_discrete(
+            GpuVendor::Amd,
+            "0000:03:00.0",
+            true,
+            Some(17_095_983_104)
+        ));
+        assert!(!looks_discrete(
+            GpuVendor::Amd,
+            "0000:07:00.0",
+            false,
+            Some(536_870_912)
+        ));
+        assert!(!looks_discrete(GpuVendor::Intel, "", false, None));
     }
 
     #[test]

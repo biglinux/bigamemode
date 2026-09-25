@@ -284,6 +284,7 @@ pub fn apply(
         entries,
         created_dirs,
         generated: fresh,
+        previous: None,
     };
     m.save(state_dir)?;
     tracing::info!(target: "graphics", game = game_key, files = files.len(), "backup created; applying");
@@ -406,6 +407,10 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
             Manifest::backup_dir(state_dir, &m.game_key).join(m.started_at.to_string()),
         );
     }
+    // The game's folder in the state, once nothing is left in it: kept
+    // copies of edited configs and backups still needed keep it.
+    let _ = std::fs::remove_dir(Manifest::backup_dir(state_dir, &m.game_key));
+    let _ = std::fs::remove_dir(state_dir.join(&m.game_key));
     tracing::info!(target: "graphics", game = %m.game_key, files = outcomes.len(), "graphics rollback completed");
     Ok(outcomes)
 }
@@ -612,6 +617,10 @@ mod tests {
         );
         assert!(out.contains(&FileOutcome::Restored("dxgi.dll".into())));
         assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
+        assert!(
+            !fx.state.join("g").exists(),
+            "nothing of the game is left in the state"
+        );
     }
 
     #[test]
@@ -638,6 +647,8 @@ mod tests {
         };
         assert_eq!(read(copy), b"a=2 (user)");
         assert!(!fx.game.join("OptiScaler.ini").exists());
+        // The kept copy keeps its folder.
+        assert!(copy.is_file());
     }
 
     #[test]

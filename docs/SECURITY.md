@@ -109,14 +109,24 @@ is refused, path-traversal payloads included, and that nothing is written.
 
 ## AI Graphics
 
-**Download.** Only when the user asks. The pinned OptiScaler release
-(`v0.9.4`, SHA-256
-`575cb4df866116093df75af607e37fd70e10f5163e0f23fd5c804142e80ef0ad`) is fetched
-from its GitHub release with `curl --disable --fail --proto =https
+**Download.** Only when the user asks. The OptiScaler release a game's
+version choice names — by default the tested one (`v0.9.4`, SHA-256
+`575cb4df866116093df75af607e37fd70e10f5163e0f23fd5c804142e80ef0ad`) — is
+fetched from its GitHub release with `curl --disable --fail --proto =https
 --proto-redir =https --max-filesize …`, a connect timeout and a stall limit.
-It is hashed before anything reads it; a mismatch deletes it. OptiScaler's own
-update check is switched off in the configuration BiGame-mode writes. This is
-the only network access AI Graphics makes.
+It is hashed before anything reads it; a mismatch deletes it. A release other
+than the tested one is accepted only if GitHub marks it stable and publishes
+a SHA-256 digest for its one archive, whose name must be plain; the installed
+release is found again by that hash, so Repair never uses another version's
+files. OptiScaler's own update check is switched off in the configuration
+BiGame-mode writes.
+
+**Release list.** To offer updates, the list of releases is read from the
+GitHub API (`curl --disable`, HTTPS only, size-capped, 20 s time limit) at
+most once a day, and only while a game's AI Graphics page is open — never at
+a game's launch. A failed request keeps the saved list. These two are the only
+network accesses AI Graphics makes; measurements recorded on this machine are
+never sent anywhere.
 
 **Extraction.** `bsdtar` lists the archive first and refuses absolute paths,
 `..`, symlinks, hard links and devices; it extracts into a temporary directory

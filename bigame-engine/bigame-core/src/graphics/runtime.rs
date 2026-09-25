@@ -48,6 +48,9 @@ pub enum Status {
         version: Option<String>,
         /// The FSR 4 decision line, when `OptiScaler` logged one.
         fsr4: Option<String>,
+        /// `Some(3)` when the log proves an FSR backend runs FSR 3.1 (it
+        /// never proves FSR 4 — see [`LogFindings::fsr_generation`]).
+        fsr_generation: Option<u8>,
     },
     /// The game has been running for a while and the DLL is not in it.
     NotDetected,
@@ -140,6 +143,7 @@ pub fn status(
                 upscaler: up.to_owned(),
                 version: f.version.clone(),
                 fsr4: f.fsr4.clone(),
+                fsr_generation: f.fsr_generation(),
             };
         }
     }
@@ -226,6 +230,7 @@ mod tests {
             }],
             created_dirs: vec![],
             generated: vec![],
+            previous: None,
         }
     }
 

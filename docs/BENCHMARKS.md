@@ -61,6 +61,11 @@ AMD Ryzen 7 5700G (8C/16T, `amd-pstate-epp`, no 3D V-Cache), Radeon RX 9060 XT
 (RDNA 4, 16 GB) plus the idle integrated GPU, Mesa 26.2.2, kernel 7.2.6,
 KDE Plasma Wayland, Proton Experimental, 3440×1440.
 
+A second machine, the **lab laptop**, measured AI Graphics on NVIDIA: Intel
+Core i7-7700HQ, Intel HD 630 plus a GeForce GTX 1050 Ti Mobile (4 GB, NVIDIA
+580.178.04) — a hybrid laptop, the game rendering on the GTX — 1920×1080,
+Proton Experimental, KDE Plasma Wayland.
+
 Results are evidence for the defaults on this machine, not claims about other
 hardware. Calibration applies only while the machine's fingerprint matches (CPU,
 GPU, driver, kernel and memory), so a kernel update makes it absent until
@@ -76,6 +81,7 @@ measured again.
 | Power profile, governor, EPP → performance | SotTR, CPU-bound (minimum render scale) | all within 1.5 %, no consistent order | no difference | `2026-09-23-sottr-cpu-bound` |
 | sched-ext `lavd`, `bpfland` vs none, through falcond | SotTR, CPU-bound | +1.1 %, +1.8 %, inside the spread | no difference | `2026-09-24-sottr-scheduler` |
 | AI Graphics: native TAA → the game's XeSS Quality → OptiScaler FSR from XeSS Quality | SotTR, 3440×1440 High | 89.8 → 94.2 fps (+4.9 %) → **98.8 fps (+10.1 %)**, spread 0.2 %; 1 % low unchanged; GPU 164 → 156 W | faster | `2026-09-24-sottr-ai-graphics` |
+| AI Graphics on the lab laptop: the game's XeSS Quality → OptiScaler FSR 3.1 from XeSS Quality (1280×720 → 1080p), order A B A, one launch per arm | SotTR, 1920×1080 High, GTX 1050 Ti | 15.9 · 15.7 · 15.5 → **18.2 · 18.3 · 18.3** → 16.6 · 16.8 fps: **+13.4 %** against both XeSS launches pooled, +9 % to +16 % against either (the XeSS arm itself drifted +6.4 % between launches); graphics clock lower with OptiScaler (1627 vs 1678–1684 MHz); 1 % and 0.1 % lows vary 8–35 % run to run | faster on average; lows inconclusive | `2026-09-24-sottr-gtx1050ti-ai-graphics` |
 
 What follows for the code:
 
@@ -87,17 +93,26 @@ What follows for the code:
   so the Booster leaves them to power-profiles-daemon and falcond.
 - No scheduler was faster, so recommended profiles use `scx_sched = none`.
 - AI Graphics is the first setting BiGame-mode applies that measurably moves the
-  frame rate. This holds for OptiScaler 0.9.4, the pinned release.
+  frame rate. This holds for OptiScaler 0.9.4, the tested release. The gain
+  is larger where the game's XeSS runs on the slower DP4a path (the GTX).
+- On the lab laptop the planner, reading that session from the local
+  measurements, reports the gain but keeps the game's own XeSS as
+  Recommended: the 1 % low could not be shown to be no worse.
+- The session also found that OptiScaler's default configuration made the
+  game exit at start on a GTX (its DLSS path on a card without DLSS); the
+  configuration BiGame-mode writes turns that path off there.
 
 ## Limits
 
 - Rendered frames only. Latency was never measured.
-- Whether FSR 4 or FSR 3 ran cannot be told from OptiScaler's log (only its
-  overlay shows it), so the UI says "FSR".
+- FSR 4 cannot be proven from OptiScaler's log (only its overlay shows which
+  model runs); FSR 3.1 can, and on NVIDIA it was.
 - A visual-quality comparison was inconclusive: captures at fixed times land on
   different frames.
-- One CPU, one GPU and a handful of titles. Hybrid and multi-CCD CPUs, 3D
-  V-Cache, NVIDIA and Intel GPUs, and Gamescope native versus nested have not
-  been measured.
+- Two machines and a handful of titles. Hybrid and multi-CCD CPUs, 3D
+  V-Cache, RTX and Intel GPUs, and Gamescope native versus nested have not
+  been measured; NVIDIA only as the GTX above, for AI Graphics.
+- At the lab laptop's ~16 fps the frame-time floor varies too much between
+  runs to compare; averages are what those runs establish.
 - Keep other load off the machine while benchmarking; a virtual machine on the
   same host caused multi-second stalls in one session.

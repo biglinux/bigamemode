@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
         "PLAN [{:?}] {}",
         analysis.plan.standing, analysis.plan.summary
     );
-    let m = graphics::install(&target, &analysis.plan)?;
+    let m = graphics::install(&target, &analysis.plan, &cfg.version)?;
     println!(
         "installed {} {} into {}",
         m.source.component, m.source.version, target.name

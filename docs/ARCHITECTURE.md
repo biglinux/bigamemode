@@ -160,7 +160,9 @@ apply → verify → report → restore**.
   - lsfg-vk selected without its `Lossless.dll` is switched off for the launch;
   - a game with OptiScaler installed launches without Wine FSR and without a
     Gamescope render size (second upscalers), and without lsfg-vk
-    (`DISABLE_LSFG=1`) when OptiScaler generates frames;
+    (`DISABLE_LSFG=1`) when OptiScaler generates frames — chosen on the page,
+    or switched on later from OptiScaler's overlay, which writes the
+    `OptiScaler.ini` in the game;
   - global settings are never changed by this; only the launch is.
 
 ## AI Graphics
@@ -169,26 +171,56 @@ apply → verify → report → restore**.
 and at launch only to answer "did BiGame-mode install something here?". No part
 of it needs root.
 
-- **Flow:** scan → report → plan → Apply (fetch the pinned OptiScaler release,
-  verify it, build the payload, apply it as a transaction) / Repair (put back
-  missing files) / Restore (remove what BiGame-mode placed and put every
-  original back). Runtime status comes from the game's mapped libraries and an
+- **Flow:** scan → report → plan → Apply (fetch the OptiScaler release the
+  game's version choice names, verify it, build the payload, apply it as a
+  transaction) / Update (to a newer release, keeping the previous one to Go
+  back to) / Repair (put back missing files of the installed release) /
+  Restore (remove what BiGame-mode placed and put every original back). Runtime status comes from the game's mapped libraries and an
   `OptiScaler.log` written since the process started.
 - **Modules:** `pe` (import tables and file versions by positioned reads),
   `scan` (upscalers and their versions, proxy-DLL owners by content,
   anti-cheat markers), `report` (each value with its confidence: fact,
   detected, likely, assumed), `rules` (the compatibility matrix as code),
-  `plan`, `optiscaler`, `manifest`, `transaction`, `runtime`, `support` (a
-  redacted report archive), `config`, `text` (translatable templates); the
-  facade is `graphics/mod.rs`, per-game choices are in `game_settings.rs`.
+  `plan`, `optiscaler`, `versions` (which release a game gets: the tested
+  one, the latest stable, or one kept), `outcomes` (benchmark results measured
+  on this machine), `gamedb` (a short list of per-game facts detection cannot
+  read, carried in the program, extended by the user's own), `manifest`,
+  `transaction`, `runtime`, `support` (a redacted report archive), `config`,
+  `text` (translatable templates); the facade is `graphics/mod.rs`, per-game
+  choices are in `game_settings.rs`.
 - **Decisions:**
   - OptiScaler goes in only as `dxgi.dll`, which Proton loads natively from
     the game folder with no `WINEDLLOVERRIDES`; another tool's `dxgi.dll`
     stops the plan instead of being overwritten.
   - Anti-cheat blocks injection in every mode, with no override; the game's
     own upscaler is still suggested as an in-game setting.
+  - The GPU a game renders on is observed, not assumed: every NVIDIA card is
+    discrete (the proprietary driver publishes no VRAM in sysfs), an Intel one
+    when it is off the root bus; a running game's GPU is the one behind its
+    open `/dev/nvidiaN`, then the secondary of several render nodes. With two
+    GPUs the plan says which one it is for until the game runs.
+  - DLSS is offered only on a card known to be RTX (from its PCI database
+    name; frame generation from Ada on); an unknown model is unknown, not
+    "yes". On an NVIDIA card without DLSS the ini sets `[DLSS] Enabled=false`:
+    OptiScaler otherwise enables its DLSS path on any NVIDIA GPU, and on a GTX
+    the game exited at start.
   - Frame generation is never automatic; OptiScaler's is Experimental.
-  - FSR 4 is never claimed from configuration; the UI says "FSR".
+  - FSR 4 is never claimed. The UI says "FSR 3.1" when OptiScaler's log proves
+    it (FSR 4 off, or AMD's runtime missing — a warning, not a failure), and
+    "FSR" otherwise: which model runs is only shown by OptiScaler's overlay.
+  - A newer OptiScaler release is offered on the game's page — Update, Skip,
+    Keep this version — and never applied by itself or at launch. An update
+    has both releases verified in the cache before the game changes, and puts
+    the previous one back if the new one fails.
+  - What this machine measured beats what is known in general, only when the
+    benchmark tests settle it: OptiScaler becomes Recommended when it was
+    measured faster *and* its 1 % low shown no worse; a gain with a floor too
+    scattered to compare is reported, not chosen. Never against native DLSS
+    on RTX.
+  - The game list can name a game's default API, prefer the game's own
+    upscaler, OptiScaler or nothing, record a tested version, or block
+    injection — never unblock a game with anti-cheat.
+  - Files BiGame-mode added are not counted as the game's own upscalers.
   - Only the Apply button changes a game's files, and not while the game runs.
   - An apply interrupted by a crash or power loss is rolled back when the
     application next starts.
@@ -213,8 +245,11 @@ directory.
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml`, `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, calibration, benchmark history, profile-migration backups |
+| `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
-| `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/<version>/` | the downloaded, verified OptiScaler release |
+| `$XDG_STATE_HOME/bigame-mode/graphics-outcomes.json` | AI Graphics benchmark results measured on this machine (local only) |
+| `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/<version>/` | the downloaded, verified OptiScaler releases |
+| `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/releases.json` | the stable releases GitHub lists with a checksum, refreshed at most daily |
 | `$XDG_CACHE_HOME/bigame-mode/benchmark/` | MangoHud captures of *Measure the difference* |
 
 ## Network, logs and the application's own cost

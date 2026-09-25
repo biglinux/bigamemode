@@ -74,6 +74,89 @@ impl GpuInfo {
     pub fn fsr4(&self) -> bool {
         self.vendor == GpuVendor::Amd && self.rdna == Some(4)
     }
+
+    /// Whether DLSS Super Resolution runs on this GPU: an NVIDIA RTX card
+    /// (tensor cores, Turing or later). `None` when the model does not say.
+    #[must_use]
+    pub fn dlss(&self) -> Option<bool> {
+        if self.vendor == GpuVendor::Nvidia {
+            nvidia_dlss(&self.name).0
+        } else {
+            Some(false)
+        }
+    }
+
+    /// Whether DLSS Frame Generation runs on this GPU (RTX 40 and later —
+    /// Ada and Blackwell). `None` when the model does not say.
+    #[must_use]
+    pub fn dlss_fg(&self) -> Option<bool> {
+        if self.vendor == GpuVendor::Nvidia {
+            nvidia_dlss(&self.name).1
+        } else {
+            Some(false)
+        }
+    }
+}
+
+/// What an NVIDIA model can run: (DLSS Super Resolution, DLSS Frame
+/// Generation), from its PCI database name — `GP107M [GeForce GTX 1050 Ti
+/// Mobile]`, `AD104 [GeForce RTX 4070]`, `TU102GL [Quadro RTX 6000/8000]`.
+///
+/// DLSS needs tensor cores: every RTX-branded card has them, no GTX, GT, MX
+/// or pre-Turing Quadro does, and the GTX 16 series (TU116/TU117) is Turing
+/// without them. Frame generation needs Ada's optical-flow hardware or later
+/// (`AD1xx`, `GB2xx`). A name that fits none of this is unknown, not "yes".
+#[must_use]
+pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
+    let chip = name
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let upper = name.to_ascii_uppercase();
+    let older_chip = ["GP", "GM", "GK", "GF", "GV"]
+        .iter()
+        .any(|p| chip.starts_with(p))
+        || chip.starts_with("TU116")
+        || chip.starts_with("TU117");
+    let non_rtx_brand = [
+        "GTX",
+        "GEFORCE GT ",
+        "GEFORCE MX",
+        "QUADRO P",
+        "QUADRO M",
+        "QUADRO K",
+        "TITAN X",
+        "TITAN V",
+    ]
+    .iter()
+    .any(|b| upper.contains(b));
+    let sr = if upper.contains("RTX") {
+        Some(true)
+    } else if older_chip || non_rtx_brand {
+        Some(false)
+    } else {
+        None
+    };
+    // A GeForce RTX 40xx/50xx or an "… Ada" workstation card, when the name
+    // carries no chip code. ("RTX 4000" alone is also a Turing Quadro.)
+    let geforce_40_50 = upper.match_indices("RTX ").any(|(i, m)| {
+        let model: String = upper[i + m.len()..]
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        model.len() == 4
+            && (model.starts_with("40") || model.starts_with("50"))
+            && upper.contains("GEFORCE")
+    });
+    let fg = match sr {
+        Some(false) => Some(false),
+        _ if chip.starts_with("AD") || chip.starts_with("GB") => Some(true),
+        _ if chip.starts_with("TU") || chip.starts_with("GA") => Some(false),
+        _ if geforce_40_50 || upper.contains(" ADA") => Some(true),
+        _ => None,
+    };
+    (sr, fg)
 }
 
 /// The upscalers and frame generators the game ships.
@@ -137,6 +220,35 @@ pub struct Report {
     pub installed: Option<Manifest>,
     /// The folder scan stopped at its limit.
     pub scan_truncated: bool,
+    /// The game's entry in the game list, if it has one.
+    pub listed: Option<super::gamedb::Entry>,
+}
+
+impl Report {
+    /// Take in the game's entry in the game list. Its API fills in only
+    /// where detection is weaker than reading the game's files: what the
+    /// running game shows, or its files say, is never replaced.
+    #[must_use]
+    pub fn with_listing(mut self, entry: Option<super::gamedb::Entry>) -> Self {
+        if let Some(e) = &entry {
+            if let Some(api) = e.api {
+                if self.api.confidence > Confidence::Detected {
+                    self.api.api = Some(api);
+                    self.api.confidence = Confidence::Detected;
+                    self.api.evidence.push(match e.origin {
+                        super::gamedb::Origin::Carried => Text::plain(N_(
+                            "BiGame-mode's game list names the API this game renders with by default",
+                        )),
+                        super::gamedb::Origin::User => Text::plain(N_(
+                            "your game list names the API this game renders with",
+                        )),
+                    });
+                }
+            }
+        }
+        self.listed = entry;
+        self
+    }
 }
 
 impl Report {
@@ -300,6 +412,21 @@ pub fn rdna_generation(name: &str) -> Option<u8> {
     }
 }
 
+/// The name the report gives the GPU games render on — the key measurements
+/// are recorded under ([`super::outcomes`]).
+#[must_use]
+pub fn render_gpu_name(hw: &Hardware) -> Option<String> {
+    render_gpu(hw).map(|g| g.name)
+}
+
+/// The GPU games render on, as the report describes it, and how many GPUs
+/// the machine has.
+#[must_use]
+pub fn render_gpu(hw: &Hardware) -> Option<GpuInfo> {
+    let (gpus, render) = gpu_infos(hw, None);
+    render.and_then(|i| gpus.into_iter().nth(i))
+}
+
 fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<usize>) {
     let db = std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default();
     let pacman = Path::new("/var/lib/pacman/local");
@@ -346,6 +473,25 @@ fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<
     (gpus, render)
 }
 
+/// `scan` without the files BiGame-mode added to the game: an `OptiScaler`
+/// install brings AMD's FSR DLLs, and a game does not "ship FSR" because
+/// BiGame-mode put them there. A file BiGame-mode *replaced* stays — the
+/// game had its own there.
+fn without_added(scan: &GameScan, installed: Option<&Manifest>) -> GameScan {
+    let mut s = scan.clone();
+    if let Some(m) = installed {
+        let added: Vec<String> = m
+            .entries
+            .iter()
+            .filter(|e| e.replaced.is_none())
+            .map(|e| e.path.to_string_lossy().to_ascii_lowercase())
+            .collect();
+        s.components
+            .retain(|c| !added.contains(&c.path.to_string_lossy().to_ascii_lowercase()));
+    }
+    s
+}
+
 /// Build the report for a scanned game.
 ///
 /// `running` is the game's identity when it is running now — which turns the
@@ -359,6 +505,7 @@ pub fn build(
     hw: &Hardware,
     installed: Option<Manifest>,
 ) -> Report {
+    let scan = &without_added(scan, installed.as_ref());
     let version = |k: ComponentKind| {
         scan.component(k)
             .map(|c| c.version.clone().unwrap_or_else(|| "present".into()))
@@ -402,6 +549,7 @@ pub fn build(
         gpus,
         render_gpu,
         installed,
+        listed: None,
         scan_truncated: scan.truncated,
     }
 }
@@ -477,5 +625,175 @@ mod tests {
         assert_eq!(pci_name(db, "10de:7590").as_deref(), Some("not this one"));
         assert_eq!(pci_name(db, "8086:1234"), None);
         assert_eq!(rdna_generation("Navi 31 [Radeon RX 7900 XTX]"), Some(3));
+    }
+
+    #[test]
+    fn dlss_needs_an_rtx_card_and_frame_generation_needs_ada_or_later() {
+        // Names exactly as /usr/share/hwdata/pci.ids has them.
+        for (name, sr, fg) in [
+            (
+                "GP107M [GeForce GTX 1050 Ti Mobile]",
+                Some(false),
+                Some(false),
+            ),
+            ("GP104 [GeForce GTX 1080]", Some(false), Some(false)),
+            ("GP108 [GeForce GT 1030]", Some(false), Some(false)),
+            ("TU117 [GeForce GTX 1650]", Some(false), Some(false)),
+            (
+                "TU117M [GeForce GTX 1650 Ti Mobile]",
+                Some(false),
+                Some(false),
+            ),
+            ("TU106 [GeForce RTX 2060 Rev. A]", Some(true), Some(false)),
+            ("TU102GL [Quadro RTX 6000/8000]", Some(true), Some(false)),
+            ("GA102 [GeForce RTX 3090]", Some(true), Some(false)),
+            (
+                "GA106M [GeForce RTX 3060 Mobile / Max-Q]",
+                Some(true),
+                Some(false),
+            ),
+            ("GA102GL [RTX A6000]", Some(true), Some(false)),
+            ("AD102 [GeForce RTX 4090]", Some(true), Some(true)),
+            ("AD104 [GeForce RTX 4070 Ti]", Some(true), Some(true)),
+            (
+                "AD104GL [RTX 4000 SFF Ada Generation]",
+                Some(true),
+                Some(true),
+            ),
+            ("GB202 [GeForce RTX 5090]", Some(true), Some(true)),
+            ("GB206 [GeForce RTX 5060 Ti]", Some(true), Some(true)),
+            // No chip code: the brand alone.
+            ("NVIDIA GeForce RTX 4070", Some(true), Some(true)),
+            ("NVIDIA GeForce RTX 2080", Some(true), None),
+            ("NVIDIA GeForce GTX 1050 Ti", Some(false), Some(false)),
+            // Nothing to go on: unknown, never "yes".
+            ("10de:9999", None, None),
+        ] {
+            assert_eq!(nvidia_dlss(name), (sr, fg), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_listed_api_fills_in_uncertainty_but_never_replaces_what_was_seen() {
+        let entry = crate::graphics::gamedb::GameDb::from_texts(None)
+            .lookup(Some("750920"), "SOTTR.exe")
+            .cloned();
+        let base = |api, confidence| Report {
+            game: "g".into(),
+            app_id: Some("750920".into()),
+            install_root: "/g".into(),
+            executable: None,
+            machine: None,
+            runtime: None,
+            api: ApiEvidence {
+                api,
+                confidence,
+                evidence: vec![],
+                translation: None,
+            },
+            native: Native::default(),
+            proxies: vec![],
+            anti_cheat: vec![],
+            gpus: vec![],
+            render_gpu: None,
+            installed: None,
+            scan_truncated: false,
+            listed: None,
+        };
+        // SotTR from its files alone is only "likely DX12".
+        let r = base(Some(Api::Dx12), Confidence::Likely).with_listing(entry.clone());
+        assert_eq!(
+            (r.api.api, r.api.confidence),
+            (Some(Api::Dx12), Confidence::Detected)
+        );
+        assert_eq!(r.api.evidence.len(), 1);
+        // Seen running with DXVK (the DX11 renderer): that stays.
+        let r = base(Some(Api::Dx11), Confidence::Fact).with_listing(entry);
+        assert_eq!(
+            (r.api.api, r.api.confidence),
+            (Some(Api::Dx11), Confidence::Fact)
+        );
+        assert!(r.listed.is_some());
+    }
+
+    #[test]
+    fn files_bigame_mode_added_are_not_the_games_own_upscalers() {
+        use crate::graphics::manifest::{Backup, Entry, FileKind, Source, State};
+        use crate::graphics::scan::Component;
+        let comp = |kind, path: &str| Component {
+            kind,
+            path: path.into(),
+            version: None,
+        };
+        let scan = GameScan {
+            components: vec![
+                comp(ComponentKind::Xess, "libxess.dll"),
+                comp(ComponentKind::Fsr, "amd_fidelityfx_dx12.dll"),
+                comp(ComponentKind::DlssSuperResolution, "nvngx_dlss.dll"),
+            ],
+            ..GameScan::default()
+        };
+        let entry = |path: &str, replaced: bool| Entry {
+            path: path.into(),
+            sha256: String::new(),
+            kind: FileKind::Binary,
+            replaced: replaced.then(|| Backup {
+                path: "/b".into(),
+                sha256: String::new(),
+                size: 0,
+            }),
+        };
+        let m = Manifest {
+            schema: 1,
+            game_key: "steam-750920".into(),
+            process: None,
+            title: None,
+            install_root: "/g".into(),
+            source: Source::default(),
+            started_at: 0,
+            state: State::Installed,
+            // FSR added by an OptiScaler install; XeSS replaced by a newer one.
+            entries: vec![
+                entry("AMD_FidelityFX_DX12.dll", false),
+                entry("libxess.dll", true),
+            ],
+            created_dirs: vec![],
+            generated: vec![],
+            previous: None,
+        };
+        let kinds = |s: &GameScan| s.components.iter().map(|c| c.kind).collect::<Vec<_>>();
+        assert_eq!(
+            kinds(&without_added(&scan, Some(&m))),
+            [ComponentKind::Xess, ComponentKind::DlssSuperResolution]
+        );
+        assert_eq!(kinds(&without_added(&scan, None)).len(), 3);
+    }
+
+    #[test]
+    fn only_nvidia_cards_run_dlss() {
+        let g = |vendor, name: &str| GpuInfo {
+            card: "card0".into(),
+            vendor,
+            name: name.into(),
+            driver: String::new(),
+            userspace: None,
+            vram: None,
+            discrete: true,
+            rdna: None,
+            renders_game: false,
+        };
+        assert_eq!(
+            g(GpuVendor::Amd, "Navi 44 [Radeon RX 9060 XT]").dlss(),
+            Some(false)
+        );
+        assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").dlss_fg(), Some(false));
+        assert_eq!(
+            g(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]").dlss(),
+            Some(false)
+        );
+        assert_eq!(
+            g(GpuVendor::Nvidia, "AD102 [GeForce RTX 4090]").dlss_fg(),
+            Some(true)
+        );
     }
 }

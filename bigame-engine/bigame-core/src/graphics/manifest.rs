@@ -112,6 +112,11 @@ pub struct Manifest {
     /// there is never listed, so never touched.
     #[serde(default)]
     pub generated: Vec<PathBuf>,
+    /// What was installed before the last update — the version "Go back"
+    /// returns to. The originals of the game's files are those in `entries`,
+    /// never a previous BiGame-mode payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous: Option<Source>,
 }
 
 /// SHA-256 of a file, as lowercase hex.
@@ -363,6 +368,7 @@ mod tests {
             }],
             created_dirs: vec![],
             generated: vec![],
+            previous: None,
         };
         m.save(dir.path()).unwrap();
         assert_eq!(
