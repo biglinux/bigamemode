@@ -594,7 +594,7 @@ fn spawn_telemetry_poller(
                 lsfg_badge.remove_css_class("warning-badge");
                 lsfg_badge.add_css_class("dim-label");
             } else if runtime.lsfg_active {
-                lsfg_badge.set_text(&i18n("Active (Generating Frames)"));
+                lsfg_badge.set_text(&i18n("On for this game"));
                 lsfg_badge.remove_css_class("dim-label");
                 lsfg_badge.remove_css_class("warning-badge");
                 lsfg_badge.add_css_class("success-badge");
@@ -983,7 +983,9 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     let vkbasalt_active = pids.iter().any(|pid| {
         process_env_has_key(*pid, "ENABLE_VKBASALT") && process_maps_contain(*pid, "libvkbasalt")
     });
-    let lsfg_active = is_lsfg_active(&pids);
+    // The implicit layer is mapped into every Vulkan process; it generates
+    // frames only for a game with an entry of its own.
+    let lsfg_active = is_lsfg_active(&pids) && bigame_core::fg::is_active_for_game(game);
 
     VideoRuntime {
         cfg,

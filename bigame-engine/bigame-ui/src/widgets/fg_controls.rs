@@ -151,7 +151,7 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
     // ── Explicit ON/OFF switch for LSFG generation ─────────────────────────
     let enabled_row = adw::SwitchRow::builder()
         .title(i18n("Enable LSFG Frame Generation"))
-        .subtitle(i18n("When disabled, multiplier is forced to 1x"))
+        .subtitle(i18n("When off, lsfg-vk has no entry for this game"))
         .active(init_enabled)
         .sensitive(is_sensitive)
         .build();

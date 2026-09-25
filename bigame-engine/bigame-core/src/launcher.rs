@@ -256,14 +256,9 @@ impl LaunchPlan {
             && effective.frame_gen.backend == FrameGenBackend::LsfgVk
             && !crate::fg::is_lossless_dll_ready()
         {
+            // lsfg-vk without its DLL loads and generates nothing; the
+            // entries stay as the user set them for when the DLL is back.
             effective.frame_gen.enabled = false;
-            if let Err(e) = crate::fg::disable_all_profiles() {
-                tracing::warn!(
-                    game = executable,
-                    error = %e,
-                    "harmony policy: failed to disable lsfg profiles after missing Lossless.dll"
-                );
-            }
             tracing::warn!(
                 game = executable,
                 "harmony policy: LSFG-VK disabled because Lossless.dll path is missing/invalid"
