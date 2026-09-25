@@ -115,11 +115,12 @@ jogos continuam lá até **Restaurar os gráficos do jogo** (os backups ficam em
 | `curl`, `libarchive` | baixar e extrair o OptiScaler |
 | `hwdata`, `pciutils` | identificar a placa de vídeo |
 | `iputils`, `iproute2` | latência e fila de rede |
+| `lsfg-vk` | geração de quadros (Lossless Scaling) por jogo; só gera quadros com o seu próprio `Lossless.dll`, que nunca vem no pacote |
 
 Opcionais: `scx-tools` e `scx-scheds`, `gamescope`, `mangohud` (também captura
-os frametimes das medições), `lsfg-vk` (com o seu `Lossless.dll` do Lossless
-Scaling), `vkbasalt`, `steam`, `lutris`, `heroic-games-launcher`,
-`nvidia-utils` (telemetria em placas NVIDIA) e `supertuxkart`.
+os frametimes das medições), `vkbasalt`, `steam`, `lutris`,
+`heroic-games-launcher`, `nvidia-utils` (telemetria em placas NVIDIA, pela
+biblioteca NVML) e `supertuxkart`.
 
 O pacote instala `bigame-ui` (o aplicativo, como usuário comum), `bigame-daemon`
 (o helper root) com sua unit do systemd, arquivos de D-Bus e política do

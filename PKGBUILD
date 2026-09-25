@@ -43,6 +43,12 @@ depends=(
     # discipline in Diagnostics (tc).
     'iputils'
     'iproute2'
+
+    # Frame generation: the lsfg-vk Vulkan layer, whose per-game entries the
+    # Profiles page writes (lsfg-vk 1.x's format). It generates frames only
+    # with the user's own Lossless.dll from Lossless Scaling, which is never
+    # shipped or downloaded; without it the layer loads and does nothing.
+    'lsfg-vk'
 )
 makedepends=(
     'git'
@@ -55,12 +61,11 @@ optdepends=(
     'scx-scheds: sched-ext CPU schedulers (LAVD, bpfland, ...)'
     'gamescope: per-game micro-compositor, resolution and FSR upscaling'
     'mangohud: in-game performance overlay'
-    'lsfg-vk: Lossless Scaling frame generation on Vulkan (needs your own Lossless.dll)'
     'vkbasalt: Vulkan post-processing layer'
     'steam: Steam games, detection and launch options'
     'lutris: Lutris games'
     'heroic-games-launcher: Epic, GOG and Amazon games'
-    'nvidia-utils: GPU telemetry on NVIDIA cards (nvidia-smi)'
+    'nvidia-utils: GPU telemetry on NVIDIA cards (its NVML library)'
     'supertuxkart: native Linux benchmark'
 )
 install="${pkgname}.install"
