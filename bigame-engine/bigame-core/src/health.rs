@@ -347,7 +347,7 @@ pub fn collect() -> Vec<Check> {
         Support::Available => check(
             "sched-ext",
             Status::Ok,
-            format!("{} schedulers, scx_loader running", caps.sched_ext.installed.len()),
+            format!("{} schedulers, scx_loader available", caps.sched_ext.installed.len()),
             None,
         ),
         Support::Unsupported(why) => check("sched-ext", Status::NotApplicable, why, None),

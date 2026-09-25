@@ -372,9 +372,8 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
 
 /// Serialize a game profile to `otter_conf` format (bare identifiers for enums).
 ///
-/// Only emits fields that falcond's `UserProfileConfig` / `ProfileConfig` understand.
-/// Extra UI-only fields (`enabled`, `scx_custom_flags`, `fg_*`, `gamescope`) are
-/// appended with quotes so `otter_conf` skips them (unknown fields are ignored).
+/// Emits falcond's fields, then BiGame-mode's own (`fg_*`, `gamescope_mode`),
+/// which `otter_conf` skips as unknown keys.
 fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let mut out = String::new();
     // name: always a quoted string
@@ -397,12 +396,10 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
             let _ = writeln!(out, "stop_script = \"{s}\"");
         }
     }
-    if !profile.cpu_governor.is_empty() {
-        let _ = writeln!(out, "cpu_governor = \"{}\"", profile.cpu_governor);
-    }
-    // UI-only fields (otter_conf ignores unknown keys via skipValue)
-    let _ = writeln!(out, "scx_custom_flags = \"{}\"", profile.scx_custom_flags);
-    let _ = writeln!(out, "enabled = {}", profile.enabled);
+    // BiGame-mode's own per-game settings (otter_conf skips unknown keys).
+    // `cpu_governor`, `scx_custom_flags` and `enabled` are not written: nothing
+    // applies them, and their presence is how migration recognises a file an
+    // older version wrote.
     let _ = writeln!(out, "fg_multiplier = {}", profile.fg_multiplier);
     let _ = writeln!(out, "fg_flow_scale = {}", profile.fg_flow_scale);
     let _ = writeln!(out, "fg_perf_mode = {}", profile.fg_perf_mode);

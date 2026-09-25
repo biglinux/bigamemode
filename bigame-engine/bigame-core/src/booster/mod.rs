@@ -188,6 +188,26 @@ impl BoosterEngine {
         progress(Progress::DetectingHardware);
         progress(Progress::DetectingCapabilities);
 
+        // A journal from this boot means changes are still in force (a Turbo
+        // off that failed half-way, falcond stopped from outside, a UI killed
+        // between the two). A snapshot now would record the boosted values as
+        // the baseline and overwrite the real one, so those changes are put
+        // back first; if they cannot be, nothing is overwritten.
+        if Journal::load()
+            .ok()
+            .flatten()
+            .is_some_and(|j| j.is_current_boot())
+        {
+            tracing::info!(target: "booster", "a previous activation is still in force; restoring it first");
+            let outcomes = Self::deactivate().await?;
+            if !outcomes.iter().all(|o| o.status.is_ok()) {
+                anyhow::bail!(
+                    "changes from a previous activation could not be restored; \
+                     not replacing their record"
+                );
+            }
+        }
+
         progress(Progress::CapturingBaseline);
         let snapshot = Snapshot::capture(&self.relevant_knobs());
 
@@ -223,6 +243,20 @@ impl BoosterEngine {
                 total,
             });
 
+            // Recorded before the write: a write that fails half-way (the
+            // governor set on some CPUs and not others), one the system does
+            // not reflect, or a crash before the next save still leaves the
+            // knob to be put back. Restoring a knob that did not change is a
+            // no-op, since restore skips values already at their baseline.
+            record.mark_applied(change.knob.id());
+            if let Err(e) = record.save() {
+                tracing::warn!(target: "booster", error = %e, "could not record {} before writing it; skipping it", change.knob.id());
+                report
+                    .applied
+                    .push(report::failed(change, format!("not recorded: {e:#}")));
+                continue;
+            }
+
             let applied = match change.knob.write(&change.to).await {
                 Ok(()) => {
                     progress(Progress::Verifying {
@@ -230,18 +264,6 @@ impl BoosterEngine {
                     });
                     let verification = change.knob.verify(&change.to);
                     if verification.is_confirmed() {
-                        record.mark_applied(change.knob.id());
-                        // Best-effort: a journal write failing mid-run must not
-                        // abort a run that is otherwise succeeding, but it is
-                        // worth knowing about.
-                        if let Err(e) = record.save() {
-                            tracing::warn!(
-                                target: "booster",
-                                error = %e,
-                                "could not update journal after applying {}",
-                                change.knob.id()
-                            );
-                        }
                         tracing::info!(
                             target: "booster",
                             knob = %change.knob.id(),

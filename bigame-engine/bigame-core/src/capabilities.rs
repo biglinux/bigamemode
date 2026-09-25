@@ -175,7 +175,8 @@ pub struct SchedExtCaps {
     pub scxctl: bool,
     /// `scx_loader` is installed (Arch: the `scx-tools` package).
     pub loader_installed: bool,
-    /// The `org.scx.Loader` D-Bus service is reachable.
+    /// The `org.scx.Loader` D-Bus service is running, or the bus starts it
+    /// on first use (its activation file is installed).
     ///
     /// Without it neither falcond nor this project can switch schedulers, no
     /// matter how many `scx_*` binaries are installed.
@@ -324,7 +325,11 @@ fn detect_sched_ext() -> SchedExtCaps {
         installed,
         scxctl: which("scxctl").is_some(),
         loader_installed: which("scx_loader").is_some(),
-        loader_service: crate::dbus::system_service_running("org.scx.Loader"),
+        // scx_loader is D-Bus activated: before its first use it is not
+        // running, yet falcond's first call starts it. Reporting it "not
+        // running" then sent people to `systemctl enable --now` for nothing.
+        loader_service: crate::dbus::system_service_running("org.scx.Loader")
+            || crate::dbus::system_service_activatable("org.scx.Loader"),
     }
 }
 

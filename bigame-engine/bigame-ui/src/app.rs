@@ -97,6 +97,14 @@ pub fn run() -> adw::glib::ExitCode {
             }
         });
 
+        // Booster changes still in force while Turbo is off (falcond stopped
+        // from outside, or the application killed mid-way) are put back.
+        std::thread::spawn(|| match bigame_core::turbo::reconcile_blocking() {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(target: "turbo", restored = n, "left-over Booster changes restored"),
+            Err(e) => tracing::warn!(target: "turbo", error = %e, "could not check for left-over Booster changes"),
+        });
+
         let quit = adw::gio::ActionEntry::builder("quit")
             .activate(|app: &adw::Application, _, _| app.quit())
             .build();
