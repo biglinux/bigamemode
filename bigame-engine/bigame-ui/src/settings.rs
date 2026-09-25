@@ -18,8 +18,11 @@ pub struct Settings {
     pub window_height: i32,
     pub maximized: bool,
     pub last_tab: String,
-    /// Force dark mode (true = dark, false = system default).
-    pub dark_mode: bool,
+    /// The colour scheme the user chose from the menu (`"dark"` or
+    /// `"light"`); absent, the desktop's is followed. (An older `dark_mode`
+    /// key is ignored: it was never read or written.)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color_scheme: Option<String>,
     /// Enable desktop notifications on game launch/exit.
     pub notifications_enabled: bool,
     /// Ping target for network latency telemetry.
@@ -37,7 +40,7 @@ impl Default for Settings {
             // Home is where a first start lands: Turbo is the one thing a
             // beginner needs (views/home.rs).
             last_tab: String::from("home"),
-            dark_mode: false,
+            color_scheme: None,
             notifications_enabled: true,
             ping_target: String::from("1.1.1.1"),
             offer_profiles: true,

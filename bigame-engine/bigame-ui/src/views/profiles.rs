@@ -910,16 +910,9 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         });
         detail_header.pack_end(&export_btn);
 
-        // Activate profile button — marks profile as selected in UI context.
-        let activate_btn = gtk4::Button::builder()
-            .icon_name("media-playback-start-symbolic")
-            .tooltip_text(i18n("Activate Profile"))
-            .build();
-        activate_btn.connect_clicked(move |btn| {
-            let btn_ref = btn.clone();
-            toast::show(&btn_ref, &i18n("Profile activated"));
-        });
-        detail_header.pack_end(&activate_btn);
+        // No "activate" button: falcond applies a game's profile by itself
+        // when the game's process starts, and one that did nothing but show
+        // "Profile activated" claimed an action that never happened.
 
         let delete_btn = gtk4::Button::builder()
             .icon_name("user-trash-symbolic")

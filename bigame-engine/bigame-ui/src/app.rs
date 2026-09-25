@@ -42,9 +42,6 @@ pub fn drain_tray_actions() {
                     }
                 }
                 tray::TrayAction::Quit => app.quit(),
-                tray::TrayAction::SwitchProfile(name) => {
-                    tracing::info!("Tray: switching to profile '{name}'");
-                }
             }
         }
     });

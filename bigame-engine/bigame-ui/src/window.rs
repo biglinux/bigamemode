@@ -301,7 +301,14 @@ pub fn build(
     }
 
     // ── Theme toggle (win.toggle-dark) ────────────────────────────────
+    // A scheme the user chose is kept across restarts; until they choose one
+    // the desktop's is followed.
     let style_mgr = adw::StyleManager::default();
+    match crate::settings::load().color_scheme.as_deref() {
+        Some("dark") => style_mgr.set_color_scheme(adw::ColorScheme::ForceDark),
+        Some("light") => style_mgr.set_color_scheme(adw::ColorScheme::ForceLight),
+        _ => {}
+    }
     let is_dark = style_mgr.is_dark();
     let theme_action = gio::SimpleAction::new_stateful("toggle-dark", None, &is_dark.to_variant());
     theme_action.connect_activate(|action, _| {
@@ -317,6 +324,9 @@ pub fn build(
         };
         mgr.set_color_scheme(scheme);
         action.set_state(&(!dark).to_variant());
+        let mut s = crate::settings::load();
+        s.color_scheme = Some(if dark { "light" } else { "dark" }.to_owned());
+        crate::settings::save(&s);
     });
     window.add_action(&theme_action);
 

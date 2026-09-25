@@ -353,9 +353,10 @@ fn show_review(app: &adw::Application, process: &str) {
         ))
         .extra_child(&body)
         .build();
+    // "Not now" leaves the game on falcond's general Proton profile, which is
+    // what a separate "Use general optimization" choice also did.
     dialog.add_responses(&[
         ("later", &i18n("Not now")),
-        ("general", &i18n("Use general optimization")),
         ("create", &i18n("Create profile")),
     ]);
     dialog.set_response_appearance("create", adw::ResponseAppearance::Suggested);

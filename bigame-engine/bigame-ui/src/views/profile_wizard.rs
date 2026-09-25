@@ -179,7 +179,7 @@ fn open_internal(
 
     // Step 4 — VCache Mode (AMD)
     let vcache_available = bigame_core::vcache::is_available();
-    let (vcache_group, vcache_off, _vcache_cache) = build_radio_group(&[
+    let (vcache_group, vcache_off, vcache_cache) = build_radio_group(&[
         (
             "",
             &i18n("Off (default)"),
@@ -451,7 +451,7 @@ fn open_internal(
                     3 => {
                         p.vcache_mode = if vcache_off.is_active() {
                             "none".into()
-                        } else if vcache_cache_active(&vcache_off) {
+                        } else if vcache_cache.is_active() {
                             "cache".into()
                         } else {
                             "freq".into()
@@ -721,20 +721,6 @@ fn build_radio_group(
     let first = first_check.unwrap_or_default();
     let second = second_check.unwrap_or_default();
     (group, first, second)
-}
-
-// ── Helper: VCache card detection ─────────────────────────────────────────
-
-/// Get the active state of the second radio button in the `VCache` group.
-fn vcache_cache_active(first: &gtk4::CheckButton) -> bool {
-    let mut child = first.next_sibling();
-    while let Some(w) = child {
-        if let Some(btn) = w.downcast_ref::<gtk4::CheckButton>() {
-            return btn.is_active();
-        }
-        child = w.next_sibling();
-    }
-    false
 }
 
 // ── Helper: Populate summary step ────────────────────────────────────────

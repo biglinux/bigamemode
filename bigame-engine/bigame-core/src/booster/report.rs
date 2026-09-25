@@ -69,6 +69,12 @@ pub enum Outcome {
         /// Metric name.
         metric: String,
     },
+    /// A measurement ran but the runs varied too much, or were too few, to
+    /// tell a difference from noise either way.
+    Inconclusive {
+        /// Metric name.
+        metric: String,
+    },
     /// A measurement ran and the metric got worse.
     Regressed {
         /// Metric name.
@@ -97,6 +103,9 @@ impl Outcome {
                 format!("{metric}: {before:.1} {unit} → {after:.1} {unit}")
             }
             Self::NoChange { metric } => format!("{metric}: no measurable change"),
+            Self::Inconclusive { metric } => {
+                format!("{metric}: the runs varied too much to tell")
+            }
             Self::Regressed {
                 metric,
                 before,
