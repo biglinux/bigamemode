@@ -73,6 +73,14 @@ impl Text {
     }
 }
 
+/// A sentence with no values; the literal must still be marked with [`N_`]
+/// where it is written, or the catalogue will not have it.
+impl From<&'static str> for Text {
+    fn from(template: &'static str) -> Self {
+        Self::plain(template)
+    }
+}
+
 impl std::fmt::Display for Text {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.english())

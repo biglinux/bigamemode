@@ -149,6 +149,25 @@ pub fn system_service_running(name: &str) -> bool {
     .unwrap_or(false)
 }
 
+/// Whether the system bus can start service `name` on demand (a D-Bus
+/// activation file names it). Asking does not start it.
+#[must_use]
+pub fn system_service_activatable(name: &str) -> bool {
+    let name = name.to_owned();
+    blocking_dbus(move || {
+        let Some(conn) = system_conn() else {
+            return false;
+        };
+        let Ok(proxy) = zbus::blocking::fdo::DBusProxy::new(conn) else {
+            return false;
+        };
+        proxy
+            .list_activatable_names()
+            .is_ok_and(|names| names.iter().any(|n| n.as_str() == name))
+    })
+    .unwrap_or(false)
+}
+
 // ── Falcond status D-Bus service ────────────────────────────────────────────
 
 /// D-Bus service that broadcasts `falcond` status changes on the session bus.

@@ -4,11 +4,11 @@ fn main() {
         println!(
             "{:<14} {:<24} {}",
             format!("{:?}", c.status),
-            c.title,
-            c.detail
+            c.title.english(),
+            c.detail.english()
         );
         if let Some(fix) = c.fix {
-            println!("{:<39}→ {}", "", fix.text());
+            println!("{:<39}→ {}", "", fix.english());
         }
     }
 }

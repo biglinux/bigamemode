@@ -42,9 +42,6 @@ pub fn drain_tray_actions() {
                     }
                 }
                 tray::TrayAction::Quit => app.quit(),
-                tray::TrayAction::SwitchProfile(name) => {
-                    tracing::info!("Tray: switching to profile '{name}'");
-                }
             }
         }
     });
@@ -95,6 +92,14 @@ pub fn run() -> adw::glib::ExitCode {
                 }
                 Err(e) => tracing::warn!(target: "graphics", error = %e, "could not check for interrupted applies"),
             }
+        });
+
+        // Booster changes still in force while Turbo is off (falcond stopped
+        // from outside, or the application killed mid-way) are put back.
+        std::thread::spawn(|| match bigame_core::turbo::reconcile_blocking() {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(target: "turbo", restored = n, "left-over Booster changes restored"),
+            Err(e) => tracing::warn!(target: "turbo", error = %e, "could not check for left-over Booster changes"),
         });
 
         let quit = adw::gio::ActionEntry::builder("quit")
@@ -233,24 +238,12 @@ fn detect_missing_runtime_packages() -> Vec<String> {
     if cfg.upscaling.gamescope_enabled && bigame_core::capabilities::which("gamescope").is_none() {
         missing.push("gamescope".to_string());
     }
-    // vkbasalt is a Vulkan implicit layer (no CLI binary). Detect via layer manifest or libvkbasalt.so.
-    if cfg.upscaling.vkbasalt_enabled && !vkbasalt_installed() {
+    // vkBasalt is a Vulkan implicit layer (no CLI binary).
+    if cfg.upscaling.vkbasalt_enabled && !bigame_core::capabilities::vkbasalt_installed() {
         missing.push("vkbasalt".to_string());
     }
 
     missing
-}
-
-#[must_use]
-fn vkbasalt_installed() -> bool {
-    const LAYER_PATHS: &[&str] = &[
-        "/usr/share/vulkan/implicit_layer.d/vkBasalt.json",
-        "/usr/share/vulkan/implicit_layer.d/vkBasalt.x86_64.json",
-        "/usr/share/vulkan/implicit_layer.d/vkBasalt.i686.json",
-        "/usr/lib/libvkbasalt.so",
-        "/usr/lib32/libvkbasalt.so",
-    ];
-    LAYER_PATHS.iter().any(|p| std::path::Path::new(p).exists())
 }
 
 #[must_use]

@@ -82,6 +82,16 @@ measured again.
 | sched-ext `lavd`, `bpfland` vs none, through falcond | SotTR, CPU-bound | +1.1 %, +1.8 %, inside the spread | no difference | `2026-09-24-sottr-scheduler` |
 | AI Graphics: native TAA → the game's XeSS Quality → OptiScaler FSR from XeSS Quality | SotTR, 3440×1440 High | 89.8 → 94.2 fps (+4.9 %) → **98.8 fps (+10.1 %)**, spread 0.2 %; 1 % low unchanged; GPU 164 → 156 W | faster | `2026-09-24-sottr-ai-graphics` |
 | AI Graphics on the lab laptop: the game's XeSS Quality → OptiScaler FSR 3.1 from XeSS Quality (1280×720 → 1080p), order A B A, one launch per arm | SotTR, 1920×1080 High, GTX 1050 Ti | 15.9 · 15.7 · 15.5 → **18.2 · 18.3 · 18.3** → 16.6 · 16.8 fps: **+13.4 %** against both XeSS launches pooled, +9 % to +16 % against either (the XeSS arm itself drifted +6.4 % between launches); graphics clock lower with OptiScaler (1627 vs 1678–1684 MHz); 1 % and 0.1 % lows vary 8–35 % run to run | faster on average; lows inconclusive | `2026-09-24-sottr-gtx1050ti-ai-graphics` |
+| Lab laptop, the game at its lowest preset, 1920×1080, DX12, XeSS Performance (960×540 → 1080p), one 110 s benchmark window per arm | SotTR, GTX 1050 Ti | **36.2 fps**, 1 % low 13.0; GPU 99–100 % busy, at its power limit 37 % of the time (1442–1721 MHz), CPU package 83–91 °C | the reference for the rows below | `2026-09-25-sottr-gtx1050ti-settings`, arm A |
+| the same in DX11 (DXVK) | same | 33.9 fps, 1 % low 7.7, 464 stutters: CPU 91–98 %, GPU 30–60 % — the DXVK path is CPU-bound on this throttling i7-7700HQ; scene 2 ran at 19–21 fps | slower, and worse paced | arm B |
+| DX12, XeSS off, the game's resolution modifier at 60 % (1152×648, TAA) | same | 40 fps (the game's own average; GPU-limited 97 %) — more pixels than XeSS Performance, yet faster: XeSS's own cost on this GPU exceeds what its lower render resolution saves | faster than XeSS | arm C |
+| as C with async compute and high-precision render targets off (registry) | same | 33 fps, the game's CPU thread 47 fps average against 65: async compute is worth keeping on Pascal under VKD3D-Proton | slower | arm D |
+| DX12, XeSS Performance → OptiScaler 0.9.4 FSR 3.1 with OptiFG frame generation, installed by AI Graphics (Choose yourself, experimental) | same | **60.7 fps presented** (MangoHud, 6652 frames in 110 s), 1 % low 18.7; the game's menu went from 41 to 71 fps | presented frames, not rendered ones, and more latency; **unstable on this GTX**: NVIDIA Xid 69 in this arm and Xid 31 in the next play session, which ended the game — removed from the game | arm E |
+| as E without frame generation (OptiScaler FSR 3.1 from XeSS Performance) | same | 40.6 fps rendered, 1 % low 13.7: **+12 %** over the game's XeSS (arm A), the same gain as the day before at High | faster | arm F |
+| as E with the game's XeSS at Quality (1280×720 → 1080p) | same | 51.8 fps presented, 1 % low 24.1, p99 30.7 ms, 18 stutters against E's 131 — smoother, below 60 | the better-paced choice | arm G |
+| lsfg-vk 1.0.0 x2 (the user's Lossless.dll) on top of F, entry written by BiGame-mode, A B A B | same | rendered (the game's count) 38 / 39 → **27 / 27**; presented (MangoHud) 41.3 / 42.3 → **57.9 / 57.0**; frames over twice the median 70 / 132 → 1329 / 908 | more frames shown, −30 % rendered, worse pacing | `2026-09-25-sottr-gtx1050ti-lsfg` |
+| Turbo off versus on (falcond per-game profile: power profile and governor performance, idle inhibit), on top of F, A B A B | same | rendered 40 / 36 vs 39 / 37; presented 43.0 / 39.2 vs 42.8 / 41.4; CPU package 87–88 vs 88–89 °C | no difference: GPU-bound at the GTX's power limit | `2026-09-25-sottr-gtx1050ti-turbo` |
+| sched-ext `lavd`, `bpfland` vs none, set in the game's falcond profile (falcond loads it at game start, unloads it after; checked in `/sys/kernel/sched_ext`), A B C C B A + A B C | SotTR, lab laptop, same settings | rendered frames 5863 ± 175 / 6097 ± 196 / 6136 ± 215 (+4.0 %, +4.7 %); Welch's t 1.5 and 1.7, under the 95 % critical value; every arm drifted up through the evening | no difference | `2026-09-25-sottr-gtx1050ti-scheduler` |
 
 What follows for the code:
 
@@ -101,6 +111,24 @@ What follows for the code:
 - The session also found that OptiScaler's default configuration made the
   game exit at start on a GTX (its DLSS path on a card without DLSS); the
   configuration BiGame-mode writes turns that path off there.
+- At the lab laptop's lowest preset the GPU, not the settings, is the limit:
+  36–40 fps rendered whatever the resolution, and DX11 only moves the limit to
+  the CPU. Nothing an upscaler does reaches 60 there, so the plan says so when
+  every measurement of a game is far below 60, and names frame generation as
+  the one thing that presents more frames than are rendered. lsfg-vk x2
+  presented 57–58 from 27 rendered, stable; OptiScaler's frame generation
+  presented 60.7 (arm E) but raised NVIDIA Xid errors on the GTX. It stays
+  the user's choice.
+- Turbo (falcond's per-game profile) was applied and verified — power
+  profile and governor performance in the game, restored after — and made
+  no measurable difference in this GPU-bound game.
+- On that laptop the CPU hit its temperature limit all day: on cpu0, core
+  throttling events went from 373 to 14 219 and the package spent 289 s
+  slowed. Diagnostics now reports the kernel's throttle
+  counters: a CPU capped by its cooling is not helped by a performance
+  governor, and the check says so.
+- The game's `XESS` registry value 1 is *Performance* in its menu and 3 is
+  *Quality*; the outcomes above record the upscaler, not its preset.
 
 ## Limits
 

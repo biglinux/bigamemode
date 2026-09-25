@@ -92,15 +92,18 @@ not use:
 
 `tests/daemon-authorization.sh` starts the real helper on a private bus as an
 ordinary user with no Polkit reachable, and checks that every privileged method
-is refused, path-traversal payloads included, and that nothing is written.
+is refused and that nothing is written. Because authorization comes first, its
+path-traversal payloads are refused there and never reach argument validation;
+that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
 
 ## Other inputs
 
 - falcond's status is read only when it is a root-owned regular file (a
   symlink planted in `/tmp` is not followed), and at most 64 KiB of it.
 - No command passes through a shell. External programs (`curl`, `bsdtar`,
-  `journalctl`, `ping`, `tc`, `lspci`, `nvidia-smi`, `gamescope`) are run with
-  argument vectors.
+  `journalctl`, `ping`, `tc`, `lspci`, `gamescope`) are run with argument
+  vectors. NVIDIA GPU readings come from the driver's NVML library, loaded in
+  the unprivileged UI process; no NVIDIA program is run.
 - A game's launch command comes from the launcher's own data: Steam's app id,
   or a native executable or script (a Windows `.exe` is never executed
   directly). A program name is never guessed and resolved through `PATH`.
@@ -194,5 +197,8 @@ the release's license files stay with it.
   power-profiles-daemon.
 - A user who passes the administrator prompt can write falcond profiles and
   its configuration, but cannot make falcond run code (script hooks are
-  refused) and cannot write outside falcond's directories, the listed sysfs
-  attributes and `/var/lib/bigame-mode`.
+  refused). The helper's code writes only falcond's directories, the listed
+  sysfs attributes and `/var/lib/bigame-mode`. Its sandbox is narrower than
+  root but does not enforce that list: `ProtectSystem=strict` leaves `/sys`
+  writable, so code execution inside the helper could still write other sysfs
+  attributes.

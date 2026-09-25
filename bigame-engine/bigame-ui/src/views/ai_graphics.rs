@@ -113,11 +113,7 @@ fn confidence_text(c: Confidence) -> String {
     }
 }
 
-/// A sentence from bigame-core, translated: the template through gettext,
-/// then its values filled in.
-fn tr(t: &bigame_core::graphics::text::Text) -> String {
-    bigame_core::graphics::text::Text::fill(&i18n(t.template), &t.args)
-}
+use crate::i18n::tr;
 
 /// Start a sentence with a capital: core writes steps as clauses ("choose
 /// `XeSS` in the game's menu"), and a row title reads as a sentence.

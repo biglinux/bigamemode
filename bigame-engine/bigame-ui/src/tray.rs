@@ -67,7 +67,6 @@ impl Status {
 pub enum TrayAction {
     Activate,
     Quit,
-    SwitchProfile(String),
 }
 
 struct BiGameTray {
@@ -138,21 +137,9 @@ impl ksni::Tray for BiGameTray {
             ksni::MenuItem::Separator,
         ];
 
-        // Profile quick-switch items
-        let profiles = bigame_core::profiles::list_names();
-        if !profiles.is_empty() {
-            for name in profiles {
-                let label = format!("▶ {name}");
-                items.push(ksni::MenuItem::Standard(ksni::menu::StandardItem {
-                    label,
-                    activate: Box::new(move |tray: &mut Self| {
-                        notify(&tray.tx, TrayAction::SwitchProfile(name.clone()));
-                    }),
-                    ..Default::default()
-                }));
-            }
-            items.push(ksni::MenuItem::Separator);
-        }
+        // No per-profile items: falcond picks a game's profile from its
+        // process when it starts; there is nothing to switch to by hand, and
+        // the items that were here only wrote a log line.
 
         items.push(ksni::MenuItem::Standard(ksni::menu::StandardItem {
             label: i18n("Quit"),

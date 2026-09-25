@@ -21,7 +21,7 @@ use std::time::Duration;
 
 use bigame_core::network::{self, Resolver};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 use crate::widgets::toast;
 
 /// Resolvers offered for comparison, alongside whatever the system uses.
@@ -189,8 +189,6 @@ fn ai_graphics_group() -> adw::PreferencesGroup {
 /// never run: a fix that needs root is the user's to run, and nothing here
 /// deletes anything.
 fn health_group() -> adw::PreferencesGroup {
-    use bigame_core::health::Status;
-
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("System health"));
     group.set_description(Some(&i18n(
@@ -205,73 +203,109 @@ fn health_group() -> adw::PreferencesGroup {
     group.set_header_suffix(Some(&copy_all));
     let placeholder = adw::ActionRow::builder().title(i18n("Checking…")).build();
     group.add(&placeholder);
-
-    let group_ref = group.clone();
-    glib::spawn_future_local(async move {
-        let checks = gio::spawn_blocking(bigame_core::health::collect)
-            .await
-            .unwrap_or_default();
-        group_ref.remove(&placeholder);
-        let mut text = String::new();
-        for c in &checks {
-            let (icon, css) = match c.status {
-                Status::Ok => ("object-select-symbolic", "success"),
-                Status::Info => ("dialog-information-symbolic", "dim-label"),
-                Status::Warning => ("dialog-warning-symbolic", "warning"),
-                Status::Error => ("dialog-error-symbolic", "error"),
-                Status::NotApplicable => ("action-unavailable-symbolic", "dim-label"),
-            };
-            let subtitle = match &c.fix {
-                Some(fix) => format!("{}\n→ {}", c.detail, fix.text()),
-                None => c.detail.clone(),
-            };
-            // Plain text: a fix like `sudo pacman -S … && sudo systemctl …`
-            // is invalid Pango markup, and a row with markup on renders an
-            // invalid subtitle as nothing at all.
-            let row = adw::ActionRow::builder()
-                .title(&c.title)
-                .subtitle(&subtitle)
-                .subtitle_lines(4)
-                .use_markup(false)
-                .build();
-            let image = gtk4::Image::from_icon_name(icon);
-            image.add_css_class(css);
-            row.add_prefix(&image);
-            if let Some(bigame_core::health::Fix::Command(command)) = &c.fix {
-                let copy = gtk4::Button::builder()
-                    .icon_name("edit-copy-symbolic")
-                    .tooltip_text(i18n("Copy the command"))
-                    .valign(gtk4::Align::Center)
-                    .css_classes(["flat"])
-                    .build();
-                copy.update_property(&[gtk4::accessible::Property::Label(&i18n(
-                    "Copy the command",
-                ))]);
-                let command = command.clone();
-                copy.connect_clicked(move |b| {
-                    b.clipboard().set_text(&command);
-                    crate::widgets::toast::show(b, &i18n("Copied"));
-                });
-                row.add_suffix(&copy);
-            }
-            group_ref.add(&row);
-            let _ = writeln!(
-                text,
-                "{:?}\t{}\t{}{}",
-                c.status,
-                c.title,
-                c.detail,
-                c.fix
-                    .as_ref()
-                    .map_or_else(String::new, |f| format!("\t→ {}", f.text()))
-            );
-        }
+    let rows: Rc<RefCell<Vec<adw::ActionRow>>> = Rc::new(RefCell::new(vec![placeholder]));
+    let text = Rc::new(RefCell::new(String::new()));
+    {
+        let text = text.clone();
         copy_all.connect_clicked(move |b| {
-            b.clipboard().set_text(&text);
+            b.clipboard().set_text(&text.borrow());
             crate::widgets::toast::show(b, &i18n("Copied"));
         });
-    });
+    }
+
+    // Checked every time the page is shown, not once: closing the window
+    // keeps the application in the tray, so a service started after it
+    // opened must turn its row green on the next visit, not on the next
+    // login. The previous rows stay until the new ones are ready.
+    let fill = {
+        let group = group.clone();
+        move || {
+            let group = group.clone();
+            let rows = rows.clone();
+            let text = text.clone();
+            glib::spawn_future_local(async move {
+                let checks = gio::spawn_blocking(bigame_core::health::collect)
+                    .await
+                    .unwrap_or_default();
+                for r in rows.borrow_mut().drain(..) {
+                    group.remove(&r);
+                }
+                let mut all = String::new();
+                for c in &checks {
+                    let row = health_row(c);
+                    group.add(&row);
+                    rows.borrow_mut().push(row);
+                    let _ = writeln!(
+                        all,
+                        "{:?}\t{}\t{}{}",
+                        c.status,
+                        tr(&c.title),
+                        tr(&c.detail),
+                        c.fix
+                            .as_ref()
+                            .map_or_else(String::new, |f| format!("\t→ {}", fix_text(f)))
+                    );
+                }
+                *text.borrow_mut() = all;
+            });
+        }
+    };
+    group.connect_map(move |_| fill());
     group
+}
+
+/// A fix as shown: advice translated, a command as it is.
+fn fix_text(fix: &bigame_core::health::Fix) -> String {
+    match fix {
+        bigame_core::health::Fix::Command(c) => c.clone(),
+        bigame_core::health::Fix::Advice(t) => tr(t),
+    }
+}
+
+/// One check of the system health: its state, what was found and, when
+/// something is wrong, the fix with a button that copies it.
+fn health_row(c: &bigame_core::health::Check) -> adw::ActionRow {
+    use bigame_core::health::Status;
+
+    let (icon, css) = match c.status {
+        Status::Ok => ("object-select-symbolic", "success"),
+        Status::Info => ("dialog-information-symbolic", "dim-label"),
+        Status::Warning => ("dialog-warning-symbolic", "warning"),
+        Status::Error => ("dialog-error-symbolic", "error"),
+        Status::NotApplicable => ("action-unavailable-symbolic", "dim-label"),
+    };
+    let subtitle = match &c.fix {
+        Some(fix) => format!("{}\n→ {}", tr(&c.detail), fix_text(fix)),
+        None => tr(&c.detail),
+    };
+    // Plain text: a fix like `sudo pacman -S … && sudo systemctl …`
+    // is invalid Pango markup, and a row with markup on renders an
+    // invalid subtitle as nothing at all.
+    let row = adw::ActionRow::builder()
+        .title(tr(&c.title))
+        .subtitle(&subtitle)
+        .subtitle_lines(4)
+        .use_markup(false)
+        .build();
+    let image = gtk4::Image::from_icon_name(icon);
+    image.add_css_class(css);
+    row.add_prefix(&image);
+    if let Some(bigame_core::health::Fix::Command(command)) = &c.fix {
+        let copy = gtk4::Button::builder()
+            .icon_name("edit-copy-symbolic")
+            .tooltip_text(i18n("Copy the command"))
+            .valign(gtk4::Align::Center)
+            .css_classes(["flat"])
+            .build();
+        copy.update_property(&[gtk4::accessible::Property::Label(&i18n("Copy the command"))]);
+        let command = command.clone();
+        copy.connect_clicked(move |b| {
+            b.clipboard().set_text(&command);
+            crate::widgets::toast::show(b, &i18n("Copied"));
+        });
+        row.add_suffix(&copy);
+    }
+    row
 }
 
 /// What else is using the CPU right now.

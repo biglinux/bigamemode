@@ -427,7 +427,11 @@ pub fn render_gpu(hw: &Hardware) -> Option<GpuInfo> {
     render.and_then(|i| gpus.into_iter().nth(i))
 }
 
-fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<usize>) {
+/// Every GPU as the report describes it (name from the PCI database,
+/// userspace driver), and which one renders games: `render_card` when a
+/// running game has it open, otherwise the expected one.
+#[must_use]
+pub fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<usize>) {
     let db = std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default();
     let pacman = Path::new("/var/lib/pacman/local");
     let gpus: Vec<GpuInfo> = hw

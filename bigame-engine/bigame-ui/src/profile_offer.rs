@@ -35,6 +35,8 @@ const SETTLE_SECS: u64 = 20;
 
 thread_local! {
     static OFFERED: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+    /// The pid last announced, so a second report of it is not a second notification.
+    static ANNOUNCED: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
     static LAST_GAME: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
@@ -88,9 +90,7 @@ fn should_offer(game: &GameIdentity) -> bool {
     if bigame_core::running::running_for(game.pid).is_none_or(|secs| secs < SETTLE_SECS) {
         return false;
     }
-    if OFFERED.with(|o| o.borrow().contains(&game.process_name))
-        || declined().contains(&game.process_name)
-    {
+    if declined().contains(&game.process_name) {
         return false;
     }
     let mode = bigame_core::config::read()
@@ -153,6 +153,11 @@ pub fn install(app: &adw::Application) {
                 }
                 return;
             };
+            // The watch reports a game again when it learns its graphics
+            // API; the same process is announced, and offered, once.
+            if ANNOUNCED.with(|a| a.replace(Some(game.pid))) == Some(game.pid) {
+                return;
+            }
             LAST_GAME.with(|g| *g.borrow_mut() = Some(game.display_name.clone()));
             glib::spawn_future_local(async move {
                 // Wait until the process has settled, then ask again whether it
@@ -165,10 +170,15 @@ pub fn install(app: &adw::Application) {
                 if crate::game_watch::current().map(|g| g.pid) != Some(game.pid) {
                     return;
                 }
+                if OFFERED.with(|o| o.borrow().contains(&game.process_name)) {
+                    return;
+                }
                 let check = game.clone();
                 let offer = gio::spawn_blocking(move || should_offer(&check))
                     .await
                     .unwrap_or(false);
+                // Marked here, on the main thread, where OFFERED lives; from
+                // the blocking thread it is another, empty, set.
                 if offer {
                     OFFERED.with(|o| o.borrow_mut().insert(game.process_name.clone()));
                     notify_offer(&app, &game);
@@ -343,9 +353,10 @@ fn show_review(app: &adw::Application, process: &str) {
         ))
         .extra_child(&body)
         .build();
+    // "Not now" leaves the game on falcond's general Proton profile, which is
+    // what a separate "Use general optimization" choice also did.
     dialog.add_responses(&[
         ("later", &i18n("Not now")),
-        ("general", &i18n("Use general optimization")),
         ("create", &i18n("Create profile")),
     ]);
     dialog.set_response_appearance("create", adw::ResponseAppearance::Suggested);

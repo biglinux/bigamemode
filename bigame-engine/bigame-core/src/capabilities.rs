@@ -175,7 +175,8 @@ pub struct SchedExtCaps {
     pub scxctl: bool,
     /// `scx_loader` is installed (Arch: the `scx-tools` package).
     pub loader_installed: bool,
-    /// The `org.scx.Loader` D-Bus service is reachable.
+    /// The `org.scx.Loader` D-Bus service is running, or the bus starts it
+    /// on first use (its activation file is installed).
     ///
     /// Without it neither falcond nor this project can switch schedulers, no
     /// matter how many `scx_*` binaries are installed.
@@ -258,7 +259,7 @@ impl Capabilities {
             power_profiles_available: crate::dbus::power_profiles_available(),
             sched_ext: detect_sched_ext(),
             lsfg_vk: vulkan_layer_installed("VkLayer_LS_frame_generation"),
-            vkbasalt: vulkan_layer_installed("vkBasalt"),
+            vkbasalt: vkbasalt_installed(),
             steam: which("steam").is_some(),
         }
     }
@@ -324,17 +325,26 @@ fn detect_sched_ext() -> SchedExtCaps {
         installed,
         scxctl: which("scxctl").is_some(),
         loader_installed: which("scx_loader").is_some(),
-        loader_service: crate::dbus::system_service_running("org.scx.Loader"),
+        // scx_loader is D-Bus activated: before its first use it is not
+        // running, yet falcond's first call starts it. Reporting it "not
+        // running" then sent people to `systemctl enable --now` for nothing.
+        loader_service: crate::dbus::system_service_running("org.scx.Loader")
+            || crate::dbus::system_service_activatable("org.scx.Loader"),
     }
 }
 
 fn vulkan_layer_installed(stem: &str) -> bool {
-    const DIRS: &[&str] = &[
+    let mut dirs: Vec<std::path::PathBuf> = [
         "/usr/share/vulkan/implicit_layer.d",
         "/usr/local/share/vulkan/implicit_layer.d",
         "/etc/vulkan/implicit_layer.d",
-    ];
-    DIRS.iter().any(|dir| {
+    ]
+    .iter()
+    .map(std::path::PathBuf::from)
+    .collect();
+    // A layer installed for one user (a local build, a Flatpak-free install).
+    dirs.push(crate::paths::data_home().join("vulkan/implicit_layer.d"));
+    dirs.iter().any(|dir| {
         std::fs::read_dir(dir).is_ok_and(|entries| {
             entries.flatten().any(|e| {
                 e.file_name()
@@ -344,6 +354,12 @@ fn vulkan_layer_installed(stem: &str) -> bool {
             })
         })
     })
+}
+
+/// Whether the vkBasalt Vulkan layer is installed.
+#[must_use]
+pub fn vkbasalt_installed() -> bool {
+    vulkan_layer_installed("vkBasalt")
 }
 
 #[cfg(test)]

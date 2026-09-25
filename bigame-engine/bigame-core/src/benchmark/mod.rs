@@ -470,6 +470,63 @@ pub fn compare_runs(
         .collect()
 }
 
+/// Compare every run of two configurations, metric by metric, with the same
+/// test the Benchmark page describes: both arms need two runs or more and a
+/// coefficient of variation within 5 %, and a difference counts only above
+/// the noise and past Welch's t-test at 95 % ([`crate::benchmark::result`]).
+///
+/// [`compare_runs`] judged one median candidate run against the baseline
+/// runs' range; this is what "Measure the difference" uses instead.
+#[must_use]
+pub fn compare_arms(
+    baseline_runs: &[FrameStats],
+    candidate_runs: &[FrameStats],
+) -> Vec<crate::booster::report::Outcome> {
+    use crate::benchmark::result::{ArmSummary, Comparison, Verdict};
+    use crate::booster::report::Outcome;
+    METRICS
+        .iter()
+        .map(|(name, unit, direction, get)| {
+            let base = ArmSummary::new("baseline", baseline_runs.iter().map(get).collect());
+            let cand = ArmSummary::new("candidate", candidate_runs.iter().map(get).collect());
+            let (Some(base), Some(cand)) = (base, cand) else {
+                return Outcome::NotMeasured;
+            };
+            let (before, after) = (base.mean, cand.mean);
+            match Comparison::new(*name, base, cand).verdict {
+                Verdict::Inconclusive => Outcome::Inconclusive {
+                    metric: (*name).to_owned(),
+                },
+                Verdict::WithinNoise => Outcome::NoChange {
+                    metric: (*name).to_owned(),
+                },
+                Verdict::Improvement | Verdict::Regression => {
+                    let better = match direction {
+                        Direction::HigherIsBetter => after > before,
+                        Direction::LowerIsBetter => after < before,
+                    };
+                    let (metric, unit) = ((*name).to_owned(), (*unit).to_owned());
+                    if better {
+                        Outcome::Improved {
+                            metric,
+                            before,
+                            after,
+                            unit,
+                        }
+                    } else {
+                        Outcome::Regressed {
+                            metric,
+                            before,
+                            after,
+                            unit,
+                        }
+                    }
+                }
+            }
+        })
+        .collect()
+}
+
 /// The run whose `metric` is the median of the set.
 #[must_use]
 pub fn median_by<F: Fn(&FrameStats) -> f64>(runs: &[FrameStats], metric: F) -> Option<&FrameStats> {

@@ -1,137 +1,282 @@
 //! Frame Generation (lsfg-vk) config management.
 //!
-//! lsfg-vk is a Vulkan implicit layer — NOT a kernel module.
-//! It hot-reloads from `~/.config/lsfg-vk/conf.toml` via inotify/mtime.
-//! bigame-mode writes/updates that file to apply per-game FG parameters.
+//! lsfg-vk is a Vulkan implicit layer — NOT a kernel module. It reads
+//! `$XDG_CONFIG_HOME/lsfg-vk/conf.toml` and reloads it while a game runs
+//! ("Failed to update configuration, continuing using old" when a new version
+//! does not parse). BiGame-mode writes per-game entries there.
 //!
-//! Type mapping: bigame stores `flow_scale` as `u32` 0–100 (percent);
-//! lsfg-vk expects f32 0.0–1.0. Conversion happens here.
+//! The format is the one lsfg-vk 1.0.0 — the package `BigLinux` ships — reads,
+//! checked against the strings of its `liblsfg-vk.so`:
+//!
+//! ```toml
+//! version = 1
+//! [global]
+//! dll = "/path/to/Lossless.dll"
+//! [[game]]
+//! exe = "Game.exe"
+//! multiplier = 3            # at least 2
+//! flow_scale = 0.7          # 0.25–1.0
+//! performance_mode = true
+//! hdr_mode = false
+//! experimental_present_mode = "fifo"   # or "mailbox", "immediate"
+//! ```
+//!
+//! Three properties of that parser shape everything here:
+//!
+//! * One invalid entry makes lsfg-vk ignore the **whole** file ("Global
+//!   Multiplier cannot be less than 2" … "IGNORING"), so a game with frame
+//!   generation off has **no** entry — never `multiplier = 1`.
+//! * It knows nothing of the `[[profile]]`/`active_in` layout an earlier
+//!   version of this module wrote; that layout did nothing with lsfg-vk 1.0.
+//!   It is converted on the next write.
+//! * Keys and entries BiGame-mode did not write are kept as they are: the file
+//!   is also the user's, and lsfg-vk-ui's.
+//!
+//! BiGame-mode stores `flow_scale` as percent (25–100); lsfg-vk as 0.25–1.0.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use toml::{Table, Value};
 
 use crate::models::{FrameGenBackend, FrameGenSettings};
 
-/// Relative path from $HOME to the lsfg-vk config file.
-const CONFIG_REL_PATH: &str = ".config/lsfg-vk/conf.toml";
+// ── Paths ───────────────────────────────────────────────────────────────────
 
-// ── TOML structures mirroring lsfg-vk 1.x GameConf / GlobalConf ─────────────
-// Fields sourced from lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
-// version must be 1 (as required by current lsfg-vk parser);
-// multiplier must be > 1; flow_scale must be 0.25–1.0.
-
-/// An lsfg-vk `[[profile]]` entry — matches `GameConf` exactly.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LsfgProfile {
-    /// Display name shown in lsfg-vk-ui.
-    pub name: String,
-    /// Process names that activate this profile (proc comm or exe basename).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub active_in: Vec<String>,
-    /// Optional GPU to use (by name) when multiple GPUs are present.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub gpu: Option<String>,
-    /// Frame generation multiplier (must be > 1; 2 = 2x FG, etc.).
-    pub multiplier: u32,
-    /// Optical flow quality scale (0.25–1.0 mapped from percent 25–100).
-    pub flow_scale: f32,
-    /// Enable performance (low-latency) mode.
-    pub performance_mode: bool,
-    /// Pacing method — only "none" is supported in lsfg-vk 1.x.
-    pub pacing: String,
-    /// HDR Mode
-    #[serde(default)]
-    pub hdr: bool,
-    /// Present Mode (0=VSync/FIFO, 1=Recommended, 2=Mailbox, 3=Immediate)
-    #[serde(default)]
-    pub present_mode: u32,
-}
-
-/// lsfg-vk `[global]` section.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LsfgGlobal {
-    /// Allow FP16 precision (default true — good for modern AMD).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_fp16: Option<bool>,
-    /// Global DLL path.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dll: Option<String>,
-}
-
-impl LsfgGlobal {
-    fn is_empty(&self) -> bool {
-        self.allow_fp16.is_none() && self.dll.is_none()
-    }
-}
-
-/// Full `~/.config/lsfg-vk/conf.toml` structure.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct LsfgConfig {
-    /// Must be 1 for current lsfg-vk parser.
-    #[serde(default = "default_version")]
-    pub version: u32,
-    /// `[global]` section — omitted if empty.
-    #[serde(skip_serializing_if = "LsfgGlobal::is_empty", default)]
-    pub global: LsfgGlobal,
-    /// `[[profile]]` array — per-game settings.
-    #[serde(rename = "profile", default)]
-    pub profiles: Vec<LsfgProfile>,
-}
-
-/// lsfg-vk config format version — MUST be 1.
-fn default_version() -> u32 {
-    1
-}
-
-// ── Path resolution ─────────────────────────────────────────────────────────
-
-/// Resolve `~/.config/lsfg-vk/conf.toml` via `$HOME`.
+/// `$XDG_CONFIG_HOME/lsfg-vk/conf.toml`, where lsfg-vk reads it.
 #[must_use]
 pub fn config_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
-    PathBuf::from(home).join(CONFIG_REL_PATH)
+    crate::paths::config_home().join("lsfg-vk/conf.toml")
 }
 
-// ── Internal read/write ─────────────────────────────────────────────────────
+/// Entries BiGame-mode wrote, and those set aside while frame generation is
+/// turned off globally.
+fn state_path() -> PathBuf {
+    crate::paths::state_home().join("bigame-mode/lsfg-vk.toml")
+}
 
-/// Read lsfg-vk config from disk, returning default if the file does not exist.
-fn read_config() -> Result<LsfgConfig> {
-    let path = config_path();
-    if !path.exists() {
-        return Ok(LsfgConfig {
-            version: 1,
-            ..Default::default()
-        });
+/// lsfg-vk's library, where the packages install it.
+const LIBRARY: &[&str] = &["/usr/lib/liblsfg-vk.so", "/usr/local/lib/liblsfg-vk.so"];
+
+// ── Format support ──────────────────────────────────────────────────────────
+
+/// Whether the installed lsfg-vk reads the format written here, from a string
+/// only its 1.x parser contains. `None` when no library is installed.
+fn format_supported() -> Option<bool> {
+    static SUPPORTED: OnceLock<Option<bool>> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        let lib = LIBRARY.iter().find(|p| Path::new(p).is_file())?;
+        let bytes = std::fs::read(lib).ok()?;
+        let needle = b"Game override missing 'exe' field";
+        Some(bytes.windows(needle.len()).any(|w| w == needle))
+    })
+}
+
+fn ensure_format_supported() -> Result<()> {
+    anyhow::ensure!(
+        format_supported() != Some(false),
+        "the installed lsfg-vk uses a configuration format BiGame-mode does not write \
+         (it writes lsfg-vk 1.x's); change it in lsfg-vk-ui instead"
+    );
+    Ok(())
+}
+
+// ── The two files ───────────────────────────────────────────────────────────
+
+fn read_table(path: &Path) -> Result<Table> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => text
+            .parse::<Table>()
+            .with_context(|| format!("parse {}", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Table::new()),
+        Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
     }
-    let content = std::fs::read_to_string(&path)
-        .with_context(|| format!("read lsfg-vk config: {}", path.display()))?;
-    toml::from_str(&content).context("parse lsfg-vk TOML")
 }
 
-/// Write lsfg-vk config to disk, creating parent directories as needed.
-fn write_config(cfg: &LsfgConfig) -> Result<()> {
-    let path = config_path();
+fn write_table(path: &Path, table: &Table) -> Result<()> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("create lsfg-vk config dir: {}", parent.display()))?;
+        std::fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
-    let content = toml::to_string_pretty(cfg).context("serialize lsfg-vk config")?;
-    std::fs::write(&path, content)
-        .with_context(|| format!("write lsfg-vk config: {}", path.display()))
+    let text = toml::to_string_pretty(table).context("serialize")?;
+    // Written whole and renamed, so lsfg-vk's reload never sees half a file.
+    let tmp = path.with_extension("toml.tmp");
+    std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
+    std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))
+}
+
+/// lsfg-vk's file, with anything an earlier BiGame-mode left there converted.
+fn read_config() -> Result<Table> {
+    let mut t = read_table(&config_path())?;
+    migrate_legacy(&mut t);
+    Ok(t)
+}
+
+fn write_config(t: &Table) -> Result<()> {
+    let mut t = t.clone();
+    t.insert("version".into(), Value::Integer(1));
+    write_table(&config_path(), &t)
+}
+
+/// The `[[profile]]` layout an earlier BiGame-mode wrote, as `[[game]]`
+/// entries; `allow_fp16`, which lsfg-vk 1.0 does not read, is dropped.
+fn migrate_legacy(t: &mut Table) {
+    if let Some(Value::Array(old)) = t.remove("profile") {
+        for p in old.iter().filter_map(Value::as_table) {
+            let Some(exe) = p
+                .get("active_in")
+                .and_then(Value::as_array)
+                .and_then(|a| a.first())
+                .and_then(Value::as_str)
+            else {
+                continue;
+            };
+            let mult = p.get("multiplier").and_then(Value::as_integer).unwrap_or(1);
+            if mult < 2 || find(t, exe).is_some() {
+                continue;
+            }
+            let mut g = Table::new();
+            g.insert("exe".into(), exe.into());
+            g.insert("multiplier".into(), Value::Integer(mult.min(20)));
+            if let Some(f) = p.get("flow_scale").and_then(Value::as_float) {
+                g.insert("flow_scale".into(), Value::Float(f.clamp(0.25, 1.0)));
+            }
+            for (from, to) in [
+                ("performance_mode", "performance_mode"),
+                ("hdr", "hdr_mode"),
+            ] {
+                if let Some(b) = p.get(from).and_then(Value::as_bool) {
+                    g.insert(to.into(), Value::Boolean(b));
+                }
+            }
+            games_mut(t).push(Value::Table(g));
+        }
+    }
+    if let Some(Value::Table(global)) = t.get_mut("global") {
+        global.remove("allow_fp16");
+    }
+}
+
+fn games_mut(t: &mut Table) -> &mut Vec<Value> {
+    let v = t.entry("game").or_insert_with(|| Value::Array(Vec::new()));
+    if !v.is_array() {
+        *v = Value::Array(Vec::new());
+    }
+    v.as_array_mut().expect("just made an array")
+}
+
+/// Index of the `[[game]]` entry for `exe`.
+fn find(t: &Table, exe: &str) -> Option<usize> {
+    t.get("game")?
+        .as_array()?
+        .iter()
+        .position(|g| g.get("exe").and_then(Value::as_str) == Some(exe))
+}
+
+fn entry<'a>(t: &'a Table, exe: &str) -> Option<&'a Table> {
+    let i = find(t, exe)?;
+    t.get("game")?.as_array()?.get(i)?.as_table()
+}
+
+/// Remove and return the entry for `exe`.
+fn take(t: &mut Table, exe: &str) -> Option<Value> {
+    let i = find(t, exe)?;
+    Some(games_mut(t).remove(i))
+}
+
+/// The game names BiGame-mode manages, and the entries set aside.
+#[derive(Default)]
+struct State {
+    managed: Vec<String>,
+    paused: Vec<Value>,
+}
+
+fn read_state() -> State {
+    let t = read_table(&state_path()).unwrap_or_default();
+    State {
+        managed: t
+            .get("managed")
+            .and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        paused: t
+            .get("paused")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default(),
+    }
+}
+
+fn write_state(s: &State) -> Result<()> {
+    let mut t = Table::new();
+    t.insert(
+        "managed".into(),
+        Value::Array(s.managed.iter().map(|m| Value::String(m.clone())).collect()),
+    );
+    t.insert("paused".into(), Value::Array(s.paused.clone()));
+    write_table(&state_path(), &t)
+}
+
+// ── Entries ─────────────────────────────────────────────────────────────────
+
+/// lsfg-vk's present mode name for the UI's index (0 FIFO, 1 recommended,
+/// 2 mailbox, 3 immediate); `None` leaves lsfg-vk's own choice.
+fn present_name(mode: u32) -> Option<&'static str> {
+    match mode {
+        0 => Some("fifo"),
+        2 => Some("mailbox"),
+        3 => Some("immediate"),
+        _ => None,
+    }
+}
+
+fn present_index(name: Option<&str>) -> u32 {
+    match name {
+        Some("fifo") => 0,
+        Some("mailbox") => 2,
+        Some("immediate") => 3,
+        _ => 1,
+    }
+}
+
+fn game_entry(
+    exe: &str,
+    multiplier: u32,
+    flow_scale_pct: u32,
+    perf_mode: bool,
+    hdr: bool,
+    present_mode: u32,
+) -> Table {
+    let mut g = Table::new();
+    g.insert("exe".into(), exe.into());
+    g.insert("multiplier".into(), Value::Integer(i64::from(multiplier)));
+    g.insert(
+        "flow_scale".into(),
+        Value::Float(f64::from(flow_scale_pct) / 100.0),
+    );
+    g.insert("performance_mode".into(), Value::Boolean(perf_mode));
+    g.insert("hdr_mode".into(), Value::Boolean(hdr));
+    if let Some(p) = present_name(present_mode) {
+        g.insert("experimental_present_mode".into(), p.into());
+    }
+    g
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-/// Write or update FG parameters for a game profile in the lsfg-vk TOML.
+/// Write or update frame generation for the game whose process is `name`.
 ///
-/// `flow_scale_pct` is 25–100 (percent). Stored as 0.25–1.0 float in lsfg-vk.
-/// Pacing is always "none" — lsfg-vk 1.x only supports None.
-/// Matches on `active_in` containing `name`; appends a new entry if not found.
+/// `multiplier` 1 (or 0) means off: the game's entry is removed. Otherwise
+/// the multiplier is clamped to 2–20 and `flow_scale_pct` must be 25–100.
 ///
 /// # Errors
-/// Returns error if config read/write fails.
+/// Returns error if the DLL is not configured, a value is out of range, the
+/// installed lsfg-vk reads another format, or the file cannot be written.
 pub fn write_profile(
     name: &str,
     multiplier: u32,
@@ -140,269 +285,335 @@ pub fn write_profile(
     hdr: bool,
     present_mode: u32,
 ) -> Result<()> {
-    // Multiplier 1 means "disabled" for this profile.
     if multiplier <= 1 {
         return disable_for_game(name);
     }
-
-    // lsfg-vk requires multiplier > 1; clamp upper range only.
-    let multiplier = multiplier.min(20);
-
+    ensure_format_supported()?;
     anyhow::ensure!(
         is_lossless_dll_ready(),
         "Lossless.dll not found in configured LSFG path"
     );
-
     anyhow::ensure!(
         (25..=100).contains(&flow_scale_pct),
         "flow_scale_pct must be 25–100"
     );
-
-    let mut cfg = read_config()?;
-    // Force parser-compatible version.
-    cfg.version = 1;
-
-    // flow_scale_pct is validated; integers ≤ 100 are exact in f32.
-    #[allow(clippy::cast_precision_loss)]
-    let flow_scale = flow_scale_pct as f32 / 100.0;
-
-    // Update existing entry or push a new one.
-    if let Some(entry) = cfg
-        .profiles
-        .iter_mut()
-        .find(|p| p.active_in.contains(&name.to_owned()))
-    {
-        entry.multiplier = multiplier;
-        entry.flow_scale = flow_scale;
-        entry.performance_mode = perf_mode;
-        entry.pacing = "none".to_string();
-        entry.hdr = hdr;
-        entry.present_mode = present_mode;
-    } else {
-        cfg.profiles.push(LsfgProfile {
-            name: name.to_owned(),
-            active_in: vec![name.to_owned()],
-            gpu: None,
-            multiplier,
-            flow_scale,
-            performance_mode: perf_mode,
-            pacing: "none".to_string(),
-            hdr,
-            present_mode,
-        });
+    let mut t = read_config()?;
+    let new = game_entry(
+        name,
+        multiplier.clamp(2, 20),
+        flow_scale_pct,
+        perf_mode,
+        hdr,
+        present_mode,
+    );
+    match find(&t, name) {
+        Some(i) => {
+            // Keys lsfg-vk-ui or the user added to the entry stay.
+            if let Some(Value::Table(old)) = games_mut(&mut t).get_mut(i) {
+                old.remove("experimental_present_mode");
+                old.extend(new);
+            }
+        }
+        None => games_mut(&mut t).push(Value::Table(new)),
     }
-
-    write_config(&cfg)
+    write_config(&t)?;
+    let mut s = read_state();
+    if !s.managed.iter().any(|m| m == name) {
+        s.managed.push(name.to_owned());
+    }
+    s.paused
+        .retain(|g| g.get("exe").and_then(Value::as_str) != Some(name));
+    write_state(&s)
 }
 
-/// Remove the FG profile entry for a game (call when deleting a game profile).
-///
-/// No-op if no matching entry exists.
+/// Remove the frame generation entry for a game (its profile was deleted).
 ///
 /// # Errors
-/// Returns error if config read/write fails.
+/// Returns error if the file cannot be read or written.
 pub fn delete_profile(name: &str) -> Result<()> {
-    let mut cfg = read_config()?;
-    let before = cfg.profiles.len();
-    cfg.profiles
-        .retain(|p| !p.active_in.contains(&name.to_owned()));
-    if cfg.profiles.len() != before {
-        write_config(&cfg)?;
-    }
-    Ok(())
+    disable_for_game(name)?;
+    let mut s = read_state();
+    s.managed.retain(|m| m != name);
+    s.paused
+        .retain(|g| g.get("exe").and_then(Value::as_str) != Some(name));
+    write_state(&s)
 }
 
-/// Read current FG parameters for a game from the lsfg-vk TOML.
-///
-/// Returns `(multiplier, flow_scale_pct, perf_mode)`.
-/// Falls back to defaults `(2, 100, false)` if no matching profile exists.
+/// Frame generation for `name`: `(multiplier, flow_scale_pct, perf_mode, hdr,
+/// present_mode)`. Multiplier 1 means off (no entry).
 #[must_use]
 pub fn read_profile(name: &str) -> (u32, u32, bool, bool, u32) {
-    let Ok(cfg) = read_config() else {
-        return (2, 100, false, false, 0);
+    let off = (1, 100, false, false, 1);
+    let Ok(t) = read_config() else {
+        return off;
     };
-    let Some(entry) = cfg
-        .profiles
-        .iter()
-        .find(|p| p.active_in.contains(&name.to_owned()))
-    else {
-        return (2, 100, false, false, 0);
+    let Some(g) = entry(&t, name) else {
+        return off;
     };
-    // ensure multiplier is valid per lsfg-vk constraints
-    let multiplier = entry.multiplier.max(1);
-    // `f` is 0.25–1.0 from lsfg-vk; after round() the value fits in u32.
+    let multiplier = g
+        .get("multiplier")
+        .and_then(Value::as_integer)
+        .and_then(|m| u32::try_from(m).ok())
+        .unwrap_or(1);
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let flow_scale_pct = ((entry.flow_scale * 100.0).round() as u32).clamp(25, 100);
-
+    let flow = g
+        .get("flow_scale")
+        .and_then(Value::as_float)
+        .map_or(100, |f| ((f * 100.0).round() as u32).clamp(25, 100));
     (
         multiplier,
-        flow_scale_pct,
-        entry.performance_mode,
-        entry.hdr,
-        entry.present_mode,
+        flow,
+        g.get("performance_mode")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        g.get("hdr_mode").and_then(Value::as_bool).unwrap_or(false),
+        present_index(g.get("experimental_present_mode").and_then(Value::as_str)),
     )
 }
 
-/// Read `[global].dll` from the lsfg-vk config.
-///
-/// Returns `None` if not set or config unavailable.
+/// `[global].dll`, when set.
 #[must_use]
 pub fn read_global_dll() -> Option<String> {
-    read_config().ok()?.global.dll
+    read_config()
+        .ok()?
+        .get("global")?
+        .get("dll")?
+        .as_str()
+        .map(str::to_owned)
 }
 
-/// Whether the lsfg-vk Vulkan layer is installed (system-wide or in
-/// `/usr/local`).
+/// Whether the lsfg-vk layer is installed (system-wide, in `/usr/local` or
+/// for this user).
 #[must_use]
 pub fn layer_installed() -> bool {
-    const LAYERS: &[&str] = &[
-        "/etc/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
-        "/etc/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
-        "/usr/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
-        "/usr/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
-        "/usr/local/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json",
-        "/usr/local/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json",
+    const DIRS: &[&str] = &[
+        "/etc/vulkan/implicit_layer.d",
+        "/usr/share/vulkan/implicit_layer.d",
+        "/usr/local/share/vulkan/implicit_layer.d",
     ];
-    LAYERS.iter().any(|p| std::path::Path::new(p).exists())
-        || std::path::Path::new("/usr/lib/liblsfg-vk.so").exists()
+    let user = crate::paths::data_home().join("vulkan/implicit_layer.d");
+    DIRS.iter()
+        .map(PathBuf::from)
+        .chain(std::iter::once(user))
+        .any(|d| {
+            [
+                "VkLayer_LS_frame_generation.json",
+                "VkLayer_LSFGVK_frame_generation.json",
+            ]
+            .iter()
+            .any(|f| d.join(f).is_file())
+        })
+        || LIBRARY.iter().any(|p| Path::new(p).is_file())
 }
 
-/// Returns `true` when a valid Lossless.dll path is configured and exists.
+/// Whether a `Lossless.dll` is configured and exists.
 #[must_use]
 pub fn is_lossless_dll_ready() -> bool {
-    let Some(path) = read_global_dll() else {
-        return false;
-    };
-    let p = PathBuf::from(path);
-    p.is_file()
+    read_global_dll().is_some_and(|p| Path::new(&p).is_file())
 }
 
-/// Write `[global].dll` to the lsfg-vk config.
-///
-/// Pass `None` to remove the global DLL override.
+/// Set (or with `None` remove) `[global].dll`.
 ///
 /// # Errors
-/// Returns error if config read/write fails.
+/// Returns error if the file cannot be read or written.
 pub fn write_global_dll(dll: Option<String>) -> Result<()> {
-    let mut cfg = read_config()?;
-    cfg.global.dll = dll;
-    write_config(&cfg)
+    let mut t = read_config()?;
+    let global = t
+        .entry("global")
+        .or_insert_with(|| Value::Table(Table::new()));
+    if let Some(g) = global.as_table_mut() {
+        match dll {
+            Some(d) => {
+                g.insert("dll".into(), d.into());
+            }
+            None => {
+                g.remove("dll");
+            }
+        }
+    }
+    write_config(&t)
 }
 
-// ── Conflict detection helpers ───────────────────────────────────────────────
-
-/// Returns `true` if ANY lsfg-vk profile has `multiplier > 1`.
-///
-/// The dashboard reports lsfg-vk frame generation as enabled from this, so a
-/// second frame generator in series (which causes visual artifacts) can be
-/// seen.
+/// Whether any game has frame generation on.
 #[must_use]
 pub fn has_any_active_profile() -> bool {
-    if !is_lossless_dll_ready() {
-        return false;
-    }
-    read_config().is_ok_and(|cfg| cfg.profiles.iter().any(|p| p.multiplier > 1))
+    is_lossless_dll_ready()
+        && read_config().is_ok_and(|t| {
+            t.get("game").and_then(Value::as_array).is_some_and(|a| {
+                a.iter()
+                    .any(|g| g.get("multiplier").and_then(Value::as_integer).unwrap_or(0) > 1)
+            })
+        })
 }
 
-/// Returns `true` when global video settings still allow lsfg-vk profiles.
+/// Whether the global video settings allow lsfg-vk.
 #[must_use]
 pub fn global_state_allows_lsfg(frame_gen: &FrameGenSettings) -> bool {
     frame_gen.enabled && frame_gen.backend == FrameGenBackend::LsfgVk
 }
 
-/// Neutralize persisted lsfg-vk profiles when global frame generation disables them.
-///
-/// This prevents Steam-native launches from continuing to load the lsfg-vk
-/// implicit layer after the user has disabled frame generation globally.
+/// Bring lsfg-vk's file in line with the global switch: off sets
+/// BiGame-mode's entries aside, on puts them back. Returns whether anything
+/// changed.
 ///
 /// # Errors
-/// Returns error if the lsfg-vk config cannot be read or written.
+/// Returns error if the files cannot be read or written.
 pub fn sync_global_enablement(frame_gen: &FrameGenSettings) -> Result<bool> {
     if global_state_allows_lsfg(frame_gen) {
-        return Ok(false);
+        resume_all_profiles()
+    } else {
+        disable_all_profiles()
     }
-
-    disable_all_profiles()
 }
 
-/// Returns `true` if the specific game has an lsfg-vk profile with `multiplier > 1`.
-///
-/// A game is "active" for lsfg-vk FG when its profile multiplier is ≥ 2.
+/// Whether `name` has frame generation on.
 #[must_use]
 pub fn is_active_for_game(name: &str) -> bool {
-    if !is_lossless_dll_ready() {
-        return false;
-    }
-    read_config().is_ok_and(|cfg| {
-        cfg.profiles
-            .iter()
-            .any(|p| p.active_in.contains(&name.to_owned()) && p.multiplier > 1)
-    })
+    is_lossless_dll_ready() && read_profile(name).0 > 1
 }
 
-/// Disable LSFG for all profiles by forcing multipliers to 1.
-///
-/// Returns `Ok(true)` if at least one profile was changed.
+/// Set aside every entry BiGame-mode wrote (the global switch turned off).
+/// They are kept, and [`sync_global_enablement`] puts them back.
 ///
 /// # Errors
-/// Returns an error if the lsfg-vk config cannot be read or written.
+/// Returns error if the files cannot be read or written.
 pub fn disable_all_profiles() -> Result<bool> {
-    let mut cfg = read_config()?;
+    let mut t = read_config()?;
+    let mut s = read_state();
     let mut changed = false;
-    for profile in &mut cfg.profiles {
-        if profile.multiplier > 1 {
-            profile.multiplier = 1;
+    for name in s.managed.clone() {
+        if let Some(g) = take(&mut t, &name) {
+            s.paused.push(g);
             changed = true;
         }
     }
     if changed {
-        write_config(&cfg)?;
+        write_config(&t)?;
+        write_state(&s)?;
     }
     Ok(changed)
 }
 
-/// Disable lsfg-vk FG for a specific game by setting its multiplier to 1.
-///
-/// Intended to resolve frame generation conflicts when the user switches to
-/// `OptiScaler` or AFMF as the primary backend. Does nothing if no profile exists.
-///
-/// # Errors
-/// Returns error if config read/write fails.
-pub fn disable_for_game(name: &str) -> Result<()> {
-    let mut cfg = read_config()?;
-    let mut changed = false;
-    for profile in &mut cfg.profiles {
-        if profile.active_in.contains(&name.to_owned()) && profile.multiplier > 1 {
-            profile.multiplier = 1;
-            changed = true;
+/// Put back the entries set aside by [`disable_all_profiles`].
+fn resume_all_profiles() -> Result<bool> {
+    let mut s = read_state();
+    if s.paused.is_empty() {
+        return Ok(false);
+    }
+    ensure_format_supported()?;
+    let mut t = read_config()?;
+    for g in std::mem::take(&mut s.paused) {
+        let exe = g
+            .get("exe")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        if !exe.is_empty() && find(&t, &exe).is_none() {
+            games_mut(&mut t).push(g);
         }
     }
-    if changed {
-        write_config(&cfg)?;
+    write_config(&t)?;
+    write_state(&s)?;
+    Ok(true)
+}
+
+/// Turn frame generation off for one game: its entry is removed.
+///
+/// # Errors
+/// Returns error if the file cannot be read or written.
+pub fn disable_for_game(name: &str) -> Result<()> {
+    let mut t = read_config()?;
+    if take(&mut t, name).is_some() {
+        write_config(&t)?;
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::global_state_allows_lsfg;
+    use super::*;
     use crate::models::{FrameGenBackend, FrameGenSettings};
 
     #[test]
     fn test_global_state_allows_lsfg_only_for_enabled_lsfg_backend() {
         let disabled = FrameGenSettings::default();
         assert!(!global_state_allows_lsfg(&disabled));
-
         let off = FrameGenSettings {
             enabled: true,
             backend: FrameGenBackend::None,
         };
         assert!(!global_state_allows_lsfg(&off));
-
         let lsfg = FrameGenSettings {
             enabled: true,
             backend: FrameGenBackend::LsfgVk,
         };
         assert!(global_state_allows_lsfg(&lsfg));
+    }
+
+    #[test]
+    fn an_entry_is_what_lsfg_vk_1_reads() {
+        let g = game_entry("SOTTR.exe", 2, 70, true, false, 0);
+        let text = toml::to_string(&g).unwrap();
+        assert!(text.contains("exe = \"SOTTR.exe\""), "{text}");
+        assert!(text.contains("multiplier = 2"));
+        assert!(text.contains("flow_scale = 0.7"));
+        assert!(text.contains("experimental_present_mode = \"fifo\""));
+        // The recommended mode is lsfg-vk's own choice: no key at all.
+        assert!(
+            !toml::to_string(&game_entry("x", 2, 100, false, false, 1))
+                .unwrap()
+                .contains("present_mode")
+        );
+    }
+
+    #[test]
+    fn the_legacy_profile_layout_becomes_game_entries_and_nothing_else_is_lost() {
+        // This machine's file before, plus a user's own key and entry.
+        let mut t: Table = r#"
+version = 1
+tweak = "kept"
+[global]
+dll = "/home/u/Lossless.dll"
+allow_fp16 = true
+[[profile]]
+name = "SOTTR.exe"
+active_in = ["SOTTR.exe"]
+multiplier = 3
+flow_scale = 0.8
+performance_mode = true
+pacing = "none"
+hdr = false
+present_mode = 0
+[[profile]]
+name = "off"
+active_in = ["Off.exe"]
+multiplier = 1
+flow_scale = 1.0
+performance_mode = false
+pacing = "none"
+[[game]]
+exe = "vkcube"
+multiplier = 4
+"#
+        .parse()
+        .unwrap();
+        migrate_legacy(&mut t);
+        assert!(!t.contains_key("profile"));
+        assert_eq!(t["tweak"].as_str(), Some("kept"));
+        assert!(!t["global"].as_table().unwrap().contains_key("allow_fp16"));
+        assert_eq!(t["global"]["dll"].as_str(), Some("/home/u/Lossless.dll"));
+        let g = entry(&t, "SOTTR.exe").unwrap();
+        assert_eq!(g["multiplier"].as_integer(), Some(3));
+        assert_eq!(g["flow_scale"].as_float(), Some(0.8));
+        // multiplier 1 would make lsfg-vk reject the whole file.
+        assert!(entry(&t, "Off.exe").is_none());
+        assert!(entry(&t, "vkcube").is_some(), "a user's entry is kept");
+    }
+
+    #[test]
+    fn present_modes_round_trip() {
+        for i in 0..4 {
+            assert_eq!(present_index(present_name(i)), i);
+        }
     }
 }

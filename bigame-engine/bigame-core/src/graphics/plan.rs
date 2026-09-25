@@ -157,7 +157,33 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             )));
         }
     }
+    // Far from 60 fps in every measurement: no upscaler closes that gap, and
+    // the page should say so rather than leave the user trying them. Frame
+    // generation is the one thing that presents more frames than are
+    // rendered; it stays the user's choice (latency), so this is a note.
+    if cfg.mode != Mode::Off && !cfg.optiscaler_frame_generation() {
+        if let Some(best) = best_measured_fps(&ctx.measured) {
+            if best < FRAME_GEN_HINT_BELOW_FPS {
+                p.steps.push(Step::Note(Text::with(
+                    N_("measured on this computer: %s fps at best, with the game's own upscaler or OptiScaler — no upscaler reaches 60 from there. Lower in-game settings render more frames; frame generation (Choose yourself, experimental) presents about twice the rendered rate, at more latency"),
+                    [format!("{best:.0}")],
+                )));
+            }
+        }
+    }
     p
+}
+
+/// Below this measured average, an upscaler alone will not reach 60 fps.
+const FRAME_GEN_HINT_BELOW_FPS: f64 = 45.0;
+
+/// The best average frame rate any measured run of this game reached here.
+fn best_measured_fps(measured: &[super::outcomes::Measurement]) -> Option<f64> {
+    measured
+        .iter()
+        .flat_map(|m| m.avg_fps.iter().copied())
+        .filter(|f| f.is_finite())
+        .reduce(f64::max)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -869,6 +895,50 @@ mod tests {
             // Steady 1 % lows, the same in every arm: "no worse".
             low_1pct: vec![30.0, 30.2, 30.1],
         }
+    }
+
+    #[test]
+    fn far_below_60_in_every_measurement_the_plan_points_to_frame_generation() {
+        // The lab laptop: 16 fps with the game's XeSS, 18 with OptiScaler.
+        let ctx = Context {
+            measured: vec![
+                measured("native:xess", &[15.9, 15.7, 15.5]),
+                measured("optiscaler:xess:fsr", &[18.2, 18.3, 18.3]),
+            ],
+            ..Context::default()
+        };
+        let r = report(sottr(), gpu(GpuVendor::Nvidia, None));
+        let p = plan(&r, &recommended(), &ctx);
+        let hint = p
+            .steps
+            .iter()
+            .find(|s| matches!(s, Step::Note(t) if t.english().contains("frame generation")));
+        assert!(hint.is_some(), "{:?}", p.steps);
+        assert!(
+            hint.unwrap().text().english().contains("18 fps"),
+            "{hint:?}"
+        );
+
+        // Fast enough: no such note.
+        let fast = Context {
+            measured: vec![measured("native:xess", &[89.8, 90.1])],
+            ..Context::default()
+        };
+        let p = plan(&r, &recommended(), &fast);
+        assert!(
+            !p.steps
+                .iter()
+                .any(|s| matches!(s, Step::Note(t) if t.english().contains("frame generation")))
+        );
+
+        // Off: nothing is planned, nothing is hinted.
+        let off = AiGraphicsConfig::default();
+        let p = plan(&r, &off, &ctx);
+        assert!(
+            !p.steps
+                .iter()
+                .any(|s| matches!(s, Step::Note(t) if t.english().contains("frame generation")))
+        );
     }
 
     #[test]

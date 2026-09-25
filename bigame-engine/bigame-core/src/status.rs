@@ -83,6 +83,9 @@ pub struct FalcondStatus {
     /// `None` when this falcond does not report it — releases before DMEM
     /// support — which is different from "reported unavailable".
     pub dmem_cgroup: Option<bool>,
+    /// The sched-ext schedulers falcond can switch to (`scx_lavd`, …), as it
+    /// lists them itself.
+    pub available_scx: Vec<String>,
 }
 
 /// Read and parse falcond's status.
@@ -164,6 +167,14 @@ pub fn parse(content: &str) -> FalcondStatus {
         if !line.starts_with(' ') {
             if let Some((key, val)) = trimmed.split_once(": ") {
                 kv.insert(("", key), val);
+            }
+            continue;
+        }
+
+        // Indented list item: "  - scx_lavd"
+        if let Some(item) = trimmed.strip_prefix("- ") {
+            if section == "AVAILABLE_SCX_SCHEDULERS" {
+                status.available_scx.push(item.trim().to_owned());
             }
             continue;
         }
@@ -283,6 +294,7 @@ CURRENT_STATUS:
         assert_eq!(s.config_scx, "bpfland");
         assert_eq!(s.loaded_profiles, 5);
         assert_eq!(s.active_profile.as_deref(), Some("Cyberpunk2077.exe"));
+        assert_eq!(s.available_scx, ["scx_bpfland", "scx_lavd"]);
         assert!(s.perf_mode_active);
         assert_eq!(s.current_vcache, "cache");
         assert_eq!(s.current_scx, "bpfland");

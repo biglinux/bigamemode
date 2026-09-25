@@ -81,6 +81,39 @@ pub fn state_blocking() -> Result<State> {
     runtime.block_on(state())
 }
 
+/// Put back Booster changes left in force while Turbo is off.
+///
+/// With falcond installed, Turbo's state is falcond's unit, and Booster's
+/// changes are undone by Turbo off. When that did not happen — falcond was
+/// stopped from outside, Turbo off failed half-way, the application was
+/// killed between the two — every surface says Off while the changes stay.
+/// Called when the application starts. Returns how many knobs were restored.
+///
+/// # Errors
+/// Returns an error if systemd or the journal cannot be read.
+pub async fn reconcile() -> Result<usize> {
+    let connection = zbus::Connection::system().await?;
+    let unit = crate::systemd::unit_state(&connection, BACKEND_UNIT).await?;
+    // Without falcond the journal *is* Turbo's state; nothing to reconcile.
+    if !unit.is_installed() || unit.is_active() || !BoosterEngine::is_active() {
+        return Ok(0);
+    }
+    tracing::info!(target: "turbo", "Turbo is off but Booster changes are in force; restoring them");
+    let outcomes = BoosterEngine::deactivate().await?;
+    Ok(outcomes.iter().filter(|o| o.status.is_ok()).count())
+}
+
+/// Blocking variant of [`reconcile`], for the application's startup thread.
+///
+/// # Errors
+/// As [`reconcile`].
+pub fn reconcile_blocking() -> Result<usize> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(reconcile())
+}
+
 /// Whether BiGame-mode has taken charge of falcond, and since when.
 #[must_use]
 pub fn owned_since() -> Option<u64> {

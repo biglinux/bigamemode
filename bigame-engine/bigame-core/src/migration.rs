@@ -39,17 +39,21 @@ pub const FALCOND_FIELDS: &[&str] = &[
     "idle_inhibit",
 ];
 
-/// Fields only BiGame-mode ever wrote: their presence identifies its files.
-const BIGAME_FIELDS: &[&str] = &[
+/// Fields only an older BiGame-mode wrote, which nothing applies: their
+/// presence identifies a file to migrate. (`gamescope` was a table.)
+const DEAD_FIELDS: &[&str] = &["cpu_governor", "scx_custom_flags", "enabled", "gamescope"];
+
+/// BiGame-mode's own per-game settings that the current version still writes
+/// and reads; a migration keeps them. A file whose only extra fields are
+/// these is a current file, not an old one.
+const CURRENT_FIELDS: &[&str] = &[
     "fg_multiplier",
     "fg_flow_scale",
     "fg_perf_mode",
+    "fg_quality",
+    "fg_dll_path",
     "fg_hdr",
     "fg_present_mode",
-    "cpu_governor",
-    "scx_custom_flags",
-    "enabled",
-    "gamescope",
     "gamescope_mode",
 ];
 
@@ -111,7 +115,9 @@ fn fields(content: &str) -> Vec<(String, String)> {
 pub fn falcond_only(content: &str, name: &str) -> String {
     let mut out = format!("name = \"{}\"\n", name.replace('"', ""));
     for (k, v) in fields(content) {
-        if k != "name" && FALCOND_FIELDS.contains(&k.as_str()) {
+        if k != "name"
+            && (FALCOND_FIELDS.contains(&k.as_str()) || CURRENT_FIELDS.contains(&k.as_str()))
+        {
             let _ = writeln!(out, "{k} = {v}");
         }
     }
@@ -132,9 +138,7 @@ fn looks_like_process(name: &str, installed: &[DetectedGame]) -> bool {
 #[must_use]
 pub fn plan_file(file: &Path, content: &str, installed: &[DetectedGame]) -> Action {
     let pairs = fields(content);
-    let has_old_bigame_fields = pairs
-        .iter()
-        .any(|(k, _)| BIGAME_FIELDS.contains(&k.as_str()));
+    let has_old_bigame_fields = pairs.iter().any(|(k, _)| DEAD_FIELDS.contains(&k.as_str()));
     let Some(name) = crate::running::profile_name_field(content) else {
         return Action::Keep {
             file: file.to_path_buf(),
@@ -303,16 +307,28 @@ mod tests {
         };
         assert_eq!(to, "PioneerGame.exe");
         assert!(content.starts_with("name = \"PioneerGame.exe\"\n"));
-        for dropped in ["cpu_governor", "enabled", "fg_", "scx_custom_flags"] {
+        for dropped in ["cpu_governor", "enabled", "scx_custom_flags"] {
             assert!(
                 !content.contains(dropped),
-                "{dropped} is not a falcond field"
+                "{dropped} is applied by nothing"
             );
         }
+        // The per-game frame generation settings are still BiGame-mode's.
+        assert!(content.contains("fg_multiplier = 1"), "{content}");
         assert!(
             content.contains("vcache_mode = none"),
             "an explicit value survives"
         );
+    }
+
+    #[test]
+    fn a_profile_the_current_version_wrote_is_not_an_old_one() {
+        // SOTTR.exe.conf as the profile offer saved it on the lab laptop.
+        let current = "name = \"SOTTR.exe\"\nperformance_mode = true\nscx_sched = none\nscx_sched_props = gaming\nvcache_mode = none\nidle_inhibit = true\nfg_multiplier = 3\nfg_flow_scale = 100\ngamescope_mode = \"auto\"\n";
+        assert!(matches!(
+            plan_file(Path::new("/p/user/SOTTR.exe.conf"), current, &[]),
+            Action::Keep { .. }
+        ));
     }
 
     #[test]

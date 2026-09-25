@@ -379,19 +379,30 @@ impl Plan {
         if self.measured_harmful(&knob) {
             return;
         }
-        // On amd-pstate in active mode the power profile is what sets EPP, and
-        // forcing the `performance` governor pins EPP to performance and locks
-        // it -- overriding power-profiles-daemon, the component that owns that
-        // choice -- for no gain above noise (measured on a Ryzen 7 5700G in a
-        // CPU-bound Shadow of the Tomb Raider). So it is left to the profile.
-        if caps.power_profiles && hw.cpu.epp_driven_by_power_profile() {
+        // Where power-profiles-daemon runs, CPU frequency policy is its: on
+        // amd-pstate and intel_pstate (active) the power profile sets the
+        // energy preference, which the performance governor would pin and
+        // lock; on the other drivers distributions map the profile to a
+        // governor themselves (BigLinux's power-profiles-daemon-biglinux-cpufreq
+        // switches performance/schedutil/conservative on every profile
+        // change). Writing it too puts two owners on one setting: on the lab
+        // laptop the governor went back to schedutil when falcond restored the
+        // balanced profile after a game, while the Turbo report still said
+        // performance. It was also measured no faster (Ryzen 7 5700G, SotTR
+        // CPU-bound). falcond asks for the performance profile per game.
+        if caps.power_profiles {
             self.skipped.push(Skipped::OwnedBy {
                 knob: knob.title(),
                 owner: "power-profiles-daemon".into(),
-                detail: "on amd-pstate the power profile sets the CPU's energy \
-                         preference; forcing the performance governor would \
-                         override it, and measured no faster"
-                    .into(),
+                detail: if hw.cpu.epp_driven_by_power_profile() {
+                    "the power profile sets the CPU's energy preference; forcing the \
+                     performance governor would override it, and measured no faster"
+                        .into()
+                } else {
+                    "the power profile sets the CPU's frequency policy, and falcond \
+                     switches it to performance for each game"
+                        .into()
+                },
             });
             return;
         }
@@ -709,6 +720,7 @@ mod tests {
             device_path: PathBuf::from("/sys/class/drm").join(card).join("device"),
             vendor: GpuVendor::Amd,
             pci_id: "1002:7590".into(),
+            pci_slot: "0000:03:00.0".into(),
             driver: "amdgpu".into(),
             hwmon: None,
             connected_outputs: vec!["DP-1".into()],
@@ -754,7 +766,16 @@ mod tests {
 
         let ids: Vec<String> = plan.changes.iter().map(|c| c.knob.id()).collect();
         assert!(ids.contains(&"power_profile".to_owned()));
-        assert!(ids.contains(&"cpu_governor".to_owned()));
+        // The profile it asks for sets the frequency policy: the governor is
+        // power-profiles-daemon's, not a second write.
+        assert!(!ids.contains(&"cpu_governor".to_owned()));
+        assert!(plan.skipped.iter().any(|s| matches!(
+            s, Skipped::OwnedBy { knob, owner, .. }
+            if knob.contains("governor") && owner == "power-profiles-daemon"
+        )));
+        // Without power-profiles-daemon nothing else owns it.
+        let bare = Plan::build_with_owner(&h, &caps(true, false), &s, &PowerProfileOwner::Booster);
+        assert!(bare.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
         // Forcing GPU DPM needs evidence first, and the skip says so.
         assert!(!ids.iter().any(|i| i.starts_with("gpu_dpm")));
         assert!(plan.skipped.iter().any(|s| matches!(
@@ -813,9 +834,9 @@ mod tests {
                 .iter()
                 .filter(|s| matches!(s, Skipped::NotBeneficial { .. }))
                 .count(),
-            // power profile, governor, GPU DPM — plus the scheduler note is
-            // Unsupported here, not NotBeneficial.
-            3
+            // power profile and GPU DPM; the governor is power-profiles-daemon's
+            // (OwnedBy), and the scheduler note is Unsupported here.
+            2
         );
     }
 
@@ -839,7 +860,7 @@ mod tests {
         // A driver offering only powersave — `performance` is not writable.
         h.cpu = cpu(&["powersave"]);
         let s = snap(&[(Knob::CpuGovernor, Some("powersave"))]);
-        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
+        let plan = Plan::build_with_owner(&h, &caps(true, false), &s, &PowerProfileOwner::Booster);
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::Unsupported { knob, .. } if knob.contains("governor")
@@ -926,7 +947,7 @@ mod tests {
         use crate::benchmark::result::{ArmSummary, Comparison};
 
         let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
-        let c = caps(true, true);
+        let c = caps(true, false);
         let s = snap(&[
             (Knob::PowerProfile, Some("balanced")),
             (Knob::CpuGovernor, Some("powersave")),
@@ -1071,7 +1092,8 @@ mod tests {
         use crate::benchmark::result::{ArmSummary, Comparison};
 
         let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
-        let c = caps(true, true);
+        // No power-profiles-daemon: the governor is Booster's to plan.
+        let c = caps(true, false);
         let s = snap(&[(Knob::CpuGovernor, Some("powersave"))]);
 
         let mut calibration = Calibration::new("fp", "2026-09-23");
@@ -1116,8 +1138,23 @@ mod tests {
             sk, Skipped::OwnedBy { knob, owner, detail }
             if knob.contains("Power profile") && owner == "falcond" && detail.contains("Cyberpunk")
         )));
-        // The knobs falcond does not manage are still planned.
-        assert!(plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
+        // Nor with power-profiles-daemon for the governor that profile sets.
+        assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
+    }
+
+    #[test]
+    fn the_governor_is_left_to_power_profiles_daemon_on_every_driver() {
+        // The lab laptop: intel_cpufreq (passive), where BigLinux maps the
+        // power profile to a governor on every profile change.
+        let mut h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        h.cpu.scaling_driver = Some("intel_cpufreq".into());
+        let s = snap(&[(Knob::CpuGovernor, Some("schedutil"))]);
+        let plan = Plan::build_with_owner(&h, &caps(true, true), &s, &PowerProfileOwner::Booster);
+        assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
+        assert!(plan.skipped.iter().any(|sk| matches!(
+            sk, Skipped::OwnedBy { owner, detail, .. }
+            if owner == "power-profiles-daemon" && detail.contains("falcond")
+        )));
     }
 
     #[test]

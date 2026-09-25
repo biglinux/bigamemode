@@ -284,7 +284,7 @@ fn welch_df(a: &ArmSummary, b: &ArmSummary) -> f64 {
 /// easier to check against a statistics text than an approximation would be.
 /// Values between entries take the more conservative neighbour.
 fn t_critical_95(df: f64) -> f64 {
-    const TABLE: [(f64, f64); 12] = [
+    const TABLE: [(f64, f64); 14] = [
         (1.0, 12.706),
         (2.0, 4.303),
         (3.0, 3.182),
@@ -296,14 +296,20 @@ fn t_critical_95(df: f64) -> f64 {
         (15.0, 2.131),
         (20.0, 2.086),
         (30.0, 2.042),
+        (60.0, 2.000),
+        (120.0, 1.980),
         (f64::INFINITY, 1.960),
     ];
-    for (limit, critical) in TABLE {
-        if df <= limit {
-            return critical;
-        }
-    }
-    1.960
+    // Between two rows the lower degrees of freedom — the larger t — is
+    // taken: the stricter of the two, never an interpolation. (The row above
+    // used to be taken, which is the lenient one: df 7 gave 2.306 where the
+    // true value is 2.365, and Welch's df is fractional with three runs an
+    // arm, so it mattered.) Below df 1 the df 1 value is the floor.
+    TABLE
+        .iter()
+        .rev()
+        .find(|(limit, _)| df >= *limit)
+        .map_or(TABLE[0].1, |(_, critical)| *critical)
 }
 
 #[cfg(test)]
@@ -415,9 +421,15 @@ mod tests {
     fn critical_values_match_the_table_and_are_conservative() {
         assert!((t_critical_95(2.0) - 4.303).abs() < 1e-9);
         assert!((t_critical_95(4.0) - 2.776).abs() < 1e-9);
-        // Between entries, take the stricter neighbour rather than interpolate.
-        assert!((t_critical_95(7.0) - 2.306).abs() < 1e-9);
-        assert!((t_critical_95(1000.0) - 1.960).abs() < 1e-9);
+        // Between entries, the stricter neighbour (fewer degrees of freedom,
+        // larger t) rather than an interpolation: df 7 is judged as df 6.
+        assert!((t_critical_95(7.0) - 2.447).abs() < 1e-9);
+        assert!(t_critical_95(7.0) >= 2.365, "never below the true value");
+        assert!((t_critical_95(2.3) - 4.303).abs() < 1e-9);
+        // Large df: never below the true value (1.962 at df 1000), and
+        // within the table's last step of it.
+        let large = t_critical_95(1000.0);
+        assert!((1.962..=1.980).contains(&large), "{large}");
         // Fewer runs always demand a larger t.
         assert!(t_critical_95(2.0) > t_critical_95(10.0));
     }

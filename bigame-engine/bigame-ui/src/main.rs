@@ -2,6 +2,7 @@
 
 mod app;
 mod game_watch;
+mod gpu_reading;
 pub mod i18n;
 mod profile_offer;
 pub mod settings;

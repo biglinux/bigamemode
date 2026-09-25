@@ -7,11 +7,12 @@
 //! Checks are cheap enough to run when the Diagnostics page opens: file reads,
 //! pacman's local database, one D-Bus ping. No processes are spawned.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::capabilities::{Capabilities, Support};
+use crate::graphics::text::{N_, Text};
 use crate::hardware::{Chassis, GpuVendor, Hardware};
 
 /// How a check came out.
@@ -32,49 +33,63 @@ pub enum Status {
 /// What to do about a problem.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum Fix {
-    /// A command to copy and run. Never run for the user.
+    /// A command to copy and run. Never run for the user, never translated.
     Command(String),
-    /// Something to do in BiGame-mode or elsewhere.
-    Advice(String),
+    /// Something to do in BiGame-mode or elsewhere, translatable.
+    Advice(Text),
 }
 
 impl Fix {
-    /// The text, whichever kind it is.
+    /// The fix in English (a command as it is).
     #[must_use]
-    pub fn text(&self) -> &str {
+    pub fn english(&self) -> String {
         match self {
-            Self::Command(s) | Self::Advice(s) => s,
+            Self::Command(s) => s.clone(),
+            Self::Advice(t) => t.english(),
         }
     }
 }
 
-/// One check.
+/// One check. Its sentences are [`Text`]: an English template marked with
+/// [`N_`] for the translation catalogue, and the values for its `%s`. The UI
+/// translates them; tests and reports use [`Text::english`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Check {
     /// What was checked.
-    pub title: String,
+    pub title: Text,
     /// The outcome.
     pub status: Status,
     /// What was found, in a sentence.
-    pub detail: String,
+    pub detail: Text,
     /// What to do about it, when anything.
     pub fix: Option<Fix>,
 }
 
-fn check(title: &str, status: Status, detail: impl Into<String>, fix: Option<&str>) -> Check {
+fn check(title: &'static str, status: Status, detail: impl Into<Text>, fix: Option<Fix>) -> Check {
     Check {
-        title: title.to_owned(),
+        title: Text::plain(title),
         status,
         detail: detail.into(),
-        // Commands are recognisable; everything else is advice.
-        fix: fix.map(|f| {
-            if f.starts_with("sudo ") || f.starts_with("journalctl ") {
-                Fix::Command(f.to_owned())
-            } else {
-                Fix::Advice(f.to_owned())
-            }
-        }),
+        fix,
     }
+}
+
+/// A command to copy. (An `Option`, as every check's fix is.)
+#[allow(clippy::unnecessary_wraps)]
+fn cmd(command: impl Into<String>) -> Option<Fix> {
+    Some(Fix::Command(command.into()))
+}
+
+/// Advice, translatable. (An `Option`, as every check's fix is.)
+#[allow(clippy::unnecessary_wraps)]
+fn advice(template: &'static str) -> Option<Fix> {
+    Some(Fix::Advice(Text::plain(template)))
+}
+
+/// A value shown as it is — a version, a list of names, a sentence another
+/// module produced.
+fn verbatim(value: impl Into<String>) -> Text {
+    Text::with("%s", [value.into()])
 }
 
 /// An installed package's version, from pacman's local database.
@@ -121,6 +136,23 @@ pub fn vulkan_32bit(vendor: GpuVendor, lib32: &Path) -> (bool, &'static str) {
     (lib32.join(file).exists(), package)
 }
 
+/// The command that brings power-profiles-daemon back.
+///
+/// `BigLinux` starts the daemon from its own unit, which also picks the driver,
+/// and masks the stock one: enabling the stock unit there starts a second
+/// daemon that cannot own the bus name and fails until systemd gives up.
+#[must_use]
+pub fn power_profiles_fix(unit_dir: &Path) -> &'static str {
+    if unit_dir
+        .join("power-profiles-daemon-biglinux.service")
+        .exists()
+    {
+        "sudo systemctl enable power-profiles-daemon-biglinux && sudo systemctl restart power-profiles-daemon-biglinux"
+    } else {
+        "sudo systemctl enable --now power-profiles-daemon"
+    }
+}
+
 /// A warning when systemd has had to restart falcond on its own.
 ///
 /// falcond records the machine's state when a game's profile activates and
@@ -132,13 +164,139 @@ pub fn vulkan_32bit(vendor: GpuVendor, lib32: &Path) -> (bool, &'static str) {
 pub fn restart_check(restarts: u32) -> Option<Check> {
     (restarts > 0).then(|| {
         check(
-            "falcond restarts",
+            N_("falcond restarts"),
             Status::Warning,
-            format!(
-                "systemd restarted falcond {restarts} time{} after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits",
-                if restarts == 1 { "" } else { "s" }
-            ),
-            Some("journalctl -u falcond -b"),
+            if restarts == 1 {
+                Text::plain(N_("systemd restarted falcond once after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"))
+            } else {
+                Text::with(
+                    N_("systemd restarted falcond %s times after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"),
+                    [restarts.to_string()],
+                )
+            },
+            cmd("journalctl -u falcond -b"),
+        )
+    })
+}
+
+/// Hybrid graphics: which GPU games go to, and how they get there.
+///
+/// Nothing to report on a machine with one GPU, or where the games' GPU
+/// drives the display itself. On a laptop whose panel belongs to the
+/// integrated GPU, Proton games pick the discrete one on their own; an OpenGL
+/// game needs PRIME render offload, which BiGame-mode sets for games it
+/// starts but cannot set for a game Steam starts.
+#[must_use]
+pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
+    let render = crate::hardware::pick_render_gpu(&hw.gpus)?;
+    let offload = crate::hardware::offload_for(&hw.gpus, render)?;
+    let gpu = &hw.gpus[render];
+    let vendor = match gpu.vendor {
+        GpuVendor::Nvidia => "NVIDIA",
+        GpuVendor::Amd => "AMD",
+        GpuVendor::Intel => "Intel",
+        GpuVendor::Other => "PCI",
+    };
+    let values = [
+        vendor.to_owned(),
+        gpu.card.clone(),
+        offload.label().to_owned(),
+    ];
+    Some(check(
+        N_("Hybrid graphics"),
+        Status::Ok,
+        if prime_run {
+            Text::with(
+                N_(
+                    "games render on the %s GPU (%s); games BiGame-mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options",
+                ),
+                values,
+            )
+        } else {
+            Text::with(
+                N_(
+                    "games render on the %s GPU (%s); games BiGame-mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options",
+                ),
+                values,
+            )
+        },
+        None,
+    ))
+}
+
+/// A warning when the CPU has hit its temperature limit since boot.
+///
+/// The kernel counts every time a core or the package was slowed for heat
+/// (`thermal_throttle` under each CPU). A CPU that throttles is capped by its
+/// cooling, not by any setting: a performance power profile only adds heat,
+/// and a game measured 91 °C on a laptop lost a fifth of its clock. The
+/// counts are per core; the package ones are the same on every core.
+#[must_use]
+pub fn cpu_throttle_check(cpu_dir: &Path) -> Option<Check> {
+    let read = |cpu: &Path, name: &str| -> Option<u64> {
+        std::fs::read_to_string(cpu.join("thermal_throttle").join(name))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    };
+    let cpus: Vec<PathBuf> = std::fs::read_dir(cpu_dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                n.strip_prefix("cpu")
+                    .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
+            })
+        })
+        .collect();
+    let mut cores: u64 = 0;
+    let mut package: u64 = 0;
+    let mut package_ms: u64 = 0;
+    let mut any = false;
+    for cpu in &cpus {
+        if let Some(n) = read(cpu, "core_throttle_count") {
+            any = true;
+            cores += n;
+        }
+        package = package.max(read(cpu, "package_throttle_count").unwrap_or(0));
+        package_ms = package_ms.max(read(cpu, "package_throttle_total_time_ms").unwrap_or(0));
+    }
+    if !any {
+        return None;
+    }
+    let events = cores.max(package);
+    Some(if events == 0 {
+        check(
+            N_("CPU temperature"),
+            Status::Ok,
+            N_("no thermal throttling since boot"),
+            None,
+        )
+    } else {
+        let slowed = (package_ms / 1000).to_string();
+        check(
+            N_("CPU temperature"),
+            Status::Warning,
+            if events == 1 {
+                Text::with(
+                    N_(
+                        "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat",
+                    ),
+                    [slowed],
+                )
+            } else {
+                Text::with(
+                    N_(
+                        "the CPU hit its temperature limit %s times since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat",
+                    ),
+                    [events.to_string(), slowed],
+                )
+            },
+            advice(N_(
+                "Keep the vents clear; on a laptop, measure whether Turbo helps this game (Measure the difference) before keeping it on",
+            )),
         )
     })
 }
@@ -164,27 +322,27 @@ pub fn collect() -> Vec<Check> {
     let v = version.as_deref().unwrap_or("?");
     out.push(match (&backend, caps.falcond_installed) {
         (_, false) => check(
-            "falcond",
+            N_("falcond"),
             Status::Error,
-            "not installed: there is no per-game optimization",
-            Some("sudo pacman -S falcond falcond-profiles"),
+            N_("not installed: there is no per-game optimization"),
+            cmd("sudo pacman -S falcond falcond-profiles"),
         ),
         (Some(u), true) if u.active_state == "failed" => check(
-            "falcond",
+            N_("falcond"),
             Status::Error,
-            format!("{v} · the service failed; see Logs for why"),
-            Some("journalctl -u falcond -n 50"),
+            Text::with(N_("%s · the service failed; see Logs for why"), [v]),
+            cmd("journalctl -u falcond -n 50"),
         ),
         (Some(u), true) if u.is_active() => check(
-            "falcond",
+            N_("falcond"),
             Status::Ok,
-            format!("{v} · running (Turbo on)"),
+            Text::with(N_("%s · running (Turbo on)"), [v]),
             None,
         ),
         _ => check(
-            "falcond",
+            N_("falcond"),
             Status::Info,
-            format!("{v} · stopped (Turbo off)"),
+            Text::with(N_("%s · stopped (Turbo off)"), [v]),
             None,
         ),
     });
@@ -203,12 +361,12 @@ pub fn collect() -> Vec<Check> {
     if status.as_ref().is_some_and(|s| s.dmem_cgroup.is_none()) && caps.falcond_installed {
         let kernel_can = Path::new("/sys/fs/cgroup/dmem.capacity").exists();
         out.push(check(
-            "falcond features",
+            N_("falcond features"),
             Status::Info,
             if kernel_can {
-                "this falcond predates VRAM protection (DMEM) and split-lock handling; the kernel supports DMEM, so a newer falcond could use it"
+                N_("this falcond predates VRAM protection (DMEM) and split-lock handling; the kernel supports DMEM, so a newer falcond could use it")
             } else {
-                "this falcond predates VRAM protection (DMEM) and split-lock handling"
+                N_("this falcond predates VRAM protection (DMEM) and split-lock handling")
             },
             None,
         ));
@@ -216,10 +374,10 @@ pub fn collect() -> Vec<Check> {
     if let Some(s) = &status {
         if s.profile_mode == "handheld" && !matches!(hw.chassis, Chassis::Handheld) {
             out.push(check(
-                "falcond profile set",
+                N_("falcond profile set"),
                 Status::Warning,
-                "handheld profiles on a machine that is not a handheld: games run in power-saving mode",
-                Some("Turn Turbo on — or off and on again if it is already on — to switch falcond to its desktop profiles"),
+                N_("handheld profiles on a machine that is not a handheld: games run in power-saving mode"),
+                advice(N_("Turn Turbo on — or off and on again if it is already on — to switch falcond to its desktop profiles")),
             ));
         }
     }
@@ -227,123 +385,136 @@ pub fn collect() -> Vec<Check> {
     // sched-ext
     out.push(match caps.sched_ext.switchable() {
         Support::Available => check(
-            "sched-ext",
+            N_("sched-ext"),
             Status::Ok,
-            format!("{} schedulers, scx_loader running", caps.sched_ext.installed.len()),
+            Text::with(
+                N_("%s schedulers, scx_loader available"),
+                [caps.sched_ext.installed.len().to_string()],
+            ),
             None,
         ),
-        Support::Unsupported(why) => check("sched-ext", Status::NotApplicable, why, None),
+        Support::Unsupported(why) => check(N_("sched-ext"), Status::NotApplicable, verbatim(why), None),
         Support::NotInstalled(package) if package == "scx-tools" => check(
-            "sched-ext",
+            N_("sched-ext"),
             Status::Warning,
-            format!(
-                "{} schedulers installed, but scx-tools (scx_loader) is not, so game profiles cannot switch scheduler",
-                caps.sched_ext.installed.len()
+            Text::with(
+                N_("%s schedulers installed, but scx-tools (scx_loader) is not, so game profiles cannot switch scheduler"),
+                [caps.sched_ext.installed.len().to_string()],
             ),
-            Some("sudo pacman -S scx-tools && sudo systemctl enable --now scx_loader"),
+            cmd("sudo pacman -S scx-tools && sudo systemctl enable --now scx_loader"),
         ),
         Support::NotInstalled(package) => check(
-            "sched-ext",
+            N_("sched-ext"),
             Status::Warning,
-            format!("{package} is not installed"),
-            Some("sudo pacman -S scx-scheds scx-tools"),
+            Text::with(N_("%s is not installed"), [package]),
+            cmd("sudo pacman -S scx-scheds scx-tools"),
         ),
         Support::ServiceDown(why) => check(
-            "sched-ext",
+            N_("sched-ext"),
             Status::Warning,
-            why,
-            Some("sudo systemctl enable --now scx_loader"),
+            verbatim(why),
+            cmd("sudo systemctl enable --now scx_loader"),
         ),
     });
 
     // Power profiles
     out.push(if caps.power_profiles {
         check(
-            "power-profiles-daemon",
+            N_("power-profiles-daemon"),
             Status::Ok,
-            caps.power_profiles_available.join(", "),
+            verbatim(caps.power_profiles_available.join(", ")),
             None,
         )
     } else {
         check(
-            "power-profiles-daemon",
+            N_("power-profiles-daemon"),
             Status::Warning,
-            "not reachable: game profiles cannot switch the power profile",
-            Some("sudo systemctl enable --now power-profiles-daemon"),
+            N_("not reachable: game profiles cannot switch the power profile"),
+            cmd(power_profiles_fix(Path::new("/usr/lib/systemd/system"))),
         )
     });
 
     // GameMode
     out.push(if caps.gamemode {
         check(
-            "Feral GameMode",
+            N_("Feral GameMode"),
             Status::Warning,
-            "installed alongside falcond; BiGame-mode does not use it, because two controllers would save and restore the same settings",
+            N_("installed alongside falcond; BiGame-mode does not use it, because two controllers would save and restore the same settings"),
             None,
         )
     } else {
-        check("Feral GameMode", Status::Ok, "not installed · no conflict with falcond", None)
+        check(N_("Feral GameMode"), Status::Ok, N_("not installed · no conflict with falcond"), None)
     });
+
+    // Hybrid graphics
+    if let Some(c) = hybrid_check(&hw, crate::capabilities::which("prime-run").is_some()) {
+        out.push(c);
+    }
+
+    // CPU cooling
+    if let Some(c) = cpu_throttle_check(Path::new("/sys/devices/system/cpu")) {
+        out.push(c);
+    }
 
     // Graphics
     match hw.render_gpu() {
         Some(gpu) => {
             let (ok, package) = vulkan_32bit(gpu.vendor, Path::new("/usr/lib32"));
             out.push(if ok {
-                check("32-bit Vulkan", Status::Ok, "present", None)
+                check(N_("32-bit Vulkan"), Status::Ok, N_("present"), None)
             } else {
                 check(
-                    "32-bit Vulkan",
+                    N_("32-bit Vulkan"),
                     Status::Error,
-                    "missing: many Proton games and Steam itself need it",
-                    Some(&format!("sudo pacman -S {package}")),
+                    N_("missing: many Proton games and Steam itself need it"),
+                    cmd(format!("sudo pacman -S {package}")),
                 )
             });
         }
         None => out.push(check(
-            "GPU",
+            N_("GPU"),
             Status::Error,
-            "no render GPU was identified",
+            N_("no render GPU was identified"),
             None,
         )),
     }
 
     // Tools
-    for (name, present, package, why) in [
+    for (name, present, package, missing) in [
         (
-            "Steam",
+            N_("Steam"),
             caps.steam,
             "steam",
-            "the launcher for most games here",
+            N_("not installed · the launcher for most games here"),
         ),
         (
-            "MangoHud",
+            N_("MangoHud"),
             caps.mangohud,
             "mangohud",
-            "frame-time capture and the in-game overlay",
+            N_("not installed · frame-time capture and the in-game overlay"),
         ),
         (
-            "Gamescope",
+            N_("Gamescope"),
             caps.gamescope.is_some(),
             "gamescope",
-            "the micro-compositor used for scaling and frame limiting",
+            N_("not installed · the micro-compositor used for scaling and frame limiting"),
         ),
     ] {
         out.push(if present {
-            let detail = match (name, &caps.gamescope) {
-                ("Gamescope", Some(g)) => g.version.map_or_else(
-                    || "present".to_owned(),
-                    |v| format!("{}.{}.{}", v.major, v.minor, v.patch),
-                ),
-                _ => package_version(db, package).unwrap_or_else(|| "present".into()),
+            let version = match (name, &caps.gamescope) {
+                ("Gamescope", Some(g)) => g
+                    .version
+                    .map(|v| format!("{}.{}.{}", v.major, v.minor, v.patch)),
+                _ => package_version(db, package),
             };
+            let detail = version.map_or_else(|| Text::plain(N_("present")), verbatim);
             check(name, Status::Ok, detail, None)
         } else {
             check(
                 name,
                 Status::Info,
-                format!("not installed · {why}"),
-                Some(&format!("sudo pacman -S {package}")),
+                missing,
+                cmd(format!("sudo pacman -S {package}")),
             )
         });
     }
@@ -351,16 +522,16 @@ pub fn collect() -> Vec<Check> {
     // Hardware-specific
     out.push(if hw.cpu.vcache.is_some() {
         check(
-            "3D V-Cache",
+            N_("3D V-Cache"),
             Status::Ok,
-            "present; game profiles can prefer the cache CCD",
+            N_("present; game profiles can prefer the cache CCD"),
             None,
         )
     } else {
         check(
-            "3D V-Cache",
+            N_("3D V-Cache"),
             Status::NotApplicable,
-            "this CPU has none",
+            N_("this CPU has none"),
             None,
         )
     });
@@ -370,12 +541,12 @@ pub fn collect() -> Vec<Check> {
         .ok()
         .and_then(|p| p.ping().ok());
     out.push(match helper {
-        Some(_) => check("BiGame-mode helper", Status::Ok, "reachable", None),
+        Some(_) => check(N_("BiGame-mode helper"), Status::Ok, N_("reachable"), None),
         None => check(
-            "BiGame-mode helper",
+            N_("BiGame-mode helper"),
             Status::Error,
-            "not reachable: Turbo and profile changes cannot be made",
-            Some("sudo systemctl restart bigame-daemon"),
+            N_("not reachable: Turbo and profile changes cannot be made"),
+            cmd("sudo systemctl restart bigame-daemon"),
         ),
     });
 
@@ -391,12 +562,124 @@ mod tests {
         assert_eq!(restart_check(0), None);
         let one = restart_check(1).unwrap();
         assert_eq!(one.status, Status::Warning);
-        assert!(one.detail.contains("1 time after"), "{}", one.detail);
-        assert!(restart_check(3).unwrap().detail.contains("3 times"));
+        assert!(
+            one.detail.english().contains("once after"),
+            "{}",
+            one.detail
+        );
+        assert!(
+            restart_check(3)
+                .unwrap()
+                .detail
+                .english()
+                .contains("3 times")
+        );
         assert_eq!(
             one.fix,
             Some(Fix::Command("journalctl -u falcond -b".into()))
         );
+    }
+
+    #[test]
+    fn power_profiles_are_restarted_through_biglinux_s_own_unit_where_it_has_one() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            power_profiles_fix(dir.path()),
+            "sudo systemctl enable --now power-profiles-daemon"
+        );
+        std::fs::write(
+            dir.path().join("power-profiles-daemon-biglinux.service"),
+            "",
+        )
+        .unwrap();
+        let fix = power_profiles_fix(dir.path());
+        assert!(
+            fix.contains("restart power-profiles-daemon-biglinux"),
+            "{fix}"
+        );
+        assert!(!fix.contains("--now power-profiles-daemon"), "{fix}");
+    }
+
+    #[test]
+    fn a_throttled_cpu_is_a_warning_and_a_cool_one_is_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            cpu_throttle_check(dir.path()),
+            None,
+            "no counters, no check"
+        );
+        for (cpu, core, pkg, ms) in [("cpu0", 0, 0, 0), ("cpu1", 0, 0, 0)] {
+            let t = dir.path().join(cpu).join("thermal_throttle");
+            std::fs::create_dir_all(&t).unwrap();
+            std::fs::write(t.join("core_throttle_count"), core.to_string()).unwrap();
+            std::fs::write(t.join("package_throttle_count"), pkg.to_string()).unwrap();
+            std::fs::write(t.join("package_throttle_total_time_ms"), ms.to_string()).unwrap();
+        }
+        std::fs::create_dir_all(dir.path().join("cpufreq")).unwrap();
+        let cool = cpu_throttle_check(dir.path()).unwrap();
+        assert_eq!(cool.status, Status::Ok);
+        // The lab laptop after three benchmark runs.
+        let t = dir.path().join("cpu1").join("thermal_throttle");
+        std::fs::write(t.join("core_throttle_count"), "1799").unwrap();
+        std::fs::write(t.join("package_throttle_count"), "47").unwrap();
+        std::fs::write(t.join("package_throttle_total_time_ms"), "14300").unwrap();
+        let hot = cpu_throttle_check(dir.path()).unwrap();
+        assert_eq!(hot.status, Status::Warning);
+        assert!(
+            hot.detail.english().contains("1799 times") && hot.detail.english().contains("14 s"),
+            "{}",
+            hot.detail
+        );
+        assert!(matches!(hot.fix, Some(Fix::Advice(_))));
+    }
+
+    #[test]
+    fn a_hybrid_laptop_is_told_where_games_render_and_how() {
+        use crate::hardware::{Gpu, Session};
+        let g = |card: &str, driver: &str, vendor: GpuVendor, discrete: bool, out: &[&str]| Gpu {
+            card: card.into(),
+            device_path: std::path::PathBuf::new(),
+            vendor,
+            pci_id: String::new(),
+            pci_slot: "0000:01:00.0".into(),
+            driver: driver.into(),
+            hwmon: None,
+            connected_outputs: out.iter().map(|s| (*s).to_owned()).collect(),
+            vram_total_bytes: None,
+            discrete,
+            dpm_level_path: None,
+        };
+        let mut hw = Hardware::detect();
+        hw.session = Session::Wayland;
+        hw.gpus = vec![
+            g("card0", "nvidia", GpuVendor::Nvidia, true, &[]),
+            g("card1", "i915", GpuVendor::Intel, false, &["eDP-1"]),
+        ];
+        let c = hybrid_check(&hw, true).unwrap();
+        assert_eq!(c.status, Status::Ok);
+        assert!(
+            c.detail.english().contains("NVIDIA PRIME render offload"),
+            "{}",
+            c.detail
+        );
+        assert!(
+            c.detail.english().contains("prime-run %command%"),
+            "{}",
+            c.detail
+        );
+        // A desktop whose dGPU drives the monitor: nothing to say.
+        hw.gpus = vec![g("card0", "nvidia", GpuVendor::Nvidia, true, &["DP-1"])];
+        assert_eq!(hybrid_check(&hw, true), None);
+    }
+
+    #[test]
+    fn every_sentence_is_a_marked_template_ready_for_translation() {
+        // A value never lands in a template: the placeholders carry it, so
+        // the catalogue sees one sentence per message, whatever the numbers.
+        let c = restart_check(4).unwrap();
+        assert!(c.detail.template.contains("%s"), "{}", c.detail.template);
+        assert_eq!(c.detail.args, ["4"]);
+        assert_eq!(c.title.template, "falcond restarts");
     }
 
     #[test]
@@ -446,7 +729,7 @@ mod tests {
     fn no_check_offers_to_delete_anything() {
         for c in collect() {
             if let Some(fix) = &c.fix {
-                assert!(!fix.text().contains("rm "), "{}: {fix:?}", c.title);
+                assert!(!fix.english().contains("rm "), "{}: {fix:?}", c.title);
             }
         }
     }

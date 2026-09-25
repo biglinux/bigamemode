@@ -31,13 +31,18 @@ use crate::video_config::VideoConfig;
 struct Host {
     gamescope: Option<crate::capabilities::GamescopeCaps>,
     session: crate::hardware::Session,
+    /// How to reach the games' GPU when another GPU drives the display.
+    offload: Option<crate::hardware::Offload>,
 }
 
 impl Host {
     fn detect() -> Self {
+        let hw = crate::hardware::Hardware::detect();
+        let render = crate::hardware::pick_render_gpu(&hw.gpus);
         Self {
             gamescope: crate::capabilities::Capabilities::detect().gamescope,
-            session: crate::hardware::Hardware::detect().session,
+            offload: render.and_then(|i| crate::hardware::offload_for(&hw.gpus, i)),
+            session: hw.session,
         }
     }
 }
@@ -87,6 +92,29 @@ impl LaunchPlan {
         )
     }
 
+    /// [`Self::build_with_args_for_game`] with the game's own Gamescope
+    /// choice: Always or Never decide for this game; Automatic follows the
+    /// Video page's switch.
+    #[must_use]
+    pub fn build_for_game(
+        executable: &str,
+        executable_args: &[String],
+        logical_game: &str,
+        video: &VideoConfig,
+        gs_override: Option<&gamescope::Config>,
+        gamescope_mode: gamescope::Mode,
+    ) -> Self {
+        Self::build_on_with_mode(
+            &Host::detect(),
+            executable,
+            executable_args,
+            logical_game,
+            video,
+            gs_override,
+            Some(gamescope_mode),
+        )
+    }
+
     /// [`Self::build_with_args_for_game`] on a given machine rather than this
     /// one.
     fn build_on(
@@ -96,6 +124,27 @@ impl LaunchPlan {
         logical_game: &str,
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
+    ) -> Self {
+        Self::build_on_with_mode(
+            host,
+            executable,
+            executable_args,
+            logical_game,
+            video,
+            gs_override,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn build_on_with_mode(
+        host: &Host,
+        executable: &str,
+        executable_args: &[String],
+        logical_game: &str,
+        video: &VideoConfig,
+        gs_override: Option<&gamescope::Config>,
+        game_mode: Option<gamescope::Mode>,
     ) -> Self {
         // Presentation-layer settings (Gamescope, Wine FSR, vkBasalt, frame
         // generation) are not a CPU power policy and do not depend on the power
@@ -143,20 +192,35 @@ impl LaunchPlan {
         Self::check_and_warn_conflicts(logical_game, &effective_video);
 
         collect_upscaling_env(upscaling, &mut env);
+        // On a hybrid laptop an OpenGL game renders on the GPU that drives the
+        // panel unless it is offloaded; Vulkan games pick the discrete GPU
+        // anyway, and the offload variables do not change what they choose.
+        // A value the user already set in their environment wins.
+        if let Some(offload) = &host.offload {
+            for (k, v) in offload.env() {
+                if std::env::var_os(k).is_none() {
+                    env.insert(k.to_owned(), v);
+                }
+            }
+        }
         if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
             // The lsfg-vk layer's own off switch (its `disable_environment`).
             env.insert("DISABLE_LSFG".to_owned(), "1".to_owned());
         }
 
         // ── Decide program + args ─────────────────────────────────────────────
-        // The tri-state lives on the profile; when no profile is supplied the
-        // global "enable Gamescope" toggle stands in for an explicit choice.
-        let mode = if upscaling.gamescope_enabled {
-            gamescope::Mode::Enabled
-        } else {
-            gamescope::Mode::Auto
+        // The game's Always/Never decides; its Automatic, or no choice at all,
+        // follows the global "enable Gamescope" switch.
+        let mode = match game_mode {
+            Some(m @ (gamescope::Mode::Enabled | gamescope::Mode::Disabled)) => m,
+            _ if upscaling.gamescope_enabled => gamescope::Mode::Enabled,
+            _ => gamescope::Mode::Auto,
         };
         let merged = Self::merge_gamescope_config(upscaling, gs_override);
+        // MangoHud chosen for this game (Profiles). It does not by itself make
+        // Automatic wrap the game in Gamescope; when Gamescope runs anyway it
+        // becomes Gamescope's own overlay, --mangoapp.
+        let mangohud = crate::mangohud::mode_for(logical_game);
         let decision = gamescope::decide(mode, &merged, host.gamescope.as_ref(), host.session);
         tracing::info!(
             target: "gamescope",
@@ -166,15 +230,33 @@ impl LaunchPlan {
             "gamescope decision"
         );
         if decision.use_gamescope {
+            let mut gs = gs_override.cloned().unwrap_or_default();
+            if mangohud != crate::mangohud::Mode::Off {
+                gs.mangoapp = true;
+            }
+            let gs_override = (gs_override.is_some() || gs.mangoapp).then_some(&gs);
             let (program, args) =
-                build_gamescope_argv(executable, executable_args, upscaling, gs_override);
+                build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
             Self { program, args, env }
         } else {
-            Self {
+            // On: MangoHud's Vulkan layer. Forced: its wrapper, which also
+            // reaches OpenGL games.
+            let mut plan = Self {
                 program: executable.to_string(),
                 args: executable_args.to_vec(),
                 env,
+            };
+            match mangohud {
+                crate::mangohud::Mode::On => {
+                    plan.env.insert("MANGOHUD".into(), "1".into());
+                }
+                crate::mangohud::Mode::Forced => {
+                    plan.args
+                        .insert(0, std::mem::replace(&mut plan.program, "mangohud".into()));
+                }
+                crate::mangohud::Mode::Off => {}
             }
+            plan
         }
     }
 
@@ -190,14 +272,9 @@ impl LaunchPlan {
             && effective.frame_gen.backend == FrameGenBackend::LsfgVk
             && !crate::fg::is_lossless_dll_ready()
         {
+            // lsfg-vk without its DLL loads and generates nothing; the
+            // entries stay as the user set them for when the DLL is back.
             effective.frame_gen.enabled = false;
-            if let Err(e) = crate::fg::disable_all_profiles() {
-                tracing::warn!(
-                    game = executable,
-                    error = %e,
-                    "harmony policy: failed to disable lsfg profiles after missing Lossless.dll"
-                );
-            }
             tracing::warn!(
                 game = executable,
                 "harmony policy: LSFG-VK disabled because Lossless.dll path is missing/invalid"
@@ -389,7 +466,7 @@ impl LaunchPlan {
                 match upscaling.gamescope_filter {
                     GamescopeFilter::Fsr => gamescope::Filter::Fsr,
                     GamescopeFilter::Nis => gamescope::Filter::Nis,
-                    GamescopeFilter::Integer => gamescope::Filter::Pixel,
+                    GamescopeFilter::Integer => gamescope::Filter::Integer,
                 }
             } else {
                 base.filter
@@ -421,16 +498,21 @@ impl LaunchPlan {
 /// 2. the per-game profile's render resolution;
 /// 3. nothing, leaving Gamescope to follow the game.
 fn build_gamescope_argv(
+    host: &Host,
     executable: &str,
     executable_args: &[String],
     upscaling: &UpscalingSettings,
     gs_override: Option<&gamescope::Config>,
 ) -> (String, Vec<String>) {
-    let caps = crate::capabilities::Capabilities::detect()
-        .gamescope
-        .unwrap_or_default();
+    let caps = host.gamescope.clone().unwrap_or_default();
     let cfg = LaunchPlan::merge_gamescope_config(upscaling, gs_override);
 
+    // Gamescope is left to composite on the GPU that drives the display. Told
+    // to use the discrete GPU of a hybrid laptop (`--prefer-vk-device`), nested
+    // Gamescope never showed a window on the lab laptop (GTX 1050 Ti rendering,
+    // Intel HD 630 driving the panel): it could not hand its frames to the
+    // compositor. The game inside still renders on the discrete GPU, through
+    // the offload variables it inherits.
     let (argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
     for u in &unsupported {
         tracing::warn!(
@@ -493,7 +575,79 @@ mod tests {
                 flags: Vec::new(),
             }),
             session: crate::hardware::Session::Wayland,
+            offload: None,
         }
+    }
+
+    /// The lab laptop: GTX 1050 Ti with no panel, and a Gamescope that knows
+    /// `--prefer-vk-device` (which must not be used there).
+    fn hybrid_laptop() -> Host {
+        Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: vec![
+                    "prefer-vk-device".into(),
+                    "F".into(),
+                    "w".into(),
+                    "h".into(),
+                ],
+            }),
+            session: crate::hardware::Session::Wayland,
+            offload: Some(crate::hardware::Offload::Nvidia),
+        }
+    }
+
+    #[test]
+    fn a_game_started_on_a_hybrid_laptop_is_offloaded_to_the_discrete_gpu() {
+        let video = VideoConfig::default();
+        let plan = LaunchPlan::build_on(
+            &hybrid_laptop(),
+            "supertuxkart",
+            &[],
+            "supertuxkart",
+            &video,
+            None,
+        );
+        if std::env::var_os("__NV_PRIME_RENDER_OFFLOAD").is_none() {
+            assert_eq!(
+                plan.env
+                    .get("__NV_PRIME_RENDER_OFFLOAD")
+                    .map(String::as_str),
+                Some("1")
+            );
+            assert_eq!(
+                plan.env
+                    .get("__GLX_VENDOR_LIBRARY_NAME")
+                    .map(String::as_str),
+                Some("nvidia")
+            );
+        }
+        assert!(!plan.env.contains_key("DRI_PRIME"));
+        // Nothing of the sort on a desktop whose dGPU drives the monitor.
+        let plan = LaunchPlan::build_on(
+            &desktop(),
+            "supertuxkart",
+            &[],
+            "supertuxkart",
+            &video,
+            None,
+        );
+        assert!(!plan.env.contains_key("__NV_PRIME_RENDER_OFFLOAD"));
+    }
+
+    #[test]
+    fn gamescope_on_a_hybrid_laptop_composites_where_the_display_is() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let plan = LaunchPlan::build_on(&hybrid_laptop(), "game", &[], "game", &video, None);
+        assert_eq!(plan.program, "gamescope");
+        // Composited on the discrete GPU, nested Gamescope showed no window.
+        assert!(!plan.args.iter().any(|a| a == "--prefer-vk-device"));
+        // The game still receives the offload variables through Gamescope.
+        assert!(
+            plan.env.contains_key("__VK_LAYER_NV_optimus")
+                || std::env::var_os("__VK_LAYER_NV_optimus").is_some()
+        );
     }
 
     fn build(exe: &str, video: &VideoConfig, gs: Option<&gamescope::Config>) -> LaunchPlan {
@@ -536,12 +690,52 @@ mod tests {
     }
 
     #[test]
+    fn a_game_set_to_never_is_not_wrapped_whatever_the_global_switch_says() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let never = LaunchPlan::build_on_with_mode(
+            &desktop(),
+            "game",
+            &[],
+            "game",
+            &video,
+            None,
+            Some(gamescope::Mode::Disabled),
+        );
+        assert_eq!(never.program, "game");
+        let auto = LaunchPlan::build_on_with_mode(
+            &desktop(),
+            "game",
+            &[],
+            "game",
+            &video,
+            None,
+            Some(gamescope::Mode::Auto),
+        );
+        assert_eq!(
+            auto.program, "gamescope",
+            "Automatic follows the global switch"
+        );
+        video.upscaling.gamescope_enabled = false;
+        let always = LaunchPlan::build_on_with_mode(
+            &desktop(),
+            "game",
+            &[],
+            "game",
+            &video,
+            None,
+            Some(gamescope::Mode::Enabled),
+        );
+        assert_eq!(always.program, "gamescope");
+    }
+
+    #[test]
     fn gamescope_turned_on_but_absent_launches_the_game_itself() {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         let host = Host {
             gamescope: None,
-            session: crate::hardware::Session::Wayland,
+            ..desktop()
         };
         let plan = LaunchPlan::build_on(&host, "myapp", &[], "myapp", &video, None);
         assert_eq!(plan.program, "myapp");
@@ -577,10 +771,26 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Integer;
-        let plan = build("game", &video, None);
-        if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
-            assert_eq!(plan.args[f_pos + 1], "pixel");
-        }
+        // A Gamescope that declares the options, so the test sees what is
+        // emitted rather than nothing at all.
+        let host = Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: vec!["S".into(), "F".into()],
+            }),
+            ..desktop()
+        };
+        let plan = LaunchPlan::build_on(&host, "game", &[], "game", &video, None);
+        let s = plan
+            .args
+            .iter()
+            .position(|a| a == "-S")
+            .expect("-S emitted");
+        assert_eq!(plan.args[s + 1], "integer");
+        assert!(
+            !plan.args.contains(&"pixel".to_owned()),
+            "integer scaling is not the pixel filter"
+        );
     }
 
     #[test]

@@ -18,7 +18,7 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 use adw::prelude::*;
-use gtk4::glib;
+use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use bigame_core::hardware::Hardware;
@@ -625,6 +625,22 @@ impl GameCard {
         }
         facts.push(g.process_name.clone());
         self.facts.set_label(&facts.join(" · "));
+        // The card the game really has open, named: on a hybrid laptop this
+        // is the answer to "is it on the GeForce?". Named off the main thread
+        // (the PCI database is a large file).
+        if let Some(card) = g.render_card.clone() {
+            let label = self.facts.clone();
+            let text = facts.join(" · ");
+            glib::spawn_future_local(async move {
+                let name = gio::spawn_blocking(move || gpu_model(&card))
+                    .await
+                    .ok()
+                    .flatten();
+                if let Some(name) = name {
+                    label.set_label(&format!("{text} · {}", i18n("on %s").replace("%s", &name)));
+                }
+            });
+        }
         self.create
             .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
         self.root.set_visible(true);
@@ -646,36 +662,61 @@ impl GameCard {
             ));
         }
         // What AI Graphics is really doing in the game, from what it loaded
-        // and OptiScaler's own log — hidden when nothing was installed.
-        match bigame_core::graphics::status_running(&g) {
-            Some(st) => {
-                self.ai.set_label(&format!(
-                    "{} · {}",
-                    i18n("AI Graphics"),
-                    crate::views::ai_graphics::status_text(&st)
-                ));
-                self.ai.set_visible(true);
+        // and OptiScaler's own log — hidden when nothing was installed. It
+        // verifies the installed files' hashes, so it runs off the main thread.
+        let (ai, profile, create) = (self.ai.clone(), self.profile.clone(), self.create.clone());
+        let turbo_on = self.turbo_on.get();
+        glib::spawn_future_local(async move {
+            let Ok((st, active)) = gio::spawn_blocking(move || {
+                (
+                    bigame_core::graphics::status_running(&g),
+                    bigame_core::status::read().and_then(|s| s.active_profile),
+                )
+            })
+            .await
+            else {
+                return;
+            };
+            match st {
+                Some(st) => {
+                    ai.set_label(&format!(
+                        "{} · {}",
+                        i18n("AI Graphics"),
+                        crate::views::ai_graphics::status_text(&st)
+                    ));
+                    ai.set_visible(true);
+                }
+                None => ai.set_visible(false),
             }
-            None => self.ai.set_visible(false),
-        }
-        if !self.turbo_on.get() {
-            self.profile
-                .set_label(&i18n("Turbo is off, so this game is not being optimized"));
-            self.create.set_visible(false);
-            return;
-        }
-        let active = bigame_core::status::read().and_then(|s| s.active_profile);
-        let (text, offer) = match active.as_deref() {
-            Some("Proton") => (
-                i18n("No profile of its own yet · using falcond's general Proton profile"),
-                true,
-            ),
-            Some(name) => (i18n("Profile %s").replace("%s", name), false),
-            None => (i18n("No profile is active for this game"), true),
-        };
-        self.profile.set_label(&text);
-        self.create.set_visible(offer);
+            if !turbo_on {
+                profile.set_label(&i18n("Turbo is off, so this game is not being optimized"));
+                create.set_visible(false);
+                return;
+            }
+            let (text, offer) = match active.as_deref() {
+                Some("Proton") => (
+                    i18n("No profile of its own yet · using falcond's general Proton profile"),
+                    true,
+                ),
+                Some(name) => (i18n("Profile %s").replace("%s", name), false),
+                None => (i18n("No profile is active for this game"), true),
+            };
+            profile.set_label(&text);
+            create.set_visible(offer);
+        });
     }
+}
+
+/// The model of the GPU behind DRM `card`, as the PCI database names it,
+/// without the chip code: `GeForce GTX 1050 Ti Mobile`.
+fn gpu_model(card: &str) -> Option<String> {
+    let hw = Hardware::detect();
+    let (infos, _) = bigame_core::graphics::report::gpu_infos(&hw, Some(card));
+    let name = infos.into_iter().find(|g| g.card == card)?.name;
+    Some(match (name.find('['), name.rfind(']')) {
+        (Some(a), Some(b)) if b > a + 1 => name[a + 1..b].to_owned(),
+        _ => name,
+    })
 }
 
 // ── Readings ─────────────────────────────────────────────────────────────────
@@ -721,15 +762,20 @@ fn cpu_reading(hw: &Hardware) -> String {
     }
 }
 
+/// The card games use: the one the running game has open, else the expected
+/// one. Temperature when the driver reports it, otherwise clock and load.
 fn gpu_reading(hw: &Hardware) -> String {
-    let Some(gpu) = hw.render_gpu() else {
+    let running = crate::game_watch::current().and_then(|g| g.render_card);
+    let Some(gpu) = bigame_core::gpu_telemetry::games_gpu(&hw.gpus, running.as_deref())
+        .and_then(|i| hw.gpus.get(i))
+    else {
         return i18n("—");
     };
-    match gpu.hwmon_u64("temp1_input") {
-        Some(milli) => format!("{} °C", milli / 1000),
-        None => gpu
-            .busy_percent()
-            .map_or_else(|| i18n("—"), |b| format!("{b}%")),
+    let s = bigame_core::gpu_telemetry::sample(gpu);
+    match s.temp_c {
+        #[allow(clippy::cast_possible_truncation)]
+        Some(t) if !s.asleep => format!("{} °C", t.round() as i64),
+        _ => crate::gpu_reading::load_text(&s),
     }
 }
 

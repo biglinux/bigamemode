@@ -121,16 +121,6 @@ pub struct Measurement {
     pub outcomes: Vec<Outcome>,
 }
 
-impl Measurement {
-    /// Best (median) statistics from each arm, by 1% low.
-    #[must_use]
-    fn representative(runs: &[FrameStats]) -> Option<&FrameStats> {
-        let mut sorted: Vec<&FrameStats> = runs.iter().collect();
-        sorted.sort_by(|a, b| a.low_1_fps.total_cmp(&b.low_1_fps));
-        sorted.get(sorted.len() / 2).copied()
-    }
-}
-
 /// Record one run and return its statistics.
 ///
 /// Returns `Ok(None)` when the workload produced too few frames to summarise —
@@ -294,14 +284,13 @@ pub async fn run<F: FnMut(MeasureProgress)>(
         "too few usable runs to compare"
     );
 
-    // Each metric is judged against the spread of that same metric across the
-    // baseline runs — see `benchmark::compare_runs`. The single floor kept
+    // Each metric is judged over every run of both arms (Welch's t-test and
+    // a 5 % stability bar, `benchmark::compare_arms`). The single floor kept
     // here is the 1% low's, for reporting.
     let baseline_lows: Vec<f64> = baseline.iter().map(|s| s.low_1_fps).collect();
     let noise_floor = benchmark::noise_floor(&baseline_lows).unwrap_or(0.0);
 
-    let b = Measurement::representative(&optimized).context("no optimized runs")?;
-    let outcomes = benchmark::compare_runs(&baseline, b);
+    let outcomes = benchmark::compare_arms(&baseline, &optimized);
 
     tracing::info!(
         target: "booster",
@@ -426,14 +415,30 @@ mod tests {
     }
 
     #[test]
-    fn the_representative_run_is_the_median_not_the_best() {
-        // Reporting the best run of each arm would flatter whichever arm got
-        // luckier, which is how a measurement turns into an advertisement.
-        let runs = vec![stats(100.0), stats(140.0), stats(120.0)];
-        let chosen = Measurement::representative(&runs).unwrap();
-        assert!((chosen.low_1_fps - 120.0).abs() < f64::EPSILON);
-
-        assert!(Measurement::representative(&[]).is_none());
+    fn every_run_of_both_arms_is_judged_not_one_median_run() {
+        use crate::booster::report::Outcome;
+        // Steady arms, clearly apart: an improvement on every metric.
+        let base = [stats(40.0), stats(40.4), stats(39.8)];
+        let fast = [stats(50.0), stats(50.3), stats(49.9)];
+        let out = crate::benchmark::compare_arms(&base, &fast);
+        assert!(
+            out.iter().all(|o| matches!(o, Outcome::Improved { .. })),
+            "{out:?}"
+        );
+        // The same means, but one arm all over the place: no claim either way.
+        let wild = [stats(30.0), stats(70.0), stats(50.0)];
+        let out = crate::benchmark::compare_arms(&base, &wild);
+        assert!(
+            out.iter()
+                .all(|o| matches!(o, Outcome::Inconclusive { .. })),
+            "{out:?}"
+        );
+        // Identical arms: no change, not an improvement.
+        let out = crate::benchmark::compare_arms(&base, &base);
+        assert!(
+            out.iter().all(|o| matches!(o, Outcome::NoChange { .. })),
+            "{out:?}"
+        );
     }
 
     #[tokio::test]

@@ -40,7 +40,7 @@ pub fn build() -> adw::PreferencesPage {
     ));
 
     page.add(&build_device_group(&shared));
-    page.add(&build_advanced_group(&shared));
+    page.add(&build_advanced_group());
 
     page
 }
@@ -55,9 +55,7 @@ pub fn build() -> adw::PreferencesPage {
 /// Nothing here is a hidden setting — each row states what it writes and where.
 // One group, built top to bottom; splitting it would scatter the rows.
 #[allow(clippy::too_many_lines)]
-fn build_advanced_group(
-    shared: &Rc<RefCell<bigame_core::config::FalcondConfig>>,
-) -> adw::PreferencesGroup {
+fn build_advanced_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Advanced"));
 
@@ -147,35 +145,6 @@ fn build_advanced_group(
         }
     }
 
-    // ── falcond poll interval ───────────────────────────────────────────
-    let poll = adw::SpinRow::new(
-        Some(&gtk4::Adjustment::new(
-            f64::from(shared.borrow().poll_interval_ms),
-            1000.0,
-            60000.0,
-            500.0,
-            1000.0,
-            0.0,
-        )),
-        500.0,
-        0,
-    );
-    poll.set_title(&i18n("falcond scan interval (ms)"));
-    poll.set_subtitle(&i18n(
-        "How often falcond looks for a running game. Lower reacts sooner and \
-         costs more; the default is 9000.",
-    ));
-    {
-        let shared = Rc::clone(shared);
-        poll.connect_value_notify(move |row| {
-            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-            {
-                shared.borrow_mut().poll_interval_ms = row.value() as u32;
-            }
-        });
-    }
-    expander.add_row(&poll);
-
     group
 }
 
@@ -222,7 +191,10 @@ fn build_daemon_group(shared: &SharedConfig) -> adw::PreferencesGroup {
     );
     let poll_row = adw::SpinRow::new(Some(&poll_adj), 500.0, 0);
     poll_row.set_title(&i18n("Poll Interval (ms)"));
-    poll_row.set_subtitle(&i18n("How often falcond scans /proc for new processes"));
+    poll_row.set_subtitle(&i18n(
+        "How often falcond looks for a running game. Lower reacts sooner and \
+         costs more; the default is 9000.",
+    ));
     group.add(&poll_row);
 
     let cfg = Rc::clone(shared);

@@ -284,6 +284,77 @@ fn build_detail_page(profile_name: &str) -> adw::NavigationPage {
     build_detail_page_for(&profile)
 }
 
+/// `MangoHud` for this game: off, on or forced. BiGame-mode's own setting, not
+/// falcond's, so it applies at once — no Save — and says where it took effect.
+fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
+    use bigame_core::mangohud::{Applied, Mode};
+
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("MangoHud"));
+    let installed = bigame_core::capabilities::which("mangohud").is_some();
+    group.set_description(Some(&if installed {
+        i18n("The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. For a Steam game it is written into Steam's launch options, with Steam closed.")
+    } else {
+        i18n("MangoHud is not installed.")
+    }));
+    let model = gtk4::StringList::new(&[&i18n("Off"), &i18n("On"), &i18n("Forced")]);
+    let current = bigame_core::mangohud::mode_for(process);
+    let row = adw::ComboRow::builder()
+        .title(i18n("Show MangoHud"))
+        .model(&model)
+        .selected(match current {
+            Mode::Off => 0,
+            Mode::On => 1,
+            Mode::Forced => 2,
+        })
+        .sensitive(installed)
+        .build();
+    group.add(&row);
+
+    let process = process.to_owned();
+    let applying = Rc::new(std::cell::Cell::new(false));
+    row.connect_selected_notify(move |row| {
+        if applying.get() {
+            return;
+        }
+        let mode = match row.selected() {
+            1 => Mode::On,
+            2 => Mode::Forced,
+            _ => Mode::Off,
+        };
+        let (row, process, applying) = (row.clone(), process.clone(), Rc::clone(&applying));
+        glib::spawn_future_local(async move {
+            let name = process.clone();
+            let result = gio::spawn_blocking(move || bigame_core::mangohud::apply(&name, mode)).await;
+            let message = match result {
+                Ok(Ok(Applied::LaunchPlan)) => i18n("Saved. It applies when BiGame-mode starts the game."),
+                Ok(Ok(Applied::SteamLaunchOptions(opts))) if opts.is_empty() => {
+                    i18n("Removed from the game's Steam launch options.")
+                }
+                Ok(Ok(Applied::SteamLaunchOptions(opts))) => {
+                    i18n("Steam launch options: %s").replace("%s", &opts)
+                }
+                Ok(Ok(Applied::SteamRunning)) => {
+                    // Saved, but not in effect for Steam: say so and show the
+                    // choice that is actually in Steam.
+                    applying.set(true);
+                    row.set_selected(match current {
+                        Mode::Off => 0,
+                        Mode::On => 1,
+                        Mode::Forced => 2,
+                    });
+                    applying.set(false);
+                    i18n("Close Steam first: it keeps its launch options in memory and would overwrite the change.")
+                }
+                Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not apply")),
+                Err(_) => i18n("Could not apply"),
+            };
+            crate::widgets::toast::show(&row, &message);
+        });
+    });
+    group
+}
+
 /// Find index of `needle` in a `StringList`.
 pub(crate) fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
     for i in 0..model.n_items() {
@@ -753,6 +824,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
     page.add(&identity);
 
     let w = build_perf_widgets(&page, profile);
+    page.add(&build_mangohud_group(&profile.name));
 
     // Save button
     let save_btn = gtk4::Button::builder()
@@ -910,16 +982,9 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         });
         detail_header.pack_end(&export_btn);
 
-        // Activate profile button — marks profile as selected in UI context.
-        let activate_btn = gtk4::Button::builder()
-            .icon_name("media-playback-start-symbolic")
-            .tooltip_text(i18n("Activate Profile"))
-            .build();
-        activate_btn.connect_clicked(move |btn| {
-            let btn_ref = btn.clone();
-            toast::show(&btn_ref, &i18n("Profile activated"));
-        });
-        detail_header.pack_end(&activate_btn);
+        // No "activate" button: falcond applies a game's profile by itself
+        // when the game's process starts, and one that did nothing but show
+        // "Profile activated" claimed an action that never happened.
 
         let delete_btn = gtk4::Button::builder()
             .icon_name("user-trash-symbolic")

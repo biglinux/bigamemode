@@ -55,8 +55,8 @@ the second to restore writes the first one's value back as the "baseline".
 | falcond on/off | Turbo, through the helper and systemd |
 | Per-game performance mode, scheduler, V-Cache, idle inhibit | falcond, from the profile BiGame-mode writes |
 | Power profile | falcond per game; the Booster never writes it while falcond is installed |
-| Governor and EPP on `amd-pstate` (active) | power-profiles-daemon, through the profile |
-| Governor on other cpufreq drivers | Booster, only with evidence |
+| Governor and EPP, wherever power-profiles-daemon runs | power-profiles-daemon, through the profile (on BigLinux its companion `power-profiles-daemon-biglinux-cpufreq` maps the profile to a governor on passive drivers); falcond asks for `performance` per game |
+| Governor without power-profiles-daemon | Booster |
 | GPU DPM level | Booster, **only where a benchmark on this machine measured it faster**; `high` pins the highest fixed state and loses the firmware's boost (−7.5 to −8.3 % on an RX 9060 XT, see [BENCHMARKS.md](BENCHMARKS.md)) |
 | sched-ext scheduler | falcond, through `scx_loader`; the Booster never loads a scheduler |
 | Files inside a game folder | AI Graphics |

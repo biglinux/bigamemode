@@ -81,6 +81,12 @@ pub fn snapshot() -> Vec<Proc> {
                 .next()
                 .map(|a| String::from_utf8_lossy(a).into_owned())
                 .unwrap_or_default();
+            // No command line: a kernel thread, or a process on its way
+            // out. Neither is a game, and an exiting one in a game's tree
+            // was once reported as the game, with no name.
+            if argv0.is_empty() {
+                return None;
+            }
             let cmdline = String::from_utf8_lossy(
                 &raw.iter()
                     .map(|b| if *b == 0 { b' ' } else { *b })
@@ -206,11 +212,7 @@ const INFRASTRUCTURE: &[&str] = &[
     "steam.exe",
     "steamwebhelper",
     "steamservice.exe",
-    "srt-bwrap",
-    "pv-adverb",
-    "pressure-vessel-wrap",
-    "steam-runtime-launcher-service",
-    "steam-runtime-launch-client",
+    "steam-launch-wrapper",
     "python3",
     "python",
     "sh",
@@ -255,6 +257,21 @@ const INFRASTRUCTURE: &[&str] = &[
     "gameoverlayui",
 ];
 
+/// Name prefixes of the Steam Linux Runtime's own programs (pressure-vessel
+/// and steam-runtime-tools): the container, its logger, and the probes it
+/// runs while the container starts, which are named after the architecture
+/// they check (`i386-linux-gnu-capsule-capture-libs`, …). While they run they
+/// are the only non-Wine processes in the game's tree, and the busiest.
+const STEAM_RUNTIME_PREFIXES: &[&str] = &[
+    "pressure-vessel-",
+    "pv-",
+    "srt-",
+    "steam-runtime-",
+    "x86_64-linux-gnu-",
+    "i386-linux-gnu-",
+    "aarch64-linux-gnu-",
+];
+
 /// falcond's own list of processes that are never games
 /// (`/usr/share/falcond/system.conf`), read once.
 ///
@@ -296,6 +313,7 @@ pub fn is_infrastructure(name: &str) -> bool {
     INFRASTRUCTURE.contains(&lower.as_str())
         || falcond_system_processes().contains(&lower)
         || lower.starts_with("wine")
+        || STEAM_RUNTIME_PREFIXES.iter().any(|p| lower.starts_with(p))
         // Crash handlers by their usual names -- not any name containing
         // "crash", which would also exclude Crash Bandicoot.
         || ["crashhandler", "crash_handler", "crashreport", "crashpad", "crashsender"]
@@ -386,7 +404,7 @@ pub fn identify_with<S: std::hash::BuildHasher>(
         let proton = proton_tool(&tree);
         let candidates: Vec<&&Proc> = tree
             .iter()
-            .filter(|p| !is_infrastructure(falcond_name(&p.argv0)))
+            .filter(|p| !p.argv0.is_empty() && !is_infrastructure(falcond_name(&p.argv0)))
             .collect();
         // In a Proton tree the game is a Windows binary. A Linux helper inside
         // the container -- an overlay, a wrapper -- must not outrank a game
@@ -586,6 +604,8 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
 struct OpenGpu {
     /// DRM card (`card0`).
     card: String,
+    /// PCI address of the card (`0000:01:00.0`).
+    pci_slot: String,
     /// Opened through the NVIDIA driver's own node (`/dev/nvidia0`).
     nvidia_node: bool,
     /// The firmware's boot display adapter.
@@ -679,13 +699,45 @@ fn render_card(pid: u32) -> Option<String> {
         }
         let boot_vga =
             std::fs::read_to_string(device.join("boot_vga")).is_ok_and(|v| v.trim() == "1");
+        let pci_slot = device
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
         open.push(OpenGpu {
             card,
+            pci_slot,
             nvidia_node,
             boot_vga,
         });
     }
+    let open = drop_enumerated_only(open, pid, crate::gpu_telemetry::nvidia_graphics_pids);
     choose_render_gpu(&open).map(str::to_owned)
+}
+
+/// Remove the NVIDIA cards `pid` has open without rendering on them.
+///
+/// Enumerating Vulkan devices opens `/dev/nvidia0` and the card's render
+/// node, so a game on the integrated GPU holds NVIDIA nodes too (checked with
+/// `vkcube --gpu_number 0` on the lab laptop: seven `/dev/nvidia0` fds). The
+/// driver's list of processes with a graphics context tells them apart; when
+/// it cannot be read, nothing is removed.
+fn drop_enumerated_only(
+    open: Vec<OpenGpu>,
+    pid: u32,
+    contexts: impl Fn(&str) -> Option<Vec<u32>>,
+) -> Vec<OpenGpu> {
+    let idle: Vec<String> = open
+        .iter()
+        .filter(|g| g.nvidia_node)
+        .filter(|g| contexts(&g.pci_slot).is_some_and(|pids| !pids.contains(&pid)))
+        .map(|g| g.card.clone())
+        .collect();
+    if idle.is_empty() {
+        return open;
+    }
+    open.into_iter()
+        .filter(|g| !idle.contains(&g.card))
+        .collect()
 }
 
 /// Fill in what the launcher and the live process can say.
@@ -843,9 +895,36 @@ mod tests {
     fn open_gpu(card: &str, nvidia_node: bool, boot_vga: bool) -> OpenGpu {
         OpenGpu {
             card: card.into(),
+            pci_slot: if card == "card0" {
+                "0000:01:00.0"
+            } else {
+                "0000:00:02.0"
+            }
+            .into(),
             nvidia_node,
             boot_vga,
         }
+    }
+
+    #[test]
+    fn nvidia_nodes_held_only_for_enumeration_do_not_make_it_the_render_gpu() {
+        // vkcube --gpu_number 0 on the lab laptop: Intel renders, yet
+        // /dev/nvidia0 and renderD129 (card0) are open beside renderD128.
+        let held = || {
+            vec![
+                open_gpu("card0", true, false),
+                open_gpu("card0", false, false),
+                open_gpu("card1", false, true),
+            ]
+        };
+        let no_context = drop_enumerated_only(held(), 42, |_| Some(vec![7, 9]));
+        assert_eq!(choose_render_gpu(&no_context), Some("card1"));
+        // The process does hold a context on the GeForce: it renders there.
+        let context = drop_enumerated_only(held(), 42, |_| Some(vec![42]));
+        assert_eq!(choose_render_gpu(&context), Some("card0"));
+        // NVML unavailable: nothing is removed, as before.
+        let unknown = drop_enumerated_only(held(), 42, |_| None);
+        assert_eq!(choose_render_gpu(&unknown), Some("card0"));
     }
 
     #[test]
@@ -1058,6 +1137,82 @@ mod tests {
             identify(&tree).is_empty(),
             "the installer helper is not a game"
         );
+    }
+
+    #[test]
+    fn the_steam_runtime_starting_up_is_not_the_game() {
+        // Shadow of the Tomb Raider on the lab laptop: Steam runs the install
+        // script through `proton run`, so there is no `waitforexitandrun` to
+        // name the Proton tool, and the runtime's probes are the busiest
+        // processes left in the tree.
+        let rt = "/usr/lib/pressure-vessel/from-host/libexec/steam-runtime-tools-0";
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=750920 Install=1 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "/s/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap|--args 26",
+                2,
+            ),
+            p(3, 2, &format!("{rt}/pv-adverb|--generate-locales"), 3),
+            p(
+                4,
+                3,
+                &format!("{rt}/i386-linux-gnu-capsule-capture-libs|--dest=/tmp"),
+                60,
+            ),
+            p(5, 3, &format!("{rt}/x86_64-linux-gnu-check-vulkan|"), 40),
+            p(6, 3, &format!("{rt}/srt-logger|--sh-syntax"), 10),
+            p(
+                7,
+                3,
+                "/s/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-service|",
+                5,
+            ),
+            p(
+                8,
+                3,
+                "python3|/s/steamapps/common/Proton - Experimental/proton run /h/.local/share/Steam/legacycompat/iscriptevaluator.exe",
+                30,
+            ),
+            p(9, 8, "C:\\windows\\system32\\wineboot.exe|--init", 200),
+            p(
+                10,
+                8,
+                "C:\\Program Files (x86)\\Steam\\legacycompat\\iscriptevaluator.exe|legacycompat\\evaluatorscript_750920.vdf",
+                100,
+            ),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
+        assert!(!is_infrastructure("SOTTR.exe"));
+        assert!(!is_infrastructure("supertuxkart"));
+    }
+
+    #[test]
+    fn a_process_without_a_command_line_is_not_the_game() {
+        // A process on its way out has an empty cmdline. Left in the pool it
+        // was once chosen, and Home announced a game with no name.
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=750920 --",
+                1,
+            ),
+            p(2, 1, "", 500),
+            p(
+                3,
+                1,
+                "/s/SteamLinuxRuntime_4/pressure-vessel/bin/srt-logger|",
+                5,
+            ),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
     }
 
     #[test]
