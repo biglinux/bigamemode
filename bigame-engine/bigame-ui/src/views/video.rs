@@ -172,12 +172,18 @@ fn build_upscaling_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGro
     expander.add_row(&wine_quality_row);
 
     // ── vkBasalt post-processing ─────────────────────────────────────────────
+    // A look, not a speed-up: sharpening and colour filters cost a little GPU
+    // time. Said plainly, and only offered where the layer is installed.
+    let vkb_installed = bigame_core::capabilities::vkbasalt_installed();
     let vkb_row = adw::SwitchRow::builder()
         .title(i18n("vkBasalt Post-Processing"))
-        .subtitle(i18n(
-            "Adds ENABLE_VKBASALT=1 to game environment (requires vkBasalt)",
-        ))
-        .active(cfg.upscaling.vkbasalt_enabled)
+        .subtitle(if vkb_installed {
+            i18n("Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. Restart Steam after changing it.")
+        } else {
+            i18n("Not installed")
+        })
+        .active(cfg.upscaling.vkbasalt_enabled && vkb_installed)
+        .sensitive(vkb_installed || cfg.upscaling.vkbasalt_enabled)
         .build();
     expander.add_row(&vkb_row);
 

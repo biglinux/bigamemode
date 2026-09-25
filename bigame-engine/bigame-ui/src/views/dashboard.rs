@@ -977,9 +977,12 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     let wine_fsr_active = pids
         .iter()
         .any(|pid| process_env_has_key(*pid, "WINE_FULLSCREEN_FSR"));
-    let vkbasalt_active = pids
-        .iter()
-        .any(|pid| process_env_has_key(*pid, "ENABLE_VKBASALT"));
+    // Active means the layer is loaded in the game, not that the variable is
+    // in its environment: a game that is not Vulkan, or a layer that failed to
+    // load, has the variable and no vkBasalt.
+    let vkbasalt_active = pids.iter().any(|pid| {
+        process_env_has_key(*pid, "ENABLE_VKBASALT") && process_maps_contain(*pid, "libvkbasalt")
+    });
     let lsfg_active = is_lsfg_active(&pids);
 
     VideoRuntime {
@@ -1111,6 +1114,11 @@ fn process_env_has_key(pid: u32, key: &str) -> bool {
         .split(|b| *b == 0)
         .filter_map(|entry| std::str::from_utf8(entry).ok())
         .any(|s| s.starts_with(&format!("{key}=")))
+}
+
+/// Whether a library whose path contains `needle` is mapped into `pid`.
+fn process_maps_contain(pid: u32, needle: &str) -> bool {
+    std::fs::read_to_string(format!("/proc/{pid}/maps")).is_ok_and(|m| m.contains(needle))
 }
 
 #[must_use]
@@ -1430,16 +1438,24 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
         let exe = game.profile_key().to_owned();
         let source = game.source.label();
         let game_name = game.name.clone();
+        // A Steam game is started by the Steam client, in its own process
+        // tree: its falcond profile applies, but nothing wraps it, so the
+        // button does not promise video settings there.
+        let through_steam = launch_program == "steam";
         let gs_btn = gtk4::Button::builder()
             .label(i18n("Launch (Turbo)"))
-            .tooltip_text(i18n("Launch the game with BiGame-mode's video settings"))
+            .tooltip_text(if through_steam {
+                i18n("Starts the game through Steam. Its profile applies; video settings reach Steam games only through Steam's launch options")
+            } else {
+                i18n("Launch the game with BiGame-mode's video settings")
+            })
             .valign(gtk4::Align::Center)
             .css_classes(["suggested-action"])
             .build();
         gs_btn.connect_clicked(move |b| {
-            let gs_cfg = bigame_core::profiles::load(&exe)
-                .ok()
-                .and_then(|p| p.gamescope);
+            let profile = bigame_core::profiles::load(&exe).ok();
+            let gs_mode = profile.as_ref().map_or(bigame_core::gamescope::Mode::Auto, |p| p.gamescope_mode);
+            let gs_cfg = profile.and_then(|p| p.gamescope);
             let btn_ref = b.clone();
             let exe_for_launch = exe.clone();
             let (launch_program, launch_args) = (launch_program.clone(), launch_args.clone());
@@ -1458,12 +1474,13 @@ fn populate_games_rows(group: &adw::PreferencesGroup) {
 
                     let video = bigame_core::video_config::load();
 
-                    bigame_core::launcher::LaunchPlan::build_with_args_for_game(
+                    bigame_core::launcher::LaunchPlan::build_for_game(
                         &launch_program,
                         &launch_args,
                         &exe_for_launch,
                         &video,
                         gs_cfg.as_ref(),
+                        gs_mode,
                     )
                     .spawn()
                     .map(|mut child| {

@@ -259,7 +259,7 @@ impl Capabilities {
             power_profiles_available: crate::dbus::power_profiles_available(),
             sched_ext: detect_sched_ext(),
             lsfg_vk: vulkan_layer_installed("VkLayer_LS_frame_generation"),
-            vkbasalt: vulkan_layer_installed("vkBasalt"),
+            vkbasalt: vkbasalt_installed(),
             steam: which("steam").is_some(),
         }
     }
@@ -334,12 +334,17 @@ fn detect_sched_ext() -> SchedExtCaps {
 }
 
 fn vulkan_layer_installed(stem: &str) -> bool {
-    const DIRS: &[&str] = &[
+    let mut dirs: Vec<std::path::PathBuf> = [
         "/usr/share/vulkan/implicit_layer.d",
         "/usr/local/share/vulkan/implicit_layer.d",
         "/etc/vulkan/implicit_layer.d",
-    ];
-    DIRS.iter().any(|dir| {
+    ]
+    .iter()
+    .map(std::path::PathBuf::from)
+    .collect();
+    // A layer installed for one user (a local build, a Flatpak-free install).
+    dirs.push(crate::paths::data_home().join("vulkan/implicit_layer.d"));
+    dirs.iter().any(|dir| {
         std::fs::read_dir(dir).is_ok_and(|entries| {
             entries.flatten().any(|e| {
                 e.file_name()
@@ -349,6 +354,12 @@ fn vulkan_layer_installed(stem: &str) -> bool {
             })
         })
     })
+}
+
+/// Whether the vkBasalt Vulkan layer is installed.
+#[must_use]
+pub fn vkbasalt_installed() -> bool {
+    vulkan_layer_installed("vkBasalt")
 }
 
 #[cfg(test)]

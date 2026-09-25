@@ -241,24 +241,12 @@ fn detect_missing_runtime_packages() -> Vec<String> {
     if cfg.upscaling.gamescope_enabled && bigame_core::capabilities::which("gamescope").is_none() {
         missing.push("gamescope".to_string());
     }
-    // vkbasalt is a Vulkan implicit layer (no CLI binary). Detect via layer manifest or libvkbasalt.so.
-    if cfg.upscaling.vkbasalt_enabled && !vkbasalt_installed() {
+    // vkBasalt is a Vulkan implicit layer (no CLI binary).
+    if cfg.upscaling.vkbasalt_enabled && !bigame_core::capabilities::vkbasalt_installed() {
         missing.push("vkbasalt".to_string());
     }
 
     missing
-}
-
-#[must_use]
-fn vkbasalt_installed() -> bool {
-    const LAYER_PATHS: &[&str] = &[
-        "/usr/share/vulkan/implicit_layer.d/vkBasalt.json",
-        "/usr/share/vulkan/implicit_layer.d/vkBasalt.x86_64.json",
-        "/usr/share/vulkan/implicit_layer.d/vkBasalt.i686.json",
-        "/usr/lib/libvkbasalt.so",
-        "/usr/lib32/libvkbasalt.so",
-    ];
-    LAYER_PATHS.iter().any(|p| std::path::Path::new(p).exists())
 }
 
 #[must_use]

@@ -28,8 +28,11 @@ pub enum Filter {
     Fsr,
     /// NVIDIA Image Scaling.
     Nis,
-    /// Integer / pixel-exact scaling.
+    /// Gamescope's pixel-art filter (`-F pixel`): sharp edges, any factor.
     Pixel,
+    /// Integer scaling (`-S integer`): whole-number factors only, the same
+    /// pixel drawn as an exact block. A scaler, not a filter.
+    Integer,
 }
 
 impl Filter {
@@ -38,7 +41,9 @@ impl Filter {
     pub fn as_arg(self) -> &'static str {
         match self {
             Self::Linear => "linear",
-            Self::Nearest => "nearest",
+            // Integer is a scaler, not a filter: `build_argv` emits
+            // `-S integer` for it and never asks for its filter token.
+            Self::Nearest | Self::Integer => "nearest",
             Self::Fsr => "fsr",
             Self::Nis => "nis",
             Self::Pixel => "pixel",
@@ -295,7 +300,11 @@ impl Config {
             ]);
         }
 
-        if self.filter != Filter::Linear
+        if self.filter == Filter::Integer {
+            if want("S", "integer scaling not applied", &mut unsupported) {
+                args.extend(["-S".into(), "integer".into()]);
+            }
+        } else if self.filter != Filter::Linear
             && want("F", "upscaling filter not applied", &mut unsupported)
         {
             {

@@ -98,6 +98,29 @@ impl LaunchPlan {
         )
     }
 
+    /// [`Self::build_with_args_for_game`] with the game's own Gamescope
+    /// choice: Always or Never decide for this game; Automatic follows the
+    /// Video page's switch.
+    #[must_use]
+    pub fn build_for_game(
+        executable: &str,
+        executable_args: &[String],
+        logical_game: &str,
+        video: &VideoConfig,
+        gs_override: Option<&gamescope::Config>,
+        gamescope_mode: gamescope::Mode,
+    ) -> Self {
+        Self::build_on_with_mode(
+            &Host::detect(),
+            executable,
+            executable_args,
+            logical_game,
+            video,
+            gs_override,
+            Some(gamescope_mode),
+        )
+    }
+
     /// [`Self::build_with_args_for_game`] on a given machine rather than this
     /// one.
     fn build_on(
@@ -107,6 +130,27 @@ impl LaunchPlan {
         logical_game: &str,
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
+    ) -> Self {
+        Self::build_on_with_mode(
+            host,
+            executable,
+            executable_args,
+            logical_game,
+            video,
+            gs_override,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn build_on_with_mode(
+        host: &Host,
+        executable: &str,
+        executable_args: &[String],
+        logical_game: &str,
+        video: &VideoConfig,
+        gs_override: Option<&gamescope::Config>,
+        game_mode: Option<gamescope::Mode>,
     ) -> Self {
         // Presentation-layer settings (Gamescope, Wine FSR, vkBasalt, frame
         // generation) are not a CPU power policy and do not depend on the power
@@ -171,12 +215,12 @@ impl LaunchPlan {
         }
 
         // ── Decide program + args ─────────────────────────────────────────────
-        // The tri-state lives on the profile; when no profile is supplied the
-        // global "enable Gamescope" toggle stands in for an explicit choice.
-        let mode = if upscaling.gamescope_enabled {
-            gamescope::Mode::Enabled
-        } else {
-            gamescope::Mode::Auto
+        // The game's Always/Never decides; its Automatic, or no choice at all,
+        // follows the global "enable Gamescope" switch.
+        let mode = match game_mode {
+            Some(m @ (gamescope::Mode::Enabled | gamescope::Mode::Disabled)) => m,
+            _ if upscaling.gamescope_enabled => gamescope::Mode::Enabled,
+            _ => gamescope::Mode::Auto,
         };
         let merged = Self::merge_gamescope_config(upscaling, gs_override);
         let decision = gamescope::decide(mode, &merged, host.gamescope.as_ref(), host.session);
@@ -411,7 +455,7 @@ impl LaunchPlan {
                 match upscaling.gamescope_filter {
                     GamescopeFilter::Fsr => gamescope::Filter::Fsr,
                     GamescopeFilter::Nis => gamescope::Filter::Nis,
-                    GamescopeFilter::Integer => gamescope::Filter::Pixel,
+                    GamescopeFilter::Integer => gamescope::Filter::Integer,
                 }
             } else {
                 base.filter
@@ -640,6 +684,46 @@ mod tests {
     }
 
     #[test]
+    fn a_game_set_to_never_is_not_wrapped_whatever_the_global_switch_says() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let never = LaunchPlan::build_on_with_mode(
+            &desktop(),
+            "game",
+            &[],
+            "game",
+            &video,
+            None,
+            Some(gamescope::Mode::Disabled),
+        );
+        assert_eq!(never.program, "game");
+        let auto = LaunchPlan::build_on_with_mode(
+            &desktop(),
+            "game",
+            &[],
+            "game",
+            &video,
+            None,
+            Some(gamescope::Mode::Auto),
+        );
+        assert_eq!(
+            auto.program, "gamescope",
+            "Automatic follows the global switch"
+        );
+        video.upscaling.gamescope_enabled = false;
+        let always = LaunchPlan::build_on_with_mode(
+            &desktop(),
+            "game",
+            &[],
+            "game",
+            &video,
+            None,
+            Some(gamescope::Mode::Enabled),
+        );
+        assert_eq!(always.program, "gamescope");
+    }
+
+    #[test]
     fn gamescope_turned_on_but_absent_launches_the_game_itself() {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
@@ -681,10 +765,26 @@ mod tests {
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         video.upscaling.gamescope_filter = GamescopeFilter::Integer;
-        let plan = build("game", &video, None);
-        if let Some(f_pos) = plan.args.iter().position(|a| a == "-F") {
-            assert_eq!(plan.args[f_pos + 1], "pixel");
-        }
+        // A Gamescope that declares the options, so the test sees what is
+        // emitted rather than nothing at all.
+        let host = Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: vec!["S".into(), "F".into()],
+            }),
+            ..desktop()
+        };
+        let plan = LaunchPlan::build_on(&host, "game", &[], "game", &video, None);
+        let s = plan
+            .args
+            .iter()
+            .position(|a| a == "-S")
+            .expect("-S emitted");
+        assert_eq!(plan.args[s + 1], "integer");
+        assert!(
+            !plan.args.contains(&"pixel".to_owned()),
+            "integer scaling is not the pixel filter"
+        );
     }
 
     #[test]

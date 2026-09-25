@@ -62,6 +62,12 @@ pub fn cache_home() -> PathBuf {
     xdg("XDG_CACHE_HOME", ".cache")
 }
 
+/// `$XDG_DATA_HOME`, or `~/.local/share`.
+#[must_use]
+pub fn data_home() -> PathBuf {
+    xdg("XDG_DATA_HOME", ".local/share")
+}
+
 /// `$XDG_STATE_HOME`, or `~/.local/state`.
 #[must_use]
 pub fn state_home() -> PathBuf {
