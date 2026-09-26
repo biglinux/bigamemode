@@ -289,7 +289,7 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
             "{}\n1) {}\n2) {}\n3) {}\n\n{}\n{}",
             i18n("Troubleshooting"),
             i18n("Install missing packages"),
-            i18n("Restart BiGameMode"),
+            i18n("Restart BiGame-mode"),
             i18n("Open Details after starting a game to see what it really got"),
             i18n("Command"),
             cmd
@@ -300,7 +300,7 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
         "{}\n1) {}\n2) {}\n3) {}\n\n{}: {}",
         i18n("Troubleshooting"),
         i18n("Install missing packages with your package manager"),
-        i18n("Restart BiGameMode"),
+        i18n("Restart BiGame-mode"),
         i18n("Open Details after starting a game to see what it really got"),
         i18n("Missing packages"),
         missing.join(", ")
