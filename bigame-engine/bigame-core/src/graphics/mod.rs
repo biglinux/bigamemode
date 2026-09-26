@@ -54,6 +54,23 @@ pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Man
     })
 }
 
+/// The process names, in lower case, of every game BiGame-mode has files
+/// installed in: every manifest read once, for a whole library.
+#[must_use]
+pub fn installed_processes(state: &Path) -> std::collections::HashSet<String> {
+    let Ok(dir) = std::fs::read_dir(state) else {
+        return std::collections::HashSet::new();
+    };
+    dir.flatten()
+        .filter_map(|d| {
+            let key = d.file_name().to_string_lossy().into_owned();
+            manifest::Manifest::load(state, &key).ok().flatten()
+        })
+        .filter(|m| m.state == manifest::State::Installed)
+        .filter_map(|m| m.process.map(|p| p.to_lowercase()))
+        .collect()
+}
+
 /// What a launch of `process` must turn off: with `OptiScaler` upscaling in the
 /// game, Gamescope upscaling and Wine FSR would be second upscalers in series,
 /// and with its frame generation on, lsfg-vk a second frame generator.
@@ -394,15 +411,18 @@ pub fn status_running(game: &crate::running::GameIdentity) -> Option<runtime::St
     ))
 }
 
-/// What the running game's own graphics path shows, cheaply enough for
-/// Home's refresh: `Some(true)` when the game ships AMD's `FidelityFX` API and
-/// has Proton's FSR 4 provider mapped (its FSR path runs FSR 4),
-/// `Some(false)` when it ships the API on an RDNA 4 card but runs without the
-/// provider, `None` when the question does not arise.
+/// Whether the running game's own FSR path can reach FSR 4 on this machine:
+/// the game ships AMD's `FidelityFX` API and renders on an RDNA 4 card. It
+/// reads the game library, the install folder and the hardware, none of which
+/// change while the game runs, so a caller asks once per game and then
+/// follows [`native_fsr4_loaded`].
 #[must_use]
-pub fn native_fsr4_running(game: &crate::running::GameIdentity) -> Option<bool> {
-    let root = game.install_path.as_ref()?;
-    // The executable's folder: where a Steam game keeps its runtimes.
+pub fn native_fsr4_applies(game: &crate::running::GameIdentity) -> bool {
+    let Some(root) = game.install_path.as_ref() else {
+        return false;
+    };
+    // The executable's folder: where a Steam game keeps its runtimes. Only a
+    // library game's folder is scanned.
     let exe_dir = crate::games::detect_all()
         .into_iter()
         .find(|g| g.install_path.as_deref() == Some(root.as_path()))
@@ -412,28 +432,26 @@ pub fn native_fsr4_running(game: &crate::running::GameIdentity) -> Option<bool> 
         })
         .unwrap_or_else(|| root.clone());
     if !exe_dir.join("amd_fidelityfx_dx12.dll").is_file() {
-        return None;
+        return false;
     }
     let hw = crate::hardware::Hardware::detect();
-    let rdna4 = game
-        .render_card
+    game.render_card
         .as_deref()
         .and_then(|c| hw.gpus.iter().find(|g| g.card == c))
         .or_else(|| hw.render_gpu())
         .is_some_and(|g| {
             g.vendor == crate::hardware::GpuVendor::Amd
-                && report::rdna_generation(
-                    &report::pci_name(
-                        &std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default(),
-                        &g.pci_id,
-                    )
-                    .unwrap_or_default(),
-                ) == Some(4)
-        });
-    if !rdna4 {
-        return None;
-    }
-    let maps = std::fs::read_to_string(format!("/proc/{}/maps", game.pid)).ok()?;
+                && report::rdna_generation(&report::device_name(&g.pci_id).unwrap_or_default())
+                    == Some(4)
+        })
+}
+
+/// For a game where [`native_fsr4_applies`]: `Some(true)` when Proton's FSR 4
+/// provider is mapped in it (its FSR path runs FSR 4), `Some(false)` when it
+/// runs without the provider, `None` when its maps cannot be read.
+#[must_use]
+pub fn native_fsr4_loaded(pid: u32) -> Option<bool> {
+    let maps = std::fs::read_to_string(format!("/proc/{pid}/maps")).ok()?;
     runtime::native_runtime(Some(&maps)).fsr4_provider_loaded
 }
 

@@ -323,10 +323,8 @@ impl Snapshot {
     /// Read everything. Never fails: what cannot be read is `None`.
     #[must_use]
     pub fn collect(game: Option<GameIdentity>) -> Self {
-        let systemd = crate::systemd::Reader::system();
-        let unit = systemd
-            .as_ref()
-            .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+        let unit =
+            crate::systemd::Reader::shared().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
         let turbo_on = unit.as_ref().map_or_else(
             || crate::turbo::state_blocking().is_ok_and(|s| s == crate::turbo::State::On),
             crate::systemd::UnitState::is_active,

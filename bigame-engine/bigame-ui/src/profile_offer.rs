@@ -78,7 +78,7 @@ fn should_offer(game: &GameIdentity) -> bool {
     if !crate::settings::load().offer_profiles {
         return false;
     }
-    let turbo_on = bigame_core::systemd::Reader::system()
+    let turbo_on = bigame_core::systemd::Reader::shared()
         .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
         .is_some_and(|u| u.is_active());
     if !turbo_on {
@@ -214,7 +214,7 @@ fn notify_offer(app: &adw::Application, game: &GameIdentity) {
 
 /// A game started and Turbo is handling it: say which profile is in force.
 fn notify_detected(app: &adw::Application, game: &GameIdentity) {
-    let turbo_on = bigame_core::systemd::Reader::system()
+    let turbo_on = bigame_core::systemd::Reader::shared()
         .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
         .is_some_and(|u| u.is_active());
     if !turbo_on {

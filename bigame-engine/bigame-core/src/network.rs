@@ -68,6 +68,15 @@ impl Link {
 /// Returns `None` when there is no default route (no connectivity).
 #[must_use]
 pub fn primary_link() -> Option<Link> {
+    let mut link = primary_link_brief()?;
+    link.qdisc = root_qdisc(&link.name);
+    Some(link)
+}
+
+/// [`primary_link`] without the queue discipline, which takes running `tc`:
+/// only kernel files are read, so a live display can call it every tick.
+#[must_use]
+pub fn primary_link_brief() -> Option<Link> {
     let (name, gateway) = default_route()?;
     let sys = Path::new("/sys/class/net").join(&name);
     Some(Link {
@@ -76,7 +85,7 @@ pub fn primary_link() -> Option<Link> {
             .filter(|s: &i64| *s > 0)
             .and_then(|s| u32::try_from(s).ok()),
         mtu: read_num(&sys.join("mtu")).and_then(|m: i64| u32::try_from(m).ok()),
-        qdisc: root_qdisc(&name),
+        qdisc: None,
         gateway,
         name,
     })

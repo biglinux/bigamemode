@@ -283,7 +283,10 @@ pub fn which(binary: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
-fn detect_gamescope() -> Option<GamescopeCaps> {
+/// The installed Gamescope's version and options (`gamescope --help`), or
+/// `None` without Gamescope.
+#[must_use]
+pub fn detect_gamescope() -> Option<GamescopeCaps> {
     which("gamescope")?;
     // Gamescope prints its banner on stderr and the option list on stdout;
     // merge both so neither layout surprises us.

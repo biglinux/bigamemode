@@ -530,7 +530,13 @@ fn open_internal(
 
                 gtk4::glib::spawn_future_local(async move {
                     tracing::info!(profile = %p_clone.name, "wizard save requested");
-                    match bigame_core::profiles::save(&p_clone) {
+                    // Off the main thread: the helper may wait on a Polkit
+                    // password prompt.
+                    let to_save = p_clone.clone();
+                    let saved = gtk4::gio::spawn_blocking(move || bigame_core::profiles::save(&to_save))
+                        .await
+                        .unwrap_or_else(|_| Err(anyhow::anyhow!("save panicked")));
+                    match saved {
                         Ok(()) => {
                             tracing::info!(profile = %p_clone.name, "wizard save succeeded");
                             on_saved_final(p_clone.clone());
@@ -556,10 +562,10 @@ fn open_internal(
                             }
                         }
                         Err(e) => {
-                            tracing::error!("Wizard save failed: {e}");
+                            tracing::warn!(error = %format!("{e:#}"), "wizard profile not saved");
                             crate::widgets::toast::show(
                                 &next_btn_ref,
-                                &format!("{}: {}", i18n("Save failed. Check terminal logs."), e),
+                                &i18n("Could not save: %s").replace("%s", &format!("{e:#}")),
                             );
                             next_btn_ref.set_sensitive(true);
                             next_btn_ref.set_label(&i18n("Save Profile"));

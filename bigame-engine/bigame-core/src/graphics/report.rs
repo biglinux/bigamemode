@@ -530,6 +530,26 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
     }
 }
 
+/// The device name `/usr/share/hwdata/pci.ids` gives `pci_id`. The 1.6 MB
+/// database is read once per device and the answer kept for the process:
+/// the same GPUs are named on every page.
+#[must_use]
+pub fn device_name(pci_id: &str) -> Option<String> {
+    static NAMES: std::sync::Mutex<Option<std::collections::HashMap<String, Option<String>>>> =
+        std::sync::Mutex::new(None);
+    let mut names = NAMES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    names
+        .get_or_insert_with(std::collections::HashMap::new)
+        .entry(pci_id.to_owned())
+        .or_insert_with(|| {
+            let db = std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default();
+            pci_name(&db, pci_id)
+        })
+        .clone()
+}
+
 /// Model name for a PCI `vendor:device` from the system's PCI ID database.
 #[must_use]
 pub fn pci_name(db: &str, pci_id: &str) -> Option<String> {
@@ -619,13 +639,12 @@ pub fn render_gpu(hw: &Hardware) -> Option<GpuInfo> {
 /// running game has it open, otherwise the expected one.
 #[must_use]
 pub fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Option<usize>) {
-    let db = std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default();
     let pacman = Path::new("/var/lib/pacman/local");
     let gpus: Vec<GpuInfo> = hw
         .gpus
         .iter()
         .map(|g| {
-            let name = pci_name(&db, &g.pci_id).unwrap_or_else(|| g.pci_id.clone());
+            let name = device_name(&g.pci_id).unwrap_or_else(|| g.pci_id.clone());
             let userspace = match g.vendor {
                 GpuVendor::Nvidia => std::fs::read_to_string("/proc/driver/nvidia/version")
                     .ok()

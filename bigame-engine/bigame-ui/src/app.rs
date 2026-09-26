@@ -170,73 +170,95 @@ fn start_status_loop(
 ) {
     // Tray and error indicator, from the systems that hold the state.
     //
-    // Every ten seconds, on one cached bus connection. A stopped
-    // falcond is not an error: it is what Turbo off means. Only a
-    // unit systemd reports as failed is, and nothing offered here
-    // deletes anything.
-    let systemd = bigame_core::systemd::Reader::system();
+    // Every ten seconds, read on a worker over the shared bus connection:
+    // the window may be hidden in the tray while a game runs, and the main
+    // loop must not wait on systemd. A stopped falcond is not an error: it
+    // is what Turbo off means. Only a unit systemd reports as failed is, and
+    // nothing offered here deletes anything.
+    let tray_handle = std::rc::Rc::new(tray_handle);
+    let busy = std::rc::Rc::new(std::cell::Cell::new(false));
     glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
-        let unit = systemd
-            .as_ref()
-            .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
-        let turbo_on = unit
-            .as_ref()
-            .is_some_and(bigame_core::systemd::UnitState::is_active);
-        let backend_failed = unit.as_ref().is_some_and(|u| u.active_state == "failed");
-        let missing_runtime = detect_missing_runtime_packages();
-
-        let status = if backend_failed {
-            error_indicator.set_error(
-                &i18n("falcond stopped unexpectedly"),
-                &i18n(
-                    "The per-game optimization service failed, so games are not being optimized.",
-                ),
-                &i18n("Open Logs to see why. Turning Turbo off and on again restarts it."),
-            );
-            tray::Status::Warning
-        } else if !missing_runtime.is_empty() {
-            let missing_csv = missing_runtime.join(", ");
-            let install_hint = install_missing_packages_hint(&missing_runtime);
-            if let Some(cmd) = install_missing_packages_action(&missing_runtime) {
-                let copy_cmd =
-                    install_missing_packages_shell_command(&missing_runtime).unwrap_or_default();
-                error_indicator.set_error_with_action_and_copy(
-                    &i18n("Missing Runtime Dependencies"),
-                    &format!(
-                        "{}: {}",
-                        i18n("Required packages were not found in the system"),
-                        missing_csv
-                    ),
-                    &install_hint,
-                    &i18n("Install Missing Packages"),
-                    cmd,
-                    &i18n("Copy Install Command"),
-                    &copy_cmd,
-                );
-            } else {
-                error_indicator.set_error(
-                    &i18n("Missing Runtime Dependencies"),
-                    &format!(
-                        "{}: {}",
-                        i18n("Required packages were not found in the system"),
-                        missing_csv
-                    ),
-                    &install_hint,
-                );
+        if busy.replace(true) {
+            return glib::ControlFlow::Continue;
+        }
+        let (busy, tray_handle, error_indicator) = (
+            std::rc::Rc::clone(&busy),
+            std::rc::Rc::clone(&tray_handle),
+            std::sync::Arc::clone(&error_indicator),
+        );
+        glib::spawn_future_local(async move {
+            let reading = gtk4::gio::spawn_blocking(|| {
+                let unit = bigame_core::systemd::Reader::shared()
+                    .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
+                (unit, detect_missing_runtime_packages())
+            })
+            .await;
+            busy.set(false);
+            if let Ok((unit, missing_runtime)) = reading {
+                show_status(unit.as_ref(), &missing_runtime, &tray_handle, &error_indicator);
             }
-            tray::Status::Warning
-        } else {
-            error_indicator.clear();
-            if turbo_on {
-                tray::Status::Active
-            } else {
-                tray::Status::Idle
-            }
-        };
-
-        tray_handle.set_status(status);
+        });
         glib::ControlFlow::Continue
     });
+}
+
+/// Put one reading on the tray and the error indicator.
+fn show_status(
+    unit: Option<&bigame_core::systemd::UnitState>,
+    missing_runtime: &[String],
+    tray_handle: &tray::TrayHandle,
+    error_indicator: &crate::widgets::error_indicator::ErrorIndicator,
+) {
+    let turbo_on = unit.is_some_and(bigame_core::systemd::UnitState::is_active);
+    let backend_failed = unit.is_some_and(|u| u.active_state == "failed");
+    let status = if backend_failed {
+        error_indicator.set_error(
+            &i18n("falcond stopped unexpectedly"),
+            &i18n("The per-game optimization service failed, so games are not being optimized."),
+            &i18n("Open Logs to see why. Turning Turbo off and on again restarts it."),
+        );
+        tray::Status::Warning
+    } else if !missing_runtime.is_empty() {
+        let missing_csv = missing_runtime.join(", ");
+        let install_hint = install_missing_packages_hint(missing_runtime);
+        if let Some(cmd) = install_missing_packages_action(missing_runtime) {
+            let copy_cmd =
+                install_missing_packages_shell_command(missing_runtime).unwrap_or_default();
+            error_indicator.set_error_with_action_and_copy(
+                &i18n("Missing Runtime Dependencies"),
+                &format!(
+                    "{}: {}",
+                    i18n("Required packages were not found in the system"),
+                    missing_csv
+                ),
+                &install_hint,
+                &i18n("Install Missing Packages"),
+                cmd,
+                &i18n("Copy Install Command"),
+                &copy_cmd,
+            );
+        } else {
+            error_indicator.set_error(
+                &i18n("Missing Runtime Dependencies"),
+                &format!(
+                    "{}: {}",
+                    i18n("Required packages were not found in the system"),
+                    missing_csv
+                ),
+                &install_hint,
+            );
+        }
+        tray::Status::Warning
+    } else {
+        error_indicator.clear();
+        if turbo_on {
+            tray::Status::Active
+        } else {
+            tray::Status::Idle
+        }
+    };
+
+    tray_handle.set_status(status);
 }
 
 #[must_use]

@@ -310,10 +310,8 @@ pub fn collect() -> Vec<Check> {
     let hw = Hardware::detect();
     let caps = Capabilities::detect();
     let status = crate::status::read();
-    let systemd = crate::systemd::Reader::system();
-    let backend = systemd
-        .as_ref()
-        .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+    let backend =
+        crate::systemd::Reader::shared().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
     let db = Path::new(PACMAN_DB);
     let mut out = Vec::new();
 
@@ -350,8 +348,7 @@ pub fn collect() -> Vec<Check> {
         .as_ref()
         .is_some_and(crate::systemd::UnitState::is_active)
     {
-        if let Some(c) = systemd
-            .as_ref()
+        if let Some(c) = crate::systemd::Reader::shared()
             .and_then(|r| r.restarts(crate::turbo::BACKEND_UNIT))
             .and_then(restart_check)
         {

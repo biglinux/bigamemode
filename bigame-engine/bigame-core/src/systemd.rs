@@ -119,6 +119,19 @@ impl Reader {
             .map(|connection| Self { connection })
     }
 
+    /// One connection for the whole process, opened on first use: every
+    /// periodic reading shares it instead of connecting each time. A failed
+    /// connect is not remembered, so a later call tries again.
+    #[must_use]
+    pub fn shared() -> Option<&'static Self> {
+        static SHARED: std::sync::OnceLock<Reader> = std::sync::OnceLock::new();
+        if let Some(reader) = SHARED.get() {
+            return Some(reader);
+        }
+        let reader = Self::system()?;
+        Some(SHARED.get_or_init(|| reader))
+    }
+
     /// A unit's state, or `None` if systemd could not be asked.
     #[must_use]
     pub fn unit_state(&self, unit: &str) -> Option<UnitState> {
