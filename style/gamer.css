@@ -506,6 +506,34 @@ toast {
     box-shadow: var(--gm-shadow-sm);
 }
 
+/* ── State chips, Details cards ────────────────────────────────────── */
+
+.state-chip {
+    border-radius: var(--gm-radius-xs);
+    font-weight: 600;
+}
+
+.overview-tile,
+.pipeline-stage {
+    border-radius: var(--gm-radius-sm);
+    background-color: var(--gm-surface-secondary);
+    box-shadow: 0 0 0 1px var(--gm-border-subtle);
+}
+
+.overview-card {
+    background-image: radial-gradient(circle at 100% 0%, rgba(131, 93, 255, 0.10), rgba(131, 93, 255, 0) 55%);
+}
+
+.gpu-role.gpu-role-active {
+    color: var(--gm-cyan);
+}
+
+.gpu-bar block.filled {
+    background-color: transparent;
+    background-image: var(--gm-gradient-progress);
+    border-color: transparent;
+}
+
 /* ── Badges ────────────────────────────────────────────────────────── */
 
 .success-badge,

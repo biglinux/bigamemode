@@ -46,38 +46,17 @@ fn content(tab: &str) -> (String, String) {
                 ),
             ],
         ),
-        "dashboard" => page(
-            i18n("Details"),
-            &[
-                i18n(
-                    "<b>Real-time telemetry</b> — CPU and GPU frequency, GPU temperature, RAM, disk activity and network latency.",
-                ),
-                i18n(
-                    "<b>Performance</b> — The power profile, Turbo's state and lsfg-vk frame generation.",
-                ),
-                i18n(
-                    "<b>Video runtime status</b> — Whether Gamescope, Wine FSR, vkBasalt and frame generation are really active in the running game, not only enabled in settings.",
-                ),
-                i18n(
-                    "<b>falcond</b> — The active sched-ext scheduler, the V-Cache mode and the game profile falcond has applied.",
-                ),
-                i18n(
-                    "<b>Detected games</b> — Create a profile with the wizard, or launch a game with BiGame-mode's video settings.",
-                ),
-            ],
-        ),
         "profiles" => page(
-            i18n("Game Profiles"),
+            i18n("Profiles"),
             &[
                 i18n(
                     "<b>Game library</b> — Games from Steam, Lutris, Heroic and the application menu, and the profiles that tune them. A green dot is your own profile; blue is one that ships with falcond.",
                 ),
                 i18n(
-                    "<b>Profile</b> — What falcond applies while the game runs: performance mode, sched-ext scheduler, V-Cache mode and screen-saver inhibit, plus Gamescope and MangoHud for launches from BiGame-mode.",
+                    "<b>Card menu (⋮)</b> — Launch (Turbo) starts the game with BiGame-mode's launch settings; Create with Wizard explains every option; AI Graphics, Measure the difference, Edit, Restore the game's graphics, Delete.",
                 ),
-                i18n("<b>Wizard (+)</b> — A guided profile that explains every option."),
                 i18n(
-                    "<b>Card menu (⋮)</b> — AI Graphics for the game, Measure the difference, Edit or Delete the profile.",
+                    "<b>Profile</b> — What falcond applies while the game runs: performance mode, sched-ext scheduler, V-Cache mode and screen-saver inhibit, plus Gamescope and MangoHud for launches from BiGame-mode.",
                 ),
                 i18n(
                     "<b>Import</b> — Load a .conf or .toml profile from disk. Drag-and-drop onto the list also works.",
@@ -88,75 +67,39 @@ fn content(tab: &str) -> (String, String) {
             i18n("Tuning"),
             &[
                 i18n(
-                    "<b>Daemon</b> — falcond's global settings: performance mode and how often it scans for new games.",
+                    "<b>System performance</b> — What falcond applies while a game runs: performance mode, the sched-ext scheduler for games without one of their own, 3D V-Cache, and falcond's own settings.",
                 ),
                 i18n(
-                    "<b>Scheduler</b> — The sched-ext CPU scheduler falcond loads for games without a scheduler of their own, and its tuning preset. Needs scx-tools.",
-                ),
-                i18n("<b>V-Cache</b> — AMD Ryzen X3D only: which CCD games prefer."),
-                i18n(
-                    "<b>Device mode</b> — Which of falcond's profile sets is used: desktop, handheld or HTPC.",
+                    "<b>Display and Gamescope</b> — Games started from BiGame-mode run inside Gamescope, with a filter, sharpness and render and output sizes.",
                 ),
                 i18n(
-                    "<b>CPU governor</b> — Shown for reference; power-profiles-daemon sets it through the power profile.",
+                    "<b>Upscaling and sharpening</b> — Wine FSR for Proton games in exclusive fullscreen, and vkBasalt's visual filters. Two upscalers on at once are named, with a way out.",
                 ),
                 i18n(
-                    "<b>Advanced</b> — Scheduler flags, the schedulers installed, and the Gamescope options the installed version accepts.",
-                ),
-            ],
-        ),
-        "video" => page(
-            i18n("Advanced Video Settings"),
-            &[
-                i18n(
-                    "<b>Gamescope upscaling</b> — Runs games launched from BiGame-mode inside Gamescope, rendering at a lower resolution and upscaling with FSR, NIS or integer scaling.",
+                    "<b>Frame generation</b> — lsfg-vk: the global switch, your Lossless.dll, and each game's multiplier. It raises the presented frame rate, not the rendered one.",
                 ),
                 i18n(
-                    "<b>Wine/Proton FSR</b> — Wine's own fullscreen FSR, for games in exclusive fullscreen.",
-                ),
-                i18n(
-                    "<b>vkBasalt</b> — Vulkan post-processing, such as CAS sharpening, from a vkBasalt configuration file.",
-                ),
-                i18n(
-                    "<b>Frame generation</b> — lsfg-vk, when it is installed and your Lossless.dll is configured. It raises the presented frame rate, not the rendered one, and adds latency.",
-                ),
-                i18n(
-                    "<b>No doubling up</b> — A game with AI Graphics installed runs without Wine FSR and Gamescope upscaling, and without lsfg-vk when OptiScaler generates frames.",
+                    "<b>Advanced</b> — sched-ext availability, the Gamescope options the installed version accepts, the environment file.",
                 ),
             ],
         ),
-        "benchmark" => page(
-            i18n("Benchmark"),
+        "dashboard" => page(
+            i18n("Details"),
             &[
                 i18n(
-                    "<b>Workloads</b> — The benchmarks this machine can run, and what is missing when one cannot.",
+                    "<b>Overview</b> — One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation.",
                 ),
                 i18n(
-                    "<b>What measurement found</b> — Settings measured on this machine, and whether they helped, hurt or made no difference.",
+                    "<b>Telemetry and graphics cards</b> — CPU and GPU readings, and one card per GPU with its load, clock, VRAM, temperature and power; which one renders the game.",
                 ),
                 i18n(
-                    "<b>How results are decided</b> — Runs alternate between configurations, the first of each is discarded, and a difference counts only when it exceeds the run-to-run variation and passes a statistical test.",
+                    "<b>Performance and video pipeline</b> — Each item says whether it is active, waiting, configured but not detected, off, missing or not supported. Open a row for what it means, the evidence, and the fix.",
                 ),
                 i18n(
-                    "<b>Measure the difference</b> — From a game's card menu, for games that start directly.",
-                ),
-            ],
-        ),
-        "diagnostics" => page(
-            i18n("Diagnostics"),
-            &[
-                i18n(
-                    "<b>System health</b> — Whether everything games need is present and working, with the fix for anything that is not.",
-                ),
-                i18n("<b>AI Graphics</b> — Every game BiGame-mode has placed files in."),
-                i18n(
-                    "<b>Background load</b> — Programs competing with the game for the CPU. Reported, never changed.",
+                    "<b>Problems</b> — Everything that needs attention, classed fixable, needs you, hardware or information, with commands to copy. Hardware limits are never errors.",
                 ),
                 i18n(
-                    "<b>Network</b> — The connection in use, its queue discipline and a DNS resolver comparison.",
-                ),
-                i18n(
-                    "<b>Support report</b> — Copy or save a report for support, with your user name, home folder and host masked.",
+                    "<b>Network, background load, Steam launch options, support report</b> — The connection and a DNS comparison; programs competing for the CPU; launch options that call a missing program; a report for support with your name, home folder and host masked.",
                 ),
             ],
         ),

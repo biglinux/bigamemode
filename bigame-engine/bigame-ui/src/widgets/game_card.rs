@@ -42,6 +42,9 @@ pub const POSTER_WIDTH: i32 = 176;
 pub const POSTER_HEIGHT: i32 = 264;
 
 /// What a card shows.
+// Independent facts about one game; grouping them to please the lint would
+// only add indirection.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
     /// Title as the launcher names it.
@@ -74,6 +77,12 @@ pub struct Entry {
     /// Where AI Graphics would work on this game: its install folder and
     /// Steam id. `None` when the launcher records no install folder.
     pub target: Option<bigame_core::graphics::Target>,
+    /// How BiGame-mode starts this game: a Steam title through the client
+    /// (`steam -applaunch <id>`), another with its launcher's command.
+    /// `None` when there is neither, rather than a guessed program name.
+    pub launch: Option<(String, Vec<String>)>,
+    /// BiGame-mode has placed AI Graphics files in this game.
+    pub ai_installed: bool,
 }
 
 impl Entry {
@@ -449,6 +458,8 @@ mod tests {
             profile_stem: has_profile.then(|| "PioneerGame.exe".to_owned()),
             key_is_verified: true,
             target: None,
+            launch: None,
+            ai_installed: false,
         }
     }
 

@@ -779,7 +779,7 @@ fn summary_line_machine(hw: &Hardware) -> String {
 }
 
 /// Trim vendor boilerplate so the line stays readable at small widths.
-fn short_cpu(model: &str) -> String {
+pub(crate) fn short_cpu(model: &str) -> String {
     model
         .replace("(R)", "")
         .replace("(TM)", "")

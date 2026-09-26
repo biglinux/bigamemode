@@ -1,9 +1,7 @@
 //! View modules for the main `AdwViewStack` pages.
 
 pub mod ai_graphics;
-pub mod benchmark;
-pub mod dashboard;
-pub mod diagnostics;
+pub mod details;
 pub mod home;
 
 pub mod logs;
@@ -13,4 +11,3 @@ pub mod profiles;
 pub mod report;
 pub mod settings;
 pub mod tuning;
-pub mod video;

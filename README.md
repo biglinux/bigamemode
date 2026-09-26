@@ -1,7 +1,8 @@
 # 🎮 BiGame-mode
 
-**Modo de jogo para o BigLinux: Turbo, perfis por jogo, Gráficos com IA,
-benchmarks e diagnóstico, numa interface GTK4/libadwaita.**
+**Modo de jogo para o BigLinux: Turbo, perfis por jogo, Gráficos com IA e
+uma página que mostra, com evidência, o que está mesmo em vigor — numa
+interface GTK4/libadwaita.**
 
 - **Autor:** Rafael Ruscher — <rruscher@gmail.com>
 - **Licença:** GPL-3.0-or-later
@@ -24,15 +25,12 @@ fazer, e nada é chamado de melhoria sem medição.**
 | Página | O que faz |
 |---|---|
 | **Início** | O **Turbo**, a chave principal. Desligado, o BiGame-mode não interfere em jogo nenhum; ligado, o falcond aplica o perfil de cada jogo. Mostra o jogo em execução, o perfil ativo e o estado dos Gráficos com IA. |
-| **Detalhes** | Telemetria em tempo real: frequência de CPU e GPU, temperatura da GPU, memória, disco e latência de rede; perfil de energia, escalonador ativo e o que está de fato ligado no jogo em execução. |
-| **Perfis** | Jogos do Steam, Lutris, Heroic e do menu de aplicativos (jogos nativos, como o SuperTuxKart do pacman, e Flatpaks), só os que estão mesmo instalados, cada um com seu perfil: modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, Gamescope, MangoHud e lsfg-vk. Um **assistente** explica cada opção em linguagem simples, e quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
-| **Gráficos com IA** | No menu ⋮ de cada jogo: analisa o jogo (API gráfica, DLSS/XeSS/FSR que ele já traz, DLLs de proxy, anti-cheat, a GPU em que ele renderiza), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado ou, num jogo que já traz o FSR 3.1 da AMD, escreve a única opção de execução com que o Proton o eleva ao FSR 4 — sem tocar em arquivo nenhum. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. **Diagnosticar** diz por que algo não funciona. Renderização neural em AMD (DLSS-NR-on-AMD) é detectada e explicada, nunca baixada: a licença não permite. |
-| **Ajustes** | Configuração global do falcond e as opções do Gamescope detectadas da versão instalada. |
-| **Vídeo** | Upscaling espacial (Gamescope FSR/NIS, Wine FSR, vkBasalt) para os jogos iniciados pelo BiGame-mode, e geração de quadros com lsfg-vk. |
-| **Benchmark** | Quais medições são possíveis nesta máquina e o que já foi medido. Para jogos que abrem diretamente, **Medir a diferença** (no menu do jogo) compara com e sem otimizações, em várias execuções alternadas. |
-| **Diagnóstico** | Saúde do sistema com a correção de cada problema, um relatório para suporte e medições de rede. Só muda algo quando você pede — por exemplo, limpar opções de lançamento da Steam que chamam um programa ausente. |
+| **Perfis** | Jogos do Steam, Lutris, Heroic e do menu de aplicativos (jogos nativos, como o SuperTuxKart do pacman, e Flatpaks), só os que estão mesmo instalados, cada um com seu perfil: modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, Gamescope, MangoHud e lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente** (um perfil guiado, cada opção explicada), **Gráficos com IA**, **Medir a diferença**, **Restaurar os gráficos do jogo**. Quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
+| **Gráficos com IA** | No menu ⋮ de cada jogo: analisa o jogo (API gráfica, DLSS/XeSS/FSR que ele já traz, DLLs de proxy, anti-cheat, a GPU em que ele renderiza), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado ou, num jogo que já traz o FSR 3.1 da AMD, escreve a única opção de execução com que o Proton o eleva ao FSR 4 — sem tocar em arquivo nenhum. Onde a lista de jogos sabe onde o jogo guarda a chave do seu upscaler (Shadow of the Tomb Raider: o XeSS no registro), **Aplicar** também a liga e **Restaurar** a devolve. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. **Diagnosticar** diz por que algo não funciona. Renderização neural em AMD (DLSS-NR-on-AMD) é detectada e explicada, nunca baixada: a licença não permite. |
+| **Ajustes** | Tudo o que é aplicado aos jogos, em grupos progressivos: desempenho do sistema (falcond: modo de desempenho, escalonador sched-ext, 3D V-Cache), exibição e Gamescope, upscaling e nitidez (Wine FSR, vkBasalt), geração de quadros (lsfg-vk), overlay e o avançado. O que a máquina não pode fazer aparece como **não suportado** ou **dependência ausente** com o comando que resolve, nunca como um controle quebrado; dois upscalers ligados ao mesmo tempo são apontados, com a saída num clique. |
+| **Detalhes** | O que a máquina está fazendo pelo jogo, com a evidência. Uma visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia, qual renderiza o jogo), o desempenho (Turbo, falcond e o perfil que aplicou, perfil de energia, escalonador, V-Cache) e o pipeline de vídeo (Gamescope, Wine FSR, vkBasalt, geração de quadros, MangoHud, Gráficos com IA) — cada item diz se está **ativo**, **aguardando**, **configurado mas não detectado**, **desligado**, **sem dependência** ou **não suportado**, e ao abrir a linha, o que significa, a evidência e a correção. **Problemas** reúne o que precisa de atenção, classificado (corrigível, precisa de você, hardware, informação), com comandos para copiar. Rede, carga em segundo plano, opções de lançamento da Steam quebradas e o relatório para suporte ficam aqui. |
 | **Registros** | Tudo o que importa numa sessão de jogo, do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
-| **Configurações** | A aparência — tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema —, o que o BiGame-mode faz sozinho, e **Devolver**, que entrega o falcond exatamente como estava antes. |
+| **Configurações** | A aparência — tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro —, o que o BiGame-mode faz sozinho, e **Devolver**, que entrega o falcond exatamente como estava antes. |
 
 Fechar a janela deixa o aplicativo na **bandeja** (azul: ocioso, verde: jogo
 otimizado, amarelo: aviso).
@@ -207,6 +205,9 @@ cargo clippy --workspace --all-targets     # sem avisos (lints pedantic)
   Turbo, configuração do falcond) fica indisponível.
 - `../tests/daemon-authorization.sh` confere que o helper recusa todas as
   ações privilegiadas quando o Polkit não está disponível.
+- **Medir a diferença** (menu ⋮ de um jogo que abre diretamente) compara com
+  e sem otimizações, em várias execuções alternadas; a engine de benchmark
+  (`bigame-core/src/benchmark/`, `scripts/bench-*.sh`) não tem página própria.
 - `bigame-core/examples/` traz ferramentas de linha de comando: detecção
   (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
   `graphics_plan`, `graphics_apply`, `graphics_status`, `graphics_capabilities`,

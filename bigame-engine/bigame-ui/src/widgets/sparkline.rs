@@ -21,6 +21,7 @@ type ColorOverride = Arc<Mutex<Option<(f64, f64, f64)>>>;
 ///
 /// Attach `handle.area` to a widget, push values via `handle.push(value)`.
 /// Change line color via `handle.set_color(Some((r, g, b)))`.
+#[derive(Clone)]
 pub struct SparkHandle {
     /// The drawing area — add as a widget suffix via `row.add_suffix(&handle.area)`.
     pub area: gtk4::DrawingArea,
