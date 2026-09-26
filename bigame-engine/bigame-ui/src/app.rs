@@ -289,7 +289,7 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
             "{}\n1) {}\n2) {}\n3) {}\n\n{}\n{}",
             i18n("Troubleshooting"),
             i18n("Install missing packages"),
-            i18n("Restart BiGameMode"),
+            i18n("Restart BiGame-mode"),
             i18n("Open Details after starting a game to see what it really got"),
             i18n("Command"),
             cmd
@@ -300,7 +300,7 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
         "{}\n1) {}\n2) {}\n3) {}\n\n{}: {}",
         i18n("Troubleshooting"),
         i18n("Install missing packages with your package manager"),
-        i18n("Restart BiGameMode"),
+        i18n("Restart BiGame-mode"),
         i18n("Open Details after starting a game to see what it really got"),
         i18n("Missing packages"),
         missing.join(", ")
@@ -360,6 +360,12 @@ fn show_about_dialog(app: &adw::Application) {
         .comments(i18n("Performance tuning for Linux gaming"))
         .debug_info_filename("bigame-mode-debug.txt")
         .build();
+    // Translators put their names here; untranslated, the msgid comes back
+    // and there is no one to credit.
+    let translators = i18n("translator-credits");
+    if translators != "translator-credits" {
+        dialog.set_translator_credits(&translators);
+    }
 
     dialog.add_credit_section(
         Some(&i18n("Developers")),

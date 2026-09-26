@@ -65,6 +65,42 @@ pub trait BiGameDaemon {
     async fn ping(&self) -> zbus::Result<String>;
 }
 
+/// Why a call to the helper did not happen, when the reason is one the user
+/// can do something about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HelperFailure {
+    /// Polkit refused the call, or the user cancelled the password prompt.
+    Refused,
+    /// Nothing owns the helper's name on the system bus.
+    NotRunning,
+}
+
+/// The [`HelperFailure`] one error in a chain stands for, if any.
+#[must_use]
+pub fn helper_failure(err: &(dyn std::error::Error + 'static)) -> Option<HelperFailure> {
+    if let Some(e) = err.downcast_ref::<zbus::Error>() {
+        return match e {
+            // What a proxy call returns: the reply's error name, unparsed.
+            zbus::Error::MethodError(name, _, _) => match name.as_str() {
+                "org.freedesktop.DBus.Error.AccessDenied" => Some(HelperFailure::Refused),
+                "org.freedesktop.DBus.Error.ServiceUnknown"
+                | "org.freedesktop.DBus.Error.NameHasNoOwner" => Some(HelperFailure::NotRunning),
+                _ => None,
+            },
+            zbus::Error::FDO(fdo) => helper_failure(&**fdo),
+            _ => None,
+        };
+    }
+    match err.downcast_ref::<zbus::fdo::Error>()? {
+        zbus::fdo::Error::AccessDenied(_) => Some(HelperFailure::Refused),
+        zbus::fdo::Error::ServiceUnknown(_) | zbus::fdo::Error::NameHasNoOwner(_) => {
+            Some(HelperFailure::NotRunning)
+        }
+        zbus::fdo::Error::ZBus(e) => helper_failure(e),
+        _ => None,
+    }
+}
+
 /// Connect to the helper on the system bus.
 ///
 /// # Errors

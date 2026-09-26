@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 use super::config::VersionPolicy;
 use super::manifest::Source;
 use super::optiscaler::{self, Release, compare_versions};
+use crate::error::UserError;
+use crate::text::N_;
 
 /// The GitHub API list of `OptiScaler` releases.
 pub const RELEASES_API: &str =
@@ -124,7 +126,9 @@ pub fn refresh(cache: &Path) -> Result<Known> {
     let releases = optiscaler::parse_releases(&json)?;
     ensure!(
         !releases.is_empty(),
-        "GitHub lists no stable OptiScaler release with a checksum"
+        UserError::plain(N_(
+            "GitHub lists no stable OptiScaler release with a checksum"
+        ))
     );
     let known = Known {
         fetched_at: now(),
@@ -168,7 +172,9 @@ pub fn resolve(cache: &Path, policy: &VersionPolicy, known: &Known) -> Result<Re
             Some(l) if compare_versions(&l.version, &recommended.version).is_gt() => Ok(l.clone()),
             Some(_) => Ok(recommended),
             None => {
-                bail!("the latest OptiScaler release is not known yet; check for updates first")
+                bail!(UserError::plain(N_(
+                    "the latest OptiScaler release is not known yet; check for updates first"
+                )))
             }
         },
         VersionPolicy::Pinned(v) if *v == recommended.version => Ok(recommended),
@@ -176,7 +182,11 @@ pub fn resolve(cache: &Path, policy: &VersionPolicy, known: &Known) -> Result<Re
             .map(|c| c.release)
             .or_else(|| known.find(v).cloned())
             .ok_or_else(|| {
-                anyhow::anyhow!("OptiScaler {v} is not a stable release with a published checksum")
+                UserError::with(
+                    N_("OptiScaler %s is not a stable release with a published checksum"),
+                    [v],
+                )
+                .into()
             }),
     }
 }
@@ -207,10 +217,10 @@ pub fn for_installed(cache: &Path, source: &Source) -> Result<Release> {
     if let Some(r) = load(cache).releases.iter().find(|r| same(r)) {
         return Ok(r.clone());
     }
-    bail!(
-        "OptiScaler {} as installed is neither in the cache nor a known release",
-        source.version
-    )
+    bail!(UserError::with(
+        N_("OptiScaler %s as installed is neither in the cache nor a known release"),
+        [&source.version]
+    ))
 }
 
 /// A newer release to offer for a game that has `installed`.

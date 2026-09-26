@@ -14,7 +14,7 @@ use libadwaita as adw;
 
 use bigame_core::turbo::{Item, Kind, Report, Section};
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 use crate::widgets::info;
 
 /// The report's groups, in the order they are read.
@@ -71,7 +71,8 @@ fn kind_title(kind: &Kind) -> String {
         Kind::ProfileSet => i18n("falcond profile set"),
         Kind::GameMode => i18n("Feral GameMode"),
         Kind::Scheduler => i18n("sched-ext scheduler"),
-        // Stored in English in the saved report; the GPU knob carries its card.
+        // Only reports saved before titles were translatable get here: the
+        // title is in English, and the GPU knob carries its card.
         Kind::Knob(name) => match name
             .strip_prefix("GPU power level (")
             .and_then(|rest| rest.strip_suffix(')'))
@@ -102,20 +103,40 @@ fn kind_explanation(kind: &Kind) -> String {
     }
 }
 
+fn item_title(item: &Item) -> String {
+    item.title
+        .as_ref()
+        .map_or_else(|| kind_title(&item.kind), tr)
+}
+
+fn item_detail(item: &Item) -> String {
+    item.text.as_ref().map_or_else(|| item.detail.clone(), tr)
+}
+
+/// The component named as the owner. Component names are shown as they are,
+/// except Booster, which names BiGame-mode's own planner.
+fn owner_label(owner: &str) -> String {
+    match owner {
+        "Booster" => i18n("Booster"),
+        other => other.to_owned(),
+    }
+}
+
 fn item_row(item: &Item) -> adw::ActionRow {
-    let title = kind_title(&item.kind);
+    let title = item_title(item);
+    let owner_name = owner_label(&item.owner);
     // Plain text: details carry process names, paths and error messages,
     // any of which can contain `&` or `<`.
     let row = adw::ActionRow::builder()
         .title(&title)
-        .subtitle(&item.detail)
+        .subtitle(item_detail(item))
         .subtitle_lines(3)
         .use_markup(false)
         .build();
     let icon = gtk4::Image::from_icon_name(section_icon(item.section));
     icon.add_css_class("dim-label");
     row.add_prefix(&icon);
-    let owner = gtk4::Label::new(Some(&item.owner));
+    let owner = gtk4::Label::new(Some(&owner_name));
     owner.add_css_class("caption");
     owner.add_css_class("dim-label");
     row.add_suffix(&owner);
@@ -125,7 +146,7 @@ fn item_row(item: &Item) -> adw::ActionRow {
             "{}\n\n{}: {}\n{}: {}",
             kind_explanation(&item.kind),
             i18n("Controlled by"),
-            item.owner,
+            owner_name,
             i18n("Outcome"),
             section_title(item.section)
         ),
@@ -256,5 +277,29 @@ mod tests {
             assert!(!kind_title(&kind).is_empty());
             assert!(kind_explanation(&kind).len() > 40, "{kind:?}");
         }
+    }
+
+    #[test]
+    fn rows_prefer_the_translatable_sentences_and_fall_back_to_english() {
+        use bigame_core::text::Text;
+        let old = Item {
+            kind: Kind::Knob("GPU power level (card1)".into()),
+            section: Section::Skipped,
+            owner: "Booster".into(),
+            detail: "left to the driver".into(),
+            text: None,
+            title: None,
+        };
+        // No catalogue is loaded in tests, so gettext returns the English.
+        assert_eq!(item_title(&old), "GPU power level (card1)");
+        assert_eq!(item_detail(&old), "left to the driver");
+        let new = Item {
+            text: Some(Text::raw("from the sentence")),
+            title: Some(Text::raw("Titled")),
+            ..old
+        };
+        assert_eq!(item_title(&new), "Titled");
+        assert_eq!(item_detail(&new), "from the sentence");
+        assert_eq!(owner_label("falcond"), "falcond");
     }
 }

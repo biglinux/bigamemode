@@ -48,7 +48,7 @@ pub fn show(parent: &gtk4::Window) {
     content.append(&title);
 
     let desc = gtk4::Label::builder()
-        .label(i18n("The CPU scheduler (or 'policial de trânsito') decides which programs run on which CPU cores and for how long. The default Linux scheduler divides time fairly among all apps. However, for Gaming, we don't want fairness—we want absolute priority for the game! With sched-ext (SCX), we can dynamically swap the default scheduler for a specialized one without rebooting."))
+        .label(i18n("The CPU scheduler (the traffic controller of the processor) decides which programs run on which CPU cores and for how long. The default Linux scheduler divides time fairly among all apps. However, for Gaming, we don't want fairness—we want absolute priority for the game! With sched-ext (SCX), we can dynamically swap the default scheduler for a specialized one without rebooting."))
         .wrap(true)
         .halign(gtk4::Align::Start)
         .build();

@@ -10,10 +10,13 @@
 //! A switch must not turn green because a D-Bus call was sent; everything
 //! below makes success mean "written and read back".
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 use super::knob::{Knob, Verification};
 use super::plan::{Change, Skipped};
+use crate::text::{Arg, N_, Text};
 
 /// What happened to one planned change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,9 +44,31 @@ impl AppliedChange {
 
     /// One line describing the state transition, for the report UI.
     #[must_use]
-    pub fn summary(&self) -> String {
-        format!("{}: {} → {}", self.knob.title(), self.from, self.to)
+    pub fn summary_text(&self) -> Text {
+        Text::with(
+            N_("%s: %s → %s"),
+            [
+                Arg::Text(self.knob.title_text()),
+                Arg::Raw(self.from.clone()),
+                Arg::Raw(self.to.clone()),
+            ],
+        )
     }
+
+    /// [`Self::summary_text`] in English.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        self.summary_text().english()
+    }
+}
+
+/// A metric's name as a sentence of its own. The names come from
+/// `benchmark::METRICS`, where they are marked for translation.
+fn metric_name(metric: &str) -> Arg {
+    Arg::Text(Text {
+        template: Cow::Owned(metric.to_owned()),
+        args: Vec::new(),
+    })
 }
 
 /// A performance claim. Deliberately tri-state.
@@ -91,30 +116,53 @@ pub enum Outcome {
 impl Outcome {
     /// Text safe to show a user. Never invents a number.
     #[must_use]
-    pub fn describe(&self) -> String {
+    pub fn describe_text(&self) -> Text {
         match self {
-            Self::NotMeasured => "Performance impact not measured".into(),
+            Self::NotMeasured => Text::plain(N_("Performance impact not measured")),
             Self::Improved {
                 metric,
                 before,
                 after,
                 unit,
-            } => {
-                format!("{metric}: {before:.1} {unit} → {after:.1} {unit}")
+            } => Text::with(
+                N_("%s: %s %s → %s %s"),
+                [
+                    metric_name(metric),
+                    Arg::Raw(format!("{before:.1}")),
+                    Arg::from(unit),
+                    Arg::Raw(format!("{after:.1}")),
+                    Arg::from(unit),
+                ],
+            ),
+            Self::NoChange { metric } => {
+                Text::with(N_("%s: no measurable change"), [metric_name(metric)])
             }
-            Self::NoChange { metric } => format!("{metric}: no measurable change"),
-            Self::Inconclusive { metric } => {
-                format!("{metric}: the runs varied too much to tell")
-            }
+            Self::Inconclusive { metric } => Text::with(
+                N_("%s: the runs varied too much to tell"),
+                [metric_name(metric)],
+            ),
             Self::Regressed {
                 metric,
                 before,
                 after,
                 unit,
-            } => {
-                format!("{metric}: {before:.1} {unit} → {after:.1} {unit} (worse)")
-            }
+            } => Text::with(
+                N_("%s: %s %s → %s %s (worse)"),
+                [
+                    metric_name(metric),
+                    Arg::Raw(format!("{before:.1}")),
+                    Arg::from(unit),
+                    Arg::Raw(format!("{after:.1}")),
+                    Arg::from(unit),
+                ],
+            ),
         }
+    }
+
+    /// [`Self::describe_text`] in English.
+    #[must_use]
+    pub fn describe(&self) -> String {
+        self.describe_text().english()
     }
 }
 
@@ -381,6 +429,22 @@ mod tests {
         };
         assert_eq!(report.state(), ReportState::Failed);
         assert!(report.headline().contains("No optimization"));
+    }
+
+    #[test]
+    fn the_metric_name_is_translated_with_the_sentence() {
+        let o = Outcome::NoChange {
+            metric: "Average FPS".into(),
+        };
+        let pt = |s: &str| match s {
+            "%s: no measurable change" => "%s: nenhuma mudança mensurável".to_owned(),
+            "Average FPS" => "FPS médio".to_owned(),
+            other => other.to_owned(),
+        };
+        assert_eq!(
+            o.describe_text().render(&pt),
+            "FPS médio: nenhuma mudança mensurável"
+        );
     }
 
     #[test]

@@ -21,6 +21,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
+use crate::error::UserError;
+use crate::text::N_;
+
 /// Path from the root of `localconfig.vdf` to the per-app settings.
 const APPS_PATH: &[&str] = &["UserLocalConfigStore", "Software", "Valve", "Steam", "apps"];
 
@@ -188,8 +191,10 @@ pub fn launch_options(config: &Path, app_id: &str) -> Option<String> {
 pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> {
     anyhow::ensure!(
         !is_running(),
-        "Steam is running. It keeps localconfig.vdf in memory and rewrites it on \
-         exit, so this edit would be discarded. Close Steam and try again."
+        UserError::plain(N_(
+            "Steam is running. It keeps localconfig.vdf in memory and rewrites it on \
+             exit, so this edit would be discarded. Close Steam and try again."
+        ))
     );
     write_launch_options(config, app_id, value)
 }
@@ -205,7 +210,9 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
     // newline would corrupt the file for every game, not just this one.
     anyhow::ensure!(
         !value.contains('"') && !value.contains('\n') && !value.contains('\\'),
-        "launch options may not contain quotes, backslashes or newlines"
+        UserError::plain(N_(
+            "launch options may not contain quotes, backslashes or newlines"
+        ))
     );
 
     let content =
@@ -224,10 +231,10 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
             if value.is_empty() {
                 return Ok(());
             }
-            let (apps_from, apps_to) = find_block(&borrowed, APPS_PATH).with_context(|| {
-                format!(
-                    "Steam's configuration has no apps section: {}",
-                    config.display()
+            let (apps_from, apps_to) = find_block(&borrowed, APPS_PATH).ok_or_else(|| {
+                UserError::with(
+                    N_("Steam's configuration has no apps section: %s"),
+                    [config.display().to_string()],
                 )
             })?;
             let child = "\t".repeat(depth(borrowed[apps_from.saturating_sub(1)]) + 1);
@@ -283,7 +290,10 @@ fn finish_write(
     let readback = launch_options(config, app_id);
     anyhow::ensure!(
         readback.as_deref() == Some(value),
-        "wrote launch options but the file reads back {readback:?}"
+        UserError::with(
+            N_("wrote launch options but the file reads back %s"),
+            [format!("{readback:?}")]
+        )
     );
     Ok(())
 }

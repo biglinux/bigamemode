@@ -25,7 +25,7 @@ use bigame_core::hardware::Hardware;
 use bigame_core::running::GameIdentity;
 use bigame_core::turbo::{self, Report, Section, Step};
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{error_text, i18n, ni18n};
 use crate::widgets::booster_button::{self, BoosterButton, State};
 
 /// What the worker thread sends back to the UI.
@@ -528,7 +528,7 @@ fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
                 };
                 let _ = tx.send(match result {
                     Ok(report) => Event::Done(Box::new(report)),
-                    Err(e) => Event::Failed(format!("{e:#}")),
+                    Err(e) => Event::Failed(error_text(&e)),
                 });
             });
         });
@@ -864,6 +864,9 @@ fn summary_line_machine(hw: &Hardware) -> String {
 
 /// Trim vendor boilerplate so the line stays readable at small widths.
 pub(crate) fn short_cpu(model: &str) -> String {
+    if model == bigame_core::hardware::UNKNOWN_CPU {
+        return i18n(bigame_core::hardware::UNKNOWN_CPU);
+    }
     model
         .replace("(R)", "")
         .replace("(TM)", "")
@@ -985,6 +988,8 @@ mod tests {
                     section: *s,
                     owner: "falcond".into(),
                     detail: String::new(),
+                    text: None,
+                    title: None,
                 })
                 .collect(),
         }
@@ -1010,6 +1015,8 @@ mod tests {
             section: Section::Failed,
             owner: "falcond".into(),
             detail: "systemd reports it failed".into(),
+            text: None,
+            title: None,
         });
         let (state, on) = finished_state(&r);
         assert!(!on);

@@ -13,7 +13,7 @@ use super::plan::Standing;
 use super::report::Confidence;
 use super::runtime::Status;
 use super::scan::ProxyOwner;
-use super::text::{N_, Text};
+use super::text::{Arg, N_, Text};
 use super::{Analysis, backend::Backend};
 
 /// How serious a finding is.
@@ -87,8 +87,8 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
         ));
     }
     let api = r.api.api.map_or_else(
-        || N_("unknown").to_owned(),
-        |x| super::backend::api_name(x).to_owned(),
+        || Arg::Text(Text::plain(N_("unknown"))),
+        |x| Arg::from(super::backend::api_name(x)),
     );
     let api_level = match r.api.confidence {
         Confidence::Fact | Confidence::Detected => Level::Ok,
@@ -99,7 +99,10 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
         api_level,
         N_("Graphics API"),
         match r.api.translation {
-            Some(t) => Text::with(N_("%s through %s (%s)"), [api, t.to_owned(), confidence(r.api.confidence)]),
+            Some(t) => Text::with(
+                N_("%s through %s (%s)"),
+                [api, Arg::from(t), confidence(r.api.confidence)],
+            ),
             None => Text::with(N_("%s (%s)"), [api, confidence(r.api.confidence)]),
         },
         (api_level == Level::Warning).then(|| {
@@ -115,14 +118,14 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             Text::with(
                 N_("%s (%s)%s"),
                 [
-                    super::report::display_name(&g.name),
-                    g.family().label(),
+                    Arg::from(super::report::display_name(&g.name)),
+                    Arg::Text(g.family().label()),
                     if g.renders_game {
-                        N_(" — renders the game").to_owned()
+                        Arg::Text(Text::plain(N_(" — renders the game")))
                     } else if r.gpus.len() > 1 {
-                        N_(" — expected; confirmed when the game runs").to_owned()
+                        Arg::Text(Text::plain(N_(" — expected; confirmed when the game runs")))
                     } else {
-                        String::new()
+                        Arg::from("")
                     },
                 ],
             ),
@@ -144,8 +147,8 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
                 [
                     p.tool
                         .clone()
-                        .unwrap_or_else(|| N_("unknown build").to_owned()),
-                    p.windows_version.clone().unwrap_or_else(|| "?".into()),
+                        .map_or_else(|| Arg::Text(Text::plain(N_("unknown build"))), Arg::Raw),
+                    Arg::Raw(p.windows_version.clone().unwrap_or_else(|| "?".into())),
                     yes_no(p.fsr4_provider),
                     yes_no(p.hip_runtime),
                 ],
@@ -194,12 +197,12 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             Text::with(
                 N_("%s belongs to %s%s"),
                 [
-                    p.slot.clone(),
-                    p.owner.label().to_owned(),
+                    Arg::from(&p.slot),
+                    Arg::Text(Text::plain(p.owner.label())),
                     if ours {
-                        N_(" (placed by BiGame-mode)").to_owned()
+                        Arg::Text(Text::plain(N_(" (placed by BiGame-mode)")))
                     } else {
-                        String::new()
+                        Arg::from("")
                     },
                 ],
             ),
@@ -279,10 +282,12 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             Text::with(
                 N_("running %s%s"),
                 [
-                    upscaler.clone(),
+                    Arg::from(upscaler),
                     match fsr_generation {
-                        Some(3) => N_(" (FSR 3.1 proven by its log; FSR 4 is only ever shown by its overlay)").to_owned(),
-                        _ => String::new(),
+                        Some(3) => Arg::Text(Text::plain(N_(
+                            " (FSR 3.1 proven by its log; FSR 4 is only ever shown by its overlay)",
+                        ))),
+                        _ => Arg::from(""),
                     },
                 ],
             ),
@@ -317,11 +322,8 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             N_("Combination"),
             Text::with(
                 N_("%s + %s: %s"),
-                [
-                    problem.a.label().to_owned(),
-                    problem.b.label().to_owned(),
-                    problem.why.to_owned(),
-                ],
+                [problem.a.label(), problem.b.label(), problem.why]
+                    .map(|s| Arg::Text(Text::plain(s))),
             ),
             None,
         ));
@@ -389,11 +391,10 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             N_("Neural rendering"),
             Text::with(
                 N_("unavailable: %s"),
-                [missing
-                    .iter()
-                    .map(|m| m.what.to_owned())
-                    .collect::<Vec<_>>()
-                    .join(", ")],
+                [super::backend::join(
+                    missing.iter().map(|m| Arg::Text(Text::plain(m.what))),
+                    "%s, %s",
+                )],
             ),
             None,
         )),
@@ -444,18 +445,17 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
     out
 }
 
-fn confidence(c: Confidence) -> String {
-    match c {
+fn confidence(c: Confidence) -> Arg {
+    Arg::Text(Text::plain(match c {
         Confidence::Fact => N_("confirmed"),
         Confidence::Detected => N_("detected from its files"),
         Confidence::Likely => N_("likely"),
         Confidence::Assumed => N_("assumed"),
-    }
-    .to_owned()
+    }))
 }
 
-fn yes_no(b: bool) -> String {
-    if b { N_("yes") } else { N_("no") }.to_owned()
+fn yes_no(b: bool) -> Arg {
+    Arg::Text(Text::plain(if b { N_("yes") } else { N_("no") }))
 }
 
 /// The findings as a plain text page, for the support report and the

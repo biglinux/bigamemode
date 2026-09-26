@@ -24,7 +24,7 @@ use libadwaita as adw;
 
 use bigame_core::profiles::GameProfile;
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{error_text, i18n, ni18n, tr};
 use crate::widgets::game_card;
 use crate::widgets::toast;
 
@@ -231,7 +231,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                                 Err(e) => {
                                     toast::show(
                                         &btn_ref,
-                                        &i18n("Import failed: %s").replace("%s", &e.to_string()),
+                                        &i18n("Import failed: %s").replace("%s", &error_text(&e)),
                                     );
                                 }
                             }
@@ -271,7 +271,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                     }
                     Err(e) => toast::show(
                         &widget,
-                        &i18n("Import failed: %s").replace("%s", &e.to_string()),
+                        &i18n("Import failed: %s").replace("%s", &error_text(&e)),
                     ),
                 }
             });
@@ -405,7 +405,7 @@ fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
                     applying.set(false);
                     i18n("Close Steam first: it keeps its launch options in memory and would overwrite the change.")
                 }
-                Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not apply")),
+                Ok(Err(e)) => format!("{}: {}", i18n("Could not apply"), error_text(&e)),
                 Err(_) => i18n("Could not apply"),
             };
             crate::widgets::toast::show(&row, &message);
@@ -667,7 +667,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
                 } else {
                     i18n("Gamescope would not run")
                 },
-                decision.reason
+                tr(&decision.reason)
             ));
             // The explanation only describes Automatic.
             explain.set_visible(mode.selected() == 0);
@@ -979,6 +979,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         // Block save only on hard errors (empty/invalid name, zero resolution).
         let errors = bigame_core::profiles::critical_errors(&profile_clone);
         if !errors.is_empty() {
+            let errors: Vec<String> = errors.iter().map(|e| i18n(e)).collect();
             toast::show(btn, &errors.join("; "));
             return;
         }
@@ -989,7 +990,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         let soft: Vec<_> = warnings
             .iter()
             .filter(|w| !errors.contains(w))
-            .cloned()
+            .map(|w| i18n(w))
             .collect();
         if !soft.is_empty() {
             toast::show(btn, &format!("⚠ {}", soft.join("; ")));
@@ -1010,7 +1011,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
                     tracing::warn!(error = %format!("{e:#}"), "profile not saved");
                     toast::show(
                         &btn_ref,
-                        &i18n("Could not save: %s").replace("%s", &format!("{e:#}")),
+                        &i18n("Could not save: %s").replace("%s", &error_text(&e)),
                     );
                 }
                 Err(_) => toast::show(&btn_ref, &i18n("Could not save: %s").replace("%s", "")),
@@ -1050,7 +1051,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
                             Ok(()) => toast::show(&btn_ref, &i18n("Profile exported")),
                             Err(e) => toast::show(
                                 &btn_ref,
-                                &i18n("Export failed: %s").replace("%s", &e.to_string()),
+                                &i18n("Export failed: %s").replace("%s", &error_text(&e)),
                             ),
                         }
                     }
@@ -1098,7 +1099,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
                                 toast::show(
                                     &feedback,
                                     &i18n("Could not delete profile: %s")
-                                        .replace("%s", &e.to_string()),
+                                        .replace("%s", &error_text(&e)),
                                 );
                             }
                             Err(_) => {
@@ -1320,7 +1321,6 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
                     let _ = child.wait();
                 });
             })
-            .map_err(|e| anyhow::anyhow!(e))
         })
         .await;
         match result {
@@ -1336,12 +1336,12 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
                 );
             }
             Ok(Err(e)) => {
-                tracing::error!(game = %title, error = %e, "launch failed");
+                tracing::error!(game = %title, error = %format!("{e:#}"), "launch failed");
                 toast::show(
                     &anchor,
                     &i18n("Could not start %t: %e")
                         .replace("%t", &title)
-                        .replace("%e", &e.to_string()),
+                        .replace("%e", &error_text(&e)),
                 );
             }
             Err(_) => {
@@ -1453,7 +1453,7 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
                     &anchor,
                     &match result {
                         Ok(Ok(_)) => i18n("The game's files are as they were before"),
-                        Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not restore")),
+                        Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
                         Err(_) => i18n("Could not restore"),
                     },
                 );
@@ -1520,7 +1520,7 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
                         Ok(()) => toast::show(&anchor, &i18n("Profile deleted")),
                         Err(e) => toast::show(
                             &anchor,
-                            &i18n("Could not delete profile: %s").replace("%s", &e.to_string()),
+                            &i18n("Could not delete profile: %s").replace("%s", &error_text(&e)),
                         ),
                     }
                 });

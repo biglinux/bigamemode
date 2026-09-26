@@ -23,6 +23,14 @@ pub fn init() {
     }
 }
 
+/// Mark a string for translation without translating it here: for labels
+/// kept in constants and passed to [`i18n`] where they are shown.
+#[allow(non_snake_case)]
+#[must_use]
+pub const fn N_(s: &'static str) -> &'static str {
+    s
+}
+
 /// Translate a string via gettext.
 #[must_use]
 pub fn i18n(s: &str) -> String {
@@ -36,9 +44,20 @@ pub fn ni18n(singular: &str, plural: &str, n: usize) -> String {
     ngettext(singular, plural, u32::try_from(n).unwrap_or(u32::MAX)).replace("%n", &n.to_string())
 }
 
-/// A sentence from bigame-core, translated: the template through gettext,
-/// then its values filled in.
+/// A sentence from bigame-core, translated: its template and every
+/// translatable value in it through gettext.
 #[must_use]
-pub fn tr(t: &bigame_core::graphics::text::Text) -> String {
-    bigame_core::graphics::text::Text::fill(&i18n(t.template), &t.args)
+pub fn tr(t: &bigame_core::text::Text) -> String {
+    t.render(&i18n)
+}
+
+/// An `anyhow` error as the user reads it, translated: the message a
+/// [`UserError`] gives, the cause after it; the whole chain otherwise
+/// ([`bigame_core::error::describe`]). For an `std::io::Error` its own text
+/// is enough: the system already words it in the user's language.
+///
+/// [`UserError`]: bigame_core::error::UserError
+#[must_use]
+pub fn error_text(err: &anyhow::Error) -> String {
+    tr(&bigame_core::error::describe(err))
 }

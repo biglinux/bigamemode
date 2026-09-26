@@ -229,6 +229,22 @@ def translatable(text: str) -> str:
     )
 
 
+# Files that define the markers rather than use them.
+DEFINERS = {"bigame-engine/bigame-core/src/text.rs", "bigame-engine/bigame-ui/src/i18n.rs"}
+
+
+def unlisted_sources() -> list[str]:
+    """Rust sources with translatable strings that POTFILES.in does not
+    list: their strings would silently stay out of the template."""
+    listed = set(POTFILES.read_text(encoding="utf-8").split())
+    missing = []
+    for path in sorted(ROOT.glob("bigame-engine/*/src/**/*.rs")):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel not in listed and rel not in DEFINERS and extract_rust(path):
+            missing.append(rel)
+    return missing
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -238,6 +254,13 @@ def main() -> int:
         "(ignoring its timestamp and source line references)",
     )
     args = parser.parse_args()
+
+    missing = unlisted_sources()
+    if missing:
+        print("these files have translatable strings but are not in locale/POTFILES.in:", file=sys.stderr)
+        for rel in missing:
+            print(f"  {rel}", file=sys.stderr)
+        return 1
 
     generated = build_pot()
     if args.check:

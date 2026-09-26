@@ -9,7 +9,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::knob::{Knob, Verification};
+use super::knob::{Knob, NotAccepted, Verification};
+use crate::text::{N_, Text};
 
 /// The value a knob held before Booster touched it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,7 +108,7 @@ impl Snapshot {
                     knob: entry.knob.clone(),
                     target: String::new(),
                     status: RestoreStatus::Failed {
-                        error: "no baseline was captured for this knob".into(),
+                        error: Text::plain(N_("no baseline was captured for this knob")),
                     },
                 };
             };
@@ -123,14 +124,20 @@ impl Snapshot {
                 Ok(()) => match entry.knob.verify(want) {
                     Verification::Confirmed => RestoreStatus::Restored,
                     Verification::Mismatch { actual } => RestoreStatus::Failed {
-                        error: format!("wrote {want:?} but the knob reads {actual:?}"),
+                        error: Text::with(
+                            N_("wrote %s but the knob reads %s"),
+                            [format!("{want:?}"), format!("{actual:?}")],
+                        ),
                     },
                     Verification::Unreadable => RestoreStatus::Failed {
-                        error: "value could not be read back".into(),
+                        error: Text::plain(N_("value could not be read back")),
                     },
                 },
                 Err(e) => RestoreStatus::Failed {
-                    error: format!("{e:#}"),
+                    error: match e.downcast_ref::<NotAccepted>() {
+                        Some(refused) => refused.0.clone(),
+                        None => crate::error::describe(&e),
+                    },
                 },
             };
             RestoreOutcome {
@@ -165,7 +172,7 @@ pub enum RestoreStatus {
     /// rather than a silently wrong one.
     Failed {
         /// Why.
-        error: String,
+        error: Text,
     },
 }
 
@@ -346,6 +353,11 @@ mod tests {
     fn restore_status_classification() {
         assert!(RestoreStatus::Restored.is_ok());
         assert!(RestoreStatus::AlreadyCorrect.is_ok());
-        assert!(!RestoreStatus::Failed { error: "x".into() }.is_ok());
+        assert!(
+            !RestoreStatus::Failed {
+                error: Text::raw("x")
+            }
+            .is_ok()
+        );
     }
 }

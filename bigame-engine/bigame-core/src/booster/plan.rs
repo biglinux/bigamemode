@@ -9,11 +9,12 @@
 //! A machine already sitting at its best configuration should be told exactly
 //! that, not handed a list of no-ops dressed up as optimizations.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::knob::Knob;
 use crate::capabilities::Capabilities;
 use crate::hardware::{Chassis, Hardware, PowerSource};
+use crate::text::{Arg, N_, Text};
 
 use super::snapshot::Snapshot;
 
@@ -74,6 +75,31 @@ pub struct Change {
     pub risk: Risk,
 }
 
+/// Save a sentence of a plan in English, as every earlier build did.
+///
+/// A plan is kept in the crash-recovery journal, where a record another
+/// build cannot read is discarded with the baseline it holds — and Booster's
+/// changes could no longer be put back. Nothing shows a journaled plan's
+/// sentences, so the journal keeps its format whichever way the application
+/// is updated or downgraded.
+fn as_english<S: Serializer>(text: &Text, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(&text.english())
+}
+
+/// Read a sentence of a plan: English, as journaled, or a whole [`Text`].
+fn text_or_english<'de, D: Deserializer<'de>>(d: D) -> Result<Text, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Saved {
+        Text(Text),
+        English(String),
+    }
+    Ok(match Saved::deserialize(d)? {
+        Saved::Text(t) => t,
+        Saved::English(s) => Text::raw(s),
+    })
+}
+
 /// Why a candidate change was not planned.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "reason", rename_all = "snake_case")]
@@ -81,23 +107,28 @@ pub enum Skipped {
     /// The knob does not exist on this hardware.
     Unsupported {
         /// Knob title.
-        knob: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        knob: Text,
         /// What was missing.
-        detail: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        detail: Text,
     },
     /// The knob already holds the value we would have written.
     AlreadyOptimal {
         /// Knob title.
-        knob: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        knob: Text,
         /// The value it already holds.
         value: String,
     },
     /// Applying it here would cost more than it gains.
     NotBeneficial {
         /// Knob title.
-        knob: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        knob: Text,
         /// Why not.
-        detail: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        detail: Text,
     },
     /// Measurement on this machine showed the knob makes things worse.
     ///
@@ -109,18 +140,38 @@ pub enum Skipped {
     /// restores second writes the other's changed value back as a baseline.
     OwnedBy {
         /// Knob title.
-        knob: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        knob: Text,
         /// The component that owns it.
         owner: String,
         /// How it manages the knob.
-        detail: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        detail: Text,
     },
     /// We could not read the current value, so we could not guarantee a
     /// rollback — and an unrestorable change is never worth making.
     NotRestorable {
         /// Knob title.
-        knob: String,
+        #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
+        knob: Text,
     },
+}
+
+/// The title of the scheduler note, which is not a knob of Booster's.
+#[must_use]
+pub fn scheduler_title() -> Text {
+    Text::plain(N_("sched-ext scheduler"))
+}
+
+/// What falcond does with the power profile while it holds a game's profile.
+fn falcond_is_managing(profile: &str) -> Text {
+    Text::with(
+        N_(
+            "falcond is managing it for '%s'; when the game exits it puts back \
+            the profile that was in use when falcond started",
+        ),
+        [profile],
+    )
 }
 
 /// The complete decision for one Booster activation.
@@ -211,19 +262,15 @@ impl Plan {
         // "restores it" reads as "the one before the game".
         if caps.falcond_installed {
             let detail = match owner {
-                PowerProfileOwner::Falcond { profile } => format!(
-                    "falcond is managing it for '{profile}'; when the game exits it puts back \
-                     the profile that was in use when falcond started"
-                ),
-                PowerProfileOwner::Booster => {
+                PowerProfileOwner::Falcond { profile } => falcond_is_managing(profile),
+                PowerProfileOwner::Booster => Text::plain(N_(
                     "falcond sets it for each game from the game's profile; when the game \
                      exits it puts back the profile that was in use when falcond started, \
-                     not one chosen later"
-                        .to_owned()
-                }
+                     not one chosen later",
+                )),
             };
             self.skipped.push(Skipped::OwnedBy {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 owner: "falcond".into(),
                 detail,
             });
@@ -231,19 +278,16 @@ impl Plan {
         }
         if let PowerProfileOwner::Falcond { profile } = owner {
             self.skipped.push(Skipped::OwnedBy {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 owner: "falcond".into(),
-                detail: format!(
-                    "falcond is managing it for '{profile}'; when the game exits it puts back \
-                     the profile that was in use when falcond started"
-                ),
+                detail: falcond_is_managing(profile),
             });
             return;
         }
         if !caps.power_profiles {
             self.skipped.push(Skipped::Unsupported {
-                knob: knob.title(),
-                detail: "power-profiles-daemon is not reachable".into(),
+                knob: knob.title_text(),
+                detail: Text::plain(N_("power-profiles-daemon is not reachable")),
             });
             return;
         }
@@ -253,29 +297,31 @@ impl Plan {
             .any(|p| p == "performance")
         {
             self.skipped.push(Skipped::Unsupported {
-                knob: knob.title(),
-                detail: "this platform offers no performance profile".into(),
+                knob: knob.title_text(),
+                detail: Text::plain(N_("this platform offers no performance profile")),
             });
             return;
         }
         let Some(from) = snap.value_of(&knob) else {
-            self.skipped
-                .push(Skipped::NotRestorable { knob: knob.title() });
+            self.skipped.push(Skipped::NotRestorable {
+                knob: knob.title_text(),
+            });
             return;
         };
         if from == "performance" {
             self.skipped.push(Skipped::AlreadyOptimal {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 value: from.to_owned(),
             });
             return;
         }
         if battery {
             self.skipped.push(Skipped::NotBeneficial {
-                knob: knob.title(),
-                detail: "running on battery — sustained performance mode usually \
-                         costs more in throttling than it gains"
-                    .into(),
+                knob: knob.title_text(),
+                detail: Text::plain(N_(
+                    "running on battery — sustained performance mode usually \
+                     costs more in throttling than it gains",
+                )),
             });
             return;
         }
@@ -312,57 +358,63 @@ impl Plan {
         // CPU-bound). falcond asks for the performance profile per game.
         if caps.power_profiles {
             self.skipped.push(Skipped::OwnedBy {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 owner: "power-profiles-daemon".into(),
                 detail: if hw.cpu.epp_driven_by_power_profile() {
-                    "the power profile sets the CPU's energy preference; forcing the \
-                     performance governor would override it, and measured no faster"
-                        .into()
+                    Text::plain(N_(
+                        "the power profile sets the CPU's energy preference; forcing the \
+                         performance governor would override it, and measured no faster",
+                    ))
                 } else {
-                    "the power profile sets the CPU's frequency policy, and falcond \
-                     switches it to performance for each game"
-                        .into()
+                    Text::plain(N_(
+                        "the power profile sets the CPU's frequency policy, and falcond \
+                         switches it to performance for each game",
+                    ))
                 },
             });
             return;
         }
         if hw.cpu.available_governors.is_empty() {
             self.skipped.push(Skipped::Unsupported {
-                knob: knob.title(),
-                detail: "this machine exposes no CPU frequency control".into(),
+                knob: knob.title_text(),
+                detail: Text::plain(N_("this machine exposes no CPU frequency control")),
             });
             return;
         }
         if !hw.cpu.supports_governor("performance") {
+            let driver = match hw.cpu.scaling_driver.as_deref() {
+                Some(name) => Arg::from(name),
+                None => Arg::from(Text::plain(N_("this cpufreq driver"))),
+            };
             self.skipped.push(Skipped::Unsupported {
-                knob: knob.title(),
-                detail: format!(
-                    "{} accepts only {:?}",
-                    hw.cpu
-                        .scaling_driver
-                        .as_deref()
-                        .unwrap_or("this cpufreq driver"),
-                    hw.cpu.available_governors
+                knob: knob.title_text(),
+                detail: Text::with(
+                    N_("%s accepts only %s"),
+                    [
+                        driver,
+                        Arg::Raw(format!("{:?}", hw.cpu.available_governors)),
+                    ],
                 ),
             });
             return;
         }
         let Some(from) = snap.value_of(&knob) else {
-            self.skipped
-                .push(Skipped::NotRestorable { knob: knob.title() });
+            self.skipped.push(Skipped::NotRestorable {
+                knob: knob.title_text(),
+            });
             return;
         };
         if from == "performance" {
             self.skipped.push(Skipped::AlreadyOptimal {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 value: from.to_owned(),
             });
             return;
         }
         if battery {
             self.skipped.push(Skipped::NotBeneficial {
-                knob: knob.title(),
-                detail: "running on battery".into(),
+                knob: knob.title_text(),
+                detail: Text::plain(N_("running on battery")),
             });
             return;
         }
@@ -387,8 +439,8 @@ impl Plan {
     fn consider_gpu_dpm(&mut self, hw: &Hardware) {
         let Some(gpu) = hw.render_gpu() else {
             self.skipped.push(Skipped::Unsupported {
-                knob: "GPU power level".into(),
-                detail: "no render GPU was identified".into(),
+                knob: Text::plain(N_("GPU power level")),
+                detail: Text::plain(N_("no render GPU was identified")),
             });
             return;
         };
@@ -397,18 +449,22 @@ impl Plan {
         };
         if gpu.dpm_level_path.is_none() {
             self.skipped.push(Skipped::Unsupported {
-                knob: knob.title(),
-                detail: format!("the {} driver exposes no DPM level control", gpu.driver),
+                knob: knob.title_text(),
+                detail: Text::with(
+                    N_("the %s driver exposes no DPM level control"),
+                    [&gpu.driver],
+                ),
             });
             return;
         }
         self.skipped.push(Skipped::NotBeneficial {
-            knob: knob.title(),
-            detail: "left to the driver: forcing 'high' pins the highest fixed \
-                     power state and gives up boost clocks above it, and it has \
-                     only ever been measured slower (8.3% in Shadow of the Tomb \
-                     Raider on a Radeon RX 9060 XT)."
-                .into(),
+            knob: knob.title_text(),
+            detail: Text::plain(N_(
+                "left to the driver: forcing 'high' pins the highest fixed \
+                 power state and gives up boost clocks above it, and it has \
+                 only ever been measured slower (8.3% in Shadow of the Tomb \
+                 Raider on a Radeon RX 9060 XT).",
+            )),
         });
     }
 
@@ -420,28 +476,31 @@ impl Plan {
         let knob = Knob::VCacheMode;
         let Some(vcache) = hw.cpu.vcache.as_ref() else {
             self.skipped.push(Skipped::Unsupported {
-                knob: knob.title(),
-                detail: "this CPU has no 3D V-Cache".into(),
+                knob: knob.title_text(),
+                detail: Text::plain(N_("this CPU has no 3D V-Cache")),
             });
             return;
         };
         if caps.falcond_installed {
             self.skipped.push(Skipped::OwnedBy {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 owner: "falcond".into(),
-                detail: "each game's profile sets the V-Cache mode while the game runs".into(),
+                detail: Text::plain(N_(
+                    "each game's profile sets the V-Cache mode while the game runs",
+                )),
             });
             return;
         }
         let from = snap.value_of(&knob).or(vcache.current_mode.as_deref());
         let Some(from) = from else {
-            self.skipped
-                .push(Skipped::NotRestorable { knob: knob.title() });
+            self.skipped.push(Skipped::NotRestorable {
+                knob: knob.title_text(),
+            });
             return;
         };
         if from == "cache" {
             self.skipped.push(Skipped::AlreadyOptimal {
-                knob: knob.title(),
+                knob: knob.title_text(),
                 value: from.to_owned(),
             });
             return;
@@ -465,15 +524,16 @@ impl Plan {
         let support = caps.sched_ext.switchable();
         if let Some(reason) = support.describe() {
             self.skipped.push(Skipped::Unsupported {
-                knob: "sched-ext scheduler".into(),
-                detail: reason,
+                knob: scheduler_title(),
+                detail: Text::raw(reason),
             });
         } else {
             self.skipped.push(Skipped::NotBeneficial {
-                knob: "sched-ext scheduler".into(),
-                detail: "falcond owns the scheduler; Booster does not write it to \
-                         avoid two controllers contending for the same state"
-                    .into(),
+                knob: scheduler_title(),
+                detail: Text::plain(N_(
+                    "falcond owns the scheduler; Booster does not write it to \
+                     avoid two controllers contending for the same state",
+                )),
             });
         }
     }
@@ -643,7 +703,7 @@ mod tests {
         assert!(!ids.contains(&"cpu_governor".to_owned()));
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::OwnedBy { knob, owner, .. }
-            if knob.contains("governor") && owner == "power-profiles-daemon"
+            if knob.english().contains("governor") && owner == "power-profiles-daemon"
         )));
         // Without power-profiles-daemon nothing else owns it.
         let bare = Plan::build_with_owner(&h, &caps(true, false), &s, &PowerProfileOwner::Booster);
@@ -651,7 +711,7 @@ mod tests {
         // GPU DPM is left to the driver, and the skip says why.
         assert!(!ids.iter().any(|i| i.starts_with("gpu_dpm")));
         assert!(plan.skipped.iter().any(|s| matches!(
-            s, Skipped::NotBeneficial { knob, detail } if knob.contains("GPU") && detail.contains("measured slower")
+            s, Skipped::NotBeneficial { knob, detail } if knob.english().contains("GPU") && detail.english().contains("measured slower")
         )));
         // Every change explains itself.
         assert!(plan.changes.iter().all(|c| !c.rationale.is_empty()));
@@ -682,7 +742,7 @@ mod tests {
         // and it must say why, rather than silently doing nothing
         assert!(plan.skipped.iter().any(|s| matches!(
             s,
-            Skipped::AlreadyOptimal { knob, value } if knob.contains("Power profile") && value == "performance"
+            Skipped::AlreadyOptimal { knob, value } if knob.english().contains("Power profile") && value == "performance"
         )));
     }
 
@@ -735,7 +795,7 @@ mod tests {
         let plan = Plan::build_with_owner(&h, &caps(true, false), &s, &PowerProfileOwner::Booster);
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
         assert!(plan.skipped.iter().any(|s| matches!(
-            s, Skipped::Unsupported { knob, .. } if knob.contains("governor")
+            s, Skipped::Unsupported { knob, .. } if knob.english().contains("governor")
         )));
     }
 
@@ -757,7 +817,7 @@ mod tests {
             &PowerProfileOwner::Booster,
         );
         assert!(plan.skipped.iter().any(|s| matches!(
-            s, Skipped::Unsupported { knob, detail } if knob.contains("V-Cache") && detail.contains("no 3D V-Cache")
+            s, Skipped::Unsupported { knob, detail } if knob.english().contains("V-Cache") && detail.english().contains("no 3D V-Cache")
         )));
     }
 
@@ -809,7 +869,7 @@ mod tests {
                 .all(|ch| ch.knob != Knob::VCacheMode || ch.knob == Knob::VCacheMode)
         );
         assert!(plan.skipped.iter().any(|s| matches!(
-            s, Skipped::NotBeneficial { knob, detail } if knob.contains("sched-ext") && detail.contains("falcond owns")
+            s, Skipped::NotBeneficial { knob, detail } if knob.english().contains("sched-ext") && detail.english().contains("falcond owns")
         )));
     }
 
@@ -837,7 +897,7 @@ mod tests {
         );
         assert!(plan.skipped.iter().any(|sk| matches!(
             sk, Skipped::OwnedBy { knob, owner, detail }
-            if knob.contains("Power profile") && owner == "falcond" && detail.contains("Cyberpunk")
+            if knob.english().contains("Power profile") && owner == "falcond" && detail.english().contains("Cyberpunk")
         )));
         // Nor with power-profiles-daemon for the governor that profile sets.
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
@@ -854,7 +914,7 @@ mod tests {
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
         assert!(plan.skipped.iter().any(|sk| matches!(
             sk, Skipped::OwnedBy { owner, detail, .. }
-            if owner == "power-profiles-daemon" && detail.contains("falcond")
+            if owner == "power-profiles-daemon" && detail.english().contains("falcond")
         )));
     }
 
@@ -874,6 +934,52 @@ mod tests {
         let json = serde_json::to_string(&plan).unwrap();
         let back: Plan = serde_json::from_str(&json).unwrap();
         assert_eq!(back.changes.len(), plan.changes.len());
+        let english = |p: &Plan| serde_json::to_value(&p.skipped).unwrap();
+        assert_eq!(english(&back), english(&plan));
+    }
+
+    #[test]
+    fn the_journal_keeps_its_sentences_in_english() {
+        // A build from before translation must still read a journal this one
+        // wrote, or a downgrade would discard the baseline.
+        let plan = Plan {
+            changes: Vec::new(),
+            skipped: vec![Skipped::OwnedBy {
+                knob: Knob::GpuDpmLevel {
+                    card: "card1".into(),
+                }
+                .title_text(),
+                owner: "falcond".into(),
+                detail: falcond_is_managing("Proton"),
+            }],
+        };
+        let json = serde_json::to_value(&plan).unwrap();
+        assert_eq!(json["skipped"][0]["knob"], "GPU power level (card1)");
+        assert!(
+            json["skipped"][0]["detail"]
+                .as_str()
+                .unwrap()
+                .starts_with("falcond is managing it for 'Proton'")
+        );
+    }
+
+    #[test]
+    fn a_plan_journaled_with_english_sentences_still_loads() {
+        // Every build journals titles and details as plain strings; failing
+        // to read them would discard the baseline.
+        let old = r#"{"changes":[],"skipped":[
+            {"reason":"owned_by","knob":"Power profile","owner":"falcond","detail":"per game"},
+            {"reason":"not_restorable","knob":"CPU governor"}]}"#;
+        let plan: Plan = serde_json::from_str(old).unwrap();
+        assert!(matches!(
+            &plan.skipped[0],
+            Skipped::OwnedBy { knob, detail, .. }
+            if knob.english() == "Power profile" && detail.english() == "per game"
+        ));
+        assert!(matches!(
+            &plan.skipped[1],
+            Skipped::NotRestorable { knob } if knob.english() == "CPU governor"
+        ));
     }
 
     fn amd_pstate(mut h: Hardware) -> Hardware {
@@ -896,7 +1002,7 @@ mod tests {
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::PowerProfile));
         assert!(plan.skipped.iter().any(|sk| matches!(
             sk, Skipped::OwnedBy { knob, owner, .. }
-            if knob.contains("Power profile") && owner == "falcond"
+            if knob.english().contains("Power profile") && owner == "falcond"
         )));
     }
 
@@ -908,7 +1014,7 @@ mod tests {
         assert!(!plan.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
         assert!(plan.skipped.iter().any(|sk| matches!(
             sk, Skipped::OwnedBy { knob, owner, .. }
-            if knob.contains("governor") && owner == "power-profiles-daemon"
+            if knob.english().contains("governor") && owner == "power-profiles-daemon"
         )));
 
         // Without power-profiles-daemon nothing else sets it, so Booster may.

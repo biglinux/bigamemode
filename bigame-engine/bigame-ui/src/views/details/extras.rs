@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use bigame_core::network::{self, Resolver};
 
-use crate::i18n::i18n;
+use crate::i18n::{error_text, i18n};
 use crate::widgets::toast;
 
 /// Resolvers offered for comparison, alongside whatever the system uses.
@@ -105,7 +105,7 @@ pub fn background_group() -> adw::PreferencesGroup {
                         process.cpu_percent,
                         i18n("of one CPU"),
                         process.memory_mib,
-                        process.kind.describe()
+                        i18n(process.kind.describe())
                     ))
                     .build();
                 row.add_prefix(&gtk4::Image::from_icon_name(match process.kind {
@@ -264,7 +264,7 @@ fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {
             }
             Err(e) => toast::show(
                 button,
-                &i18n("Could not change it: %s").replace("%s", &e.to_string()),
+                &i18n("Could not change it: %s").replace("%s", &error_text(&e)),
             ),
         }
     });
@@ -416,7 +416,7 @@ pub fn network_group() -> adw::PreferencesGroup {
                 // whole point is that a faster resolver is not a faster game.
                 let note = adw::ActionRow::builder()
                     .title(i18n("What this does not mean"))
-                    .subtitle(network::dns_disclaimer())
+                    .subtitle(i18n(network::dns_disclaimer()))
                     .build();
                 note.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
                 dns_group.add_row(&note);

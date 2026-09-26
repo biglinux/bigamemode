@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::graphics::text::N_;
+use crate::text::{Arg, N_, Text};
 
 /// Identifies one piece of system state.
 ///
@@ -54,16 +54,22 @@ impl Knob {
         }
     }
 
-    /// Short human label for the UI.
+    /// Short human label, translatable, for the UI.
+    #[must_use]
+    pub fn title_text(&self) -> Text {
+        match self {
+            Self::PowerProfile => Text::plain(N_("Power profile")),
+            Self::CpuGovernor => Text::plain(N_("CPU governor")),
+            Self::CpuEpp => Text::plain(N_("CPU energy preference")),
+            Self::GpuDpmLevel { card } => Text::with(N_("GPU power level (%s)"), [card]),
+            Self::VCacheMode => Text::plain(N_("3D V-Cache mode")),
+        }
+    }
+
+    /// The label in English, for logs, progress and the journal.
     #[must_use]
     pub fn title(&self) -> String {
-        match self {
-            Self::PowerProfile => N_("Power profile").into(),
-            Self::CpuGovernor => N_("CPU governor").into(),
-            Self::CpuEpp => N_("CPU energy preference").into(),
-            Self::GpuDpmLevel { card } => N_("GPU power level (%s)").replace("%s", card),
-            Self::VCacheMode => N_("3D V-Cache mode").into(),
-        }
+        self.title_text().english()
     }
 
     /// Read the current value, or `None` when this knob does not exist here.
@@ -149,12 +155,17 @@ impl Knob {
     /// Returns an error if the value is not accepted here, or if the write
     /// mechanism fails.
     pub async fn write(&self, value: &str) -> Result<()> {
-        anyhow::ensure!(
-            self.accepts(value),
-            "{} does not accept {value:?} on this machine (accepted: {:?})",
-            self.title(),
-            self.allowed_values()
-        );
+        if !self.accepts(value) {
+            return Err(NotAccepted(Text::with(
+                N_("%s does not accept %s on this machine (accepted: %s)"),
+                [
+                    Arg::Text(self.title_text()),
+                    Arg::Raw(format!("{value:?}")),
+                    Arg::Raw(format!("{:?}", self.allowed_values())),
+                ],
+            ))
+            .into());
+        }
         match self {
             Self::PowerProfile => {
                 // power-profiles-daemon is driven through zbus's blocking API,
@@ -221,6 +232,21 @@ impl fmt::Display for Knob {
         f.write_str(&self.title())
     }
 }
+
+/// A write refused because this machine does not offer the value.
+///
+/// Typed so the restore report can show it translated; anything else that
+/// goes wrong in a write is a message from the system.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NotAccepted(pub Text);
+
+impl fmt::Display for NotAccepted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0.english())
+    }
+}
+
+impl std::error::Error for NotAccepted {}
 
 /// Outcome of reading a knob back after writing it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -371,5 +397,20 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.to_string().contains("does not accept"));
+        let refused = err.downcast_ref::<NotAccepted>().expect("a typed refusal");
+        assert_eq!(
+            refused.0.template,
+            "%s does not accept %s on this machine (accepted: %s)"
+        );
+    }
+
+    #[test]
+    fn titles_are_translatable_and_carry_the_card() {
+        let gpu = Knob::GpuDpmLevel {
+            card: "card1".into(),
+        };
+        assert_eq!(gpu.title_text().template, "GPU power level (%s)");
+        assert_eq!(gpu.title(), "GPU power level (card1)");
+        assert_eq!(Knob::PowerProfile.title(), "Power profile");
     }
 }

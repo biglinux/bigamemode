@@ -23,7 +23,7 @@ use bigame_core::graphics::runtime::Status;
 use bigame_core::graphics::versions::Offer;
 use bigame_core::graphics::{self, Analysis, Target, backend, diagnose, external};
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{error_text, i18n, ni18n};
 
 struct Page {
     target: Target,
@@ -187,7 +187,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     let now = adw::PreferencesGroup::new();
     now.set_title(&i18n("Current"));
     if let Some(g) = r.gpu() {
-        let mut sub = g.family().label();
+        let mut sub = tr(&g.family().label());
         if let Some(u) = &g.userspace {
             let _ = write!(sub, " · {u}");
         }
@@ -647,15 +647,22 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(&i18n("Graphics card"), &sub));
     }
     let n = &r.native;
+    let version = |v: &str| {
+        if v == bigame_core::graphics::report::PRESENT {
+            i18n(bigame_core::graphics::report::PRESENT)
+        } else {
+            v.to_owned()
+        }
+    };
     let mut native = Vec::new();
     if let Some(v) = &n.dlss {
-        native.push(format!("DLSS {v}"));
+        native.push(format!("DLSS {}", version(v)));
     }
     if let Some(v) = &n.xess {
-        native.push(format!("XeSS {v}"));
+        native.push(format!("XeSS {}", version(v)));
     }
     if let Some(v) = &n.fsr {
-        native.push(format!("FSR {v}"));
+        native.push(format!("FSR {}", version(v)));
     }
     if n.frame_gen() {
         native.push(i18n("frame generation"));
@@ -1005,7 +1012,7 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
                 m.source.version,
                 i18n("installed; the previous version can be restored here")
             ),
-            Ok(Err(e)) => format!("{}: {e:#}", i18n("Not updated")),
+            Ok(Err(e)) => format!("{}: {}", i18n("Not updated"), error_text(&e)),
             Err(_) => i18n("Not updated"),
         };
         page.overlay.add_toast(adw::Toast::new(&text));
@@ -1191,7 +1198,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                         Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::LaunchPlan)) => {
                             i18n("Not a Steam game: the variable goes into BiGame-mode's own launch")
                         }
-                        Ok(Err(e)) => format!("{}: {e:#}", i18n("Nothing was changed")),
+                        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
                         Err(_) => i18n("Nothing was changed"),
                     };
                     overlay.add_toast(adw::Toast::new(&text));
@@ -1234,7 +1241,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                             Some(Applied::AlreadyOn(_)) | None => files,
                         }
                     }
-                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not apply")),
+                    Ok(Err(e)) => format!("{}: {}", i18n("Could not apply"), error_text(&e)),
                     Err(_) => i18n("Could not apply"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
@@ -1259,7 +1266,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 let text = match result {
                     Ok(Ok(v)) if v.is_empty() => i18n("Every file is as it was installed"),
                     Ok(Ok(v)) => format!("{} ({})", i18n("Missing files put back"), v.len()),
-                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not repair")),
+                    Ok(Err(e)) => format!("{}: {}", i18n("Could not repair"), error_text(&e)),
                     Err(_) => i18n("Could not repair"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
@@ -1298,7 +1305,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                     busy(&page, None);
                     let text = match result {
                         Ok(Ok(_)) => i18n("The launch option was removed; the game's own FSR runs as it did"),
-                        Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not remove it")),
+                        Ok(Err(e)) => format!("{}: {}", i18n("Could not remove it"), error_text(&e)),
                         Err(_) => i18n("Could not remove it"),
                     };
                     overlay.add_toast(adw::Toast::new(&text));
@@ -1331,7 +1338,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                             )
                         }
                     }
-                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not restore")),
+                    Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
                     Err(_) => i18n("Could not restore"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
@@ -1361,7 +1368,9 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 busy(&page, None);
                 let text = match result {
                     Ok(Ok(path)) => format!("{} {}", i18n("Report saved to"), path.display()),
-                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not write the report")),
+                    Ok(Err(e)) => {
+                        format!("{}: {}", i18n("Could not write the report"), error_text(&e))
+                    }
                     Err(_) => i18n("Could not write the report"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));

@@ -7,7 +7,7 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{N_, error_text, i18n, ni18n, tr};
 use crate::settings;
 use crate::widgets::info;
 
@@ -152,7 +152,7 @@ pub fn build() -> adw::PreferencesPage {
             let text = match result {
                 Ok(Ok(true)) => i18n("falcond is back as it was before BiGame-mode"),
                 Ok(Ok(false)) => i18n("There was nothing to hand back"),
-                Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not hand it back")),
+                Ok(Err(e)) => format!("{}: {}", i18n("Could not hand it back"), error_text(&e)),
                 Err(_) => i18n("Could not hand it back"),
             };
             crate::widgets::toast::show(&b, &text);
@@ -240,7 +240,9 @@ pub fn build() -> adw::PreferencesPage {
                     let result = gio::spawn_blocking(move || {
                         let state = std::env::var_os("HOME")
                             .map(|h| std::path::Path::new(&h).join(".local/state/bigame-mode"))
-                            .ok_or_else(|| anyhow::anyhow!("HOME is not set"))?;
+                            .ok_or_else(|| {
+                                bigame_core::error::UserError::plain(N_("HOME is not set"))
+                            })?;
                         bigame_core::migration::apply(
                             &plan,
                             std::path::Path::new(bigame_core::profiles::USER_PROFILES_DIR),
@@ -250,11 +252,16 @@ pub fn build() -> adw::PreferencesPage {
                     .await;
                     match result {
                         Ok(Ok((_, done))) => {
+                            let done: Vec<String> = done.iter().map(tr).collect();
                             migrate.set_subtitle(&done.join(" · "));
                             b.set_visible(false);
                         }
                         Ok(Err(e)) => {
-                            migrate.set_subtitle(&format!("{}: {e:#}", i18n("Could not fix them")));
+                            migrate.set_subtitle(&format!(
+                                "{}: {}",
+                                i18n("Could not fix them"),
+                                error_text(&e)
+                            ));
                             b.set_sensitive(true);
                         }
                         Err(_) => b.set_sensitive(true),

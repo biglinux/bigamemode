@@ -18,6 +18,8 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
 use super::optiscaler::Input;
+use crate::error::UserError;
+use crate::text::N_;
 
 /// Where a game keeps the switch for one of its upscalers (game list).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -188,9 +190,9 @@ fn restore_with(
     for file in files {
         let prefix = file.parent().context("registry file without a folder")?;
         if !wait_until_free(prefix, in_use, settle) {
-            bail!(
+            bail!(UserError::plain(N_(
                 "the game's Wine prefix is still in use; close the game completely and try again"
-            );
+            )));
         }
         let mut text =
             std::fs::read_to_string(file).with_context(|| format!("read {}", file.display()))?;
@@ -252,7 +254,10 @@ fn write_atomic(file: &Path, text: &str) -> Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
     let meta = std::fs::symlink_metadata(file)?;
     if meta.file_type().is_symlink() {
-        bail!("{} is a symlink; refusing to replace it", file.display());
+        bail!(UserError::with(
+            N_("%s is a symlink; refusing to replace it"),
+            [file.display().to_string()]
+        ));
     }
     let tmp = file.with_file_name(".user.reg.bigame-new");
     match std::fs::remove_file(&tmp) {
