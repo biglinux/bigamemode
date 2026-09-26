@@ -415,17 +415,18 @@ pub fn native_fsr4_applies(game: &crate::running::GameIdentity) -> bool {
     let Some(root) = game.install_path.as_ref() else {
         return false;
     };
-    // The executable's folder: where a Steam game keeps its runtimes. Only a
-    // library game's folder is scanned.
-    let exe_dir = crate::games::detect_all()
+    // Only a library game's folder is scanned (an Unreal game keeps its FSR
+    // in a plugin folder, not beside the executable); anything else is
+    // looked at where it runs from.
+    let library_game = crate::games::detect_all()
         .into_iter()
-        .find(|g| g.install_path.as_deref() == Some(root.as_path()))
-        .and_then(|_| {
-            let s = scan::scan(root, Some(&game.process_name));
-            s.executable_dir()
-        })
-        .unwrap_or_else(|| root.clone());
-    if !exe_dir.join("amd_fidelityfx_dx12.dll").is_file() {
+        .any(|g| g.install_path.as_deref() == Some(root.as_path()));
+    let ffx_api = if library_game {
+        scan::scan(root, Some(&game.process_name)).has(scan::ComponentKind::FfxApi)
+    } else {
+        root.join("amd_fidelityfx_dx12.dll").is_file()
+    };
+    if !ffx_api {
         return false;
     }
     let hw = crate::hardware::Hardware::detect();

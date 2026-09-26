@@ -18,8 +18,13 @@ use serde::{Deserialize, Serialize};
 
 use super::pe;
 
-/// How deep below the install folder the walk goes.
-const MAX_DEPTH: usize = 5;
+/// How deep below the install folder the walk goes. Unreal Engine games
+/// carry their upscalers as plugins, `Game/Plugins/<plugin>/Binaries/
+/// ThirdParty/Win64/` (six levels down), and AMD's FSR 4 plugin keeps its
+/// runtime deeper still, under `Source/fidelityfx-sdk/Kits/FidelityFX/
+/// signedbin/` (eight). Games pack their assets, so even at this depth an
+/// install folder is a few hundred entries.
+const MAX_DEPTH: usize = 9;
 /// How many directory entries the walk looks at before it stops.
 const MAX_ENTRIES: usize = 40_000;
 /// How much of a proxy DLL is read to tell who made it.
@@ -45,9 +50,10 @@ pub enum ComponentKind {
     XeLowLatency,
     /// AMD `FidelityFX` / FSR runtime (`amd_fidelityfx_*.dll`, `ffx_*.dll`).
     Fsr,
-    /// AMD's `FidelityFX` API (`amd_fidelityfx_dx12.dll`, `amd_fidelityfx_vk.dll`):
-    /// the FSR 3.1+ entry point a driver provider can take over — FSR 4 on
-    /// RDNA 4, through the provider Proton ships.
+    /// AMD's `FidelityFX` API (`amd_fidelityfx_dx12.dll`, `amd_fidelityfx_vk.dll`,
+    /// or the loader newer SDKs ship, `amd_fidelityfx_loader_dx12.dll`): the
+    /// FSR 3.1+ entry point a driver provider can take over — FSR 4 on RDNA 4,
+    /// through the provider Proton ships.
     FfxApi,
     /// `ReShade` configuration, `ReShade.ini`.
     ReShadeConfig,
@@ -241,7 +247,10 @@ fn component_kind(file_lower: &str) -> Option<ComponentKind> {
         "reshade.ini" => K::ReShadeConfig,
         "optiscaler.ini" => K::OptiScalerConfig,
         n if n.starts_with("sl.") && has_ext(n, "dll") => K::Streamline,
-        "amd_fidelityfx_dx12.dll" | "amd_fidelityfx_vk.dll" => K::FfxApi,
+        "amd_fidelityfx_dx12.dll"
+        | "amd_fidelityfx_vk.dll"
+        | "amd_fidelityfx_loader_dx12.dll"
+        | "amd_fidelityfx_loader_vk.dll" => K::FfxApi,
         n if (n.starts_with("amd_fidelityfx") || n.starts_with("ffx_")) && has_ext(n, "dll") => {
             K::Fsr
         }
@@ -690,12 +699,47 @@ mod tests {
     }
 
     #[test]
+    fn unreal_plugin_upscalers_are_found() {
+        // Bodycam's layout: each upscaler is a plugin whose folder name has a
+        // space, its runtime six levels down, FSR 4's eight.
+        let dir = tempfile::tempdir().unwrap();
+        let r = dir.path();
+        put(
+            r,
+            "Game/Binaries/Win64/Game-Win64-Shipping.exe",
+            &exe(&[], 0),
+        );
+        let plugins = "Game/Plugins";
+        put(
+            r,
+            &format!("{plugins}/DLSS v8.8.0/Binaries/ThirdParty/Win64/nvngx_dlss.dll"),
+            b"MZ",
+        );
+        put(
+            r,
+            &format!("{plugins}/XeSS v3.0.5/Binaries/ThirdParty/Win64/libxess.dll"),
+            b"MZ",
+        );
+        put(
+            r,
+            &format!(
+                "{plugins}/FSR v4.1.1/Source/fidelityfx-sdk/Kits/FidelityFX/signedbin/amd_fidelityfx_loader_dx12.dll"
+            ),
+            b"MZ",
+        );
+        let s = scan(r, Some("Game-Win64-Shipping.exe"));
+        assert!(s.has(ComponentKind::DlssSuperResolution));
+        assert!(s.has(ComponentKind::Xess));
+        assert!(s.has(ComponentKind::FfxApi));
+    }
+
+    #[test]
     fn symlinks_are_not_followed_and_the_walk_is_bounded() {
         let dir = tempfile::tempdir().unwrap();
         let r = dir.path();
         put(r, "Game.exe", &exe(&[], 0));
-        std::fs::create_dir_all(r.join("deep/a/b/c/d/e/f")).unwrap();
-        put(r, "deep/a/b/c/d/e/f/nvngx_dlss.dll", b"MZ"); // beyond MAX_DEPTH
+        std::fs::create_dir_all(r.join("deep/a/b/c/d/e/f/g/h/i")).unwrap();
+        put(r, "deep/a/b/c/d/e/f/g/h/i/nvngx_dlss.dll", b"MZ"); // beyond MAX_DEPTH
         std::os::unix::fs::symlink("/usr", r.join("usr-link")).unwrap();
         let s = scan(r, None);
         assert!(!s.has(ComponentKind::DlssSuperResolution));

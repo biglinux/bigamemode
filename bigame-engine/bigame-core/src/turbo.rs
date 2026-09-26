@@ -468,7 +468,8 @@ fn systemd_reports(state: String) -> Text {
     Text::with(N_("systemd reports it %s"), [state])
 }
 
-/// falcond's status, once it has been rewritten after `since`.
+/// falcond's status once it has been rewritten after `since`, or, if it is
+/// not rewritten within three seconds, the one it last wrote.
 async fn wait_for_fresh_status(
     since: std::time::SystemTime,
 ) -> Option<crate::status::FalcondStatus> {
@@ -483,7 +484,9 @@ async fn wait_for_fresh_status(
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
-    None
+    // A falcond that was already running is not restarted by Turbo on, so it
+    // has no reason to write its status again: what it last wrote is current.
+    crate::status::read()
 }
 
 fn absorb_booster(booster: &BoosterReport, report: &mut Report) {
