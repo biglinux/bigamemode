@@ -99,9 +99,10 @@ sudo pacman -S scx-tools scx-scheds
 
 Depois, abra **BiGame-mode** no menu de aplicativos.
 
-Ao atualizar, o helper é reiniciado. Ao remover, o falcond volta ao estado em
-que estava antes do BiGame-mode. Arquivos que os Gráficos com IA colocaram em
-jogos continuam lá até **Restaurar os gráficos do jogo** (os backups ficam em
+Ao atualizar, o helper para e volta na próxima chamada, já com a versão nova.
+Ao remover, o falcond volta ao estado em que estava antes do BiGame-mode.
+Arquivos que os Gráficos com IA colocaram em jogos continuam lá até
+**Restaurar os gráficos do jogo** (os backups ficam em
 `~/.local/state/bigame-mode/graphics`).
 
 ## Dependências
