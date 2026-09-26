@@ -78,7 +78,7 @@ fn should_offer(game: &GameIdentity) -> bool {
     if !crate::settings::load().offer_profiles {
         return false;
     }
-    let turbo_on = bigame_core::systemd::Reader::system()
+    let turbo_on = bigame_core::systemd::Reader::shared()
         .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
         .is_some_and(|u| u.is_active());
     if !turbo_on {
@@ -183,7 +183,10 @@ pub fn install(app: &adw::Application) {
                     OFFERED.with(|o| o.borrow_mut().insert(game.process_name.clone()));
                     notify_offer(&app, &game);
                 } else if crate::settings::load().notifications_enabled {
-                    notify_detected(&app, &game);
+                    let detected = gio::spawn_blocking(detected_profile).await.ok().flatten();
+                    if let Some(profile) = detected {
+                        notify_detected(&app, &game, &profile);
+                    }
                 }
             });
         }
@@ -212,38 +215,50 @@ fn notify_offer(app: &adw::Application, game: &GameIdentity) {
     tracing::info!(process = %game.process_name, "offered a profile");
 }
 
-/// A game started and Turbo is handling it: say which profile is in force.
-fn notify_detected(app: &adw::Application, game: &GameIdentity) {
-    let turbo_on = bigame_core::systemd::Reader::system()
+/// With Turbo on, the profile falcond applies, as the notification names it;
+/// `None` with Turbo off. Reads systemd and falcond's status, so it runs off
+/// the main thread.
+fn detected_profile() -> Option<String> {
+    let turbo_on = bigame_core::systemd::Reader::shared()
         .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
         .is_some_and(|u| u.is_active());
     if !turbo_on {
-        return;
+        return None;
     }
-    let profile = bigame_core::status::read()
-        .and_then(|s| s.active_profile)
-        .map_or_else(
-            || i18n("no profile yet"),
-            |p| {
-                if p == "Proton" {
-                    i18n("falcond's general Proton profile")
-                } else {
-                    p
-                }
-            },
-        );
+    Some(
+        match bigame_core::status::read()
+            .and_then(|s| s.active_profile)
+            .as_deref()
+        {
+            None => i18n("no profile yet"),
+            Some("Proton") => i18n("falcond's general Proton profile"),
+            Some(p) => p.to_owned(),
+        },
+    )
+}
+
+/// A game started and Turbo is handling it: say which profile is in force.
+fn notify_detected(app: &adw::Application, game: &GameIdentity, profile: &str) {
     let n = gio::Notification::new(&format!("{} · {}", i18n("Turbo"), game.display_name));
     n.set_body(Some(&format!("{}: {profile}", i18n("Profile"))));
     app.send_notification(Some("game-launch"), &n);
 }
 
-fn recommendation_for(process: &str) -> Option<(GameIdentity, Recommendation)> {
+/// The profile to offer for the running game `process`. Probing the
+/// hardware and capabilities spawns processes and asks D-Bus, and a game is
+/// running, so it happens off the main thread.
+async fn recommendation_for(process: &str) -> Option<(GameIdentity, Recommendation)> {
     let game = crate::game_watch::current().filter(|g| g.process_name == process)?;
-    let rec = recommend::recommend(
-        &game,
-        &bigame_core::hardware::Hardware::detect(),
-        &bigame_core::capabilities::Capabilities::detect(),
-    );
+    let probed = game.clone();
+    let rec = gio::spawn_blocking(move || {
+        recommend::recommend(
+            &probed,
+            &bigame_core::hardware::Hardware::detect(),
+            &bigame_core::capabilities::Capabilities::detect(),
+        )
+    })
+    .await
+    .ok()?;
     Some((game, rec))
 }
 
@@ -277,15 +292,16 @@ fn save_and_verify(rec: &Recommendation) -> Created {
 
 fn create_for(app: &adw::Application, process: &str) {
     app.withdraw_notification(NOTIFICATION_ID);
-    let Some((game, rec)) = recommendation_for(process) else {
-        tracing::warn!(
-            process,
-            "profile requested for a game that is no longer running"
-        );
-        return;
-    };
     let app = app.clone();
+    let process = process.to_owned();
     glib::spawn_future_local(async move {
+        let Some((game, rec)) = recommendation_for(&process).await else {
+            tracing::warn!(
+                process,
+                "profile requested for a game that is no longer running"
+            );
+            return;
+        };
         let saving = rec.clone();
         let outcome = gio::spawn_blocking(move || save_and_verify(&saving))
             .await
@@ -318,9 +334,21 @@ fn create_for(app: &adw::Application, process: &str) {
 }
 
 fn show_review(app: &adw::Application, process: &str) {
-    let Some((game, rec)) = recommendation_for(process) else {
-        return;
-    };
+    let app = app.clone();
+    let process = process.to_owned();
+    glib::spawn_future_local(async move {
+        if let Some((game, rec)) = recommendation_for(&process).await {
+            present_review(&app, &process, &game, &rec);
+        }
+    });
+}
+
+fn present_review(
+    app: &adw::Application,
+    process: &str,
+    game: &GameIdentity,
+    rec: &Recommendation,
+) {
     let window = app
         .active_window()
         .or_else(|| app.windows().into_iter().next());

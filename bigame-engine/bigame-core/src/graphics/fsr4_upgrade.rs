@@ -94,7 +94,9 @@ pub fn apply(app_id: Option<&str>, on: bool) -> Result<Applied> {
         }
         last = wanted;
     }
-    tracing::info!(target: "graphics", app, on, options = %last, "FSR 4 upgrade launch option written");
+    // The rest of the user's launch options stays out of the journal, which
+    // Logs and the support report export.
+    tracing::info!(target: "graphics", app, on, "FSR 4 upgrade launch option written");
     Ok(Applied::SteamLaunchOptions(last))
 }
 

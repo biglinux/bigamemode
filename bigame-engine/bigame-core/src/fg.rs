@@ -469,18 +469,6 @@ pub fn write_global_dll(dll: Option<String>) -> Result<()> {
     write_config(&t)
 }
 
-/// Whether any game has frame generation on.
-#[must_use]
-pub fn has_any_active_profile() -> bool {
-    is_lossless_dll_ready()
-        && read_config().is_ok_and(|t| {
-            t.get("game").and_then(Value::as_array).is_some_and(|a| {
-                a.iter()
-                    .any(|g| g.get("multiplier").and_then(Value::as_integer).unwrap_or(0) > 1)
-            })
-        })
-}
-
 /// Whether the global video settings allow lsfg-vk.
 #[must_use]
 pub fn global_state_allows_lsfg(frame_gen: &FrameGenSettings) -> bool {

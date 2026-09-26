@@ -135,7 +135,15 @@ fn run(parent: &gtk4::Widget, title: &str, command: &[String]) {
     let parent = parent.clone();
     let title = title.to_owned();
     glib::timeout_add_local(Duration::from_millis(120), move || {
-        while let Ok(event) = rx.try_recv() {
+        loop {
+            let event = match rx.try_recv() {
+                Ok(event) => event,
+                Err(mpsc::TryRecvError::Empty) => break,
+                // The worker ended without an answer (it panicked).
+                Err(mpsc::TryRecvError::Disconnected) => Event::Done(Box::new(Err(i18n(
+                    "The measurement stopped without an answer. Open Logs to see why.",
+                )))),
+            };
             match event {
                 Event::Progress(text) => progress_ref.set_body(&text),
                 Event::Done(result) => {

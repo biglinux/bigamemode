@@ -60,8 +60,9 @@ impl Snapshot {
 
     /// True when we hold a restorable value for this knob.
     ///
-    /// The planner consults this before planning a change: **a knob we cannot
-    /// restore is a knob we must not touch.**
+    /// The planner's rule, which it applies through [`Self::value_of`]: **a
+    /// knob we cannot restore is a knob we must not touch.**
+    #[cfg(test)]
     #[must_use]
     pub fn is_restorable(&self, knob: &Knob) -> bool {
         self.value_of(knob).is_some()

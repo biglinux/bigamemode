@@ -104,12 +104,22 @@ pub fn report(include_network: bool) -> String {
 fn timestamp() -> String {
     // Date only: a precise time adds nothing to a bug report and is one more
     // thing that can correlate a user across reports.
-    std::process::Command::new("date")
-        .arg("+%Y-%m-%d")
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map_or_else(|| "unknown".into(), |s| s.trim().to_owned())
+    // SAFETY: `time(NULL)` only reads the clock, and `localtime_r` writes
+    // only into the `tm` it is given.
+    let tm = unsafe {
+        let now = libc::time(std::ptr::null_mut());
+        let mut tm: libc::tm = std::mem::zeroed();
+        if libc::localtime_r(&raw const now, &raw mut tm).is_null() {
+            return "unknown".into();
+        }
+        tm
+    };
+    format!(
+        "{:04}-{:02}-{:02}",
+        tm.tm_year + 1900,
+        tm.tm_mon + 1,
+        tm.tm_mday
+    )
 }
 
 fn section_system(out: &mut String, hw: &Hardware) {

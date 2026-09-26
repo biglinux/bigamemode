@@ -191,10 +191,7 @@ impl Gpus {
         let hw = std::rc::Rc::clone(hw);
         glib::spawn_future_local(async move {
             loop {
-                if !this.group.is_mapped() {
-                    glib::timeout_future(POLL_INTERVAL).await;
-                    continue;
-                }
+                super::mapped(&this.group).await;
                 let game = crate::game_watch::current();
                 let render_card = game.as_ref().and_then(|g| g.render_card.clone());
                 let game_name = game.map(|g| g.display_name);

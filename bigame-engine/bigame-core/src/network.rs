@@ -68,6 +68,15 @@ impl Link {
 /// Returns `None` when there is no default route (no connectivity).
 #[must_use]
 pub fn primary_link() -> Option<Link> {
+    let mut link = primary_link_brief()?;
+    link.qdisc = root_qdisc(&link.name);
+    Some(link)
+}
+
+/// [`primary_link`] without the queue discipline, which takes running `tc`:
+/// only kernel files are read, so a live display can call it every tick.
+#[must_use]
+pub fn primary_link_brief() -> Option<Link> {
     let (name, gateway) = default_route()?;
     let sys = Path::new("/sys/class/net").join(&name);
     Some(Link {
@@ -76,7 +85,7 @@ pub fn primary_link() -> Option<Link> {
             .filter(|s: &i64| *s > 0)
             .and_then(|s| u32::try_from(s).ok()),
         mtu: read_num(&sys.join("mtu")).and_then(|m: i64| u32::try_from(m).ok()),
-        qdisc: root_qdisc(&name),
+        qdisc: None,
         gateway,
         name,
     })
@@ -186,18 +195,6 @@ impl LatencyStats {
             samples: samples_ms.len(),
             lost,
         })
-    }
-
-    /// Fraction of attempts that failed, 0.0–1.0.
-    #[must_use]
-    pub fn loss_ratio(&self) -> f64 {
-        let total = self.samples + self.lost;
-        if total == 0 {
-            return 0.0;
-        }
-        #[allow(clippy::cast_precision_loss)]
-        let ratio = self.lost as f64 / total as f64;
-        ratio
     }
 }
 
@@ -397,14 +394,6 @@ mod tests {
     fn no_samples_yields_no_statistics() {
         // Zero measurements must not be summarised as zero latency.
         assert!(LatencyStats::from_samples(Vec::new(), 5).is_none());
-    }
-
-    #[test]
-    fn loss_ratio_counts_failures() {
-        let stats = LatencyStats::from_samples(vec![1.0, 2.0, 3.0], 1).unwrap();
-        assert!((stats.loss_ratio() - 0.25).abs() < 0.001);
-        let clean = LatencyStats::from_samples(vec![1.0], 0).unwrap();
-        assert!(clean.loss_ratio().abs() < f64::EPSILON);
     }
 
     #[test]

@@ -16,8 +16,11 @@ _stop_bus_spawned_helper() {
 
 post_upgrade() {
     _stop_bus_spawned_helper
-    # A running helper keeps the old binary until it restarts.
-    systemctl try-restart bigame-daemon.service >/dev/null 2>&1 || :
+    # A running helper keeps the old binary and sandbox until it restarts.
+    # Stopped rather than restarted: this runs before pacman's hook reloads
+    # systemd, so a restart here would bring it back under the old unit. The
+    # next D-Bus call starts it under the new one.
+    systemctl stop bigame-daemon.service >/dev/null 2>&1 || :
 }
 
 pre_remove() {

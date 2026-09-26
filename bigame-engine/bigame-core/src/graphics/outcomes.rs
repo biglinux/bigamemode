@@ -331,8 +331,9 @@ mod tests {
 
     #[test]
     fn a_clear_gain_with_the_floor_intact_is_better() {
-        // The reference machine's numbers (docs/31): XeSS Quality vs OptiScaler
-        // FSR from XeSS Quality.
+        // The reference machine's numbers
+        // (benchmarks/2026-09-24-sottr-ai-graphics): XeSS Quality vs
+        // OptiScaler FSR from XeSS Quality.
         let ms = [
             m("native:xess", &[93.9, 94.2, 94.4], &[62.3, 66.3, 64.8]),
             m(
@@ -355,7 +356,8 @@ mod tests {
 
     #[test]
     fn a_gain_with_a_floor_too_scattered_to_compare_is_reported_not_recommended() {
-        // The lab laptop's GTX 1050 Ti session (docs/31): two launches of the
+        // The lab laptop's GTX 1050 Ti session
+        // (benchmarks/2026-09-24-sottr-gtx1050ti-ai-graphics): two launches of the
         // game's XeSS, one of OptiScaler FSR; average clearly up, 1 % lows
         // varying 9 % run to run.
         let ms = [

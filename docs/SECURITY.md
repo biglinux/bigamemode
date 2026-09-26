@@ -1,7 +1,8 @@
 # Security
 
 BiGame-mode has one privileged component, a small root helper on the system
-bus. The UI and AI Graphics run as the user and need no root at all.
+bus. The UI and AI Graphics run as the user; the one other root action,
+installing a missing package, goes through the distribution's own installer.
 
 ```text
 UI (user) → bigame-core → system bus → bigame-daemon (root) → sysfs, /etc/falcond, systemd
@@ -71,18 +72,23 @@ not use:
 
 - `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`,
   `ProtectKernelModules`, `ProtectKernelLogs`, `ProtectClock`,
-  `ProtectHostname`, `ProtectControlGroups`, `ProtectProc=invisible`,
+  `ProtectHostname`, `ProtectControlGroups`, `ProtectKernelTunables`,
+  `ProtectProc=invisible`,
   `ProcSubset=pid`, `PrivateDevices`, `PrivateTmp`, `RestrictNamespaces`,
   `RestrictRealtime`, `RestrictSUIDSGID`, `LockPersonality`,
   `MemoryDenyWriteExecute`, `RestrictAddressFamilies=AF_UNIX`,
   `SystemCallArchitectures=native`, `SystemCallFilter=@system-service` minus
   `@privileged @resources @mount @debug @obsolete`, `UMask=0022`.
-- Writable: `/etc/falcond`, `/usr/share/falcond/profiles`,
-  `/sys/devices/system/cpu`, `/sys/class/drm`, the V-Cache driver directory
-  (each ignored when absent), and `StateDirectory=bigame-mode`.
-- `ProtectKernelTunables` is deliberately not set: DRM and V-Cache attributes
-  are reached through symlinks into `/sys/devices`, which it would make
-  read-only.
+- `ProtectSystem=strict` leaves `/sys` writable, and on systemd 261 neither
+  `ProtectKernelTunables` nor `ReadOnlyPaths=/sys` makes the unit's sysfs
+  mount read-only (checked inside a unit). So every top-level `/sys`
+  directory except `/sys/devices` is listed in `ReadOnlyPaths`: `/sys/kernel`,
+  `/sys/module`, `/sys/power`, drivers' `bind`/`unbind` under `/sys/bus` and
+  the rest are out of reach. The cpufreq, DRM and V-Cache attributes the
+  helper writes live in `/sys/devices`; the `/sys/class` and `/sys/bus` paths
+  it names are symlinks into it. Also writable: `/etc/falcond` and
+  `/usr/share/falcond/profiles` (ignored when absent), and
+  `StateDirectory=bigame-mode`.
 - The bus policy lets only root own the name and denies by default, then allows
   the helper's interface plus Introspectable, Properties and Peer, so a future
   interface is not exposed automatically.
@@ -100,13 +106,24 @@ that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
 
 - falcond's status is read only when it is a root-owned regular file (a
   symlink planted in `/tmp` is not followed), and at most 64 KiB of it.
-- No command passes through a shell. External programs (`curl`, `bsdtar`,
-  `journalctl`, `ping`, `tc`, `lspci`, `gamescope`) are run with argument
-  vectors. NVIDIA GPU readings come from the driver's NVML library, loaded in
-  the unprivileged UI process; no NVIDIA program is run.
+- No command passes through a shell. External programs are run with
+  argument vectors, as the user: `curl` and `bsdtar` (AI Graphics),
+  `journalctl` (Logs), `ping` (to the target set in Settings, a leading `-`
+  refused) and `tc` (Details), `lspci` (About), `systemctl is-active`,
+  `gamescope --help` and the version flags of `glxinfo`, `vulkaninfo`,
+  `mangohud` and `gamemoded` (capabilities and the support report), and the
+  game itself. NVIDIA GPU readings come from the driver's NVML library,
+  loaded in the unprivileged UI process; no NVIDIA program is run.
+- One action runs something as root outside the helper: when Gamescope or
+  vkBasalt is enabled but not installed, *Install Missing Packages* runs
+  `pamac-installer <packages>`, or `pkexec pacman -S --needed --noconfirm
+  <packages>`, with package names from a fixed list — never text from the
+  UI.
 - A game's launch command comes from the launcher's own data: Steam's app id,
   or a native executable or script (a Windows `.exe` is never executed
-  directly). A program name is never guessed and resolved through `PATH`.
+  directly); the program is never guessed from a title. Tools such as
+  Gamescope, Steam and MangoHud are found on `PATH`, as for any program the
+  user runs.
 - Steam's launch options are edited only while Steam is closed, with a backup
   and a read-back.
 
@@ -177,18 +194,29 @@ placed in a game is fetched at the user's request from the component's
 official release, checked against a known SHA-256 and cached once per machine;
 the release's license files stay with it.
 
-| Component | License | Use |
+What each third-party project allows, read from its own license, and what
+BiGame-mode does with it. This is the reading the code follows, not legal
+advice.
+
+| Component | License | What BiGame-mode does |
 |---|---|---|
-| OptiScaler | GPL-3.0 | fetched on request, pinned, never bundled |
-| fakenvapi | MIT | placed only when DLSS input needs spoofing on AMD/Intel |
-| AMD FidelityFX DLLs (in the OptiScaler release) | FidelityFX SDK | placed when FSR is the output |
-| Intel XeSS DLLs (in the release) | Intel XeSS license | placed only when XeSS is the output |
-| AMD `amdxcffx64.dll` | no redistribution grant | never placed (Proton provides it) |
-| Microsoft Agility SDK | DirectX license, Windows only | never placed |
-| NVIDIA DLSS / Streamline | NVIDIA RTX SDK license | never fetched, placed or replaced |
-| ReShade | BSD-3 source; binaries distributed by its site | not installed; detected |
-| RenoDX | MIT | detected and reported |
-| lsfg-vk | its own license; needs a Lossless Scaling purchase | configured when installed, never installed |
+| [OptiScaler](https://github.com/optiscaler/OptiScaler) | GPL-3.0 | fetched from its GitHub release when the user presses Apply, SHA-256 checked, placed as a transaction; never bundled |
+| [fakenvapi](https://github.com/FakeMichau/fakenvapi) | MIT | inside OptiScaler's release; placed only for a DLSS input on a non-NVIDIA GPU |
+| [AMD FidelityFX](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) DLLs | AMD binary license: unmodified binaries with notice, no reverse engineering | arrive inside OptiScaler's release with its `Licenses/FidelityFX_*`; placed when FSR is the output, removed with it |
+| [Intel XeSS](https://github.com/intel/xess) DLLs | Intel Simplified Software License: unmodified binaries with notice, no modification even at run time | arrive inside OptiScaler's release; placed only when XeSS is the output; the game's own `libxess.dll` is never replaced |
+| Proton's FSR 4 provider (`amdxcffx64.dll`, `amdxc64.dll`) | shipped by Valve inside Proton | detected in the game's prefix; BiGame-mode sets the launch option that makes Proton use it and verifies it in the running game; never copied |
+| [DLSS-NR-on-AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) | proprietary: personal, non-commercial use; no redistribution, no bundling in another tool, no modification | detected beside the game, its requirements checked, its official page linked; never fetched, placed or removed (`managed: false`) |
+| NVIDIA DLSS / Streamline (`nvngx_dlss*.dll`) | NVIDIA RTX SDK license: only inside an application, not as a stand-alone item, no modification | detected and versions read; never fetched, copied between games or replaced. A neural-rendering model the user has (`nvngx_dlssnr.dll`) is detected; BiGame-mode never says where to get one |
+| Microsoft Agility SDK (in OptiScaler's release) | DirectX license, Windows only | never placed: of no use under VKD3D-Proton |
+| [lsfg-vk](https://lsfg-vk.dev) | the packaged 1.0.0 is GPL-3.0; the current upstream source is CC BY-NC-ND 4.0 | a system package; BiGame-mode writes entries in its configuration and reads its log, never ships or modifies it. `Lossless.dll` is the user's own, read in place, never copied |
+| [ReShade](https://github.com/crosire/reshade) | BSD-3 source; binaries distributed by its site | detected in DLL slots and reported as a conflict; never fetched |
+| [RenoDX](https://github.com/clshortfuse/renodx) | MIT | reported as an HDR option that needs ReShade's add-on build; never fetched |
+| dgVoodoo 2 | proprietary freeware | detected as a DLL slot owner; not used: DXVK already covers DirectX 9–11 under Proton |
+
+Community tools that manage "DLSS 5" (DLSS5oneclick, MIT; DLSS-5-MANAGER,
+no open-source license) were read for their architecture only; no code was
+taken from either, and none of their leaked-DLL, NGX-gate or GPU-spoofing
+paths exists here.
 
 ## Residual risk
 
@@ -199,6 +227,5 @@ the release's license files stay with it.
   its configuration, but cannot make falcond run code (script hooks are
   refused). The helper's code writes only falcond's directories, the listed
   sysfs attributes and `/var/lib/bigame-mode`. Its sandbox is narrower than
-  root but does not enforce that list: `ProtectSystem=strict` leaves `/sys`
-  writable, so code execution inside the helper could still write other sysfs
-  attributes.
+  root but does not enforce that list within `/sys/devices`: code execution
+  inside the helper could still write other device attributes there.

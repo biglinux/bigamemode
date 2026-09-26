@@ -4,7 +4,7 @@
 pkgname=bigame-mode
 pkgver=1.0.0
 pkgrel=1
-pkgdesc="Gaming mode for BigLinux: per-game profiles on falcond, AI Graphics (OptiScaler), benchmarks and diagnostics in a GTK4/libadwaita app"
+pkgdesc="Gaming mode for BigLinux: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets, in a GTK4/libadwaita app"
 arch=('x86_64')
 url="https://github.com/ruscher/bigamemode"
 license=('GPL-3.0-or-later')
@@ -39,8 +39,8 @@ depends=(
     'hwdata'
     'pciutils'
 
-    # Network: latency on the dashboard (ping) and the interface's queue
-    # discipline in Diagnostics (tc).
+    # Network, on the Details page: latency (ping) and the interface's queue
+    # discipline (tc).
     'iputils'
     'iproute2'
 
@@ -66,7 +66,7 @@ optdepends=(
     'lutris: Lutris games'
     'heroic-games-launcher: Epic, GOG and Amazon games'
     'nvidia-utils: GPU telemetry on NVIDIA cards (its NVML library)'
-    'supertuxkart: native Linux benchmark'
+    'supertuxkart: native Linux workload for Measure the difference and the benchmark scripts'
 )
 install="${pkgname}.install"
 source=("${pkgname}::git+${url}.git")

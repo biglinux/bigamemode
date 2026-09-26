@@ -715,7 +715,9 @@ fn detect_power_source() -> PowerSource {
     }
 }
 
-fn detect_session() -> Session {
+/// The display server of this session, from the environment alone.
+#[must_use]
+pub fn detect_session() -> Session {
     match std::env::var("XDG_SESSION_TYPE").as_deref() {
         Ok("wayland") => Session::Wayland,
         Ok("x11") => Session::X11,

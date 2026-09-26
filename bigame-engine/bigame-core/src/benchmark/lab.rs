@@ -4,7 +4,7 @@
 //! result from six months ago can be read by the same code as one from today:
 //!
 //! ```text
-//! benchmarks/2026-09-23-supertuxkart/
+//! benchmarks/2026-09-23-supertuxkart-gpu-bound/
 //!   system.json        the machine, as it was
 //!   benchmark.json     what was run, and how
 //!   baseline/run-01/   raw artifacts, one directory per run

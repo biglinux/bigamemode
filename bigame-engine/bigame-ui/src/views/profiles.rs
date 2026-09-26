@@ -15,6 +15,7 @@
 //! privileged helper (D-Bus, Polkit) into falcond's user profile directory.
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -49,7 +50,8 @@ struct LibraryView {
     /// Rows added to `others`, removed before the next fill.
     other_rows: RefCell<Vec<adw::ActionRow>>,
     /// The library on screen; a scan whose result equals it changes nothing.
-    shown: RefCell<Option<bigame_core::library::Library>>,
+    /// The library on screen, with the games that have AI Graphics files.
+    shown: RefCell<Option<(bigame_core::library::Library, HashSet<String>)>>,
     /// Whether a scan is running, and whether one was asked for meanwhile.
     scanning: RefCell<(bool, bool)>,
 }
@@ -214,7 +216,13 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                 if let Ok(file) = result {
                     if let Some(path) = file.path() {
                         gtk4::glib::spawn_future_local(async move {
-                            match bigame_core::profiles::import(&path) {
+                            // Saving goes through the helper and may wait on a
+                            // Polkit prompt: off the main thread.
+                            let result =
+                                gio::spawn_blocking(move || bigame_core::profiles::import(&path))
+                                    .await
+                                    .unwrap_or_else(|_| Err(anyhow::anyhow!("import panicked")));
+                            match result {
                                 Ok(name) => {
                                     toast::show(&btn_ref, &i18n("Profile imported"));
                                     refresh_library(&view);
@@ -249,12 +257,22 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let view = Rc::clone(&view);
             let target_ref = target.clone();
             gtk4::glib::spawn_future_local(async move {
-                if let Ok(name) = bigame_core::profiles::import(&path) {
-                    refresh_library(&view);
-                    if let Some(widget) = target_ref.widget() {
+                let result = gio::spawn_blocking(move || bigame_core::profiles::import(&path))
+                    .await
+                    .unwrap_or_else(|_| Err(anyhow::anyhow!("import panicked")));
+                let Some(widget) = target_ref.widget() else {
+                    return;
+                };
+                match result {
+                    Ok(name) => {
+                        refresh_library(&view);
                         toast::show(&widget, &i18n("Profile imported via drag-and-drop"));
+                        view.nav.push(&build_detail_page(&name));
                     }
-                    view.nav.push(&build_detail_page(&name));
+                    Err(e) => toast::show(
+                        &widget,
+                        &i18n("Import failed: %s").replace("%s", &e.to_string()),
+                    ),
                 }
             });
             true
@@ -605,7 +623,17 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         let height = gs_height.clone();
         let fsr = gs_fsr.clone();
         let fps = gs_fps.clone();
+        // `gamescope --help` is run once, off the main thread; until it
+        // answers the explanation stays hidden.
+        let caps: Rc<RefCell<Option<Option<bigame_core::capabilities::GamescopeCaps>>>> =
+            Rc::new(RefCell::new(None));
+        let caps_read = Rc::clone(&caps);
         let refresh = Rc::new(move || {
+            let caps = caps_read.borrow();
+            let Some(caps) = caps.as_ref() else {
+                explain.set_visible(false);
+                return;
+            };
             #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
             let cfg = bigame_core::gamescope::Config {
                 render_width: width.value() as u32,
@@ -625,8 +653,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
                 },
                 ..bigame_core::gamescope::Config::default()
             };
-            let caps = bigame_core::capabilities::Capabilities::detect().gamescope;
-            let session = bigame_core::hardware::Hardware::detect().session;
+            let session = bigame_core::hardware::detect_session();
             let decision = bigame_core::gamescope::decide(
                 bigame_core::gamescope::Mode::Auto,
                 &cfg,
@@ -645,7 +672,17 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
             // The explanation only describes Automatic.
             explain.set_visible(mode.selected() == 0);
         });
-        refresh();
+        {
+            let refresh = Rc::clone(&refresh);
+            glib::spawn_future_local(async move {
+                let probed = gio::spawn_blocking(bigame_core::capabilities::detect_gamescope)
+                    .await
+                    .ok()
+                    .flatten();
+                *caps.borrow_mut() = Some(probed);
+                refresh();
+            });
+        }
         for widget in [&gs_width, &gs_height] {
             let refresh = Rc::clone(&refresh);
             widget.connect_value_notify(move |_| refresh());
@@ -818,7 +855,6 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
         fg_flow_scale,
         fg_perf_mode,
         fg_hdr,
-        fg_present_model,
         fg_present_mode,
     }
 }
@@ -844,9 +880,6 @@ struct PerfWidgets {
     fg_flow_scale: adw::SpinRow,
     fg_perf_mode: adw::SwitchRow,
     fg_hdr: adw::SwitchRow,
-    /// Held to maintain `GObject` lifetime of the `ComboRow` model.
-    #[allow(dead_code)]
-    fg_present_model: gtk4::StringList,
     fg_present_mode: adw::ComboRow,
 }
 
@@ -1117,12 +1150,17 @@ fn refresh_library(view: &Rc<LibraryView>) {
 
     let view = Rc::clone(view);
     glib::spawn_future_local(async move {
-        let library = gio::spawn_blocking(bigame_core::library::scan)
-            .await
-            .unwrap_or_default();
-        if view.shown.borrow().as_ref() != Some(&library) {
-            show_library(&view, &library);
-            *view.shown.borrow_mut() = Some(library);
+        let scanned = gio::spawn_blocking(|| {
+            (
+                bigame_core::library::scan(),
+                bigame_core::graphics::installed_processes(&bigame_core::graphics::state_dir()),
+            )
+        })
+        .await
+        .unwrap_or_default();
+        if view.shown.borrow().as_ref() != Some(&scanned) {
+            show_library(&view, &scanned.0, &scanned.1);
+            *view.shown.borrow_mut() = Some(scanned);
         }
         view.refresh_btn.set_icon_name("view-refresh-symbolic");
         view.refresh_btn.set_sensitive(true);
@@ -1138,12 +1176,16 @@ fn refresh_library(view: &Rc<LibraryView>) {
 }
 
 /// Put `library` on screen, in one pass, so the change is one frame.
-fn show_library(view: &Rc<LibraryView>, library: &bigame_core::library::Library) {
+fn show_library(
+    view: &Rc<LibraryView>,
+    library: &bigame_core::library::Library,
+    ai_installed: &HashSet<String>,
+) {
     while let Some(child) = view.grid.first_child() {
         view.grid.remove(&child);
     }
     for entry in &library.games {
-        let entry = card_entry(entry);
+        let entry = card_entry(entry, ai_installed);
         let nav_activate = view.nav.clone();
         let nav_menu = view.nav.clone();
         let card = game_card::build(
@@ -1186,7 +1228,10 @@ fn show_library(view: &Rc<LibraryView>, library: &bigame_core::library::Library)
 }
 
 /// A library entry as its card shows it.
-fn card_entry(entry: &bigame_core::library::Entry) -> game_card::Entry {
+fn card_entry(
+    entry: &bigame_core::library::Entry,
+    ai_installed: &HashSet<String>,
+) -> game_card::Entry {
     let game = &entry.game;
     let key = entry.key().to_owned();
     game_card::Entry {
@@ -1209,11 +1254,7 @@ fn card_entry(entry: &bigame_core::library::Entry) -> game_card::Entry {
                 install_root: root,
             }),
         launch: launch_command(game),
-        ai_installed: bigame_core::graphics::manifest_for_process(
-            &bigame_core::graphics::state_dir(),
-            &key,
-        )
-        .is_some(),
+        ai_installed: ai_installed.contains(&key.to_lowercase()),
         key,
     }
 }

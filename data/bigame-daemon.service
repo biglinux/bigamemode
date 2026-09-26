@@ -42,15 +42,21 @@ SystemCallFilter=~@privileged @resources @mount @debug @obsolete
 UMask=0022
 
 # Writes are confined to the locations the helper touches: the rest of the
-# filesystem is read-only. ProtectKernelTunables is deliberately absent: the
-# DRM card and V-Cache attributes are reached through symlinks into
-# /sys/devices, which it would make read-only.
+# filesystem is read-only. ProtectSystem=strict leaves /sys writable, and on
+# systemd 261 neither ProtectKernelTunables nor ReadOnlyPaths=/sys makes the
+# fresh sysfs mount read-only (checked with test -w inside the unit), so
+# every top-level /sys directory other than /sys/devices is listed read-only
+# instead. The cpufreq, DRM card and V-Cache attributes the helper writes all
+# live in /sys/devices; the /sys/class and /sys/bus paths it names are
+# symlinks into it, and a write lands on the mount of the file it resolves to.
 ProtectSystem=strict
+ProtectKernelTunables=yes
+ReadOnlyPaths=-/sys/block -/sys/bus -/sys/class -/sys/dev -/sys/firmware -/sys/fs -/sys/hypervisor -/sys/kernel -/sys/module -/sys/power
 #
 # A path that does not exist makes systemd refuse to start the service at all
-# (226/NAMESPACE), so everything that depends on hardware or on falcond being
-# installed carries the "-" prefix: ignored when absent.
-ReadWritePaths=-/etc/falcond -/usr/share/falcond/profiles /sys/devices/system/cpu -/sys/class/drm -/sys/bus/platform/drivers/amd_x3d_vcache
+# (226/NAMESPACE), so paths that depend on hardware or on falcond being
+# installed carry the "-" prefix: ignored when absent.
+ReadWritePaths=-/etc/falcond -/usr/share/falcond/profiles
 
 # The record of how falcond was configured before BiGame-mode first took
 # charge of it, so it can be handed back exactly. Created by systemd and

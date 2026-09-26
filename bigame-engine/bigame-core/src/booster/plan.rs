@@ -191,6 +191,7 @@ impl Plan {
     ///
     /// The owner is a parameter so the arbitration can be tested without a
     /// running falcond.
+    #[cfg(test)]
     #[must_use]
     pub fn build_with_owner(
         hw: &Hardware,

@@ -184,10 +184,30 @@ apply → verify → report → restore**.
   BiGame-mode versions wrote, which makes lsfg-vk ignore the whole file, is
   converted when the application starts (a copy is kept as
   `conf.toml.bigame-legacy`).
-- MangoHud per game for a Steam game is the launch option `MANGOHUD=1` (On)
-  or the `mangohud` wrapper (Forced). A game played with Steam's defaults has
-  no block in `localconfig.vdf`; one is created, in every Steam account of
-  the user, and the choice is saved only after the options read back.
+- MangoHud per game is written where the game's launcher reads it. On uses
+  MangoHud's Vulkan layer (`MANGOHUD=1`), Forced its wrapper, which also
+  reaches OpenGL games.
+  - Steam: the launch option. A game played with Steam's defaults has no
+    block in `localconfig.vdf`; one is created, in every Steam account of the
+    user, only while Steam is closed, and the choice is saved only after the
+    options read back.
+  - Heroic: `GamesConfig/<app>.json` (`showMangohud` for Forced, `MANGOHUD=1`
+    in its environment options for On), only while Heroic is closed: it keeps
+    game settings in memory and writes them back.
+  - Lutris: `mangohud: true` in the game's `system:` block.
+  - Other keys are kept, the original is backed up once, Off removes what was
+    added. A Flatpak Heroic or Lutris cannot see the system's MangoHud (Heroic
+    refuses to start the game with its switch on) until
+    `org.freedesktop.Platform.VulkanLayer.MangoHud` for its runtime is
+    installed; the toast and a health check name the command.
+  - Any other game gets it when BiGame-mode starts it.
+- lsfg-vk 1.0 reads `version = 1`, `[global] dll` and `[[game]]` entries
+  (`exe`, `multiplier` ≥ 2, `flow_scale` 0.25–1.0, `performance_mode`,
+  `hdr_mode`, `experimental_present_mode`); one invalid value makes it ignore
+  the whole file, so off is *no entry*, never `multiplier = 1`. BiGame-mode
+  touches only the entries it wrote (recorded in its state directory) and
+  replaces the file atomically for lsfg-vk's live reload. The layer is
+  64-bit only, runs on the game's GPU, and `DISABLE_LSFG=1` switches it off.
 
 ## AI Graphics
 
@@ -219,8 +239,43 @@ of it needs root.
   neural component: detected, explained, linked, never placed), `diagnose`
   ("why is AI Graphics not working?" as findings with a level, what was
   found and what to do); the facade is `graphics/mod.rs`, per-game
-  choices are in `game_settings.rs`. See
-  [AI_GRAPHICS_BACKEND_ARCHITECTURE.md](AI_GRAPHICS_BACKEND_ARCHITECTURE.md).
+  choices are in `game_settings.rs`.
+- **Backends** (`backend.rs`). Capabilities are data; `check(backend,
+  &Report)` returns *available* or the list of what is missing, so a page
+  never greys a control out without saying why.
+
+  | | The game's own | OptiScaler | AMD neural, external |
+  |---|---|---|---|
+  | GPUs | any | AMD, NVIDIA, Intel | AMD RDNA 3 / 4 |
+  | Game | any | 64-bit Windows game (Proton) | 64-bit Windows game, DirectX 12, ships the FidelityFX API |
+  | Jobs | upscaling, frame generation | upscaling, frame generation | neural rendering, on top of the game's own FSR, never with OptiScaler |
+  | Files placed | none (one Steam launch option at most) | `dxgi.dll`, `OptiScaler.ini`, FidelityFX / XeSS runtimes, backed up | none: `managed: false`, no manifest |
+
+  A manifest records the backend that placed its files (older manifests
+  read as OptiScaler's); nothing removes files BiGame-mode does not manage.
+- **Evidence** for every claim the page makes:
+
+  | Claim | Evidence |
+  |---|---|
+  | OptiScaler loaded, active or failed | `/proc/<pid>/maps` and an `OptiScaler.log` written since the process started |
+  | FSR 3.1 through OptiScaler | its log (`Fsr4Update: false`, or the provider missing) |
+  | FSR 4 through Proton, the game's own FSR | `FSR4_UPGRADE=1` in the running game's environment **and** `amdxcffx64.dll` mapped |
+  | DLSS-NR-on-AMD active | its proxy mapped and its log's "loaded into" banner since the process started |
+  | The GPU the game renders on | DRM fdinfo of the render node it submitted work to |
+
+- **FSR 4 through Proton** needs RDNA 4 for the FP8 model (RDNA 3 runs the
+  slower INT8 build), a game that exposes FSR 3.1 through the FidelityFX API
+  (`amd_fidelityfx_dx12.dll`), Proton's provider (`contrib/amdxcffx64.dll`,
+  copied into each prefix's `system32`) and `FSR4_UPGRADE=1` (Valve) or
+  `PROTON_FSR4_UPGRADE=1` (GE-Proton), which Wine's `amdxc64.dll` reads with
+  `getenv`. Success shows as `Replaced FSR3 with FSR4!` in Wine's `amdxc`
+  channel. `WINEDLLOVERRIDES=amdxcffx64=n`, `DXIL_SPIRV_CONFIG` and a copied
+  DLL, seen in older guides, are not needed and not written. DirectX 12 is
+  verified; Vulkan games are untested.
+- **The AMD neural component** needs AMD's Windows HIP runtime
+  (`amdhip64_7.dll`, from the Adrenalin driver) in the prefix. Proton ships
+  none and no Linux package provides one, so under Proton it is reported as
+  not currently compatible.
 - **Decisions:**
   - OptiScaler goes in only as `dxgi.dll`, which Proton loads natively from
     the game folder with no `WINEDLLOVERRIDES`; another tool's `dxgi.dll`
@@ -327,7 +382,7 @@ of it needs root.
   fixable (a command to copy), needs you, hardware or information; hardware
   limits are never errors. Telemetry (1 s), the GPU cards, the network, the
   background load, Steam's broken launch options and the support report
-  complete the page. Nothing on it runs a command.
+  complete the page. No fix is ever run from it: a fix is a command to copy.
 - **falcond's "Proton" profile** is explained wherever it appears: it is
   falcond's general profile for a Proton game without one of its own, not
   the game's.
@@ -409,10 +464,46 @@ directory.
   never with a restart, which would tear down a running game's profile.
 - If falcond is killed with SIGKILL while a profile is active, systemd restarts
   it and the new instance snapshots the boosted state. BiGame-mode does not
-  paper over that with a second writer; Diagnostics warns when systemd has
-  restarted falcond.
+  paper over that with a second writer; Details → Problems warns when
+  systemd has restarted falcond.
 - A user profile with the same name as a shipped profile is not applied.
 - New processes are checked at once only when they are `.exe`, a Wine loader or
   already known; others wait for falcond's rescan (9 s).
 - Scheduler switching needs `scx-tools` (`scx_loader`); without it every
   switch fails.
+
+## Hardware notes
+
+- **Hybrid graphics.** `hardware::offload_for` decides whether games need
+  render offload (the games' GPU drives no output while another does) and by
+  which switch: `__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`
+  for NVIDIA's driver (`DRI_PRIME=1` there gives zink, OpenGL on NVIDIA's
+  Vulkan), `DRI_PRIME=pci-…` for Mesa. DXVK and VKD3D-Proton pick the
+  discrete GPU themselves. A native OpenGL game started by the Steam client
+  needs `prime-run %command%` in its launch options; the hybrid health check
+  says so.
+- **Gamescope composites where the display is.** Told to composite on a
+  discrete GPU that drives no output (`--prefer-vk-device`), nested Gamescope
+  shows no window; without it, it composites on the display's GPU while the
+  game inside still renders on the discrete one. BiGame-mode does not pass it.
+- **NVIDIA.** Any Vulkan program opens every GPU just to enumerate them, so a
+  card a process only enumerated is filtered out with NVML's list of
+  processes holding a graphics context. A runtime-suspended discrete GPU is
+  reported asleep and never queried, so the panel cannot keep it awake. The
+  GTX 1050 Ti Mobile reports no board power. On it, OptiScaler's frame
+  generation in Shadow of the Tomb Raider raised Xid 69 and 31; FSR 3.1
+  upscaling alone did not.
+- **Power.** On BigLinux, `power-profiles-daemon-biglinux-cpufreq` maps
+  performance → `performance`, balanced → `schedutil`, power-saver →
+  `conservative` on every profile change, which is why the Booster leaves
+  the governor to power-profiles-daemon where it runs. The Booster plans
+  once, at Turbo on; there is no UPower watch, and a profile's
+  `performance_mode` is decided by the power source when it is created.
+- **Tested on:** Ryzen 7 5700G with Radeon RX 9060 XT and Radeon Vega
+  (kernel 7.2, Mesa 26.2, KDE Plasma Wayland), and a laptop with a Core
+  i7-7700HQ, Intel HD 630 and GeForce GTX 1050 Ti (NVIDIA 580), with
+  falcond 2.0.2, power-profiles-daemon 0.30, scx 1.1.3, Gamescope 3.16.28,
+  MangoHud 0.8.4, vkBasalt 0.3.2.10 and lsfg-vk 1.0.0. Not validated on real
+  hardware: RDNA 3, RTX, Intel Arc, battery power, X11, 3D V-Cache, VRR and
+  HDR in games, a Vulkan or anti-cheat game with AI Graphics, the presented
+  frames of lsfg-vk.

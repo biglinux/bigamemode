@@ -210,7 +210,21 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
             let show_summary = Rc::clone(&show_summary);
             let game = game.clone();
             glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
-                while let Ok(event) = rx.try_recv() {
+                loop {
+                    let event = match rx.try_recv() {
+                        Ok(event) => event,
+                        Err(mpsc::TryRecvError::Empty) => break,
+                        // The worker ended without an answer (it panicked):
+                        // say so rather than stay on "working" for ever.
+                        Err(mpsc::TryRecvError::Disconnected) => {
+                            button.set_state(&State::Error {
+                                detail: i18n(
+                                    "The change stopped without an answer. Open Logs to see why.",
+                                ),
+                            });
+                            return glib::ControlFlow::Break;
+                        }
+                    };
                     match event {
                         Event::Step(step) => {
                             if !turning_off {
@@ -266,38 +280,54 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let show_summary = Rc::clone(&show_summary);
         let game = game.clone();
         let root = scroll.clone();
-        let systemd = bigame_core::systemd::Reader::system();
+        let busy = Rc::new(Cell::new(false));
         glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
-            if !root.is_mapped() || !button.state().is_interactive() {
+            if !root.is_mapped() || !button.state().is_interactive() || busy.replace(true) {
                 return glib::ControlFlow::Continue;
             }
-            let Some(unit) = systemd
-                .as_ref()
-                .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
-            else {
-                return glib::ControlFlow::Continue;
-            };
-            let on = if unit.is_installed() {
-                unit.is_active()
-            } else {
-                turbo_on.get()
-            };
-            if on != turbo_on.get()
-                || Report::load_last().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
-            {
-                turbo_on.set(on);
-                *last.borrow_mut() = Report::load_last();
-                button.set_state(&if on {
-                    State::On {
-                        detail: on_detail(crate::game_watch::current().as_ref()),
-                    }
+            let (button, turbo_on, last, show_summary, game, busy) = (
+                Rc::clone(&button),
+                Rc::clone(&turbo_on),
+                Rc::clone(&last),
+                Rc::clone(&show_summary),
+                game.clone(),
+                Rc::clone(&busy),
+            );
+            glib::spawn_future_local(async move {
+                let reading = gio::spawn_blocking(|| {
+                    (
+                        bigame_core::systemd::Reader::shared()
+                            .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT)),
+                        Report::load_last(),
+                    )
+                })
+                .await;
+                busy.set(false);
+                let Ok((Some(unit), report)) = reading else {
+                    return;
+                };
+                let on = if unit.is_installed() {
+                    unit.is_active()
                 } else {
-                    State::Off
-                });
-                booster_button::set_pulse(button.widget(), !on);
-                show_summary();
-                game.show(crate::game_watch::current().as_ref(), on);
-            }
+                    turbo_on.get()
+                };
+                if on != turbo_on.get()
+                    || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
+                {
+                    turbo_on.set(on);
+                    *last.borrow_mut() = report;
+                    button.set_state(&if on {
+                        State::On {
+                            detail: on_detail(crate::game_watch::current().as_ref()),
+                        }
+                    } else {
+                        State::Off
+                    });
+                    booster_button::set_pulse(button.widget(), !on);
+                    show_summary();
+                    game.show(crate::game_watch::current().as_ref(), on);
+                }
+            });
             glib::ControlFlow::Continue
         });
     }
@@ -514,6 +544,9 @@ struct GameCard {
     create: gtk4::Button,
     game: Rc<RefCell<Option<GameIdentity>>>,
     turbo_on: Rc<Cell<bool>>,
+    /// The pid whose FSR 4 question was answered, and the answer
+    /// ([`bigame_core::graphics::native_fsr4_applies`]): asked once per game.
+    fsr4_applies: Rc<Cell<Option<(u32, bool)>>>,
 }
 
 impl GameCard {
@@ -598,6 +631,7 @@ impl GameCard {
             create,
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
+            fsr4_applies: Rc::new(Cell::new(None)),
         }
     }
 
@@ -619,7 +653,26 @@ impl GameCard {
         });
         self.cover.set_visible(cover.is_some());
         if let Some(path) = cover {
-            self.cover.set_from_file(Some(&path));
+            // Decoded off the main thread at the size shown; dropped if
+            // another game took the card meanwhile.
+            let image = self.cover.clone();
+            let shown = Rc::clone(&self.game);
+            let pid = g.pid;
+            let size = image.pixel_size() * image.scale_factor().max(1);
+            glib::spawn_future_local(async move {
+                let texture = gio::spawn_blocking(move || {
+                    gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, size, size, true)
+                        .ok()
+                        .map(|p| gtk4::gdk::Texture::for_pixbuf(&p))
+                })
+                .await
+                .ok()
+                .flatten();
+                let still_shown = shown.borrow().as_ref().is_some_and(|g| g.pid == pid);
+                if let Some(texture) = texture.filter(|_| still_shown) {
+                    image.set_paintable(Some(&texture));
+                }
+            });
         }
         let mut facts = vec![match &g.runtime {
             bigame_core::running::Runtime::Native => i18n("Native"),
@@ -674,19 +727,31 @@ impl GameCard {
         let (ai, profile, create) = (self.ai.clone(), self.profile.clone(), self.create.clone());
         let effects = self.effects.clone();
         let turbo_on = self.turbo_on.get();
+        let fsr4_cache = Rc::clone(&self.fsr4_applies);
+        let known = fsr4_cache
+            .get()
+            .filter(|(pid, _)| *pid == g.pid)
+            .map(|(_, a)| a);
         glib::spawn_future_local(async move {
-            let Ok((st, active, in_game, native_fsr4)) = gio::spawn_blocking(move || {
+            let pid = g.pid;
+            let Ok((st, active, in_game, applies, native_fsr4)) = gio::spawn_blocking(move || {
+                let applies =
+                    known.unwrap_or_else(|| bigame_core::graphics::native_fsr4_applies(&g));
                 (
                     bigame_core::graphics::status_running(&g),
                     bigame_core::status::read().and_then(|s| s.active_profile),
                     bigame_core::running::in_game(&g),
-                    bigame_core::graphics::native_fsr4_running(&g),
+                    applies,
+                    applies
+                        .then(|| bigame_core::graphics::native_fsr4_loaded(g.pid))
+                        .flatten(),
                 )
             })
             .await
             else {
                 return;
             };
+            fsr4_cache.set(Some((pid, applies)));
             let mut parts = in_game_parts(&in_game);
             // The game's own FSR path on RDNA 4: what the running game
             // really loaded, never what a menu setting promises.
@@ -829,7 +894,7 @@ fn gpu_reading(hw: &Hardware) -> String {
 }
 
 fn net_reading() -> String {
-    bigame_core::network::primary_link().map_or_else(
+    bigame_core::network::primary_link_brief().map_or_else(
         || i18n("Offline"),
         |l| match l.speed_mbps {
             Some(mbps) => format!("{mbps} Mb/s"),

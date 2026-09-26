@@ -104,10 +104,7 @@ impl Telemetry {
             let mut prev_disk: Option<(u64, u64)> = None;
             let mut last_ping: Option<std::time::Instant> = None;
             loop {
-                if !this.group.is_mapped() {
-                    glib::timeout_future(POLL_INTERVAL).await;
-                    continue;
-                }
+                super::mapped(&this.group).await;
                 let cpu = gio::spawn_blocking(read_cpu_khz).await.ok().flatten();
                 match cpu {
                     #[allow(clippy::cast_precision_loss)]

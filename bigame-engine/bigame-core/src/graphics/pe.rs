@@ -167,6 +167,7 @@ fn headers(b: &[u8]) -> Result<Headers, PeError> {
 /// Returns [`PeError`] when the bytes are not a readable PE image. Import
 /// entries that point outside the file are skipped rather than failing the
 /// whole parse.
+#[cfg(test)]
 pub fn parse(b: &[u8]) -> Result<PeInfo, PeError> {
     parse_with(b, &|off, len| {
         b.get(off..)

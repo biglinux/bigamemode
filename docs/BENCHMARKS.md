@@ -18,15 +18,19 @@ machine. The raw data of every result is in `bigame-engine/benchmarks/`.
 - **A difference is real only if** it exceeds the larger spread of the two arms
   **and** passes Welch's t-test at 95 %. Otherwise the verdict is *no change*
   and the percentage is withheld (the raw number stays in the JSON).
-- **A capped workload is refused.** SuperTuxKart's default vsync and
-  `max_fps = 120` make any comparison meaningless, and the Benchmark page says
-  which keys to change.
+- **A capped workload measures nothing.** SuperTuxKart's defaults (vsync on,
+  `max_fps = 120`) hold it at the cap whatever changes; switch
+  `swap-interval-vsync` off and raise `max_fps` in its configuration before
+  a session.
 - **Frame times, not averages alone.** Games' own per-frame logs are used where
   they exist (Crystal Dynamics `*_frametimes_*.txt`, Cyberpunk 2077
   `frames.csv`), otherwise MangoHud's. Frames of one second or more are scene
   transitions and are set aside. Settings must be identical within a session,
   except the keys under test. Runs with frame generation are not throughput
   results.
+- **Compare like with like.** A game's own benchmark average covers loading
+  transitions a MangoHud window excludes; in Shadow of the Tomb Raider it
+  reads 3–4 fps lower for the same run.
 - **The product is what is measured:** machine state is changed through
   BiGame-mode's own helper, captured before the session and restored after it,
   including on interrupt.
@@ -60,7 +64,8 @@ user, home or address), the runs of every arm, and the report.
 AMD Ryzen 7 5700G (8C/16T, `amd-pstate-epp`, no 3D V-Cache), Radeon RX 9060 XT
 (RDNA 4, 16 GB) plus the idle integrated GPU, Mesa 26.2.2, kernel 7.2.6
 (7.2.7 from 2026-09-25), KDE Plasma Wayland, Proton Experimental, 3440×1440
-(the 160 Hz DP-1 monitor). See [AMD_DESKTOP_AUDIT.md](AMD_DESKTOP_AUDIT.md).
+(the 160 Hz DP-1 monitor). The machines and tool versions are in
+[ARCHITECTURE.md](ARCHITECTURE.md#hardware-notes).
 
 A second machine, the **lab laptop**, measured AI Graphics on NVIDIA: Intel
 Core i7-7700HQ, Intel HD 630 plus a GeForce GTX 1050 Ti Mobile (4 GB, NVIDIA
@@ -128,8 +133,8 @@ What follows for the code:
   no measurable difference in this GPU-bound game.
 - On that laptop the CPU hit its temperature limit all day: on cpu0, core
   throttling events went from 373 to 14 219 and the package spent 289 s
-  slowed. Diagnostics now reports the kernel's throttle
-  counters: a CPU capped by its cooling is not helped by a performance
+  slowed. The CPU temperature check in Details → Problems reports the
+  kernel's throttle counters: a CPU capped by its cooling is not helped by a performance
   governor, and the check says so.
 - A game that ships AMD's FidelityFX API (FSR 3.1) reaches FSR 4 through
   Proton with one launch option and no files, at the same frame rate as its

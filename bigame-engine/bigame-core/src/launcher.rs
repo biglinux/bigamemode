@@ -59,42 +59,11 @@ pub struct LaunchPlan {
 }
 
 impl LaunchPlan {
-    /// Build a launch plan for `executable` with explicit executable args.
-    #[must_use]
-    pub fn build_with_args(
-        executable: &str,
-        executable_args: &[String],
-        video: &VideoConfig,
-        gs_override: Option<&gamescope::Config>,
-    ) -> Self {
-        Self::build_with_args_for_game(executable, executable_args, executable, video, gs_override)
-    }
-
-    /// Build a launch plan and evaluate policy against a logical game id.
-    ///
-    /// `logical_game` is the process name the game's profile is keyed on. It can differ
-    /// from `executable` (for example, `executable="steam"` with `-applaunch`).
-    #[must_use]
-    pub fn build_with_args_for_game(
-        executable: &str,
-        executable_args: &[String],
-        logical_game: &str,
-        video: &VideoConfig,
-        gs_override: Option<&gamescope::Config>,
-    ) -> Self {
-        Self::build_on(
-            &Host::detect(),
-            executable,
-            executable_args,
-            logical_game,
-            video,
-            gs_override,
-        )
-    }
-
-    /// [`Self::build_with_args_for_game`] with the game's own Gamescope
-    /// choice: Always or Never decide for this game; Automatic follows the
-    /// Video page's switch.
+    /// Build a launch plan for `executable` with its arguments, the policy
+    /// evaluated against `logical_game` (the process name the game's profile
+    /// is keyed on, which differs from `executable` for `steam -applaunch`),
+    /// and the game's own Gamescope choice: Always or Never decide for this
+    /// game; Automatic follows the global switch.
     #[must_use]
     pub fn build_for_game(
         executable: &str,
@@ -115,8 +84,9 @@ impl LaunchPlan {
         )
     }
 
-    /// [`Self::build_with_args_for_game`] on a given machine rather than this
-    /// one.
+    /// A plan on a given machine rather than this one, with no per-game
+    /// Gamescope choice.
+    #[cfg(test)]
     fn build_on(
         host: &Host,
         executable: &str,

@@ -21,7 +21,7 @@ Runs A–B were started by hand, C–G driven with a virtual keyboard.
 
 E and G count presented frames, generated ones included. OptiScaler's frame
 generation raised two NVIDIA Xid errors (69 and 31) on this GTX and was
-removed from the game afterwards; see docs/TOMB_RAIDER_BENCHMARK.md.
+removed from the game afterwards; see docs/BENCHMARKS.md.
 
 The GPU samples of F and G were overwritten by the sampler before they were
 kept; their MangoHud logs are complete. E's result screen was not captured.

@@ -273,69 +273,8 @@ fn current_uid() -> u32 {
     unsafe { libc::getuid() }
 }
 
-// ── Finding processes ────────────────────────────────────────────────────────
-//
-// Callers run these on a timer, so they read /proc directly rather than
-// forking `pgrep -f` and `grep /proc/<pid>/maps`: two external programs per
-// matching process, once a second, is a large share of all process creation
-// on the machine while a Proton game runs.
-
-/// Live processes of the current user whose command line contains `needle`,
-/// as `pgrep -f` would find them, excluding this process.
-///
-/// Zombies are skipped: `pgrep` counts them, so an exited Gamescope that nobody
-/// reaped would be reported as running.
-#[must_use]
-pub fn find_by_cmdline(needle: &str) -> Vec<u32> {
-    // SAFETY: getuid and getpid cannot fail and have no side effects.
-    let (uid, me) = (unsafe { libc::getuid() }, std::process::id());
-    let Ok(entries) = std::fs::read_dir("/proc") else {
-        return Vec::new();
-    };
-    entries
-        .flatten()
-        .filter_map(|entry| {
-            let pid: u32 = entry.file_name().to_string_lossy().parse().ok()?;
-            if pid == me || process_uid(&entry.path()) != Some(uid) {
-                return None;
-            }
-            let stat = std::fs::read_to_string(entry.path().join("stat")).ok()?;
-            if process_state(&stat) == Some('Z') {
-                return None;
-            }
-            let cmdline = std::fs::read(entry.path().join("cmdline")).ok()?;
-            cmdline_contains(&cmdline, needle).then_some(pid)
-        })
-        .collect()
-}
-
-/// Whether a process has any of `needles` among its mapped files.
-///
-/// How a Vulkan layer or an injected DLL is confirmed to be really loaded,
-/// rather than merely configured.
-#[must_use]
-pub fn maps_contain(pid: u32, needles: &[&str]) -> bool {
-    std::fs::read_to_string(format!("/proc/{pid}/maps"))
-        .is_ok_and(|maps| needles.iter().any(|n| maps.contains(n)))
-}
-
-/// The state letter from `/proc/<pid>/stat`: `R`, `S`, `Z` and so on.
-fn process_state(stat: &str) -> Option<char> {
-    // After the parenthesised comm, which may itself contain ") ".
-    stat[stat.rfind(')')? + 1..].trim_start().chars().next()
-}
-
-/// `/proc/<pid>/cmdline` is NUL-separated; `pgrep -f` matches it with spaces.
-fn cmdline_contains(cmdline: &[u8], needle: &str) -> bool {
-    let joined: Vec<u8> = cmdline
-        .iter()
-        .map(|b| if *b == 0 { b' ' } else { *b })
-        .collect();
-    String::from_utf8_lossy(&joined).contains(needle)
-}
-
-/// Whether `key=` is in process `pid`'s environment. Unreadable (another
-/// user's process, or one that exited) counts as not there.
+/// Whether process `pid` has `key` in its environment. Only the name is
+/// compared; no value is kept.
 #[must_use]
 pub fn env_has_key(pid: u32, key: &str) -> bool {
     let Ok(bytes) = std::fs::read(format!("/proc/{pid}/environ")) else {
@@ -349,45 +288,6 @@ pub fn env_has_key(pid: u32, key: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn a_zombie_is_not_a_running_process() {
-        assert_eq!(
-            process_state("1585184 (gamescope-wl) Z 1410512 1"),
-            Some('Z')
-        );
-        // A comm containing ") " must not fool the parser.
-        assert_eq!(process_state("42 (odd) name) S 1 42"), Some('S'));
-    }
-
-    #[test]
-    fn command_lines_match_as_pgrep_f_sees_them() {
-        let raw =
-            b"python3\0/home/u/Steam/common/Proton - Experimental/proton\0waitforexitandrun\0";
-        assert!(cmdline_contains(raw, "Proton - Experimental"));
-        assert!(cmdline_contains(raw, "proton waitforexitandrun"));
-        assert!(!cmdline_contains(raw, "gamescope"));
-    }
-
-    #[test]
-    fn this_process_is_never_its_own_match() {
-        // The test binary's own command line contains its name; pgrep -f would
-        // match itself this way, which is the classic self-match bug.
-        let me = std::env::args().next().unwrap_or_default();
-        let name = me.rsplit('/').next().unwrap_or_default();
-        assert!(!find_by_cmdline(name).contains(&std::process::id()));
-    }
-
-    #[test]
-    fn a_process_maps_its_own_executable() {
-        let exe = std::fs::read_link("/proc/self/exe").unwrap();
-        let name = exe.file_name().unwrap().to_string_lossy().into_owned();
-        assert!(maps_contain(std::process::id(), &[&name]));
-        assert!(!maps_contain(
-            std::process::id(),
-            &["no-such-library-xyz.so"]
-        ));
-    }
-
     use super::*;
 
     #[test]
