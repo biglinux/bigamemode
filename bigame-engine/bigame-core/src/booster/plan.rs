@@ -9,12 +9,9 @@
 //! A machine already sitting at its best configuration should be told exactly
 //! that, not handed a list of no-ops dressed up as optimizations.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::knob::Knob;
-use crate::benchmark::calibration::Calibration;
 use crate::capabilities::Capabilities;
 use crate::hardware::{Chassis, Hardware, PowerSource};
 
@@ -104,14 +101,6 @@ pub enum Skipped {
     },
     /// Measurement on this machine showed the knob makes things worse.
     ///
-    /// The strongest reason to skip something, and the only one derived from
-    /// evidence rather than from what the hardware claims to support.
-    MeasuredHarmful {
-        /// Knob title.
-        knob: String,
-        /// What was measured.
-        detail: String,
-    },
     /// Another component is the single writer of this state, so Booster
     /// leaves it alone.
     ///
@@ -142,19 +131,6 @@ pub struct Plan {
     /// Candidates that were considered and rejected, with reasons. Reporting
     /// these is what lets the user see the engine reasoned rather than guessed.
     pub skipped: Vec<Skipped>,
-    /// Knobs measurement on this machine rejected, by calibration key.
-    ///
-    /// Not part of the saved plan: it is an input to the decision, and a plan
-    /// read back from disk should record what was decided rather than what was
-    /// consulted.
-    #[serde(skip)]
-    harmful: BTreeMap<String, String>,
-    /// Knobs measurement on this machine found faster, by calibration key.
-    ///
-    /// Some knobs are applied only when they are in here: those whose name
-    /// promises speed but whose measured effect has so far been the opposite.
-    #[serde(skip)]
-    beneficial: std::collections::BTreeSet<String>,
 }
 
 impl Plan {
@@ -164,27 +140,10 @@ impl Plan {
         self.changes.is_empty()
     }
 
-    /// Build a plan that defers to what was measured on this machine.
-    ///
-    /// Measurement outranks every other reason to apply a knob. A setting the
-    /// hardware supports, that is not already set, that would help in theory,
-    /// and that this machine has been measured to be *slower* with, is not
-    /// applied -- and the report says so, with the numbers.
-    ///
-    /// The concrete case: forcing an amdgpu card's DPM level to `high` sounds
-    /// like the fastest setting and is not. It pins the card to its highest
-    /// *fixed* state and takes the firmware's opportunistic boost out of the
-    /// loop. On a Radeon RX 9060 XT, `auto` averages 3042 MHz and reaches 3331;
-    /// `high` holds 2640 MHz and draws 40 W less of a 170 W budget, and the
-    /// frame rate is 7.5% lower.
+    /// Build the plan for this machine.
     #[must_use]
-    pub fn build_calibrated(
-        hw: &Hardware,
-        caps: &Capabilities,
-        snapshot: &Snapshot,
-        calibration: Option<&Calibration>,
-    ) -> Self {
-        Self::build_inner(hw, caps, snapshot, &power_profile_owner(), calibration)
+    pub fn build(hw: &Hardware, caps: &Capabilities, snapshot: &Snapshot) -> Self {
+        Self::build_inner(hw, caps, snapshot, &power_profile_owner())
     }
 
     /// Build a plan with an explicit power-profile owner.
@@ -199,7 +158,7 @@ impl Plan {
         snapshot: &Snapshot,
         owner: &PowerProfileOwner,
     ) -> Self {
-        Self::build_inner(hw, caps, snapshot, owner, None)
+        Self::build_inner(hw, caps, snapshot, owner)
     }
 
     /// The one place a plan is actually assembled.
@@ -208,34 +167,8 @@ impl Plan {
         caps: &Capabilities,
         snapshot: &Snapshot,
         owner: &PowerProfileOwner,
-        calibration: Option<&Calibration>,
     ) -> Self {
         let mut plan = Self::default();
-        if let Some(calibration) = calibration {
-            plan.harmful = calibration
-                .findings
-                .values()
-                .filter(|f| f.is_harmful())
-                .map(|f| {
-                    (
-                        f.knob.clone(),
-                        format!(
-                            "measured on this machine against {}: {}",
-                            f.workload, f.rationale
-                        ),
-                    )
-                })
-                .collect();
-            // A measured improvement is trusted only under the software it
-            // was measured with; a measured regression is avoided regardless.
-            if !calibration.needs_revalidation() {
-                plan.beneficial = calibration
-                    .beneficial()
-                    .into_iter()
-                    .map(|f| f.knob.clone())
-                    .collect();
-            }
-        }
         // On battery, raising sustained power draw usually costs more in
         // thermal throttling and clock ceiling than it returns. The user can
         // still opt in per-knob from Advanced; the automatic plan will not.
@@ -243,27 +176,10 @@ impl Plan {
 
         plan.consider_power_profile(caps, snapshot, battery, owner);
         plan.consider_cpu_governor(hw, caps, snapshot, battery);
-        plan.consider_gpu_dpm(hw, snapshot, battery);
+        plan.consider_gpu_dpm(hw);
         plan.consider_vcache(hw, caps, snapshot);
         plan.note_scheduler(caps);
         plan
-    }
-
-    /// Whether measurement on this machine rejected this knob.
-    ///
-    /// Consulted before every other reason, including "it already holds the
-    /// value we would write". A setting measured to be slower is not optimal
-    /// just because it happens to be set: reporting it as optimal would tell
-    /// the user the opposite of what was measured.
-    fn measured_harmful(&mut self, knob: &Knob) -> bool {
-        let Some(detail) = self.harmful.get(knob.calibration_key()).cloned() else {
-            return false;
-        };
-        self.skipped.push(Skipped::MeasuredHarmful {
-            knob: knob.title(),
-            detail,
-        });
-        true
     }
 
     // ── Candidates ───────────────────────────────────────────────────────────
@@ -284,9 +200,6 @@ impl Plan {
         owner: &PowerProfileOwner,
     ) {
         let knob = Knob::PowerProfile;
-        if self.measured_harmful(&knob) {
-            return;
-        }
         // Single writer: where falcond is installed it sets the power profile
         // per game, from that game's profile, and puts one back on exit.
         // Booster writing it too would make two snapshots of one value.
@@ -386,9 +299,6 @@ impl Plan {
         battery: bool,
     ) {
         let knob = Knob::CpuGovernor;
-        if self.measured_harmful(&knob) {
-            return;
-        }
         // Where power-profiles-daemon runs, CPU frequency policy is its: on
         // amd-pstate and intel_pstate (active) the power profile sets the
         // energy preference, which the performance governor would pin and
@@ -467,20 +377,14 @@ impl Plan {
         });
     }
 
-    /// Render GPU `power_dpm_force_performance_level` → `high`.
+    /// Render GPU `power_dpm_force_performance_level`: never forced.
     ///
-    /// Only the card games actually render on is touched: an idle iGPU pinned
-    /// high wastes power for nothing.
-    ///
-    /// **Applied only where measurement on this machine found it faster.** On
-    /// amdgpu, `high` pins the highest *fixed* DPM state and takes the
-    /// firmware's boost out of the loop; on a Radeon RX 9060 XT that costs
+    /// On amdgpu, `high` pins the highest *fixed* DPM state and takes the
+    /// firmware's boost out of the loop; on a Radeon RX 9060 XT that cost
     /// 7.5 % in a GPU-bound `SuperTuxKart` and 8.3 % in Shadow of the Tomb
-    /// Raider — the card holds 2.64 GHz and 102 W where `auto` reaches 3.23 GHz
-    /// and 162 W.
-    /// One card is not every card, so it stays available to a calibration
-    /// that finds it helps; it is not a default.
-    fn consider_gpu_dpm(&mut self, hw: &Hardware, snap: &Snapshot, battery: bool) {
+    /// Raider — the card held 2.64 GHz and 102 W where `auto` reaches 3.23 GHz
+    /// and 162 W. The knob stays in the report so it says why.
+    fn consider_gpu_dpm(&mut self, hw: &Hardware) {
         let Some(gpu) = hw.render_gpu() else {
             self.skipped.push(Skipped::Unsupported {
                 knob: "GPU power level".into(),
@@ -491,9 +395,6 @@ impl Plan {
         let knob = Knob::GpuDpmLevel {
             card: gpu.card.clone(),
         };
-        if self.measured_harmful(&knob) {
-            return;
-        }
         if gpu.dpm_level_path.is_none() {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),
@@ -501,49 +402,13 @@ impl Plan {
             });
             return;
         }
-        let Some(from) = snap.value_of(&knob) else {
-            self.skipped
-                .push(Skipped::NotRestorable { knob: knob.title() });
-            return;
-        };
-        if !self.beneficial.contains(knob.calibration_key()) {
-            self.skipped.push(Skipped::NotBeneficial {
-                knob: knob.title(),
-                detail: "left to the driver: forcing 'high' pins the highest fixed \
-                         power state and gives up boost clocks above it, and it has \
-                         only ever been measured slower (8.3% in Shadow of the Tomb \
-                         Raider on a Radeon RX 9060 XT). It is applied only after a \
-                         benchmark on this machine shows it helps."
-                    .into(),
-            });
-            return;
-        }
-        if from == "high" {
-            self.skipped.push(Skipped::AlreadyOptimal {
-                knob: knob.title(),
-                value: from.to_owned(),
-            });
-            return;
-        }
-        if battery {
-            self.skipped.push(Skipped::NotBeneficial {
-                knob: knob.title(),
-                detail: "running on battery — pinning GPU clocks high drains the \
-                         battery and invites thermal throttling"
-                    .into(),
-            });
-            return;
-        }
-        self.changes.push(Change {
-            knob,
-            from: from.to_owned(),
-            to: "high".into(),
-            rationale: format!(
-                "Keeps {} at its high DPM state so the first frames after a load \
-                 screen are not rendered at idle clocks.",
-                gpu.card
-            ),
-            risk: Risk::Thermal,
+        self.skipped.push(Skipped::NotBeneficial {
+            knob: knob.title(),
+            detail: "left to the driver: forcing 'high' pins the highest fixed \
+                     power state and gives up boost clocks above it, and it has \
+                     only ever been measured slower (8.3% in Shadow of the Tomb \
+                     Raider on a Radeon RX 9060 XT)."
+                .into(),
         });
     }
 
@@ -553,9 +418,6 @@ impl Plan {
     /// gaming workloads prefer the cache die over the higher-clocking one.
     fn consider_vcache(&mut self, hw: &Hardware, caps: &Capabilities, snap: &Snapshot) {
         let knob = Knob::VCacheMode;
-        if self.measured_harmful(&knob) {
-            return;
-        }
         let Some(vcache) = hw.cpu.vcache.as_ref() else {
             self.skipped.push(Skipped::Unsupported {
                 knob: knob.title(),
@@ -786,10 +648,10 @@ mod tests {
         // Without power-profiles-daemon nothing else owns it.
         let bare = Plan::build_with_owner(&h, &caps(true, false), &s, &PowerProfileOwner::Booster);
         assert!(bare.changes.iter().any(|c| c.knob == Knob::CpuGovernor));
-        // Forcing GPU DPM needs evidence first, and the skip says so.
+        // GPU DPM is left to the driver, and the skip says why.
         assert!(!ids.iter().any(|i| i.starts_with("gpu_dpm")));
         assert!(plan.skipped.iter().any(|s| matches!(
-            s, Skipped::NotBeneficial { knob, detail } if knob.contains("GPU") && detail.contains("benchmark")
+            s, Skipped::NotBeneficial { knob, detail } if knob.contains("GPU") && detail.contains("measured slower")
         )));
         // Every change explains itself.
         assert!(plan.changes.iter().all(|c| !c.rationale.is_empty()));
@@ -949,177 +811,6 @@ mod tests {
         assert!(plan.skipped.iter().any(|s| matches!(
             s, Skipped::NotBeneficial { knob, detail } if knob.contains("sched-ext") && detail.contains("falcond owns")
         )));
-    }
-
-    #[test]
-    fn a_knob_measured_harmful_is_dropped_with_the_numbers() {
-        use crate::benchmark::calibration::Calibration;
-        use crate::benchmark::result::{ArmSummary, Comparison};
-
-        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
-        let c = caps(true, false);
-        let s = snap(&[
-            (Knob::PowerProfile, Some("balanced")),
-            (Knob::CpuGovernor, Some("powersave")),
-            (
-                Knob::GpuDpmLevel {
-                    card: "card1".into(),
-                },
-                Some("auto"),
-            ),
-        ]);
-
-        // With no measurement, forcing DPM is not planned at all.
-        let plain = Plan::build_calibrated(&h, &c, &s, None);
-        assert!(
-            !plain
-                .changes
-                .iter()
-                .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
-            "hardware support alone is not a reason to force GPU DPM"
-        );
-
-        // A calibration in which forcing DPM `high` measured slower.
-        let mut calibration = Calibration::new("fp", "2026-09-23");
-        calibration.record(
-            "supertuxkart-gpu-bound",
-            &Comparison::new(
-                "avg_fps",
-                ArmSummary::new("baseline", vec![304.9, 287.7, 307.7, 293.1]).unwrap(),
-                ArmSummary::new("gpu_dpm_level", vec![280.4, 256.7, 281.6, 284.8]).unwrap(),
-            ),
-        );
-
-        let calibrated = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
-        assert!(
-            !calibrated
-                .changes
-                .iter()
-                .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
-            "a knob measured slower must not be applied"
-        );
-        let detail = calibrated
-            .skipped
-            .iter()
-            .find_map(|sk| match sk {
-                Skipped::MeasuredHarmful { knob, detail } if knob.contains("GPU") => Some(detail),
-                _ => None,
-            })
-            .expect("the skip must be reported with its evidence, not silently");
-        assert!(detail.contains("supertuxkart-gpu-bound"), "{detail}");
-        assert!(detail.contains("slower"), "{detail}");
-
-        // Knobs with no adverse measurement are untouched.
-        assert!(
-            calibrated
-                .changes
-                .iter()
-                .any(|ch| ch.knob == Knob::CpuGovernor)
-        );
-    }
-
-    #[test]
-    fn a_knob_already_at_a_harmful_value_is_not_called_optimal() {
-        use crate::benchmark::calibration::Calibration;
-        use crate::benchmark::result::{ArmSummary, Comparison};
-
-        // Why measured harm is checked first: the machine is already at
-        // dpm=high, so "already optimal" would be the planner's answer -- the
-        // opposite of what was measured.
-        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
-        let c = caps(true, true);
-        let s = snap(&[(
-            Knob::GpuDpmLevel {
-                card: "card1".into(),
-            },
-            Some("high"),
-        )]);
-
-        // Even with no measurement, "high" is not called optimal.
-        let uninformed = Plan::build_calibrated(&h, &c, &s, None);
-        assert!(!uninformed.skipped.iter().any(|sk| matches!(
-            sk,
-            Skipped::AlreadyOptimal { knob, .. } if knob.contains("GPU")
-        )));
-
-        let mut calibration = Calibration::new("fp", "2026-09-23");
-        calibration.record(
-            "stk",
-            &Comparison::new(
-                "avg_fps",
-                ArmSummary::new("baseline", vec![304.9, 287.7, 307.7, 293.1]).unwrap(),
-                ArmSummary::new("gpu_dpm_level", vec![280.4, 256.7, 281.6, 284.8]).unwrap(),
-            ),
-        );
-        let informed = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
-        assert!(
-            !informed.skipped.iter().any(|sk| matches!(
-                sk,
-                Skipped::AlreadyOptimal { knob, .. } if knob.contains("GPU")
-            )),
-            "a value measured to be slower is not optimal just because it is set"
-        );
-        assert!(informed.skipped.iter().any(|sk| matches!(
-            sk,
-            Skipped::MeasuredHarmful { knob, .. } if knob.contains("GPU")
-        )));
-    }
-
-    #[test]
-    fn gpu_dpm_is_applied_where_this_machine_measured_it_faster() {
-        use crate::benchmark::calibration::Calibration;
-        use crate::benchmark::result::{ArmSummary, Comparison};
-
-        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
-        let c = caps(true, true);
-        let s = snap(&[(
-            Knob::GpuDpmLevel {
-                card: "card1".into(),
-            },
-            Some("auto"),
-        )]);
-        let mut calibration = Calibration::new("fp", "2026-09-23");
-        calibration.record(
-            "some-game",
-            &Comparison::new(
-                "avg_fps",
-                ArmSummary::new("rest", vec![80.0, 80.4, 79.8, 80.2]).unwrap(),
-                ArmSummary::new("gpu_dpm_level", vec![86.0, 86.3, 85.9, 86.1]).unwrap(),
-            ),
-        );
-        let plan = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
-        assert!(
-            plan.changes
-                .iter()
-                .any(|ch| matches!(ch.knob, Knob::GpuDpmLevel { .. })),
-            "a measured improvement is exactly the evidence the gate asks for"
-        );
-    }
-
-    #[test]
-    fn a_knob_measured_neutral_is_still_applied() {
-        use crate::benchmark::calibration::Calibration;
-        use crate::benchmark::result::{ArmSummary, Comparison};
-
-        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
-        // No power-profiles-daemon: the governor is Booster's to plan.
-        let c = caps(true, false);
-        let s = snap(&[(Knob::CpuGovernor, Some("powersave"))]);
-
-        let mut calibration = Calibration::new("fp", "2026-09-23");
-        calibration.record(
-            "stk",
-            &Comparison::new(
-                "avg_fps",
-                ArmSummary::new("baseline", vec![298.0, 300.0, 299.0]).unwrap(),
-                ArmSummary::new("cpu_governor", vec![301.0, 299.0, 302.0]).unwrap(),
-            ),
-        );
-
-        // Only a measured regression removes a knob. "No measurable
-        // difference" is not evidence of harm.
-        let plan = Plan::build_calibrated(&h, &c, &s, Some(&calibration));
-        assert!(plan.changes.iter().any(|ch| ch.knob == Knob::CpuGovernor));
     }
 
     #[test]

@@ -619,13 +619,6 @@ pub fn rdna_generation(name: &str) -> Option<u8> {
     }
 }
 
-/// The name the report gives the GPU games render on — the key measurements
-/// are recorded under ([`super::outcomes`]).
-#[must_use]
-pub fn render_gpu_name(hw: &Hardware) -> Option<String> {
-    render_gpu(hw).map(|g| g.name)
-}
-
 /// The GPU games render on, as the report describes it, and how many GPUs
 /// the machine has.
 #[must_use]

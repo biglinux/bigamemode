@@ -116,9 +116,7 @@ arm_booster() {
     set_dpm high
 }
 
-# Single-knob arms. Named for the knob itself -- these names are the keys the
-# Booster's planner looks a measurement up by, so renaming one here without
-# renaming Knob::calibration_key would quietly sever the loop.
+# Single-knob arms, named for the knob.
 arm_cpu_governor()  { arm_baseline; set_governor performance; set_epp performance; }
 arm_gpu_dpm_level() { arm_baseline; set_dpm high; }
 

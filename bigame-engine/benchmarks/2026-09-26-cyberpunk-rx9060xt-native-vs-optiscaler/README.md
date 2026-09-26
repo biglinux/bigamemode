@@ -38,10 +38,8 @@ What this shows:
   OptiScaler arm fed the game's XeSS to FSR (Auto preset in both, so the
   render resolution may differ) — the fairest input it offers when the
   game's own FSR is what it replaces.
-- The planner reads these arms from the local measurements
-  (`bench_native_report --record-graphics`): for this game it keeps the
-  game's own FSR as Recommended and says no upscaler reaches 60 from 39
-  rendered.
+- The game list records the outcome: for this game the planner keeps the
+  game's own FSR as Recommended.
 
 Not measured: which FSR model rendered in `native_fsr4` (the overlay is the
 only proof; Proton logged the replacement), latency, and presented frames.

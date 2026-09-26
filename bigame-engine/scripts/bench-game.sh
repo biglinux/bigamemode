@@ -157,16 +157,14 @@ trap restore EXIT INT TERM
 
 # ── arms ─────────────────────────────────────────────────────────────────────
 #
-# Names match the knobs' calibration keys where an arm isolates one knob, so a
-# result can feed the planner without translation.
+# An arm that isolates one knob is named for it.
 
 # The distribution default: what an untouched machine runs.
 arm_baseline()  { set_profile balanced; set_governor powersave; set_epp balance_performance; set_dpm auto; }
 # The performance power profile with the GPU left to its firmware -- the
-# calibrated Booster's plan.
+# Booster's plan.
 arm_rest()      { set_profile performance; set_governor performance; set_epp performance; set_dpm auto; }
-# The same, with the GPU pinned to its highest fixed DPM state -- the plan
-# without calibration.
+# The same, with the GPU pinned to its highest fixed DPM state.
 arm_gpu_dpm_level() { arm_rest; set_dpm high; }
 # The distribution default with only the CPU governor and EPP raised -- the
 # CPU knob isolated, for a workload where the CPU is what limits the frame rate.

@@ -21,8 +21,6 @@ pub struct Performance {
     scheduler: StatusRow,
     vcache: StatusRow,
     cpu_model: String,
-    /// What measurement found on this machine, by knob.
-    measured: std::rc::Rc<Vec<bigame_core::benchmark::calibration::KnobFinding>>,
 }
 
 impl Performance {
@@ -63,18 +61,6 @@ impl Performance {
             group.add(r.widget());
         }
 
-        // Evidence from this machine: read once, it changes only when a
-        // measurement is made.
-        let fingerprint = bigame_core::inventory::fingerprint(hw);
-        let measured = bigame_core::benchmark::calibration::Calibration::default_path()
-            .and_then(|p| {
-                bigame_core::benchmark::calibration::Calibration::load(&p, &fingerprint)
-                    .ok()
-                    .flatten()
-            })
-            .map(|c| c.findings.into_values().collect::<Vec<_>>())
-            .unwrap_or_default();
-
         Self {
             group,
             turbo,
@@ -83,7 +69,6 @@ impl Performance {
             scheduler,
             vcache,
             cpu_model: crate::views::home::short_cpu(&hw.cpu.model),
-            measured: std::rc::Rc::new(measured),
         }
     }
 
@@ -91,25 +76,6 @@ impl Performance {
     #[must_use]
     pub fn group(&self) -> &adw::PreferencesGroup {
         &self.group
-    }
-
-    /// A finding for `knob`, as one line.
-    fn finding(&self, knob: &str) -> Option<String> {
-        use bigame_core::benchmark::result::Verdict;
-        self.measured.iter().find(|f| f.knob == knob).map(|f| {
-            let verdict = match f.verdict {
-                Verdict::Improvement => i18n("helped"),
-                Verdict::Regression => i18n("hurt"),
-                Verdict::WithinNoise => i18n("made no measurable difference"),
-                Verdict::Inconclusive => i18n("could not be settled"),
-            };
-            format!(
-                "{} ({:+.1} %, {})",
-                i18n("Measured on this machine: %s").replace("%s", &verdict),
-                f.delta_pct,
-                f.workload
-            )
-        })
     }
 
     /// Show a reading.
@@ -296,15 +262,6 @@ impl Performance {
         if power_state == State::Missing {
             body = body.command("sudo systemctl enable --now power-profiles-daemon");
         }
-        if let Some(f) = self.finding("power_profile") {
-            body = body.note(&f);
-        }
-        if let Some(f) = self.finding("cpu_governor") {
-            body = body.note(&f);
-        }
-        if let Some(f) = self.finding("gpu_dpm_level") {
-            body = body.note(&f);
-        }
         self.power.set_body(body.build());
 
         // ── Scheduler ───────────────────────────────────────────────────
@@ -382,9 +339,6 @@ impl Performance {
         body = body.note(&i18n(
             "Evidence: /sys/kernel/sched_ext (what the kernel runs), falcond's status (what it asked), the installed scx_* binaries.",
         ));
-        if let Some(f) = self.finding("scx_sched") {
-            body = body.note(&f);
-        }
         self.scheduler.set_body(body.build());
 
         // ── 3D V-Cache ──────────────────────────────────────────────────
