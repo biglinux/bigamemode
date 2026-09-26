@@ -1,7 +1,8 @@
 # Security
 
 BiGame-mode has one privileged component, a small root helper on the system
-bus. The UI and AI Graphics run as the user and need no root at all.
+bus. The UI and AI Graphics run as the user; the one other root action,
+installing a missing package, goes through the distribution's own installer.
 
 ```text
 UI (user) → bigame-core → system bus → bigame-daemon (root) → sysfs, /etc/falcond, systemd
@@ -71,18 +72,20 @@ not use:
 
 - `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`,
   `ProtectKernelModules`, `ProtectKernelLogs`, `ProtectClock`,
-  `ProtectHostname`, `ProtectControlGroups`, `ProtectProc=invisible`,
+  `ProtectHostname`, `ProtectControlGroups`, `ProtectKernelTunables`,
+  `ProtectProc=invisible`,
   `ProcSubset=pid`, `PrivateDevices`, `PrivateTmp`, `RestrictNamespaces`,
   `RestrictRealtime`, `RestrictSUIDSGID`, `LockPersonality`,
   `MemoryDenyWriteExecute`, `RestrictAddressFamilies=AF_UNIX`,
   `SystemCallArchitectures=native`, `SystemCallFilter=@system-service` minus
   `@privileged @resources @mount @debug @obsolete`, `UMask=0022`.
-- Writable: `/etc/falcond`, `/usr/share/falcond/profiles`,
-  `/sys/devices/system/cpu`, `/sys/class/drm`, the V-Cache driver directory
-  (each ignored when absent), and `StateDirectory=bigame-mode`.
-- `ProtectKernelTunables` is deliberately not set: DRM and V-Cache attributes
-  are reached through symlinks into `/sys/devices`, which it would make
-  read-only.
+- `ProtectSystem=strict` leaves `/sys` writable, so `ProtectKernelTunables`
+  makes it read-only as well. Writable: `/etc/falcond` and
+  `/usr/share/falcond/profiles` (ignored when absent), `/sys/devices` (where
+  the cpufreq, DRM and V-Cache attributes live; the `/sys/class` and
+  `/sys/bus` paths the helper writes are symlinks into it), and
+  `StateDirectory=bigame-mode`. `/sys/kernel`, `/sys/module`, `/sys/fs` and
+  `/sys/firmware` are read-only.
 - The bus policy lets only root own the name and denies by default, then allows
   the helper's interface plus Introspectable, Properties and Peer, so a future
   interface is not exposed automatically.
@@ -100,13 +103,24 @@ that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
 
 - falcond's status is read only when it is a root-owned regular file (a
   symlink planted in `/tmp` is not followed), and at most 64 KiB of it.
-- No command passes through a shell. External programs (`curl`, `bsdtar`,
-  `journalctl`, `ping`, `tc`, `lspci`, `gamescope`) are run with argument
-  vectors. NVIDIA GPU readings come from the driver's NVML library, loaded in
-  the unprivileged UI process; no NVIDIA program is run.
+- No command passes through a shell. External programs are run with
+  argument vectors, as the user: `curl` and `bsdtar` (AI Graphics),
+  `journalctl` (Logs), `ping` (to the target set in Settings, a leading `-`
+  refused) and `tc` (Details), `lspci` (About), `systemctl is-active`,
+  `gamescope --help` and the version flags of `glxinfo`, `vulkaninfo`,
+  `mangohud` and `gamemoded` (capabilities and the support report), and the
+  game itself. NVIDIA GPU readings come from the driver's NVML library,
+  loaded in the unprivileged UI process; no NVIDIA program is run.
+- One action runs something as root outside the helper: when Gamescope or
+  vkBasalt is enabled but not installed, *Install Missing Packages* runs
+  `pamac-installer <packages>`, or `pkexec pacman -S --needed --noconfirm
+  <packages>`, with package names from a fixed list — never text from the
+  UI.
 - A game's launch command comes from the launcher's own data: Steam's app id,
   or a native executable or script (a Windows `.exe` is never executed
-  directly). A program name is never guessed and resolved through `PATH`.
+  directly); the program is never guessed from a title. Tools such as
+  Gamescope, Steam and MangoHud are found on `PATH`, as for any program the
+  user runs.
 - Steam's launch options are edited only while Steam is closed, with a backup
   and a read-back.
 
@@ -210,6 +224,5 @@ paths exists here.
   its configuration, but cannot make falcond run code (script hooks are
   refused). The helper's code writes only falcond's directories, the listed
   sysfs attributes and `/var/lib/bigame-mode`. Its sandbox is narrower than
-  root but does not enforce that list: `ProtectSystem=strict` leaves `/sys`
-  writable, so code execution inside the helper could still write other sysfs
-  attributes.
+  root but does not enforce that list within `/sys/devices`: code execution
+  inside the helper could still write other device attributes there.
