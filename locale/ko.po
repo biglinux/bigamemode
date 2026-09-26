@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-26 15:34-0300\n"
+"POT-Creation-Date: 2026-09-26 16:07-0300\n"
 "PO-Revision-Date: 2026-04-20 22:23\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Korean <ko@li.org>\n"
@@ -130,6 +130,7 @@ msgstr "%r을(를) 요청했지만 %l이(가) 실행 중입니다"
 msgid "%s"
 msgstr "%s"
 
+#: bigame-engine/bigame-core/src/error.rs:101
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:106
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:166
 msgid "%s (%s)"
@@ -153,9 +154,21 @@ msgstr "%s GPU"
 msgid "%s accepts only %s"
 msgstr "%s은(는) %s만 허용합니다"
 
+#: bigame-engine/bigame-core/src/graphics/transaction.rs:240
+msgid "%s already has %s %s installed (%s); remove it first"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/transaction.rs:130
+msgid "%s became a symlink; refusing to replace it"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:198
 msgid "%s belongs to %s%s"
 msgstr "%s은(는) %s에 속합니다%s"
+
+#: bigame-engine/bigame-core/src/graphics/manifest.rs:260
+msgid "%s belongs to another game (%s)"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:157
 msgid "%s closed"
@@ -168,6 +181,10 @@ msgstr "%s은(는) 이 컴퓨터에서 %s을(를) 허용하지 않습니다 (허
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:244
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "파일 %s개가 설치된 상태와 다릅니다 (게임 업데이트 또는 다른 도구): %s"
+
+#: bigame-engine/bigame-core/src/graphics/ingame.rs:258
+msgid "%s is a symlink; refusing to replace it"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/capabilities.rs:58
 #: bigame-engine/bigame-core/src/health.rs:405
@@ -183,6 +200,10 @@ msgstr "%s 실행 중"
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:172
 msgid "%s is running without a profile"
 msgstr "%s이(가) 프로필 없이 실행 중입니다"
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:478
+msgid "%s is running; close it before changing its files"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:246
 msgid "%s now; performance when a game starts"
@@ -200,7 +221,7 @@ msgstr "%s 스케줄러가 설치되어 있지만 scx-tools(scx_loader)가 없�
 msgid "%s schedulers, scx_loader available"
 msgstr "%s 스케줄러, scx_loader 사용 가능"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1335
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1334
 msgid "%s started with BiGame-mode's launch settings"
 msgstr "%s이(가) BiGame-mode의 실행 설정으로 시작됨"
 
@@ -227,6 +248,10 @@ msgstr "%s 업스케일링이 선택됨"
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:281
 msgid "%s was asked for, but no scheduler is loaded"
 msgstr "%s을(를) 요청했지만 로드된 스케줄러가 없습니다"
+
+#: bigame-engine/bigame-core/src/graphics/manifest.rs:252
+msgid "%s was written by a newer BiGame-mode (format %s)"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:283
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:356
@@ -268,6 +293,10 @@ msgstr "%s, 게임 프로필에 따름"
 #: bigame-engine/bigame-core/src/turbo.rs:348
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s, 따라서 스케줄러를 요청하는 게임 프로필이 스케줄러를 설정할 수 없습니다"
+
+#: bigame-engine/bigame-core/src/error.rs:96
+msgid "%s: %s"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/booster/report.rs:128
 msgid "%s: %s %s → %s %s"
@@ -529,7 +558,7 @@ msgstr "이 게임은 AI 그래픽이 꺼져 있습니다"
 msgid "AI Graphics needs the game's install folder, and no installed game runs as this program"
 msgstr "AI 그래픽에는 게임 설치 폴더가 필요한데, 이 프로그램으로 실행되는 설치된 게임이 없습니다"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1400
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1399
 msgid "AI Graphics…"
 msgstr "AI 그래픽…"
 
@@ -655,7 +684,7 @@ msgstr "최적화 적용 중"
 msgid "Architecture"
 msgstr "아키텍처"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1333
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1332
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Steam에 %s 시작을 요청했습니다. 프로필은 적용되지만, 실행 설정은 Steam의 실행 옵션을 통해서만 Steam 게임에 전달됩니다."
 
@@ -673,6 +702,10 @@ msgstr "요청했지만 전환할 수 없습니다"
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:234
 msgid "Asleep"
 msgstr "절전 상태"
+
+#: bigame-engine/bigame-core/src/error.rs:120
+msgid "Authorization was refused or cancelled"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:519
 msgid "Automatic"
@@ -735,6 +768,13 @@ msgstr "이 게임에 가장 적합"
 #: data/com.biglinux.BiGameMode.metainfo.xml:5
 msgid "BiGame-mode"
 msgstr "BiGame-mode"
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:705
+#: bigame-engine/bigame-core/src/graphics/mod.rs:772
+#: bigame-engine/bigame-core/src/graphics/mod.rs:840
+#: bigame-engine/bigame-core/src/graphics/transaction.rs:460
+msgid "BiGame-mode has installed nothing in %s"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:121
 msgid "BiGame-mode has managed falcond since %s"
@@ -855,7 +895,7 @@ msgstr "설치되지 않은 '%p'을(를) 호출합니다 — 실행 옵션: %o"
 
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:105
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1078
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1505
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
 #: bigame-engine/bigame-ui/src/window.rs:324
 msgid "Cancel"
 msgstr "취소"
@@ -1106,7 +1146,7 @@ msgid "Could not delete profile"
 msgstr "프로필을 삭제할 수 없음"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1101
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1524
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1523
 msgid "Could not delete profile: %s"
 msgstr "프로필을 삭제할 수 없음: %s"
 
@@ -1114,7 +1154,7 @@ msgstr "프로필을 삭제할 수 없음: %s"
 msgid "Could not export"
 msgstr "내보낼 수 없음"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:258
+#: bigame-engine/bigame-ui/src/views/settings.rs:262
 msgid "Could not fix them"
 msgstr "해결할 수 없음"
 
@@ -1139,8 +1179,8 @@ msgstr "복구할 수 없음"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1341
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1342
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1456
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1457
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1458
 msgid "Could not restore"
 msgstr "복원할 수 없음"
 
@@ -1160,13 +1200,13 @@ msgstr "falcond 설정을 복원할 수 없음"
 msgid "Could not save: %s"
 msgstr "저장할 수 없음: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1343
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1352
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1342
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1351
 msgid "Could not start %t: %e"
 msgstr "%t을(를) 시작할 수 없음: %e"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1371
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1372
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1374
 msgid "Could not write the report"
 msgstr "보고서를 쓸 수 없음"
 
@@ -1177,12 +1217,12 @@ msgstr "프로필 생성"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:213
 #: bigame-engine/bigame-ui/src/profile_offer.rs:396
 #: bigame-engine/bigame-ui/src/views/home.rs:594
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1397
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1396
 msgid "Create profile"
 msgstr "프로필 생성"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:104
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1396
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1395
 msgid "Create with Wizard"
 msgstr "마법사로 만들기"
 
@@ -1195,7 +1235,7 @@ msgstr "현재"
 msgid "Custom profile"
 msgstr "사용자 지정 프로필"
 
-#: bigame-engine/bigame-core/src/profiles.rs:159
+#: bigame-engine/bigame-core/src/profiles.rs:160
 msgid "Custom sched-ext flags set but no scheduler selected"
 msgstr "사용자 지정 sched-ext 플래그가 설정되었지만 스케줄러가 선택되지 않았습니다"
 
@@ -1269,7 +1309,7 @@ msgid "Default settings restored"
 msgstr "기본 설정이 복원되었습니다"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1079
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1506
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1505
 msgid "Delete"
 msgstr "삭제"
 
@@ -1281,11 +1321,11 @@ msgstr "프로필 삭제"
 msgid "Delete Profile?"
 msgstr "프로필을 삭제하시겠습니까?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1414
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1413
 msgid "Delete profile"
 msgstr "프로필 삭제"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1499
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1498
 msgid "Delete this profile?"
 msgstr "이 프로필을 삭제하시겠습니까?"
 
@@ -1297,7 +1337,7 @@ msgstr "순수한 속도와 최소한의 오버헤드를 위해 설계되었습�
 msgid "Designed to eliminate unnecessary CPU 'ticks' (timer wakes). This allows cores to sleep deeper and longer, making it an incredible choice for saving laptop battery life."
 msgstr "불필요한 CPU '틱'(타이머 깨우기)을 없애도록 설계되었습니다. 코어가 더 깊고 오래 절전할 수 있어 노트북 배터리 수명을 아끼는 데 훌륭한 선택입니다."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:276
+#: bigame-engine/bigame-ui/src/views/settings.rs:282
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "게임 프로필이 적용되고 복원될 때 표시되는 데스크톱 알림입니다. 프로필 제안은 위에서 별도로 제어합니다."
 
@@ -1375,7 +1415,7 @@ msgstr "각 항목은 변경 후 시스템에서 다시 읽어 확인했습니�
 msgid "Edit"
 msgstr "편집"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1394
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1393
 msgid "Edit profile"
 msgstr "프로필 편집"
 
@@ -1724,7 +1764,7 @@ msgstr "게임 API"
 msgid "Game Library"
 msgstr "게임 라이브러리"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:273
+#: bigame-engine/bigame-ui/src/views/settings.rs:279
 msgid "Game Notifications"
 msgstr "게임 알림"
 
@@ -1791,7 +1831,7 @@ msgstr "이 게임은 Gamescope가 켜져 있습니다"
 msgid "Gamescope options this build accepts"
 msgstr "이 빌드가 허용하는 Gamescope 옵션"
 
-#: bigame-engine/bigame-core/src/profiles.rs:175
+#: bigame-engine/bigame-core/src/profiles.rs:176
 msgid "Gamescope output resolution needs both width and height"
 msgstr "Gamescope 출력 해상도에는 너비와 높이가 모두 필요합니다"
 
@@ -1799,7 +1839,7 @@ msgstr "Gamescope 출력 해상도에는 너비와 높이가 모두 필요합니
 msgid "Gamescope provides an isolated compositor for the game, enabling resolution scaling, framerate limiting, and FidelityFX Super Resolution (FSR)."
 msgstr "Gamescope는 게임을 위한 독립된 컴포지터를 제공하여 해상도 스케일링, 프레임률 제한, FidelityFX Super Resolution(FSR)을 사용할 수 있게 합니다."
 
-#: bigame-engine/bigame-core/src/profiles.rs:170
+#: bigame-engine/bigame-core/src/profiles.rs:171
 msgid "Gamescope render resolution needs both width and height"
 msgstr "Gamescope 렌더링 해상도에는 너비와 높이가 모두 필요합니다"
 
@@ -1807,7 +1847,7 @@ msgstr "Gamescope 렌더링 해상도에는 너비와 높이가 모두 필요합
 msgid "Gamescope renders below its output and OptiScaler upscales too: two upscalers in series. Set Gamescope's render size to 0 in Tuning, or turn Gamescope off for this game."
 msgstr "Gamescope가 출력보다 낮은 해상도로 렌더링하고 OptiScaler도 업스케일링합니다: 업스케일러 두 개가 직렬로 동작합니다. 조정에서 Gamescope 렌더링 크기를 0으로 설정하거나 이 게임의 Gamescope를 끄세요."
 
-#: bigame-engine/bigame-core/src/profiles.rs:213
+#: bigame-engine/bigame-core/src/profiles.rs:214
 msgid "Gamescope resolution needs both width and height"
 msgstr "Gamescope 해상도에는 너비와 높이가 모두 필요합니다"
 
@@ -1854,6 +1894,10 @@ msgstr "생성 중…"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:480
 msgid "Get it from its official page"
 msgstr "공식 페이지에서 받기"
+
+#: bigame-engine/bigame-core/src/graphics/versions.rs:129
+msgid "GitHub lists no stable OptiScaler release with a checksum"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:469
 msgid "Global switch (Tuning)"
@@ -1910,6 +1954,10 @@ msgstr "HDR 출력"
 msgid "HDR output is requested"
 msgstr "HDR 출력이 요청됨"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:244
+msgid "HOME is not set"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:132
 msgid "Hand back"
 msgstr "되돌려주기"
@@ -1938,6 +1986,14 @@ msgstr "도움말"
 #: bigame-engine/bigame-ui/src/window.rs:384
 msgid "Help & Tutorial"
 msgstr "도움말 및 튜토리얼"
+
+#: bigame-engine/bigame-core/src/mangohud.rs:261
+msgid "Heroic's game settings are not a JSON object"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/mangohud.rs:269
+msgid "Heroic's settings for %s are not an object"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:36
 #: bigame-engine/bigame-ui/src/window.rs:144
@@ -2164,7 +2220,7 @@ msgstr "Latency-Aware Virtual Deadline. 게임에 가장 좋은 선택입니다!
 msgid "Latest stable"
 msgstr "최신 안정 버전"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1391
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1390
 msgid "Launch (Turbo)"
 msgstr "실행 (Turbo)"
 
@@ -2246,6 +2302,10 @@ msgstr ""
 msgid "Lossless.dll"
 msgstr "Lossless.dll"
 
+#: bigame-engine/bigame-core/src/fg.rs:333
+msgid "Lossless.dll not found in configured LSFG path"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:827
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:235
 msgid "Mailbox"
@@ -2311,7 +2371,7 @@ msgstr "측정"
 msgid "Measure again"
 msgstr "다시 측정"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1405
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1404
 msgid "Measure the difference"
 msgstr "차이 측정"
 
@@ -2370,7 +2430,7 @@ msgstr "모드"
 msgid "Mode %s applied"
 msgstr "%s 모드 적용됨"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:290
+#: bigame-engine/bigame-ui/src/views/settings.rs:296
 msgid "Monitoring"
 msgstr "모니터링"
 
@@ -2419,7 +2479,7 @@ msgstr "NVIDIA PRIME 렌더 오프로드"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:251
 #: bigame-engine/bigame-ui/src/views/home.rs:690
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1377
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1376
 msgid "Native"
 msgstr "네이티브"
 
@@ -2682,7 +2742,7 @@ msgstr "측정할 것 없음"
 msgid "Nothing was changed"
 msgstr "아무것도 변경되지 않았습니다"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:271
+#: bigame-engine/bigame-ui/src/views/settings.rs:277
 msgid "Notifications"
 msgstr "알림"
 
@@ -2780,6 +2840,18 @@ msgstr "OptiScaler"
 #: bigame-engine/bigame-core/src/graphics/plan.rs:520
 msgid "OptiScaler %s as %s beside the game, with %s configured as the output"
 msgstr "OptiScaler %s을(를) 게임 옆에 %s(으)로 설치하고 출력으로 %s 구성"
+
+#: bigame-engine/bigame-core/src/graphics/versions.rs:221
+msgid "OptiScaler %s as installed is neither in the cache nor a known release"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:715
+msgid "OptiScaler %s is already installed"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/versions.rs:186
+msgid "OptiScaler %s is not a stable release with a published checksum"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:389
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:400
@@ -2987,8 +3059,8 @@ msgstr "성능 모드"
 msgid "Performance tuning for Linux gaming"
 msgstr "Linux 게임용 성능 조정"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:292
-#: bigame-engine/bigame-ui/src/views/settings.rs:296
+#: bigame-engine/bigame-ui/src/views/settings.rs:298
+#: bigame-engine/bigame-ui/src/views/settings.rs:302
 msgid "Ping Target"
 msgstr "핑 대상"
 
@@ -3075,7 +3147,7 @@ msgid "Profile applied"
 msgstr "프로필 적용됨"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:323
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1436
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1435
 #: bigame-engine/bigame-ui/src/views/profiles.rs:183
 msgid "Profile created"
 msgstr "프로필이 생성되었습니다"
@@ -3085,7 +3157,7 @@ msgid "Profile created and active"
 msgstr "프로필이 생성되어 활성화되었습니다"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1096
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1521
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1520
 msgid "Profile deleted"
 msgstr "프로필이 삭제되었습니다"
 
@@ -3105,13 +3177,13 @@ msgstr "프로필 가져오기 완료"
 msgid "Profile imported via drag-and-drop"
 msgstr "드래그 앤 드롭으로 가져온 프로필"
 
-#: bigame-engine/bigame-core/src/profiles.rs:151
-#: bigame-engine/bigame-core/src/profiles.rs:207
+#: bigame-engine/bigame-core/src/profiles.rs:152
+#: bigame-engine/bigame-core/src/profiles.rs:208
 msgid "Profile name contains invalid path characters"
 msgstr "프로필 이름에 경로로 사용할 수 없는 문자가 있습니다"
 
-#: bigame-engine/bigame-core/src/profiles.rs:148
-#: bigame-engine/bigame-core/src/profiles.rs:204
+#: bigame-engine/bigame-core/src/profiles.rs:149
+#: bigame-engine/bigame-core/src/profiles.rs:205
 msgid "Profile name is required"
 msgstr "프로필 이름이 필요합니다"
 
@@ -3335,8 +3407,8 @@ msgstr "Resizable BAR"
 
 #: bigame-engine/bigame-ui/src/app.rs:292
 #: bigame-engine/bigame-ui/src/app.rs:303
-msgid "Restart BiGameMode"
-msgstr "BiGameMode 다시 시작"
+msgid "Restart BiGame-mode"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/window.rs:325
 msgid "Restore"
@@ -3356,7 +3428,7 @@ msgstr "게임 그래픽 복원"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "복원하면 게임 파일이 되돌아옵니다. 누락된 FidelityFX DLL은 복구로 해결됩니다"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1409
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1408
 msgid "Restore the game's graphics"
 msgstr "게임 그래픽 복원"
 
@@ -3480,7 +3552,7 @@ msgstr "스케줄러 모드"
 msgid "Scheduler Priority"
 msgstr "스케줄러 우선순위"
 
-#: bigame-engine/bigame-core/src/profiles.rs:155
+#: bigame-engine/bigame-core/src/profiles.rs:156
 msgid "Scheduler mode set but no scheduler selected"
 msgstr "스케줄러 모드가 설정되었지만 스케줄러가 선택되지 않았습니다"
 
@@ -3554,7 +3626,7 @@ msgstr "MangoHud 표시"
 msgid "Show advanced options"
 msgstr "고급 옵션 표시"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:274
+#: bigame-engine/bigame-ui/src/views/settings.rs:280
 msgid "Show notifications on game launch and exit"
 msgstr "게임 시작 및 종료 시 알림 표시"
 
@@ -3602,7 +3674,7 @@ msgstr "게임을 시작하세요. 게임이 실제로 받는 설정을 프로�
 msgid "Start in the background at login"
 msgstr "로그인 시 백그라운드에서 시작"
 
-#: bigame-engine/bigame-core/src/profiles.rs:183
+#: bigame-engine/bigame-core/src/profiles.rs:184
 msgid "Start script should be an absolute path"
 msgstr "시작 스크립트는 절대 경로여야 합니다"
 
@@ -3631,6 +3703,10 @@ msgstr "Steam"
 msgid "Steam app %s"
 msgstr "Steam 앱 %s"
 
+#: bigame-engine/bigame-core/src/steam.rs:194
+msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:140
 msgid "Steam launch options"
 msgstr "Steam 실행 옵션"
@@ -3639,11 +3715,15 @@ msgstr "Steam 실행 옵션"
 msgid "Steam launch options: %s"
 msgstr "Steam 실행 옵션: %s"
 
+#: bigame-engine/bigame-core/src/steam.rs:236
+msgid "Steam's configuration has no apps section: %s"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1193
 msgid "Steam's launch options for this game now read"
 msgstr "이 게임의 Steam 실행 옵션은 이제 다음과 같습니다"
 
-#: bigame-engine/bigame-core/src/profiles.rs:188
+#: bigame-engine/bigame-core/src/profiles.rs:189
 msgid "Stop script should be an absolute path"
 msgstr "중지 스크립트는 절대 경로여야 합니다"
 
@@ -3688,11 +3768,15 @@ msgstr "온도"
 msgid "Tested with BiGame-mode"
 msgstr "BiGame-mode로 테스트됨"
 
-#: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:51
-msgid "The CPU scheduler (or 'policial de trânsito') decides which programs run on which CPU cores and for how long. The default Linux scheduler divides time fairly among all apps. However, for Gaming, we don't want fairness—we want absolute priority for the game! With sched-ext (SCX), we can dynamically swap the default scheduler for a specialized one without rebooting."
-msgstr "CPU 스케줄러('교통 경찰')는 어떤 프로그램을 어느 CPU 코어에서 얼마나 오래 실행할지 결정합니다. 기본 Linux 스케줄러는 모든 앱에 시간을 공정하게 나눕니다. 하지만 게임에서는 공정함이 아니라 게임에 대한 절대적인 우선순위가 필요합니다! sched-ext(SCX)를 사용하면 재부팅 없이 기본 스케줄러를 특화된 스케줄러로 동적으로 교체할 수 있습니다."
+#: bigame-engine/bigame-core/src/error.rs:121
+msgid "The BiGame-mode helper is not running"
+msgstr ""
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:297
+#: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:51
+msgid "The CPU scheduler (the traffic controller of the processor) decides which programs run on which CPU cores and for how long. The default Linux scheduler divides time fairly among all apps. However, for Gaming, we don't want fairness—we want absolute priority for the game! With sched-ext (SCX), we can dynamically swap the default scheduler for a specialized one without rebooting."
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:303
 msgid "The address the Details page pings for its latency graph. It is only contacted while that page is on screen."
 msgstr "세부 정보 페이지가 지연 시간 그래프를 위해 핑을 보내는 주소입니다. 해당 페이지가 화면에 있는 동안에만 연결합니다."
 
@@ -3717,7 +3801,7 @@ msgid "The game ships no upscaler"
 msgstr "게임에 업스케일러가 없습니다"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1331
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1456
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1455
 msgid "The game's files are as they were before"
 msgstr "게임 파일이 이전 상태 그대로입니다"
 
@@ -3781,7 +3865,7 @@ msgstr "성능 모드를 사용하는 게임이 실행되는 동안의 performan
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "프로필이 sched-ext 스케줄러를 요청하지만 이 컴퓨터에서는 전환할 수 없습니다."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1501
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "%s의 프로필이 제거됩니다. 이 작업은 되돌릴 수 없습니다."
 
@@ -4045,7 +4129,7 @@ msgstr "VCache"
 msgid "VCache Mode"
 msgstr "VCache 모드"
 
-#: bigame-engine/bigame-core/src/profiles.rs:163
+#: bigame-engine/bigame-core/src/profiles.rs:164
 msgid "VCache mode set but AMD 3D V-Cache not detected"
 msgstr "VCache 모드가 설정되었지만 AMD 3D V-Cache가 감지되지 않았습니다"
 
@@ -4336,6 +4420,10 @@ msgstr "BiGame-mode가 배포, 설치, 제거하지 않는 외부 구성 요소"
 msgid "anti-cheat"
 msgstr "안티치트"
 
+#: bigame-engine/bigame-core/src/graphics/transaction.rs:326
+msgid "apply failed and was rolled back"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:453
 msgid "assumed"
 msgstr "추정됨"
@@ -4351,6 +4439,10 @@ msgstr "사용 가능"
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:371
 msgid "available through Proton's provider once the launch option FSR4_UPGRADE=1 is set; confirmed when the game runs"
 msgstr "실행 옵션 FSR4_UPGRADE=1이 설정되면 Proton 제공자를 통해 사용 가능. 게임이 실행될 때 확인됨"
+
+#: bigame-engine/bigame-core/src/graphics/transaction.rs:440
+msgid "backup %s is damaged; not restoring it"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/graphics/plan.rs:266
 msgid "blocked by %s"
@@ -4431,6 +4523,10 @@ msgstr "부하 상태에서 지연 시간을 능동적으로 관리하지 않습
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:642
 msgid "does not run DLSS"
 msgstr "DLSS를 실행하지 않음"
+
+#: bigame-engine/bigame-core/src/graphics/optiscaler.rs:401
+msgid "download does not match %s: SHA-256 %s"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/graphics/plan.rs:477
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
@@ -4601,6 +4697,10 @@ msgstr "falcond.service 활성"
 msgid "falcond.service inactive"
 msgstr "falcond.service 비활성"
 
+#: bigame-engine/bigame-core/src/fg.rs:337
+msgid "flow_scale_pct must be 25–100"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:487
 msgid "found"
 msgstr "발견됨"
@@ -4656,6 +4756,10 @@ msgstr "하드웨어 속도 저하"
 #: bigame-engine/bigame-ui/src/views/report.rs:186
 msgid "held off while the game runs"
 msgstr "게임이 실행되는 동안 보류됨"
+
+#: bigame-engine/bigame-core/src/profiles.rs:591
+msgid "imported profile has no name"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:382
 msgid "in the game's environment"
@@ -4725,6 +4829,10 @@ msgstr "커널 기본값"
 msgid "kernel has no sched_ext support"
 msgstr "커널에 sched_ext 지원이 없습니다"
 
+#: bigame-engine/bigame-core/src/steam.rs:213
+msgid "launch options may not contain quotes, backslashes or newlines"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/booster/plan.rs:462
 msgid "left to the driver: forcing 'high' pins the highest fixed power state and gives up boost clocks above it, and it has only ever been measured slower (8.3% in Shadow of the Tomb Raider on a Radeon RX 9060 XT)."
 msgstr "드라이버에 맡김: 'high'를 강제하면 가장 높은 고정 전력 상태에 묶여 그 이상의 부스트 클럭을 포기하게 되며, 측정 결과 항상 더 느렸습니다(Radeon RX 9060 XT의 Shadow of the Tomb Raider에서 8.3% 느림)."
@@ -4774,6 +4882,10 @@ msgstr "게임이 시작된 후 lsfg-vk 파일이 변경되었습니다. 새 배
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:403
 msgid "lsfg-vk, from the Profiles page: more frames shown, not rendered"
 msgstr "프로필 페이지의 lsfg-vk: 렌더링이 아니라 표시되는 프레임이 늘어남"
+
+#: bigame-engine/bigame-core/src/booster/measure.rs:221
+msgid "measurement plan needs a command, at least 5 seconds, and at least 2 counted runs per arm (runs_per_arm includes one discarded warm-up)"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:394
 msgid "median"
@@ -4948,6 +5060,10 @@ msgstr "게임 파일에서 API를 알 수 있는 단서가 없습니다. 게임
 msgid "nothing in this profile needs Gamescope, so the game runs directly"
 msgstr "이 프로필에는 Gamescope가 필요한 항목이 없어 게임이 직접 실행됩니다"
 
+#: bigame-engine/bigame-core/src/booster/measure.rs:228
+msgid "nothing to measure: the plan changes nothing on this machine"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:106
 msgid "of one CPU"
 msgstr "CPU 1개 기준"
@@ -4988,6 +5104,10 @@ msgstr "기타"
 msgid "overlay not shown"
 msgstr "오버레이 표시 안 됨"
 
+#: bigame-engine/bigame-core/src/profiles.rs:588
+msgid "parse imported profile TOML"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:241
 msgid "performance while the game runs, as falcond asked"
 msgstr "falcond의 요청에 따라 게임이 실행되는 동안 performance"
@@ -5027,6 +5147,10 @@ msgstr "있음. 게임 프로필이 캐시 CCD를 선호하도록 할 수 있습
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:230
 msgid "press Apply"
 msgstr "적용을 누르세요"
+
+#: bigame-engine/bigame-core/src/profiles.rs:488
+msgid "profile not found: %s"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:505
 msgid "proxy"
@@ -5199,6 +5323,10 @@ msgstr "OptiScaler에 필요한 DLL 슬롯이 사용 중입니다"
 msgid "the MangoHud overlay is enabled"
 msgstr "MangoHud 오버레이가 활성화됨"
 
+#: bigame-engine/bigame-core/src/graphics/transaction.rs:591
+msgid "the cached copy of %s is not what was installed"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/graphics/external.rs:196
 msgid "the component runs its kernels through AMD's Windows HIP runtime (amdhip64_7.dll), which comes with the Adrenalin driver; Proton ships none, and this prefix has none"
 msgstr "이 구성 요소는 Adrenalin 드라이버와 함께 제공되는 AMD Windows HIP 런타임(amdhip64_7.dll)으로 커널을 실행합니다. Proton에는 포함되어 있지 않으며, 이 prefix에도 없습니다"
@@ -5273,9 +5401,17 @@ msgstr "게임의 DLSS"
 msgid "the game's FSR"
 msgstr "게임의 FSR"
 
+#: bigame-engine/bigame-core/src/graphics/ingame.rs:193
+msgid "the game's Wine prefix is still in use; close the game completely and try again"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/graphics/rules.rs:57
 msgid "the game's XeSS"
 msgstr "게임의 XeSS"
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:490
+msgid "the game's executable was not found"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/graphics/rules.rs:58
 msgid "the game's frame generation"
@@ -5309,6 +5445,22 @@ msgstr "게임 자체 업스케일러가 이 GPU에서 실행되는 최선의 �
 msgid "the game's own upscaler that OptiScaler takes over is off: choose it in the game's graphics menu (the plan names it)"
 msgstr "OptiScaler가 대체할 게임 자체 업스케일러가 꺼져 있습니다: 게임의 그래픽 메뉴에서 선택하세요(계획에 이름이 나옴)"
 
+#: bigame-engine/bigame-core/src/graphics/mod.rs:565
+msgid "the game's setting could not be recorded; it was put back"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/fg.rs:88
+msgid "the installed lsfg-vk uses a configuration format BiGame-mode does not write (it writes lsfg-vk 1.x's); change it in lsfg-vk-ui instead"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:711
+msgid "the last change to %s did not finish"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/versions.rs:175
+msgid "the latest OptiScaler release is not known yet; check for updates first"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/graphics/plan.rs:399
 msgid "the launch option FSR4_UPGRADE=1 in Steam for this game (Steam closed; backed up and read back): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes"
 msgstr "이 게임의 Steam 실행 옵션 FSR4_UPGRADE=1(Steam 종료 상태, 백업 후 다시 읽어 확인): 그러면 Proton이 게임의 FSR을 AMD의 FSR 4 제공자에게 넘깁니다. 게임 파일은 변경되지 않습니다"
@@ -5320,6 +5472,10 @@ msgstr "실행 옵션 FSR4_UPGRADE=1이 설정됨: Proton이 게임의 FSR을 AM
 #: bigame-engine/bigame-core/src/graphics/rules.rs:201
 msgid "the neural pass runs on the game's own FSR output; documented for Windows, not established under Proton"
 msgstr "뉴럴 패스는 게임 자체 FSR 출력에서 실행됩니다. Windows용으로 문서화되어 있으며 Proton에서는 확립되지 않았습니다"
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:659
+msgid "the new choice could not be installed; the game has its own files, as after Restore"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:202
 msgid "the only GPU"
@@ -5357,9 +5513,25 @@ msgstr "실행 중인 게임이 Proton의 FSR 4 제공자를 로드함: 게임�
 msgid "the running game renders with Vulkan directly"
 msgstr "실행 중인 게임이 Vulkan으로 직접 렌더링함"
 
+#: bigame-engine/bigame-core/src/graphics/mod.rs:750
+msgid "the update failed, and putting OptiScaler %s back failed too (%s); the game has its own files"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:743
+msgid "the update failed; OptiScaler %s was put back"
+msgstr ""
+
 #: bigame-engine/bigame-ui/src/profile_offer.rs:316
 msgid "the worker thread failed"
 msgstr "작업자 스레드가 실패했습니다"
+
+#: bigame-engine/bigame-core/src/booster/measure.rs:261
+msgid "the workload produced too few frames to measure; check that it renders continuously and that MangoHud is installed"
+msgstr ""
+
+#: bigame-engine/bigame-core/src/graphics/mod.rs:778
+msgid "there is no earlier version to go back to"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:480
 #: bigame-engine/bigame-core/src/recommend.rs:173
@@ -5402,6 +5574,12 @@ msgstr "이 런처는 Flatpak으로 실행되어 시스템의 MangoHud를 볼 �
 msgid "this machine exposes no CPU frequency control"
 msgstr "이 컴퓨터는 CPU 주파수 제어를 제공하지 않습니다"
 
+#: bigame-engine/bigame-core/src/graphics/mod.rs:549
+#: bigame-engine/bigame-core/src/graphics/mod.rs:650
+#: bigame-engine/bigame-core/src/graphics/mod.rs:698
+msgid "this plan installs nothing"
+msgstr ""
+
 #: bigame-engine/bigame-core/src/booster/plan.rs:301
 msgid "this platform offers no performance profile"
 msgstr "이 플랫폼은 performance 프로필을 제공하지 않습니다"
@@ -5409,6 +5587,10 @@ msgstr "이 플랫폼은 performance 프로필을 제공하지 않습니다"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:331
 msgid "through DXVK or VKD3D-Proton, seen when the game runs"
 msgstr "DXVK 또는 VKD3D-Proton 경유, 게임이 실행될 때 확인됨"
+
+#: bigame-engine/bigame-core/src/booster/measure.rs:290
+msgid "too few usable runs to compare"
+msgstr ""
 
 #: bigame-engine/bigame-ui/src/app.rs:365
 msgid "translator-credits"
@@ -5494,6 +5676,10 @@ msgstr "창이 전체 화면이 되지 않음"
 #: bigame-engine/bigame-core/src/booster/snapshot.rs:128
 msgid "wrote %s but the knob reads %s"
 msgstr "%s을(를) 기록했지만 항목 값은 %s입니다"
+
+#: bigame-engine/bigame-core/src/steam.rs:294
+msgid "wrote launch options but the file reads back %s"
+msgstr ""
 
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:458
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:718
