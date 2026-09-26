@@ -139,58 +139,66 @@ pub fn install(app: &adw::Application) {
     crate::game_watch::subscribe(glib::clone!(
         #[weak]
         app,
+        #[upgrade_or]
+        glib::ControlFlow::Break,
         move |game| {
-            let Some(game) = game.cloned() else {
-                app.withdraw_notification(NOTIFICATION_ID);
-                if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take()) {
-                    if crate::settings::load().notifications_enabled {
-                        let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
-                        n.set_body(Some(&i18n(
-                            "Everything the game's profile changed has been put back.",
-                        )));
-                        app.send_notification(Some("game-exit"), &n);
-                    }
-                }
-                return;
-            };
-            // The watch reports a game again when it learns its graphics
-            // API; the same process is announced, and offered, once.
-            if ANNOUNCED.with(|a| a.replace(Some(game.pid))) == Some(game.pid) {
-                return;
-            }
-            LAST_GAME.with(|g| *g.borrow_mut() = Some(game.display_name.clone()));
-            glib::spawn_future_local(async move {
-                // Wait until the process has settled, then ask again whether it
-                // is still the running game.
-                let age = bigame_core::running::running_for(game.pid).unwrap_or(0);
-                if age < SETTLE_SECS {
-                    glib::timeout_future_seconds(u32::try_from(SETTLE_SECS - age).unwrap_or(20))
-                        .await;
-                }
-                if crate::game_watch::current().map(|g| g.pid) != Some(game.pid) {
-                    return;
-                }
-                if OFFERED.with(|o| o.borrow().contains(&game.process_name)) {
-                    return;
-                }
-                let check = game.clone();
-                let offer = gio::spawn_blocking(move || should_offer(&check))
-                    .await
-                    .unwrap_or(false);
-                // Marked here, on the main thread, where OFFERED lives; from
-                // the blocking thread it is another, empty, set.
-                if offer {
-                    OFFERED.with(|o| o.borrow_mut().insert(game.process_name.clone()));
-                    notify_offer(&app, &game);
-                } else if crate::settings::load().notifications_enabled {
-                    let detected = gio::spawn_blocking(detected_profile).await.ok().flatten();
-                    if let Some(profile) = detected {
-                        notify_detected(&app, &game, &profile);
-                    }
-                }
-            });
+            game_changed(&app, game);
+            glib::ControlFlow::Continue
         }
     ));
+}
+
+/// The running game changed: announce it, offer a profile, or say it closed.
+fn game_changed(app: &adw::Application, game: Option<&GameIdentity>) {
+    let Some(game) = game.cloned() else {
+        app.withdraw_notification(NOTIFICATION_ID);
+        if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take()) {
+            if crate::settings::load().notifications_enabled {
+                let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
+                n.set_body(Some(&i18n(
+                    "Everything the game's profile changed has been put back.",
+                )));
+                app.send_notification(Some("game-exit"), &n);
+            }
+        }
+        return;
+    };
+    // The watch reports a game again when it learns its graphics
+    // API; the same process is announced, and offered, once.
+    if ANNOUNCED.with(|a| a.replace(Some(game.pid))) == Some(game.pid) {
+        return;
+    }
+    LAST_GAME.with(|g| *g.borrow_mut() = Some(game.display_name.clone()));
+    let app = app.clone();
+    glib::spawn_future_local(async move {
+        // Wait until the process has settled, then ask again whether it
+        // is still the running game.
+        let age = bigame_core::running::running_for(game.pid).unwrap_or(0);
+        if age < SETTLE_SECS {
+            glib::timeout_future_seconds(u32::try_from(SETTLE_SECS - age).unwrap_or(20)).await;
+        }
+        if crate::game_watch::current().map(|g| g.pid) != Some(game.pid) {
+            return;
+        }
+        if OFFERED.with(|o| o.borrow().contains(&game.process_name)) {
+            return;
+        }
+        let check = game.clone();
+        let offer = gio::spawn_blocking(move || should_offer(&check))
+            .await
+            .unwrap_or(false);
+        // Marked here, on the main thread, where OFFERED lives; from
+        // the blocking thread it is another, empty, set.
+        if offer {
+            OFFERED.with(|o| o.borrow_mut().insert(game.process_name.clone()));
+            notify_offer(&app, &game);
+        } else if crate::settings::load().notifications_enabled {
+            let detected = gio::spawn_blocking(detected_profile).await.ok().flatten();
+            if let Some(profile) = detected {
+                notify_detected(&app, &game, &profile);
+            }
+        }
+    });
 }
 
 fn notify_offer(app: &adw::Application, game: &GameIdentity) {

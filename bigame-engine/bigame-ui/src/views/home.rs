@@ -146,11 +146,19 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let button = Rc::clone(&button);
         let turbo_on = Rc::clone(&turbo_on);
         let show_summary = Rc::clone(&show_summary);
+        let game = game.clone();
         glib::spawn_future_local(async move {
             let state = gtk4::gio::spawn_blocking(turbo::state_blocking).await;
             let on = matches!(state, Ok(Ok(turbo::State::On)));
+            let readable = matches!(state, Ok(Ok(_)));
             turbo_on.set(on);
-            let state = if on {
+            game.turbo_readable.set(readable);
+            let state = if !readable {
+                // No system bus: saying "off" would be a guess.
+                State::Error {
+                    detail: i18n("Turbo's state cannot be read: systemd did not answer"),
+                }
+            } else if on {
                 State::On {
                     detail: on_detail(crate::game_watch::current().as_ref()),
                 }
@@ -175,6 +183,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                     detail: on_detail(current),
                 });
             }
+            glib::ControlFlow::Continue
         });
     }
 
@@ -544,6 +553,8 @@ struct GameCard {
     create: gtk4::Button,
     game: Rc<RefCell<Option<GameIdentity>>>,
     turbo_on: Rc<Cell<bool>>,
+    /// Turbo's state could be read; when not, the card says nothing from it.
+    turbo_readable: Rc<Cell<bool>>,
     /// The pid whose FSR 4 question was answered, and the answer
     /// ([`bigame_core::graphics::native_fsr4_applies`]): asked once per game.
     fsr4_applies: Rc<Cell<Option<(u32, bool)>>>,
@@ -631,6 +642,7 @@ impl GameCard {
             create,
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
+            turbo_readable: Rc::new(Cell::new(true)),
             fsr4_applies: Rc::new(Cell::new(None)),
         }
     }
@@ -727,6 +739,7 @@ impl GameCard {
         let (ai, profile, create) = (self.ai.clone(), self.profile.clone(), self.create.clone());
         let effects = self.effects.clone();
         let turbo_on = self.turbo_on.get();
+        let turbo_readable = self.turbo_readable.get();
         let fsr4_cache = Rc::clone(&self.fsr4_applies);
         let known = fsr4_cache
             .get()
@@ -778,6 +791,12 @@ impl GameCard {
                 }
                 None => ai.set_visible(false),
             }
+            if !turbo_readable {
+                profile.set_visible(false);
+                create.set_visible(false);
+                return;
+            }
+            profile.set_visible(true);
             if !turbo_on {
                 profile.set_label(&i18n("Turbo is off, so this game is not being optimized"));
                 create.set_visible(false);

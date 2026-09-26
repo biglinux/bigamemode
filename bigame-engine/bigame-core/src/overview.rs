@@ -94,6 +94,8 @@ pub enum Headline {
     FalcondSilent,
     /// falcond's service failed.
     FalcondFailed,
+    /// Turbo's state could not be read (systemd did not answer).
+    TurboUnreadable,
 }
 
 /// The headline from Turbo, falcond and the game.
@@ -278,6 +280,9 @@ pub struct Lsfg {
 pub struct Snapshot {
     /// Turbo, as falcond's unit state says.
     pub turbo_on: bool,
+    /// systemd could not be asked (no system bus): `turbo_on` is a guess and
+    /// nothing may be said from it.
+    pub turbo_unreadable: bool,
     /// falcond's unit failed (systemd `failed`).
     pub unit_failed: bool,
     /// falcond is installed.
@@ -319,17 +324,25 @@ pub struct Snapshot {
     pub gamescope_mode: crate::gamescope::Mode,
 }
 
+/// Turbo from falcond's unit: whether it is on, whether the unit failed,
+/// and whether systemd could not be asked at all.
+fn read_turbo() -> (bool, bool, bool) {
+    let unit =
+        crate::systemd::Reader::shared().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+    if let Some(unit) = unit {
+        return (unit.is_active(), unit.active_state == "failed", false);
+    }
+    match crate::turbo::state_blocking() {
+        Ok(state) => (state == crate::turbo::State::On, false, false),
+        Err(_) => (false, false, true),
+    }
+}
+
 impl Snapshot {
     /// Read everything. Never fails: what cannot be read is `None`.
     #[must_use]
     pub fn collect(game: Option<GameIdentity>) -> Self {
-        let unit =
-            crate::systemd::Reader::shared().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
-        let turbo_on = unit.as_ref().map_or_else(
-            || crate::turbo::state_blocking().is_ok_and(|s| s == crate::turbo::State::On),
-            crate::systemd::UnitState::is_active,
-        );
-        let unit_failed = unit.as_ref().is_some_and(|u| u.active_state == "failed");
+        let (turbo_on, unit_failed, turbo_unreadable) = read_turbo();
         let falcond = crate::status::read();
         // No `Capabilities::detect` here: it runs `gamescope --help` and
         // `systemctl`, too much for a reading taken every few seconds.
@@ -400,6 +413,7 @@ impl Snapshot {
 
         Self {
             turbo_on,
+            turbo_unreadable,
             unit_failed,
             falcond_installed: capabilities::which("falcond").is_some(),
             profile,
@@ -434,6 +448,9 @@ impl Snapshot {
     /// The headline.
     #[must_use]
     pub fn headline(&self) -> Headline {
+        if self.turbo_unreadable {
+            return Headline::TurboUnreadable;
+        }
         headline(
             self.turbo_on,
             self.unit_failed,
@@ -516,6 +533,8 @@ impl Snapshot {
     pub fn turbo_state(&self) -> State {
         if self.unit_failed {
             State::Error
+        } else if self.turbo_unreadable {
+            State::NotDetected
         } else if !self.falcond_installed {
             State::Missing
         } else if self.turbo_on {
@@ -544,7 +563,7 @@ impl Snapshot {
         let Some(p) = self.power_profile.as_deref() else {
             return State::Missing;
         };
-        if !self.turbo_on {
+        if !self.turbo_on && !self.turbo_unreadable {
             return State::Off;
         }
         match (self.game.is_some(), p) {
@@ -892,6 +911,20 @@ mod tests {
         s.wine_fsr_in_game = Some(true);
         s.ai_graphics = Some(crate::graphics::runtime::Status::Configured);
         assert_eq!(s.upscaler_conflict(), None);
+    }
+
+    #[test]
+    fn an_unreadable_turbo_is_not_reported_as_off() {
+        // No system bus: systemd cannot be asked. That is not Turbo off.
+        let s = Snapshot {
+            turbo_unreadable: true,
+            falcond_installed: true,
+            power_profile: Some("performance".into()),
+            ..Snapshot::default()
+        };
+        assert_eq!(s.headline(), Headline::TurboUnreadable);
+        assert_eq!(s.turbo_state(), State::NotDetected);
+        assert_ne!(s.power_state(), State::Off);
     }
 
     #[test]

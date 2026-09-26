@@ -349,8 +349,6 @@ fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> 
 
 /// Present the About dialog with system information.
 fn show_about_dialog(app: &adw::Application) {
-    let sys_info = collect_system_info();
-
     let dialog = adw::AboutDialog::builder()
         .application_name("BiGame-mode")
         .application_icon(APP_ID)
@@ -360,7 +358,6 @@ fn show_about_dialog(app: &adw::Application) {
         .issue_url("https://github.com/ruscher/bigamemode/issues")
         .license_type(gtk4::License::Gpl30)
         .comments(i18n("Performance tuning for Linux gaming"))
-        .debug_info(&sys_info)
         .debug_info_filename("bigame-mode-debug.txt")
         .build();
 
@@ -376,6 +373,18 @@ fn show_about_dialog(app: &adw::Application) {
             "Pacheco (System Infotech)",
         ],
     );
+
+    // The system information runs lspci and asks D-Bus: gathered on a
+    // worker and filled in when it arrives, so the dialog opens at once.
+    glib::spawn_future_local(glib::clone!(
+        #[weak]
+        dialog,
+        async move {
+            if let Ok(info) = gtk4::gio::spawn_blocking(collect_system_info).await {
+                dialog.set_debug_info(&info);
+            }
+        }
+    ));
 
     if let Some(win) = app.active_window() {
         dialog.present(Some(&win));
@@ -408,13 +417,15 @@ fn collect_system_info() -> String {
         }
     }
 
-    // GPU (DRI device)
+    // Every GPU: a hybrid machine's discrete card is not the first listed.
     if let Ok(output) = std::process::Command::new("lspci").output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
-            if line.contains("VGA") || line.contains("3D controller") {
+            if line.contains("VGA")
+                || line.contains("3D controller")
+                || line.contains("Display controller")
+            {
                 lines.push(format!("GPU: {line}"));
-                break;
             }
         }
     }

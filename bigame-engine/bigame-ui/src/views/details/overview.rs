@@ -179,6 +179,13 @@ impl Overview {
                 i18n("falcond is running but reports nothing"),
                 i18n("Its status file could not be read. See Problems below."),
             ),
+            Headline::TurboUnreadable => (
+                "dialog-warning-symbolic",
+                i18n("Turbo's state cannot be read"),
+                i18n(
+                    "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing.",
+                ),
+            ),
             Headline::FalcondFailed => (
                 "dialog-error-symbolic",
                 i18n("falcond failed"),
