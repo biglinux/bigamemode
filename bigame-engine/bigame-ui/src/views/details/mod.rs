@@ -52,6 +52,40 @@ pub(crate) fn next_poll(
     if active { focused } else { background }
 }
 
+/// Resolve once `widget` is on screen, at once if it already is.
+///
+/// The page's loops wait here while the window is hidden in the tray or
+/// another page is shown, instead of waking on a timer to find out.
+pub(crate) async fn mapped(widget: &impl IsA<gtk4::Widget>) {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::task::{Poll, Waker};
+
+    if widget.is_mapped() {
+        return;
+    }
+    let widget = widget.clone().upcast::<gtk4::Widget>();
+    let waker: Rc<RefCell<Option<Waker>>> = Rc::default();
+    let on_map = {
+        let waker = Rc::clone(&waker);
+        widget.connect_map(move |_| {
+            if let Some(w) = waker.borrow_mut().take() {
+                w.wake();
+            }
+        })
+    };
+    std::future::poll_fn(|cx| {
+        if widget.is_mapped() {
+            Poll::Ready(())
+        } else {
+            *waker.borrow_mut() = Some(cx.waker().clone());
+            Poll::Pending
+        }
+    })
+    .await;
+    widget.disconnect(on_map);
+}
+
 /// Build the Details page.
 #[must_use]
 #[allow(clippy::too_many_lines)]
@@ -138,12 +172,11 @@ pub fn build() -> gtk4::Widget {
         glib::spawn_future_local(async move {
             let mut since_slow = Duration::ZERO;
             loop {
-                if root.is_mapped() {
-                    refresh();
-                    if since_slow.is_zero() || since_slow >= SLOW_INTERVAL {
-                        slow();
-                        since_slow = Duration::from_millis(1);
-                    }
+                mapped(&root).await;
+                refresh();
+                if since_slow.is_zero() || since_slow >= SLOW_INTERVAL {
+                    slow();
+                    since_slow = Duration::from_millis(1);
                 }
                 let wait = next_poll(&root, SNAPSHOT_FOCUSED, SNAPSHOT_BACKGROUND);
                 glib::timeout_future(wait).await;
