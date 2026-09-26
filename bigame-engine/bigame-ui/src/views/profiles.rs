@@ -855,7 +855,6 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
         fg_flow_scale,
         fg_perf_mode,
         fg_hdr,
-        fg_present_model,
         fg_present_mode,
     }
 }
@@ -881,9 +880,6 @@ struct PerfWidgets {
     fg_flow_scale: adw::SpinRow,
     fg_perf_mode: adw::SwitchRow,
     fg_hdr: adw::SwitchRow,
-    /// Held to maintain `GObject` lifetime of the `ComboRow` model.
-    #[allow(dead_code)]
-    fg_present_model: gtk4::StringList,
     fg_present_mode: adw::ComboRow,
 }
 

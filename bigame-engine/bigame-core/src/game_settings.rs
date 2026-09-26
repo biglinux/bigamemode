@@ -58,6 +58,7 @@ pub fn path_in(folder: &Path, name: &str) -> Result<PathBuf> {
 ///
 /// # Errors
 /// Returns an error if `name` could name a path outside the folder.
+#[cfg(test)]
 pub fn path(name: &str) -> Result<PathBuf> {
     path_in(&dir(), name)
 }

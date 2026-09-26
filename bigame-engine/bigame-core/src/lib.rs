@@ -8,6 +8,7 @@ pub mod booster;
 pub mod capabilities;
 pub mod config;
 pub mod dbus;
+pub mod dbus_client;
 pub mod diagnostics;
 pub mod fg;
 pub mod game_settings;
@@ -61,4 +62,3 @@ pub(crate) mod tests {
         dir
     }
 }
-pub mod dbus_client;

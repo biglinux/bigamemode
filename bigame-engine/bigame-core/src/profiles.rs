@@ -504,12 +504,6 @@ fn system_path(name: &str) -> PathBuf {
     Path::new(SYSTEM_PROFILES_DIR).join(format!("{name}.conf"))
 }
 
-/// Check if a profile exists in the system directory.
-#[must_use]
-pub fn is_system_profile(name: &str) -> bool {
-    system_path(name).exists()
-}
-
 /// Export a profile to a local file (no root required).
 ///
 /// # Errors

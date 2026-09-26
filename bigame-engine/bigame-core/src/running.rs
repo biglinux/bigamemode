@@ -374,6 +374,7 @@ fn descendants<'a>(
 /// that tree the game is the busiest process that is not machinery — a
 /// launcher can briefly be the only candidate, and it is excluded by name.
 /// Wine games outside Steam are found as busy `.exe` processes under Wine.
+#[cfg(test)]
 #[must_use]
 pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
     identify_with(procs, &HashMap::new())

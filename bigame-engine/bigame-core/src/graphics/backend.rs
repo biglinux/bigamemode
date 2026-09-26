@@ -73,16 +73,6 @@ impl Backend {
         }
     }
 
-    /// A name for the UI.
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Native => N_("the game's own"),
-            Self::OptiScaler => "OptiScaler",
-            Self::AmdNeuralExternal => "DLSS-NR-on-AMD",
-        }
-    }
-
     /// Every backend, in the order pages list them.
     pub const ALL: [Self; 3] = [Self::Native, Self::OptiScaler, Self::AmdNeuralExternal];
 
@@ -214,6 +204,7 @@ pub enum Availability {
 
 impl Availability {
     /// Whether every requirement is met.
+    #[cfg(test)]
     #[must_use]
     pub fn is_available(&self) -> bool {
         matches!(self, Self::Available)
@@ -339,19 +330,6 @@ fn apis(a: &[Api]) -> String {
         .map(|x| api_name(*x))
         .collect::<Vec<_>>()
         .join(" / ")
-}
-
-/// The three jobs AI Graphics tells apart. One technology owns each job for
-/// a game; two in series is a conflict ([`super::rules`]).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Job {
-    /// Rendering below the output resolution and reconstructing the image.
-    Upscaling,
-    /// Neural post-processing of the rendered image.
-    NeuralRendering,
-    /// Presenting frames that were not rendered.
-    FrameGeneration,
 }
 
 #[cfg(test)]
