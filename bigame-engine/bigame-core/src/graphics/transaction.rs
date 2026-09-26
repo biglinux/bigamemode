@@ -80,8 +80,15 @@ pub enum FileState {
     Intact,
     /// Not there.
     Missing,
-    /// There, but different.
+    /// A binary that is there, but different: something else replaced it
+    /// (a game update, another tool).
     Changed,
+    /// A configuration file that is there, but different: its owner rewrote
+    /// it. `OptiScaler` saves its ini whenever it starts (in its own
+    /// `key = value` layout) and whenever a setting changes in its overlay,
+    /// so this is what an installed game looks like after it has run once —
+    /// not a fault, and nothing for Repair to do.
+    Edited,
 }
 
 /// Copy `src` over `target` atomically: a temporary file in the target's own
@@ -465,6 +472,44 @@ pub fn recover(state_dir: &Path) -> Result<Vec<(String, Result<Vec<FileOutcome>>
     Ok(done)
 }
 
+/// Hashes [`verify`] computed, by path, with the file's size, modification
+/// time and inode when it was hashed.
+type HashCache = std::collections::HashMap<PathBuf, (u64, std::time::SystemTime, u64, String)>;
+
+static VERIFY_HASHES: std::sync::Mutex<Option<HashCache>> = std::sync::Mutex::new(None);
+
+/// [`hash_if_present`] for status reads, remembered while the file's size,
+/// modification time and inode stay the same.
+///
+/// The status of an installed game is read every few seconds (Home, Details)
+/// and each read checked every placed file; the `OptiScaler` DLL and AMD's
+/// FSR runtime alone are 55 MB, hashed again on every read. A file replaced
+/// or rewritten gets a new inode or modification time, so it is hashed
+/// again. The transaction's own checks never use this: they hash every time.
+fn hash_for_status(path: &Path) -> Result<Option<String>> {
+    use std::os::unix::fs::MetadataExt;
+    let meta = match std::fs::symlink_metadata(path) {
+        Ok(m) if m.file_type().is_symlink() => bail!("{} is a symlink", path.display()),
+        Ok(m) if !m.is_file() => bail!("{} is not a regular file", path.display()),
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+    let key = (meta.len(), meta.modified()?, meta.ino());
+    let mut cache = VERIFY_HASHES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let cache = cache.get_or_insert_with(HashCache::new);
+    if let Some((len, modified, ino, hash)) = cache.get(path) {
+        if (*len, *modified, *ino) == key {
+            return Ok(Some(hash.clone()));
+        }
+    }
+    let hash = sha256_file(path)?;
+    cache.insert(path.to_path_buf(), (key.0, key.1, key.2, hash.clone()));
+    Ok(Some(hash))
+}
+
 /// Check every file of `m` against what was placed.
 #[must_use]
 pub fn verify(m: &Manifest) -> Vec<(PathBuf, FileState)> {
@@ -473,10 +518,11 @@ pub fn verify(m: &Manifest) -> Vec<(PathBuf, FileState)> {
         .map(|e| {
             let state = resolve_inside(&m.install_root, &e.path)
                 .ok()
-                .and_then(|t| hash_if_present(&t).ok())
+                .and_then(|t| hash_for_status(&t).ok())
                 .map_or(FileState::Missing, |h| match h {
                     None => FileState::Missing,
                     Some(h) if h == e.sha256 => FileState::Intact,
+                    Some(_) if e.kind == FileKind::Config => FileState::Edited,
                     Some(_) => FileState::Changed,
                 });
             (e.path.clone(), state)
@@ -803,6 +849,23 @@ mod tests {
         assert!(m.generated.is_empty());
         remove(&fx.state, "g").unwrap();
         assert_eq!(read(&fx.game.join("OptiScaler.log")), b"someone else's");
+    }
+
+    #[test]
+    fn a_file_rewritten_after_a_status_read_is_hashed_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("dxgi.dll");
+        std::fs::write(&f, b"one").unwrap();
+        let first = hash_for_status(&f).unwrap().unwrap();
+        assert_eq!(hash_for_status(&f).unwrap().unwrap(), first, "remembered");
+        // Replaced the way a tool or a game update replaces a file: a new
+        // file renamed over it (new inode), same size.
+        let tmp = dir.path().join("new");
+        std::fs::write(&tmp, b"two").unwrap();
+        std::fs::rename(&tmp, &f).unwrap();
+        assert_ne!(hash_for_status(&f).unwrap().unwrap(), first);
+        std::fs::remove_file(&f).unwrap();
+        assert!(hash_for_status(&f).unwrap().is_none());
     }
 
     #[test]

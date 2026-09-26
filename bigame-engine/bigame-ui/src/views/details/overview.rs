@@ -247,12 +247,10 @@ impl Overview {
                 .and_then(|g| g.render_card.clone())
                 .or_else(|| self.expected_gpu.clone());
             let name = card.as_ref().and_then(|c| self.gpu_names.get(c)).cloned();
+            // A running game renders somewhere: on the card it opened, or,
+            // before it has submitted work, on the one games are expected on.
             c.set(
-                if game && snap.game.as_ref().is_some_and(|g| g.render_card.is_some()) {
-                    State::Active
-                } else {
-                    State::Waiting
-                },
+                if game { State::Active } else { State::Waiting },
                 Some(name.as_deref().unwrap_or("—")),
             );
         }
@@ -275,7 +273,13 @@ impl Overview {
 pub(crate) fn upscaling_summary(snap: &Snapshot) -> (State, Option<String>) {
     use bigame_core::graphics::runtime::Status;
     if let Some(Status::Active { upscaler, .. }) = &snap.ai_graphics {
-        return (State::Active, Some(format!("OptiScaler {upscaler}")));
+        if snap.upscaler_conflict().is_some() {
+            return (State::NotDetected, Some(i18n("Two in series")));
+        }
+        return (
+            State::Active,
+            Some(format!("OptiScaler {}", upscaler_name(upscaler))),
+        );
     }
     let gamescope_scales =
         snap.video.upscaling.base_width > 0 && snap.video.upscaling.gamescope_enabled;
@@ -287,6 +291,17 @@ pub(crate) fn upscaling_summary(snap: &Snapshot) -> (State, Option<String>) {
         return (snap.gamescope_state(), Some("Gamescope".to_owned()));
     }
     (State::Off, None)
+}
+
+/// `OptiScaler`'s backend id (`fsr31`, `fsr31_12`, `xess`, `dlss`) as
+/// people know it.
+fn upscaler_name(id: &str) -> &'static str {
+    match id {
+        i if i.starts_with("fsr") => "FSR",
+        i if i.starts_with("xess") => "XeSS",
+        i if i.starts_with("dlss") => "DLSS",
+        _ => "",
+    }
 }
 
 /// One state for frame generation: `OptiScaler`'s, then lsfg-vk.

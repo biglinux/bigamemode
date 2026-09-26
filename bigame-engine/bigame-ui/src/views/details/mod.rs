@@ -73,7 +73,7 @@ pub fn build() -> gtk4::Widget {
     let performance = performance::Performance::new(&hw);
     page.add(performance.group());
 
-    let pipeline = pipeline::Pipeline::new();
+    let pipeline = pipeline::Pipeline::new(&hw);
     page.add(pipeline.header_group());
     page.add(pipeline.group());
 

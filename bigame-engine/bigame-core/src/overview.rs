@@ -556,6 +556,33 @@ impl Snapshot {
         }
     }
 
+    /// A second upscaler seen in the running game next to `OptiScaler`'s.
+    ///
+    /// BiGame-mode's own launches turn Wine FSR and Gamescope's scaling off
+    /// for a game with AI Graphics, but a game started by Steam gets Steam's
+    /// launch options and the session environment: `WINE_FULLSCREEN_FSR=1`
+    /// there puts Wine's upscaler in series with `OptiScaler`'s.
+    #[must_use]
+    pub fn upscaler_conflict(&self) -> Option<UpscalerConflict> {
+        let ai_active = matches!(
+            self.ai_graphics,
+            Some(crate::graphics::runtime::Status::Active { .. })
+        );
+        if !ai_active {
+            return None;
+        }
+        if self.wine_fsr_in_game == Some(true) {
+            return Some(if self.video.upscaling.wine_fsr_enabled {
+                UpscalerConflict::WineFsrFromTuning
+            } else {
+                UpscalerConflict::WineFsrFromElsewhere
+            });
+        }
+        let gamescope_scales = self.in_game.as_ref().is_some_and(|g| g.gamescope)
+            && self.video.upscaling.base_width > 0;
+        gamescope_scales.then_some(UpscalerConflict::GamescopeScaling)
+    }
+
     /// Every state that needs attention, for the overview's count.
     #[must_use]
     pub fn attention_count(&self) -> usize {
@@ -574,7 +601,21 @@ impl Snapshot {
         .iter()
         .filter(|s| s.needs_attention())
         .count()
+            + usize::from(self.upscaler_conflict().is_some())
     }
+}
+
+/// Two upscalers in series in the running game, and where the second came
+/// from — which says where to turn it off.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpscalerConflict {
+    /// Wine FSR, switched on in Tuning (the session environment).
+    WineFsrFromTuning,
+    /// Wine FSR, from outside BiGame-mode: Steam's launch options for the
+    /// game, most often.
+    WineFsrFromElsewhere,
+    /// Gamescope rendering below its output.
+    GamescopeScaling,
 }
 
 #[cfg(test)]
@@ -819,6 +860,40 @@ mod tests {
         };
         assert_eq!(s.turbo_state(), State::Off);
         assert_eq!(s.falcond_state(), State::Off);
+    }
+
+    #[test]
+    fn wine_fsr_next_to_optiscaler_is_a_conflict_and_says_where_it_came_from() {
+        let active = crate::graphics::runtime::Status::Active {
+            upscaler: "fsr31".into(),
+            version: None,
+            fsr4: None,
+            fsr_generation: None,
+        };
+        let mut s = Snapshot {
+            ai_graphics: Some(active.clone()),
+            wine_fsr_in_game: Some(true),
+            ..Snapshot::default()
+        };
+        // Seen on the reference desktop: Steam's launch options for Shadow
+        // of the Tomb Raider carry WINE_FULLSCREEN_FSR=1.
+        assert_eq!(
+            s.upscaler_conflict(),
+            Some(UpscalerConflict::WineFsrFromElsewhere)
+        );
+        s.video.upscaling.wine_fsr_enabled = true;
+        assert_eq!(
+            s.upscaler_conflict(),
+            Some(UpscalerConflict::WineFsrFromTuning)
+        );
+        let with = s.attention_count();
+        s.wine_fsr_in_game = Some(false);
+        assert_eq!(s.upscaler_conflict(), None);
+        assert_eq!(with - s.attention_count(), 1, "the conflict counts once");
+        // No OptiScaler upscaling: Wine FSR alone is not a conflict.
+        s.wine_fsr_in_game = Some(true);
+        s.ai_graphics = Some(crate::graphics::runtime::Status::Configured);
+        assert_eq!(s.upscaler_conflict(), None);
     }
 
     #[test]

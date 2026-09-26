@@ -129,9 +129,11 @@ pub fn status(
     let Some(m) = manifest else {
         return Status::NotInstalled;
     };
+    // A config its owner rewrote is not a fault: OptiScaler saves its ini on
+    // every start. Only a missing file or a replaced binary is.
     let changed: Vec<PathBuf> = verify(m)
         .into_iter()
-        .filter(|(_, s)| *s != FileState::Intact)
+        .filter(|(_, s)| matches!(s, FileState::Missing | FileState::Changed))
         .map(|(p, _)| p)
         .collect();
     let Some((pid, exe_dir, age)) = running else {
@@ -284,6 +286,58 @@ mod tests {
         assert_eq!(status(None, None, NO_MAPS, NO_LOG), Status::NotInstalled);
         assert_eq!(status(Some(&m), None, NO_MAPS, NO_LOG), Status::Configured);
         std::fs::remove_file(dir.path().join("dxgi.dll")).unwrap();
+        assert_eq!(
+            status(Some(&m), None, NO_MAPS, NO_LOG),
+            Status::FilesChanged {
+                files: vec!["dxgi.dll".into()]
+            }
+        );
+    }
+
+    #[test]
+    fn an_ini_optiscaler_rewrote_is_not_a_changed_file() {
+        use crate::graphics::transaction::{Game, PlannedFile, apply};
+        let dir = tempfile::tempdir().unwrap();
+        let (state, game) = (dir.path().join("state"), dir.path().join("game"));
+        std::fs::create_dir_all(&game).unwrap();
+        let ini = dir.path().join("OptiScaler.ini");
+        std::fs::write(&ini, "[Upscalers]\nDx12Upscaler=fsr31\n").unwrap();
+        let dxgi = dir.path().join("dxgi");
+        std::fs::write(&dxgi, b"optiscaler").unwrap();
+        let m = apply(
+            &state,
+            &Game {
+                key: "steam-1",
+                root: &game,
+                process: Some("Game.exe"),
+                title: None,
+            },
+            crate::graphics::manifest::Source::default(),
+            &[
+                PlannedFile {
+                    path: "OptiScaler.ini".into(),
+                    source: ini,
+                    kind: crate::graphics::manifest::FileKind::Config,
+                },
+                PlannedFile {
+                    path: "dxgi.dll".into(),
+                    source: dxgi,
+                    kind: crate::graphics::manifest::FileKind::Binary,
+                },
+            ],
+            &[],
+        )
+        .unwrap();
+        // What OptiScaler writes on its first start: the same settings in
+        // its own layout.
+        std::fs::write(
+            game.join("OptiScaler.ini"),
+            "[Upscalers]\nDx12Upscaler = fsr31\n",
+        )
+        .unwrap();
+        assert_eq!(status(Some(&m), None, NO_MAPS, NO_LOG), Status::Configured);
+        // A replaced binary still is.
+        std::fs::write(game.join("dxgi.dll"), b"another tool").unwrap();
         assert_eq!(
             status(Some(&m), None, NO_MAPS, NO_LOG),
             Status::FilesChanged {

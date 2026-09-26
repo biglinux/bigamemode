@@ -304,6 +304,35 @@ impl Problems {
             (snap.mangohud_state() == State::Missing).then_some("sudo pacman -S mangohud"),
         );
 
+        if let Some(conflict) = snap.upscaler_conflict() {
+            use bigame_core::overview::UpscalerConflict;
+            let (detail, command) = match conflict {
+                UpscalerConflict::WineFsrFromTuning => (
+                    i18n(
+                        "Wine FSR and OptiScaler both upscale this game: two upscalers in series. Turn Wine FSR off in Tuning → Upscaling and sharpening, then restart Steam and the game.",
+                    ),
+                    None,
+                ),
+                UpscalerConflict::WineFsrFromElsewhere => (
+                    i18n(
+                        "Wine FSR and OptiScaler both upscale this game: two upscalers in series. WINE_FULLSCREEN_FSR=1 does not come from BiGame-mode: remove it from the game's launch options in Steam (Properties → Launch options).",
+                    ),
+                    None,
+                ),
+                UpscalerConflict::GamescopeScaling => (
+                    i18n(
+                        "Gamescope renders below its output and OptiScaler upscales too: two upscalers in series. Set Gamescope's render size to 0 in Tuning, or turn Gamescope off for this game.",
+                    ),
+                    None::<&str>,
+                ),
+            };
+            findings.push((
+                i18n("Two upscalers in series"),
+                detail,
+                Class::NeedsYou,
+                command.map(str::to_owned),
+            ));
+        }
         self.counts.borrow_mut().0 = findings.len();
         for (title, detail, class, command) in findings {
             let row = problem_row(&title, &detail, class, command.as_deref());

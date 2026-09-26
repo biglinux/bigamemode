@@ -220,6 +220,10 @@ fn render(page: &Rc<Page>, a: &Analysis) {
         i18n(
             "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back.",
         )
+    } else if a.pending_changes {
+        i18n(
+            "Your choice differs from what is installed. Apply changes puts the game's own files back and installs this instead.",
+        )
     } else if r.installed.is_some() {
         i18n("What BiGame-mode installed for this game. Restore puts the game's own files back.")
     } else {
@@ -290,14 +294,16 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     // ── Buttons ──────────────────────────────────────────────────────
     let installed = r.installed.is_some();
     let option_set = bigame_core::graphics::fsr4_upgrade::is_enabled(page.target.app_id.as_deref());
-    page.apply
-        .set_visible(!installed && (p.optiscaler.is_some() || p.native_action.is_some()));
-    page.apply
-        .set_label(&if p.native_action.is_some() && p.optiscaler.is_none() {
-            i18n("Add the launch option")
-        } else {
-            i18n("Apply")
-        });
+    page.apply.set_visible(
+        a.pending_changes || !installed && (p.optiscaler.is_some() || p.native_action.is_some()),
+    );
+    page.apply.set_label(&if a.pending_changes {
+        i18n("Apply changes")
+    } else if p.native_action.is_some() && p.optiscaler.is_none() {
+        i18n("Add the launch option")
+    } else {
+        i18n("Apply")
+    });
     page.repair.set_visible(installed);
     page.remove.set_visible(installed || option_set);
     page.remove.set_label(&if !installed && option_set {
@@ -376,6 +382,17 @@ fn upscaling_now(a: &Analysis) -> String {
 /// Which frame generation the game is left with, and what the running game
 /// shows.
 fn frame_gen_text(a: &Analysis) -> String {
+    // Installed, the files decide what runs, not the choice below: it
+    // applies only with Apply changes.
+    match a.installed_frame_generation {
+        Some(true) => {
+            return i18n(
+                "OptiScaler (experimental): more frames shown, not rendered, and more latency",
+            );
+        }
+        Some(false) if a.plan.frame_generation == FrameGenPlan::OptiScaler => return i18n("Off"),
+        _ => {}
+    }
     match a.plan.frame_generation {
         FrameGenPlan::Off => i18n("Off"),
         FrameGenPlan::Native => i18n("The game's own, as set in its menu"),
@@ -394,9 +411,9 @@ fn frame_gen_text(a: &Analysis) -> String {
 #[allow(clippy::too_many_lines)]
 fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Neural rendering"));
+    group.set_title(&i18n("Neural rendering (optional)"));
     group.set_description(Some(&i18n(
-        "A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project BiGame-mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton.",
+        "Not needed for the upscaling above. A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project BiGame-mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton.",
     )));
     let badge = gtk4::Label::new(Some(&i18n("Experimental")));
     badge.add_css_class("warning");
@@ -410,9 +427,10 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
     group.add(&backend_row);
 
     let (status, class) = match &a.neural {
-        external::Status::Unavailable { .. } => {
-            (i18n("Not available on this computer"), "dim-label")
-        }
+        external::Status::Unavailable { .. } => (
+            i18n("Not available here — optional, nothing is wrong"),
+            "dim-label",
+        ),
         external::Status::NotInstalled => (i18n("Available — not installed"), "accent"),
         external::Status::Installed { .. } => (
             i18n("Installed by you — not verified until the game runs"),
@@ -441,7 +459,7 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
     match &a.neural {
         external::Status::Unavailable { missing } => {
             let exp = adw::ExpanderRow::builder()
-                .title(i18n("Missing"))
+                .title(i18n("Why it is not available"))
                 .subtitle(
                     missing
                         .iter()
@@ -1186,7 +1204,11 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 let cfg = page.cfg.borrow().clone();
                 let result = gio::spawn_blocking(move || {
                     let a = graphics::analyze(&target, &cfg);
-                    graphics::install(&target, &a.plan, &cfg.version)
+                    if a.pending_changes {
+                        graphics::reinstall(&target, &a.plan, &cfg.version)
+                    } else {
+                        graphics::install(&target, &a.plan, &cfg.version)
+                    }
                 })
                 .await;
                 busy(&page, None);
@@ -1212,8 +1234,8 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                             Some(Applied::AlreadyOn(_)) | None => files,
                         }
                     }
-                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Nothing was changed")),
-                    Err(_) => i18n("Nothing was changed"),
+                    Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not apply")),
+                    Err(_) => i18n("Could not apply"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
                 refresh(&page);
@@ -1348,5 +1370,21 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
     }
 
     refresh(&page);
+    // The game starting or closing changes what the page says (Current,
+    // the status, Diagnose): read it again while the page is open. The
+    // listener holds the page weakly, so a closed page is not kept alive,
+    // and it skips the call subscribe makes at once (refreshed just above).
+    {
+        let weak = Rc::downgrade(&page);
+        let first = std::cell::Cell::new(true);
+        crate::game_watch::subscribe(move |_| {
+            if first.replace(false) {
+                return;
+            }
+            if let Some(page) = weak.upgrade().filter(|p| p.body.is_mapped()) {
+                refresh(&page);
+            }
+        });
+    }
     dialog.present(Some(parent));
 }

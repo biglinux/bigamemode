@@ -49,6 +49,8 @@ pub struct Pipeline {
     /// The last snapshot, for the AI row's body to be rebuilt with the
     /// installs.
     last: Rc<RefCell<Option<Snapshot>>>,
+    /// GPU names by DRM card, read once.
+    gpu_names: Rc<std::collections::HashMap<String, String>>,
 }
 
 const STAGES: &[(&str, &str, &str)] = &[
@@ -69,7 +71,7 @@ impl Pipeline {
     /// Build the group.
     #[must_use]
     #[allow(clippy::too_many_lines)]
-    pub fn new() -> Self {
+    pub fn new(hw: &bigame_core::hardware::Hardware) -> Self {
         let header = adw::PreferencesGroup::new();
         header.set_title(&i18n("Video pipeline"));
         header.set_description(Some(&i18n(
@@ -192,6 +194,13 @@ impl Pipeline {
             ai,
             ai_installs: Rc::new(RefCell::new(Vec::new())),
             last: Rc::new(RefCell::new(None)),
+            gpu_names: Rc::new(
+                bigame_core::graphics::report::gpu_infos(hw, None)
+                    .0
+                    .into_iter()
+                    .map(|g| (g.card, bigame_core::graphics::report::display_name(&g.name)))
+                    .collect(),
+            ),
         }
     }
 
@@ -248,7 +257,11 @@ impl Pipeline {
                 facts.push(g.graphics.label().to_owned());
             }
             if let Some(card) = &g.render_card {
-                facts.push(i18n("renders on %s").replace("%s", card));
+                let name = self
+                    .gpu_names
+                    .get(card)
+                    .map_or(card.as_str(), String::as_str);
+                facts.push(i18n("renders on %s").replace("%s", name));
             }
             if let Some(secs) = bigame_core::running::running_for(g.pid) {
                 facts.push(format!(
@@ -349,11 +362,25 @@ impl Pipeline {
 
         // ── Wine FSR ────────────────────────────────────────────────────
         let wf = snap.wine_fsr_state();
-        self.wine_fsr.set_state(
-            wf,
-            None,
-            &stage_line(wf, &i18n("in the game's environment")),
-        );
+        if matches!(
+            snap.upscaler_conflict(),
+            Some(
+                bigame_core::overview::UpscalerConflict::WineFsrFromElsewhere
+                    | bigame_core::overview::UpscalerConflict::WineFsrFromTuning
+            )
+        ) {
+            self.wine_fsr.set_state(
+                State::NotDetected,
+                Some(&i18n("In series")),
+                &i18n("In the game next to OptiScaler: two upscalers in series"),
+            );
+        } else {
+            self.wine_fsr.set_state(
+                wf,
+                None,
+                &stage_line(wf, &i18n("in the game's environment")),
+            );
+        }
         let mut body = Body::new()
             .fact(
                 &i18n("Configured"),
@@ -373,10 +400,23 @@ impl Pipeline {
                 "The variable is written to ~/.config/environment.d and pushed into the session, but a launcher that was already running (Steam) keeps its old environment: close and reopen Steam, then start the game again.",
             ));
         }
-        if snap.ai_graphics.is_some() {
-            body = body.note(&i18n(
-                "This game has AI Graphics installed: Wine FSR is turned off for its launch, so two upscalers never run in series.",
-            ));
+        match snap.upscaler_conflict() {
+            Some(bigame_core::overview::UpscalerConflict::WineFsrFromElsewhere) => {
+                body = body.note(&i18n(
+                    "OptiScaler upscales this game too: two upscalers in series. The variable does not come from BiGame-mode — it is in the game's launch options in Steam, or in your environment. Remove it there.",
+                ));
+            }
+            Some(bigame_core::overview::UpscalerConflict::WineFsrFromTuning) => {
+                body = body.note(&i18n(
+                    "OptiScaler upscales this game too: two upscalers in series. Turn Wine FSR off in Tuning; BiGame-mode's own launches already leave it off for this game.",
+                ));
+            }
+            _ if snap.ai_graphics.is_some() => {
+                body = body.note(&i18n(
+                    "This game has AI Graphics installed: Wine FSR is turned off for its launch from BiGame-mode, so two upscalers never run in series.",
+                ));
+            }
+            _ => {}
         }
         body = body.note(&i18n(
             "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment.",
