@@ -153,9 +153,12 @@ fn build_advanced_group() -> adw::PreferencesGroup {
 /// Write the shared config through the privileged helper, on a background thread.
 fn save_config(shared: &SharedConfig) {
     let cfg = shared.borrow().clone();
+    // Not awaited here: zbus runs on Tokio, and the main thread has no runtime.
     glib::spawn_future_local(async move {
-        if let Err(e) = bigame_core::config::write(&cfg).await {
-            tracing::error!("config write failed: {e}");
+        match gio::spawn_blocking(move || bigame_core::config::write_blocking(&cfg)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::error!("config write failed: {e:#}"),
+            Err(_) => tracing::error!("config write failed: the worker thread panicked"),
         }
     });
 }
