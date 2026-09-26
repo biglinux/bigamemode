@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::i18n::i18n;
+use crate::i18n::{error_text, i18n};
 use crate::settings;
 use crate::views;
 use crate::widgets;
@@ -343,9 +343,9 @@ pub fn build(
                     .await;
                     let message = match (falcond, gamescope) {
                         (Ok(Ok(())), Ok(())) => i18n("Default settings restored"),
-                        (Ok(Err(e)), _) => format!("{}: {e:#}", i18n("Could not restore falcond's settings")),
+                        (Ok(Err(e)), _) => format!("{}: {}", i18n("Could not restore falcond's settings"), error_text(&e)),
                         (Err(_), _) => i18n("Could not restore falcond's settings"),
-                        (_, Err(e)) => format!("{}: {e:#}", i18n("Could not restore Gamescope's settings")),
+                        (_, Err(e)) => format!("{}: {}", i18n("Could not restore Gamescope's settings"), error_text(&e)),
                     };
                     overlay3.add_toast(adw::Toast::new(&message));
                 });

@@ -22,7 +22,7 @@ use bigame_core::booster::BoosterEngine;
 use bigame_core::booster::measure::{Arm, MeasureProgress, MeasurementPlan};
 use bigame_core::text::Text;
 
-use crate::i18n::{i18n, tr};
+use crate::i18n::{error_text, i18n, tr};
 
 /// Seconds of frametime recorded per run.
 const CAPTURE_SECONDS: u32 = 20;
@@ -196,7 +196,7 @@ fn spawn_worker(tx: mpsc::Sender<Event>, command: Vec<String>) {
                         .iter()
                         .map(bigame_core::booster::report::Outcome::describe_text)
                         .collect()),
-                    Err(e) => Err(format!("{e:#}")),
+                    Err(e) => Err(error_text(&e)),
                 };
                 let _ = tx.send(Event::Done(Box::new(payload)));
             });

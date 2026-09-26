@@ -10,7 +10,7 @@ use std::rc::Rc;
 use adw::prelude::*;
 use libadwaita as adw;
 
-use crate::i18n::i18n;
+use crate::i18n::{error_text, i18n};
 use bigame_core::profiles::GameProfile;
 
 const STEPS: usize = 9;
@@ -565,7 +565,7 @@ fn open_internal(
                             tracing::warn!(error = %format!("{e:#}"), "wizard profile not saved");
                             crate::widgets::toast::show(
                                 &next_btn_ref,
-                                &i18n("Could not save: %s").replace("%s", &format!("{e:#}")),
+                                &i18n("Could not save: %s").replace("%s", &error_text(&e)),
                             );
                             next_btn_ref.set_sensitive(true);
                             next_btn_ref.set_label(&i18n("Save Profile"));
