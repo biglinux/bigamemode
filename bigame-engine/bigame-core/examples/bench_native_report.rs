@@ -93,18 +93,29 @@ fn gpu_summary(csv: &Path) -> Option<GpuSummary> {
 }
 
 fn read_run(dir: &Path) -> Result<Option<Run>> {
-    let Some(frametimes) = std::fs::read_dir(dir)?
+    // A Crystal Dynamics frame log beside the summary, or a Cyberpunk 2077
+    // `benchmark_*` folder copied whole (frames.csv and summary.json).
+    let entries: Vec<PathBuf> = std::fs::read_dir(dir)?
         .flatten()
         .map(|e| e.path())
-        .find(|p| p.to_string_lossy().contains("_frametimes_"))
-    else {
-        return Ok(None);
+        .collect();
+    let crystal = entries
+        .iter()
+        .find(|p| p.to_string_lossy().contains("_frametimes_"));
+    let cyberpunk = entries.iter().find(|p| {
+        p.is_dir()
+            && p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("benchmark_"))
+    });
+    let (native, source) = match (crystal, cyberpunk) {
+        (Some(f), _) => (native::read_crystal(f)?, f.clone()),
+        (None, Some(d)) => (native::read_cyberpunk(d)?, d.clone()),
+        (None, None) => return Ok(None),
     };
-    let native = native::read_crystal(&frametimes)?;
     let stats = native
         .capture
         .stats()
-        .with_context(|| format!("{}: too few frames", frametimes.display()))?;
+        .with_context(|| format!("{}: too few frames", source.display()))?;
     Ok(Some(Run {
         name: dir
             .file_name()
@@ -417,6 +428,7 @@ fn main() -> Result<()> {
                 optiscaler_version: matches!(setup, Setup::OptiScaler { .. })
                     .then(|| optiscaler.clone())
                     .flatten(),
+                frames: bigame_core::graphics::outcomes::Frames::Rendered,
                 setup,
                 resolution: resolution.clone(),
                 avg_fps: arms[&arm].iter().map(|r| r.stats.avg_fps).collect(),

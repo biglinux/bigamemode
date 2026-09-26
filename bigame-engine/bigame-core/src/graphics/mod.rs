@@ -6,7 +6,11 @@
 //! game*: which upscaler and frame generator it uses, and any DLL or config
 //! file BiGame-mode places in its folder to get there.
 
+pub mod backend;
 pub mod config;
+pub mod diagnose;
+pub mod external;
+pub mod fsr4_upgrade;
 pub mod gamedb;
 pub mod manifest;
 pub mod optiscaler;
@@ -165,8 +169,12 @@ pub struct Analysis {
     pub report: report::Report,
     /// What would be done.
     pub plan: plan::Plan,
-    /// What is happening now.
+    /// What `OptiScaler` is doing now.
     pub status: runtime::Status,
+    /// What the game's own graphics path is doing now.
+    pub native: runtime::NativeRuntime,
+    /// Where neural rendering stands.
+    pub neural: external::Status,
 }
 
 /// The running game, when it is `target`.
@@ -183,6 +191,7 @@ fn launch_context(
     let video = crate::video_config::load();
     let cache = optiscaler::cache_dir();
     plan::Context {
+        fsr4_upgrade: fsr4_upgrade::is_enabled(target.app_id.as_deref()),
         gamescope_upscaling: video.upscaling.gamescope_enabled && video.upscaling.base_width > 0,
         wine_fsr: video.upscaling.wine_fsr_enabled,
         lsfg: crate::fg::is_active_for_game(&target.process),
@@ -202,6 +211,20 @@ fn launch_context(
     }
 }
 
+/// The Proton prefix of a Steam game: `compatdata/<appid>/pfx` in the
+/// library that holds its install folder (a stale prefix in another library
+/// is not the one the game writes to).
+#[must_use]
+pub fn proton_prefix(target: &Target) -> Option<PathBuf> {
+    let id = target.app_id.as_deref()?;
+    let steamapps = target
+        .install_root
+        .ancestors()
+        .find(|a| a.file_name().is_some_and(|n| n == "steamapps"))?;
+    let prefix = steamapps.join("compatdata").join(id).join("pfx");
+    prefix.is_dir().then_some(prefix)
+}
+
 /// Scan, report, plan and status for `target` — reads only.
 ///
 /// Scanning is bounded ([`scan`]) and takes milliseconds, but it reads the
@@ -216,6 +239,13 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         .ok()
         .flatten();
     let hw = crate::hardware::Hardware::detect();
+    // The running game's prefix first; a prefix the launcher's records name
+    // that is not a real prefix (stale, or the wrong library) falls through.
+    let proton = running
+        .as_ref()
+        .and_then(|g| g.compatdata_path.as_deref())
+        .and_then(report::proton_info)
+        .or_else(|| proton_prefix(target).and_then(|p| report::proton_info(&p)));
     let report = report::build(
         &target.name,
         target.app_id.as_deref(),
@@ -223,6 +253,7 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         running.as_ref(),
         &hw,
         installed.clone(),
+        proton,
     )
     .with_listing(
         gamedb::GameDb::load()
@@ -232,12 +263,32 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
     let gpu = report.gpu().map(|g| g.name.clone());
     let plan = plan::plan(&report, cfg, &launch_context(target, cfg, gpu.as_deref()));
     let status = status_of(installed.as_ref(), running.as_ref(), &scanned);
-    tracing::info!(target: "graphics", game = %target.process, standing = ?plan.standing,
-        summary = %plan.summary, "graphics plan generated");
+    let maps = |pid: u32| std::fs::read_to_string(format!("/proc/{pid}/maps")).ok();
+    let live_maps = running.as_ref().and_then(|g| maps(g.pid));
+    let mut native = runtime::native_runtime(live_maps.as_deref());
+    native.fsr4_upgrade_env = running
+        .as_ref()
+        .and_then(|g| fsr4_upgrade::in_environment(g.pid));
+    let exe_dir = scanned
+        .executable_dir()
+        .unwrap_or_else(|| scanned.root.clone());
+    let live = running
+        .as_ref()
+        .and_then(|g| runtime::process_age(g.pid).map(|age| (g.pid, exe_dir.as_path(), age)));
+    let neural = external::status(&report, live, &maps, &external::fresh_log);
+    tracing::info!(target: "graphics", game = %target.process, backend = plan.backend.id(),
+        standing = ?plan.standing, summary = %plan.summary,
+        frame_generation = ?plan.frame_generation, "graphics plan generated");
+    tracing::info!(target: "graphics", game = %target.process, gpu = gpu.as_deref().unwrap_or("?"),
+        api = ?report.api.api, translation = report.api.translation.unwrap_or("-"),
+        native_fsr4 = report.native_fsr4_path(), neural = ?std::mem::discriminant(&neural),
+        "graphics backend selection");
     Analysis {
         report,
         plan,
         status,
+        native,
+        neural,
     }
 }
 
@@ -329,6 +380,49 @@ pub fn status_running(game: &crate::running::GameIdentity) -> Option<runtime::St
         &|pid| std::fs::read_to_string(format!("/proc/{pid}/maps")).ok(),
         &runtime::fresh_log,
     ))
+}
+
+/// What the running game's own graphics path shows, cheaply enough for
+/// Home's refresh: `Some(true)` when the game ships AMD's `FidelityFX` API and
+/// has Proton's FSR 4 provider mapped (its FSR path runs FSR 4),
+/// `Some(false)` when it ships the API on an RDNA 4 card but runs without the
+/// provider, `None` when the question does not arise.
+#[must_use]
+pub fn native_fsr4_running(game: &crate::running::GameIdentity) -> Option<bool> {
+    let root = game.install_path.as_ref()?;
+    // The executable's folder: where a Steam game keeps its runtimes.
+    let exe_dir = crate::games::detect_all()
+        .into_iter()
+        .find(|g| g.install_path.as_deref() == Some(root.as_path()))
+        .and_then(|_| {
+            let s = scan::scan(root, Some(&game.process_name));
+            s.executable_dir()
+        })
+        .unwrap_or_else(|| root.clone());
+    if !exe_dir.join("amd_fidelityfx_dx12.dll").is_file() {
+        return None;
+    }
+    let hw = crate::hardware::Hardware::detect();
+    let rdna4 = game
+        .render_card
+        .as_deref()
+        .and_then(|c| hw.gpus.iter().find(|g| g.card == c))
+        .or_else(|| hw.render_gpu())
+        .is_some_and(|g| {
+            g.vendor == crate::hardware::GpuVendor::Amd
+                && report::rdna_generation(
+                    &report::pci_name(
+                        &std::fs::read_to_string("/usr/share/hwdata/pci.ids").unwrap_or_default(),
+                        &g.pci_id,
+                    )
+                    .unwrap_or_default(),
+                ) == Some(4)
+        });
+    if !rdna4 {
+        return None;
+    }
+    let maps = std::fs::read_to_string(format!("/proc/{}/maps", game.pid)).ok()?;
+    runtime::native_runtime(Some(&maps)).fsr4_provider_loaded
 }
 
 /// Whether `target` is running now.

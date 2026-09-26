@@ -1,6 +1,6 @@
 //! A support report for one game's AI Graphics: a zip with what was found,
-//! what was planned, what was placed, and the logs that say what happened —
-//! and nothing else.
+//! what was planned, what was placed, what the running game loaded, the
+//! diagnosis, and the logs that say what happened — and nothing else.
 //!
 //! Every text file in it has the home folder, user name and host name
 //! replaced ([`crate::logs::redact`]). Environment variables, Steam's
@@ -59,6 +59,8 @@ impl Masks {
 
 /// What goes into the report, as `(file name, contents)` — separated from
 /// writing the zip so the redaction can be tested.
+// One file after another; splitting it would hide what the report holds.
+#[allow(clippy::too_many_lines)]
 fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String, String)>> {
     let mut files = Vec::new();
     let mut readme = String::new();
@@ -72,10 +74,91 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
         "\nHome folder, user and host names are replaced in every file."
     );
     files.push(("README.txt".into(), readme));
+    // The machine, as the diagnostics page describes it: no host name, user
+    // or address is in it.
+    let hw = crate::hardware::Hardware::detect();
+    let (gpus, render) = super::report::gpu_infos(&hw, None);
+    let mut system = String::new();
+    let _ = writeln!(system, "kernel: {}", hw.kernel);
+    let _ = writeln!(system, "cpu: {}", hw.cpu.model);
+    for (i, g) in gpus.iter().enumerate() {
+        let _ = writeln!(
+            system,
+            "gpu: {} · {} · {} · {}{}",
+            g.card,
+            g.name,
+            g.family().label(),
+            g.userspace.clone().unwrap_or_else(|| g.driver.clone()),
+            if Some(i) == render {
+                " · games render here"
+            } else {
+                ""
+            }
+        );
+    }
+    files.push(("system.txt".into(), system));
     files.push((
         "report.json".into(),
         serde_json::to_string_pretty(&a.report)?,
     ));
+    files.push((
+        "diagnose.txt".into(),
+        super::diagnose::render(&super::diagnose::diagnose(a)),
+    ));
+    if let Some(p) = &a.report.proton {
+        let mut proton = String::new();
+        let _ = writeln!(proton, "tool: {}", p.tool.clone().unwrap_or_default());
+        let _ = writeln!(proton, "prefix: {}", p.prefix.display());
+        let _ = writeln!(
+            proton,
+            "windows: {}",
+            p.windows_version.clone().unwrap_or_default()
+        );
+        let _ = writeln!(
+            proton,
+            "fsr4_provider (amdxcffx64.dll): {}",
+            p.fsr4_provider
+        );
+        let _ = writeln!(proton, "hip_runtime (amdhip64_7.dll): {}", p.hip_runtime);
+        files.push(("proton.txt".into(), proton));
+    }
+    let mut conflicts = String::new();
+    for r in &a.plan.problems {
+        let _ = writeln!(
+            conflicts,
+            "{:?}: {} + {} — {}",
+            r.verdict,
+            r.a.label(),
+            r.b.label(),
+            r.why
+        );
+    }
+    files.push(("conflicts.txt".into(), conflicts));
+    files.push((
+        "neural.json".into(),
+        serde_json::to_string_pretty(&a.neural)?,
+    ));
+    // What the running game has mapped: which DLLs it really loaded, and
+    // through which translation layer. Only library paths, nothing else.
+    if let Some(g) =
+        crate::running::detect().filter(|g| g.process_name.eq_ignore_ascii_case(&target.process))
+    {
+        if let Ok(maps) = std::fs::read_to_string(format!("/proc/{}/maps", g.pid)) {
+            let mut modules = String::new();
+            for p in super::runtime::mapped_paths(&maps) {
+                let name = p.to_string_lossy();
+                if name.ends_with(".dll")
+                    || name.ends_with(".so")
+                    || name.contains(".so.")
+                    || name.contains("/proton")
+                    || name.contains("/Proton")
+                {
+                    let _ = writeln!(modules, "{name}");
+                }
+            }
+            files.push(("loaded-modules.txt".into(), modules));
+        }
+    }
     files.push(("plan.json".into(), serde_json::to_string_pretty(&a.plan)?));
     files.push((
         "status.json".into(),
@@ -102,6 +185,9 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
         .or_else(|_| std::fs::read_to_string(state.join(&key).join("last-run/OptiScaler.log")));
     if let Ok(log) = log {
         files.push(("OptiScaler.log".into(), tail(&log, LOG_TAIL)));
+    }
+    if let Ok(log) = std::fs::read_to_string(exe_dir.join(super::external::LOG)) {
+        files.push((super::external::LOG.into(), tail(&log, LOG_TAIL)));
     }
     if let Ok((entries, _)) = crate::logs::read(600, None) {
         let mut journal = String::new();

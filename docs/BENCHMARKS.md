@@ -95,6 +95,7 @@ measured again.
 | lsfg-vk 1.0.0 x2 (the user's Lossless.dll) on top of F, entry written by BiGame-mode, A B A B | same | rendered (the game's count) 38 / 39 → **27 / 27**; presented (MangoHud) 41.3 / 42.3 → **57.9 / 57.0**; frames over twice the median 70 / 132 → 1329 / 908 | more frames shown, −30 % rendered, worse pacing | `2026-09-25-sottr-gtx1050ti-lsfg` |
 | Turbo off versus on (falcond per-game profile: power profile and governor performance, idle inhibit), on top of F, A B A B | same | rendered 40 / 36 vs 39 / 37; presented 43.0 / 39.2 vs 42.8 / 41.4; CPU package 87–88 vs 88–89 °C | no difference: GPU-bound at the GTX's power limit | `2026-09-25-sottr-gtx1050ti-turbo` |
 | sched-ext `lavd`, `bpfland` vs none, set in the game's falcond profile (falcond loads it at game start, unloads it after; checked in `/sys/kernel/sched_ext`), A B C C B A + A B C | SotTR, lab laptop, same settings | rendered frames 5863 ± 175 / 6097 ± 196 / 6136 ± 215 (+4.0 %, +4.7 %); Welch's t 1.5 and 1.7, under the 95 % critical value; every arm drifted up through the evening | no difference | `2026-09-25-sottr-gtx1050ti-scheduler` |
+| AI Graphics on a game that ships the FidelityFX API: the game's FSR 3.1 → the same with `FSR4_UPGRADE=1` (Proton's FSR 4 provider, verified mapped, `Replaced FSR3 with FSR4!` logged) → OptiScaler 0.9.4 FSR from the game's XeSS (`Fsr4Update`), two passes per arm | Cyberpunk 2077 2.3, RT Ultra, 3440×1440, upscaling Auto, RX 9060 XT | 38.4 → 38.2 fps (−0.6 %, Welch's t 1.9: no difference) → **36.0 fps (−6.4 %, t 24.7)**; lows too scattered over two runs to compare | FSR 4 through Proton costs nothing measurable; OptiScaler slower where the game's own FSR already reaches FSR 4 | `2026-09-26-cyberpunk-rx9060xt-native-vs-optiscaler` |
 
 What follows for the code:
 
@@ -130,6 +131,12 @@ What follows for the code:
   slowed. Diagnostics now reports the kernel's throttle
   counters: a CPU capped by its cooling is not helped by a performance
   governor, and the check says so.
+- A game that ships AMD's FidelityFX API (FSR 3.1) reaches FSR 4 through
+  Proton with one launch option and no files, at the same frame rate as its
+  FSR 3.1, while OptiScaler on top of the same game measured 6 % slower. The
+  planner therefore keeps the game's own FSR as Recommended there, and
+  OptiScaler only where the game has no FSR path (Shadow of the Tomb Raider)
+  or a measurement on this machine showed it faster.
 - The game's `XESS` registry value 1 is *Performance* in its menu and 3 is
   *Quality*; the outcomes above record the upscaler, not its preset.
 
@@ -137,7 +144,9 @@ What follows for the code:
 
 - Rendered frames only. Latency was never measured.
 - FSR 4 cannot be proven from OptiScaler's log (only its overlay shows which
-  model runs); FSR 3.1 can, and on NVIDIA it was.
+  model runs); FSR 3.1 can, and on NVIDIA it was. For the game's own FSR
+  through Proton the evidence is the provider mapped in the running game and
+  Wine's `amdxc` channel (off by default), not an image.
 - A visual-quality comparison was inconclusive: captures at fixed times land on
   different frames.
 - Two machines and a handful of titles. Hybrid and multi-CCD CPUs, 3D

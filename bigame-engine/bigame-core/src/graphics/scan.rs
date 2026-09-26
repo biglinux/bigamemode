@@ -45,12 +45,23 @@ pub enum ComponentKind {
     XeLowLatency,
     /// AMD `FidelityFX` / FSR runtime (`amd_fidelityfx_*.dll`, `ffx_*.dll`).
     Fsr,
+    /// AMD's `FidelityFX` API (`amd_fidelityfx_dx12.dll`, `amd_fidelityfx_vk.dll`):
+    /// the FSR 3.1+ entry point a driver provider can take over — FSR 4 on
+    /// RDNA 4, through the provider Proton ships.
+    FfxApi,
     /// `ReShade` configuration, `ReShade.ini`.
     ReShadeConfig,
     /// `OptiScaler` configuration, `OptiScaler.ini`.
     OptiScalerConfig,
     /// A bare `nvngx.dll`: not NVIDIA's DLSS runtime; usually `OptiScaler`.
     NvngxShim,
+    /// NVIDIA's DLSS neural-rendering model, `nvngx_dlssnr.dll` — the input
+    /// the external AMD neural backend needs. Detected, never fetched.
+    DlssNeuralRendering,
+    /// DLSS-NR-on-AMD's configuration, `dlssnr_on_amd.ini`.
+    DlssNrOnAmdConfig,
+    /// DLSS-NR-on-AMD's converted weights, `dlssnr_on_amd_weights.bin`.
+    DlssNrOnAmdWeights,
 }
 
 /// A recognised file.
@@ -80,6 +91,8 @@ pub enum ProxyOwner {
     DgVoodoo,
     /// Ultimate ASI Loader.
     AsiLoader,
+    /// DLSS-NR-on-AMD (danielblnc), the external neural-rendering proxy.
+    DlssNrOnAmd,
     /// A Microsoft system DLL shipped with the game (redistributable copies of
     /// `dbghelp.dll`, D3D runtimes and the like).
     Microsoft,
@@ -99,6 +112,7 @@ impl ProxyOwner {
             Self::Dxvk => "DXVK",
             Self::DgVoodoo => "dgVoodoo 2",
             Self::AsiLoader => "Ultimate ASI Loader",
+            Self::DlssNrOnAmd => "DLSS-NR-on-AMD",
             Self::Microsoft => super::text::N_("Microsoft system DLL"),
             Self::Unknown => super::text::N_("unknown"),
         }
@@ -218,12 +232,16 @@ fn component_kind(file_lower: &str) -> Option<ComponentKind> {
         "nvngx_dlssg.dll" => K::DlssFrameGeneration,
         "nvngx_dlssd.dll" => K::DlssRayReconstruction,
         "nvngx.dll" => K::NvngxShim,
+        "nvngx_dlssnr.dll" => K::DlssNeuralRendering,
+        "dlssnr_on_amd.ini" => K::DlssNrOnAmdConfig,
+        "dlssnr_on_amd_weights.bin" => K::DlssNrOnAmdWeights,
         "libxess.dll" => K::Xess,
         "libxess_fg.dll" => K::XessFrameGeneration,
         "libxell.dll" => K::XeLowLatency,
         "reshade.ini" => K::ReShadeConfig,
         "optiscaler.ini" => K::OptiScalerConfig,
         n if n.starts_with("sl.") && has_ext(n, "dll") => K::Streamline,
+        "amd_fidelityfx_dx12.dll" | "amd_fidelityfx_vk.dll" => K::FfxApi,
         n if (n.starts_with("amd_fidelityfx") || n.starts_with("ffx_")) && has_ext(n, "dll") => {
             K::Fsr
         }
@@ -239,6 +257,9 @@ fn component_kind(file_lower: &str) -> Option<ComponentKind> {
 #[must_use]
 pub fn identify_owner(bytes: &[u8]) -> ProxyOwner {
     const MARKERS: &[(&str, ProxyOwner)] = &[
+        ("dlssnr_amd", ProxyOwner::DlssNrOnAmd),
+        ("DLSS-NR on AMD", ProxyOwner::DlssNrOnAmd),
+        ("dlssnr_on_amd", ProxyOwner::DlssNrOnAmd),
         ("OptiScaler", ProxyOwner::OptiScaler),
         ("crosire", ProxyOwner::ReShade),
         ("ReShade", ProxyOwner::ReShade),

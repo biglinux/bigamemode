@@ -11,6 +11,11 @@
 #   prefer             "native" | "optiscaler" | "nothing" — for Recommended
 #   block              a reason to never inject into this game
 #   tested_optiscaler  the OptiScaler version it was checked with
+#   bad_optiscaler     OptiScaler versions known to break this game
+#   proxy              the DLL slot OptiScaler needs here, when not dxgi.dll
+#   verified_gpu       the GPU family the entry was verified on
+#   verified_proton    the Proton build it was verified with
+#   notes              why, in a sentence the page shows
 #
 # Your own entries go in ~/.config/bigame-mode/graphics-games.toml, same
 # format; an entry there replaces one here for the same game.
@@ -18,4 +23,14 @@
 [[game]]
 steam_app_id = "750920"            # Shadow of the Tomb Raider
 api = "dx12"                       # VKD3D-Proton seen in the running game
-tested_optiscaler = "0.9.4"        # XeSS input, FSR output; docs/31
+tested_optiscaler = "0.9.4"        # XeSS input, FSR output; docs/BENCHMARKS.md
+verified_gpu = "RDNA 4, GeForce GTX"
+verified_proton = "Proton Experimental 11.0"
+notes = "OptiScaler FSR from the game's XeSS measured +10.1 % on an RX 9060 XT and +12 % on a GTX 1050 Ti; the game's DX11 renderer is slower than DX12 under Proton"
+
+[[game]]
+steam_app_id = "1091500"           # Cyberpunk 2077
+api = "dx12"                       # the game's only renderer since 2.0
+verified_gpu = "RDNA 4"
+verified_proton = "Proton Experimental 11.0"
+notes = "ships FSR 3.1 through the FidelityFX API and offers FSR 4 in its menu; with Proton's FSR 4 provider in the prefix the game's own FSR is the shortest path on RDNA 4"

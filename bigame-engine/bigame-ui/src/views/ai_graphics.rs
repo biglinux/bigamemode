@@ -17,11 +17,11 @@ use libadwaita as adw;
 use bigame_core::graphics::config::{
     AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler, VersionPolicy,
 };
-use bigame_core::graphics::plan::{Standing, Step};
+use bigame_core::graphics::plan::{FrameGenPlan, NativeAction, Standing, Step};
 use bigame_core::graphics::report::Confidence;
 use bigame_core::graphics::runtime::Status;
 use bigame_core::graphics::versions::Offer;
-use bigame_core::graphics::{self, Analysis, Target};
+use bigame_core::graphics::{self, Analysis, Target, backend, diagnose, external};
 
 use crate::i18n::{i18n, ni18n};
 
@@ -159,10 +159,35 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     let r = &a.report;
     let p = &a.plan;
 
-    // ── Now ──────────────────────────────────────────────────────────
+    // ── Current ──────────────────────────────────────────────────────
+    // What the game has and runs on, in four rows a person reads in
+    // order: GPU, API and translation, upscaling now, frame generation.
     let now = adw::PreferencesGroup::new();
-    now.set_title(&i18n("Now"));
-    now.add(&row(&i18n("Status"), &status_text(&a.status)));
+    now.set_title(&i18n("Current"));
+    if let Some(g) = r.gpu() {
+        let mut sub = g.family().label();
+        if let Some(u) = &g.userspace {
+            let _ = write!(sub, " · {u}");
+        }
+        let _ = write!(
+            sub,
+            " · {}",
+            if g.renders_game {
+                i18n("renders the game")
+            } else if r.gpus.len() > 1 {
+                i18n("expected to render the game; confirmed when it runs")
+            } else {
+                i18n("the only GPU")
+            }
+        );
+        now.add(&row(
+            &bigame_core::graphics::report::display_name(&g.name),
+            &sub,
+        ));
+    }
+    now.add(&row(&i18n("Game API"), &api_line(r)));
+    now.add(&row(&i18n("Upscaling"), &upscaling_now(a)));
+    now.add(&row(&i18n("Frame generation"), &frame_gen_text(a)));
     page.body.append(&now);
 
     // ── Recommendation ───────────────────────────────────────────────
@@ -230,16 +255,304 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     page.body.append(&versions);
     *page.versions.borrow_mut() = Some(versions);
 
+    // ── Neural rendering ─────────────────────────────────────────────
+    page.body.append(&neural_group(page, a));
+
     // ── Choose yourself ──────────────────────────────────────────────
     page.body.append(&advanced_group(page));
 
     page.body.append(&found_group(r));
+    page.body.append(&diagnose_group(a));
 
     // ── Buttons ──────────────────────────────────────────────────────
     let installed = r.installed.is_some();
-    page.apply.set_visible(!installed && p.optiscaler.is_some());
+    let option_set = bigame_core::graphics::fsr4_upgrade::is_enabled(page.target.app_id.as_deref());
+    page.apply
+        .set_visible(!installed && (p.optiscaler.is_some() || p.native_action.is_some()));
+    page.apply
+        .set_label(&if p.native_action.is_some() && p.optiscaler.is_none() {
+            i18n("Add the launch option")
+        } else {
+            i18n("Apply")
+        });
     page.repair.set_visible(installed);
-    page.remove.set_visible(installed);
+    page.remove.set_visible(installed || option_set);
+    page.remove.set_label(&if !installed && option_set {
+        i18n("Remove the launch option")
+    } else {
+        i18n("Restore Game Graphics")
+    });
+}
+
+/// `DirectX 12 · VKD3D-Proton · Vulkan on the host`, with how sure.
+fn api_line(r: &bigame_core::graphics::report::Report) -> String {
+    let api = r
+        .api
+        .api
+        .map_or_else(|| i18n("Unknown"), |a| backend::api_name(a).to_owned());
+    let mut s = api;
+    match r.api.translation {
+        Some(t) => {
+            let _ = write!(s, " · {t} · {}", i18n("Vulkan on the host"));
+        }
+        None if r.executable.is_some() && r.runtime.as_deref() != Some("native") => {
+            let _ = write!(
+                s,
+                " · {}",
+                i18n("through DXVK or VKD3D-Proton, seen when the game runs")
+            );
+        }
+        None => {}
+    }
+    let _ = write!(s, " — {}", confidence_text(r.api.confidence));
+    s
+}
+
+/// What upscales the game now: `OptiScaler`'s live status when it is
+/// installed, otherwise the game's own path and, on RDNA 4, whether the
+/// FSR 4 provider was seen in the running game.
+fn upscaling_now(a: &Analysis) -> String {
+    if a.report.installed.is_some() {
+        return status_text(&a.status);
+    }
+    let r = &a.report;
+    let mut own = Vec::new();
+    if r.native.dlss.is_some() {
+        own.push("DLSS".to_owned());
+    }
+    if r.native.fsr.is_some() {
+        own.push("FSR".to_owned());
+    }
+    if r.native.xess.is_some() {
+        own.push("XeSS".to_owned());
+    }
+    let mut s = if own.is_empty() {
+        i18n("The game ships no upscaler")
+    } else {
+        format!("{} {}", i18n("The game's own:"), own.join(", "))
+    };
+    if r.native_fsr4_path() {
+        let _ = write!(
+            s,
+            " · {}",
+            match (a.native.fsr4_provider_loaded, a.native.fsr4_upgrade_env) {
+                (Some(true), _) => i18n("FSR 4 provider loaded in the running game"),
+                (Some(false), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
+                (Some(false), _) =>
+                    i18n("running without the FSR 4 provider: FSR is off in its menu"),
+                (None, _) if a.plan.native_action == Some(NativeAction::Fsr4Upgrade) => {
+                    i18n("FSR 4 available with the launch option FSR4_UPGRADE=1")
+                }
+                (None, _) => i18n("FSR 4 expected through Proton's provider"),
+            }
+        );
+    }
+    s
+}
+
+/// Which frame generation the game is left with, and what the running game
+/// shows.
+fn frame_gen_text(a: &Analysis) -> String {
+    match a.plan.frame_generation {
+        FrameGenPlan::Off => i18n("Off"),
+        FrameGenPlan::Native => i18n("The game's own, as set in its menu"),
+        FrameGenPlan::OptiScaler => {
+            i18n("OptiScaler (experimental): more frames shown, not rendered, and more latency")
+        }
+        FrameGenPlan::LsfgVk => {
+            i18n("lsfg-vk, from the Profiles page: more frames shown, not rendered")
+        }
+    }
+}
+
+/// Neural rendering: the external backend's state, what is missing, and
+/// the page to get it from. Nothing here downloads or places a file.
+// Linear widget building, as `open`.
+#[allow(clippy::too_many_lines)]
+fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Neural rendering"));
+    group.set_description(Some(&i18n(
+        "A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project BiGame-mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton.",
+    )));
+    let badge = gtk4::Label::new(Some(&i18n("Experimental")));
+    badge.add_css_class("warning");
+    badge.add_css_class("caption-heading");
+    let backend_row = adw::ActionRow::builder()
+        .title(i18n("Backend"))
+        .subtitle("DLSS-NR-on-AMD")
+        .use_markup(false)
+        .build();
+    backend_row.add_suffix(&badge);
+    group.add(&backend_row);
+
+    let (status, class) = match &a.neural {
+        external::Status::Unavailable { .. } => {
+            (i18n("Not available on this computer"), "dim-label")
+        }
+        external::Status::NotInstalled => (i18n("Available — not installed"), "accent"),
+        external::Status::Installed { .. } => (
+            i18n("Installed by you — not verified until the game runs"),
+            "accent",
+        ),
+        external::Status::Loaded { .. } => (
+            i18n("Loaded in the game — the pass has not reported yet"),
+            "accent",
+        ),
+        external::Status::Active { .. } => (i18n("Active"), "success"),
+        external::Status::Failed { .. } => (i18n("Failed"), "error"),
+        external::Status::Blocked { .. } => {
+            (i18n("Not offered: this game has anti-cheat"), "dim-label")
+        }
+    };
+    let status_badge = gtk4::Label::new(Some(&status));
+    status_badge.add_css_class(class);
+    status_badge.add_css_class("caption-heading");
+    let status_row = adw::ActionRow::builder()
+        .title(i18n("Status"))
+        .use_markup(false)
+        .build();
+    status_row.add_suffix(&status_badge);
+    group.add(&status_row);
+
+    match &a.neural {
+        external::Status::Unavailable { missing } => {
+            let exp = adw::ExpanderRow::builder()
+                .title(i18n("Missing"))
+                .subtitle(
+                    missing
+                        .iter()
+                        .map(|m| i18n(m.what))
+                        .collect::<Vec<_>>()
+                        .join(" · "),
+                )
+                .build();
+            for m in missing {
+                let r = row(&i18n(m.what), &tr(&m.detail));
+                r.set_subtitle_lines(0);
+                exp.add_row(&r);
+            }
+            group.add(&exp);
+        }
+        external::Status::NotInstalled => {
+            let r = adw::ActionRow::builder()
+                .title(i18n("Get it from its official page"))
+                .subtitle(i18n(
+                    "Its license allows personal use and forbids redistribution, so BiGame-mode only links to it. Install it beside the game with its own setup, then detect again.",
+                ))
+                .use_markup(false)
+                .build();
+            r.set_subtitle_lines(0);
+            let open = gtk4::Button::with_label(&i18n("Open official page"));
+            open.set_valign(gtk4::Align::Center);
+            open.connect_clicked(|b| {
+                let launcher = gtk4::UriLauncher::new(external::OFFICIAL_URL);
+                let win = b.root().and_downcast::<gtk4::Window>();
+                launcher.launch(win.as_ref(), gio::Cancellable::NONE, |_| {});
+            });
+            r.add_suffix(&open);
+            group.add(&r);
+        }
+        external::Status::Installed { found }
+        | external::Status::Loaded { found }
+        | external::Status::Active { found, .. }
+        | external::Status::Failed { found, .. } => {
+            let mut parts = Vec::new();
+            if let Some(p) = &found.proxy {
+                parts.push(format!(
+                    "{} {}{}",
+                    i18n("proxy"),
+                    p,
+                    found
+                        .version
+                        .as_ref()
+                        .map(|v| format!(" {v}"))
+                        .unwrap_or_default()
+                ));
+            }
+            if found.config {
+                parts.push(i18n("configuration"));
+            }
+            if found.weights {
+                parts.push(i18n("converted weights"));
+            }
+            if let Some(m) = &found.model {
+                parts.push(format!("{} {m}", i18n("model")));
+            }
+            group.add(&row(&i18n("Found beside the game"), &parts.join(" · ")));
+            if let external::Status::Failed { errors, .. } = &a.neural {
+                let r = row(&i18n("Its log says"), &errors.join(" · "));
+                r.set_subtitle_lines(0);
+                group.add(&r);
+            }
+            if let external::Status::Active { build: Some(b), .. } = &a.neural {
+                group.add(&row(&i18n("Build"), b));
+            }
+        }
+        external::Status::Blocked { anti_cheat } => {
+            group.add(&row(&i18n("Anti-cheat"), anti_cheat));
+        }
+    }
+    let again = adw::ActionRow::builder()
+        .title(i18n("Detect again"))
+        .subtitle(i18n("After installing or removing it with its own setup"))
+        .activatable(true)
+        .use_markup(false)
+        .build();
+    again.add_suffix(&gtk4::Image::from_icon_name("view-refresh-symbolic"));
+    {
+        let page = page.clone();
+        again.connect_activated(move |_| refresh(&page));
+    }
+    group.add(&again);
+    group
+}
+
+/// Diagnose: every check with what it found and what to do.
+fn diagnose_group(a: &Analysis) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    let findings = diagnose::diagnose(a);
+    let problems = findings
+        .iter()
+        .filter(|f| f.level >= diagnose::Level::Warning)
+        .count();
+    let exp = adw::ExpanderRow::builder()
+        .title(i18n("Diagnose"))
+        .subtitle(if problems == 0 {
+            i18n("Nothing stops AI Graphics from working here")
+        } else {
+            ni18n("%n thing to look at", "%n things to look at", problems)
+        })
+        .build();
+    for f in &findings {
+        let icon = match f.level {
+            diagnose::Level::Ok => "object-select-symbolic",
+            diagnose::Level::Info => "dialog-information-symbolic",
+            diagnose::Level::Warning => "dialog-warning-symbolic",
+            diagnose::Level::Problem => "dialog-error-symbolic",
+        };
+        let mut sub = tr(&f.found);
+        if let Some(act) = &f.action {
+            let _ = write!(
+                sub,
+                "
+→ {}",
+                tr(act)
+            );
+        }
+        let r = row(&i18n(f.check), &sub);
+        r.set_subtitle_lines(0);
+        let img = gtk4::Image::from_icon_name(icon);
+        if f.level == diagnose::Level::Problem {
+            img.add_css_class("error");
+        } else if f.level == diagnose::Level::Warning {
+            img.add_css_class("warning");
+        }
+        r.add_prefix(&img);
+        exp.add_row(&r);
+    }
+    group.add(&exp);
+    group
 }
 
 /// "What was found": the evidence behind the plan, for whoever wants it.
@@ -248,9 +561,9 @@ fn render(page: &Rc<Page>, a: &Analysis) {
 fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGroup {
     let found = adw::PreferencesGroup::new();
     let details = adw::ExpanderRow::builder()
-        .title(i18n("What was found"))
+        .title(i18n("Technical details"))
         .subtitle(i18n(
-            "Graphics API, GPU, the game's own upscalers, DLL slots",
+            "Graphics API and its evidence, GPU, the game's own upscalers, DLL slots, Proton",
         ))
         .build();
     let api = r
@@ -343,6 +656,28 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(
             &i18n("Anti-cheat"),
             &format!("{} ({})", ac.name, ac.evidence.display()),
+        ));
+    }
+    if let Some(p) = &r.proton {
+        details.add_row(&row(
+            "Proton",
+            &format!(
+                "{} · Windows {} · {}: {} · {}: {}",
+                p.tool.clone().unwrap_or_else(|| i18n("unknown build")),
+                p.windows_version.clone().unwrap_or_else(|| "?".into()),
+                i18n("FSR 4 provider"),
+                if p.fsr4_provider {
+                    i18n("yes")
+                } else {
+                    i18n("no")
+                },
+                i18n("AMD HIP runtime"),
+                if p.hip_runtime {
+                    i18n("yes")
+                } else {
+                    i18n("no")
+                },
+            ),
         ));
     }
     if let Some(m) = &r.installed {
@@ -783,6 +1118,45 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 if refuse_while_running(&page, &overlay) {
                     return;
                 }
+                let native_only = page
+                    .analysis
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|a| a.plan.optiscaler.is_none() && a.plan.native_action.is_some());
+                if native_only {
+                    // The Native backend's one action: a Steam launch option,
+                    // written with Steam closed and read back. No game file.
+                    if bigame_core::steam::is_running() {
+                        overlay.add_toast(adw::Toast::new(&i18n(
+                            "Close Steam first: it keeps its configuration in memory and would discard the launch option",
+                        )));
+                        return;
+                    }
+                    busy(&page, Some(&i18n("Writing the launch option…")));
+                    save_settings(&page);
+                    let app = page.target.app_id.clone();
+                    let result = gio::spawn_blocking(move || {
+                        bigame_core::graphics::fsr4_upgrade::apply(app.as_deref(), true)
+                    })
+                    .await;
+                    busy(&page, None);
+                    let text = match result {
+                        Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::SteamLaunchOptions(o))) => {
+                            format!("{}: {o}", i18n("Steam's launch options for this game now read"))
+                        }
+                        Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::SteamRunning)) => {
+                            i18n("Close Steam first: it would discard the launch option")
+                        }
+                        Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::LaunchPlan)) => {
+                            i18n("Not a Steam game: the variable goes into BiGame-mode's own launch")
+                        }
+                        Ok(Err(e)) => format!("{}: {e:#}", i18n("Nothing was changed")),
+                        Err(_) => i18n("Nothing was changed"),
+                    };
+                    overlay.add_toast(adw::Toast::new(&text));
+                    refresh(&page);
+                    return;
+                }
                 busy(&page, Some(&i18n("Downloading, checking and installing…")));
                 save_settings(&page);
                 let target = page.target.clone();
@@ -840,6 +1214,34 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay) {
+                    return;
+                }
+                let installed = page
+                    .analysis
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|a| a.report.installed.is_some());
+                if !installed {
+                    if bigame_core::steam::is_running() {
+                        overlay.add_toast(adw::Toast::new(&i18n(
+                            "Close Steam first: it keeps its configuration in memory and would discard the change",
+                        )));
+                        return;
+                    }
+                    busy(&page, Some(&i18n("Removing the launch option…")));
+                    let app = page.target.app_id.clone();
+                    let result = gio::spawn_blocking(move || {
+                        bigame_core::graphics::fsr4_upgrade::apply(app.as_deref(), false)
+                    })
+                    .await;
+                    busy(&page, None);
+                    let text = match result {
+                        Ok(Ok(_)) => i18n("The launch option was removed; the game's own FSR runs as it did"),
+                        Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not remove it")),
+                        Err(_) => i18n("Could not remove it"),
+                    };
+                    overlay.add_toast(adw::Toast::new(&text));
+                    refresh(&page);
                     return;
                 }
                 busy(&page, Some(&i18n("Restoring the game's own files…")));

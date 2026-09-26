@@ -61,6 +61,32 @@ pub enum Status {
     },
 }
 
+/// What the game's own graphics path is doing, read from the running game.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct NativeRuntime {
+    /// Whether the running game has AMD's FSR 4 provider (`amdxcffx64.dll`)
+    /// mapped: `Some(true)` with the game's FSR path upgraded, `Some(false)`
+    /// when the game runs without it, `None` when the game is not running.
+    pub fsr4_provider_loaded: Option<bool>,
+    /// Whether the running game's environment carries `FSR4_UPGRADE=1` (or
+    /// GE-Proton's `PROTON_FSR4_UPGRADE`); `None` when not running.
+    pub fsr4_upgrade_env: Option<bool>,
+}
+
+/// [`NativeRuntime`] from a running game's mapped files.
+#[must_use]
+pub fn native_runtime(maps: Option<&str>) -> NativeRuntime {
+    NativeRuntime {
+        fsr4_provider_loaded: maps.map(|m| {
+            mapped_paths(m).iter().any(|p| {
+                p.file_name()
+                    .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("amdxcffx64.dll"))
+            })
+        }),
+        fsr4_upgrade_env: None,
+    }
+}
+
 /// Paths of the files a process has mapped, from `/proc/<pid>/maps` text.
 ///
 /// The path is everything after the fifth field: game folders often have
@@ -231,6 +257,7 @@ mod tests {
             created_dirs: vec![],
             generated: vec![],
             previous: None,
+            managed: true,
         }
     }
 

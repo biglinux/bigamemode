@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026-09-26-cyberpunk-rx9060xt-native-vs-optiscaler — 2026-09-26</title>
+<style>body{font:15px/1.6 system-ui,sans-serif;max-width:56rem;margin:2rem auto;padding:0 1rem;color:#1a1a1a;background:#fff}h1{font-size:1.6rem;margin-bottom:.2rem}h1 small{font-weight:400;color:#666;font-size:1rem}h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ddd;padding-bottom:.3rem}table{border-collapse:collapse;width:100%}th,td{text-align:right;padding:.4rem .6rem;border-bottom:1px solid #eee}th:first-child,td:first-child{text-align:left}th{font-weight:600;color:#555}.verdict{padding:.6rem .8rem;border-left:4px solid #bbb;background:#fafafa;margin:.5rem 0}.verdict.good{border-color:#2e7d32}.verdict.bad{border-color:#c62828}.verdict.unknown{border-color:#ef6c00}svg{max-width:100%;height:auto;margin:1rem 0}.lbl{font:13px system-ui,sans-serif;fill:#333}.ax{font:11px system-ui,sans-serif;fill:#888}.span{stroke:#ccc;stroke-width:2}.pt{fill:#4a6fa5;fill-opacity:.75}.mean{stroke:#c62828;stroke-width:2}code{background:#f3f3f3;padding:.1rem .3rem;border-radius:3px}@media(prefers-color-scheme:dark){body{background:#16181c;color:#e6e6e6}h2{border-color:#333}td,th{border-color:#2a2d33}th{color:#aaa}.verdict{background:#1e2126;border-color:#555}.lbl{fill:#ddd}.span{stroke:#444}.pt{fill:#7aa2d6}code{background:#24272d}}</style>
+<h1>2026-09-26-cyberpunk-rx9060xt-native-vs-optiscaler <small>2026-09-26</small></h1>
+<h2>Verdict</h2>
+<p class="verdict none"><b>native_fsr4</b> — <b>NO CHANGE</b>: a 0.6% difference, but Welch's t = 1.90 falls short of the 12.71 needed for 95% confidence at 1.6 degrees of freedom</p>
+<p class="verdict bad"><b>optiscaler_fsr</b> — <b>SLOWER</b>: 6.4% slower, above the 0.4% run-to-run spread and significant at 95% (Welch's t = 24.69 against a 12.71 threshold)</p>
+<h2>Every run</h2>
+<svg viewBox="0 0 720 166" width="100%" role="img" aria-label="every measured run, by configuration">
+<text x="120" y="28" class="lbl" text-anchor="end">native_fsr31</text>
+<line x1="600.1" y1="24" x2="634.2" y2="24" class="span"/>
+<circle cx="634.2" cy="24" r="4" class="pt"><title>38.5</title></circle>
+<circle cx="600.1" cy="24" r="4" class="pt"><title>38.3</title></circle>
+<line x1="617.2" y1="13" x2="617.2" y2="35" class="mean"><title>mean 38.4</title></line>
+<text x="120" y="72" class="lbl" text-anchor="end">native_fsr4</text>
+<line x1="570.5" y1="68" x2="589.6" y2="68" class="span"/>
+<circle cx="589.6" cy="68" r="4" class="pt"><title>38.3</title></circle>
+<circle cx="570.5" cy="68" r="4" class="pt"><title>38.2</title></circle>
+<line x1="580.1" y1="57" x2="580.1" y2="79" class="mean"><title>mean 38.2</title></line>
+<text x="120" y="116" class="lbl" text-anchor="end">optiscaler_fsr</text>
+<line x1="195.8" y1="112" x2="196.2" y2="112" class="span"/>
+<circle cx="195.8" cy="112" r="4" class="pt"><title>36.0</title></circle>
+<circle cx="196.2" cy="112" r="4" class="pt"><title>36.0</title></circle>
+<line x1="196.0" y1="101" x2="196.0" y2="123" class="mean"><title>mean 36.0</title></line>
+<text x="130" y="158" class="ax">36</text><text x="720" y="158" class="ax" text-anchor="end">39</text>
+</svg>
+<h2>Measurements</h2>
+<table>
+<tr><th>Arm<th>Runs<th>Mean<th>Median<th>Min<th>Max<th>Spread<th>vs baseline
+<tr><td>native_fsr31<td>2<td>38.4<td>38.4<td>38.3<td>38.5<td>0.4%<td>—
+<tr><td>native_fsr4<td>2<td>38.2<td>38.2<td>38.2<td>38.3<td>0.2%<td>within noise
+<tr><td>optiscaler_fsr<td>2<td>36.0<td>36.0<td>36.0<td>36.0<td>0.0%<td>-6.4%
+</table>
+<h2>Method</h2>
+<ul>
+<li>2 measured runs per arm, 1 warm-up discarded.
+<li>Arms were alternated, so drift over the session falls on both equally.
+<li>A difference counts as real only when it exceeds the run-to-run spread of both arms and passes Welch's t-test at 95%.
+<li>Machine fingerprint <code>4fe16c03c167c5cb</code>.
+</ul>
+</html>

@@ -209,6 +209,7 @@ impl Cached {
     pub fn source(&self) -> manifest::Source {
         manifest::Source {
             component: COMPONENT.into(),
+            backend: super::backend::Backend::OptiScaler.id().into(),
             version: self.release.version.clone(),
             url: Some(self.url.clone()),
             archive_sha256: Some(self.release.sha256.clone()),

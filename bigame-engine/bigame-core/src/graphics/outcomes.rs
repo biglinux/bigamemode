@@ -63,6 +63,20 @@ impl Setup {
     }
 }
 
+/// Which frames a measurement counted. Rendered and presented are never
+/// compared with each other: a frame-generation arm presents frames that
+/// were not rendered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Frames {
+    /// Frames the game rendered (its own benchmark log).
+    #[default]
+    Rendered,
+    /// Frames sent to the display (an overlay's log), generated ones
+    /// included.
+    Presented,
+}
+
 /// One arm of one session.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Measurement {
@@ -80,6 +94,10 @@ pub struct Measurement {
     /// `OptiScaler` version, for its arms.
     #[serde(default)]
     pub optiscaler_version: Option<String>,
+    /// Which frames were counted; absent in older records, which counted
+    /// rendered frames.
+    #[serde(default)]
+    pub frames: Frames,
     /// Average frame rate of each measured run (warm-up excluded).
     pub avg_fps: Vec<f64>,
     /// 1 % low of each measured run.
@@ -203,6 +221,13 @@ fn pooled(ms: &[&Measurement], pick: fn(&Measurement) -> &Vec<f64>) -> Vec<f64> 
 /// several sessions are pooled. `None` when either side was never measured.
 #[must_use]
 pub fn learned(measurements: &[&Measurement], input: &str) -> Option<Learned> {
+    // Presented frames are not throughput: only rendered ones are compared.
+    let measurements: Vec<&Measurement> = measurements
+        .iter()
+        .copied()
+        .filter(|m| m.frames == Frames::Rendered)
+        .collect();
+    let measurements = measurements.as_slice();
     let native: Vec<&Measurement> = measurements
         .iter()
         .copied()
@@ -270,6 +295,7 @@ mod tests {
             setup: Setup::parse(setup).unwrap(),
             resolution: Some("1920x1080".into()),
             optiscaler_version: None,
+            frames: Frames::Rendered,
             avg_fps: fps.to_vec(),
             low_1pct: low.to_vec(),
         }
