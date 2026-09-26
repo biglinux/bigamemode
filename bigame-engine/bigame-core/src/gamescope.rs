@@ -342,6 +342,17 @@ impl Config {
         if self.fullscreen && want("f", "window will not be fullscreen", &mut unsupported) {
             args.push("-f".into());
         }
+        // Not a setting: a nested Gamescope passes the desktop's
+        // WAYLAND_DISPLAY on to the game, so a game that prefers Wayland
+        // (vkcube, SDL3 games) goes past Gamescope and its WSI layer ends the
+        // game at start ("Failed to get Wayland objects", "Primary child shut
+        // down" with 3.16.28 on KDE Plasma Wayland). Exposing Gamescope's own
+        // socket gives such games WAYLAND_DISPLAY=gamescope-0; X11 and Proton
+        // games keep using its Xwayland. Builds without the flag are left as
+        // they are.
+        if caps.has_flag("expose-wayland") {
+            args.push("--expose-wayland".into());
+        }
 
         Args { args, unsupported }
     }
@@ -696,6 +707,29 @@ mod tests {
             ..Config::default()
         };
         assert!(cfg.to_args(&modern()).unsupported.is_empty());
+    }
+
+    #[test]
+    fn wayland_games_get_gamescopes_own_socket_where_the_build_has_it() {
+        let with = GamescopeCaps {
+            version: None,
+            flags: vec!["expose-wayland".into(), "f".into()],
+        };
+        assert!(
+            Config::default()
+                .to_args(&with)
+                .args
+                .iter()
+                .any(|a| a == "--expose-wayland")
+        );
+        let without = GamescopeCaps {
+            version: None,
+            flags: vec!["f".into()],
+        };
+        let built = Config::default().to_args(&without);
+        assert!(!built.args.iter().any(|a| a == "--expose-wayland"));
+        // Not a request of the user's, so not reported as unsupported either.
+        assert!(!built.unsupported.iter().any(|u| u.flag == "expose-wayland"));
     }
 
     #[test]

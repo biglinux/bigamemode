@@ -3,7 +3,13 @@
 //! lsfg-vk is a Vulkan implicit layer — NOT a kernel module. It reads
 //! `$XDG_CONFIG_HOME/lsfg-vk/conf.toml` and reloads it while a game runs
 //! ("Failed to update configuration, continuing using old" when a new version
-//! does not parse). BiGame-mode writes per-game entries there.
+//! does not parse) — for a game that started with an entry, and then only to
+//! apply new values: a new multiplier takes effect live, but removing the
+//! entry does not stop generating. A game that started while the file had no
+//! entry for it, or did not parse, runs without frame generation until its
+//! next start. So on and off take effect at the next start (checked with
+//! Shadow of the Tomb Raider on the reference desktop: x2 → removed stayed
+//! at x2's cost, → x3 applied). BiGame-mode writes per-game entries there.
 //!
 //! The format is the one lsfg-vk 1.0.0 — the package `BigLinux` ships — reads,
 //! checked against the strings of its `liblsfg-vk.so`:
@@ -27,8 +33,9 @@
 //!   Multiplier cannot be less than 2" … "IGNORING"), so a game with frame
 //!   generation off has **no** entry — never `multiplier = 1`.
 //! * It knows nothing of the `[[profile]]`/`active_in` layout an earlier
-//!   version of this module wrote; that layout did nothing with lsfg-vk 1.0.
-//!   It is converted on the next write.
+//!   version of this module wrote; that layout did nothing with lsfg-vk 1.0
+//!   and made it ignore the whole file. It is converted when the application
+//!   starts ([`convert_legacy_file`]) and on every write.
 //! * Keys and entries BiGame-mode did not write are kept as they are: the file
 //!   is also the user's, and lsfg-vk-ui's.
 //!
@@ -110,6 +117,31 @@ fn read_config() -> Result<Table> {
     let mut t = read_table(&config_path())?;
     migrate_legacy(&mut t);
     Ok(t)
+}
+
+/// Convert the file if it still has the layout an earlier BiGame-mode
+/// wrote, keeping a copy of it beside it (`conf.toml.bigame-legacy`). While
+/// it is in that layout lsfg-vk ignores the whole file, so every game started
+/// meanwhile would run without frame generation. Returns whether it changed
+/// anything.
+///
+/// # Errors
+/// Returns an error if the file cannot be read, backed up or written.
+pub fn convert_legacy_file() -> Result<bool> {
+    let path = config_path();
+    let original = read_table(&path)?;
+    if !original.contains_key("profile") || format_supported() == Some(false) {
+        return Ok(false);
+    }
+    let backup = path.with_extension("toml.bigame-legacy");
+    if !backup.exists() {
+        std::fs::copy(&path, &backup)
+            .with_context(|| format!("back up to {}", backup.display()))?;
+    }
+    let mut t = original;
+    migrate_legacy(&mut t);
+    write_config(&t)?;
+    Ok(true)
 }
 
 fn write_config(t: &Table) -> Result<()> {

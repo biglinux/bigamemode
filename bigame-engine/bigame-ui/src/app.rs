@@ -95,6 +95,14 @@ pub fn run() -> adw::glib::ExitCode {
             }
         });
 
+        // An lsfg-vk file in the layout an earlier BiGame-mode wrote makes
+        // lsfg-vk ignore it entirely; convert it before a game starts.
+        std::thread::spawn(|| match bigame_core::fg::convert_legacy_file() {
+            Ok(true) => tracing::info!(target: "fg", "lsfg-vk configuration converted to the 1.x layout"),
+            Ok(false) => {}
+            Err(e) => tracing::warn!(target: "fg", error = %format!("{e:#}"), "could not convert the lsfg-vk configuration"),
+        });
+
         // Booster changes still in force while Turbo is off (falcond stopped
         // from outside, or the application killed mid-way) are put back.
         std::thread::spawn(|| match bigame_core::turbo::reconcile_blocking() {

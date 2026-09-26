@@ -426,6 +426,9 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
         .model(&vcache_model)
         .build();
     vcache_row.set_selected(find_index(&vcache_model, &profile.vcache_mode));
+    // Only on a CPU with 3D V-Cache. Hidden, the row still holds the
+    // profile's value, so saving keeps what the file had.
+    vcache_row.set_visible(bigame_core::vcache::is_available());
     perf.add(&vcache_row);
     page.add(&perf);
 

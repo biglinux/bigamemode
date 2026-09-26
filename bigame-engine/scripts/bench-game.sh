@@ -24,6 +24,8 @@
 #
 # Usage:
 #   GAME=sottr RUNS=4 LABEL=dpm scripts/bench-game.sh rest gpu_dpm_level baseline
+#   GAME=sottr FG_PROCESS=SOTTR.exe MANGOHUD_CSV_DIR=~/.cache/mh LABEL=lsfg \
+#       scripts/bench-game.sh fg_off fg_x2
 #
 # The game must already be running and sitting on its benchmark results
 # screen (or running its first benchmark pass, which becomes the warm-up).
@@ -213,6 +215,19 @@ scx_stop() {
     [ -n "$SCX_READY" ] || kill "$pid" 2>/dev/null
     wait "$pid" 2>/dev/null
 }
+# Frame generation arms: the game's lsfg-vk entry, written by BiGame-mode's own
+# code (bigame-core's lsfg example), which lsfg-vk reloads while the game runs.
+# Whether generation really took is in the data: with MANGOHUD_CSV_DIR set,
+# presented frames (MangoHud) against rendered frames (the game's own count).
+LSFG_BIN=${LSFG_BIN:-$HERE/../target/debug/examples/lsfg}
+fg_set() {
+    [ -x "$LSFG_BIN" ] || die "build it first: cargo build -p bigame-core --example lsfg"
+    "$LSFG_BIN" "$@" >/dev/null || die "lsfg-vk entry not written: $*"
+}
+arm_fg_off() { arm_rest; fg_set off "${FG_PROCESS:?set FG_PROCESS to the process name of the game}"; }
+arm_fg_x2()  { arm_rest; fg_set set "${FG_PROCESS:?set FG_PROCESS to the process name of the game}" 2; }
+arm_fg_x3()  { arm_rest; fg_set set "${FG_PROCESS:?set FG_PROCESS to the process name of the game}" 3; }
+
 arm_scx_none()    { arm_rest; scx_set none default; }
 arm_scx_lavd()    { arm_rest; scx_set lavd gaming; }
 arm_scx_bpfland() { arm_rest; scx_set bpfland gaming; }
@@ -234,7 +249,22 @@ collect() {
     for f in "$RESULT_DIR"/*.txt; do
         [ "$f" -nt "$since" ] && cp -p "$f" "$dest/"
     done
+    if [ -n "${MANGOHUD_CSV_DIR:-}" ]; then
+        for f in "$MANGOHUD_CSV_DIR"/*.csv; do
+            [ "$f" -nt "$since" ] && cp -p "$f" "$dest/"
+        done
+    fi
     ls "$dest"/*_frametimes_*.txt >/dev/null 2>&1
+}
+
+# Presented frames: MangoHud's logging key, pressed once the run has started.
+# MangoHud's own log_duration ends the log (set it in the MangoHud
+# configuration together with output_folder = MANGOHUD_CSV_DIR).
+mangohud_log() {
+    [ -n "${MANGOHUD_CSV_DIR:-}" ] || return 0
+    sleep "${MANGOHUD_LOG_DELAY_S:-8}"   # past the scene's loading frames
+    [ "$(xdotool getactivewindow 2>/dev/null)" = "$WINDOW" ] || { log "no focus: MangoHud log not started"; return 0; }
+    xdotool keydown Shift_L keydown F2; sleep 0.25; xdotool keyup F2 keyup Shift_L
 }
 
 # The Polkit prompt comes before the warm-up, so a refusal costs nothing.
@@ -265,6 +295,7 @@ for round in $(seq 1 "$RUNS"); do
         "$HERE/gpu-telemetry.sh" "$CARD" "$dir/gpu.csv" & TELEMETRY_PID=$!
         before=$(stops)
         start_run || { log "$arm run $round: the game would not start a run"; INCOMPLETE=1; break 2; }
+        mangohud_log
         if ! wait_for_stop "$before"; then
             log "$arm run $round: NO RESULT"
             kill "$TELEMETRY_PID" 2>/dev/null; TELEMETRY_PID=""

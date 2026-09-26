@@ -510,6 +510,7 @@ struct GameCard {
     facts: gtk4::Label,
     profile: gtk4::Label,
     ai: gtk4::Label,
+    effects: gtk4::Label,
     create: gtk4::Button,
     game: Rc<RefCell<Option<GameIdentity>>>,
     turbo_on: Rc<Cell<bool>>,
@@ -541,6 +542,10 @@ impl GameCard {
         ai.set_xalign(0.0);
         ai.set_wrap(true);
         ai.set_visible(false);
+        let effects = gtk4::Label::new(None);
+        effects.set_xalign(0.0);
+        effects.set_wrap(true);
+        effects.set_visible(false);
         let create = gtk4::Button::builder()
             .label(i18n("Create profile"))
             .css_classes(["pill", "suggested-action"])
@@ -560,6 +565,7 @@ impl GameCard {
         text.append(&facts);
         text.append(&profile);
         text.append(&ai);
+        text.append(&effects);
         text.append(&create);
 
         let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 16);
@@ -588,6 +594,7 @@ impl GameCard {
             facts,
             profile,
             ai,
+            effects,
             create,
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
@@ -665,18 +672,23 @@ impl GameCard {
         // and OptiScaler's own log — hidden when nothing was installed. It
         // verifies the installed files' hashes, so it runs off the main thread.
         let (ai, profile, create) = (self.ai.clone(), self.profile.clone(), self.create.clone());
+        let effects = self.effects.clone();
         let turbo_on = self.turbo_on.get();
         glib::spawn_future_local(async move {
-            let Ok((st, active)) = gio::spawn_blocking(move || {
+            let Ok((st, active, in_game)) = gio::spawn_blocking(move || {
                 (
                     bigame_core::graphics::status_running(&g),
                     bigame_core::status::read().and_then(|s| s.active_profile),
+                    bigame_core::running::in_game(&g),
                 )
             })
             .await
             else {
                 return;
             };
+            let parts = in_game_parts(&in_game);
+            effects.set_visible(!parts.is_empty());
+            effects.set_label(&format!("{} · {}", i18n("In the game"), parts.join(" · ")));
             match st {
                 Some(st) => {
                     ai.set_label(&format!(
@@ -707,25 +719,49 @@ impl GameCard {
     }
 }
 
-/// The model of the GPU behind DRM `card`, as the PCI database names it,
-/// without the chip code: `GeForce GTX 1050 Ti Mobile`.
+/// The model of the GPU behind DRM `card`, as people know it:
+/// `GeForce GTX 1050 Ti Mobile`, `Radeon RX 9060 XT`.
 fn gpu_model(card: &str) -> Option<String> {
     let hw = Hardware::detect();
     let (infos, _) = bigame_core::graphics::report::gpu_infos(&hw, Some(card));
     let name = infos.into_iter().find(|g| g.card == card)?.name;
-    Some(match (name.find('['), name.rfind(']')) {
-        (Some(a), Some(b)) if b > a + 1 => name[a + 1..b].to_owned(),
-        _ => name,
-    })
+    Some(bigame_core::graphics::report::display_name(&name))
+}
+
+/// What the game really got, in words: each item was read from the game
+/// process or the kernel while it runs.
+fn in_game_parts(g: &bigame_core::running::InGame) -> Vec<String> {
+    let mut parts = Vec::new();
+    if let Some(m) = g.frame_generation {
+        parts.push(i18n("frame generation ×%s (lsfg-vk)").replace("%s", &m.to_string()));
+    }
+    if g.frame_generation_changed {
+        parts.push(i18n("frame generation changed since the game started: restart the game to turn it on or off"));
+    }
+    if g.gamescope {
+        parts.push("Gamescope".to_owned());
+    }
+    if g.mangohud {
+        parts.push("MangoHud".to_owned());
+    }
+    if g.vkbasalt {
+        parts.push(i18n("vkBasalt filter"));
+    }
+    if let Some(s) = &g.scheduler {
+        parts.push(i18n("scheduler %s").replace("%s", s));
+    }
+    parts
 }
 
 // ── Readings ─────────────────────────────────────────────────────────────────
 
-/// One-line description of the machine.
+/// One-line description of the machine: the CPU and the GPU games use.
 fn summary_line_machine(hw: &Hardware) -> String {
-    let gpu = hw
-        .render_gpu()
-        .map_or_else(String::new, |g| format!(" · {}", short_gpu(g)));
+    let gpu = bigame_core::graphics::report::render_gpu(hw)
+        .map(|g| bigame_core::graphics::report::display_name(&g.name))
+        .filter(|n| !n.contains(':'))
+        .or_else(|| hw.render_gpu().map(short_gpu))
+        .map_or_else(String::new, |g| format!(" · {g}"));
     format!("{}{}", short_cpu(&hw.cpu.model), gpu)
 }
 

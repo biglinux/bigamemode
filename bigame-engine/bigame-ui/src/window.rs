@@ -183,6 +183,9 @@ pub fn build(
 
     // ── Split view ────────────────────────────────────────────────────
     let nav_split = adw::NavigationSplitView::new();
+    // Wide enough for the longest page name ("Configurações") on one line;
+    // at libadwaita's 180 px default it broke with a hyphen in a narrow window.
+    nav_split.set_min_sidebar_width(200.0);
     nav_split.set_sidebar(Some(&sidebar_page));
     nav_split.set_content(Some(&content_page));
 

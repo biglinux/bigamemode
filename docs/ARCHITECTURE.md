@@ -291,9 +291,14 @@ directory.
 
 ## falcond behaviours worth knowing (2.0.2)
 
-- Activation snapshots the power profile, scheduler and V-Cache mode, then
-  applies the profile; SIGTERM deactivates before exit; SIGHUP reloads and
-  re-reads `user/`. The helper reloads falcond with SIGHUP through systemd,
+- Activation applies the profile and deactivation puts the previous state
+  back; SIGTERM deactivates before exit; SIGHUP reloads and re-reads
+  `user/`. The **power profile it puts back is the one in use when the
+  service started**, not the one before the game: on the reference desktop,
+  falcond started in balanced, the profile was switched to power-saver, a
+  profiled process ran and balanced came back; started in performance, every
+  game ended in performance. Turbo off and on again makes falcond take the
+  current profile as its baseline. The helper reloads falcond with SIGHUP through systemd,
   never with a restart, which would tear down a running game's profile.
 - If falcond is killed with SIGKILL while a profile is active, systemd restarts
   it and the new instance snapshots the boosted state. BiGame-mode does not

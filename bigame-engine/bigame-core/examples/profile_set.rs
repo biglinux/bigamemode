@@ -8,7 +8,15 @@ fn main() -> anyhow::Result<()> {
     let name = args
         .first()
         .ok_or_else(|| anyhow::anyhow!("usage: profile_set <process> key=value …"))?;
-    let mut p = bigame_core::profiles::load(name)?;
+    // A game without a profile yet starts from what the recommendation writes
+    // (performance mode, idle inhibit, no scheduler, no V-Cache preference).
+    let mut p = match bigame_core::profiles::load(name) {
+        Ok(p) => p,
+        Err(_) => toml::from_str::<bigame_core::profiles::GameProfile>(&format!(
+            "name = {name:?}\nperformance_mode = true\nidle_inhibit = true\n\
+             scx_sched = \"none\"\nscx_sched_props = \"default\"\nvcache_mode = \"none\"\n"
+        ))?,
+    };
     for kv in &args[1..] {
         let (k, v) = kv
             .split_once('=')

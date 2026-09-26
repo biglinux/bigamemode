@@ -182,8 +182,9 @@ pub fn launch_options(config: &Path, app_id: &str) -> Option<String> {
 /// Set the launch options Steam stores for `app_id`.
 ///
 /// # Errors
-/// Returns an error if Steam is running, if the app has no entry in this
-/// account's configuration, or if the file cannot be written or verified.
+/// Returns an error if Steam is running, if the account's configuration has
+/// no apps section, or if the file cannot be written or verified. An app
+/// without a block of its own gets one.
 pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> {
     anyhow::ensure!(
         !is_running(),
@@ -215,12 +216,33 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
         let borrowed: Vec<&str> = lines.iter().map(String::as_str).collect();
         let mut path: Vec<&str> = APPS_PATH.to_vec();
         path.push(app_id);
-        let (from, to) = find_block(&borrowed, &path).with_context(|| {
-            format!(
-                "Steam has no entry for app {app_id} in {}",
-                config.display()
-            )
-        })?;
+        let Some((from, to)) = find_block(&borrowed, &path) else {
+            // Steam keeps a block only for apps with settings of their own; a
+            // game played with defaults has none. Nothing stored is already
+            // "no launch options"; anything else gets a new block, at the end
+            // of `apps`, in Steam's own layout.
+            if value.is_empty() {
+                return Ok(());
+            }
+            let (apps_from, apps_to) = find_block(&borrowed, APPS_PATH).with_context(|| {
+                format!(
+                    "Steam's configuration has no apps section: {}",
+                    config.display()
+                )
+            })?;
+            let child = "\t".repeat(depth(borrowed[apps_from.saturating_sub(1)]) + 1);
+            let block = [
+                format!("{child}\"{app_id}\""),
+                format!("{child}{{"),
+                format!("{child}\t\"LaunchOptions\"\t\t\"{value}\""),
+                format!("{child}}}"),
+            ];
+            drop(borrowed);
+            for (k, l) in block.into_iter().enumerate() {
+                lines.insert(apps_to + k, l);
+            }
+            return finish_write(config, &content, &lines, app_id, value);
+        };
         let app_depth = depth(borrowed[from]);
         let existing = (from..to).find(|i| {
             pair_key(borrowed[*i]) == Some("LaunchOptions") && depth(borrowed[*i]) == app_depth
@@ -236,7 +258,17 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
         }
     };
     tracing::debug!(target: "launch", app_id, line = updated, "rewrote LaunchOptions");
+    finish_write(config, &content, &lines, app_id, value)
+}
 
+/// Back up, write atomically and read back.
+fn finish_write(
+    config: &Path,
+    content: &str,
+    lines: &[String],
+    app_id: &str,
+    value: &str,
+) -> Result<()> {
     // Keep a copy before touching the user's Steam configuration.
     let backup = config.with_extension("vdf.bigame-backup");
     std::fs::copy(config, &backup).with_context(|| format!("back up to {}", backup.display()))?;
@@ -465,11 +497,32 @@ mod tests {
     }
 
     #[test]
-    fn writing_refuses_an_unknown_app() {
+    fn an_app_without_a_block_gets_one_in_steams_layout() {
+        // Steam keeps no block for a game played with default settings (the
+        // reference desktop had none for Shadow of the Tomb Raider).
         let path = write_temp("unknown", VDF);
-        let err = write_launch_options(&path, "999999", "x %command%").unwrap_err();
-        assert!(err.to_string().contains("no entry for app"));
-        // Nothing was written, so no backup either.
+        write_launch_options(&path, "999999", "MANGOHUD=1 %command%").unwrap();
+        assert_eq!(
+            launch_options(&path, "999999").as_deref(),
+            Some("MANGOHUD=1 %command%")
+        );
+        // The other apps are untouched.
+        let before = VDF.lines().filter(|l| !l.trim().is_empty()).count();
+        let after_text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(
+            after_text.lines().filter(|l| !l.trim().is_empty()).count(),
+            before + 4
+        );
+        assert!(after_text.contains("\t\t\t\t\t\"999999\"\n\t\t\t\t\t{\n"));
+        assert!(path.with_extension("vdf.bigame-backup").exists());
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn clearing_the_options_of_an_app_without_a_block_changes_nothing() {
+        let path = write_temp("unknown-clear", VDF);
+        write_launch_options(&path, "999999", "").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), VDF);
         assert!(!path.with_extension("vdf.bigame-backup").exists());
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
