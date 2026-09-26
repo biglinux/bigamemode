@@ -60,16 +60,6 @@ depends=(
     'gamescope'
     'mangohud'
     'vkbasalt'
-
-    # The game libraries BiGame-mode detects, launches and writes settings
-    # for.
-    'steam'
-    'lutris'
-    'heroic-games-launcher'
-
-    # A native game started directly, so Measure the difference can run on
-    # any machine; also the workload of the benchmark scripts.
-    'supertuxkart'
 )
 makedepends=(
     'git'
@@ -78,6 +68,12 @@ makedepends=(
     'python'
 )
 optdepends=(
+    # The game libraries: each user has the launchers they play with, and
+    # BiGame-mode detects whichever are installed (native or Flatpak).
+    'steam: Steam games, detection and launch options'
+    'lutris: Lutris games'
+    'heroic-games-launcher: Epic, GOG and Amazon games'
+    'supertuxkart: native game for Measure the difference and the benchmark scripts'
     # Only for NVIDIA cards, and it conflicts with the legacy NVIDIA driver
     # packages (nvidia-470xx-utils and the like), so it cannot be required.
     'nvidia-utils: GPU telemetry on NVIDIA cards (its NVML library)'
