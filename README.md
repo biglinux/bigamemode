@@ -112,15 +112,11 @@ Arquivos que os Gráficos com IA colocaram em jogos continuam lá até
 | `lsfg-vk` | geração de quadros (Lossless Scaling) por jogo; só gera quadros com o seu próprio `Lossless.dll`, que nunca vem no pacote |
 | `scx-tools`, `scx-scheds` | o `scx_loader` com que o falcond troca o escalonador de CPU durante o jogo, e os escalonadores |
 | `gamescope`, `mangohud`, `vkbasalt` | o que os ajustes por jogo e de lançamento ligam; o MangoHud também captura os frametimes das medições |
-Opcionais:
+Opcional: `nvidia-utils` (telemetria em placas NVIDIA, pela biblioteca NVML);
+só serve a placas NVIDIA e conflita com os pacotes dos drivers NVIDIA antigos.
 
-- `steam`, `lutris`, `heroic-games-launcher`: as bibliotecas de jogos. Cada
-  um usa os lançadores com que joga, e o BiGame-mode detecta os que estiverem
-  instalados, nativos ou em Flatpak.
-- `supertuxkart`: um jogo nativo aberto diretamente, para **Medir a
-  diferença** e os scripts de benchmark.
-- `nvidia-utils`: telemetria em placas NVIDIA, pela biblioteca NVML; só serve
-  a placas NVIDIA e conflita com os pacotes dos drivers NVIDIA antigos.
+Os lançadores não são dependências: o BiGame-mode encontra os jogos do Steam,
+Lutris e Heroic que estiverem instalados, nativos ou em Flatpak.
 
 O pacote instala `bigame-ui` (o aplicativo, como usuário comum), `bigame-daemon`
 (o helper root) com sua unit do systemd, arquivos de D-Bus e política do
