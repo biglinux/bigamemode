@@ -158,7 +158,8 @@ impl ksni::Tray for BiGameTray {
 #[derive(Clone)]
 pub struct TrayHandle {
     status: Arc<RwLock<Status>>,
-    handle: ksni::blocking::Handle<BiGameTray>,
+    /// `None` when the tray service could not start (no session bus).
+    handle: Option<ksni::blocking::Handle<BiGameTray>>,
 }
 
 impl TrayHandle {
@@ -169,7 +170,9 @@ impl TrayHandle {
             }
             *s = status;
         }
-        self.handle.update(|_| {});
+        if let Some(handle) = &self.handle {
+            handle.update(|_| {});
+        }
     }
 }
 
@@ -191,7 +194,13 @@ pub fn spawn() -> (TrayHandle, mpsc::Receiver<TrayAction>) {
         tx,
         status: Arc::clone(&status),
     };
-    let handle = tray.spawn().expect("Failed to spawn system tray");
+    // At login the panel may register its tray host after this runs, and a
+    // desktop may have none at all: waiting for one is not an error.
+    let handle = tray
+        .assume_sni_available(true)
+        .spawn()
+        .inspect_err(|e| tracing::warn!(error = %e, "no system tray"))
+        .ok();
 
     (TrayHandle { status, handle }, rx)
 }
