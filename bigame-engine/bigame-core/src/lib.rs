@@ -36,6 +36,7 @@ pub mod sched;
 pub mod status;
 pub mod steam;
 pub mod systemd;
+pub mod text;
 pub mod turbo;
 pub mod vcache;
 pub mod video_config;

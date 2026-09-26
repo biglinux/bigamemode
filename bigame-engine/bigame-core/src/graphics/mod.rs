@@ -22,7 +22,7 @@ pub mod rules;
 pub mod runtime;
 pub mod scan;
 pub mod support;
-pub mod text;
+pub use crate::text;
 pub mod transaction;
 pub mod versions;
 
