@@ -406,7 +406,7 @@ impl Snapshot {
         };
         let wine_fsr_in_game = game
             .as_ref()
-            .map(|g| crate::processes::env_has_key(g.pid, "WINE_FULLSCREEN_FSR"));
+            .map(|g| crate::processes::env_switch_on(g.pid, "WINE_FULLSCREEN_FSR"));
         let gamescope_mode = profile_file
             .as_ref()
             .map_or(crate::gamescope::Mode::Auto, |p| p.gamescope_mode);

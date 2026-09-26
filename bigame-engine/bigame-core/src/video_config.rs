@@ -140,15 +140,35 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
     Ok(())
 }
 
+/// The switches that turn a feature on only when set to `1`, and are turned
+/// off by `0`.
+const SWITCHES: &[&str] = &["WINE_FULLSCREEN_FSR", "ENABLE_VKBASALT"];
+
 /// The managed keys to unset and the `KEY=VALUE` assignments to set so the
 /// session holds exactly `env`.
+///
+/// A switch that is no longer wanted is set to `0` rather than unset: what
+/// environment.d put there at login comes from systemd's generator, and
+/// `UnsetEnvironment` cannot remove it from the running manager (checked on
+/// systemd 261: `unset-environment ENABLE_VKBASALT` left it at 1). vkBasalt's
+/// layer and Wine enable on `1` only. The file no longer holds the variable,
+/// so from the next login it is simply absent.
 fn session_change(env: &HashMap<String, String>) -> (Vec<String>, Vec<String>) {
-    let unset = SESSION_KEYS
-        .iter()
-        .filter(|k| !env.contains_key(**k))
+    let absent = SESSION_KEYS.iter().filter(|k| !env.contains_key(**k));
+    let unset = absent
+        .clone()
+        .filter(|k| !SWITCHES.contains(k))
         .map(|k| (*k).to_owned())
         .collect();
-    let mut set: Vec<String> = env.iter().map(|(k, v)| format!("{k}={v}")).collect();
+    let mut set: Vec<String> = env
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .chain(
+            absent
+                .filter(|k| SWITCHES.contains(k))
+                .map(|k| format!("{k}=0")),
+        )
+        .collect();
     set.sort();
     (unset, set)
 }
@@ -192,18 +212,20 @@ mod tests {
     use crate::models::{FrameGenBackend, GamescopeFilter};
 
     #[test]
-    fn turning_a_feature_off_unsets_its_variables_in_the_session() {
+    fn turning_a_feature_off_takes_it_out_of_the_session() {
         let mut env = HashMap::new();
         env.insert("ENABLE_VKBASALT".to_owned(), "1".to_owned());
         let (unset, set) = session_change(&env);
-        assert_eq!(set, ["ENABLE_VKBASALT=1"]);
-        assert!(unset.contains(&"WINE_FULLSCREEN_FSR".to_owned()));
+        // Wine FSR off: its switch is set to 0, which overrides a value the
+        // login put there; its mode and vkBasalt's file are just unset.
+        assert_eq!(set, ["ENABLE_VKBASALT=1", "WINE_FULLSCREEN_FSR=0"]);
+        assert!(unset.contains(&"WINE_FULLSCREEN_FSR_MODE".to_owned()));
         assert!(unset.contains(&"VKBASALT_CONFIG_FILE".to_owned()));
         assert!(!unset.contains(&"ENABLE_VKBASALT".to_owned()));
-        // Everything off: every managed key is removed, nothing is set.
+        // Everything off: both switches at 0, the other keys removed.
         let (unset, set) = session_change(&HashMap::new());
-        assert_eq!(unset.len(), SESSION_KEYS.len());
-        assert!(set.is_empty());
+        assert_eq!(set, ["ENABLE_VKBASALT=0", "WINE_FULLSCREEN_FSR=0"]);
+        assert_eq!(unset.len(), SESSION_KEYS.len() - SWITCHES.len());
     }
 
     #[test]

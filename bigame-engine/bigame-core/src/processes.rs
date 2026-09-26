@@ -278,22 +278,38 @@ fn current_uid() -> u32 {
     unsafe { libc::getuid() }
 }
 
-/// Whether process `pid` has `key` in its environment. Only the name is
-/// compared; no value is kept.
+/// Whether process `pid` has the switch `key` on in its environment: set,
+/// and not empty or `0` (BiGame-mode turns a switch off in the session by
+/// setting it to `0`). No value is kept.
 #[must_use]
-pub fn env_has_key(pid: u32, key: &str) -> bool {
+pub fn env_switch_on(pid: u32, key: &str) -> bool {
     let Ok(bytes) = std::fs::read(format!("/proc/{pid}/environ")) else {
         return false;
     };
+    switch_on(&bytes, key)
+}
+
+fn switch_on(environ: &[u8], key: &str) -> bool {
     let prefix = format!("{key}=");
-    bytes
-        .split(|b| *b == 0)
-        .any(|entry| entry.starts_with(prefix.as_bytes()))
+    environ.split(|b| *b == 0).any(|entry| {
+        entry
+            .strip_prefix(prefix.as_bytes())
+            .is_some_and(|v| !v.is_empty() && v != b"0")
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_switch_set_to_zero_is_off() {
+        let env = b"PATH=/usr/bin\0WINE_FULLSCREEN_FSR=0\0ENABLE_VKBASALT=1\0EMPTY=\0";
+        assert!(!switch_on(env, "WINE_FULLSCREEN_FSR"));
+        assert!(switch_on(env, "ENABLE_VKBASALT"));
+        assert!(!switch_on(env, "EMPTY"));
+        assert!(!switch_on(env, "MISSING"));
+    }
 
     #[test]
     fn known_background_work_is_recognised() {
