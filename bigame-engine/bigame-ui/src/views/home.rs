@@ -175,6 +175,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                     detail: on_detail(current),
                 });
             }
+            glib::ControlFlow::Continue
         });
     }
 

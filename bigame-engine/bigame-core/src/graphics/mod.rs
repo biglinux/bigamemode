@@ -199,6 +199,8 @@ pub struct Analysis {
     /// is installed, including a change made in its overlay. `None` when
     /// BiGame-mode installed nothing.
     pub installed_frame_generation: Option<bool>,
+    /// The Steam launch option `FSR4_UPGRADE=1` is set for this game.
+    pub fsr4_upgrade_set: bool,
 }
 
 /// The running game, when it is `target`.
@@ -273,7 +275,8 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
             .cloned(),
     );
     let gpu = report.gpu().map(|g| g.name.clone());
-    let plan = plan::plan(&report, cfg, &launch_context(target, cfg));
+    let context = launch_context(target, cfg);
+    let plan = plan::plan(&report, cfg, &context);
     let status = status_of(installed.as_ref(), running.as_ref(), &scanned);
     let maps = |pid: u32| std::fs::read_to_string(format!("/proc/{pid}/maps")).ok();
     let live_maps = running.as_ref().and_then(|g| maps(g.pid));
@@ -305,6 +308,7 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         neural,
         pending_changes,
         installed_frame_generation,
+        fsr4_upgrade_set: context.fsr4_upgrade,
     }
 }
 

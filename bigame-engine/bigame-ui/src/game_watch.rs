@@ -22,7 +22,8 @@ use bigame_core::running::GameIdentity;
 /// How often to look when nothing has signalled a change.
 const POLL: std::time::Duration = std::time::Duration::from_secs(5);
 
-type Listener = Box<dyn Fn(Option<&GameIdentity>)>;
+/// Returns [`glib::ControlFlow::Break`] to stop listening.
+type Listener = Box<dyn Fn(Option<&GameIdentity>) -> glib::ControlFlow>;
 
 #[derive(Default)]
 struct Watch {
@@ -87,9 +88,10 @@ pub fn check() {
             if let Some(g) = &found { tracing::info!(game = %g.display_name, process = %g.process_name, pid = g.pid, "game detected") } else { tracing::info!("game no longer running") }
             *watch.current.borrow_mut() = found;
             let current = watch.current.borrow();
-            for listener in watch.listeners.borrow().iter() {
-                listener(current.as_ref());
-            }
+            watch
+                .listeners
+                .borrow_mut()
+                .retain(|listener| listener(current.as_ref()).is_continue());
         });
     });
 }
@@ -100,10 +102,12 @@ pub fn current() -> Option<GameIdentity> {
     WATCH.with(|w| w.current.borrow().clone())
 }
 
-/// Be told whenever the running game changes, starting with the current one.
-pub fn subscribe(listener: impl Fn(Option<&GameIdentity>) + 'static) {
+/// Be told whenever the running game changes, starting with the current one,
+/// until the listener returns [`glib::ControlFlow::Break`].
+pub fn subscribe(listener: impl Fn(Option<&GameIdentity>) -> glib::ControlFlow + 'static) {
     WATCH.with(|watch| {
-        listener(watch.current.borrow().as_ref());
-        watch.listeners.borrow_mut().push(Box::new(listener));
+        if listener(watch.current.borrow().as_ref()).is_continue() {
+            watch.listeners.borrow_mut().push(Box::new(listener));
+        }
     });
 }

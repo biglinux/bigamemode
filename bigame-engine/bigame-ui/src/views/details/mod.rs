@@ -214,6 +214,7 @@ pub fn build() -> gtk4::Widget {
             if root.is_mapped() {
                 refresh();
             }
+            glib::ControlFlow::Continue
         });
     }
 

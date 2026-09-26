@@ -293,7 +293,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
 
     // ── Buttons ──────────────────────────────────────────────────────
     let installed = r.installed.is_some();
-    let option_set = bigame_core::graphics::fsr4_upgrade::is_enabled(page.target.app_id.as_deref());
+    let option_set = a.fsr4_upgrade_set;
     page.apply.set_visible(
         a.pending_changes || !installed && (p.optiscaler.is_some() || p.native_action.is_some()),
     );
@@ -1372,18 +1372,19 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
     refresh(&page);
     // The game starting or closing changes what the page says (Current,
     // the status, Diagnose): read it again while the page is open. The
-    // listener holds the page weakly, so a closed page is not kept alive,
-    // and it skips the call subscribe makes at once (refreshed just above).
+    // listener holds the page weakly and goes once the page is gone, and it
+    // skips the call subscribe makes at once (refreshed just above).
     {
         let weak = Rc::downgrade(&page);
         let first = std::cell::Cell::new(true);
         crate::game_watch::subscribe(move |_| {
-            if first.replace(false) {
-                return;
-            }
-            if let Some(page) = weak.upgrade().filter(|p| p.body.is_mapped()) {
+            let Some(page) = weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+            if !first.replace(false) && page.body.is_mapped() {
                 refresh(&page);
             }
+            glib::ControlFlow::Continue
         });
     }
     dialog.present(Some(parent));
