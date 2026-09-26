@@ -523,6 +523,18 @@ pub enum Input {
     Fsr,
 }
 
+impl Input {
+    /// Its name, as the game's menu shows it.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dlss => "DLSS",
+            Self::Xess => "XeSS",
+            Self::Fsr => "FSR",
+        }
+    }
+}
+
 /// What `OptiScaler` runs in place of the game's upscaler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

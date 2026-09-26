@@ -58,7 +58,8 @@ fn main() -> anyhow::Result<()> {
         "PLAN [{:?}] {}",
         analysis.plan.standing, analysis.plan.summary
     );
-    let m = graphics::install(&target, &analysis.plan, &cfg.version)?;
+    let done = graphics::install(&target, &analysis.plan, &cfg.version)?;
+    let m = &done.manifest;
     println!(
         "installed {} {} into {}",
         m.source.component, m.source.version, target.name
@@ -72,6 +73,15 @@ fn main() -> anyhow::Result<()> {
             } else {
                 "(new)"
             }
+        );
+    }
+    if let Some(applied) = done.game_setting {
+        println!("the game's own setting: {applied:?}");
+    }
+    for c in &m.settings {
+        println!(
+            "  {}\\{} = {} (was {:?})",
+            c.key, c.value, c.set, c.original
         );
     }
     Ok(())

@@ -274,3 +274,116 @@
 .profile-dot-builtin {
     background-color: @accent_bg_color;
 }
+
+/* ── State vocabulary (widgets/status.rs) ────────────────────────────
+ *
+ * One chip for every state on every page. Icon and label carry the
+ * meaning; the colour only repeats it. */
+.state-chip {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background-color: alpha(@window_fg_color, 0.08);
+    color: @window_fg_color;
+}
+
+.state-chip.state-active {
+    background-color: alpha(@success_color, 0.16);
+    color: @success_color;
+}
+
+.state-chip.state-waiting {
+    background-color: alpha(@accent_bg_color, 0.14);
+    color: @accent_color;
+}
+
+.state-chip.state-attention {
+    background-color: alpha(@warning_color, 0.18);
+    color: @warning_color;
+}
+
+.state-chip.state-error {
+    background-color: alpha(@error_color, 0.16);
+    color: @error_color;
+}
+
+.state-chip.state-neutral {
+    background-color: alpha(@window_fg_color, 0.07);
+    color: alpha(@window_fg_color, 0.65);
+}
+
+/* A fact inside an expander: the value is what matters, so it keeps full
+ * contrast where a subtitle would be dimmed. */
+.fact-value {
+    color: @window_fg_color;
+    opacity: 0.9;
+}
+
+.fact-note {
+    font-size: 0.92em;
+}
+
+/* ── Details ─────────────────────────────────────────────────────────── */
+
+.overview-card {
+    padding: 16px 18px;
+}
+
+.overview-icon.overview-ok { color: @success_color; }
+.overview-icon.overview-warn { color: @warning_color; }
+.overview-icon.overview-off { color: alpha(@window_fg_color, 0.5); }
+
+.overview-tile {
+    padding: 6px 8px;
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.04);
+}
+
+.telemetry-card {
+    min-width: 200px;
+}
+
+.gpu-card {
+    padding: 14px 16px;
+}
+
+.gpu-role.gpu-role-active { color: @success_color; }
+.gpu-role.gpu-role-idle { color: alpha(@window_fg_color, 0.6); }
+
+.gpu-bar {
+    min-height: 4px;
+}
+
+.gpu-bar trough {
+    min-height: 4px;
+    border-radius: 2px;
+}
+
+.gpu-bar block {
+    min-height: 4px;
+    border-radius: 2px;
+}
+
+.gpu-bar block.filled {
+    background-color: @accent_bg_color;
+    border-color: @accent_bg_color;
+}
+
+.running-game-card {
+    padding: 10px 14px;
+}
+
+.pipeline-strip {
+    padding: 0;
+}
+
+.pipeline-stage {
+    padding: 8px 4px;
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.04);
+}
+
+.pipeline-stage.state-active { color: @success_color; }
+.pipeline-stage.state-waiting { color: alpha(@window_fg_color, 0.55); }
+.pipeline-stage.state-attention { color: @warning_color; }
+.pipeline-stage.state-error { color: @error_color; }
+.pipeline-stage.state-neutral { color: alpha(@window_fg_color, 0.45); }

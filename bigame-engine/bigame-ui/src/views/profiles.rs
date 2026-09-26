@@ -98,6 +98,13 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     group.add(&stack);
 
     // Action buttons
+    let wizard_btn = gtk4::Button::builder()
+        .label(i18n("Create with Wizard"))
+        .tooltip_text(i18n(
+            "A guided profile: every option explained, for a game you pick",
+        ))
+        .css_classes(["flat"])
+        .build();
     let add_btn = gtk4::Button::builder()
         .icon_name("list-add-symbolic")
         .tooltip_text(i18n("New Profile"))
@@ -114,6 +121,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         .css_classes(["circular", "flat"])
         .build();
     let hdr = gtk4::Box::builder().spacing(4).build();
+    hdr.append(&wizard_btn);
     hdr.append(&refresh_btn);
     hdr.append(&import_btn);
     hdr.append(&add_btn);
@@ -161,6 +169,19 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     {
         let view = Rc::clone(&view);
         refresh_btn.connect_clicked(move |_| refresh_library(&view));
+    }
+
+    // "Create with Wizard" → the guided profile, then a rescan.
+    {
+        let view = Rc::clone(&view);
+        wizard_btn.connect_clicked(move |btn| {
+            let view = Rc::clone(&view);
+            let anchor = btn.clone();
+            crate::views::profile_wizard::open(btn, move |_| {
+                toast::show(&anchor, &i18n("Profile created"));
+                refresh_library(&view);
+            });
+        });
     }
 
     // "New Profile" → empty detail page
@@ -293,7 +314,7 @@ fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
     group.set_title(&i18n("MangoHud"));
     let installed = bigame_core::capabilities::which("mangohud").is_some();
     group.set_description(Some(&if installed {
-        i18n("The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. For a Steam game it is written into Steam's launch options, with Steam closed.")
+        i18n("The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. It is written where the game's launcher reads it: Steam's launch options (with Steam closed), the game's settings in Heroic (with Heroic closed) or in Lutris.")
     } else {
         i18n("MangoHud is not installed.")
     }));
@@ -328,6 +349,26 @@ fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
             let result = gio::spawn_blocking(move || bigame_core::mangohud::apply(&name, mode)).await;
             let message = match result {
                 Ok(Ok(Applied::LaunchPlan)) => i18n("Saved. It applies when BiGame-mode starts the game."),
+                Ok(Ok(Applied::Launcher { name, missing_extension: None })) => {
+                    i18n("Written into the game's settings in %s: it applies the next time %s starts the game.")
+                        .replace("%s", name)
+                }
+                Ok(Ok(Applied::Launcher { name, missing_extension: Some(command) })) => {
+                    i18n("Written into the game's settings in %l, but %l is a Flatpak without MangoHud's Flatpak extension, so the overlay cannot load. Install it and restart %l: %c")
+                        .replace("%l", name)
+                        .replace("%c", &command)
+                }
+                Ok(Ok(Applied::LauncherRunning(name))) => {
+                    applying.set(true);
+                    row.set_selected(match current {
+                        Mode::Off => 0,
+                        Mode::On => 1,
+                        Mode::Forced => 2,
+                    });
+                    applying.set(false);
+                    i18n("Close %s first: it keeps the game's settings in memory and would overwrite the change.")
+                        .replace("%s", name)
+                }
                 Ok(Ok(Applied::SteamLaunchOptions(opts))) if opts.is_empty() => {
                     i18n("Removed from the game's Steam launch options.")
                 }
@@ -1167,8 +1208,112 @@ fn card_entry(entry: &bigame_core::library::Entry) -> game_card::Entry {
                 app_id: game.app_id.clone(),
                 install_root: root,
             }),
+        launch: launch_command(game),
+        ai_installed: bigame_core::graphics::manifest_for_process(
+            &bigame_core::graphics::state_dir(),
+            &key,
+        )
+        .is_some(),
         key,
     }
+}
+
+/// How a game is started from here: Steam titles through the client
+/// (`steam -applaunch <id>`), others with the command their launcher entry
+/// gives. `None` when there is neither, rather than guessing a program name
+/// and running whatever the PATH resolves it to.
+fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<(String, Vec<String>)> {
+    if game.source == bigame_core::games::Source::Steam {
+        let id = game.app_id.clone()?;
+        return Some(("steam".to_owned(), vec!["-applaunch".to_owned(), id]));
+    }
+    let (program, args) = game.launch_command.as_ref()?.split_first()?;
+    Some((program.clone(), args.to_vec()))
+}
+
+/// Start `entry`'s game with BiGame-mode's launch settings (Gamescope, Wine
+/// FSR, vkBasalt, frame generation) on top of its profile.
+///
+/// A Steam game is started by the Steam client, in its own process tree:
+/// its falcond profile applies, but nothing wraps it, so the toast says so
+/// rather than promising the launch settings.
+fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
+    let Some((program, args)) = entry.launch.clone() else {
+        return;
+    };
+    let exe = entry.key.clone();
+    let title = entry.title.clone();
+    let through_steam = program == "steam";
+    let anchor = anchor.clone();
+    glib::spawn_future_local(async move {
+        let exe_for_launch = exe.clone();
+        let title_for_log = title.clone();
+        let result = gio::spawn_blocking(move || {
+            let profile = bigame_core::profiles::load(&exe_for_launch).ok();
+            let gs_mode = profile
+                .as_ref()
+                .map_or(bigame_core::gamescope::Mode::Auto, |p| p.gamescope_mode);
+            let gs_cfg = profile.and_then(|p| p.gamescope);
+            tracing::info!(
+                game = %title_for_log,
+                profile = %exe_for_launch,
+                launch_program = %program,
+                launch_args = ?args,
+                "launch requested from Profiles"
+            );
+            let video = bigame_core::video_config::load();
+            bigame_core::launcher::LaunchPlan::build_for_game(
+                &program,
+                &args,
+                &exe_for_launch,
+                &video,
+                gs_cfg.as_ref(),
+                gs_mode,
+            )
+            .spawn()
+            .map(|mut child| {
+                // Reaped off the UI thread: a dropped handle would leave an
+                // exited Gamescope a zombie for the life of the UI, and a
+                // zombie still matches "is it running".
+                std::thread::spawn(move || {
+                    let _ = child.wait();
+                });
+            })
+            .map_err(|e| anyhow::anyhow!(e))
+        })
+        .await;
+        match result {
+            Ok(Ok(())) => {
+                tracing::info!(game = %title, "launch succeeded");
+                toast::show(
+                    &anchor,
+                    &if through_steam {
+                        i18n("Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options.").replace("%s", &title)
+                    } else {
+                        i18n("%s started with BiGame-mode's launch settings").replace("%s", &title)
+                    },
+                );
+            }
+            Ok(Err(e)) => {
+                tracing::error!(game = %title, error = %e, "launch failed");
+                toast::show(
+                    &anchor,
+                    &i18n("Could not start %t: %e")
+                        .replace("%t", &title)
+                        .replace("%e", &e.to_string()),
+                );
+            }
+            Err(_) => {
+                tracing::error!(game = %title, "launch task failed");
+                toast::show(
+                    &anchor,
+                    &i18n("Could not start %t: %e")
+                        .replace("%t", &title)
+                        .replace("%e", ""),
+                );
+            }
+        }
+    });
 }
 
 /// Open a card's profile: the existing file for editing, or a new profile
@@ -1193,26 +1338,88 @@ pub(crate) fn source_label(source: bigame_core::games::Source) -> String {
 }
 
 /// Overflow menu for one card.
+// One action per entry, built where the menu is; splitting them would
+// separate an item from what it does.
+#[allow(clippy::too_many_lines)]
 fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::NavigationView) {
+    // Only what applies to this game, in the order a person needs it:
+    // start it, set it up, look inside it, measure it, undo.
     let menu = gio::Menu::new();
+    if entry.launch.is_some() {
+        menu.append(Some(&i18n("Launch (Turbo)")), Some("card.launch"));
+    }
+    if entry.has_profile {
+        menu.append(Some(&i18n("Edit profile")), Some("card.edit"));
+    } else {
+        menu.append(Some(&i18n("Create with Wizard")), Some("card.wizard"));
+        menu.append(Some(&i18n("Create profile")), Some("card.edit"));
+    }
+    if entry.target.is_some() {
+        menu.append(Some(&i18n("AI Graphics…")), Some("card.ai"));
+    }
     // Measuring needs a handle on the game's own process, which only exists
     // for games that start without a launcher.
     if entry.launch_command.is_some() {
         menu.append(Some(&i18n("Measure the difference")), Some("card.measure"));
     }
-    if entry.target.is_some() {
-        menu.append(Some(&i18n("AI Graphics…")), Some("card.ai"));
+    if entry.ai_installed {
+        menu.append(
+            Some(&i18n("Restore the game's graphics")),
+            Some("card.restore"),
+        );
     }
-    if entry.has_profile {
-        menu.append(Some(&i18n("Edit profile")), Some("card.edit"));
-        if !entry.system_profile {
-            menu.append(Some(&i18n("Delete profile")), Some("card.delete"));
-        }
-    } else {
-        menu.append(Some(&i18n("Create profile")), Some("card.edit"));
+    if entry.has_profile && !entry.system_profile {
+        menu.append(Some(&i18n("Delete profile")), Some("card.delete"));
     }
 
     let group = gio::SimpleActionGroup::new();
+
+    if entry.launch.is_some() {
+        let launch = gio::SimpleAction::new("launch", None);
+        let entry = entry.clone();
+        let anchor = anchor.clone();
+        launch.connect_activate(move |_, _| launch_game(&entry, &anchor));
+        group.add_action(&launch);
+    }
+
+    if !entry.has_profile {
+        let wizard = gio::SimpleAction::new("wizard", None);
+        let key = entry.key.clone();
+        let anchor = anchor.clone();
+        let nav = nav.clone();
+        wizard.connect_activate(move |_, _| {
+            let anchor_saved = anchor.clone();
+            let nav = nav.clone();
+            crate::views::profile_wizard::open_with_suggested_name(&anchor, &key, move |_| {
+                toast::show(&anchor_saved, &i18n("Profile created"));
+                // The library rescans when its grid comes back on screen.
+                let _ = &nav;
+            });
+        });
+        group.add_action(&wizard);
+    }
+
+    if let Some(target) = entry.target.clone().filter(|_| entry.ai_installed) {
+        let restore = gio::SimpleAction::new("restore", None);
+        let anchor = anchor.clone();
+        restore.connect_activate(move |_, _| {
+            let anchor = anchor.clone();
+            let target = target.clone();
+            glib::spawn_future_local(async move {
+                let t = target.clone();
+                let result = gio::spawn_blocking(move || bigame_core::graphics::remove(&t)).await;
+                toast::show(
+                    &anchor,
+                    &match result {
+                        Ok(Ok(_)) => i18n("The game's files are as they were before"),
+                        Ok(Err(e)) => format!("{}: {e:#}", i18n("Could not restore")),
+                        Err(_) => i18n("Could not restore"),
+                    },
+                );
+            });
+        });
+        group.add_action(&restore);
+    }
 
     if let Some(command) = entry.launch_command.clone() {
         let measure = gio::SimpleAction::new("measure", None);

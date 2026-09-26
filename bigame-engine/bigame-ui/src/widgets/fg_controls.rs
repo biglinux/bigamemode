@@ -17,7 +17,7 @@ use crate::i18n::i18n;
 /// Build a group of controls for Frame Generation settings in Tuning.
 pub fn build_tuning_fg_group(active_game: &str) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Frame Generation (LSFG-VK)"));
+    group.set_title(&i18n("Frame generation"));
     // lsfg-vk re-reads its file only for a game that started with an entry,
     // and then applies a new multiplier but never stops generating; turning
     // it on or off waits for the next start (checked with Shadow of the Tomb
@@ -29,7 +29,7 @@ pub fn build_tuning_fg_group(active_game: &str) -> adw::PreferencesGroup {
     // ── DLL Path (global) ─────────────────────────────────────
     let init_dll = bigame_core::fg::read_global_dll().unwrap_or_default();
     let dll_row = adw::EntryRow::builder()
-        .title(i18n("Path to Lossless.dll (Global)"))
+        .title(i18n("Path to Lossless.dll"))
         .text(&init_dll)
         .build();
 
@@ -123,7 +123,8 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     let target_model = gtk4::StringList::new(&model_strings);
     let target_row = adw::ComboRow::builder()
-        .title(i18n("Target Profile"))
+        .title(i18n("Game (profile)"))
+        .subtitle(i18n("The entries below are this game's"))
         .model(&target_model)
         .build();
 
@@ -154,8 +155,8 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
 
     // ── Explicit ON/OFF switch for LSFG generation ─────────────────────────
     let enabled_row = adw::SwitchRow::builder()
-        .title(i18n("Enable LSFG Frame Generation"))
-        .subtitle(i18n("When off, lsfg-vk has no entry for this game"))
+        .title(i18n("Generate frames for this game"))
+        .subtitle(i18n("When off, lsfg-vk has no entry for this game. On or off takes effect at the game's next start."))
         .active(init_enabled)
         .sensitive(is_sensitive)
         .build();

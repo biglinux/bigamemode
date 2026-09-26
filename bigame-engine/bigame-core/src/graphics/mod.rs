@@ -12,6 +12,7 @@ pub mod diagnose;
 pub mod external;
 pub mod fsr4_upgrade;
 pub mod gamedb;
+pub mod ingame;
 pub mod manifest;
 pub mod optiscaler;
 pub mod outcomes;
@@ -175,6 +176,13 @@ pub struct Analysis {
     pub native: runtime::NativeRuntime,
     /// Where neural rendering stands.
     pub neural: external::Status,
+    /// What is installed differs from what the plan would install now: a
+    /// choice changed since Apply ([`pending_changes`]).
+    pub pending_changes: bool,
+    /// `OptiScaler`'s frame generation is on in the game's own ini — what
+    /// is installed, including a change made in its overlay. `None` when
+    /// BiGame-mode installed nothing.
+    pub installed_frame_generation: Option<bool>,
 }
 
 /// The running game, when it is `target`.
@@ -283,12 +291,16 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         api = ?report.api.api, translation = report.api.translation.unwrap_or("-"),
         native_fsr4 = report.native_fsr4_path(), neural = ?std::mem::discriminant(&neural),
         "graphics backend selection");
+    let pending_changes = pending_changes(target, &plan);
+    let installed_frame_generation = installed.as_ref().map(optiscaler_frame_gen_on);
     Analysis {
         report,
         plan,
         status,
         native,
         neural,
+        pending_changes,
+        installed_frame_generation,
     }
 }
 
@@ -489,9 +501,22 @@ fn apply_release(
     )
 }
 
+/// What [`install`] did.
+#[derive(Debug, Clone)]
+pub struct Installed {
+    /// The record of what was placed.
+    pub manifest: manifest::Manifest,
+    /// What was done with the game's own switch for the upscaler
+    /// `OptiScaler` takes over, when the game list says where it is.
+    pub game_setting: Option<ingame::Applied>,
+}
+
 /// Carry out `plan` for `target`: download (or reuse) the `OptiScaler`
 /// release `version` names, build the payload and apply it as a
-/// transaction.
+/// transaction. Then, when the game list says where the game keeps the
+/// switch for the upscaler `OptiScaler` takes over, switch it on if it is
+/// off — without it `OptiScaler` has nothing to replace — and record the
+/// change for Restore.
 ///
 /// Refuses while the game is running: its DLLs are loaded, and the change
 /// would only take effect at the next start anyway.
@@ -503,7 +528,7 @@ pub fn install(
     target: &Target,
     plan: &plan::Plan,
     version: &config::VersionPolicy,
-) -> anyhow::Result<manifest::Manifest> {
+) -> anyhow::Result<Installed> {
     let o = plan
         .optiscaler
         .as_ref()
@@ -512,10 +537,119 @@ pub fn install(
     let exe_dir = exe_dir(target)?;
     let cache = optiscaler::cache_dir();
     let cached = optiscaler::fetch(&cache, &release_for(&cache, version)?)?;
-    let m = apply_release(target, o, &cached, &exe_dir)?;
+    let mut m = apply_release(target, o, &cached, &exe_dir)?;
     tracing::info!(target: "graphics", game = %target.process, version = %m.source.version,
         "graphics enhancement installed; active from the next start");
-    Ok(m)
+    let game_setting = match input_setting(target, o.input) {
+        Some(s) => {
+            let (applied, changes) = ingame::switch_on(proton_prefix(target).as_deref(), &s);
+            if !changes.is_empty() {
+                m.settings = changes;
+                if let Err(e) = m.save(&state_dir()) {
+                    // Unrecorded, Restore could not put it back: undo it now.
+                    let _ = ingame::restore(&m.settings);
+                    return Err(
+                        e.context("the game's setting could not be recorded; it was put back")
+                    );
+                }
+            }
+            Some(applied)
+        }
+        None => None,
+    };
+    Ok(Installed {
+        manifest: m,
+        game_setting,
+    })
+}
+
+/// Whether what is installed in `target` differs from what `plan` would
+/// install: another file set (frame generation adds one), or another
+/// setting BiGame-mode writes in `OptiScaler.ini` (the output, the input,
+/// frame generation). The ini compared is BiGame-mode's own staged copy,
+/// not the one in the game, which `OptiScaler` rewrites on every start and
+/// whose overlay changes are the user's.
+///
+/// `false` when nothing is installed or the plan installs nothing (the page
+/// then offers Restore).
+#[must_use]
+pub fn pending_changes(target: &Target, plan: &plan::Plan) -> bool {
+    let Some(o) = plan.optiscaler.as_ref() else {
+        return false;
+    };
+    let state = state_dir();
+    let key = target.key();
+    let Ok(Some(m)) = manifest::Manifest::load(&state, &key) else {
+        return false;
+    };
+    let staged = std::fs::read_to_string(state.join(&key).join("staging").join("OptiScaler.ini"))
+        .unwrap_or_default();
+    differs(&m, &staged, o)
+}
+
+/// [`pending_changes`], from the manifest, the staged ini and the options.
+fn differs(m: &manifest::Manifest, staged_ini: &str, o: &optiscaler::Options) -> bool {
+    let name = |p: &Path| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default()
+    };
+    let mut installed: Vec<String> = m.entries.iter().map(|e| name(&e.path)).collect();
+    let mut wanted: Vec<String> = [o.proxy.as_str(), "OptiScaler.ini"]
+        .into_iter()
+        .chain(optiscaler::release_files(o))
+        .map(|f| name(Path::new(f)))
+        .collect();
+    installed.sort();
+    installed.dedup();
+    wanted.sort();
+    wanted.dedup();
+    if installed != wanted {
+        return true;
+    }
+    optiscaler::ini_settings(o)
+        .into_iter()
+        .any(|(section, key, value)| {
+            optiscaler::get_ini(staged_ini, section, key)
+                .is_none_or(|v| !v.eq_ignore_ascii_case(&value))
+        })
+}
+
+/// Replace what is installed in `target` with what `plan` installs now —
+/// the page's *Apply changes*, after a different choice. Everything placed
+/// is removed first (originals and the game's own settings put back), then
+/// the plan is installed as a new transaction.
+///
+/// # Errors
+/// Returns an error if the game is running, the removal fails (nothing was
+/// installed anew), or the install fails — the game then has its own files,
+/// as after Restore, and the error says so.
+pub fn reinstall(
+    target: &Target,
+    plan: &plan::Plan,
+    version: &config::VersionPolicy,
+) -> anyhow::Result<Installed> {
+    anyhow::ensure!(plan.optiscaler.is_some(), "this plan installs nothing");
+    ensure_closed(target)?;
+    // Everything that can fail without touching the game first: the
+    // release, downloaded and checked.
+    let cache = optiscaler::cache_dir();
+    optiscaler::fetch(&cache, &release_for(&cache, version)?)?;
+    remove(target)?;
+    install(target, plan, version).map_err(|e| {
+        e.context(
+            "the new choice could not be installed; the game has its own files, as after Restore",
+        )
+    })
+}
+
+/// Where `target` keeps the switch for its `input` upscaler, from the game
+/// list.
+fn input_setting(target: &Target, input: optiscaler::Input) -> Option<ingame::InputSetting> {
+    gamedb::GameDb::load()
+        .lookup(target.app_id.as_deref(), &target.process)
+        .and_then(|e| e.input_setting.clone())
+        .filter(|s| s.input == input)
 }
 
 /// Replace the installed `OptiScaler` with `to`, keeping the one that was
@@ -568,6 +702,8 @@ pub fn update(
     match apply_release(target, o, &new_cached, &exe_dir) {
         Ok(mut m) => {
             m.previous = Some(old.source.clone());
+            // The game's own settings were not touched by the update.
+            m.settings.clone_from(&old.settings);
             m.save(&state)?;
             tracing::info!(target: "graphics", game = %target.process, version = %to.version,
                 "OptiScaler updated; the previous version is kept to go back to");
@@ -577,10 +713,14 @@ pub fn update(
             tracing::warn!(target: "graphics", game = %target.process, error = %e,
                 "OptiScaler update failed; putting the previous version back");
             match apply_release(target, o, &old_cached, &exe_dir) {
-                Ok(_) => Err(e.context(format!(
+                Ok(mut back) => {
+                    back.settings.clone_from(&old.settings);
+                    let _ = back.save(&state);
+                    Err(e.context(format!(
                     "the update failed; OptiScaler {} was put back",
                     old.source.version
-                ))),
+                    )))
+                }
                 Err(e2) => Err(e.context(format!(
                     "the update failed, and putting OptiScaler {} back failed too ({e2:#}); the game has its own files",
                     old.source.version
@@ -630,13 +770,25 @@ pub fn update_offer(target: &Target, cfg: &config::AiGraphicsConfig) -> Option<v
     )
 }
 
-/// Remove everything BiGame-mode placed in `target`, restoring originals.
+/// Remove everything BiGame-mode placed in `target`, restoring originals —
+/// files, and the game's own settings Apply switched on.
 ///
 /// # Errors
-/// Returns an error if the game is running or a file cannot be restored.
+/// Returns an error if the game is running, its Wine prefix stays in use,
+/// or a file cannot be restored.
 pub fn remove(target: &Target) -> anyhow::Result<Vec<transaction::FileOutcome>> {
     ensure_closed(target)?;
-    transaction::remove(&state_dir(), &target.key())
+    let state = state_dir();
+    let settings = manifest::Manifest::load(&state, &target.key())?
+        .map(|m| m.settings)
+        .unwrap_or_default();
+    if !settings.is_empty() {
+        for r in ingame::restore(&settings)? {
+            tracing::info!(target: "graphics", game = %target.process, outcome = ?r,
+                "the game's setting restored");
+        }
+    }
+    transaction::remove(&state, &target.key())
 }
 
 /// Put back files that are missing (a game update, a file check by Steam),
@@ -731,6 +883,78 @@ mod tests {
         chosen.ai_graphics.experimental = true;
         crate::game_settings::save_to(&settings, "SOTTR.exe", &chosen).unwrap();
         assert!(launch_disables(&state, &settings, "sottr.exe").contains(&rules::Tech::LsfgVk));
+    }
+
+    #[test]
+    fn a_different_choice_is_a_pending_change_and_the_same_one_is_not() {
+        use crate::graphics::optiscaler::{Api, FrameGen, Input, Options, Output};
+        let o = Options {
+            proxy: "dxgi.dll".into(),
+            api: Api::Dx12,
+            input: Input::Xess,
+            output: Output::Fsr,
+            frame_gen: FrameGen::Off,
+            nvidia: false,
+            dlss: false,
+            watermark: false,
+        };
+        let entry = |p: &str| manifest::Entry {
+            path: p.into(),
+            sha256: String::new(),
+            kind: manifest::FileKind::Binary,
+            replaced: None,
+        };
+        let mut m = manifest::Manifest {
+            schema: manifest::SCHEMA,
+            game_key: "steam-1".into(),
+            process: None,
+            title: None,
+            install_root: "/g".into(),
+            source: manifest::Source::default(),
+            started_at: 0,
+            state: manifest::State::Installed,
+            entries: [
+                "dxgi.dll",
+                "OptiScaler.ini",
+                "amd_fidelityfx_dx12.dll",
+                "amd_fidelityfx_upscaler_dx12.dll",
+            ]
+            .into_iter()
+            .map(entry)
+            .collect(),
+            created_dirs: vec![],
+            generated: vec![],
+            previous: None,
+            managed: true,
+            settings: vec![],
+        };
+        let staged = optiscaler::ini_settings(&o)
+            .into_iter()
+            .fold(String::new(), |t, (s, k, v)| {
+                optiscaler::set_ini(&t, s, k, &v)
+            });
+        assert!(!differs(&m, &staged, &o), "what is installed");
+
+        // Frame generation chosen: one more file, other settings.
+        let fg = Options {
+            frame_gen: FrameGen::OptiFgFsr,
+            ..o.clone()
+        };
+        assert!(differs(&m, &staged, &fg));
+        m.entries
+            .push(entry("amd_fidelityfx_framegeneration_dx12.dll"));
+        assert!(
+            differs(&m, &staged, &fg),
+            "same files, the ini still says off"
+        );
+
+        // XeSS as the output instead of FSR: other files.
+        m.entries.pop();
+        let xess = Options {
+            output: Output::Xess,
+            ..o
+        };
+        assert!(differs(&m, &staged, &xess));
     }
 
     #[test]

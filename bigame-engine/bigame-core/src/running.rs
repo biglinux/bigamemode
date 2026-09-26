@@ -937,7 +937,8 @@ fn layers_from_maps(maps: &str) -> Layers {
 
 /// The sched-ext scheduler loaded now (`/sys/kernel/sched_ext`), without
 /// the `_1.2.3` version suffix some schedulers add.
-fn loaded_scheduler() -> Option<String> {
+#[must_use]
+pub fn loaded_scheduler() -> Option<String> {
     let state = std::fs::read_to_string("/sys/kernel/sched_ext/state").ok()?;
     if state.trim() != "enabled" {
         return None;

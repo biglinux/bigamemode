@@ -1016,6 +1016,7 @@ mod tests {
                 entry("libxess.dll", true),
             ],
             managed: true,
+            settings: Vec::new(),
             created_dirs: vec![],
             generated: vec![],
             previous: None,

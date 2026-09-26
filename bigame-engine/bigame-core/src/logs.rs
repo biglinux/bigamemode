@@ -198,11 +198,20 @@ pub fn tracing_level(message: &str) -> Option<(Level, &str)> {
     Some((level, after.trim_start()))
 }
 
+/// Libraries the UI loads print these to stderr, which the journal records as
+/// plain lines. They describe the desktop, not BiGame-mode: gvfs reports each
+/// volume monitor the system has masked or not installed, every time GIO
+/// starts, with "failed" in the wording.
+const DESKTOP_NOISE: &[&str] = &["for remote volume monitor with dbus name"];
+
 /// The severity of a message, from the journal priority and its wording.
 #[must_use]
 pub fn classify(priority: Option<u8>, message: &str) -> Level {
     let lower = message.to_ascii_lowercase();
     let has = |words: &[&str]| words.iter().any(|w| lower.contains(w));
+    if priority.is_none_or(|p| p > 3) && has(DESKTOP_NOISE) {
+        return Level::Debug;
+    }
     if priority.is_some_and(|p| p <= 3)
         || has(&[
             " error", "error(", "error:", "failed", "failure", "panic", "critical", "fatal",
@@ -418,6 +427,26 @@ mod tests {
         );
         assert_eq!(classify(Some(3), "anything"), Level::Error);
         assert_eq!(classify(Some(4), "anything"), Level::Warning);
+    }
+
+    #[test]
+    fn a_masked_gvfs_monitor_is_not_an_error() {
+        // A real line, printed by GVfs inside bigame-ui at priority 6.
+        let gvfs = "invoking IsSupported() failed for remote volume monitor with dbus name \
+                    org.gtk.vfs.GPhoto2VolumeMonitor:: GDBus.Error:org.freedesktop.DBus.Error.\
+                    NameHasNoOwner: Could not activate remote peer \
+                    'org.gtk.vfs.GPhoto2VolumeMonitor': activation request failed: unit is \
+                    masked (g-dbus-error-quark, 3)";
+        assert_eq!(classify(Some(6), gvfs), Level::Debug);
+        assert_eq!(
+            classify(Some(3), gvfs),
+            Level::Error,
+            "the priority still wins"
+        );
+        assert_eq!(
+            classify(Some(6), "thread 'main' panicked at src/x.rs:1:1"),
+            Level::Error
+        );
     }
 
     #[test]

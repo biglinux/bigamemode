@@ -10,9 +10,11 @@
 //! What an entry can do is limited to what is safe to take on trust: name
 //! the API a game renders with by default (a running game still says
 //! otherwise), prefer the game's own upscaler, `OptiScaler` or nothing in
-//! Recommended mode, record the `OptiScaler` version it was tested with, and
-//! block injection. Nothing in it can *unblock* a game: anti-cheat is decided
-//! by the game's files alone.
+//! Recommended mode, record the `OptiScaler` version it was tested with,
+//! block injection, and say which value in the game's own registry selects
+//! the upscaler `OptiScaler` takes over — a DWORD under `HKEY_CURRENT_USER`
+//! in the game's prefix, which Restore puts back. Nothing in it can
+//! *unblock* a game: anti-cheat is decided by the game's files alone.
 
 use std::path::PathBuf;
 
@@ -86,6 +88,11 @@ pub struct Entry {
     /// Why the entry is what it is, for the page to show.
     #[serde(default)]
     pub notes: Option<String>,
+    /// Where the game keeps the switch for the upscaler `OptiScaler` takes
+    /// over, so Apply can switch it on when it is off
+    /// ([`super::ingame`]).
+    #[serde(default)]
+    pub input_setting: Option<super::ingame::InputSetting>,
     /// Which list it came from (set on loading, not written in the file).
     #[serde(skip)]
     pub origin: Origin,
@@ -179,6 +186,15 @@ mod tests {
         assert_eq!(sottr.tested_optiscaler.as_deref(), Some("0.9.4"));
         assert_eq!(sottr.verified_gpu.as_deref(), Some("RDNA 4, GeForce GTX"));
         assert_eq!(sottr.origin, Origin::Carried);
+        let switch = sottr.input_setting.as_ref().unwrap();
+        assert_eq!(
+            (switch.input, switch.value.as_str(), switch.on),
+            (super::super::optiscaler::Input::Xess, "XESS", 3)
+        );
+        assert_eq!(
+            switch.registry,
+            r"Software\Eidos Montreal\Shadow of the Tomb Raider\Graphics"
+        );
         let cp = db.lookup(Some("1091500"), "Cyberpunk2077.exe").unwrap();
         assert_eq!(cp.api, Some(Api::Dx12));
         assert!(cp.notes.is_some());

@@ -228,6 +228,7 @@ mod tests {
                 cover: None,
                 icon: None,
                 launch_command: None,
+                launcher: None,
             }),
         };
         let availability = provider.availability();

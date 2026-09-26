@@ -86,7 +86,14 @@ fn ask(parent: &gtk4::Widget, title: &str, command: &[String]) {
                  %h with the optimizations applied — for about %m minutes in total.\n\n\
                  Your settings are restored afterwards, including if something \
                  goes wrong. Leave the game in a scene that keeps rendering; a \
-                 pause menu measures the pause menu.",
+                 pause menu measures the pause menu.\n\n\
+                 How the result is decided: runs alternate between the two \
+                 configurations, the first run of each is discarded (a cold \
+                 shader cache is unlike every run after it), and a difference \
+                 counts only when it is larger than the variation between \
+                 repeated runs of the same configuration and significant at \
+                 95 %. Anything smaller is reported as no change, never as a \
+                 small gain.",
             )
             .replace("%t", title)
             .replace("%n", &runs.to_string())

@@ -519,6 +519,28 @@ pub fn collect() -> Vec<Check> {
         });
     }
 
+    // MangoHud inside a Flatpak launcher: the system's mangohud is not
+    // visible there, and Heroic refuses to start a game with its MangoHud
+    // switch on and none on its PATH.
+    if caps.mangohud {
+        for (app, title) in [
+            (
+                "com.heroicgameslauncher.hgl",
+                N_("MangoHud in Heroic (Flatpak)"),
+            ),
+            ("net.lutris.Lutris", N_("MangoHud in Lutris (Flatpak)")),
+        ] {
+            if let Some(command) = crate::mangohud::missing_flatpak_extension(app) {
+                out.push(check(
+                    title,
+                    Status::Warning,
+                    N_("this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"),
+                    cmd(command),
+                ));
+            }
+        }
+    }
+
     // Hardware-specific
     out.push(if hw.cpu.vcache.is_some() {
         check(

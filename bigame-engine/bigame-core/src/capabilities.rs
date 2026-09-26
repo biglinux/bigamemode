@@ -163,7 +163,7 @@ impl GamescopeCaps {
 ///
 /// Independent yes/no facts about the machine, not a state machine.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SchedExtCaps {
     /// `/sys/kernel/sched_ext` exists — the kernel was built with sched-ext.
     pub kernel_support: bool,
@@ -184,6 +184,13 @@ pub struct SchedExtCaps {
 }
 
 impl SchedExtCaps {
+    /// Probe sched-ext alone: sysfs, `/usr/bin` and the bus, no process
+    /// spawned — cheap enough for a page that refreshes.
+    #[must_use]
+    pub fn detect() -> Self {
+        detect_sched_ext()
+    }
+
     /// Can a scheduler actually be switched right now?
     #[must_use]
     pub fn switchable(&self) -> Support {

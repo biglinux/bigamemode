@@ -25,6 +25,7 @@ pub mod mangohud;
 pub mod migration;
 pub mod models;
 pub mod network;
+pub mod overview;
 pub mod paths;
 pub mod processes;
 pub mod profiles;

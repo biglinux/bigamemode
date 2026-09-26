@@ -334,6 +334,19 @@ fn cmdline_contains(cmdline: &[u8], needle: &str) -> bool {
     String::from_utf8_lossy(&joined).contains(needle)
 }
 
+/// Whether `key=` is in process `pid`'s environment. Unreadable (another
+/// user's process, or one that exited) counts as not there.
+#[must_use]
+pub fn env_has_key(pid: u32, key: &str) -> bool {
+    let Ok(bytes) = std::fs::read(format!("/proc/{pid}/environ")) else {
+        return false;
+    };
+    let prefix = format!("{key}=");
+    bytes
+        .split(|b| *b == 0)
+        .any(|entry| entry.starts_with(prefix.as_bytes()))
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

@@ -18,7 +18,7 @@ error.
 
 | Component | Where | Responsibility |
 |---|---|---|
-| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Details, Profiles, Tuning, Video, Benchmark, Diagnostics, Logs, Settings, and the Optimization Report. `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
+| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Tuning, Details, Logs, Settings, and the Optimization Report over Home. `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
 | Core | `bigame-engine/bigame-core` (library, no UI) | Hardware and capability detection, Turbo (`turbo.rs`), the Booster engine (`booster/`), profiles and their migration, running-game detection (`running.rs`), recommendations (`recommend.rs`), the launch pipeline (`launcher.rs`, `gamescope.rs`), AI Graphics (`graphics/`), benchmarking (`benchmark/`), network measurement, logs, health and diagnostics. |
 | Helper | `bigame-engine/bigame-daemon` (root, system bus `com.biglinux.BiGameMode`, object `/com/biglinux/BiGameMode`) | The handful of writes the UI cannot do: `SaveProfile`, `DeleteProfile`, `ApplyFalcondConfig`, `SetVCacheMode`, `SetCpuGovernor`, `SetCpuEpp`, `SetGpuDpmLevel`, `SetGameBackend`, `ReleaseGameBackend`, plus the unauthenticated `Ping`. Started on demand by D-Bus through `bigame-daemon.service`. See [SECURITY.md](SECURITY.md). |
 | falcond | external system service | Matches game processes by name and applies their profile — performance power profile, sched-ext scheduler (through `scx_loader`), 3D V-Cache mode, idle inhibit — and restores everything when the game exits. |
@@ -209,7 +209,8 @@ of it needs root.
   one, the latest stable, or one kept), `outcomes` (benchmark results measured
   on this machine), `gamedb` (a short list of per-game facts detection cannot
   read, carried in the program, extended by the user's own), `manifest`,
-  `transaction`, `runtime`, `support` (a redacted report archive), `config`,
+  `transaction`, `ingame` (the game's own upscaler switch, in its Wine
+  registry), `runtime`, `support` (a redacted report archive), `config`,
   `text` (translatable templates), `backend` (the three backends — the
   game's own, OptiScaler, the external AMD neural component — with their
   capabilities as data and what each is missing on this machine),
@@ -274,6 +275,14 @@ of it needs root.
   - The game list can name a game's default API, prefer the game's own
     upscaler, OptiScaler or nothing, record a tested version, or block
     injection — never unblock a game with anti-cheat.
+  - It can also say where a game keeps the switch for the upscaler
+    OptiScaler takes over (Shadow of the Tomb Raider: `XESS` in its
+    registry). Apply then switches it on when it is off — a preset the
+    player chose is left alone — and records the old value in the manifest
+    for Restore (module `ingame`). Only DWORD values under
+    `HKEY_CURRENT_USER` in the game's own Proton prefix, and only while no
+    process runs in that prefix: Wine's server writes its in-memory copy of
+    the registry back when it exits.
   - Files BiGame-mode added are not counted as the game's own upscalers.
   - Only the Apply button changes a game's files, and not while the game runs.
   - An apply interrupted by a crash or power loss is rolled back when the
@@ -285,10 +294,52 @@ of it needs root.
   nothing from that path is bundled, fetched or suggested. A game that ships
   DLSS itself is simply "native DLSS".
 
+## The pages, and where each state comes from
+
+- **Home** is the one control: Turbo, and the running game.
+- **Profiles** is the games. Every action on a game is in its card's menu —
+  Launch (Turbo), Create with Wizard, Edit, AI Graphics, Measure the
+  difference, Restore the game's graphics, Delete — and only the ones that
+  apply are shown (Launch for a Steam id or a launcher command, Measure only
+  for a direct command, Restore only with files installed).
+- **Tuning** is what is applied: falcond's settings (through the helper) and
+  the launch settings (`video.toml`, the session environment), as
+  collapsible groups. Software that is not installed is a *missing* row with
+  the command; hardware that cannot do something is a *not supported* row.
+  Wine FSR and Gamescope's render size both on is named in a banner with a
+  one-click way out; the other pairs (OptiScaler against Wine FSR and
+  Gamescope scaling, OptiScaler's frame generation against lsfg-vk) are
+  reconciled at launch and said on the page.
+- **Details** is what is really happening. One reading
+  (`bigame_core::overview::Snapshot`) taken off the main thread every 3 s
+  while the page is on screen (6 s unfocused), and again when falcond's
+  status file or the running game changes, feeds the overview chips, the
+  Performance rows (Turbo, falcond and the profile it applied, the power
+  profile, the scheduler, 3D V-Cache) and the Video pipeline rows
+  (Gamescope, Wine FSR, vkBasalt, lsfg-vk, MangoHud, AI Graphics). Each row
+  is one of eight states — active, waiting for a game, configured but not
+  detected, configured (not readable), off, missing dependency, not
+  supported, error — decided by pure functions in `overview.rs`
+  (`feature_state`: configured × installed × game running × detected), so
+  *configured* is never shown as *active*. The row's body holds what it
+  means, the evidence (which file, which `/proc` entry) and the fix. The
+  Problems group classes the health checks and the runtime findings as
+  fixable (a command to copy), needs you, hardware or information; hardware
+  limits are never errors. Telemetry (1 s), the GPU cards, the network, the
+  background load, Steam's broken launch options and the support report
+  complete the page. Nothing on it runs a command.
+- **falcond's "Proton" profile** is explained wherever it appears: it is
+  falcond's general profile for a Proton game without one of its own, not
+  the game's.
+
 ## Interface themes
 
 The UI has two designs and one colour scheme choice (Settings → Appearance,
-kept in `settings.toml` as `theme` and `color_scheme`; `theme.rs`).
+kept in `settings.toml` as `theme` and `color_scheme`; `theme.rs`). A new
+installation opens in Gamer + Dark: a missing `settings.toml` means a first
+run, and a file without the keys keeps its old meaning (Default, the
+desktop's scheme), so an existing choice never changes (`settings.rs`,
+`Settings::from_file`). The first save writes the values out.
 
 - **Default** is libadwaita plus `style/style.css`, unchanged.
 - **Gamer** is `style/gamer.css`, a second stylesheet added at
@@ -321,7 +372,7 @@ directory.
 | `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper) |
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before BiGame-mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
-| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
+| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, calibration, benchmark history, profile-migration backups |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
@@ -337,7 +388,9 @@ directory.
   queue discipline. fq_codel/CAKE, disabling IPv6, jumbo MTU, BBR and NIC
   offload changes are deliberately not applied.
 - falcond's status file is watched with inotify, never polled. The game
-  watcher reads `/proc` every 5 s without spawning a process.
+  watcher reads `/proc` every 5 s without spawning a process. Details reads
+  only while it is on screen; its snapshot spawns no process (no
+  `gamescope --help`, no `systemctl`).
 - The Logs page reads the journal with one `journalctl -o json` call,
   incrementally, only while it is on screen: falcond, the helper, the UI,
   `scx_loader`, power-profiles-daemon, Gamescope, BiGame-mode's Polkit records

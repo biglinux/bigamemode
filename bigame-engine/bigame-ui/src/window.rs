@@ -1,4 +1,9 @@
 //! Main application window with `AdwNavigationSplitView` sidebar navigation.
+//!
+//! Six pages, in the order a person uses them: Home (Turbo), Profiles (the
+//! games), Tuning (what is applied), Details (what is really happening),
+//! Logs, Settings. The Optimization Report is not a page of its own: it is
+//! shown over Home with a way back.
 
 use adw::prelude::*;
 use gtk4::{gio, glib};
@@ -11,6 +16,30 @@ use crate::i18n::i18n;
 use crate::settings;
 use crate::views;
 use crate::widgets;
+
+/// The pages, by stack name. A saved page name from an older version
+/// (`video`, `benchmark`, `diagnostics`) maps to where its content went.
+pub const PAGES: [&str; 6] = [
+    "home",
+    "profiles",
+    "tuning",
+    "dashboard",
+    "logs",
+    "settings",
+];
+
+/// Where a page name from an earlier version leads now.
+#[must_use]
+pub fn migrate_tab(name: &str) -> &str {
+    match name {
+        "video" => "tuning",
+        "benchmark" | "diagnostics" => "dashboard",
+        // The report is rebuilt per run and does not exist at startup.
+        "report" | "" => "home",
+        other if PAGES.contains(&other) => other,
+        _ => "home",
+    }
+}
 
 /// Build the main application window.
 ///
@@ -77,9 +106,6 @@ pub fn build(
     let home = views::home::build(Rc::clone(&show_report));
     view_stack.add_named(&home, Some("home"));
 
-    let dashboard = views::dashboard::build();
-    view_stack.add_named(&dashboard, Some("dashboard"));
-
     let profiles = views::profiles::build();
     view_stack.add_named(&profiles, Some("profiles"));
 
@@ -87,14 +113,8 @@ pub fn build(
     let tuning_holder = Rc::new(RefCell::new(views::tuning::build()));
     view_stack.add_named(&*tuning_holder.borrow(), Some("tuning"));
 
-    let video_view = views::video::build();
-    view_stack.add_named(&video_view, Some("video"));
-
-    let benchmark = views::benchmark::build();
-    view_stack.add_named(&benchmark, Some("benchmark"));
-
-    let diagnostics = views::diagnostics::build();
-    view_stack.add_named(&diagnostics, Some("diagnostics"));
+    let details = views::details::build();
+    view_stack.add_named(&details, Some("dashboard"));
 
     let logs = views::logs::build();
     view_stack.add_named(&logs, Some("logs"));
@@ -122,23 +142,13 @@ pub fn build(
     // ── Sidebar: nav list (icon + label rows) ─────────────────────────
     let nav_items = [
         ("home", i18n("Home"), "go-home-symbolic"),
-        ("dashboard", i18n("Details"), "speedometer-symbolic"),
         ("profiles", i18n("Profiles"), "applications-games-symbolic"),
         ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
-        ("video", i18n("Video"), "video-display-symbolic"),
-        (
-            "benchmark",
-            i18n("Benchmark"),
-            "applications-science-symbolic",
-        ),
-        (
-            "diagnostics",
-            i18n("Diagnostics"),
-            "dialog-question-symbolic",
-        ),
+        ("dashboard", i18n("Details"), "speedometer-symbolic"),
         ("logs", i18n("Logs"), "utilities-terminal-symbolic"),
         ("settings", i18n("Settings"), "emblem-system-symbolic"),
     ];
+    debug_assert_eq!(nav_items.len(), PAGES.len());
 
     let sidebar_list = gtk4::ListBox::new();
     sidebar_list.set_selection_mode(gtk4::SelectionMode::Single);
@@ -220,22 +230,18 @@ pub fn build(
 
     // ── Restore last active tab ───────────────────────────────────────
     {
-        let tab = saved.last_tab.clone();
-        // "report" is rebuilt per run and does not exist at startup.
-        let tab = if tab == "report" { String::new() } else { tab };
-        if !tab.is_empty() {
-            view_stack.set_visible_child_name(&tab);
-            let mut idx = 0i32;
-            while let Some(row) = sidebar_list.row_at_index(idx) {
-                if row.widget_name() == tab.as_str() {
-                    sidebar_list.select_row(Some(&row));
-                    if let Some(ar) = row.downcast_ref::<adw::ActionRow>() {
-                        page_title.set_title(&ar.title());
-                    }
-                    break;
+        let tab = migrate_tab(&saved.last_tab).to_owned();
+        view_stack.set_visible_child_name(&tab);
+        let mut idx = 0i32;
+        while let Some(row) = sidebar_list.row_at_index(idx) {
+            if row.widget_name() == tab.as_str() {
+                sidebar_list.select_row(Some(&row));
+                if let Some(ar) = row.downcast_ref::<adw::ActionRow>() {
+                    page_title.set_title(&ar.title());
                 }
-                idx += 1;
+                break;
             }
+            idx += 1;
         }
     }
 
@@ -394,4 +400,40 @@ pub fn build(
     content_header.pack_end(error_indicator.widget());
 
     (window, error_indicator)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_pages_of_removed_categories_lead_to_where_their_content_went() {
+        assert_eq!(migrate_tab("video"), "tuning");
+        assert_eq!(migrate_tab("benchmark"), "dashboard");
+        assert_eq!(migrate_tab("diagnostics"), "dashboard");
+        assert_eq!(migrate_tab("report"), "home");
+        assert_eq!(migrate_tab(""), "home");
+        assert_eq!(migrate_tab("nonsense"), "home");
+        for p in PAGES {
+            assert_eq!(migrate_tab(p), p);
+        }
+    }
+
+    #[test]
+    fn benchmark_video_and_diagnostics_are_no_longer_pages() {
+        for gone in ["benchmark", "video", "diagnostics"] {
+            assert!(!PAGES.contains(&gone));
+        }
+        assert_eq!(
+            PAGES,
+            [
+                "home",
+                "profiles",
+                "tuning",
+                "dashboard",
+                "logs",
+                "settings"
+            ]
+        );
+    }
 }
