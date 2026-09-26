@@ -358,7 +358,8 @@ fn offered_by_kernel(list: &str, value: &str) -> Result<(), String> {
 /// verification step would catch it anyway.
 fn write_all_cpus(attr: &str, value: &str, label: &str) -> Result<(), zbus::fdo::Error> {
     let base = Path::new("/sys/devices/system/cpu");
-    let entries = std::fs::read_dir(base).map_err(|e| failed(&format!("read {}: {e}", base.display())))?;
+    let entries =
+        std::fs::read_dir(base).map_err(|e| failed(&format!("read {}: {e}", base.display())))?;
 
     let mut written = 0usize;
     let mut failures: Vec<String> = Vec::new();

@@ -195,7 +195,12 @@ fn start_status_loop(
             .await;
             busy.set(false);
             if let Ok((unit, missing_runtime)) = reading {
-                show_status(unit.as_ref(), &missing_runtime, &tray_handle, &error_indicator);
+                show_status(
+                    unit.as_ref(),
+                    &missing_runtime,
+                    &tray_handle,
+                    &error_indicator,
+                );
             }
         });
         glib::ControlFlow::Continue

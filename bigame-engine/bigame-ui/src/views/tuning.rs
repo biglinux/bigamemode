@@ -41,14 +41,16 @@ pub fn build() -> adw::PreferencesPage {
     let config = bigame_core::config::read().unwrap_or_default();
     let shared = Rc::new(RefCell::new(config));
     let video = video_config::load();
+    // One probe for the page: it runs `gamescope --help` and asks D-Bus.
+    let caps = bigame_core::capabilities::Capabilities::detect();
 
     page.add(&build_system_group(&shared));
-    let (gamescope_group, gamescope_scales) = build_gamescope_group(&video);
+    let (gamescope_group, gamescope_scales) = build_gamescope_group(&video, &caps);
     page.add(&gamescope_group);
     page.add(&build_upscaling_group(&video, &gamescope_scales));
     page.add(&build_framegen_group(&video));
     page.add(&build_overlay_group());
-    page.add(&build_advanced_group());
+    page.add(&build_advanced_group(&caps));
 
     page
 }
@@ -385,6 +387,7 @@ fn build_system_group(shared: &SharedConfig) -> adw::PreferencesGroup {
 #[allow(clippy::too_many_lines)]
 fn build_gamescope_group(
     cfg: &video_config::VideoConfig,
+    caps: &bigame_core::capabilities::Capabilities,
 ) -> (adw::PreferencesGroup, Rc<std::cell::Cell<bool>>) {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Display and Gamescope"));
@@ -395,7 +398,6 @@ fn build_gamescope_group(
         cfg.upscaling.gamescope_enabled && cfg.upscaling.base_width > 0,
     ));
 
-    let caps = bigame_core::capabilities::Capabilities::detect();
     let Some(gs) = caps.gamescope.as_ref() else {
         group.add(&missing_row(
             "Gamescope",
@@ -759,7 +761,7 @@ fn build_overlay_group() -> adw::PreferencesGroup {
 
 /// Facts for the person who knows what a scheduler flag is: collapsed, last.
 #[allow(clippy::too_many_lines)]
-fn build_advanced_group() -> adw::PreferencesGroup {
+fn build_advanced_group(caps: &bigame_core::capabilities::Capabilities) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Advanced"));
 
@@ -771,7 +773,6 @@ fn build_advanced_group() -> adw::PreferencesGroup {
         .build();
     group.add(&expander);
 
-    let caps = bigame_core::capabilities::Capabilities::detect();
     let scx = &caps.sched_ext;
 
     let scx_status = adw::ActionRow::builder()
