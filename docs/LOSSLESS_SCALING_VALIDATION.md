@@ -120,6 +120,36 @@ Verdict: **applied and working; more frames on screen, fewer rendered, and
 uneven pacing**. It is the user's trade-off to make, and BiGame-mode never
 turns it on by itself.
 
+## On the reference desktop (Radeon RX 9060 XT)
+
+Shadow of the Tomb Raider at 3440×1440 High on the 160 Hz monitor, lsfg-vk
+1.0.0 from the system package, the same `Lossless.dll` (3.2.2.0, used in
+place). Raw data: `bigame-engine/benchmarks/2026-09-25-sottr-rx9060xt-lsfg*`.
+
+**What lsfg-vk applies while a game runs**, from three sessions:
+
+| Change while the game runs | Effect |
+|---|---|
+| entry added (the game started while the file was in the legacy layout) | none: presented = rendered for ten minutes |
+| multiplier x2 → x3 → x2 (the game started with an entry) | applied at once |
+| entry removed | none: the game kept paying x2's cost until it closed |
+
+lsfg-vk logs "Reloaded configuration for …" only for a game it loaded a
+configuration for at start. BiGame-mode therefore says that turning frame
+generation on or off takes effect at the game's next start, Home warns when
+the file changed after the game started, and the legacy layout — which made
+lsfg-vk 1.0 ignore the whole file on this machine, including a `SOTTR.exe`
+entry at x3 the user had chosen long ago — is converted when the
+application starts.
+
+**Cost:** rendered frames 88.9 fps without generation, 51.8 with x2 (−42 %),
+39.6 with x3 (−55 %), about 7–8 ms of GPU time per generated frame at this
+resolution with flow scale 1.0. Presented frames could not be counted:
+MangoHud sits above lsfg-vk in this system's layer order, and forcing the
+other order hung the game at start. Multiplied out, x2 would show about 104
+fps on this 160 Hz screen, x3 about 119, while the game responds at 52 and
+40 fps.
+
 ## Pending
 
 - x3 and higher multipliers, performance mode and flow scale below 1.0 were

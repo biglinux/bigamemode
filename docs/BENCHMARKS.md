@@ -58,8 +58,9 @@ user, home or address), the runs of every arm, and the report.
 ## Reference machine
 
 AMD Ryzen 7 5700G (8C/16T, `amd-pstate-epp`, no 3D V-Cache), Radeon RX 9060 XT
-(RDNA 4, 16 GB) plus the idle integrated GPU, Mesa 26.2.2, kernel 7.2.6,
-KDE Plasma Wayland, Proton Experimental, 3440×1440.
+(RDNA 4, 16 GB) plus the idle integrated GPU, Mesa 26.2.2, kernel 7.2.6
+(7.2.7 from 2026-09-25), KDE Plasma Wayland, Proton Experimental, 3440×1440
+(the 160 Hz DP-1 monitor). See [AMD_DESKTOP_AUDIT.md](AMD_DESKTOP_AUDIT.md).
 
 A second machine, the **lab laptop**, measured AI Graphics on NVIDIA: Intel
 Core i7-7700HQ, Intel HD 630 plus a GeForce GTX 1050 Ti Mobile (4 GB, NVIDIA
@@ -81,6 +82,8 @@ measured again.
 | Power profile, governor, EPP → performance | SotTR, CPU-bound (minimum render scale) | all within 1.5 %, no consistent order | no difference | `2026-09-23-sottr-cpu-bound` |
 | sched-ext `lavd`, `bpfland` vs none, through falcond | SotTR, CPU-bound | +1.1 %, +1.8 %, inside the spread | no difference | `2026-09-24-sottr-scheduler` |
 | AI Graphics: native TAA → the game's XeSS Quality → OptiScaler FSR from XeSS Quality | SotTR, 3440×1440 High | 89.8 → 94.2 fps (+4.9 %) → **98.8 fps (+10.1 %)**, spread 0.2 %; 1 % low unchanged; GPU 164 → 156 W | faster | `2026-09-24-sottr-ai-graphics` |
+| A/A: the same configuration six times (lsfg-vk entry written mid-game, never active) | SotTR, 3440×1440 High, RX 9060 XT, vkBasalt loaded | 88.9 ± 0.7 fps (87.7–89.4), spread 0.8 % | the noise floor for this game on this machine | `2026-09-25-sottr-rx9060xt-lsfg` |
+| lsfg-vk x2 and x3 (the user's `Lossless.dll`), entry present when the game started, multiplier changed while it ran | same | rendered 88.9 → **51.8 fps (x2, −42 %)** → **39.6 fps (x3, −55 %)**, 1 % low 68.8 → 44.7 → 35.4 (means of the runs); about 7–8 ms of GPU per generated frame; presented frames not measured (below) | costs rendered frames; not a throughput result | `2026-09-25-sottr-rx9060xt-lsfg-launch` |
 | AI Graphics on the lab laptop: the game's XeSS Quality → OptiScaler FSR 3.1 from XeSS Quality (1280×720 → 1080p), order A B A, one launch per arm | SotTR, 1920×1080 High, GTX 1050 Ti | 15.9 · 15.7 · 15.5 → **18.2 · 18.3 · 18.3** → 16.6 · 16.8 fps: **+13.4 %** against both XeSS launches pooled, +9 % to +16 % against either (the XeSS arm itself drifted +6.4 % between launches); graphics clock lower with OptiScaler (1627 vs 1678–1684 MHz); 1 % and 0.1 % lows vary 8–35 % run to run | faster on average; lows inconclusive | `2026-09-24-sottr-gtx1050ti-ai-graphics` |
 | Lab laptop, the game at its lowest preset, 1920×1080, DX12, XeSS Performance (960×540 → 1080p), one 110 s benchmark window per arm | SotTR, GTX 1050 Ti | **36.2 fps**, 1 % low 13.0; GPU 99–100 % busy, at its power limit 37 % of the time (1442–1721 MHz), CPU package 83–91 °C | the reference for the rows below | `2026-09-25-sottr-gtx1050ti-settings`, arm A |
 | the same in DX11 (DXVK) | same | 33.9 fps, 1 % low 7.7, 464 stutters: CPU 91–98 %, GPU 30–60 % — the DXVK path is CPU-bound on this throttling i7-7700HQ; scene 2 ran at 19–21 fps | slower, and worse paced | arm B |
@@ -142,5 +145,14 @@ What follows for the code:
   been measured; NVIDIA only as the GTX above, for AI Graphics.
 - At the lab laptop's ~16 fps the frame-time floor varies too much between
   runs to compare; averages are what those runs establish.
+- Presented frames on the reference desktop: with the system's lsfg-vk and
+  MangoHud packages, MangoHud sits above lsfg-vk in the layer order and
+  counts only the game's own frames (0.99× with x2 on); forcing the order
+  with `VK_INSTANCE_LAYERS` hung Shadow of the Tomb Raider at start. On the
+  lab laptop, with a per-user lsfg-vk manifest, the order was the other way
+  round and MangoHud counted generated frames.
+- lsfg-vk does not start or stop generating for a game already running, so
+  an lsfg-vk arm needs its own launch; only the multiplier can alternate
+  within one.
 - Keep other load off the machine while benchmarking; a virtual machine on the
   same host caused multi-second stalls in one session.

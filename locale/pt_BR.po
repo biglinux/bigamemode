@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-25 22:54-0300\n"
+"POT-Creation-Date: 2026-09-25 23:11-0300\n"
 "PO-Revision-Date: 2026-04-20 00:27-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -606,8 +606,8 @@ msgstr "O BiGame-mode ainda não tem um perfil para este jogo. Este é o perfil 
 msgid "BiGame-mode has not changed falcond's service"
 msgstr "O BiGame-mode não alterou o serviço do falcond"
 
-#: bigame-engine/bigame-core/src/health.rs:544
-#: bigame-engine/bigame-core/src/health.rs:546
+#: bigame-engine/bigame-core/src/health.rs:548
+#: bigame-engine/bigame-core/src/health.rs:550
 #: bigame-engine/bigame-ui/src/views/logs.rs:45
 msgid "BiGame-mode helper"
 msgstr "Auxiliar do BiGame-mode"
@@ -1742,6 +1742,10 @@ msgstr "Tema da interface"
 msgid "It has to be larger than the variation between repeated runs of the same configuration, and it has to be statistically significant at 95%. Anything smaller is reported as no change — never as a small gain."
 msgstr "Ela precisa ser maior que a variação entre execuções repetidas da mesma configuração e precisa ser estatisticamente significativa a 95%. Qualquer coisa menor é mostrada como sem mudança — nunca como um pequeno ganho."
 
+#: bigame-engine/bigame-core/src/health.rs:606
+msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and BiGame-mode does not change firmware settings"
+msgstr "É configurado no firmware do computador (Above 4G Decoding e Re-Size BAR). Alguns jogos ganham com isso; não foi medido nesta máquina, e o BiGame-mode não altera configurações de firmware"
+
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:324
 msgid "Keep Screen Awake"
 msgstr "Manter Tela Ligada"
@@ -2755,6 +2759,11 @@ msgstr "Buscar jogos novamente na biblioteca"
 #: bigame-engine/bigame-ui/src/window.rs:316
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Restaura todas as configurações de Ajustes e do Gamescope para os padrões recomendados. Isso não pode ser desfeito."
+
+#: bigame-engine/bigame-core/src/health.rs:593
+#: bigame-engine/bigame-core/src/health.rs:600
+msgid "Resizable BAR"
+msgstr "Resizable BAR"
 
 #: bigame-engine/bigame-ui/src/app.rs:265
 #: bigame-engine/bigame-ui/src/app.rs:276
@@ -3824,7 +3833,7 @@ msgstr "não instalado · o microcompositor usado para escala e limite de quadro
 msgid "not installed: there is no per-game optimization"
 msgstr "não instalado: não há otimização por jogo"
 
-#: bigame-engine/bigame-core/src/health.rs:548
+#: bigame-engine/bigame-core/src/health.rs:552
 msgid "not reachable: Turbo and profile changes cannot be made"
 msgstr "inacessível: o Turbo e as mudanças de perfil não podem ser feitos"
 
@@ -3840,6 +3849,10 @@ msgstr "nada nos arquivos do jogo indica a API; supõe-se DX12 até o jogo ser v
 msgid "of one CPU"
 msgstr "de uma CPU"
 
+#: bigame-engine/bigame-core/src/health.rs:603
+msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
+msgstr "desligado: a CPU alcança %s dos %s de memória de vídeo da placa de cada vez"
+
 #: bigame-engine/bigame-ui/src/views/home.rs:647
 msgid "on %s"
 msgstr "na %s"
@@ -3847,6 +3860,10 @@ msgstr "na %s"
 #: bigame-engine/bigame-core/src/recommend.rs:127
 msgid "on battery, holding the performance power profile costs more in heat and throttling than it returns"
 msgstr "na bateria, manter o perfil de energia de desempenho custa mais em calor e redução de frequência do que devolve"
+
+#: bigame-engine/bigame-core/src/health.rs:595
+msgid "on: the CPU can reach all %s of video memory"
+msgstr "ligado: a CPU alcança todos os %s de memória de vídeo"
 
 #: bigame-engine/bigame-ui/src/views/diagnostics.rs:130
 msgid "one of more than one GPU; games run on this one"
@@ -3886,7 +3903,7 @@ msgstr "presente"
 msgid "present; game profiles can prefer the cache CCD"
 msgstr "presente; os perfis de jogo podem preferir o CCD com cache"
 
-#: bigame-engine/bigame-core/src/health.rs:544
+#: bigame-engine/bigame-core/src/health.rs:548
 msgid "reachable"
 msgstr "acessível"
 

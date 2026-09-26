@@ -171,7 +171,10 @@ fn migrate_legacy(t: &mut Table) {
             g.insert("exe".into(), exe.into());
             g.insert("multiplier".into(), Value::Integer(mult.min(20)));
             if let Some(f) = p.get("flow_scale").and_then(Value::as_float) {
-                g.insert("flow_scale".into(), Value::Float(f.clamp(0.25, 1.0)));
+                // Older versions wrote it through an f32 (0.6000000238418579);
+                // the UI works in whole percent.
+                let f = (f.clamp(0.25, 1.0) * 100.0).round() / 100.0;
+                g.insert("flow_scale".into(), Value::Float(f));
             }
             for (from, to) in [
                 ("performance_mode", "performance_mode"),
@@ -611,7 +614,7 @@ allow_fp16 = true
 name = "SOTTR.exe"
 active_in = ["SOTTR.exe"]
 multiplier = 3
-flow_scale = 0.8
+flow_scale = 0.6000000238418579
 performance_mode = true
 pacing = "none"
 hdr = false
@@ -636,7 +639,8 @@ multiplier = 4
         assert_eq!(t["global"]["dll"].as_str(), Some("/home/u/Lossless.dll"));
         let g = entry(&t, "SOTTR.exe").unwrap();
         assert_eq!(g["multiplier"].as_integer(), Some(3));
-        assert_eq!(g["flow_scale"].as_float(), Some(0.8));
+        // Written through an f32 by the old code; back to whole percent.
+        assert_eq!(g["flow_scale"].as_float(), Some(0.6));
         // multiplier 1 would make lsfg-vk reject the whole file.
         assert!(entry(&t, "Off.exe").is_none());
         assert!(entry(&t, "vkcube").is_some(), "a user's entry is kept");
