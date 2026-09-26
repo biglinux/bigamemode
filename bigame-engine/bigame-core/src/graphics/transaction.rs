@@ -286,6 +286,7 @@ pub fn apply(
         generated: fresh,
         previous: None,
         managed: true,
+        settings: Vec::new(),
     };
     m.save(state_dir)?;
     tracing::info!(target: "graphics", game = game_key, files = files.len(), "backup created; applying");

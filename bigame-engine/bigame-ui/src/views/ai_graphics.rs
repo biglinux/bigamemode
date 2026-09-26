@@ -1191,11 +1191,27 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 .await;
                 busy(&page, None);
                 let text = match result {
-                    Ok(Ok(m)) => format!(
-                        "{} ({})",
-                        i18n("Installed; every replaced file was backed up"),
-                        ni18n("%n file", "%n files", m.entries.len())
-                    ),
+                    Ok(Ok(done)) => {
+                        use bigame_core::graphics::ingame::Applied;
+                        let files = format!(
+                            "{} ({})",
+                            i18n("Installed; every replaced file was backed up"),
+                            ni18n("%n file", "%n files", done.manifest.entries.len())
+                        );
+                        match done.game_setting {
+                            Some(Applied::TurnedOn(input)) => format!(
+                                "{files} · {}",
+                                i18n("%s switched on in the game's settings")
+                                    .replace("%s", input.label())
+                            ),
+                            Some(Applied::NotWritten(input, _)) => format!(
+                                "{files} · {}",
+                                i18n("choose %s in the game's graphics menu")
+                                    .replace("%s", input.label())
+                            ),
+                            Some(Applied::AlreadyOn(_)) | None => files,
+                        }
+                    }
                     Ok(Err(e)) => format!("{}: {e:#}", i18n("Nothing was changed")),
                     Err(_) => i18n("Nothing was changed"),
                 };

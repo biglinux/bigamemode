@@ -209,7 +209,8 @@ of it needs root.
   one, the latest stable, or one kept), `outcomes` (benchmark results measured
   on this machine), `gamedb` (a short list of per-game facts detection cannot
   read, carried in the program, extended by the user's own), `manifest`,
-  `transaction`, `runtime`, `support` (a redacted report archive), `config`,
+  `transaction`, `ingame` (the game's own upscaler switch, in its Wine
+  registry), `runtime`, `support` (a redacted report archive), `config`,
   `text` (translatable templates), `backend` (the three backends — the
   game's own, OptiScaler, the external AMD neural component — with their
   capabilities as data and what each is missing on this machine),
@@ -274,6 +275,14 @@ of it needs root.
   - The game list can name a game's default API, prefer the game's own
     upscaler, OptiScaler or nothing, record a tested version, or block
     injection — never unblock a game with anti-cheat.
+  - It can also say where a game keeps the switch for the upscaler
+    OptiScaler takes over (Shadow of the Tomb Raider: `XESS` in its
+    registry). Apply then switches it on when it is off — a preset the
+    player chose is left alone — and records the old value in the manifest
+    for Restore (module `ingame`). Only DWORD values under
+    `HKEY_CURRENT_USER` in the game's own Proton prefix, and only while no
+    process runs in that prefix: Wine's server writes its in-memory copy of
+    the registry back when it exits.
   - Files BiGame-mode added are not counted as the game's own upscalers.
   - Only the Apply button changes a game's files, and not while the game runs.
   - An apply interrupted by a crash or power loss is rolled back when the

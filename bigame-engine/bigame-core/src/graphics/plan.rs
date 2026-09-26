@@ -628,12 +628,27 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 output_name.to_owned(),
             ],
         )),
-        Step::InGame(Text::with(
-            N_(
-                "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place",
-            ),
-            [input_name, output_name],
-        )),
+        // Where the game list says where the game keeps that switch, Apply
+        // turns it on; otherwise it is the one step left to the player.
+        if r.listed
+            .as_ref()
+            .and_then(|e| e.input_setting.as_ref())
+            .is_some_and(|s| s.input == input)
+        {
+            Step::Install(Text::with(
+                N_(
+                    "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu",
+                ),
+                [input_name, output_name],
+            ))
+        } else {
+            Step::InGame(Text::with(
+                N_(
+                    "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place",
+                ),
+                [input_name, output_name],
+            ))
+        },
         Step::Note(Text::plain(input_why)),
         Step::Keep(Text::plain(N_(
             "every file that is replaced is backed up first, and Restore puts it back",
@@ -806,6 +821,28 @@ mod tests {
                 .iter()
                 .any(|s| matches!(s, Step::InGame(t) if t.english().contains("XeSS")))
         );
+    }
+
+    #[test]
+    fn a_listed_switch_takes_the_menu_step_off_the_player() {
+        let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+        r.listed = crate::graphics::gamedb::GameDb::from_texts(None)
+            .lookup(Some("750920"), "SOTTR.exe")
+            .cloned();
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.steps.iter().any(|s| matches!(s, Step::Install(t)
+                if t.english().starts_with("XeSS switched on in the game's settings"))));
+        assert!(
+            !p.steps.iter().any(|s| matches!(s, Step::InGame(_))),
+            "{:#?}",
+            p.steps
+        );
+        // A switch for another of the game's upscalers is not this one.
+        r.listed = listed(
+            "[[game]]\nsteam_app_id = \"1\"\n[game.input_setting]\ninput = \"dlss\"\nregistry = 'Software\\G'\nvalue = \"DLSS\"\non = 1\n",
+        );
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.steps.iter().any(|s| matches!(s, Step::InGame(_))));
     }
 
     #[test]

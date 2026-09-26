@@ -258,6 +258,7 @@ mod tests {
             generated: vec![],
             previous: None,
             managed: true,
+            settings: Vec::new(),
         }
     }
 

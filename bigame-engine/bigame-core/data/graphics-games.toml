@@ -16,6 +16,13 @@
 #   verified_gpu       the GPU family the entry was verified on
 #   verified_proton    the Proton build it was verified with
 #   notes              why, in a sentence the page shows
+#   [game.input_setting]  the game's own switch for the upscaler OptiScaler
+#                      takes over, which Apply turns on when it is off and
+#                      Restore puts back: input ("xess" | "dlss" | "fsr"),
+#                      registry (a key under HKEY_CURRENT_USER in the game's
+#                      Proton prefix), value (a DWORD; 0 is off), on (what
+#                      to write), exclusive (the game's other upscalers,
+#                      set to 0 with it)
 #
 # Your own entries go in ~/.config/bigame-mode/graphics-games.toml, same
 # format; an entry there replaces one here for the same game.
@@ -27,6 +34,16 @@ tested_optiscaler = "0.9.4"        # XeSS input, FSR output; docs/BENCHMARKS.md
 verified_gpu = "RDNA 4, GeForce GTX"
 verified_proton = "Proton Experimental 11.0"
 notes = "OptiScaler FSR from the game's XeSS measured +10.1 % on an RX 9060 XT and +12 % on a GTX 1050 Ti; the game's DX11 renderer is slower than DX12 under Proton"
+
+# Its XeSS is off until chosen in its menu, and OptiScaler has nothing to take
+# over until then. 3 is Quality: set here with the game closed, the next
+# benchmark ran XeSS Quality through OptiScaler FSR 4 (2026-09-26).
+[game.input_setting]
+input = "xess"
+registry = 'Software\Eidos Montreal\Shadow of the Tomb Raider\Graphics'
+value = "XESS"
+on = 3
+exclusive = ["DLSS"]
 
 [[game]]
 steam_app_id = "1091500"           # Cyberpunk 2077

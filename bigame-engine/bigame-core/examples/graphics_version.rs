@@ -50,7 +50,7 @@ fn main() -> anyhow::Result<()> {
             let mut s = bigame_core::game_settings::load(&target.process).unwrap_or_default();
             s.ai_graphics = cfg.clone();
             bigame_core::game_settings::save(&target.process, &s)?;
-            print(&graphics::install(&target, &p, &cfg.version)?);
+            print(&graphics::install(&target, &p, &cfg.version)?.manifest);
         }
         "offer" => println!("{:#?}", graphics::update_offer(&target, &cfg)),
         "update" => {

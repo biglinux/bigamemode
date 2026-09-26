@@ -12,6 +12,7 @@ pub mod diagnose;
 pub mod external;
 pub mod fsr4_upgrade;
 pub mod gamedb;
+pub mod ingame;
 pub mod manifest;
 pub mod optiscaler;
 pub mod outcomes;
@@ -489,9 +490,22 @@ fn apply_release(
     )
 }
 
+/// What [`install`] did.
+#[derive(Debug, Clone)]
+pub struct Installed {
+    /// The record of what was placed.
+    pub manifest: manifest::Manifest,
+    /// What was done with the game's own switch for the upscaler
+    /// `OptiScaler` takes over, when the game list says where it is.
+    pub game_setting: Option<ingame::Applied>,
+}
+
 /// Carry out `plan` for `target`: download (or reuse) the `OptiScaler`
 /// release `version` names, build the payload and apply it as a
-/// transaction.
+/// transaction. Then, when the game list says where the game keeps the
+/// switch for the upscaler `OptiScaler` takes over, switch it on if it is
+/// off — without it `OptiScaler` has nothing to replace — and record the
+/// change for Restore.
 ///
 /// Refuses while the game is running: its DLLs are loaded, and the change
 /// would only take effect at the next start anyway.
@@ -503,7 +517,7 @@ pub fn install(
     target: &Target,
     plan: &plan::Plan,
     version: &config::VersionPolicy,
-) -> anyhow::Result<manifest::Manifest> {
+) -> anyhow::Result<Installed> {
     let o = plan
         .optiscaler
         .as_ref()
@@ -512,10 +526,39 @@ pub fn install(
     let exe_dir = exe_dir(target)?;
     let cache = optiscaler::cache_dir();
     let cached = optiscaler::fetch(&cache, &release_for(&cache, version)?)?;
-    let m = apply_release(target, o, &cached, &exe_dir)?;
+    let mut m = apply_release(target, o, &cached, &exe_dir)?;
     tracing::info!(target: "graphics", game = %target.process, version = %m.source.version,
         "graphics enhancement installed; active from the next start");
-    Ok(m)
+    let game_setting = match input_setting(target, o.input) {
+        Some(s) => {
+            let (applied, changes) = ingame::switch_on(proton_prefix(target).as_deref(), &s);
+            if !changes.is_empty() {
+                m.settings = changes;
+                if let Err(e) = m.save(&state_dir()) {
+                    // Unrecorded, Restore could not put it back: undo it now.
+                    let _ = ingame::restore(&m.settings);
+                    return Err(
+                        e.context("the game's setting could not be recorded; it was put back")
+                    );
+                }
+            }
+            Some(applied)
+        }
+        None => None,
+    };
+    Ok(Installed {
+        manifest: m,
+        game_setting,
+    })
+}
+
+/// Where `target` keeps the switch for its `input` upscaler, from the game
+/// list.
+fn input_setting(target: &Target, input: optiscaler::Input) -> Option<ingame::InputSetting> {
+    gamedb::GameDb::load()
+        .lookup(target.app_id.as_deref(), &target.process)
+        .and_then(|e| e.input_setting.clone())
+        .filter(|s| s.input == input)
 }
 
 /// Replace the installed `OptiScaler` with `to`, keeping the one that was
@@ -568,6 +611,8 @@ pub fn update(
     match apply_release(target, o, &new_cached, &exe_dir) {
         Ok(mut m) => {
             m.previous = Some(old.source.clone());
+            // The game's own settings were not touched by the update.
+            m.settings.clone_from(&old.settings);
             m.save(&state)?;
             tracing::info!(target: "graphics", game = %target.process, version = %to.version,
                 "OptiScaler updated; the previous version is kept to go back to");
@@ -577,10 +622,14 @@ pub fn update(
             tracing::warn!(target: "graphics", game = %target.process, error = %e,
                 "OptiScaler update failed; putting the previous version back");
             match apply_release(target, o, &old_cached, &exe_dir) {
-                Ok(_) => Err(e.context(format!(
+                Ok(mut back) => {
+                    back.settings.clone_from(&old.settings);
+                    let _ = back.save(&state);
+                    Err(e.context(format!(
                     "the update failed; OptiScaler {} was put back",
                     old.source.version
-                ))),
+                    )))
+                }
                 Err(e2) => Err(e.context(format!(
                     "the update failed, and putting OptiScaler {} back failed too ({e2:#}); the game has its own files",
                     old.source.version
@@ -630,13 +679,25 @@ pub fn update_offer(target: &Target, cfg: &config::AiGraphicsConfig) -> Option<v
     )
 }
 
-/// Remove everything BiGame-mode placed in `target`, restoring originals.
+/// Remove everything BiGame-mode placed in `target`, restoring originals —
+/// files, and the game's own settings Apply switched on.
 ///
 /// # Errors
-/// Returns an error if the game is running or a file cannot be restored.
+/// Returns an error if the game is running, its Wine prefix stays in use,
+/// or a file cannot be restored.
 pub fn remove(target: &Target) -> anyhow::Result<Vec<transaction::FileOutcome>> {
     ensure_closed(target)?;
-    transaction::remove(&state_dir(), &target.key())
+    let state = state_dir();
+    let settings = manifest::Manifest::load(&state, &target.key())?
+        .map(|m| m.settings)
+        .unwrap_or_default();
+    if !settings.is_empty() {
+        for r in ingame::restore(&settings)? {
+            tracing::info!(target: "graphics", game = %target.process, outcome = ?r,
+                "the game's setting restored");
+        }
+    }
+    transaction::remove(&state, &target.key())
 }
 
 /// Put back files that are missing (a game update, a file check by Steam),

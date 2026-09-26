@@ -131,6 +131,10 @@ pub struct Manifest {
     /// files it does not manage.
     #[serde(default = "default_managed")]
     pub managed: bool,
+    /// Settings of the game's own that Apply changed ([`super::ingame`]),
+    /// put back by Restore.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<super::ingame::SettingChange>,
 }
 
 fn default_managed() -> bool {
@@ -389,6 +393,7 @@ mod tests {
             generated: vec![],
             previous: None,
             managed: true,
+            settings: Vec::new(),
         };
         m.save(dir.path()).unwrap();
         assert_eq!(
