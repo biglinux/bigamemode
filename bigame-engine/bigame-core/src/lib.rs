@@ -10,6 +10,7 @@ pub mod config;
 pub mod dbus;
 pub mod dbus_client;
 pub mod diagnostics;
+pub mod error;
 pub mod fg;
 pub mod game_settings;
 pub mod games;

@@ -405,7 +405,7 @@ async fn enable_backend<F: FnMut(Step)>(
                     Kind::ProfileSet,
                     Section::Failed,
                     "BiGame-mode",
-                    Text::raw(format!("{e:#}")),
+                    crate::error::describe(&e),
                 ),
             }
         }
@@ -454,7 +454,7 @@ async fn enable_backend<F: FnMut(Step)>(
             Kind::GameBackend,
             Section::Failed,
             "falcond",
-            Text::raw(format!("{e:#}")),
+            crate::error::describe(&e),
         ),
     }
 }
@@ -584,7 +584,7 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
                 Kind::GameBackend,
                 Section::Failed,
                 "falcond",
-                Text::raw(format!("{e:#}")),
+                crate::error::describe(&e),
             ),
         }
     }

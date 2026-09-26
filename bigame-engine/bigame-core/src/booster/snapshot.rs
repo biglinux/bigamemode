@@ -136,7 +136,7 @@ impl Snapshot {
                 Err(e) => RestoreStatus::Failed {
                     error: match e.downcast_ref::<NotAccepted>() {
                         Some(refused) => refused.0.clone(),
-                        None => Text::raw(format!("{e:#}")),
+                        None => crate::error::describe(&e),
                     },
                 },
             };

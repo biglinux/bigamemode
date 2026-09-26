@@ -34,6 +34,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::error::UserError;
+use crate::text::N_;
+
 /// A game's `MangoHud` setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -255,14 +258,16 @@ pub fn heroic_config(current: &str, app_name: &str, mode: Mode) -> Result<String
     };
     let obj = root
         .as_object_mut()
-        .ok_or_else(|| anyhow::anyhow!("Heroic's game settings are not a JSON object"))?;
+        .ok_or_else(|| UserError::plain(N_("Heroic's game settings are not a JSON object")))?;
     obj.entry("version").or_insert_with(|| json!("v0"));
     obj.entry("explicit").or_insert_with(|| json!(true));
     let game = obj
         .entry(app_name)
         .or_insert_with(|| Value::Object(Map::new()))
         .as_object_mut()
-        .ok_or_else(|| anyhow::anyhow!("Heroic's settings for {app_name} are not an object"))?;
+        .ok_or_else(|| {
+            UserError::with(N_("Heroic's settings for %s are not an object"), [app_name])
+        })?;
     game.insert("showMangohud".into(), json!(mode == Mode::Forced));
     let mut env: Vec<Value> = game
         .get("enviromentOptions")

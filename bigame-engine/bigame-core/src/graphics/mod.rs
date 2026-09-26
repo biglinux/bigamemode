@@ -28,6 +28,9 @@ pub mod versions;
 
 use std::path::{Path, PathBuf};
 
+use crate::error::UserError;
+use crate::text::N_;
+
 /// Where AI Graphics keeps its manifests and backups:
 /// `$XDG_STATE_HOME/bigame-mode/graphics`.
 #[must_use]
@@ -471,8 +474,10 @@ fn release_for(
 fn ensure_closed(target: &Target) -> anyhow::Result<()> {
     anyhow::ensure!(
         running_as(target).is_none(),
-        "{} is running; close it before changing its files",
-        target.name
+        UserError::with(
+            N_("%s is running; close it before changing its files"),
+            [&target.name]
+        )
     );
     Ok(())
 }
@@ -482,7 +487,7 @@ fn exe_dir(target: &Target) -> anyhow::Result<PathBuf> {
     let scanned = scan::scan(&target.install_root, Some(&target.process));
     let exe = scanned
         .executable
-        .ok_or_else(|| anyhow::anyhow!("the game's executable was not found"))?;
+        .ok_or_else(|| UserError::plain(N_("the game's executable was not found")))?;
     Ok(exe.parent().map(Path::to_path_buf).unwrap_or_default())
 }
 
@@ -541,7 +546,7 @@ pub fn install(
     let o = plan
         .optiscaler
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("this plan installs nothing"))?;
+        .ok_or_else(|| UserError::plain(N_("this plan installs nothing")))?;
     ensure_closed(target)?;
     let exe_dir = exe_dir(target)?;
     let cache = optiscaler::cache_dir();
@@ -557,9 +562,11 @@ pub fn install(
                 if let Err(e) = m.save(&state_dir()) {
                     // Unrecorded, Restore could not put it back: undo it now.
                     let _ = ingame::restore(&m.settings);
-                    return Err(
-                        e.context("the game's setting could not be recorded; it was put back")
-                    );
+                    return Err(UserError::plain(N_(
+                        "the game's setting could not be recorded; it was put back",
+                    ))
+                    .caused_by(e)
+                    .into());
                 }
             }
             Some(applied)
@@ -638,7 +645,10 @@ pub fn reinstall(
     plan: &plan::Plan,
     version: &config::VersionPolicy,
 ) -> anyhow::Result<Installed> {
-    anyhow::ensure!(plan.optiscaler.is_some(), "this plan installs nothing");
+    anyhow::ensure!(
+        plan.optiscaler.is_some(),
+        UserError::plain(N_("this plan installs nothing"))
+    );
     ensure_closed(target)?;
     // Everything that can fail without touching the game first: the
     // release, downloaded and checked.
@@ -646,9 +656,11 @@ pub fn reinstall(
     optiscaler::fetch(&cache, &release_for(&cache, version)?)?;
     remove(target)?;
     install(target, plan, version).map_err(|e| {
-        e.context(
+        UserError::plain(N_(
             "the new choice could not be installed; the game has its own files, as after Restore",
-        )
+        ))
+        .caused_by(e)
+        .into()
     })
 }
 
@@ -683,22 +695,24 @@ pub fn update(
     let o = plan
         .optiscaler
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("this plan installs nothing"))?;
+        .ok_or_else(|| UserError::plain(N_("this plan installs nothing")))?;
     ensure_closed(target)?;
     let state = state_dir();
     let key = target.key();
     let cache = optiscaler::cache_dir();
-    let old = manifest::Manifest::load(&state, &key)?
-        .ok_or_else(|| anyhow::anyhow!("BiGame-mode has installed nothing in {}", target.name))?;
+    let old = manifest::Manifest::load(&state, &key)?.ok_or_else(|| {
+        UserError::with(
+            N_("BiGame-mode has installed nothing in %s"),
+            [&target.name],
+        )
+    })?;
     anyhow::ensure!(
         old.state == manifest::State::Installed,
-        "the last change to {} did not finish",
-        target.name
+        UserError::with(N_("the last change to %s did not finish"), [&target.name])
     );
     anyhow::ensure!(
         old.source.archive_sha256.as_deref() != Some(to.sha256.as_str()),
-        "OptiScaler {} is already installed",
-        to.version
+        UserError::with(N_("OptiScaler %s is already installed"), [&to.version])
     );
     // Both releases in hand before the game folder changes.
     let old_cached = optiscaler::fetch(&cache, &versions::for_installed(&cache, &old.source)?)?;
@@ -725,15 +739,22 @@ pub fn update(
                 Ok(mut back) => {
                     back.settings.clone_from(&old.settings);
                     let _ = back.save(&state);
-                    Err(e.context(format!(
-                    "the update failed; OptiScaler {} was put back",
-                    old.source.version
-                    )))
+                    Err(UserError::with(
+                        N_("the update failed; OptiScaler %s was put back"),
+                        [&old.source.version],
+                    )
+                    .caused_by(e)
+                    .into())
                 }
-                Err(e2) => Err(e.context(format!(
-                    "the update failed, and putting OptiScaler {} back failed too ({e2:#}); the game has its own files",
-                    old.source.version
-                ))),
+                Err(e2) => Err(UserError::with(
+                    N_("the update failed, and putting OptiScaler %s back failed too (%s); the game has its own files"),
+                    [
+                        text::Arg::Raw(old.source.version.clone()),
+                        text::Arg::Text(crate::error::describe(&e2)),
+                    ],
+                )
+                .caused_by(e)
+                .into()),
             }
         }
     }
@@ -746,11 +767,15 @@ pub fn update(
 /// [`update`].
 pub fn go_back(target: &Target, plan: &plan::Plan) -> anyhow::Result<manifest::Manifest> {
     let state = state_dir();
-    let m = manifest::Manifest::load(&state, &target.key())?
-        .ok_or_else(|| anyhow::anyhow!("BiGame-mode has installed nothing in {}", target.name))?;
+    let m = manifest::Manifest::load(&state, &target.key())?.ok_or_else(|| {
+        UserError::with(
+            N_("BiGame-mode has installed nothing in %s"),
+            [&target.name],
+        )
+    })?;
     let previous = m
         .previous
-        .ok_or_else(|| anyhow::anyhow!("there is no earlier version to go back to"))?;
+        .ok_or_else(|| UserError::plain(N_("there is no earlier version to go back to")))?;
     let release = versions::for_installed(&optiscaler::cache_dir(), &previous)?;
     update(target, plan, &release)
 }
@@ -810,8 +835,12 @@ pub fn repair(target: &Target) -> anyhow::Result<Vec<PathBuf>> {
     ensure_closed(target)?;
     let state = state_dir();
     let key = target.key();
-    let m = manifest::Manifest::load(&state, &key)?
-        .ok_or_else(|| anyhow::anyhow!("BiGame-mode has installed nothing in {}", target.name))?;
+    let m = manifest::Manifest::load(&state, &key)?.ok_or_else(|| {
+        UserError::with(
+            N_("BiGame-mode has installed nothing in %s"),
+            [&target.name],
+        )
+    })?;
     // The files of the version that is installed, not of whatever version a
     // profile would get today: their hashes are what the manifest checks.
     let cache = optiscaler::cache_dir();
