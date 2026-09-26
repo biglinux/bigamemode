@@ -36,7 +36,7 @@ such.
 | Anti-cheat absolute | done | Blocked for every injecting technology, including the external one; no override |
 | No third-party bundling | done | PKGBUILD unchanged; `AI_GRAPHICS_LICENSE_AUDIT.md` |
 | Documentation per stage | done | source, license, backend architecture, AMD implementation, neural POC, test matrix, this audit |
-| gettext + pt_BR | done | template up to date, 1038 messages translated |
+| gettext + pt_BR | done | template up to date, 1111 messages translated |
 
 ## Not proven, and said so
 
@@ -49,7 +49,18 @@ such.
 
 ## Package
 
-Built with `makepkg` from the committed branch and installed with
-`pacman -U`; the installed application opened Cyberpunk 2077's AI Graphics
-page with the Portuguese strings (see the delivery report for the result of
-this step).
+Built with `makepkg` from the committed branch (a scratch copy of the
+PKGBUILD pointing at the local repository, under `~/.cache`, since `/tmp`
+is mounted `noexec`) and installed with `pacman -U`; the daemon restarted
+and serves the system bus; the application opened Cyberpunk 2077's AI
+Graphics page in Portuguese: Current, the recommendation with "Adicionar a
+opção de inicialização", Renderização neural with its missing items,
+Detalhes técnicos and Diagnosticar, in the Default and Gamer themes.
+
+## Found during the audit
+
+- The four new modules were missing from `locale/POTFILES.in`, so their
+  strings had no Portuguese until this audit; the template check reports
+  only listed files. Added, translated (1111 messages), rebuilt.
+- In the Gamer theme the plan's title, a sentence, was ellipsized; it now
+  wraps.

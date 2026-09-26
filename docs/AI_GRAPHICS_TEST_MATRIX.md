@@ -55,7 +55,7 @@ NVIDIA 580) measured in the previous mission; "—" means not exercised.
 | `cargo clippy --workspace --all-targets -- -D warnings` | 0 warnings |
 | `cargo test --workspace` | 551 + 17 + 18 passed, 0 failed |
 | `tests/daemon-authorization.sh` | passed: every privileged request refused with Polkit unreachable |
-| `locale/extract-strings.py --check`, `msgfmt pt_BR.po` | up to date; 1038 messages translated |
+| `locale/extract-strings.py --check`, `msgfmt pt_BR.po` | up to date; 1111 messages translated (the four new modules added to `POTFILES.in`) |
 | Steam launch options restored (both accounts), `UserSettings.json` restored, Cyberpunk's `amd_fidelityfx_dx12.dll` original hash back | verified after the session |
 
 ## Not exercised
