@@ -94,6 +94,57 @@ pub struct DetectedGame {
     /// matters: a benchmark needs a handle on the process it is measuring, so
     /// features that require one are offered only where this is `Some`.
     pub launch_command: Option<Vec<String>>,
+    /// Where the game's own launcher keeps its settings for it, when that
+    /// launcher has per-game settings BiGame-mode can write (`MangoHud`).
+    pub launcher: Option<LauncherRef>,
+}
+
+/// A game's entry in its launcher's own configuration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LauncherRef {
+    /// Heroic: `<config_dir>/GamesConfig/<app_name>.json`.
+    Heroic {
+        /// The game's id in Heroic (Epic's app name, GOG's id, …).
+        app_name: String,
+        /// Heroic's configuration directory (native or Flatpak).
+        config_dir: PathBuf,
+    },
+    /// Lutris: the game's YAML configuration.
+    Lutris {
+        /// `…/lutris/games/<slug>-<id>.yml`.
+        config_file: PathBuf,
+    },
+}
+
+impl LauncherRef {
+    /// The launcher's name, as people know it.
+    #[must_use]
+    pub fn launcher_name(&self) -> &'static str {
+        match self {
+            Self::Heroic { .. } => "Heroic",
+            Self::Lutris { .. } => "Lutris",
+        }
+    }
+
+    /// The Flatpak application id when this launcher runs as a Flatpak
+    /// (its configuration is under `~/.var/app/<id>/`).
+    #[must_use]
+    pub fn flatpak_id(&self) -> Option<&'static str> {
+        let path = match self {
+            Self::Heroic { config_dir, .. } => config_dir,
+            Self::Lutris { config_file } => config_file,
+        };
+        let s = path.to_string_lossy();
+        match self {
+            Self::Heroic { .. } if s.contains("/.var/app/com.heroicgameslauncher.hgl/") => {
+                Some("com.heroicgameslauncher.hgl")
+            }
+            Self::Lutris { .. } if s.contains("/.var/app/net.lutris.Lutris/") => {
+                Some("net.lutris.Lutris")
+            }
+            _ => None,
+        }
+    }
 }
 
 impl DetectedGame {
@@ -296,6 +347,7 @@ impl From<MenuGame> for DetectedGame {
             cover: None,
             icon: game.icon,
             launch_command: (!flatpak).then_some(game.argv),
+            launcher: None,
         }
     }
 }
@@ -783,6 +835,7 @@ fn parse_acf(manifest: &Path, steamapps: &Path, libraries: &[PathBuf]) -> Option
         // runs the game in a separate process tree. There is no command here
         // that yields a handle on the game itself.
         launch_command: None,
+        launcher: None,
     })
 }
 
@@ -1153,6 +1206,9 @@ pub fn lutris_games(roots: &[LutrisRoot]) -> Vec<DetectedGame> {
                 launch_file: Some(launch_file),
                 icon: None,
                 launch_command,
+                launcher: Some(LauncherRef::Lutris {
+                    config_file: path.clone(),
+                }),
             });
         }
     }
@@ -1220,6 +1276,8 @@ pub struct HeroicEntry {
     /// The executable, as recorded: absolute, or relative to the install
     /// directory.
     pub executable: Option<PathBuf>,
+    /// The game's id in Heroic (`app_name`), which names its settings file.
+    pub app_name: Option<String>,
 }
 
 /// The installed games among a Heroic store library (`store_cache/*_library.json`,
@@ -1250,6 +1308,7 @@ pub fn heroic_library_entries(json: &str) -> Vec<HeroicEntry> {
                 title: string(g, "title")?,
                 install_path: string(install, "install_path").map(PathBuf::from),
                 executable: string(install, "executable").map(PathBuf::from),
+                app_name: string(g, "app_name"),
             })
         })
         .collect()
@@ -1292,6 +1351,9 @@ pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
                     .unwrap_or_else(|| install_path.clone()),
                 executable: string("executable").map(PathBuf::from),
                 install_path: Some(PathBuf::from(install_path)),
+                app_name: string("app_name")
+                    .or_else(|| string("appName"))
+                    .or_else(|| string("id")),
             })
         })
         .collect()
@@ -1365,6 +1427,10 @@ fn heroic_game(base: &Path, entry: HeroicEntry) -> Option<DetectedGame> {
         launch_file,
         icon: None,
         launch_command,
+        launcher: entry.app_name.map(|app_name| LauncherRef::Heroic {
+            app_name,
+            config_dir: base.to_path_buf(),
+        }),
     })
 }
 
@@ -1423,6 +1489,7 @@ mod tests {
             cover: None,
             icon: None,
             launch_command: None,
+            launcher: None,
         }
     }
 

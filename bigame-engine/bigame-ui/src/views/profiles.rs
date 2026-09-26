@@ -314,7 +314,7 @@ fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
     group.set_title(&i18n("MangoHud"));
     let installed = bigame_core::capabilities::which("mangohud").is_some();
     group.set_description(Some(&if installed {
-        i18n("The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. For a Steam game it is written into Steam's launch options, with Steam closed.")
+        i18n("The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. It is written where the game's launcher reads it: Steam's launch options (with Steam closed), the game's settings in Heroic (with Heroic closed) or in Lutris.")
     } else {
         i18n("MangoHud is not installed.")
     }));
@@ -349,6 +349,26 @@ fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
             let result = gio::spawn_blocking(move || bigame_core::mangohud::apply(&name, mode)).await;
             let message = match result {
                 Ok(Ok(Applied::LaunchPlan)) => i18n("Saved. It applies when BiGame-mode starts the game."),
+                Ok(Ok(Applied::Launcher { name, missing_extension: None })) => {
+                    i18n("Written into the game's settings in %s: it applies the next time %s starts the game.")
+                        .replace("%s", name)
+                }
+                Ok(Ok(Applied::Launcher { name, missing_extension: Some(command) })) => {
+                    i18n("Written into the game's settings in %l, but %l is a Flatpak without MangoHud's Flatpak extension, so the overlay cannot load. Install it and restart %l: %c")
+                        .replace("%l", name)
+                        .replace("%c", &command)
+                }
+                Ok(Ok(Applied::LauncherRunning(name))) => {
+                    applying.set(true);
+                    row.set_selected(match current {
+                        Mode::Off => 0,
+                        Mode::On => 1,
+                        Mode::Forced => 2,
+                    });
+                    applying.set(false);
+                    i18n("Close %s first: it keeps the game's settings in memory and would overwrite the change.")
+                        .replace("%s", name)
+                }
                 Ok(Ok(Applied::SteamLaunchOptions(opts))) if opts.is_empty() => {
                     i18n("Removed from the game's Steam launch options.")
                 }
