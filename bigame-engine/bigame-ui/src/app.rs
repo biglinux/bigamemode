@@ -70,6 +70,7 @@ pub fn run() -> adw::glib::ExitCode {
 
     app.connect_startup(|app| {
         style::load_css();
+        crate::theme::apply_saved();
         // Keep app alive even when all windows are closed.
         // Intentionally leak the guard — app should never release.
         std::mem::forget(app.hold());

@@ -1,7 +1,7 @@
-//! Settings: what BiGame-mode does on its own, and how to undo its control.
+//! Settings: the interface's look, what BiGame-mode does on its own, and how
+//! to undo its control.
 //!
-//! Appearance and About are not here: the application menu already has both,
-//! and the colour scheme follows the desktop unless the menu overrides it.
+//! About is not here: the application menu has it.
 
 use adw::prelude::*;
 use gtk4::{gio, glib};
@@ -21,12 +21,80 @@ fn switch(title: &str, subtitle: &str, active: bool, about: &str) -> adw::Switch
     row
 }
 
+/// A segmented control: one button per choice, exactly one pressed.
+fn toggles(choices: &[(&str, String)], active: &str) -> adw::ToggleGroup {
+    let group = adw::ToggleGroup::builder()
+        .valign(gtk4::Align::Center)
+        .homogeneous(true)
+        .build();
+    for (name, label) in choices {
+        group.add(adw::Toggle::builder().name(*name).label(label).build());
+    }
+    group.set_active_name(Some(active));
+    group
+}
+
+/// The look of the interface: design and colour scheme, applied at once.
+fn appearance_group() -> adw::PreferencesGroup {
+    use crate::theme::{self, Design, Scheme};
+
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("Appearance"));
+    let (design, scheme) = theme::saved();
+
+    let design_row = adw::ActionRow::builder()
+        .title(i18n("Interface theme"))
+        .subtitle(if theme::gamer_suspended() {
+            i18n("Default is shown while the desktop asks for high contrast")
+        } else {
+            i18n("Only the look changes: every page works the same")
+        })
+        .build();
+    let design_toggles = toggles(
+        &[
+            (Design::Default.id(), i18n("Default")),
+            (Design::Gamer.id(), i18n("Gamer")),
+        ],
+        design.id(),
+    );
+    design_toggles.connect_active_name_notify(|g| {
+        if let Some(name) = g.active_name() {
+            theme::set_design(Design::from_id(&name));
+        }
+    });
+    design_row.add_suffix(&design_toggles);
+    group.add(&design_row);
+
+    let scheme_row = adw::ActionRow::builder()
+        .title(i18n("Colour scheme"))
+        .subtitle(i18n("System follows the desktop's light or dark setting"))
+        .build();
+    let scheme_toggles = toggles(
+        &[
+            (Scheme::System.id(), i18n("System")),
+            (Scheme::Light.id(), i18n("Light")),
+            (Scheme::Dark.id(), i18n("Dark")),
+        ],
+        scheme.id(),
+    );
+    scheme_toggles.connect_active_name_notify(|g| {
+        if let Some(name) = g.active_name() {
+            theme::set_scheme(Scheme::from_id(&name));
+        }
+    });
+    scheme_row.add_suffix(&scheme_toggles);
+    group.add(&scheme_row);
+    group
+}
+
 /// Build the Settings page.
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn build() -> adw::PreferencesPage {
     let page = adw::PreferencesPage::new();
     let current = settings::load();
+
+    page.add(&appearance_group());
 
     // ── Turbo Mode ──────────────────────────────────────────────────────
     let turbo = adw::PreferencesGroup::new();

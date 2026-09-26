@@ -231,6 +231,30 @@ of it needs root.
   nothing from that path is bundled, fetched or suggested. A game that ships
   DLSS itself is simply "native DLSS".
 
+## Interface themes
+
+The UI has two designs and one colour scheme choice (Settings → Appearance,
+kept in `settings.toml` as `theme` and `color_scheme`; `theme.rs`).
+
+- **Default** is libadwaita plus `style/style.css`, unchanged.
+- **Gamer** is `style/gamer.css`, a second stylesheet added at
+  `STYLE_PROVIDER_PRIORITY_APPLICATION + 1` and removed to go back, so
+  Default never inherits from it. It maps libadwaita's named colours onto
+  its own tokens (`--gm-*`: surfaces, text, borders, accents, radii,
+  shadows, durations), so stock widgets and `style.css` follow without a
+  widget being built differently, then reshapes a few components
+  (navigation, cards, primary buttons, switches, progress, the Turbo
+  control, the game library).
+- Light and dark are media queries in the one Gamer stylesheet. GTK answers
+  an application stylesheet's `prefers-color-scheme` from the provider's
+  own property, which libadwaita sets only on its stylesheet; `theme.rs`
+  sets it from the scheme libadwaita resolved and follows its changes.
+- Charts read `bgm_chart_color` (Gamer defines it) before `accent_color`,
+  so Default draws them as before.
+- High contrast from the desktop shows Default whatever the choice.
+- Effects are static: no blur, no looping animation, transitions only on
+  hover and state changes, so the theme costs nothing while a game runs.
+
 ## Where data lives
 
 User paths follow the XDG base directories (`paths.rs`); with `HOME` unset the
@@ -243,7 +267,7 @@ directory.
 | `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper) |
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before BiGame-mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
-| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml`, `video.toml`, `gamescope.toml`, `games/<process>.toml` |
+| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, calibration, benchmark history, profile-migration backups |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |

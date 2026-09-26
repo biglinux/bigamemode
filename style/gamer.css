@@ -1,0 +1,521 @@
+/* BiGame-mode — Gamer design
+ *
+ * Loaded on top of libadwaita and style.css only while the Gamer design is
+ * chosen (bigame-ui/src/theme.rs); unloading it gives back the Default
+ * design untouched. Nothing here changes what a widget does.
+ *
+ * Structure
+ *   1. Tokens — every colour, radius, shadow and duration, once.
+ *   2. Palette — libadwaita's named colours mapped onto the tokens, so every
+ *      stock widget (and style.css, which uses the same names) follows.
+ *   3. Components — the few places where Gamer changes shape, not only
+ *      colour: navigation, cards, buttons, switches, progress, the Turbo
+ *      control, the game library.
+ *
+ * Light and dark are media queries driven by libadwaita's colour scheme.
+ * Accents are ~5 % of the surface: primary actions, selection, focus,
+ * progress, charts. Effects are static (no blur, no looping animation), so
+ * the interface costs nothing while a game runs; transitions only play on
+ * hover and state changes. Every state keeps its icon and text, so nothing
+ * depends on colour alone. */
+
+/* ── 1. Tokens ─────────────────────────────────────────────────────── */
+
+:root {
+    /* Accents, the same in light and dark. */
+    --gm-violet: #835dff;
+    --gm-violet-strong: #6f4aff;
+    --gm-magenta: #d946ef;
+    --gm-cyan: #22d3ee;
+    --gm-blue: #4f6bff;
+
+    --gm-gradient-primary: linear-gradient(135deg, #7657ff, #5468ff);
+    --gm-gradient-primary-hover: linear-gradient(135deg, #8468ff, #6378ff);
+    --gm-gradient-signature: linear-gradient(90deg, #7657ff, #c84deb 55%, #24cdeb);
+    --gm-gradient-progress: linear-gradient(90deg, #7b5cff, #22d3ee);
+    --gm-gradient-switch: linear-gradient(90deg, #6f4aff, #8d5cff);
+
+    --gm-radius-xs: 6px;
+    --gm-radius-sm: 8px;
+    --gm-radius-md: 12px;
+    --gm-radius-lg: 16px;
+    --gm-radius-xl: 22px;
+
+    --gm-duration-fast: 120ms;
+    --gm-duration-normal: 180ms;
+    --gm-duration-slow: 240ms;
+    --gm-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+    /* Light. */
+    --gm-bg-primary: #f3f4fb;
+    --gm-bg-secondary: #eceef8;
+    --gm-surface-primary: #ffffff;
+    --gm-surface-secondary: #f7f8fe;
+    --gm-surface-elevated: #e7eaf6;
+    --gm-surface-hover: rgba(111, 74, 255, 0.06);
+    --gm-surface-selected: rgba(111, 74, 255, 0.12);
+    --gm-text-primary: #171a2f;
+    --gm-text-secondary: #434862;
+    --gm-text-muted: #666d88;
+    --gm-border-subtle: rgba(23, 26, 47, 0.08);
+    --gm-border-active: rgba(111, 74, 255, 0.45);
+    --gm-border-focus: rgba(111, 74, 255, 0.75);
+    --gm-track: #dde0ee;
+    --gm-cover-bg: #e4e7f5;
+    --gm-shadow-sm: 0 1px 2px rgba(23, 26, 47, 0.06);
+    --gm-shadow-md: 0 4px 14px rgba(23, 26, 47, 0.08);
+    --gm-shadow-lg: 0 10px 28px rgba(23, 26, 47, 0.14);
+    --gm-glow: rgba(111, 74, 255, 0.16);
+    --gm-selected-bar: #6f4aff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --gm-bg-primary: #151a35;
+        --gm-bg-secondary: #11152d;
+        --gm-surface-primary: #232846;
+        --gm-surface-secondary: #2a2f50;
+        --gm-surface-elevated: #303657;
+        --gm-surface-hover: rgba(131, 93, 255, 0.09);
+        --gm-surface-selected: rgba(131, 93, 255, 0.18);
+        --gm-text-primary: #eceeff;
+        --gm-text-secondary: #b8bdda;
+        --gm-text-muted: #8a91b2;
+        --gm-border-subtle: rgba(255, 255, 255, 0.06);
+        --gm-border-active: rgba(139, 110, 255, 0.55);
+        --gm-border-focus: rgba(160, 136, 255, 0.9);
+        --gm-track: #303551;
+        --gm-cover-bg: #2a2f50;
+        --gm-shadow-sm: 0 1px 2px rgba(3, 5, 18, 0.35);
+        --gm-shadow-md: 0 4px 16px rgba(3, 5, 18, 0.4);
+        --gm-shadow-lg: 0 12px 32px rgba(3, 5, 18, 0.5);
+        --gm-glow: rgba(123, 91, 255, 0.2);
+        --gm-selected-bar: #9a7dff;
+    }
+}
+
+/* ── 2. Palette ────────────────────────────────────────────────────── */
+
+/* Light. The accent is the stronger violet: #6f4aff on white is 5.9:1. */
+@define-color accent_bg_color #6f4aff;
+@define-color accent_fg_color #ffffff;
+@define-color accent_color #5b3df0;
+@define-color destructive_bg_color #e11d48;
+@define-color destructive_fg_color #ffffff;
+@define-color destructive_color #c8103c;
+@define-color success_bg_color #0f9f6e;
+@define-color success_fg_color #ffffff;
+@define-color success_color #0a8259;
+@define-color warning_bg_color #f0a70a;
+@define-color warning_fg_color rgba(0, 0, 0, 0.8);
+@define-color warning_color #9a5b00;
+@define-color error_bg_color #e11d48;
+@define-color error_fg_color #ffffff;
+@define-color error_color #c8103c;
+
+@define-color window_bg_color #f3f4fb;
+@define-color window_fg_color #171a2f;
+@define-color view_bg_color #f7f8fe;
+@define-color view_fg_color #171a2f;
+@define-color headerbar_bg_color #f3f4fb;
+@define-color headerbar_fg_color #171a2f;
+@define-color headerbar_border_color #171a2f;
+@define-color headerbar_backdrop_color #f3f4fb;
+@define-color headerbar_shade_color rgba(23, 26, 47, 0.07);
+@define-color headerbar_darker_shade_color rgba(23, 26, 47, 0.12);
+@define-color sidebar_bg_color #e9ebf7;
+@define-color sidebar_fg_color #171a2f;
+@define-color sidebar_backdrop_color #eceef8;
+@define-color sidebar_shade_color rgba(23, 26, 47, 0.07);
+@define-color sidebar_border_color rgba(23, 26, 47, 0.07);
+@define-color secondary_sidebar_bg_color #eceef8;
+@define-color secondary_sidebar_fg_color #171a2f;
+@define-color secondary_sidebar_backdrop_color #eff0f9;
+@define-color secondary_sidebar_shade_color rgba(23, 26, 47, 0.07);
+@define-color secondary_sidebar_border_color rgba(23, 26, 47, 0.07);
+@define-color card_bg_color #ffffff;
+@define-color card_fg_color #171a2f;
+@define-color card_shade_color rgba(23, 26, 47, 0.07);
+@define-color dialog_bg_color #f7f8fe;
+@define-color dialog_fg_color #171a2f;
+@define-color popover_bg_color #ffffff;
+@define-color popover_fg_color #171a2f;
+@define-color popover_shade_color rgba(23, 26, 47, 0.14);
+@define-color thumbnail_bg_color #ffffff;
+@define-color thumbnail_fg_color #171a2f;
+@define-color shade_color rgba(23, 26, 47, 0.07);
+@define-color scrollbar_outline_color #ffffff;
+
+/* The line colour of the telemetry charts (widgets/sparkline.rs). */
+@define-color bgm_chart_color #0ea5c6;
+
+@media (prefers-color-scheme: dark) {
+    @define-color accent_bg_color #7b5cff;
+    @define-color accent_color #a58bff;
+    @define-color destructive_bg_color #e11d48;
+    @define-color destructive_color #fb7185;
+    @define-color success_bg_color #10a674;
+    @define-color success_color #4ade9f;
+    @define-color warning_bg_color #d99a0b;
+    @define-color warning_color #fbbf24;
+    @define-color error_bg_color #e11d48;
+    @define-color error_color #fb7185;
+
+    @define-color window_bg_color #151a35;
+    @define-color window_fg_color #eceeff;
+    @define-color view_bg_color #12162e;
+    @define-color view_fg_color #eceeff;
+    @define-color headerbar_bg_color #151a35;
+    @define-color headerbar_fg_color #eceeff;
+    @define-color headerbar_border_color #eceeff;
+    @define-color headerbar_backdrop_color #151a35;
+    @define-color headerbar_shade_color rgba(3, 5, 18, 0.45);
+    @define-color headerbar_darker_shade_color rgba(3, 5, 18, 0.7);
+    @define-color sidebar_bg_color #10142b;
+    @define-color sidebar_fg_color #eceeff;
+    @define-color sidebar_backdrop_color #12162e;
+    @define-color sidebar_shade_color rgba(3, 5, 18, 0.35);
+    @define-color sidebar_border_color rgba(255, 255, 255, 0.05);
+    @define-color secondary_sidebar_bg_color #131731;
+    @define-color secondary_sidebar_fg_color #eceeff;
+    @define-color secondary_sidebar_backdrop_color #141832;
+    @define-color secondary_sidebar_shade_color rgba(3, 5, 18, 0.35);
+    @define-color secondary_sidebar_border_color rgba(255, 255, 255, 0.05);
+    @define-color card_bg_color #232846;
+    @define-color card_fg_color #eceeff;
+    @define-color card_shade_color rgba(3, 5, 18, 0.4);
+    @define-color dialog_bg_color #1b2040;
+    @define-color dialog_fg_color #eceeff;
+    @define-color popover_bg_color #222747;
+    @define-color popover_fg_color #eceeff;
+    @define-color popover_shade_color rgba(3, 5, 18, 0.45);
+    @define-color thumbnail_bg_color #252a49;
+    @define-color thumbnail_fg_color #eceeff;
+    @define-color shade_color rgba(3, 5, 18, 0.4);
+    @define-color scrollbar_outline_color rgba(3, 5, 18, 0.9);
+
+    @define-color bgm_chart_color #22d3ee;
+}
+
+/* ── 3. Components ─────────────────────────────────────────────────── */
+
+/* Typography: the platform font, a firmer hierarchy. */
+.title-1 { font-weight: 800; letter-spacing: -0.4px; }
+.title-2 { font-weight: 800; letter-spacing: -0.3px; }
+.title-3,
+.title-4 { font-weight: 700; }
+.heading { font-weight: 700; }
+
+/* Section titles carry the signature accent: a short violet-to-cyan bar. */
+preferencesgroup > box > box.header > box.labels > label.heading {
+    font-size: 15px;
+    padding-left: 9px;
+    border-style: solid;
+    border-width: 0 0 0 3px;
+    border-image: linear-gradient(to bottom, #835dff, #22d3ee) 1;
+}
+
+preferencesgroup > box > box.header > box.labels > label.dimmed {
+    padding-left: 12px;
+}
+.dim-label,
+.dimmed { color: var(--gm-text-muted); opacity: 1; }
+
+/* Header bars: one surface with the page, separated by a hairline. */
+headerbar {
+    box-shadow: inset 0 -1px var(--gm-border-subtle);
+}
+
+/* The sidebar: a faint violet light in its top corner, painted once. */
+.sidebar-pane {
+    background-image: radial-gradient(circle at 0% 0%, rgba(131, 93, 255, 0.16), rgba(131, 93, 255, 0) 55%);
+}
+
+.sidebar-pane headerbar .title {
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+/* Navigation. The selected page gets a bar in the accent and a soft
+ * gradient; hover is a tint. Nothing moves. */
+.navigation-sidebar > row {
+    border-radius: var(--gm-radius-md);
+    min-height: 40px;
+    color: var(--gm-text-secondary);
+    transition: background-color var(--gm-duration-normal) var(--gm-ease),
+                box-shadow var(--gm-duration-normal) var(--gm-ease),
+                color var(--gm-duration-fast) var(--gm-ease);
+}
+
+.navigation-sidebar > row.activatable:hover {
+    background-color: var(--gm-surface-hover);
+    color: var(--gm-text-primary);
+}
+
+.navigation-sidebar > row:selected,
+.navigation-sidebar > row:selected:hover {
+    color: var(--gm-text-primary);
+    background-color: transparent;
+    background-image: linear-gradient(90deg, var(--gm-surface-selected), rgba(131, 93, 255, 0.03));
+    box-shadow: inset 3px 0 var(--gm-selected-bar);
+}
+
+.navigation-sidebar > row:selected image {
+    color: var(--gm-selected-bar);
+}
+
+/* Cards and boxed lists: the main surface. */
+list.boxed-list,
+list.content,
+list.boxed-list-separate > row,
+.card {
+    border-radius: 14px;
+    box-shadow: 0 0 0 1px var(--gm-border-subtle), var(--gm-shadow-sm);
+}
+
+list.boxed-list > row,
+list.content > row {
+    transition: background-color var(--gm-duration-normal) var(--gm-ease);
+}
+
+list.boxed-list > row:not(:selected).activatable:hover,
+list.content > row:not(:selected).activatable:hover {
+    background-color: var(--gm-surface-hover);
+}
+
+/* Telemetry cards (Details) and other plain cards lift on hover, 2 px at
+ * most, with a violet edge. */
+box.card {
+    transition: box-shadow var(--gm-duration-normal) var(--gm-ease),
+                transform var(--gm-duration-normal) var(--gm-ease);
+}
+
+box.card:hover {
+    box-shadow: 0 0 0 1px var(--gm-border-active), var(--gm-shadow-md);
+}
+
+/* Buttons. Primary is the gradient; secondary is an elevated surface;
+ * flat stays transparent; destructive stays red and is only used for
+ * actions that remove something. */
+button.suggested-action,
+button.suggested-action:checked {
+    background-image: var(--gm-gradient-primary);
+    color: #ffffff;
+    box-shadow: 0 2px 10px var(--gm-glow);
+    transition: background-image var(--gm-duration-normal) var(--gm-ease),
+                box-shadow var(--gm-duration-normal) var(--gm-ease);
+}
+
+button.suggested-action:hover {
+    background-image: var(--gm-gradient-primary-hover);
+    box-shadow: 0 4px 16px var(--gm-glow);
+}
+
+button.suggested-action:active {
+    background-image: var(--gm-gradient-primary);
+    box-shadow: none;
+}
+
+button.suggested-action:disabled {
+    background-image: none;
+    box-shadow: none;
+}
+
+/* Switches: blue-grey off, violet on. */
+switch {
+    background-color: var(--gm-track);
+    transition: background-color var(--gm-duration-fast) var(--gm-ease),
+                background-image var(--gm-duration-fast) var(--gm-ease);
+}
+
+switch:checked {
+    background-image: var(--gm-gradient-switch);
+}
+
+switch > slider {
+    box-shadow: 0 1px 3px rgba(3, 5, 18, 0.3);
+}
+
+/* Toggle groups (Settings → Appearance) and linked buttons. */
+toggle-group > toggle:checked {
+    background-image: var(--gm-gradient-primary);
+    color: #ffffff;
+}
+
+/* Entries and spin buttons. */
+entry:focus-within,
+spinbutton:focus-within {
+    box-shadow: inset 0 0 0 2px var(--gm-border-focus);
+}
+
+/* Focus stays an outline, never only a glow. */
+*:focus-visible {
+    outline-color: var(--gm-border-focus);
+}
+
+/* Progress and level bars: a dark track, violet to cyan. */
+progressbar > trough,
+levelbar > trough > block.empty,
+scale > trough {
+    background-color: var(--gm-track);
+}
+
+progressbar > trough > progress,
+levelbar > trough > block.filled,
+scale > trough > highlight {
+    background-color: transparent;
+    background-image: var(--gm-gradient-progress);
+}
+
+/* Popovers, menus, tooltips, dialogs and toasts: elevated, rounded,
+ * bordered. */
+popover > contents,
+popover > arrow {
+    border: 1px solid var(--gm-border-subtle);
+    box-shadow: var(--gm-shadow-lg);
+}
+
+popover > contents {
+    border-radius: var(--gm-radius-md);
+}
+
+popover.menu modelbutton:hover,
+popover.menu modelbutton:selected {
+    background-color: var(--gm-surface-hover);
+}
+
+tooltip.background {
+    background-color: #1f2443;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--gm-radius-sm);
+    color: #eceeff;
+}
+
+dialog.floating sheet,
+dialog.alert sheet {
+    border-radius: var(--gm-radius-xl);
+    box-shadow: 0 0 0 1px var(--gm-border-subtle), var(--gm-shadow-lg);
+}
+
+toast {
+    background-color: #1f2443;
+    color: #eceeff;
+    border: 1px solid rgba(139, 110, 255, 0.35);
+    border-radius: var(--gm-radius-md);
+}
+
+/* ── The Turbo control ─────────────────────────────────────────────── */
+
+/* Off: the signature gradient as a ring, the one strong accent on Home. */
+.booster-button.booster-ready {
+    background-color: var(--gm-surface-primary);
+    background-image: radial-gradient(circle, rgba(131, 93, 255, 0.10), rgba(131, 93, 255, 0) 70%);
+    border-color: var(--gm-violet);
+    color: var(--gm-text-primary);
+    box-shadow: 0 0 0 7px var(--gm-bg-primary),
+                0 0 0 8px rgba(34, 211, 238, 0.35),
+                0 0 30px 4px var(--gm-glow);
+}
+
+.booster-button.booster-ready:hover {
+    background-color: var(--gm-surface-secondary);
+    border-color: var(--gm-cyan);
+    box-shadow: 0 0 0 7px var(--gm-bg-primary),
+                0 0 0 8px rgba(34, 211, 238, 0.6),
+                0 0 38px 6px var(--gm-glow);
+}
+
+.booster-button.booster-ready image {
+    color: var(--gm-violet);
+}
+
+.booster-button.booster-working {
+    background-color: var(--gm-surface-primary);
+    border-color: var(--gm-border-active);
+}
+
+/* On keeps the success colour: green means "applied and verified" in the
+ * tray icon and everywhere else, in both designs. */
+.booster-button.booster-active {
+    background-color: var(--gm-surface-primary);
+    background-image: radial-gradient(circle, alpha(@success_color, 0.14), alpha(@success_color, 0) 72%);
+    box-shadow: 0 0 0 7px var(--gm-bg-primary),
+                0 0 0 8px rgba(131, 93, 255, 0.45),
+                0 0 34px 6px alpha(@success_color, 0.16);
+}
+
+.booster-button.booster-partial,
+.booster-button.booster-error {
+    background-color: var(--gm-surface-primary);
+}
+
+/* ── Game library ──────────────────────────────────────────────────── */
+
+.game-card {
+    border-radius: var(--gm-radius-lg);
+    transition: background-color var(--gm-duration-normal) var(--gm-ease),
+                box-shadow var(--gm-duration-normal) var(--gm-ease);
+}
+
+.game-card:hover {
+    background-color: var(--gm-surface-hover);
+    box-shadow: 0 0 0 1px var(--gm-border-active), var(--gm-shadow-md);
+}
+
+.game-cover-frame,
+.game-cover {
+    border-radius: var(--gm-radius-md);
+}
+
+.game-cover-frame {
+    background-color: var(--gm-cover-bg);
+}
+
+.game-card-actions {
+    border-radius: 0 0 var(--gm-radius-md) var(--gm-radius-md);
+}
+
+.game-card-badge {
+    border-radius: var(--gm-radius-xs);
+    background-color: rgba(17, 21, 45, 0.78);
+}
+
+/* ── Wizard ────────────────────────────────────────────────────────── */
+
+.progress-dot {
+    background: var(--gm-track);
+}
+
+.progress-dot.active {
+    background: var(--gm-gradient-signature);
+    box-shadow: 0 2px 10px var(--gm-glow);
+}
+
+.progress-dot.completed {
+    background: rgba(131, 93, 255, 0.55);
+}
+
+.wizard-step-desc {
+    color: var(--gm-text-muted);
+    opacity: 1;
+}
+
+.wizard-input-card {
+    background: var(--gm-surface-primary);
+    border: 1px solid var(--gm-border-subtle);
+    box-shadow: var(--gm-shadow-sm);
+}
+
+/* ── Badges ────────────────────────────────────────────────────────── */
+
+.success-badge,
+.warning-badge,
+.error-badge {
+    border-radius: var(--gm-radius-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none;
+    }
+}

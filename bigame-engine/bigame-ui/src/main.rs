@@ -7,6 +7,7 @@ pub mod i18n;
 mod profile_offer;
 pub mod settings;
 mod style;
+mod theme;
 mod tray;
 mod views;
 mod widgets;

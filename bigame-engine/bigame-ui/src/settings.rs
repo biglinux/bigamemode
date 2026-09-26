@@ -1,4 +1,4 @@
-//! User settings persistence (window geometry, last tab).
+//! User settings persistence (window geometry, last tab, theme).
 //!
 //! Settings stored as TOML in `$XDG_CONFIG_HOME/bigame-mode/settings.toml`.
 
@@ -23,6 +23,10 @@ pub struct Settings {
     /// key is ignored: it was never read or written.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color_scheme: Option<String>,
+    /// The interface design (`"gamer"`); absent, the default design
+    /// (theme.rs).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
     /// Enable desktop notifications on game launch/exit.
     pub notifications_enabled: bool,
     /// Ping target for network latency telemetry.
@@ -41,6 +45,7 @@ impl Default for Settings {
             // beginner needs (views/home.rs).
             last_tab: String::from("home"),
             color_scheme: None,
+            theme: None,
             notifications_enabled: true,
             ping_target: String::from("1.1.1.1"),
             offer_profiles: true,
