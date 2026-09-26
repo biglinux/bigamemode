@@ -117,6 +117,28 @@ use crate::i18n::tr;
 
 /// Start a sentence with a capital: core writes steps as clauses ("choose
 /// `XeSS` in the game's menu"), and a row title reads as a sentence.
+/// The plan's summary is a sentence, not a heading: let it wrap instead of
+/// ending in an ellipsis (libadwaita ellipsizes group titles), as it did in
+/// the Gamer theme's larger heading and would in Portuguese.
+fn wrap_title(group: &adw::PreferencesGroup) {
+    fn visit(widget: &gtk4::Widget) {
+        if let Some(label) = widget.downcast_ref::<gtk4::Label>() {
+            if label.has_css_class("heading") {
+                label.set_ellipsize(gtk4::pango::EllipsizeMode::None);
+                label.set_wrap(true);
+                label.set_wrap_mode(gtk4::pango::WrapMode::WordChar);
+            }
+            return;
+        }
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            visit(&c);
+            child = c.next_sibling();
+        }
+    }
+    visit(group.upcast_ref::<gtk4::Widget>());
+}
+
 fn sentence(s: &str) -> String {
     let mut c = s.chars();
     c.next()
@@ -193,6 +215,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     // ── Recommendation ───────────────────────────────────────────────
     let rec = adw::PreferencesGroup::new();
     rec.set_title(&sentence(&tr(&p.summary)));
+    wrap_title(&rec);
     rec.set_description(Some(&if r.installed.is_some() && p.optiscaler.is_none() {
         i18n(
             "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back.",
