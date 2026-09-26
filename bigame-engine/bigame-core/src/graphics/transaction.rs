@@ -472,20 +472,27 @@ pub fn recover(state_dir: &Path) -> Result<Vec<(String, Result<Vec<FileOutcome>>
     Ok(done)
 }
 
-/// Hashes [`verify`] computed, by path, with the file's size, modification
-/// time and inode when it was hashed.
-type HashCache = std::collections::HashMap<PathBuf, (u64, std::time::SystemTime, u64, String)>;
+/// What identifies one version of a file for [`hash_for_status`]: device,
+/// inode, size, modification time and change time. The change time cannot be
+/// set from user space, so a file rewritten in place with its old
+/// modification time restored (`cp -p`, `touch -r`) still counts as changed.
+type FileKey = (u64, u64, u64, std::time::SystemTime, i64, i64);
+
+/// Hashes [`verify`] computed, by path, with the file's key when it was
+/// hashed.
+type HashCache = std::collections::HashMap<PathBuf, (FileKey, String)>;
 
 static VERIFY_HASHES: std::sync::Mutex<Option<HashCache>> = std::sync::Mutex::new(None);
 
-/// [`hash_if_present`] for status reads, remembered while the file's size,
-/// modification time and inode stay the same.
+/// [`hash_if_present`] for status reads, remembered while the file's key
+/// stays the same.
 ///
 /// The status of an installed game is read every few seconds (Home, Details)
 /// and each read checked every placed file; the `OptiScaler` DLL and AMD's
 /// FSR runtime alone are 55 MB, hashed again on every read. A file replaced
-/// or rewritten gets a new inode or modification time, so it is hashed
-/// again. The transaction's own checks never use this: they hash every time.
+/// or rewritten gets a new key, so it is hashed again. The lock is not held
+/// while hashing, so one slow file does not hold up every other reader. The
+/// transaction's own checks never use this: they hash every time.
 fn hash_for_status(path: &Path) -> Result<Option<String>> {
     use std::os::unix::fs::MetadataExt;
     let meta = match std::fs::symlink_metadata(path) {
@@ -495,19 +502,33 @@ fn hash_for_status(path: &Path) -> Result<Option<String>> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
     };
-    let key = (meta.len(), meta.modified()?, meta.ino());
+    let key: FileKey = (
+        meta.dev(),
+        meta.ino(),
+        meta.len(),
+        meta.modified()?,
+        meta.ctime(),
+        meta.ctime_nsec(),
+    );
+    let hit = with_hash_cache(|cache| {
+        cache
+            .get(path)
+            .filter(|(k, _)| *k == key)
+            .map(|(_, hash)| hash.clone())
+    });
+    if hit.is_some() {
+        return Ok(hit);
+    }
+    let hash = sha256_file(path)?;
+    with_hash_cache(|cache| cache.insert(path.to_path_buf(), (key, hash.clone())));
+    Ok(Some(hash))
+}
+
+fn with_hash_cache<R>(f: impl FnOnce(&mut HashCache) -> R) -> R {
     let mut cache = VERIFY_HASHES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let cache = cache.get_or_insert_with(HashCache::new);
-    if let Some((len, modified, ino, hash)) = cache.get(path) {
-        if (*len, *modified, *ino) == key {
-            return Ok(Some(hash.clone()));
-        }
-    }
-    let hash = sha256_file(path)?;
-    cache.insert(path.to_path_buf(), (key.0, key.1, key.2, hash.clone()));
-    Ok(Some(hash))
+    f(cache.get_or_insert_with(HashCache::new))
 }
 
 /// Check every file of `m` against what was placed.
