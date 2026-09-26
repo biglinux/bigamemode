@@ -23,6 +23,14 @@ pub fn init() {
     }
 }
 
+/// Mark a string for translation without translating it here: for labels
+/// kept in constants and passed to [`i18n`] where they are shown.
+#[allow(non_snake_case)]
+#[must_use]
+pub const fn N_(s: &'static str) -> &'static str {
+    s
+}
+
 /// Translate a string via gettext.
 #[must_use]
 pub fn i18n(s: &str) -> String {

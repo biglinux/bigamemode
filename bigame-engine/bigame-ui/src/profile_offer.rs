@@ -26,7 +26,7 @@ use libadwaita as adw;
 use bigame_core::recommend::{self, Recommendation};
 use bigame_core::running::GameIdentity;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 
 const NOTIFICATION_ID: &str = "profile-offer";
 
@@ -371,7 +371,7 @@ fn present_review(
     for d in rec.decisions.iter().filter(|d| d.key != "scx_sched_props") {
         let row = adw::ActionRow::builder()
             .title(format!("{} = {}", d.key, d.value))
-            .subtitle(format!("{} — {}", i18n(d.evidence.label()), i18n(&d.why)))
+            .subtitle(format!("{} — {}", i18n(d.evidence.label()), tr(&d.why)))
             .subtitle_lines(4)
             .use_markup(false)
             .build();

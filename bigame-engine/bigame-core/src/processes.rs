@@ -24,6 +24,8 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use crate::text::N_;
+
 /// What kind of work a process is doing, when it can be recognised.
 ///
 /// Used only to explain the entry to the user — a category is never a licence
@@ -49,20 +51,23 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// One line explaining what this is, for someone deciding what to close.
+    /// One line explaining what this is, for someone deciding what to close;
+    /// marked for translation.
     #[must_use]
     pub fn describe(self) -> &'static str {
         match self {
-            Self::Indexer => "Indexes files in the background. Usually safe to pause.",
-            Self::Compiler => "A build or compile. Will finish sooner if left alone.",
-            Self::Sync => "Backup or file sync. Usually safe to pause.",
-            Self::Browser => "A web browser. Tabs playing video or running scripts cost the most.",
-            Self::Virtualisation => {
-                "A virtual machine or container. Closing it may interrupt work."
+            Self::Indexer => N_("Indexes files in the background. Usually safe to pause."),
+            Self::Compiler => N_("A build or compile. Will finish sooner if left alone."),
+            Self::Sync => N_("Backup or file sync. Usually safe to pause."),
+            Self::Browser => {
+                N_("A web browser. Tabs playing video or running scripts cost the most.")
             }
-            Self::Media => "Encoding or transcoding media.",
-            Self::Gaming => "Another game or a game launcher.",
-            Self::Other => "Unrecognised.",
+            Self::Virtualisation => {
+                N_("A virtual machine or container. Closing it may interrupt work.")
+            }
+            Self::Media => N_("Encoding or transcoding media."),
+            Self::Gaming => N_("Another game or a game launcher."),
+            Self::Other => N_("Unrecognised."),
         }
     }
 }

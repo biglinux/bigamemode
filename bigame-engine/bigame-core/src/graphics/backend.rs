@@ -24,7 +24,7 @@ use serde::Serialize;
 
 use super::optiscaler::Api;
 use super::report::{GpuInfo, Report};
-use super::text::{N_, Text};
+use super::text::{Arg, N_, Text};
 use crate::hardware::GpuVendor;
 
 const OPTISCALER_RISKS: &[&str] = &[
@@ -231,7 +231,7 @@ pub fn check(backend: Backend, r: &Report) -> Availability {
                     what: N_("GPU"),
                     detail: Text::with(
                         N_("needs %s; this game renders on %s"),
-                        [vendors(c.gpu_vendors), g.name.clone()],
+                        [Arg::Text(vendors(c.gpu_vendors)), Arg::from(&g.name)],
                     ),
                 });
             } else if g.vendor == GpuVendor::Amd && !c.amd_generations.is_empty() {
@@ -299,16 +299,29 @@ pub fn check(backend: Backend, r: &Report) -> Availability {
     }
 }
 
-fn vendors(v: &[GpuVendor]) -> String {
-    v.iter()
-        .map(|g| match g {
-            GpuVendor::Amd => "AMD",
-            GpuVendor::Nvidia => "NVIDIA",
-            GpuVendor::Intel => "Intel",
-            GpuVendor::Other => "other",
-        })
-        .collect::<Vec<_>>()
-        .join(" / ")
+fn vendors(v: &[GpuVendor]) -> Text {
+    join(
+        v.iter().map(|g| match g {
+            GpuVendor::Amd => Arg::from("AMD"),
+            GpuVendor::Nvidia => Arg::from("NVIDIA"),
+            GpuVendor::Intel => Arg::from("Intel"),
+            GpuVendor::Other => Arg::Text(Text::plain(N_("other"))),
+        }),
+        "%s / %s",
+    )
+}
+
+/// `parts` as one list, each pair joined by `pair` (a template of two `%s`
+/// and punctuation only), so a part that is a sentence stays translatable.
+pub(super) fn join(parts: impl IntoIterator<Item = Arg>, pair: &'static str) -> Text {
+    let list = parts
+        .into_iter()
+        .reduce(|acc, next| Arg::Text(Text::with(pair, [acc, next])));
+    match list {
+        Some(Arg::Text(t)) => t,
+        Some(Arg::Raw(s)) => Text::raw(s),
+        None => Text::raw(""),
+    }
 }
 
 fn generations(g: &[u8]) -> String {

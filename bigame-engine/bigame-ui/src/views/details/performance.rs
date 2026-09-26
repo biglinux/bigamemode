@@ -84,6 +84,7 @@ impl Performance {
         let game = snap.game.is_some();
         let yes = i18n("Yes");
         let no = i18n("No");
+        let none = i18n("none");
 
         // ── Turbo ───────────────────────────────────────────────────────
         let turbo_state = snap.turbo_state();
@@ -142,10 +143,10 @@ impl Performance {
                     .fact(&i18n("Profiles loaded"), &st.loaded_profiles.to_string())
                     .fact(
                         &i18n("Profile set"),
-                        if st.profile_mode.is_empty() {
-                            "desktop"
+                        &if st.profile_mode.is_empty() {
+                            i18n("desktop")
                         } else {
-                            &st.profile_mode
+                            st.profile_mode.clone()
                         },
                     );
                 if let Some(g) = &snap.game {
@@ -189,12 +190,12 @@ impl Performance {
                         )
                         .fact(
                             &i18n("Scheduler"),
-                            if st.current_scx.is_empty() { "none" } else { &st.current_scx },
+                            if st.current_scx.is_empty() { &none } else { &st.current_scx },
                         )
                         .fact(
                             &i18n("V-Cache"),
                             if st.current_vcache.is_empty() {
-                                "none"
+                                &none
                             } else {
                                 &st.current_vcache
                             },

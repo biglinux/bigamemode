@@ -11,6 +11,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::text::{N_, Text};
+
 /// Whether a feature can be used, and if not, why not.
 ///
 /// The distinction matters for the UI: "your hardware cannot do this" and "the
@@ -22,10 +24,12 @@ pub enum Support {
     Available,
     /// The software is not installed. Carries the package name to suggest.
     NotInstalled(String),
-    /// Installed, but this machine's hardware cannot use it.
-    Unsupported(String),
+    /// Installed, but this machine's hardware cannot use it. Carries the
+    /// reason, marked for translation.
+    Unsupported(&'static str),
     /// Installed and supported, but a prerequisite service is not running.
-    ServiceDown(String),
+    /// Carries the reason, marked for translation.
+    ServiceDown(&'static str),
 }
 
 impl Support {
@@ -40,18 +44,27 @@ impl Support {
     pub fn reason(&self) -> Option<&str> {
         match self {
             Self::Available => None,
-            Self::NotInstalled(s) | Self::Unsupported(s) | Self::ServiceDown(s) => Some(s),
+            Self::NotInstalled(s) => Some(s),
+            Self::Unsupported(s) | Self::ServiceDown(s) => Some(s),
         }
     }
 
     /// The reason as a sentence: a missing package is named as missing.
     #[must_use]
-    pub fn describe(&self) -> Option<String> {
+    pub fn describe_text(&self) -> Option<Text> {
         match self {
             Self::Available => None,
-            Self::NotInstalled(package) => Some(format!("{package} is not installed")),
-            Self::Unsupported(s) | Self::ServiceDown(s) => Some(s.clone()),
+            Self::NotInstalled(package) => {
+                Some(Text::with(N_("%s is not installed"), [package.as_str()]))
+            }
+            Self::Unsupported(s) | Self::ServiceDown(s) => Some(Text::plain(s)),
         }
+    }
+
+    /// [`Support::describe_text`] in English.
+    #[must_use]
+    pub fn describe(&self) -> Option<String> {
+        self.describe_text().map(|t| t.english())
     }
 }
 
@@ -195,7 +208,7 @@ impl SchedExtCaps {
     #[must_use]
     pub fn switchable(&self) -> Support {
         if !self.kernel_support {
-            return Support::Unsupported("kernel has no sched_ext support".into());
+            return Support::Unsupported(N_("kernel has no sched_ext support"));
         }
         if self.installed.is_empty() {
             return Support::NotInstalled("scx-scheds".into());
@@ -208,9 +221,9 @@ impl SchedExtCaps {
             return Support::NotInstalled("scx-tools".into());
         }
         if !self.loader_service {
-            return Support::ServiceDown(
-                "scx_loader is installed but its service is not running".into(),
-            );
+            return Support::ServiceDown(N_(
+                "scx_loader is installed but its service is not running",
+            ));
         }
         Support::Available
     }

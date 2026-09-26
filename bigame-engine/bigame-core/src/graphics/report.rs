@@ -132,20 +132,21 @@ pub enum Family {
 }
 
 impl Family {
-    /// A short name for the UI.
+    /// A short name for the UI: a product name as it is, or words to
+    /// translate.
     #[must_use]
-    pub fn label(self) -> String {
+    pub fn label(self) -> Text {
         match self {
-            Self::Rdna(g) => format!("RDNA {g}"),
-            Self::AmdOlder => "AMD (before RDNA)".into(),
-            Self::Gtx => "GeForce GTX".into(),
-            Self::Rtx20 => "GeForce RTX 20".into(),
-            Self::Rtx30 => "GeForce RTX 30".into(),
-            Self::Rtx40 => "GeForce RTX 40".into(),
-            Self::Rtx50 => "GeForce RTX 50".into(),
-            Self::Arc => "Intel Arc".into(),
-            Self::IntelIntegrated => "Intel integrated".into(),
-            Self::Unknown => "unknown".into(),
+            Self::Rdna(g) => Text::raw(format!("RDNA {g}")),
+            Self::AmdOlder => Text::plain(N_("AMD (before RDNA)")),
+            Self::Gtx => Text::raw("GeForce GTX"),
+            Self::Rtx20 => Text::raw("GeForce RTX 20"),
+            Self::Rtx30 => Text::raw("GeForce RTX 30"),
+            Self::Rtx40 => Text::raw("GeForce RTX 40"),
+            Self::Rtx50 => Text::raw("GeForce RTX 50"),
+            Self::Arc => Text::raw("Intel Arc"),
+            Self::IntelIntegrated => Text::plain(N_("Intel integrated")),
+            Self::Unknown => Text::plain(N_("unknown")),
         }
     }
 }
@@ -274,6 +275,10 @@ pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
     };
     (sr, fg)
 }
+
+/// A [`Native`] version when the component is there but its DLL names none;
+/// the UI shows it translated.
+pub const PRESENT: &str = N_("present");
 
 /// The upscalers and frame generators the game ships.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -712,7 +717,7 @@ pub fn build(
     let scan = &without_added(scan, installed.as_ref());
     let version = |k: ComponentKind| {
         scan.component(k)
-            .map(|c| c.version.clone().unwrap_or_else(|| "present".into()))
+            .map(|c| c.version.clone().unwrap_or_else(|| PRESENT.into()))
     };
     let native = Native {
         dlss: version(ComponentKind::DlssSuperResolution),
@@ -728,7 +733,7 @@ pub fn build(
             .find_map(|c| c.version.clone())
             .or_else(|| {
                 (scan.has(ComponentKind::Fsr) || scan.has(ComponentKind::FfxApi))
-                    .then(|| "present".into())
+                    .then(|| PRESENT.into())
             }),
         ffx_api: version(ComponentKind::FfxApi),
         fsr_fg: scan.components.iter().any(|c| {

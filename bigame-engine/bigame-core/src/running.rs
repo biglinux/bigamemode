@@ -26,6 +26,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::text::N_;
+
 // ── Process snapshot ─────────────────────────────────────────────────────────
 
 /// What classification needs to know about one process.
@@ -158,7 +160,8 @@ pub enum Graphics {
 }
 
 impl Graphics {
-    /// A short label.
+    /// A short label: product names, and a word marked for translation when
+    /// the API is not known.
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
@@ -167,7 +170,7 @@ impl Graphics {
             Self::WineD3d => "WineD3D",
             Self::Vulkan => "Vulkan",
             Self::OpenGl => "OpenGL",
-            Self::Unknown => "Unknown",
+            Self::Unknown => N_("Unknown"),
         }
     }
 }

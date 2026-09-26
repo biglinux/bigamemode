@@ -360,6 +360,12 @@ fn show_about_dialog(app: &adw::Application) {
         .comments(i18n("Performance tuning for Linux gaming"))
         .debug_info_filename("bigame-mode-debug.txt")
         .build();
+    // Translators put their names here; untranslated, the msgid comes back
+    // and there is no one to credit.
+    let translators = i18n("translator-credits");
+    if translators != "translator-credits" {
+        dialog.set_translator_credits(&translators);
+    }
 
     dialog.add_credit_section(
         Some(&i18n("Developers")),

@@ -24,9 +24,9 @@ use std::fmt::Write as _;
 use serde::{Deserialize, Serialize};
 
 use crate::capabilities::Capabilities;
-use crate::graphics::text::N_;
 use crate::hardware::{Hardware, PowerSource};
 use crate::running::GameIdentity;
+use crate::text::{N_, Text};
 
 /// How much a decision rests on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,7 +65,7 @@ pub struct Decision {
     /// What it rests on.
     pub evidence: Evidence,
     /// Why, in a sentence.
-    pub why: String,
+    pub why: Text,
 }
 
 /// A profile ready to save, with its reasons.
@@ -95,7 +95,7 @@ impl Recommendation {
     }
 }
 
-fn decide(key: &str, value: &str, evidence: Evidence, why: impl Into<String>) -> Decision {
+fn decide(key: &str, value: &str, evidence: Evidence, why: impl Into<Text>) -> Decision {
     Decision {
         key: key.to_owned(),
         value: value.to_owned(),
@@ -138,7 +138,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         )
     });
 
-    let scheduler = match caps.sched_ext.switchable().describe() {
+    let scheduler = match caps.sched_ext.switchable().describe_text() {
         None => decide(
             "scx_sched",
             "none",
@@ -256,7 +256,11 @@ mod tests {
             .iter()
             .find(|d| d.key == "performance_mode")
             .unwrap();
-        assert!(perf.why.contains("not a speed claim"), "{}", perf.why);
+        assert!(
+            perf.why.english().contains("not a speed claim"),
+            "{}",
+            perf.why
+        );
     }
 
     #[test]
