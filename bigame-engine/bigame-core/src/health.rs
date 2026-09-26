@@ -536,6 +536,10 @@ pub fn collect() -> Vec<Check> {
         )
     });
 
+    if let Some(c) = hw.render_gpu().and_then(resizable_bar_of) {
+        out.push(c);
+    }
+
     // Our own helper
     let helper = crate::dbus_client::daemon_proxy_blocking()
         .ok()
@@ -553,9 +557,85 @@ pub fn collect() -> Vec<Check> {
     out
 }
 
+/// Whether the CPU can map all of an AMD card's VRAM (Resizable BAR, "Smart
+/// Access Memory"), from the size of its VRAM aperture (BAR 0 on amdgpu)
+/// against its VRAM. Only amdgpu discrete cards: NVIDIA and Intel put the
+/// aperture in another BAR. Firmware decides it (Above 4G Decoding and
+/// Re-Size BAR in the setup program); BiGame-mode only reports it.
+fn resizable_bar_of(gpu: &crate::hardware::Gpu) -> Option<Check> {
+    if gpu.driver != "amdgpu" || !gpu.discrete || gpu.pci_slot.is_empty() {
+        return None;
+    }
+    let vram = gpu.vram_total_bytes?;
+    let resource =
+        std::fs::read_to_string(format!("/sys/bus/pci/devices/{}/resource", gpu.pci_slot)).ok()?;
+    let bar0 = resource.lines().next().and_then(|l| {
+        let mut it = l
+            .split_whitespace()
+            .map(|v| u64::from_str_radix(v.trim_start_matches("0x"), 16));
+        let (start, end) = (it.next()?.ok()?, it.next()?.ok()?);
+        (end > start).then(|| end - start + 1)
+    })?;
+    Some(resizable_bar(bar0, vram))
+}
+
+/// [`resizable_bar_of`]'s verdict for an aperture of `bar` bytes and `vram`
+/// bytes of VRAM.
+fn resizable_bar(bar: u64, vram: u64) -> Check {
+    let size = |b: u64| {
+        if b >= 1 << 30 {
+            format!("{} GiB", (b + (1 << 29)) >> 30)
+        } else {
+            format!("{} MiB", b >> 20)
+        }
+    };
+    // Apertures are powers of two; 16 GiB of VRAM is reported a little short.
+    if bar.saturating_mul(10) >= vram.saturating_mul(9) {
+        check(
+            N_("Resizable BAR"),
+            Status::Ok,
+            Text::with(
+                N_("on: the CPU can reach all %s of video memory"),
+                [size(vram)],
+            ),
+            None,
+        )
+    } else {
+        check(
+            N_("Resizable BAR"),
+            Status::Info,
+            Text::with(
+                N_("off: the CPU reaches %s of the card's %s of video memory at a time"),
+                [size(bar), size(vram)],
+            ),
+            advice(N_(
+                "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and BiGame-mode does not change firmware settings",
+            )),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resizable_bar_off_and_on() {
+        // The reference desktop: RX 9060 XT, 15.92 GiB of VRAM, 256 MiB BAR 0.
+        let vram = 17_095_983_104;
+        let off = resizable_bar(256 << 20, vram);
+        assert_eq!(off.status, Status::Info);
+        assert_eq!(
+            off.detail.english(),
+            "off: the CPU reaches 256 MiB of the card's 16 GiB of video memory at a time"
+        );
+        let on = resizable_bar(16 << 30, vram);
+        assert_eq!(on.status, Status::Ok);
+        assert_eq!(
+            on.detail.english(),
+            "on: the CPU can reach all 16 GiB of video memory"
+        );
+    }
 
     #[test]
     fn a_restarted_falcond_is_a_warning_and_an_untouched_one_is_silent() {

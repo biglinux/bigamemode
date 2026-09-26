@@ -14,7 +14,7 @@ depends=(
     'glibc'
     'glib2'
     'gtk4'
-    'libadwaita'
+    'libadwaita>=1:1.7'
     'hicolor-icon-theme'
 
     # The privileged helper: a system-bus service started by systemd, every

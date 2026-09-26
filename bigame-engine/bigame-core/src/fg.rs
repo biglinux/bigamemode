@@ -3,7 +3,13 @@
 //! lsfg-vk is a Vulkan implicit layer — NOT a kernel module. It reads
 //! `$XDG_CONFIG_HOME/lsfg-vk/conf.toml` and reloads it while a game runs
 //! ("Failed to update configuration, continuing using old" when a new version
-//! does not parse). BiGame-mode writes per-game entries there.
+//! does not parse) — for a game that started with an entry, and then only to
+//! apply new values: a new multiplier takes effect live, but removing the
+//! entry does not stop generating. A game that started while the file had no
+//! entry for it, or did not parse, runs without frame generation until its
+//! next start. So on and off take effect at the next start (checked with
+//! Shadow of the Tomb Raider on the reference desktop: x2 → removed stayed
+//! at x2's cost, → x3 applied). BiGame-mode writes per-game entries there.
 //!
 //! The format is the one lsfg-vk 1.0.0 — the package `BigLinux` ships — reads,
 //! checked against the strings of its `liblsfg-vk.so`:
@@ -27,8 +33,9 @@
 //!   Multiplier cannot be less than 2" … "IGNORING"), so a game with frame
 //!   generation off has **no** entry — never `multiplier = 1`.
 //! * It knows nothing of the `[[profile]]`/`active_in` layout an earlier
-//!   version of this module wrote; that layout did nothing with lsfg-vk 1.0.
-//!   It is converted on the next write.
+//!   version of this module wrote; that layout did nothing with lsfg-vk 1.0
+//!   and made it ignore the whole file. It is converted when the application
+//!   starts ([`convert_legacy_file`]) and on every write.
 //! * Keys and entries BiGame-mode did not write are kept as they are: the file
 //!   is also the user's, and lsfg-vk-ui's.
 //!
@@ -112,6 +119,31 @@ fn read_config() -> Result<Table> {
     Ok(t)
 }
 
+/// Convert the file if it still has the layout an earlier BiGame-mode
+/// wrote, keeping a copy of it beside it (`conf.toml.bigame-legacy`). While
+/// it is in that layout lsfg-vk ignores the whole file, so every game started
+/// meanwhile would run without frame generation. Returns whether it changed
+/// anything.
+///
+/// # Errors
+/// Returns an error if the file cannot be read, backed up or written.
+pub fn convert_legacy_file() -> Result<bool> {
+    let path = config_path();
+    let original = read_table(&path)?;
+    if !original.contains_key("profile") || format_supported() == Some(false) {
+        return Ok(false);
+    }
+    let backup = path.with_extension("toml.bigame-legacy");
+    if !backup.exists() {
+        std::fs::copy(&path, &backup)
+            .with_context(|| format!("back up to {}", backup.display()))?;
+    }
+    let mut t = original;
+    migrate_legacy(&mut t);
+    write_config(&t)?;
+    Ok(true)
+}
+
 fn write_config(t: &Table) -> Result<()> {
     let mut t = t.clone();
     t.insert("version".into(), Value::Integer(1));
@@ -139,7 +171,10 @@ fn migrate_legacy(t: &mut Table) {
             g.insert("exe".into(), exe.into());
             g.insert("multiplier".into(), Value::Integer(mult.min(20)));
             if let Some(f) = p.get("flow_scale").and_then(Value::as_float) {
-                g.insert("flow_scale".into(), Value::Float(f.clamp(0.25, 1.0)));
+                // Older versions wrote it through an f32 (0.6000000238418579);
+                // the UI works in whole percent.
+                let f = (f.clamp(0.25, 1.0) * 100.0).round() / 100.0;
+                g.insert("flow_scale".into(), Value::Float(f));
             }
             for (from, to) in [
                 ("performance_mode", "performance_mode"),
@@ -579,7 +614,7 @@ allow_fp16 = true
 name = "SOTTR.exe"
 active_in = ["SOTTR.exe"]
 multiplier = 3
-flow_scale = 0.8
+flow_scale = 0.6000000238418579
 performance_mode = true
 pacing = "none"
 hdr = false
@@ -604,7 +639,8 @@ multiplier = 4
         assert_eq!(t["global"]["dll"].as_str(), Some("/home/u/Lossless.dll"));
         let g = entry(&t, "SOTTR.exe").unwrap();
         assert_eq!(g["multiplier"].as_integer(), Some(3));
-        assert_eq!(g["flow_scale"].as_float(), Some(0.8));
+        // Written through an f32 by the old code; back to whole percent.
+        assert_eq!(g["flow_scale"].as_float(), Some(0.6));
         // multiplier 1 would make lsfg-vk reject the whole file.
         assert!(entry(&t, "Off.exe").is_none());
         assert!(entry(&t, "vkcube").is_some(), "a user's entry is kept");

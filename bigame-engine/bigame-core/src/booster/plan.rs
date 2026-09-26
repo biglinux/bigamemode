@@ -287,16 +287,24 @@ impl Plan {
             return;
         }
         // Single writer: where falcond is installed it sets the power profile
-        // per game, from that game's profile, and restores it on exit. Booster
-        // writing it too would make two snapshots of one value.
+        // per game, from that game's profile, and puts one back on exit.
+        // Booster writing it too would make two snapshots of one value.
+        //
+        // Which one it puts back: falcond 2.0.2 records the profile when the
+        // service starts, not when a game starts (checked on the reference
+        // desktop: started in balanced, switched to power-saver, ran a
+        // profiled process — balanced came back). The report says so, because
+        // "restores it" reads as "the one before the game".
         if caps.falcond_installed {
             let detail = match owner {
                 PowerProfileOwner::Falcond { profile } => format!(
-                    "falcond is managing it for '{profile}' and will restore it when the game exits"
+                    "falcond is managing it for '{profile}'; when the game exits it puts back \
+                     the profile that was in use when falcond started"
                 ),
                 PowerProfileOwner::Booster => {
-                    "falcond sets it for each game from the game's profile and \
-                     restores it when the game exits"
+                    "falcond sets it for each game from the game's profile; when the game \
+                     exits it puts back the profile that was in use when falcond started, \
+                     not one chosen later"
                         .to_owned()
                 }
             };
@@ -312,7 +320,8 @@ impl Plan {
                 knob: knob.title(),
                 owner: "falcond".into(),
                 detail: format!(
-                    "falcond is managing it for '{profile}' and will restore it when the game exits"
+                    "falcond is managing it for '{profile}'; when the game exits it puts back \
+                     the profile that was in use when falcond started"
                 ),
             });
             return;

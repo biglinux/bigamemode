@@ -1,6 +1,7 @@
 //! Sparkline mini-chart: last N data points as a filled line graph.
 //!
-//! Colors adapt to the active Adwaita theme via `accent_color` CSS lookup.
+//! Colors adapt to the active theme: the design's `bgm_chart_color` where it
+//! defines one (Gamer), otherwise Adwaita's `accent_color`.
 //! Temperature sparklines can override to warm/hot colors via `set_color()`.
 
 use std::collections::VecDeque;
@@ -70,12 +71,15 @@ pub fn build() -> SparkHandle {
             return;
         }
 
-        // Resolve RGB: color override → accent_color from theme → fallback blue
+        // Resolve RGB: color override → the design's chart colour (Gamer
+        // defines one) → accent_color from theme → fallback blue
         let (r, g, b) = col.lock().ok().and_then(|c| *c).unwrap_or_else(|| {
             #[allow(deprecated)]
-            widget
-                .style_context()
-                .lookup_color("accent_color")
+            let style = widget.style_context();
+            #[allow(deprecated)]
+            style
+                .lookup_color("bgm_chart_color")
+                .or_else(|| style.lookup_color("accent_color"))
                 .map_or((0.2, 0.6, 1.0), |rgba| {
                     (
                         f64::from(rgba.red()),

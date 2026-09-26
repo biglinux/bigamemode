@@ -183,6 +183,9 @@ pub fn build(
 
     // ── Split view ────────────────────────────────────────────────────
     let nav_split = adw::NavigationSplitView::new();
+    // Wide enough for the longest page name ("Configurações") on one line;
+    // at libadwaita's 180 px default it broke with a hyphen in a narrow window.
+    nav_split.set_min_sidebar_width(200.0);
     nav_split.set_sidebar(Some(&sidebar_page));
     nav_split.set_content(Some(&content_page));
 
@@ -300,36 +303,6 @@ pub fn build(
         window.maximize();
     }
 
-    // ── Theme toggle (win.toggle-dark) ────────────────────────────────
-    // A scheme the user chose is kept across restarts; until they choose one
-    // the desktop's is followed.
-    let style_mgr = adw::StyleManager::default();
-    match crate::settings::load().color_scheme.as_deref() {
-        Some("dark") => style_mgr.set_color_scheme(adw::ColorScheme::ForceDark),
-        Some("light") => style_mgr.set_color_scheme(adw::ColorScheme::ForceLight),
-        _ => {}
-    }
-    let is_dark = style_mgr.is_dark();
-    let theme_action = gio::SimpleAction::new_stateful("toggle-dark", None, &is_dark.to_variant());
-    theme_action.connect_activate(|action, _| {
-        let mgr = adw::StyleManager::default();
-        let dark = action
-            .state()
-            .and_then(|v| v.get::<bool>())
-            .unwrap_or(false);
-        let scheme = if dark {
-            adw::ColorScheme::ForceLight
-        } else {
-            adw::ColorScheme::ForceDark
-        };
-        mgr.set_color_scheme(scheme);
-        action.set_state(&(!dark).to_variant());
-        let mut s = crate::settings::load();
-        s.color_scheme = Some(if dark { "light" } else { "dark" }.to_owned());
-        crate::settings::save(&s);
-    });
-    window.add_action(&theme_action);
-
     // ── Restore Defaults (win.restore-defaults) ───────────────────────
     let restore_action = gio::SimpleAction::new("restore-defaults", None);
     {
@@ -386,7 +359,6 @@ pub fn build(
 
     // ── Main menu button (content header, end) ────────────────────────
     let menu = adw::gio::Menu::new();
-    menu.append(Some(&i18n("Toggle Dark Mode")), Some("win.toggle-dark"));
     menu.append(
         Some(&i18n("Restore Defaults")),
         Some("win.restore-defaults"),

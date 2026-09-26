@@ -104,12 +104,9 @@ pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
     if !apps.is_empty() && crate::steam::is_running() {
         return Ok(Applied::SteamRunning);
     }
-    let mut settings = crate::game_settings::load(process).unwrap_or_default();
-    settings.mangohud = mode;
-    crate::game_settings::save(process, &settings)?;
-    if apps.is_empty() {
-        return Ok(Applied::LaunchPlan);
-    }
+    // The launch options first, the saved choice after: if Steam's file cannot
+    // be written, the choice stays as it was instead of claiming a mode the
+    // game will not get.
     let mut last = String::new();
     for user in crate::steam::users(&crate::paths::home_dir()) {
         for app in &apps {
@@ -120,6 +117,12 @@ pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
             }
             last = wanted;
         }
+    }
+    let mut settings = crate::game_settings::load(process).unwrap_or_default();
+    settings.mangohud = mode;
+    crate::game_settings::save(process, &settings)?;
+    if apps.is_empty() {
+        return Ok(Applied::LaunchPlan);
     }
     Ok(Applied::SteamLaunchOptions(last))
 }

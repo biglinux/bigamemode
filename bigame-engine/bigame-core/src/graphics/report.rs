@@ -399,6 +399,36 @@ pub fn pci_name(db: &str, pci_id: &str) -> Option<String> {
     None
 }
 
+/// The name people know a GPU by, from its PCI database name: the product in
+/// brackets without the chip code (`Navi 44 [Radeon RX 9060 XT]` → `Radeon RX
+/// 9060 XT`). Where the database lists a family of products for one chip, as
+/// it does for APUs (`Cezanne [Radeon Vega Series / Radeon Vega Mobile
+/// Series]`), the first one without "Series", with the chip to tell it apart:
+/// `Radeon Vega (Cezanne)`. Names without brackets are kept as they are.
+///
+/// For display only: measurements are keyed on the database name.
+#[must_use]
+pub fn display_name(pci_name: &str) -> String {
+    let (Some(a), Some(b)) = (pci_name.find('['), pci_name.rfind(']')) else {
+        return pci_name.to_owned();
+    };
+    if b <= a + 1 {
+        return pci_name.to_owned();
+    }
+    let product = pci_name[a + 1..b].trim();
+    let chip = pci_name[..a].trim();
+    if !product.contains(" / ") {
+        return product.to_owned();
+    }
+    let first = product.split(" / ").next().unwrap_or(product).trim();
+    let first = first.strip_suffix(" Series").unwrap_or(first);
+    if chip.is_empty() {
+        first.to_owned()
+    } else {
+        format!("{first} ({chip})")
+    }
+}
+
 /// AMD RDNA generation from a model name (`Navi 44 [Radeon RX 9060 XT]`).
 #[must_use]
 pub fn rdna_generation(name: &str) -> Option<u8> {
@@ -560,6 +590,25 @@ pub fn build(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn display_names_are_the_products_people_know() {
+        assert_eq!(
+            display_name("Navi 44 [Radeon RX 9060 XT]"),
+            "Radeon RX 9060 XT"
+        );
+        assert_eq!(
+            display_name("Cezanne [Radeon Vega Series / Radeon Vega Mobile Series]"),
+            "Radeon Vega (Cezanne)"
+        );
+        assert_eq!(
+            display_name("GP107M [GeForce GTX 1050 Ti Mobile]"),
+            "GeForce GTX 1050 Ti Mobile"
+        );
+        assert_eq!(display_name("HD Graphics 630"), "HD Graphics 630");
+        assert_eq!(display_name("1002:7590"), "1002:7590");
+        assert_eq!(display_name("Odd []"), "Odd []");
+    }
+
     use super::*;
     use crate::graphics::pe::PeInfo;
 

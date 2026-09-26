@@ -133,6 +133,13 @@ apply → verify → report → restore**.
   Steam reaper tree (`AppId=`), Wine `.exe` processes, native menu games, and
   names falcond has a profile for. Launchers, stores, game streaming and
   BiGame-mode itself are never taken for a game.
+- What a running game really got is read from it, never from settings:
+  MangoHud, vkBasalt and lsfg-vk count only when mapped in the game process
+  (frame generation only with lsfg-vk mapped *and* an entry for the game),
+  Gamescope only in the game's process tree, a scheduler only when
+  `/sys/kernel/sched_ext` reports one (`running::in_game`, Home's "In the
+  game" line). When lsfg-vk's file changed after the game started, Home says
+  that turning it on or off waits for the next start.
 - When an unknown game starts with Turbo on, a notification offers a profile.
   The recommendation writes only falcond's fields and says where each value
   comes from: `performance_mode` on AC power only, `scx_sched = none` unless a
@@ -164,6 +171,23 @@ apply → verify → report → restore**.
     or switched on later from OptiScaler's overlay, which writes the
     `OptiScaler.ini` in the game;
   - global settings are never changed by this; only the launch is.
+- Nested Gamescope gets `--expose-wayland` where the build has it: without
+  it a game that prefers Wayland (vkcube, SDL3) inherits the desktop's
+  `WAYLAND_DISPLAY` and Gamescope's WSI layer ends it at start. vkBasalt is
+  switched off for the Gamescope process and back on for the game
+  (`env -u DISABLE_VKBASALT ENABLE_VKBASALT=1 <game>`): Gamescope otherwise
+  loads it itself, filters its own output after FSR, and removes
+  `ENABLE_VKBASALT` from the game's environment.
+- lsfg-vk re-reads its file for a game that started with an entry and then
+  applies a new multiplier, but it neither starts nor stops generating for a
+  running game; on and off take effect at the next start. The layout older
+  BiGame-mode versions wrote, which makes lsfg-vk ignore the whole file, is
+  converted when the application starts (a copy is kept as
+  `conf.toml.bigame-legacy`).
+- MangoHud per game for a Steam game is the launch option `MANGOHUD=1` (On)
+  or the `mangohud` wrapper (Forced). A game played with Steam's defaults has
+  no block in `localconfig.vdf`; one is created, in every Steam account of
+  the user, and the choice is saved only after the options read back.
 
 ## AI Graphics
 
@@ -197,8 +221,14 @@ of it needs root.
   - The GPU a game renders on is observed, not assumed: every NVIDIA card is
     discrete (the proprietary driver publishes no VRAM in sysfs), an Intel one
     when it is off the root bus; a running game's GPU is the one behind its
-    open `/dev/nvidiaN`, then the secondary of several render nodes. With two
-    GPUs the plan says which one it is for until the game runs.
+    open `/dev/nvidiaN`, then the card it has submitted work to (DRM fdinfo:
+    `drm-engine-*`, `drm-cycles-*`). Any Vulkan program opens every render
+    node just to enumerate the GPUs — on the reference desktop Shadow of the
+    Tomb Raider holds the Vega's node with 12 KiB and no work next to the
+    RX 9060 XT's with gigabytes and seconds of GPU time — so an open node
+    proves nothing. Before any work there is no answer and the expected GPU
+    is shown; only a driver without fdinfo falls back to "the non-boot card".
+    With two GPUs the plan says which one it is for until the game runs.
   - DLSS is offered only on a card known to be RTX (from its PCI database
     name; frame generation from Ada on); an unknown model is unknown, not
     "yes". On an NVIDIA card without DLSS the ini sets `[DLSS] Enabled=false`:
@@ -231,6 +261,30 @@ of it needs root.
   nothing from that path is bundled, fetched or suggested. A game that ships
   DLSS itself is simply "native DLSS".
 
+## Interface themes
+
+The UI has two designs and one colour scheme choice (Settings → Appearance,
+kept in `settings.toml` as `theme` and `color_scheme`; `theme.rs`).
+
+- **Default** is libadwaita plus `style/style.css`, unchanged.
+- **Gamer** is `style/gamer.css`, a second stylesheet added at
+  `STYLE_PROVIDER_PRIORITY_APPLICATION + 1` and removed to go back, so
+  Default never inherits from it. It maps libadwaita's named colours onto
+  its own tokens (`--gm-*`: surfaces, text, borders, accents, radii,
+  shadows, durations), so stock widgets and `style.css` follow without a
+  widget being built differently, then reshapes a few components
+  (navigation, cards, primary buttons, switches, progress, the Turbo
+  control, the game library).
+- Light and dark are media queries in the one Gamer stylesheet. GTK answers
+  an application stylesheet's `prefers-color-scheme` from the provider's
+  own property, which libadwaita sets only on its stylesheet; `theme.rs`
+  sets it from the scheme libadwaita resolved and follows its changes.
+- Charts read `bgm_chart_color` (Gamer defines it) before `accent_color`,
+  so Default draws them as before.
+- High contrast from the desktop shows Default whatever the choice.
+- Effects are static: no blur, no looping animation, transitions only on
+  hover and state changes, so the theme costs nothing while a game runs.
+
 ## Where data lives
 
 User paths follow the XDG base directories (`paths.rs`); with `HOME` unset the
@@ -243,7 +297,7 @@ directory.
 | `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper) |
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before BiGame-mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
-| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml`, `video.toml`, `gamescope.toml`, `games/<process>.toml` |
+| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, calibration, benchmark history, profile-migration backups |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
@@ -267,9 +321,14 @@ directory.
 
 ## falcond behaviours worth knowing (2.0.2)
 
-- Activation snapshots the power profile, scheduler and V-Cache mode, then
-  applies the profile; SIGTERM deactivates before exit; SIGHUP reloads and
-  re-reads `user/`. The helper reloads falcond with SIGHUP through systemd,
+- Activation applies the profile and deactivation puts the previous state
+  back; SIGTERM deactivates before exit; SIGHUP reloads and re-reads
+  `user/`. The **power profile it puts back is the one in use when the
+  service started**, not the one before the game: on the reference desktop,
+  falcond started in balanced, the profile was switched to power-saver, a
+  profiled process ran and balanced came back; started in performance, every
+  game ended in performance. Turbo off and on again makes falcond take the
+  current profile as its baseline. The helper reloads falcond with SIGHUP through systemd,
   never with a restart, which would tear down a running game's profile.
 - If falcond is killed with SIGKILL while a profile is active, systemd restarts
   it and the new instance snapshots the boosted state. BiGame-mode does not

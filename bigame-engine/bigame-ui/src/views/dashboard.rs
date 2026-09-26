@@ -586,13 +586,17 @@ fn spawn_telemetry_poller(
                 turbo_row.set_subtitle(&i18n("Off · BiGame-mode is not intervening in games"));
             }
 
-            // falcond's active profile is the game's process name, but only
-            // while Turbo runs falcond; the game watch sees it either way.
-            let active_game = falcond
-                .as_ref()
-                .and_then(|s| s.active_profile.clone())
-                .filter(|p| !p.is_empty() && p != "None")
-                .or_else(|| crate::game_watch::current().map(|g| g.process_name));
+            // The game watch's process name first: falcond's active profile is
+            // the profile it applied, which for a game without one of its own
+            // is "Proton" — not a name any setting or process is keyed on.
+            let active_game = crate::game_watch::current()
+                .map(|g| g.process_name)
+                .or_else(|| {
+                    falcond
+                        .as_ref()
+                        .and_then(|s| s.active_profile.clone())
+                        .filter(|p| !p.is_empty() && p != "None")
+                });
             let has_active_game = active_game.is_some();
 
             let runtime = gio::spawn_blocking({
@@ -710,7 +714,7 @@ fn build_gpus_group(
         .into_iter()
         .map(|g| {
             let row = adw::ActionRow::builder()
-                .title(&g.name)
+                .title(bigame_core::graphics::report::display_name(&g.name))
                 .subtitle(g.userspace.clone().unwrap_or_else(|| g.driver.clone()))
                 .use_markup(false)
                 .build();
@@ -996,7 +1000,13 @@ fn collect_video_runtime(active_game: Option<&str>) -> VideoRuntime {
     };
 
     let pids = find_game_pids(game);
-    let gamescope_active = is_gamescope_running();
+    // Gamescope counts when the game runs inside it, not when some Gamescope
+    // runs somewhere on the machine.
+    let gamescope_active = crate::game_watch::current()
+        .filter(|g| g.process_name == game)
+        .map_or_else(is_gamescope_running, |g| {
+            bigame_core::running::in_game(&g).gamescope
+        });
     let wine_fsr_active = pids
         .iter()
         .any(|pid| process_env_has_key(*pid, "WINE_FULLSCREEN_FSR"));

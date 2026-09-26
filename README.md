@@ -32,7 +32,7 @@ fazer, e nada é chamado de melhoria sem medição.**
 | **Benchmark** | Quais medições são possíveis nesta máquina e o que já foi medido. Para jogos que abrem diretamente, **Medir a diferença** (no menu do jogo) compara com e sem otimizações, em várias execuções alternadas. |
 | **Diagnóstico** | Saúde do sistema com a correção de cada problema, um relatório para suporte e medições de rede. Só muda algo quando você pede — por exemplo, limpar opções de lançamento da Steam que chamam um programa ausente. |
 | **Registros** | Tudo o que importa numa sessão de jogo, do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
-| **Configurações** | O que o BiGame-mode faz sozinho, e **Devolver**, que entrega o falcond exatamente como estava antes. |
+| **Configurações** | A aparência — tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema —, o que o BiGame-mode faz sozinho, e **Devolver**, que entrega o falcond exatamente como estava antes. |
 
 Fechar a janela deixa o aplicativo na **bandeja** (azul: ocioso, verde: jogo
 otimizado, amarelo: aviso).
@@ -178,8 +178,11 @@ no teste t de Welch a 95 %):
 
 Na mesma máquina, fixar a GPU no nível de energia `high` deixou os jogos
 7,5–8,3 % **mais lentos**, e perfil de energia, governador e escalonadores
-sched-ext não mudaram nada — por isso o BiGame-mode não os força. Método, todos
-os resultados e os dados brutos: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+sched-ext não mudaram nada — por isso o BiGame-mode não os força. A geração de
+quadros do lsfg-vk custou 42 % dos quadros renderizados em x2 (88,9 → 51,8) e
+55 % em x3, e por isso nunca é ligada sozinha. Método, todos os resultados e os
+dados brutos: [docs/BENCHMARKS.md](docs/BENCHMARKS.md); cada recurso verificado
+nesta máquina: [docs/AMD_DESKTOP_AUDIT.md](docs/AMD_DESKTOP_AUDIT.md).
 
 ## Desenvolvimento
 

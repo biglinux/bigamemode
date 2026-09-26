@@ -235,8 +235,9 @@ impl LaunchPlan {
                 gs.mangoapp = true;
             }
             let gs_override = (gs_override.is_some() || gs.mangoapp).then_some(&gs);
-            let (program, args) =
+            let (program, mut args) =
                 build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
+            keep_vkbasalt_in_the_game(&mut args, &mut env);
             Self { program, args, env }
         } else {
             // On: MangoHud's Vulkan layer. Forced: its wrapper, which also
@@ -485,6 +486,33 @@ impl LaunchPlan {
     }
 }
 
+/// vkBasalt is a Vulkan layer switched on by the environment, and Gamescope
+/// is a Vulkan program too. Left alone, Gamescope loads vkBasalt and filters
+/// its own composited output ("vkBasalt info: effects = cas" in its log on
+/// the reference desktop) — after its FSR, which already sharpens — and then
+/// removes `ENABLE_VKBASALT` from the game's environment, so the game itself
+/// never got the filter. Gamescope gets vkBasalt's off switch; the game gets
+/// the switch back on, so the filter runs where it was asked for, in the
+/// game.
+fn keep_vkbasalt_in_the_game(args: &mut Vec<String>, env: &mut HashMap<String, String>) {
+    // The plan's own variable, from the Video settings — the same settings
+    // the session's environment.d file is written from.
+    let wanted = env.get("ENABLE_VKBASALT").is_some_and(|v| v == "1");
+    let Some(sep) = args.iter().position(|a| a == "--") else {
+        return;
+    };
+    if !wanted {
+        return;
+    }
+    env.insert("DISABLE_VKBASALT".into(), "1".into());
+    for (i, a) in ["env", "-u", "DISABLE_VKBASALT", "ENABLE_VKBASALT=1"]
+        .into_iter()
+        .enumerate()
+    {
+        args.insert(sep + 1 + i, a.into());
+    }
+}
+
 /// Build `("gamescope", argv)` from the global upscaling settings merged with a
 /// per-game override.
 ///
@@ -633,6 +661,36 @@ mod tests {
             None,
         );
         assert!(!plan.env.contains_key("__NV_PRIME_RENDER_OFFLOAD"));
+    }
+
+    #[test]
+    fn vkbasalt_runs_in_the_game_not_in_gamescope() {
+        let mut env = HashMap::from([("ENABLE_VKBASALT".to_owned(), "1".to_owned())]);
+        let mut args: Vec<String> = ["-f", "--", "game", "-arg"].map(str::to_owned).to_vec();
+        keep_vkbasalt_in_the_game(&mut args, &mut env);
+        assert_eq!(env.get("DISABLE_VKBASALT").map(String::as_str), Some("1"));
+        assert_eq!(
+            args,
+            [
+                "-f",
+                "--",
+                "env",
+                "-u",
+                "DISABLE_VKBASALT",
+                "ENABLE_VKBASALT=1",
+                "game",
+                "-arg"
+            ]
+        );
+    }
+
+    #[test]
+    fn without_vkbasalt_the_command_is_untouched() {
+        let mut env = HashMap::new();
+        let mut args: Vec<String> = ["-f", "--", "game"].map(str::to_owned).to_vec();
+        keep_vkbasalt_in_the_game(&mut args, &mut env);
+        assert!(env.is_empty());
+        assert_eq!(args, ["-f", "--", "game"]);
     }
 
     #[test]

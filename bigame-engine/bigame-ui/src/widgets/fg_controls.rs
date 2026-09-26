@@ -18,8 +18,12 @@ use crate::i18n::i18n;
 pub fn build_tuning_fg_group(active_game: &str) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Frame Generation (LSFG-VK)"));
+    // lsfg-vk re-reads its file only for a game that started with an entry,
+    // and then applies a new multiplier but never stops generating; turning
+    // it on or off waits for the next start (checked with Shadow of the Tomb
+    // Raider on the reference desktop).
     group.set_description(Some(&i18n(
-        "Select a profile to tune Frame Generation settings in real-time.",
+        "A game that started with frame generation takes a new multiplier while it runs; turning frame generation on or off takes effect the next time the game starts.",
     )));
 
     // ── DLL Path (global) ─────────────────────────────────────
@@ -348,7 +352,8 @@ You must legally acquire Lossless Scaling on Steam or other platforms to obtain 
                         }
                     }
 
-                    // Write to lsfg-vk's TOML, which it hot-reloads.
+                    // Write to lsfg-vk's TOML, which it re-reads for a game
+                    // that started with an entry.
                     if let Err(e) =
                         bigame_core::fg::write_profile(&name_str, mult, flow, perf, hdr, pres)
                     {

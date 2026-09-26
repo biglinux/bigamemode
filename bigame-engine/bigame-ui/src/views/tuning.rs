@@ -30,7 +30,9 @@ pub fn build() -> adw::PreferencesPage {
     page.add(&build_daemon_group(&shared));
     page.add(&build_scheduler_group(&shared));
     page.add(&build_governor_group());
-    page.add(&build_vcache_group(&shared));
+    if let Some(group) = build_vcache_group(&shared) {
+        page.add(&group);
+    }
 
     let active_game = bigame_core::status::read()
         .and_then(|s| s.active_profile)
@@ -342,32 +344,23 @@ fn build_governor_group() -> adw::PreferencesGroup {
     group
 }
 
-/// `VCache` mode section (AMD 3D V-Cache).
-fn build_vcache_group(shared: &SharedConfig) -> adw::PreferencesGroup {
+/// `VCache` mode section (AMD 3D V-Cache), only on a CPU that has one: a
+/// disabled control for hardware that is not there still reads as a feature.
+/// Diagnostics says when the CPU has none.
+fn build_vcache_group(shared: &SharedConfig) -> Option<adw::PreferencesGroup> {
+    if !bigame_core::vcache::is_available() {
+        return None;
+    }
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("VCache (AMD 3D V-Cache)"));
-
-    let available = bigame_core::vcache::is_available();
-    if available {
-        group.set_description(Some(&i18n(
-            "Cache optimization mode for AMD 3D V-Cache CPUs",
-        )));
-    } else {
-        group.set_description(Some(&i18n(
-            "Requires an AMD CPU with 3D V-Cache (e.g. Ryzen 7 5800X3D / 7800X3D). Not available on this system.",
-        )));
-    }
-    let vcache_subtitle = if available {
-        i18n("Cache optimization strategy")
-    } else {
-        i18n("Hardware not detected — CPU lacks AMD 3D V-Cache")
-    };
+    group.set_description(Some(&i18n(
+        "Cache optimization mode for AMD 3D V-Cache CPUs",
+    )));
     let model = gtk4::StringList::new(&["none", "cache", "freq"]);
     let row = adw::ComboRow::builder()
         .title(i18n("VCache Mode"))
-        .subtitle(&vcache_subtitle)
+        .subtitle(i18n("Cache optimization strategy"))
         .model(&model)
-        .sensitive(available)
         .build();
     row.set_selected(crate::views::profiles::find_index(
         &model,
@@ -383,7 +376,7 @@ fn build_vcache_group(shared: &SharedConfig) -> adw::PreferencesGroup {
         }
     });
 
-    group
+    Some(group)
 }
 
 /// Device mode section (desktop / handheld / HTPC).

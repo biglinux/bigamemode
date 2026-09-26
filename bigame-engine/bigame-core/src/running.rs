@@ -610,29 +610,73 @@ struct OpenGpu {
     nvidia_node: bool,
     /// The firmware's boot display adapter.
     boot_vga: bool,
+    /// GPU time the process has submitted through this card's render nodes,
+    /// from their DRM fdinfo; `None` where the driver does not publish it.
+    work: Option<u64>,
 }
 
 /// Which of the GPUs a process has open it renders on.
 ///
 /// A game can hold more than one: on a hybrid laptop DXVK renders on the
-/// NVIDIA card through `/dev/nvidia0` while the compositor path keeps the iGPU's
-/// render node open, and under `DRI_PRIME` both render nodes are open. So:
-/// the NVIDIA driver's own node first (the proprietary driver renders only
-/// through it); then, among several render nodes, the card that is not the
-/// boot display adapter (a secondary card is opened on purpose, for
-/// offload); then the only one there is.
+/// NVIDIA card through `/dev/nvidia0` while the compositor path keeps the
+/// iGPU's render node open; under `DRI_PRIME` both render nodes are open; and
+/// any Vulkan program opens every GPU's render node just to enumerate them
+/// (`vkcube` on the RX 9060 XT of the reference desktop holds the Vega iGPU's
+/// node as well). So: the NVIDIA driver's own node first (the proprietary
+/// driver renders only through it); then the card the process has actually
+/// submitted work to, from DRM fdinfo (amdgpu, i915, xe publish it) — and
+/// while fdinfo is readable but no work has been submitted yet, no answer, so
+/// callers fall back to the GPU games are expected on; then, where no driver
+/// says, the card that is not the boot display adapter (a secondary card is
+/// opened on purpose, for offload); then the only one.
 fn choose_render_gpu(open: &[OpenGpu]) -> Option<&str> {
+    if let Some(g) = open.iter().find(|g| g.nvidia_node) {
+        return Some(g.card.as_str());
+    }
+    if open.iter().any(|g| g.work.is_some()) {
+        return open
+            .iter()
+            .filter(|g| g.work.is_some_and(|w| w > 0))
+            .max_by_key(|g| g.work)
+            .map(|g| g.card.as_str());
+    }
     open.iter()
-        .find(|g| g.nvidia_node)
-        .or_else(|| {
-            if open.len() > 1 {
-                open.iter().find(|g| !g.boot_vga)
-            } else {
-                None
-            }
-        })
+        .find(|g| open.len() > 1 && !g.boot_vga)
         .or_else(|| open.first())
         .map(|g| g.card.as_str())
+}
+
+/// GPU work submitted through one DRM file descriptor, from its fdinfo
+/// (`drm-engine-<engine>: <ns> ns`, or `drm-cycles-<engine>: <n>` on xe),
+/// summed over engines. A driver that publishes DRM fdinfo (it has a
+/// `drm-client-id`) but lists no engine has had no work — amdgpu omits
+/// engines it has not used, as for a game still in its launcher window — so
+/// that is zero, not unknown. `None` when the driver publishes no fdinfo.
+fn fdinfo_work(fdinfo: &str) -> Option<u64> {
+    let values = |prefix: &str| -> Option<u64> {
+        let mut found = false;
+        let mut sum = 0u64;
+        for line in fdinfo.lines() {
+            let Some((key, value)) = line.split_once(':') else {
+                continue;
+            };
+            if !key.starts_with(prefix) || key.starts_with("drm-engine-capacity") {
+                continue;
+            }
+            if let Some(n) = value
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<u64>().ok())
+            {
+                found = true;
+                sum = sum.saturating_add(n);
+            }
+        }
+        found.then_some(sum)
+    };
+    values("drm-engine-")
+        .or_else(|| values("drm-cycles-"))
+        .or_else(|| fdinfo.contains("drm-client-id").then_some(0))
 }
 
 /// The DRM card under a PCI device directory.
@@ -691,10 +735,25 @@ fn render_card(pid: u32) -> Option<String> {
         let Some(card) = card_of_device(&device) else {
             continue;
         };
-        if open
-            .iter()
-            .any(|g| g.card == card && g.nvidia_node == nvidia_node)
+        let work = if nvidia_node {
+            None
+        } else {
+            std::fs::read_to_string(format!(
+                "/proc/{pid}/fdinfo/{}",
+                fd.file_name().to_string_lossy()
+            ))
+            .ok()
+            .as_deref()
+            .and_then(fdinfo_work)
+        };
+        if let Some(known) = open
+            .iter_mut()
+            .find(|g| g.card == card && g.nvidia_node == nvidia_node)
         {
+            known.work = match (known.work, work) {
+                (Some(a), Some(b)) => Some(a.saturating_add(b)),
+                (a, b) => a.or(b),
+            };
             continue;
         }
         let boot_vga =
@@ -708,6 +767,7 @@ fn render_card(pid: u32) -> Option<String> {
             pci_slot,
             nvidia_node,
             boot_vga,
+            work,
         });
     }
     let open = drop_enumerated_only(open, pid, crate::gpu_telemetry::nvidia_graphics_pids);
@@ -784,6 +844,107 @@ pub fn detect() -> Option<GameIdentity> {
         .into_iter()
         .max_by_key(|g| ticks.get(&g.pid).copied().unwrap_or(0))
         .map(enrich)
+}
+
+/// What is really in effect inside a running game, read from the game
+/// process and the system while it runs — never from settings alone.
+///
+/// A saved setting says what was asked for; this says what the game got. A
+/// layer counts only when it is mapped in the game process (`MangoHud`,
+/// vkBasalt, lsfg-vk), frame generation only when lsfg-vk is mapped *and*
+/// has an entry for the game, Gamescope only when it is in the game's
+/// process tree, a scheduler only when the kernel reports one loaded.
+// Independent facts read one by one; grouping them to please the lint would
+// only add indirection.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct InGame {
+    /// `MangoHud`'s layer or preload library is in the game.
+    pub mangohud: bool,
+    /// vkBasalt's post-processing layer is in the game.
+    pub vkbasalt: bool,
+    /// lsfg-vk generates frames for the game: its multiplier.
+    pub frame_generation: Option<u32>,
+    /// lsfg-vk's file changed after the game started. lsfg-vk applies a new
+    /// multiplier live, but neither starts nor stops generating for a game
+    /// already running (checked on the reference desktop), so what the file
+    /// says now may not be what the game does until its next start.
+    pub frame_generation_changed: bool,
+    /// The game runs inside Gamescope.
+    pub gamescope: bool,
+    /// The sched-ext scheduler the kernel has loaded, if any.
+    pub scheduler: Option<String>,
+}
+
+/// Read [`InGame`] for `game`.
+#[must_use]
+pub fn in_game(game: &GameIdentity) -> InGame {
+    let maps = std::fs::read_to_string(format!("/proc/{}/maps", game.pid)).unwrap_or_default();
+    let layers = layers_from_maps(&maps);
+    let frame_generation = layers
+        .lsfg
+        .then(|| crate::fg::read_profile(&game.process_name).0);
+    InGame {
+        mangohud: layers.mangohud,
+        vkbasalt: layers.vkbasalt,
+        frame_generation: frame_generation.filter(|m| *m > 1 && crate::fg::is_lossless_dll_ready()),
+        frame_generation_changed: layers.lsfg
+            && changed_since_start(&crate::fg::config_path(), game.pid),
+        gamescope: game
+            .tree
+            .iter()
+            .any(|(_, name)| name == "gamescope" || name == "gamescope-wl"),
+        scheduler: loaded_scheduler(),
+    }
+}
+
+/// Whether `file` was modified after process `pid` started.
+fn changed_since_start(file: &Path, pid: u32) -> bool {
+    let (Some(age), Ok(modified)) = (
+        running_for(pid),
+        std::fs::metadata(file).and_then(|m| m.modified()),
+    ) else {
+        return false;
+    };
+    let started = std::time::SystemTime::now()
+        .checked_sub(std::time::Duration::from_secs(age))
+        .unwrap_or(std::time::UNIX_EPOCH);
+    modified > started
+}
+
+/// Vulkan layers and preload libraries mapped in a process.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Layers {
+    mangohud: bool,
+    vkbasalt: bool,
+    lsfg: bool,
+}
+
+fn layers_from_maps(maps: &str) -> Layers {
+    let mut l = Layers::default();
+    for name in maps
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(5))
+        .filter_map(|path| path.rsplit('/').next())
+    {
+        let name = name.to_ascii_lowercase();
+        l.mangohud |= name.starts_with("libmangohud");
+        l.vkbasalt |= name.starts_with("libvkbasalt");
+        l.lsfg |= name.starts_with("liblsfg-vk");
+    }
+    l
+}
+
+/// The sched-ext scheduler loaded now (`/sys/kernel/sched_ext`), without
+/// the `_1.2.3` version suffix some schedulers add.
+fn loaded_scheduler() -> Option<String> {
+    let state = std::fs::read_to_string("/sys/kernel/sched_ext/state").ok()?;
+    if state.trim() != "enabled" {
+        return None;
+    }
+    let ops = std::fs::read_to_string("/sys/kernel/sched_ext/root/ops").ok()?;
+    let ops = ops.trim();
+    (!ops.is_empty()).then(|| ops.split('_').next().unwrap_or(ops).to_owned())
 }
 
 /// How long a process has been running, in seconds.
@@ -903,7 +1064,83 @@ mod tests {
             .into(),
             nvidia_node,
             boot_vga,
+            work: None,
         }
+    }
+
+    #[test]
+    fn layers_come_from_the_libraries_the_game_mapped() {
+        // Excerpt of Shadow of the Tomb Raider's maps under Proton, with
+        // MangoHud through the Steam runtime's /run/host.
+        let maps = "\
+7f00 r-xp 0 0:1 1 /run/host/usr/lib/mangohud/libMangoHud.so
+7f01 r-xp 0 0:1 2 /usr/lib/libvkbasalt.so
+7f02 r-xp 0 0:1 3 /usr/lib/liblsfg-vk.so
+7f03 r-xp 0 0:1 4 /home/u/Proton/files/lib/vkd3d/x86_64-windows/d3d12.dll";
+        assert_eq!(
+            layers_from_maps(maps),
+            Layers {
+                mangohud: true,
+                vkbasalt: true,
+                lsfg: true
+            }
+        );
+        assert_eq!(
+            layers_from_maps("7f00 r-xp 0 0:1 1 /usr/lib/libc.so.6"),
+            Layers::default()
+        );
+    }
+
+    fn with_work(mut g: OpenGpu, work: u64) -> OpenGpu {
+        g.work = Some(work);
+        g
+    }
+
+    #[test]
+    fn a_vulkan_game_on_an_amd_desktop_renders_where_it_submits_work() {
+        // The reference desktop: card1 = RX 9060 XT (boot display, drives
+        // the monitors), card0 = the 5700G's Vega. Enumerating Vulkan devices
+        // opens the Vega's render node too; only the RX has GPU time.
+        let open = [
+            with_work(open_gpu("card1", false, true), 18_885_878),
+            with_work(open_gpu("card0", false, false), 0),
+        ];
+        assert_eq!(choose_render_gpu(&open), Some("card1"));
+    }
+
+    #[test]
+    fn work_decides_under_dri_prime_too() {
+        let open = [
+            with_work(open_gpu("card0", false, true), 1_000),
+            with_work(open_gpu("card1", false, false), 9_000_000),
+        ];
+        assert_eq!(choose_render_gpu(&open), Some("card1"));
+    }
+
+    #[test]
+    fn before_any_work_there_is_no_answer_yet() {
+        // Just started: fdinfo readable, nothing submitted anywhere yet;
+        // the fd order (Vega first, as with vkcube) must not decide.
+        let open = [
+            with_work(open_gpu("card0", false, false), 0),
+            with_work(open_gpu("card1", false, true), 0),
+        ];
+        assert_eq!(choose_render_gpu(&open), None);
+    }
+
+    #[test]
+    fn fdinfo_engines_are_summed_and_capacity_is_not_work() {
+        let amdgpu = "drm-driver:\tamdgpu\ndrm-pdev:\t0000:03:00.0\ndrm-memory-vram:\t12192 KiB\n\
+                      drm-engine-gfx:\t18885878 ns\ndrm-engine-compute:\t100 ns\n";
+        assert_eq!(fdinfo_work(amdgpu), Some(18_885_978));
+        let enumerated = "drm-driver:\tamdgpu\ndrm-client-id:\t2188\ndrm-pdev:\t0000:0a:00.0\n\
+                          drm-memory-vram:\t12 KiB\n";
+        assert_eq!(fdinfo_work(enumerated), Some(0));
+        assert_eq!(fdinfo_work("pos:\t0\nflags:\t02100002\n"), None);
+        let i915 = "drm-engine-render:\t500 ns\ndrm-engine-capacity-render:\t1\n";
+        assert_eq!(fdinfo_work(i915), Some(500));
+        let xe = "drm-cycles-rcs:\t42\ndrm-total-cycles-rcs:\t9000\n";
+        assert_eq!(fdinfo_work(xe), Some(42));
     }
 
     #[test]
