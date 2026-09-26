@@ -20,8 +20,9 @@ use libadwaita as adw;
 
 use bigame_core::booster::BoosterEngine;
 use bigame_core::booster::measure::{Arm, MeasureProgress, MeasurementPlan};
+use bigame_core::text::Text;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 
 /// Seconds of frametime recorded per run.
 const CAPTURE_SECONDS: u32 = 20;
@@ -35,7 +36,7 @@ const RUNS_PER_ARM: usize = 3;
 /// What the worker sends back.
 enum Event {
     Progress(String),
-    Done(Box<Result<Vec<String>, String>>),
+    Done(Box<Result<Vec<Text>, String>>),
 }
 
 /// Ask whether to measure `game`, and do it if the answer is yes.
@@ -193,7 +194,7 @@ fn spawn_worker(tx: mpsc::Sender<Event>, command: Vec<String>) {
                     Ok(measurement) => Ok(measurement
                         .outcomes
                         .iter()
-                        .map(bigame_core::booster::report::Outcome::describe)
+                        .map(bigame_core::booster::report::Outcome::describe_text)
                         .collect()),
                     Err(e) => Err(format!("{e:#}")),
                 };
@@ -247,7 +248,7 @@ fn describe(progress: &MeasureProgress) -> String {
     }
 }
 
-fn show_result(parent: &gtk4::Widget, title: &str, result: Result<Vec<String>, String>) {
+fn show_result(parent: &gtk4::Widget, title: &str, result: Result<Vec<Text>, String>) {
     let (heading, body) = match result {
         Ok(lines) if lines.is_empty() => (
             i18n("Nothing could be compared"),
@@ -257,7 +258,7 @@ fn show_result(parent: &gtk4::Widget, title: &str, result: Result<Vec<String>, S
             i18n("Results for %t").replace("%t", title),
             format!(
                 "{}\n\n{}",
-                lines.join("\n"),
+                lines.iter().map(tr).collect::<Vec<_>>().join("\n"),
                 i18n(
                     "Each metric is judged against how much that same metric varied \
                      between runs of your current settings. Anything smaller than \

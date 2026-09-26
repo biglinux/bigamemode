@@ -985,6 +985,8 @@ mod tests {
                     section: *s,
                     owner: "falcond".into(),
                     detail: String::new(),
+                    text: None,
+                    title: None,
                 })
                 .collect(),
         }
@@ -1010,6 +1012,8 @@ mod tests {
             section: Section::Failed,
             owner: "falcond".into(),
             detail: "systemd reports it failed".into(),
+            text: None,
+            title: None,
         });
         let (state, on) = finished_state(&r);
         assert!(!on);

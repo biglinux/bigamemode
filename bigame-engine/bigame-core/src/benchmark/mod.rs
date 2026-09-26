@@ -31,6 +31,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
+use crate::text::N_;
+
 // ── Capture ──────────────────────────────────────────────────────────────────
 
 /// One recorded run.
@@ -365,18 +367,21 @@ pub fn noise_floor(values: &[f64]) -> Option<f64> {
 /// the easiest number to move without improving anything.
 type MetricReader = fn(&FrameStats) -> f64;
 
-/// name, unit, direction, and how to read it from a run.
+/// name, unit, direction, and how to read it from a run. The name is shown
+/// translated (see `Outcome::describe_text`); the unit is not.
 type Metric = (&'static str, &'static str, Direction, MetricReader);
 
 const METRICS: &[Metric] = &[
-    ("1% low", "fps", Direction::HigherIsBetter, |s| s.low_1_fps),
-    ("P99 frametime", "ms", Direction::LowerIsBetter, |s| {
+    (N_("1% low"), "fps", Direction::HigherIsBetter, |s| {
+        s.low_1_fps
+    }),
+    (N_("P99 frametime"), "ms", Direction::LowerIsBetter, |s| {
         s.p99_ms
     }),
-    ("P95 frametime", "ms", Direction::LowerIsBetter, |s| {
+    (N_("P95 frametime"), "ms", Direction::LowerIsBetter, |s| {
         s.p95_ms
     }),
-    ("Average FPS", "fps", Direction::HigherIsBetter, |s| {
+    (N_("Average FPS"), "fps", Direction::HigherIsBetter, |s| {
         s.avg_fps
     }),
 ];

@@ -35,8 +35,8 @@ use crate::booster::BoosterEngine;
 use crate::booster::plan::Skipped;
 use crate::booster::report::Report as BoosterReport;
 use crate::capabilities::Capabilities;
-use crate::graphics::text::N_;
 use crate::hardware::{Chassis, Hardware};
+use crate::text::{Arg, N_, Text};
 
 /// The unit Turbo switches.
 pub const BACKEND_UNIT: &str = "falcond.service";
@@ -156,11 +156,15 @@ pub enum Kind {
     GameMode,
     /// The sched-ext scheduler.
     Scheduler,
-    /// A Booster knob, by its title.
+    /// A Booster knob, by its title in English; [`Item::title`] carries it
+    /// translatable.
     Knob(String),
 }
 
 /// One line of the report.
+///
+/// `kind` and `detail` stay in English next to the translatable `title` and
+/// `text`, so a report written by this build still reads in an older one.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Item {
     /// What it is about.
@@ -169,8 +173,16 @@ pub struct Item {
     pub section: Section,
     /// The component that owns this state.
     pub owner: String,
-    /// What happened, and why — in English; the UI titles items by `kind`.
+    /// What happened, and why — in English.
     pub detail: String,
+    /// `detail` as a translatable sentence; absent in reports written before
+    /// the report was translatable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<Text>,
+    /// A knob's title, translatable, for [`Kind::Knob`]; absent in older
+    /// reports and for the other kinds, which the UI titles itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<Text>,
 }
 
 /// What a Turbo transition did.
@@ -217,14 +229,37 @@ impl Report {
         }
     }
 
-    fn push(&mut self, kind: Kind, section: Section, owner: &str, detail: impl Into<String>) {
+    fn push(&mut self, kind: Kind, section: Section, owner: &str, text: Text) {
         self.items.push(Item {
             kind,
             section,
             owner: owner.to_owned(),
-            detail: detail.into(),
+            detail: text.english(),
+            text: Some(text),
+            title: None,
         });
     }
+
+    fn push_knob(&mut self, title: Text, section: Section, owner: &str, text: Text) {
+        self.items.push(Item {
+            kind: Kind::Knob(title.english()),
+            section,
+            owner: owner.to_owned(),
+            detail: text.english(),
+            text: Some(text),
+            title: Some(title),
+        });
+    }
+}
+
+/// The row for a Booster that could not run at all.
+fn booster_failed(report: &mut Report, error: &anyhow::Error) {
+    report.push_knob(
+        Text::plain(N_("Booster")),
+        Section::Failed,
+        "Booster",
+        Text::raw(format!("{error:#}")),
+    );
 }
 
 // ── Progress ─────────────────────────────────────────────────────────────────
@@ -281,9 +316,11 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
             Kind::GameMode,
             Section::ConflictAvoided,
             "falcond",
-            "installed but not used: falcond already owns per-game performance \
-             state, and two controllers would each snapshot and restore the same \
-             power profile",
+            Text::plain(N_(
+                "installed but not used: falcond already owns per-game performance \
+                 state, and two controllers would each snapshot and restore the same \
+                 power profile",
+            )),
         );
     }
 
@@ -294,8 +331,10 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
             Kind::GameBackend,
             Section::Unavailable,
             "falcond",
-            "falcond is not installed, so there are no per-game profiles; only \
-             global settings can be applied",
+            Text::plain(N_(
+                "falcond is not installed, so there are no per-game profiles; only \
+                 global settings can be applied",
+            )),
         );
     }
 
@@ -305,19 +344,17 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
             Kind::Scheduler,
             Section::Unavailable,
             "falcond",
-            format!("{why}, so game profiles that ask for a scheduler cannot set one"),
+            Text::with(
+                N_("%s, so game profiles that ask for a scheduler cannot set one"),
+                [Text::raw(why)],
+            ),
         );
     }
 
     let engine = BoosterEngine::detect();
     match engine.activate(|p| progress(Step::Booster(p))).await {
         Ok(booster) => absorb_booster(&booster, &mut report),
-        Err(e) => report.push(
-            Kind::Knob(N_("Booster").into()),
-            Section::Failed,
-            "Booster",
-            format!("{e:#}"),
-        ),
+        Err(e) => booster_failed(&mut report, &e),
     }
 
     report.save();
@@ -345,26 +382,30 @@ async fn enable_backend<F: FnMut(Step)>(
             let before = config.profile_mode.clone();
             config.profile_mode = fixed.to_owned();
             match crate::config::write(&config).await {
-                Ok(()) if crate::config::read().is_ok_and(|c| c.profile_mode == fixed) => report.push(
-                    Kind::ProfileSet,
-                    Section::Verified,
-                    "BiGame-mode",
-                    format!(
-                        "{before} → desktop: the handheld profiles run games in power-saving mode, \
-                         and this machine is not a handheld"
+                Ok(()) if crate::config::read().is_ok_and(|c| c.profile_mode == fixed) => report
+                    .push(
+                        Kind::ProfileSet,
+                        Section::Verified,
+                        "BiGame-mode",
+                        Text::with(
+                            N_(
+                                "%s → %s: the handheld profiles run games in power-saving mode, \
+                            and this machine is not a handheld",
+                            ),
+                            [Arg::Raw(before), Arg::Text(desktop_set())],
+                        ),
                     ),
-                ),
                 Ok(()) => report.push(
                     Kind::ProfileSet,
                     Section::Failed,
                     "BiGame-mode",
-                    "the configuration was written but reads back unchanged",
+                    Text::plain(N_("the configuration was written but reads back unchanged")),
                 ),
                 Err(e) => report.push(
                     Kind::ProfileSet,
                     Section::Failed,
                     "BiGame-mode",
-                    format!("{e:#}"),
+                    Text::raw(format!("{e:#}")),
                 ),
             }
         }
@@ -382,19 +423,24 @@ async fn enable_backend<F: FnMut(Step)>(
             // systemd says it runs; falcond's own status says it has loaded.
             let status = wait_for_fresh_status(started).await;
             let detail = match status {
-                Some(s) => format!(
-                    "running, {} profiles loaded ({} set); applies a profile to each game as it starts",
-                    s.loaded_profiles,
-                    if s.profile_mode == "none" {
-                        "desktop"
-                    } else {
-                        &s.profile_mode
-                    },
+                Some(s) => Text::with(
+                    N_(
+                        "running, %s profiles loaded (%s set); applies a profile to each game as it starts",
+                    ),
+                    [
+                        Arg::Raw(s.loaded_profiles.to_string()),
+                        // falcond's own name for its sets, except the one it
+                        // calls `none`, which is the desktop set.
+                        if s.profile_mode == "none" {
+                            Arg::Text(desktop_set())
+                        } else {
+                            Arg::Raw(s.profile_mode)
+                        },
+                    ],
                 ),
-                None => {
-                    "running (systemd reports it active; falcond has not published its status yet)"
-                        .into()
-                }
+                None => Text::plain(N_(
+                    "running (systemd reports it active; falcond has not published its status yet)",
+                )),
             };
             report.push(Kind::GameBackend, Section::Verified, "falcond", detail);
         }
@@ -402,15 +448,24 @@ async fn enable_backend<F: FnMut(Step)>(
             Kind::GameBackend,
             Section::Failed,
             "falcond",
-            format!("systemd reports it {other}"),
+            systemd_reports(other),
         ),
         Err(e) => report.push(
             Kind::GameBackend,
             Section::Failed,
             "falcond",
-            format!("{e:#}"),
+            Text::raw(format!("{e:#}")),
         ),
     }
+}
+
+/// falcond's profile set for desktops, which its configuration calls `none`.
+fn desktop_set() -> Text {
+    Text::plain(N_("desktop"))
+}
+
+fn systemd_reports(state: String) -> Text {
+    Text::with(N_("systemd reports it %s"), [state])
 }
 
 /// falcond's status, once it has been rewritten after `since`.
@@ -438,13 +493,15 @@ fn absorb_booster(booster: &BoosterReport, report: &mut Report) {
         } else {
             Section::Failed
         };
-        report.push(
-            Kind::Knob(change.knob.title()),
+        report.push_knob(
+            change.knob.title_text(),
             section,
             "Booster",
-            change.summary(),
+            change.summary_text(),
         );
     }
+    // The scheduler already has its own item from falcond's side.
+    let scheduler = crate::booster::plan::scheduler_title();
     for skipped in &booster.skipped {
         let (knob, section, owner, detail) = match skipped {
             Skipped::OwnedBy {
@@ -457,34 +514,35 @@ fn absorb_booster(booster: &BoosterReport, report: &mut Report) {
                 owner.as_str(),
                 detail.clone(),
             ),
+            Skipped::Unsupported { knob, .. } | Skipped::NotBeneficial { knob, .. }
+                if *knob == scheduler =>
+            {
+                continue;
+            }
             Skipped::Unsupported { knob, detail } => {
-                // The scheduler already has its own item from falcond's side.
-                if knob.contains("sched-ext") {
-                    continue;
-                }
                 (knob, Section::Unavailable, "Booster", detail.clone())
             }
-            Skipped::AlreadyOptimal { knob, value } => (
-                knob,
-                Section::Skipped,
-                "Booster",
-                format!("already {value}"),
-            ),
+            Skipped::AlreadyOptimal { knob, value } => {
+                (knob, Section::Skipped, "Booster", already(value))
+            }
             Skipped::NotBeneficial { knob, detail } => {
-                if knob.contains("sched-ext") {
-                    continue;
-                }
                 (knob, Section::Skipped, "Booster", detail.clone())
             }
             Skipped::NotRestorable { knob } => (
                 knob,
                 Section::Skipped,
                 "Booster",
-                "its current value could not be read, so it could not be restored".to_owned(),
+                Text::plain(N_(
+                    "its current value could not be read, so it could not be restored",
+                )),
             ),
         };
-        report.push(Kind::Knob(knob.clone()), section, owner, detail);
+        report.push_knob(knob.clone(), section, owner, detail);
     }
+}
+
+fn already(value: &str) -> Text {
+    Text::with(N_("already %s"), [value])
 }
 
 /// Turn Turbo off.
@@ -512,19 +570,21 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
                 Kind::GameBackend,
                 Section::Restored,
                 "falcond",
-                "stopped and disabled; any game profile it held was put back as it stopped",
+                Text::plain(N_(
+                    "stopped and disabled; any game profile it held was put back as it stopped",
+                )),
             ),
             Ok(other) => report.push(
                 Kind::GameBackend,
                 Section::Failed,
                 "falcond",
-                format!("systemd reports it {other}"),
+                systemd_reports(other),
             ),
             Err(e) => report.push(
                 Kind::GameBackend,
                 Section::Failed,
                 "falcond",
-                format!("{e:#}"),
+                Text::raw(format!("{e:#}")),
             ),
         }
     }
@@ -534,8 +594,8 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         Ok(outcomes) => {
             for outcome in outcomes {
                 let ok = outcome.status.is_ok();
-                report.push(
-                    Kind::Knob(outcome.knob.title()),
+                report.push_knob(
+                    outcome.knob.title_text(),
                     if ok {
                         Section::Restored
                     } else {
@@ -544,24 +604,20 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
                     "Booster",
                     match &outcome.status {
                         crate::booster::snapshot::RestoreStatus::Restored => {
-                            format!("restored to {}", outcome.target)
+                            Text::with(N_("restored to %s"), [&outcome.target])
                         }
                         crate::booster::snapshot::RestoreStatus::AlreadyCorrect => {
-                            format!("already {}", outcome.target)
+                            already(&outcome.target)
                         }
-                        crate::booster::snapshot::RestoreStatus::Failed { error } => {
-                            format!("could not restore {}: {error}", outcome.target)
-                        }
+                        crate::booster::snapshot::RestoreStatus::Failed { error } => Text::with(
+                            N_("could not restore %s: %s"),
+                            [Arg::from(&outcome.target), Arg::Text(error.clone())],
+                        ),
                     },
                 );
             }
         }
-        Err(e) => report.push(
-            Kind::Knob(N_("Booster").into()),
-            Section::Failed,
-            "Booster",
-            format!("{e:#}"),
-        ),
+        Err(e) => booster_failed(&mut report, &e),
     }
 
     report.save();
@@ -601,17 +657,20 @@ mod tests {
         let booster = BoosterReport {
             skipped: vec![
                 Skipped::OwnedBy {
-                    knob: "Power profile".into(),
+                    knob: crate::booster::knob::Knob::PowerProfile.title_text(),
                     owner: "falcond".into(),
-                    detail: "per game".into(),
+                    detail: Text::raw("per game"),
                 },
                 Skipped::NotBeneficial {
-                    knob: "GPU power level (card1)".into(),
-                    detail: "left to the driver".into(),
+                    knob: crate::booster::knob::Knob::GpuDpmLevel {
+                        card: "card1".into(),
+                    }
+                    .title_text(),
+                    detail: Text::raw("left to the driver"),
                 },
                 Skipped::Unsupported {
-                    knob: "sched-ext scheduler".into(),
-                    detail: "scx_loader service is not running".into(),
+                    knob: crate::booster::plan::scheduler_title(),
+                    detail: Text::raw("scx_loader service is not running"),
                 },
             ],
             ..BoosterReport::default()
@@ -624,6 +683,11 @@ mod tests {
         assert_eq!(report.items.len(), 2);
         let dpm = &report.items[1];
         assert_eq!(dpm.detail, "left to the driver");
+        // Older builds read the English kind; this one titles it translated.
+        assert_eq!(dpm.kind, Kind::Knob("GPU power level (card1)".into()));
+        let title = dpm.title.as_ref().unwrap();
+        assert_eq!(title.template, "GPU power level (%s)");
+        assert_eq!(title.args, ["card1"]);
     }
 
     #[test]
@@ -633,15 +697,61 @@ mod tests {
             at: 1,
             items: Vec::new(),
         };
-        report.push(Kind::GameBackend, Section::Verified, "falcond", "running");
         report.push(
-            Kind::Knob(N_("Power profile").into()),
+            Kind::GameBackend,
+            Section::Verified,
+            "falcond",
+            Text::raw("running"),
+        );
+        report.push_knob(
+            crate::booster::knob::Knob::PowerProfile.title_text(),
             Section::ManagedPerGame,
             "falcond",
-            "per game",
+            already("performance"),
         );
         let json = serde_json::to_string(&report).unwrap();
         let back: Report = serde_json::from_str(&json).unwrap();
         assert_eq!(back.items, report.items);
+        assert_eq!(back.items[1].detail, "already performance");
+        assert_eq!(back.items[1].kind, Kind::Knob("Power profile".into()));
+    }
+
+    #[test]
+    fn a_report_saved_before_translation_still_loads() {
+        // The format every earlier build wrote: English kind and detail only.
+        // A parse failure would hide the last report without a word.
+        let old = r#"{"turned_on":true,"at":1,"items":[
+            {"kind":{"kind":"game_backend"},"section":"verified","owner":"falcond",
+             "detail":"running"},
+            {"kind":{"kind":"knob","name":"GPU power level (card1)"},"section":"skipped",
+             "owner":"Booster","detail":"left to the driver"}]}"#;
+        let report: Report = serde_json::from_str(old).unwrap();
+        assert_eq!(report.items.len(), 2);
+        assert_eq!(
+            report.items[1].kind,
+            Kind::Knob("GPU power level (card1)".into())
+        );
+        assert_eq!(report.items[1].detail, "left to the driver");
+        assert!(
+            report
+                .items
+                .iter()
+                .all(|i| i.text.is_none() && i.title.is_none())
+        );
+    }
+
+    #[test]
+    fn a_report_in_the_translatable_format_loads() {
+        let new = r#"{"turned_on":false,"at":2,"items":[
+            {"kind":{"kind":"knob","name":"Power profile"},"section":"failed","owner":"Booster",
+             "detail":"could not restore balanced: value could not be read back",
+             "text":{"template":"could not restore %s: %s",
+                     "args":["balanced",{"template":"value could not be read back"}]},
+             "title":{"template":"Power profile"}}]}"#;
+        let report: Report = serde_json::from_str(new).unwrap();
+        let item = &report.items[0];
+        assert_eq!(item.text.as_ref().unwrap().english(), item.detail);
+        assert_eq!(item.title.as_ref().unwrap().english(), "Power profile");
+        assert_eq!(item.kind, Kind::Knob("Power profile".into()));
     }
 }
