@@ -24,7 +24,7 @@ use libadwaita as adw;
 
 use bigame_core::profiles::GameProfile;
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{i18n, ni18n, tr};
 use crate::widgets::game_card;
 use crate::widgets::toast;
 
@@ -667,7 +667,7 @@ fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> Per
                 } else {
                     i18n("Gamescope would not run")
                 },
-                decision.reason
+                tr(&decision.reason)
             ));
             // The explanation only describes Automatic.
             explain.set_visible(mode.selected() == 0);
@@ -979,6 +979,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         // Block save only on hard errors (empty/invalid name, zero resolution).
         let errors = bigame_core::profiles::critical_errors(&profile_clone);
         if !errors.is_empty() {
+            let errors: Vec<String> = errors.iter().map(|e| i18n(e)).collect();
             toast::show(btn, &errors.join("; "));
             return;
         }
@@ -989,7 +990,7 @@ fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
         let soft: Vec<_> = warnings
             .iter()
             .filter(|w| !errors.contains(w))
-            .cloned()
+            .map(|w| i18n(w))
             .collect();
         if !soft.is_empty() {
             toast::show(btn, &format!("⚠ {}", soft.join("; ")));

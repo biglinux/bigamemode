@@ -27,7 +27,7 @@ use bigame_core::models::{FrameGenBackend, GamescopeFilter, WineFsrMode};
 use bigame_core::overview::State;
 use bigame_core::video_config;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 use crate::widgets::status::Chip;
 
 /// Shared mutable config state for coordinated writes.
@@ -777,8 +777,8 @@ fn build_advanced_group(caps: &bigame_core::capabilities::Capabilities) -> adw::
 
     let scx_status = adw::ActionRow::builder()
         .title(i18n("sched-ext availability"))
-        .subtitle(match scx.switchable().describe() {
-            Some(reason) => reason,
+        .subtitle(match scx.switchable().describe_text() {
+            Some(reason) => tr(&reason),
             None => i18n("Available — falcond applies the scheduler you configure above"),
         })
         .use_markup(false)
@@ -842,7 +842,11 @@ fn build_advanced_group(caps: &bigame_core::capabilities::Capabilities) -> adw::
         for unsupported in &built.unsupported {
             let row = adw::ActionRow::builder()
                 .title(i18n("Not supported by this Gamescope"))
-                .subtitle(format!("--{} — {}", unsupported.flag, unsupported.effect))
+                .subtitle(format!(
+                    "--{} — {}",
+                    unsupported.flag,
+                    i18n(unsupported.effect)
+                ))
                 .use_markup(false)
                 .build();
             row.add_prefix(&gtk4::Image::from_icon_name("dialog-warning-symbolic"));

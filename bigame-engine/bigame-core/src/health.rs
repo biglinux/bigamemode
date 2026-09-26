@@ -12,8 +12,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::capabilities::{Capabilities, Support};
-use crate::graphics::text::{N_, Text};
 use crate::hardware::{Chassis, GpuVendor, Hardware};
+use crate::text::{Arg, N_, Text};
 
 /// How a check came out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -86,10 +86,9 @@ fn advice(template: &'static str) -> Option<Fix> {
     Some(Fix::Advice(Text::plain(template)))
 }
 
-/// A value shown as it is — a version, a list of names, a sentence another
-/// module produced.
+/// A value shown as it is — a version, a list of names.
 fn verbatim(value: impl Into<String>) -> Text {
-    Text::with("%s", [value.into()])
+    Text::raw(value)
 }
 
 /// An installed package's version, from pacman's local database.
@@ -198,9 +197,9 @@ pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
         GpuVendor::Other => "PCI",
     };
     let values = [
-        vendor.to_owned(),
-        gpu.card.clone(),
-        offload.label().to_owned(),
+        Arg::from(vendor),
+        Arg::from(&gpu.card),
+        Arg::Text(offload.label()),
     ];
     Some(check(
         N_("Hybrid graphics"),
@@ -390,7 +389,7 @@ pub fn collect() -> Vec<Check> {
             ),
             None,
         ),
-        Support::Unsupported(why) => check(N_("sched-ext"), Status::NotApplicable, verbatim(why), None),
+        Support::Unsupported(why) => check(N_("sched-ext"), Status::NotApplicable, why, None),
         Support::NotInstalled(package) if package == "scx-tools" => check(
             N_("sched-ext"),
             Status::Warning,
@@ -409,7 +408,7 @@ pub fn collect() -> Vec<Check> {
         Support::ServiceDown(why) => check(
             N_("sched-ext"),
             Status::Warning,
-            verbatim(why),
+            why,
             cmd("sudo systemctl enable --now scx_loader"),
         ),
     });

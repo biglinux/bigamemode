@@ -14,6 +14,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::capabilities::GamescopeCaps;
+use crate::text::{N_, Text};
 
 /// Upscaling filter, matching Gamescope's `-F/--filter` values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -104,17 +105,17 @@ pub struct Decision {
     /// Whether to wrap the game.
     pub use_gamescope: bool,
     /// Why, in one sentence, for the user.
-    pub reason: String,
+    pub reason: Text,
 }
 
 impl Decision {
-    fn yes(reason: impl Into<String>) -> Self {
+    fn yes(reason: impl Into<Text>) -> Self {
         Self {
             use_gamescope: true,
             reason: reason.into(),
         }
     }
-    fn no(reason: impl Into<String>) -> Self {
+    fn no(reason: impl Into<Text>) -> Self {
         Self {
             use_gamescope: false,
             reason: reason.into(),
@@ -139,16 +140,16 @@ pub fn decide(
     session: crate::hardware::Session,
 ) -> Decision {
     if mode == Mode::Disabled {
-        return Decision::no("Gamescope is turned off for this game");
+        return Decision::no(N_("Gamescope is turned off for this game"));
     }
     if caps.is_none() {
-        return Decision::no("Gamescope is not installed");
+        return Decision::no(N_("Gamescope is not installed"));
     }
     if session == crate::hardware::Session::Tty {
-        return Decision::no("no graphical session for Gamescope to nest in");
+        return Decision::no(N_("no graphical session for Gamescope to nest in"));
     }
     if mode == Mode::Enabled {
-        return Decision::yes("Gamescope is turned on for this game");
+        return Decision::yes(N_("Gamescope is turned on for this game"));
     }
 
     // Auto.
@@ -157,28 +158,39 @@ pub fn decide(
         && (config.render_width, config.render_height)
             != (config.output_width, config.output_height);
     if scaling {
-        return Decision::yes(format!(
-            "rendering at {}×{} and presenting at {}×{}",
-            config.render_width, config.render_height, config.output_width, config.output_height
+        return Decision::yes(Text::with(
+            N_("rendering at %s×%s and presenting at %s×%s"),
+            [
+                config.render_width,
+                config.render_height,
+                config.output_width,
+                config.output_height,
+            ]
+            .map(|n| n.to_string()),
         ));
     }
     if config.filter != Filter::Linear {
-        return Decision::yes(format!("{} upscaling is selected", config.filter.as_arg()));
+        return Decision::yes(Text::with(
+            N_("%s upscaling is selected"),
+            [config.filter.as_arg()],
+        ));
     }
     if matches!(config.frame_limit, FrameLimit::NestedRefresh(hz) if hz > 0) {
-        return Decision::yes("a frame-rate target is set");
+        return Decision::yes(N_("a frame-rate target is set"));
     }
     if config.hdr {
-        return Decision::yes("HDR output is requested");
+        return Decision::yes(N_("HDR output is requested"));
     }
     if config.adaptive_sync {
-        return Decision::yes("variable refresh rate is requested");
+        return Decision::yes(N_("variable refresh rate is requested"));
     }
     if config.mangoapp {
-        return Decision::yes("the MangoHud overlay is enabled");
+        return Decision::yes(N_("the MangoHud overlay is enabled"));
     }
 
-    Decision::no("nothing in this profile needs Gamescope, so the game runs directly")
+    Decision::no(N_(
+        "nothing in this profile needs Gamescope, so the game runs directly",
+    ))
 }
 
 /// Gamescope display and rendering configuration.
@@ -239,8 +251,8 @@ impl Default for Config {
 pub struct Unsupported {
     /// The flag, as Gamescope spells it.
     pub flag: String,
-    /// What the user loses as a result.
-    pub effect: String,
+    /// What the user loses as a result, marked for translation.
+    pub effect: &'static str,
 }
 
 /// Arguments plus the list of requests this Gamescope build could not honour.
@@ -271,13 +283,13 @@ impl Config {
         let mut args: Vec<String> = Vec::new();
         let mut unsupported: Vec<Unsupported> = Vec::new();
 
-        let want = |flag: &str, effect: &str, unsupported: &mut Vec<Unsupported>| -> bool {
+        let want = |flag: &str, effect: &'static str, unsupported: &mut Vec<Unsupported>| -> bool {
             if caps.has_flag(flag) {
                 true
             } else {
                 unsupported.push(Unsupported {
                     flag: flag.to_owned(),
-                    effect: effect.to_owned(),
+                    effect,
                 });
                 false
             }
@@ -301,18 +313,18 @@ impl Config {
         }
 
         if self.filter == Filter::Integer {
-            if want("S", "integer scaling not applied", &mut unsupported) {
+            if want("S", N_("integer scaling not applied"), &mut unsupported) {
                 args.extend(["-S".into(), "integer".into()]);
             }
         } else if self.filter != Filter::Linear
-            && want("F", "upscaling filter not applied", &mut unsupported)
+            && want("F", N_("upscaling filter not applied"), &mut unsupported)
         {
             {
                 args.extend(["-F".into(), self.filter.as_arg().into()]);
                 if self.filter.uses_sharpness()
                     && want(
                         "fsr-sharpness",
-                        "sharpness left at default",
+                        N_("sharpness left at default"),
                         &mut unsupported,
                     )
                 {
@@ -325,21 +337,21 @@ impl Config {
         }
 
         if let FrameLimit::NestedRefresh(hz) = self.frame_limit {
-            if hz > 0 && want("r", "frame rate not limited", &mut unsupported) {
+            if hz > 0 && want("r", N_("frame rate not limited"), &mut unsupported) {
                 args.extend(["-r".into(), hz.to_string()]);
             }
         }
 
-        if self.mangoapp && want("mangoapp", "overlay not shown", &mut unsupported) {
+        if self.mangoapp && want("mangoapp", N_("overlay not shown"), &mut unsupported) {
             args.push("--mangoapp".into());
         }
-        if self.adaptive_sync && want("adaptive-sync", "VRR not requested", &mut unsupported) {
+        if self.adaptive_sync && want("adaptive-sync", N_("VRR not requested"), &mut unsupported) {
             args.push("--adaptive-sync".into());
         }
-        if self.hdr && want("hdr-enabled", "HDR not requested", &mut unsupported) {
+        if self.hdr && want("hdr-enabled", N_("HDR not requested"), &mut unsupported) {
             args.push("--hdr-enabled".into());
         }
-        if self.fullscreen && want("f", "window will not be fullscreen", &mut unsupported) {
+        if self.fullscreen && want("f", N_("window will not be fullscreen"), &mut unsupported) {
             args.push("-f".into());
         }
         // Not a setting: a nested Gamescope passes the desktop's
@@ -458,7 +470,7 @@ mod tests {
             Session::Wayland,
         );
         assert!(!d.use_gamescope);
-        assert!(d.reason.contains("turned off"));
+        assert!(d.reason.english().contains("turned off"));
     }
 
     #[test]
@@ -466,7 +478,7 @@ mod tests {
         // An explicit choice cannot conjure a missing binary.
         let d = decide(Mode::Enabled, &Config::default(), None, Session::Wayland);
         assert!(!d.use_gamescope);
-        assert!(d.reason.contains("not installed"));
+        assert!(d.reason.english().contains("not installed"));
 
         let d = decide(
             Mode::Enabled,
@@ -495,7 +507,11 @@ mod tests {
             Session::Wayland,
         );
         assert!(!d.use_gamescope);
-        assert!(d.reason.contains("nothing in this profile needs Gamescope"));
+        assert!(
+            d.reason
+                .english()
+                .contains("nothing in this profile needs Gamescope")
+        );
     }
 
     #[test]
@@ -509,7 +525,7 @@ mod tests {
         };
         let d = decide(Mode::Auto, &cfg, Some(&modern()), Session::Wayland);
         assert!(d.use_gamescope);
-        assert!(d.reason.contains("2560×1080"));
+        assert!(d.reason.english().contains("2560×1080"));
     }
 
     #[test]
@@ -568,7 +584,7 @@ mod tests {
             let d = decide(Mode::Auto, &cfg, Some(&modern()), Session::Wayland);
             assert!(d.use_gamescope, "expected yes for {expected}: {}", d.reason);
             assert!(
-                d.reason.contains(expected),
+                d.reason.english().contains(expected),
                 "reason {:?} should mention {expected}",
                 d.reason
             );
@@ -581,7 +597,7 @@ mod tests {
             for caps in [Some(modern()), None] {
                 for session in [Session::Wayland, Session::X11, Session::Tty] {
                     let d = decide(mode, &Config::default(), caps.as_ref(), session);
-                    assert!(!d.reason.is_empty(), "{mode:?} gave no reason");
+                    assert!(!d.reason.english().is_empty(), "{mode:?} gave no reason");
                 }
             }
         }

@@ -8,6 +8,11 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::text::{N_, Text};
+
+/// [`Cpu::model`] when `/proc/cpuinfo` names none. The UI shows it translated.
+pub const UNKNOWN_CPU: &str = N_("Unknown CPU");
+
 // ── CPU ──────────────────────────────────────────────────────────────────────
 
 /// CPU manufacturer, as reported by `/proc/cpuinfo`'s `vendor_id`.
@@ -276,7 +281,7 @@ fn detect_cpu() -> Cpu {
     let cpuinfo = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
     Cpu {
         vendor: parse_cpu_vendor(&cpuinfo),
-        model: parse_cpuinfo_field(&cpuinfo, "model name").unwrap_or_else(|| "Unknown CPU".into()),
+        model: parse_cpuinfo_field(&cpuinfo, "model name").unwrap_or_else(|| UNKNOWN_CPU.into()),
         physical_cores: count_physical_cores(&cpuinfo),
         logical_cpus: count_logical_cpus(&cpuinfo),
         smt: read_trim("/sys/devices/system/cpu/smt/active").as_deref() == Some("1"),
@@ -623,12 +628,13 @@ impl Offload {
         }
     }
 
-    /// Short name of the mechanism, for reports.
+    /// Short name of the mechanism, for reports: words to translate, or the
+    /// variable's name as it is.
     #[must_use]
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self) -> Text {
         match self {
-            Self::Nvidia => "NVIDIA PRIME render offload",
-            Self::DriPrime(_) => "DRI_PRIME",
+            Self::Nvidia => Text::plain(N_("NVIDIA PRIME render offload")),
+            Self::DriPrime(_) => Text::raw("DRI_PRIME"),
         }
     }
 }

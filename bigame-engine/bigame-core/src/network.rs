@@ -17,6 +17,8 @@ use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
+use crate::text::N_;
+
 /// Physical medium of a link.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Medium {
@@ -338,14 +340,17 @@ pub fn fastest(results: &[DnsResult]) -> Option<&DnsResult> {
     })
 }
 
-/// The one sentence that may be said about a DNS benchmark result.
+/// The one sentence that may be said about a DNS benchmark result, marked
+/// for translation.
 ///
 /// Kept as a function so the wording cannot drift into a performance claim in
 /// one view and not another.
 #[must_use]
 pub fn dns_disclaimer() -> &'static str {
-    "This measures how quickly each resolver answers a lookup. It does not \
-     affect the round-trip time of match traffic once a game has connected."
+    N_(
+        "This measures how quickly each resolver answers a lookup. It does not \
+         affect the round-trip time of match traffic once a game has connected.",
+    )
 }
 
 #[cfg(test)]

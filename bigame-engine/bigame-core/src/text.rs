@@ -191,7 +191,10 @@ mod tests {
     fn a_text_survives_being_saved_and_read_back() {
         let t = Text::with(
             N_("already %s, %s"),
-            [Arg::Raw("performance".into()), Arg::Text(Text::plain(N_("verified")))],
+            [
+                Arg::Raw("performance".into()),
+                Arg::Text(Text::plain(N_("verified"))),
+            ],
         );
         let json = serde_json::to_string(&t).unwrap();
         let back: Text = serde_json::from_str(&json).unwrap();

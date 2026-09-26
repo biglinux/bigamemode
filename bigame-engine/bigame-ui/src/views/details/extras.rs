@@ -105,7 +105,7 @@ pub fn background_group() -> adw::PreferencesGroup {
                         process.cpu_percent,
                         i18n("of one CPU"),
                         process.memory_mib,
-                        process.kind.describe()
+                        i18n(process.kind.describe())
                     ))
                     .build();
                 row.add_prefix(&gtk4::Image::from_icon_name(match process.kind {
@@ -416,7 +416,7 @@ pub fn network_group() -> adw::PreferencesGroup {
                 // whole point is that a faster resolver is not a faster game.
                 let note = adw::ActionRow::builder()
                     .title(i18n("What this does not mean"))
-                    .subtitle(network::dns_disclaimer())
+                    .subtitle(i18n(network::dns_disclaimer()))
                     .build();
                 note.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
                 dns_group.add_row(&note);

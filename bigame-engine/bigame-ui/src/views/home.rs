@@ -864,6 +864,9 @@ fn summary_line_machine(hw: &Hardware) -> String {
 
 /// Trim vendor boilerplate so the line stays readable at small widths.
 pub(crate) fn short_cpu(model: &str) -> String {
+    if model == bigame_core::hardware::UNKNOWN_CPU {
+        return i18n(bigame_core::hardware::UNKNOWN_CPU);
+    }
     model
         .replace("(R)", "")
         .replace("(TM)", "")

@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::text::N_;
+
 /// Default system profiles directory.
 pub const SYSTEM_PROFILES_DIR: &str = "/usr/share/falcond/profiles";
 
@@ -133,52 +135,57 @@ impl Default for GameProfile {
     }
 }
 
-/// Validate a profile and return a list of warnings (empty = valid).
+/// Validate a profile and return a list of warnings (empty = valid), each
+/// marked for translation.
 ///
 /// Checks for common misconfigurations that would prevent falcond from
 /// applying the profile correctly.
 #[must_use]
-pub fn validate(profile: &GameProfile) -> Vec<String> {
+pub fn validate(profile: &GameProfile) -> Vec<&'static str> {
     let mut warnings = Vec::new();
 
     if profile.name.trim().is_empty() {
-        warnings.push("Profile name is required".into());
+        warnings.push(N_("Profile name is required"));
     }
     if profile.name.contains(std::path::MAIN_SEPARATOR) || profile.name.contains("..") {
-        warnings.push("Profile name contains invalid path characters".into());
+        warnings.push(N_("Profile name contains invalid path characters"));
     }
     // Scheduler mode without scheduler selected
     if profile.scx_sched == "none" && profile.scx_sched_props != "default" {
-        warnings.push("Scheduler mode set but no scheduler selected".into());
+        warnings.push(N_("Scheduler mode set but no scheduler selected"));
     }
     // Custom flags without scheduler
     if profile.scx_sched == "none" && !profile.scx_custom_flags.trim().is_empty() {
-        warnings.push("Custom sched-ext flags set but no scheduler selected".into());
+        warnings.push(N_("Custom sched-ext flags set but no scheduler selected"));
     }
     // VCache on non-AMD
     if profile.vcache_mode != "none" && !crate::vcache::is_available() {
-        warnings.push("VCache mode set but AMD 3D V-Cache not detected".into());
+        warnings.push(N_("VCache mode set but AMD 3D V-Cache not detected"));
     }
     // Gamescope resolution sanity. Zero on *both* axes is valid and means
     // "let Gamescope follow the game"; only a half-specified resolution is
     // wrong, because it makes Gamescope infer the wrong aspect ratio.
     if let Some(ref gs) = profile.gamescope {
         if (gs.render_width == 0) != (gs.render_height == 0) {
-            warnings.push("Gamescope render resolution needs both width and height".into());
+            warnings.push(N_(
+                "Gamescope render resolution needs both width and height",
+            ));
         }
         if (gs.output_width == 0) != (gs.output_height == 0) {
-            warnings.push("Gamescope output resolution needs both width and height".into());
+            warnings.push(N_(
+                "Gamescope output resolution needs both width and height",
+            ));
         }
     }
     // Script paths: check they look like absolute paths
     if let Some(ref s) = profile.start_script {
         if !s.starts_with('/') {
-            warnings.push("Start script should be an absolute path".into());
+            warnings.push(N_("Start script should be an absolute path"));
         }
     }
     if let Some(ref s) = profile.stop_script {
         if !s.starts_with('/') {
-            warnings.push("Stop script should be an absolute path".into());
+            warnings.push(N_("Stop script should be an absolute path"));
         }
     }
     warnings
@@ -191,19 +198,19 @@ pub fn validate(profile: &GameProfile) -> Vec<String> {
 /// VCache-on-non-AMD or missing scheduler are returned by `validate()` but
 /// should not prevent the user from saving.
 #[must_use]
-pub fn critical_errors(profile: &GameProfile) -> Vec<String> {
+pub fn critical_errors(profile: &GameProfile) -> Vec<&'static str> {
     let mut errors = Vec::new();
     if profile.name.trim().is_empty() {
-        errors.push("Profile name is required".into());
+        errors.push(N_("Profile name is required"));
     }
     if profile.name.contains(std::path::MAIN_SEPARATOR) || profile.name.contains("..") {
-        errors.push("Profile name contains invalid path characters".into());
+        errors.push(N_("Profile name contains invalid path characters"));
     }
     if let Some(ref gs) = profile.gamescope {
         if (gs.render_width == 0) != (gs.render_height == 0)
             || (gs.output_width == 0) != (gs.output_height == 0)
         {
-            errors.push("Gamescope resolution needs both width and height".into());
+            errors.push(N_("Gamescope resolution needs both width and height"));
         }
     }
     errors

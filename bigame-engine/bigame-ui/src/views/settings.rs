@@ -7,7 +7,7 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{i18n, ni18n, tr};
 use crate::settings;
 use crate::widgets::info;
 
@@ -250,6 +250,7 @@ pub fn build() -> adw::PreferencesPage {
                     .await;
                     match result {
                         Ok(Ok((_, done))) => {
+                            let done: Vec<String> = done.iter().map(tr).collect();
                             migrate.set_subtitle(&done.join(" · "));
                             b.set_visible(false);
                         }

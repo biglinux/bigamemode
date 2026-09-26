@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::games::DetectedGame;
+use crate::text::{N_, Text};
 
 /// The fields falcond 2.0.2 reads from a profile. Anything else is ignored by
 /// falcond, and is dropped on migration.
@@ -219,7 +220,7 @@ pub fn backup(user_dir: &Path, backup_root: &Path) -> anyhow::Result<PathBuf> {
 
 /// Carry out `plan` through the helper, after backing up `user_dir`.
 ///
-/// Returns the backup directory and one line per change made.
+/// Returns the backup directory and one sentence per change made.
 ///
 /// # Errors
 /// Returns an error if the backup fails — in which case nothing was changed —
@@ -229,7 +230,7 @@ pub fn apply(
     plan: &[Action],
     user_dir: &Path,
     backup_root: &Path,
-) -> anyhow::Result<(PathBuf, Vec<String>)> {
+) -> anyhow::Result<(PathBuf, Vec<Text>)> {
     let dest = backup(user_dir, backup_root)?;
     let proxy = crate::dbus_client::daemon_proxy_blocking()?;
     let mut done = Vec::new();
@@ -250,7 +251,7 @@ pub fn apply(
                 if old != *to {
                     proxy.delete_profile(&old)?;
                 }
-                done.push(format!("{from} → {to}"));
+                done.push(Text::with(N_("%s → %s"), [from, to]));
             }
             Action::Clean {
                 file,
@@ -267,7 +268,7 @@ pub fn apply(
                 if stem != *name {
                     proxy.delete_profile(&stem)?;
                 }
-                done.push(format!("{name}: removed fields falcond ignores"));
+                done.push(Text::with(N_("%s: removed fields falcond ignores"), [name]));
             }
             Action::Keep { .. } | Action::Unresolved { .. } => {}
         }
