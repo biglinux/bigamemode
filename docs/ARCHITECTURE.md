@@ -210,8 +210,16 @@ of it needs root.
   on this machine), `gamedb` (a short list of per-game facts detection cannot
   read, carried in the program, extended by the user's own), `manifest`,
   `transaction`, `runtime`, `support` (a redacted report archive), `config`,
-  `text` (translatable templates); the facade is `graphics/mod.rs`, per-game
-  choices are in `game_settings.rs`.
+  `text` (translatable templates), `backend` (the three backends — the
+  game's own, OptiScaler, the external AMD neural component — with their
+  capabilities as data and what each is missing on this machine),
+  `fsr4_upgrade` (FSR 4 through Proton: the one launch option, written with
+  Steam closed and verified in the running game), `external` (the AMD
+  neural component: detected, explained, linked, never placed), `diagnose`
+  ("why is AI Graphics not working?" as findings with a level, what was
+  found and what to do); the facade is `graphics/mod.rs`, per-game
+  choices are in `game_settings.rs`. See
+  [AI_GRAPHICS_BACKEND_ARCHITECTURE.md](AI_GRAPHICS_BACKEND_ARCHITECTURE.md).
 - **Decisions:**
   - OptiScaler goes in only as `dxgi.dll`, which Proton loads natively from
     the game folder with no `WINEDLLOVERRIDES`; another tool's `dxgi.dll`
@@ -238,6 +246,22 @@ of it needs root.
   - FSR 4 is never claimed. The UI says "FSR 3.1" when OptiScaler's log proves
     it (FSR 4 off, or AMD's runtime missing — a warning, not a failure), and
     "FSR" otherwise: which model runs is only shown by OptiScaler's overlay.
+  - A game that ships AMD's FidelityFX API keeps its own FSR: Proton upgrades
+    it to FSR 4 when the game runs with `FSR4_UPGRADE=1`, so the plan writes
+    that one launch option (Steam closed, backed up, read back) and installs
+    nothing. The page says "FSR 4 expected" until the running game shows the
+    provider mapped and the variable in its environment; measured on the
+    reference desktop, OptiScaler on such a game was 6 % slower.
+  - Three jobs, one owner each: upscaling (`plan.backend`), frame generation
+    (`plan.frame_generation`: none, the game's own, OptiScaler's, lsfg-vk)
+    and neural rendering (the external component's status). Two owners of a
+    job never run in series.
+  - The AMD neural component (DLSS-NR-on-AMD) is `managed: false`: its
+    license forbids redistribution and modification, so BiGame-mode detects
+    it by content, lists what it is missing (on Linux today: AMD's Windows
+    HIP runtime and the user's own model), links the official page and never
+    downloads, places or removes it. Under Proton it is "not currently
+    compatible", and the page says Experimental.
   - A newer OptiScaler release is offered on the game's page — Update, Skip,
     Keep this version — and never applied by itself or at launch. An update
     has both releases verified in the cache before the game changes, and puts

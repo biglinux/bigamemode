@@ -70,12 +70,20 @@ pub struct Entry {
 pub struct Source {
     /// Component id (`optiscaler`).
     pub component: String,
+    /// The backend id ([`super::backend::Backend::id`]). Manifests written
+    /// before backends existed have none and are `OptiScaler`'s.
+    #[serde(default = "default_backend", skip_serializing_if = "String::is_empty")]
+    pub backend: String,
     /// Version or release tag.
     pub version: String,
     /// Download URL, when it was downloaded.
     pub url: Option<String>,
     /// SHA-256 of the downloaded archive.
     pub archive_sha256: Option<String>,
+}
+
+fn default_backend() -> String {
+    "optiscaler".to_owned()
 }
 
 /// The record for one game.
@@ -117,6 +125,16 @@ pub struct Manifest {
     /// never a previous BiGame-mode payload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous: Option<Source>,
+    /// BiGame-mode placed these files and may remove them. Always true for
+    /// a manifest of its own; a record of a component the user installed
+    /// (an external backend) would be `false`, and nothing here removes
+    /// files it does not manage.
+    #[serde(default = "default_managed")]
+    pub managed: bool,
+}
+
+fn default_managed() -> bool {
+    true
 }
 
 /// SHA-256 of a file, as lowercase hex.
@@ -354,6 +372,7 @@ mod tests {
             install_root: "/games/sottr".into(),
             source: Source {
                 component: "optiscaler".into(),
+                backend: "optiscaler".into(),
                 version: "0.7.9".into(),
                 url: Some("https://example.invalid/x.7z".into()),
                 archive_sha256: Some("ab".repeat(32)),
@@ -369,6 +388,7 @@ mod tests {
             created_dirs: vec![],
             generated: vec![],
             previous: None,
+            managed: true,
         };
         m.save(dir.path()).unwrap();
         assert_eq!(
@@ -393,6 +413,21 @@ mod tests {
         )
         .unwrap();
         assert!(Manifest::load(dir.path(), "k").is_err());
+    }
+
+    #[test]
+    fn a_manifest_from_before_backends_reads_as_optiscalers_and_managed() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Manifest::path(dir.path(), "steam-1");
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(
+            &p,
+            r#"{"schema":1,"game_key":"steam-1","install_root":"/g","source":{"component":"optiscaler","version":"0.9.4","url":null,"archive_sha256":null},"started_at":0,"state":"installed","entries":[]}"#,
+        )
+        .unwrap();
+        let m = Manifest::load(dir.path(), "steam-1").unwrap().unwrap();
+        assert_eq!(m.source.backend, "optiscaler");
+        assert!(m.managed);
     }
 
     #[test]

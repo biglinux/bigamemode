@@ -69,6 +69,23 @@ pub struct Entry {
     /// The `OptiScaler` version it was tested with.
     #[serde(default)]
     pub tested_optiscaler: Option<String>,
+    /// `OptiScaler` versions known to be bad for this game (a crash, a
+    /// regression), never offered as an update and warned about when pinned.
+    #[serde(default)]
+    pub bad_optiscaler: Vec<String>,
+    /// The DLL slot `OptiScaler` should take here when `dxgi.dll` is not the
+    /// right one (`winmm.dll`, …). Absent, the default.
+    #[serde(default)]
+    pub proxy: Option<String>,
+    /// The GPU family the entry was verified on (`RDNA 4`, `GeForce GTX`).
+    #[serde(default)]
+    pub verified_gpu: Option<String>,
+    /// The Proton build the entry was verified with.
+    #[serde(default)]
+    pub verified_proton: Option<String>,
+    /// Why the entry is what it is, for the page to show.
+    #[serde(default)]
+    pub notes: Option<String>,
     /// Which list it came from (set on loading, not written in the file).
     #[serde(skip)]
     pub origin: Origin,
@@ -160,7 +177,11 @@ mod tests {
         let sottr = db.lookup(Some("750920"), "SOTTR.exe").unwrap();
         assert_eq!(sottr.api, Some(Api::Dx12));
         assert_eq!(sottr.tested_optiscaler.as_deref(), Some("0.9.4"));
+        assert_eq!(sottr.verified_gpu.as_deref(), Some("RDNA 4, GeForce GTX"));
         assert_eq!(sottr.origin, Origin::Carried);
+        let cp = db.lookup(Some("1091500"), "Cyberpunk2077.exe").unwrap();
+        assert_eq!(cp.api, Some(Api::Dx12));
+        assert!(cp.notes.is_some());
         assert!(db.lookup(Some("1"), "x.exe").is_none());
     }
 

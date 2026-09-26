@@ -285,6 +285,7 @@ pub fn apply(
         created_dirs,
         generated: fresh,
         previous: None,
+        managed: true,
     };
     m.save(state_dir)?;
     tracing::info!(target: "graphics", game = game_key, files = files.len(), "backup created; applying");
@@ -560,6 +561,7 @@ mod tests {
     fn src() -> Source {
         Source {
             component: "optiscaler".into(),
+            backend: "optiscaler".into(),
             version: "1".into(),
             url: None,
             archive_sha256: None,

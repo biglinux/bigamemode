@@ -68,6 +68,12 @@ pub struct GpuInfo {
 }
 
 impl GpuInfo {
+    /// The family the card belongs to.
+    #[must_use]
+    pub fn family(&self) -> Family {
+        family(self.vendor, &self.name)
+    }
+
     /// Whether FSR 4 can run here under Proton. VKD3D-Proton exposes it only
     /// with native FP8 (`VK_KHR_shader_float8`), which RADV has on RDNA 4.
     #[must_use]
@@ -95,6 +101,116 @@ impl GpuInfo {
         } else {
             Some(false)
         }
+    }
+}
+
+/// A GPU family, where a family decides what runs: the granularity AI
+/// Graphics reasons at, and no finer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Family {
+    /// AMD RDNA, by generation (1–4).
+    Rdna(u8),
+    /// AMD before RDNA (GCN, Vega).
+    AmdOlder,
+    /// NVIDIA `GeForce` GTX / GT / MX, pre-RTX or without tensor cores.
+    Gtx,
+    /// NVIDIA RTX 20 (Turing).
+    Rtx20,
+    /// NVIDIA RTX 30 (Ampere).
+    Rtx30,
+    /// NVIDIA RTX 40 (Ada).
+    Rtx40,
+    /// NVIDIA RTX 50 (Blackwell).
+    Rtx50,
+    /// Intel Arc (Alchemist, Battlemage), with `XeSS` on XMX units.
+    Arc,
+    /// Intel integrated graphics.
+    IntelIntegrated,
+    /// Not known from the name.
+    Unknown,
+}
+
+impl Family {
+    /// A short name for the UI.
+    #[must_use]
+    pub fn label(self) -> String {
+        match self {
+            Self::Rdna(g) => format!("RDNA {g}"),
+            Self::AmdOlder => "AMD (before RDNA)".into(),
+            Self::Gtx => "GeForce GTX".into(),
+            Self::Rtx20 => "GeForce RTX 20".into(),
+            Self::Rtx30 => "GeForce RTX 30".into(),
+            Self::Rtx40 => "GeForce RTX 40".into(),
+            Self::Rtx50 => "GeForce RTX 50".into(),
+            Self::Arc => "Intel Arc".into(),
+            Self::IntelIntegrated => "Intel integrated".into(),
+            Self::Unknown => "unknown".into(),
+        }
+    }
+}
+
+/// The family of a GPU, from its PCI database name and vendor.
+#[must_use]
+pub fn family(vendor: GpuVendor, name: &str) -> Family {
+    let upper = name.to_ascii_uppercase();
+    let chip = upper.split_whitespace().next().unwrap_or_default();
+    match vendor {
+        GpuVendor::Amd => match rdna_generation(name) {
+            Some(g) => Family::Rdna(g),
+            None if upper.contains("VEGA")
+                || upper.contains("POLARIS")
+                || upper.contains("ELLESMERE")
+                || upper.contains("BAFFIN")
+                || upper.contains("HAWAII")
+                || upper.contains("FIJI")
+                || upper.contains("RAVEN")
+                || upper.contains("PICASSO")
+                || upper.contains("RENOIR")
+                || upper.contains("CEZANNE") =>
+            {
+                Family::AmdOlder
+            }
+            None => Family::Unknown,
+        },
+        GpuVendor::Nvidia => match nvidia_dlss(name).0 {
+            Some(false) => Family::Gtx,
+            _ if chip.starts_with("GB") => Family::Rtx50,
+            _ if chip.starts_with("AD") => Family::Rtx40,
+            _ if chip.starts_with("GA") => Family::Rtx30,
+            _ if chip.starts_with("TU") => Family::Rtx20,
+            _ => {
+                // No chip code: the model number.
+                let model = upper.match_indices("RTX ").find_map(|(i, m)| {
+                    let digits: String = upper[i + m.len()..]
+                        .chars()
+                        .take_while(char::is_ascii_digit)
+                        .collect();
+                    (digits.len() == 4).then(|| digits[..2].to_owned())
+                });
+                match model.as_deref() {
+                    Some("20") => Family::Rtx20,
+                    Some("30") => Family::Rtx30,
+                    Some("40") => Family::Rtx40,
+                    Some("50") => Family::Rtx50,
+                    _ => Family::Unknown,
+                }
+            }
+        },
+        GpuVendor::Intel => {
+            if upper.contains("ARC")
+                || chip.starts_with("DG2")
+                || chip.starts_with("BMG")
+                || chip.starts_with("DG1")
+            {
+                Family::Arc
+            } else if upper.contains("GRAPHICS") || upper.contains("XE") {
+                Family::IntelIntegrated
+            } else {
+                Family::Unknown
+            }
+        }
+        GpuVendor::Other => Family::Unknown,
     }
 }
 
@@ -179,6 +295,10 @@ pub struct Native {
     /// FSR frame generation (`ffx_frameinterpolation`,
     /// `amd_fidelityfx_framegeneration`).
     pub fsr_fg: bool,
+    /// AMD's `FidelityFX` API (`amd_fidelityfx_dx12.dll`), with its version:
+    /// the FSR 3.1+ path a provider upgrades to FSR 4.
+    #[serde(default)]
+    pub ffx_api: Option<String>,
 }
 
 impl Native {
@@ -187,6 +307,25 @@ impl Native {
     pub fn frame_gen(&self) -> bool {
         self.dlss_fg.is_some() || self.xess_fg.is_some() || self.fsr_fg
     }
+}
+
+/// The Proton prefix a Windows game runs in, and what it holds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProtonInfo {
+    /// The prefix (`…/compatdata/<appid>/pfx`).
+    pub prefix: PathBuf,
+    /// Proton ships AMD's FSR 4 provider (`amdxcffx64.dll`) into the prefix's
+    /// `system32`; with it, a game's `FidelityFX` API runs FSR 4 on RDNA 4.
+    pub fsr4_provider: bool,
+    /// The Windows version the prefix reports (`10`, `11`), when readable.
+    pub windows_version: Option<String>,
+    /// The Proton build the prefix was last run with (`experimental-11.0-…`,
+    /// `GE-Proton10-4`), from `compatdata/<id>/version`.
+    pub tool: Option<String>,
+    /// AMD's Windows HIP runtime (`amdhip64_7.dll`) is in the prefix's
+    /// `system32` — what the external neural backend runs its kernels with.
+    /// Proton ships none.
+    pub hip_runtime: bool,
 }
 
 /// The report.
@@ -222,9 +361,27 @@ pub struct Report {
     pub scan_truncated: bool,
     /// The game's entry in the game list, if it has one.
     pub listed: Option<super::gamedb::Entry>,
+    /// The Proton prefix, for a Steam game that has one.
+    #[serde(default)]
+    pub proton: Option<ProtonInfo>,
+    /// Every runtime and mod file the scan recognised, without the ones
+    /// BiGame-mode added (the report's own view of the game's files).
+    #[serde(default)]
+    pub components: Vec<super::scan::Component>,
 }
 
 impl Report {
+    /// Whether the game's own FSR can run FSR 4 here: it ships the
+    /// `FidelityFX` API, the GPU is RDNA 4, and the prefix has Proton's
+    /// provider. Expected, not proven: the game must also offer FSR 4 in its
+    /// menu, and only the running game shows what it loaded.
+    #[must_use]
+    pub fn native_fsr4_path(&self) -> bool {
+        self.native.ffx_api.is_some()
+            && self.gpu().is_some_and(GpuInfo::fsr4)
+            && self.proton.as_ref().is_some_and(|p| p.fsr4_provider)
+    }
+
     /// Take in the game's entry in the game list. Its API fills in only
     /// where detection is weaker than reading the game's files: what the
     /// running game shows, or its files say, is never replaced.
@@ -538,6 +695,7 @@ pub fn build(
     running: Option<&GameIdentity>,
     hw: &Hardware,
     installed: Option<Manifest>,
+    proton: Option<ProtonInfo>,
 ) -> Report {
     let scan = &without_added(scan, installed.as_ref());
     let version = |k: ComponentKind| {
@@ -554,9 +712,13 @@ pub fn build(
         fsr: scan
             .components
             .iter()
-            .filter(|c| c.kind == ComponentKind::Fsr)
+            .filter(|c| matches!(c.kind, ComponentKind::Fsr | ComponentKind::FfxApi))
             .find_map(|c| c.version.clone())
-            .or_else(|| scan.has(ComponentKind::Fsr).then(|| "present".into())),
+            .or_else(|| {
+                (scan.has(ComponentKind::Fsr) || scan.has(ComponentKind::FfxApi))
+                    .then(|| "present".into())
+            }),
+        ffx_api: version(ComponentKind::FfxApi),
         fsr_fg: scan.components.iter().any(|c| {
             c.kind == ComponentKind::Fsr && {
                 let n = c.path.to_string_lossy().to_ascii_lowercase();
@@ -585,7 +747,48 @@ pub fn build(
         installed,
         listed: None,
         scan_truncated: scan.truncated,
+        proton,
+        components: scan.components.clone(),
     }
+}
+
+/// What a Proton prefix holds that bears on AI Graphics.
+#[must_use]
+pub fn proton_info(prefix: &Path) -> Option<ProtonInfo> {
+    // `compatdata/<id>` and `compatdata/<id>/pfx` both name the prefix.
+    let pfx = prefix.join("pfx");
+    let prefix = if pfx.join("drive_c").is_dir() {
+        pfx.as_path()
+    } else {
+        prefix
+    };
+    if !prefix.join("drive_c").is_dir() {
+        return None;
+    }
+    let system32 = prefix.join("drive_c/windows/system32");
+    let fsr4_provider = system32.join("amdxcffx64.dll").is_file();
+    let hip_runtime = system32.join("amdhip64_7.dll").is_file();
+    let tool = prefix
+        .parent()
+        .and_then(|d| std::fs::read_to_string(d.join("version")).ok())
+        .map(|v| v.split_whitespace().last().unwrap_or("").to_owned())
+        .filter(|v| !v.is_empty());
+    // `system.reg` carries the version Wine reports; the key is read, not
+    // parsed as a registry, since only one value matters.
+    let windows_version = std::fs::read_to_string(prefix.join("system.reg"))
+        .ok()
+        .and_then(|reg| {
+            let after = reg.split(r#""CurrentBuild"=""#).nth(1)?;
+            let build: u32 = after.split('"').next()?.parse().ok()?;
+            Some(if build >= 22000 { "11" } else { "10" }.to_owned())
+        });
+    Some(ProtonInfo {
+        prefix: prefix.to_path_buf(),
+        fsr4_provider,
+        windows_version,
+        tool,
+        hip_runtime,
+    })
 }
 
 #[cfg(test)]
@@ -752,6 +955,8 @@ mod tests {
             installed: None,
             scan_truncated: false,
             listed: None,
+            proton: None,
+            components: vec![],
         };
         // SotTR from its files alone is only "likely DX12".
         let r = base(Some(Api::Dx12), Confidence::Likely).with_listing(entry.clone());
@@ -810,6 +1015,7 @@ mod tests {
                 entry("AMD_FidelityFX_DX12.dll", false),
                 entry("libxess.dll", true),
             ],
+            managed: true,
             created_dirs: vec![],
             generated: vec![],
             previous: None,
@@ -839,6 +1045,30 @@ mod tests {
             g(GpuVendor::Amd, "Navi 44 [Radeon RX 9060 XT]").dlss(),
             Some(false)
         );
+        assert_eq!(
+            g(GpuVendor::Amd, "Navi 44 [Radeon RX 9060 XT]").family(),
+            Family::Rdna(4)
+        );
+        assert_eq!(
+            g(GpuVendor::Amd, "Cezanne [Radeon Vega Series]").family(),
+            Family::AmdOlder
+        );
+        assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").family(), Family::Arc);
+        assert_eq!(
+            g(GpuVendor::Intel, "Alder Lake-P GT2 [Iris Xe Graphics]").family(),
+            Family::IntelIntegrated
+        );
+        for (name, want) in [
+            ("GP107M [GeForce GTX 1050 Ti Mobile]", Family::Gtx),
+            ("TU116 [GeForce GTX 1660]", Family::Gtx),
+            ("TU104 [GeForce RTX 2080]", Family::Rtx20),
+            ("GA102 [GeForce RTX 3080]", Family::Rtx30),
+            ("AD102 [GeForce RTX 4090]", Family::Rtx40),
+            ("GB203 [GeForce RTX 5080]", Family::Rtx50),
+            ("GeForce RTX 3060", Family::Rtx30),
+        ] {
+            assert_eq!(g(GpuVendor::Nvidia, name).family(), want, "{name}");
+        }
         assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").dlss_fg(), Some(false));
         assert_eq!(
             g(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]").dlss(),

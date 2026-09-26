@@ -18,6 +18,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use super::backend::Backend;
 use super::config::{AiGraphicsConfig, Layer, Mode, Upscaler};
 use super::gamedb::Prefer;
 use super::optiscaler::{self, Api, FrameGen, Input, Output};
@@ -75,11 +76,33 @@ impl Step {
     }
 }
 
+/// Which frame generation the plan leaves the game with. One at most: two
+/// generators in series interpolate interpolated frames.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FrameGenPlan {
+    /// None.
+    Off,
+    /// The game's own.
+    Native,
+    /// `OptiScaler`'s (`OptiFG`).
+    #[serde(rename = "optiscaler")]
+    OptiScaler,
+    /// lsfg-vk, set up on the Profiles page and left on.
+    LsfgVk,
+}
+
 /// A plan.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Plan {
     /// How good.
     pub standing: Standing,
+    /// Which backend does the upscaling.
+    pub backend: Backend,
+    /// Which frame generation the game is left with.
+    pub frame_generation: FrameGenPlan,
+    /// What Apply does when the backend is Native: nothing, or one action.
+    pub native_action: Option<NativeAction>,
     /// One line: what the game will run.
     pub summary: Text,
     /// The steps, in order.
@@ -94,11 +117,22 @@ pub struct Plan {
     pub problems: Vec<rules::Rule>,
 }
 
+/// Something the Native backend does for the game — the one action it has.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeAction {
+    /// Add `FSR4_UPGRADE=1` to the game's Steam launch options, so Proton's
+    /// provider upgrades the game's FSR 3.1 to FSR 4.
+    Fsr4Upgrade,
+}
+
 /// What else is configured for the game, from video settings and the profile.
-// Four independent facts about the launch, not a state machine in disguise.
+// Independent facts about the launch, not a state machine in disguise.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Context {
+    /// The game's Steam launch options already carry `FSR4_UPGRADE=1`.
+    pub fsr4_upgrade: bool,
     /// Gamescope renders below the output size and upscales.
     pub gamescope_upscaling: bool,
     /// `WINE_FULLSCREEN_FSR`.
@@ -117,6 +151,9 @@ pub struct Context {
 fn nothing(standing: Standing, summary: Text, steps: Vec<Step>) -> Plan {
     Plan {
         standing,
+        backend: Backend::Native,
+        frame_generation: FrameGenPlan::Off,
+        native_action: None,
         summary,
         steps,
         optiscaler: None,
@@ -202,7 +239,14 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     let dlss_runs = r.gpu().and_then(super::report::GpuInfo::dlss) == Some(true);
     let native = native_choice(r, vendor, dlss_runs);
     let keep_native = |why: Text| -> Plan {
-        match native {
+        let fg = if ctx.lsfg {
+            FrameGenPlan::LsfgVk
+        } else if r.native.frame_gen() {
+            FrameGenPlan::Native
+        } else {
+            FrameGenPlan::Off
+        };
+        let mut p = match native {
             Some((name, _)) => nothing(
                 Standing::Recommended,
                 Text::with(N_("the game's own %s"), [name]),
@@ -223,7 +267,9 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                     Step::Note(why),
                 ],
             ),
-        }
+        };
+        p.frame_generation = fg;
+        p
     };
 
     // Accounts first.
@@ -367,12 +413,16 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     // options: FSR 4 on RDNA 4 for a game that has no FSR 4, or where this
     // machine measured it faster. Everywhere else the game's own upscaler is
     // already the best this GPU can run.
+    // A game whose own FSR already runs FSR 4 here (it ships the FidelityFX
+    // API, and Proton ships AMD's provider into its prefix) has nothing to
+    // gain from OptiScaler's FSR 4: fewest changes wins.
+    let native_fsr4 = r.native_fsr4_path();
     let optiscaler_worth_it = match (cfg.mode, vendor) {
         (Mode::Advanced, _) => {
             cfg.layer == Layer::OptiScaler
                 || !matches!(cfg.upscaler, Upscaler::Auto | Upscaler::Off)
         }
-        (_, GpuVendor::Amd) => fsr4 || measured_better || listed_optiscaler,
+        (_, GpuVendor::Amd) => (fsr4 && !native_fsr4) || measured_better || listed_optiscaler,
         _ => measured_better || listed_optiscaler,
     };
     let measured_note = learned.as_ref().map(|l| {
@@ -411,6 +461,43 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         )));
     }
     if !optiscaler_worth_it {
+        if native_fsr4 && measured_note.is_none() {
+            // The game's FSR 3.1 path, upgraded to FSR 4 by the provider
+            // Proton placed in the prefix — when the game runs with
+            // FSR4_UPGRADE=1 (Proton's amdxc64.dll reads it; checked here:
+            // without it the provider is never mapped). Expected, and
+            // confirmed only when the game runs with the provider loaded.
+            let mut p = keep_native(Text::plain(N_(
+                "this game ships AMD's FidelityFX API, and Proton placed AMD's FSR 4 provider (amdxcffx64.dll) in its prefix: the game's own FSR runs FSR 4 on this RDNA 4 card, so OptiScaler would bring nothing it does not have",
+            )));
+            p.steps[0] = Step::InGame(Text::plain(N_(
+                "choose FSR (3.1 or newer) in the game's graphics menu",
+            )));
+            if ctx.fsr4_upgrade {
+                p.summary = Text::plain(N_("the game's own FSR — FSR 4 expected through Proton"));
+                p.steps.insert(
+                    1,
+                    Step::Keep(Text::plain(N_(
+                        "the launch option FSR4_UPGRADE=1 is set: Proton hands the game's FSR to AMD's FSR 4 provider",
+                    ))),
+                );
+            } else {
+                p.summary = Text::plain(N_(
+                    "the game's own FSR — FSR 4 through Proton with one launch option",
+                ));
+                p.native_action = Some(NativeAction::Fsr4Upgrade);
+                p.steps.insert(
+                    1,
+                    Step::Install(Text::plain(N_(
+                        "the launch option FSR4_UPGRADE=1 in Steam for this game (Steam closed; backed up and read back): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
+                    ))),
+                );
+            }
+            p.steps.push(Step::Note(Text::plain(N_(
+                "FSR 4 is expected, not proven: it is confirmed when the game runs with the provider loaded, and the game's own menu is the last word",
+            ))));
+            return p;
+        }
         // What this machine measured is the reason, when there is one; the
         // general one ("the best this GPU runs") would contradict it.
         return keep_native(measured_note.unwrap_or_else(|| {
@@ -605,8 +692,18 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         active.push(Tech::MangoHud);
     }
     let problems = rules::problems(&active);
+    let frame_generation = if frame_gen != FrameGen::Off {
+        FrameGenPlan::OptiScaler
+    } else if ctx.lsfg {
+        FrameGenPlan::LsfgVk
+    } else {
+        FrameGenPlan::Off
+    };
     Plan {
         standing,
+        backend: Backend::OptiScaler,
+        frame_generation,
+        native_action: None,
         summary: Text::with(
             N_("%s through OptiScaler, from the game's %s"),
             [output_name, input_name],
@@ -662,6 +759,8 @@ mod tests {
             installed: None,
             scan_truncated: false,
             listed: None,
+            proton: None,
+            components: vec![],
         }
     }
 
@@ -707,6 +806,60 @@ mod tests {
                 .iter()
                 .any(|s| matches!(s, Step::InGame(t) if t.english().contains("XeSS")))
         );
+    }
+
+    #[test]
+    fn a_game_whose_own_fsr_runs_fsr4_through_proton_gets_no_optiscaler() {
+        // Cyberpunk 2077 on the reference desktop: FidelityFX API shipped,
+        // amdxcffx64.dll placed by Proton Experimental, RDNA 4.
+        let n = Native {
+            dlss: Some("310.1.0.0".into()),
+            xess: Some("2.0.1.41".into()),
+            fsr: Some("1.0.1.41314".into()),
+            ffx_api: Some("1.0.1.41314".into()),
+            fsr_fg: true,
+            ..Native::default()
+        };
+        let mut r = report(n, gpu(GpuVendor::Amd, Some(4)));
+        r.proton = Some(super::super::report::ProtonInfo {
+            prefix: "/pfx".into(),
+            fsr4_provider: true,
+            windows_version: Some("10".into()),
+            tool: None,
+            hip_runtime: false,
+        });
+        let p = plan(&r, &recommended(), &Context::default());
+        assert_eq!(p.standing, Standing::Recommended);
+        assert_eq!(p.backend, Backend::Native);
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        // Without the launch option, Apply adds it; nothing in the game changes.
+        assert_eq!(p.native_action, Some(NativeAction::Fsr4Upgrade));
+        assert_eq!(
+            p.summary.english(),
+            "the game's own FSR — FSR 4 through Proton with one launch option"
+        );
+        assert_eq!(p.frame_generation, FrameGenPlan::Native);
+        let with = Context {
+            fsr4_upgrade: true,
+            ..Context::default()
+        };
+        let p = plan(&r, &recommended(), &with);
+        assert_eq!(p.native_action, None);
+        assert_eq!(
+            p.summary.english(),
+            "the game's own FSR — FSR 4 expected through Proton"
+        );
+        // Without the provider in the prefix, OptiScaler's FSR 4 is the way.
+        r.proton = Some(super::super::report::ProtonInfo {
+            prefix: "/pfx".into(),
+            fsr4_provider: false,
+            windows_version: None,
+            tool: None,
+            hip_runtime: false,
+        });
+        let p = plan(&r, &recommended(), &Context::default());
+        assert_eq!(p.backend, Backend::OptiScaler);
+        assert!(p.optiscaler.is_some());
     }
 
     #[test]
@@ -891,6 +1044,7 @@ mod tests {
             setup: crate::graphics::outcomes::Setup::parse(setup).unwrap(),
             resolution: None,
             optiscaler_version: Some("0.9.4".into()),
+            frames: crate::graphics::outcomes::Frames::Rendered,
             avg_fps: fps.to_vec(),
             // Steady 1 % lows, the same in every arm: "no worse".
             low_1pct: vec![30.0, 30.2, 30.1],

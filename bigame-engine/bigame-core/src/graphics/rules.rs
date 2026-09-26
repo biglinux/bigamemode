@@ -43,6 +43,8 @@ pub enum Tech {
     Hdr,
     /// Anti-cheat present in the game.
     AntiCheat,
+    /// DLSS-NR-on-AMD, the external neural-rendering proxy.
+    AmdNeuralExternal,
 }
 
 impl Tech {
@@ -64,6 +66,7 @@ impl Tech {
             Self::RenoDx => "RenoDX",
             Self::Hdr => N_("HDR output"),
             Self::AntiCheat => N_("anti-cheat"),
+            Self::AmdNeuralExternal => N_("DLSS-NR-on-AMD neural rendering"),
         }
     }
 }
@@ -163,6 +166,48 @@ pub const RULES: &[Rule] = &[
         V::Blocked,
         B::Upstream,
         N_("RenoDX needs ReShade's add-on build, which is for single-player games only"),
+    ),
+    r(
+        T::AmdNeuralExternal,
+        T::AntiCheat,
+        V::Blocked,
+        B::Upstream,
+        N_(
+            "DLSS-NR-on-AMD is loaded into the game as a proxy DLL; its own documentation says anti-cheat will block it",
+        ),
+    ),
+    // ── The external neural backend: on top of the game's own FSR only ─────
+    r(
+        T::AmdNeuralExternal,
+        T::OptiScalerUpscaler,
+        V::Conflict,
+        B::Principle,
+        N_(
+            "both hook the game's FSR path and both want a DLL slot beside the game; until a test shows the pair stable, one at a time",
+        ),
+    ),
+    r(
+        T::AmdNeuralExternal,
+        T::OptiScalerFrameGen,
+        V::Conflict,
+        B::Principle,
+        N_("OptiScaler's frame generation needs its upscaler, which the neural backend excludes"),
+    ),
+    r(
+        T::AmdNeuralExternal,
+        T::NativeFsr,
+        V::Experimental,
+        B::Upstream,
+        N_(
+            "the neural pass runs on the game's own FSR output; documented for Windows, not established under Proton",
+        ),
+    ),
+    r(
+        T::AmdNeuralExternal,
+        T::ReShade,
+        V::Unknown,
+        B::None,
+        N_("not established either way"),
     ),
     // ── Upscalers: one at a time ───────────────────────────────────────────
     r(
@@ -413,6 +458,10 @@ mod tests {
         assert_eq!(check(T::OptiScalerFrameGen, T::LsfgVk).verdict, V::Conflict);
         assert_eq!(check(T::NativeFrameGen, T::LsfgVk).verdict, V::Conflict);
         assert_eq!(check(T::NativeDlss, T::WineFsr).verdict, V::Conflict);
+        assert_eq!(
+            check(T::AmdNeuralExternal, T::OptiScalerUpscaler).verdict,
+            V::Conflict
+        );
     }
 
     #[test]
@@ -422,6 +471,7 @@ mod tests {
             T::OptiScalerFrameGen,
             T::ReShade,
             T::RenoDx,
+            T::AmdNeuralExternal,
         ] {
             assert_eq!(check(t, T::AntiCheat).verdict, V::Blocked, "{t:?}");
         }

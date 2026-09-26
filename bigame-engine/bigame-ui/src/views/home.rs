@@ -675,18 +675,31 @@ impl GameCard {
         let effects = self.effects.clone();
         let turbo_on = self.turbo_on.get();
         glib::spawn_future_local(async move {
-            let Ok((st, active, in_game)) = gio::spawn_blocking(move || {
+            let Ok((st, active, in_game, native_fsr4)) = gio::spawn_blocking(move || {
                 (
                     bigame_core::graphics::status_running(&g),
                     bigame_core::status::read().and_then(|s| s.active_profile),
                     bigame_core::running::in_game(&g),
+                    bigame_core::graphics::native_fsr4_running(&g),
                 )
             })
             .await
             else {
                 return;
             };
-            let parts = in_game_parts(&in_game);
+            let mut parts = in_game_parts(&in_game);
+            // The game's own FSR path on RDNA 4: what the running game
+            // really loaded, never what a menu setting promises.
+            match native_fsr4 {
+                Some(true) => {
+                    parts.insert(0, i18n("FSR 4 (the game's own, Proton's provider loaded)"));
+                }
+                Some(false) => parts.insert(
+                    0,
+                    i18n("FSR off in the game's menu (FSR 4 provider not loaded)"),
+                ),
+                None => {}
+            }
             effects.set_visible(!parts.is_empty());
             effects.set_label(&format!("{} · {}", i18n("In the game"), parts.join(" · ")));
             match st {

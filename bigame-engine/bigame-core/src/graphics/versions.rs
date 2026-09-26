@@ -331,6 +331,7 @@ mod tests {
         let r = Release::recommended();
         let src = Source {
             component: "optiscaler".into(),
+            backend: "optiscaler".into(),
             version: r.version.clone(),
             url: None,
             archive_sha256: Some(r.sha256.clone()),

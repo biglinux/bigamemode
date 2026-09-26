@@ -26,7 +26,7 @@ fazer, e nada é chamado de melhoria sem medição.**
 | **Início** | O **Turbo**, a chave principal. Desligado, o BiGame-mode não interfere em jogo nenhum; ligado, o falcond aplica o perfil de cada jogo. Mostra o jogo em execução, o perfil ativo e o estado dos Gráficos com IA. |
 | **Detalhes** | Telemetria em tempo real: frequência de CPU e GPU, temperatura da GPU, memória, disco e latência de rede; perfil de energia, escalonador ativo e o que está de fato ligado no jogo em execução. |
 | **Perfis** | Jogos do Steam, Lutris, Heroic e do menu de aplicativos (jogos nativos, como o SuperTuxKart do pacman, e Flatpaks), só os que estão mesmo instalados, cada um com seu perfil: modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, Gamescope, MangoHud e lsfg-vk. Um **assistente** explica cada opção em linguagem simples, e quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
-| **Gráficos com IA** | No menu ⋮ de cada jogo: analisa o jogo (API gráfica, DLSS/XeSS/FSR que ele já traz, DLLs de proxy, anti-cheat), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. |
+| **Gráficos com IA** | No menu ⋮ de cada jogo: analisa o jogo (API gráfica, DLSS/XeSS/FSR que ele já traz, DLLs de proxy, anti-cheat, a GPU em que ele renderiza), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado ou, num jogo que já traz o FSR 3.1 da AMD, escreve a única opção de execução com que o Proton o eleva ao FSR 4 — sem tocar em arquivo nenhum. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. **Diagnosticar** diz por que algo não funciona. Renderização neural em AMD (DLSS-NR-on-AMD) é detectada e explicada, nunca baixada: a licença não permite. |
 | **Ajustes** | Configuração global do falcond e as opções do Gamescope detectadas da versão instalada. |
 | **Vídeo** | Upscaling espacial (Gamescope FSR/NIS, Wine FSR, vkBasalt) para os jogos iniciados pelo BiGame-mode, e geração de quadros com lsfg-vk. |
 | **Benchmark** | Quais medições são possíveis nesta máquina e o que já foi medido. Para jogos que abrem diretamente, **Medir a diferença** (no menu do jogo) compara com e sem otimizações, em várias execuções alternadas. |
@@ -176,6 +176,11 @@ no teste t de Welch a 95 %):
 | XeSS Quality do próprio jogo | 94,2 (+4,9 %) |
 | **FSR via OptiScaler (Gráficos com IA)** | **98,8 (+10,1 %)** |
 
+Já no Cyberpunk 2077, que traz o FSR 3.1 da AMD, o FSR 4 pelo Proton (uma
+opção de execução, nenhum arquivo) rendeu o mesmo que o FSR 3.1 (38,4 → 38,2,
+sem diferença) e o OptiScaler ficou 6,4 % **mais lento** — por isso ali o
+recomendado é o FSR do próprio jogo.
+
 Na mesma máquina, fixar a GPU no nível de energia `high` deixou os jogos
 7,5–8,3 % **mais lentos**, e perfil de energia, governador e escalonadores
 sched-ext não mudaram nada — por isso o BiGame-mode não os força. A geração de
@@ -204,8 +209,8 @@ cargo clippy --workspace --all-targets     # sem avisos (lints pedantic)
   ações privilegiadas quando o Polkit não está disponível.
 - `bigame-core/examples/` traz ferramentas de linha de comando: detecção
   (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
-  `graphics_plan`, `graphics_apply`, `graphics_status`, `optiscaler_fetch`,
-  `pe_dump`), Turbo e Booster (`turbo`, `booster_run`, `measure`) e relatórios
+  `graphics_plan`, `graphics_apply`, `graphics_status`, `graphics_capabilities`,
+  `graphics_diagnose`, `graphics_native`, `optiscaler_fetch`, `pe_dump`), Turbo e Booster (`turbo`, `booster_run`, `measure`) e relatórios
   de benchmark (`bench_native_report`, `bench_report`).
   Rode com `cargo run -p bigame-core --example <nome>`.
 - `bigame-engine/scripts/` automatiza sessões de benchmark (`bench-game.sh`,
