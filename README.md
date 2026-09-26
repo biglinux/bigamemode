@@ -211,8 +211,7 @@ cargo clippy --workspace --all-targets -- -D warnings   # lints pedantic
   `graphics_plan`, `graphics_apply`, `graphics_status`, `graphics_capabilities`,
   `graphics_diagnose`, `graphics_native`), Turbo e Booster (`turbo`,
   `booster_run`, `measure`), lsfg-vk (`lsfg`) e relatórios de benchmark
-  (`bench_report`, `bench_native_report`, que também gravam as calibrações que
-  o aplicativo lê). Rode com `cargo run -p bigame-core --example <nome>`.
+  (`bench_report`, `bench_native_report`). Rode com `cargo run -p bigame-core --example <nome>`.
 - `bigame-engine/scripts/` automatiza sessões de benchmark: `bench-game.sh`
   (jogos com benchmark próprio), `bench-lab.sh` (o benchmark do
   SuperTuxKart), `gpu-telemetry.sh` (amostras da GPU durante uma execução) e

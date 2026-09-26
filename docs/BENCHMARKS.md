@@ -72,10 +72,10 @@ Core i7-7700HQ, Intel HD 630 plus a GeForce GTX 1050 Ti Mobile (4 GB, NVIDIA
 580.178.04) — a hybrid laptop, the game rendering on the GTX — 1920×1080,
 Proton Experimental, KDE Plasma Wayland.
 
-Results are evidence for the defaults on this machine, not claims about other
-hardware. Calibration applies only while the machine's fingerprint matches (CPU,
-GPU, driver, kernel and memory), so a kernel update makes it absent until
-measured again.
+Results are evidence for the defaults BiGame-mode ships, not claims about other
+hardware. They reach the application as fixed rules (the Booster never forces
+GPU DPM) and as entries in the AI Graphics game list; nothing is measured on a
+user's machine.
 
 ## Results
 
@@ -106,8 +106,7 @@ What follows for the code:
 
 - `high` pins the highest *fixed* DPM state and removes the firmware's boost,
   leaving power budget unused while the GPU is equally busy. The Booster never
-  proposes it by default; only a calibration that measured it faster enables it
-  on that machine.
+  forces it.
 - Power profile, governor and EPP made no difference here, GPU- or CPU-bound,
   so the Booster leaves them to power-profiles-daemon and falcond.
 - No scheduler was faster, so recommended profiles use `scx_sched = none`.
@@ -141,9 +140,9 @@ What follows for the code:
   FSR 3.1, while OptiScaler on top of the same game measured 6 % slower. The
   planner therefore keeps the game's own FSR as Recommended there, and
   OptiScaler only where the game has no FSR path (Shadow of the Tomb Raider)
-  or a measurement on this machine showed it faster.
+  or the game list records it as faster.
 - The game's `XESS` registry value 1 is *Performance* in its menu and 3 is
-  *Quality*; the outcomes above record the upscaler, not its preset.
+  *Quality*; the results above record the upscaler, not its preset.
 
 ## Limits
 

@@ -10,8 +10,10 @@
 //!
 //! 1. what the hardware has (V-Cache, battery),
 //! 2. what the kernel and tools offer (sched-ext, `scx_loader`),
-//! 3. what falcond's own base profiles do,
-//! 4. what was measured on this machine.
+//! 3. what falcond's own base profiles do.
+//!
+//! Nothing is presented as measured: each decision says which of these it
+//! rests on.
 //!
 //! The profile contains **only falcond's fields**: falcond ignores anything
 //! else, and BiGame-mode's own per-game settings live in
@@ -36,10 +38,6 @@ pub enum Evidence {
     CapabilityOnly,
     /// What falcond's own profiles do; not measured here.
     UpstreamDefault,
-    /// Measured on this machine, and the difference was real.
-    LocallyMeasured,
-    /// Measured on this machine and found slower, so avoided.
-    Regression,
     /// Not possible on this machine.
     Unsupported,
 }
@@ -52,8 +50,6 @@ impl Evidence {
             Self::Fact => N_("Fact"),
             Self::CapabilityOnly => N_("Supported, not measured"),
             Self::UpstreamDefault => N_("falcond default, not measured here"),
-            Self::LocallyMeasured => N_("Measured on this machine"),
-            Self::Regression => N_("Measured slower — avoided"),
             Self::Unsupported => N_("Not available on this machine"),
         }
     }
@@ -148,8 +144,8 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             "none",
             Evidence::CapabilityOnly,
             N_(
-                "sched-ext is available, but no scheduler has been measured faster for this \
-             game here; calibrating the game can change that",
+                "sched-ext is available, but no scheduler has been measured faster for games \
+             in general; the game's profile can choose one",
             ),
         ),
         Some(why) => decide("scx_sched", "none", Evidence::Unsupported, why),
@@ -255,12 +251,6 @@ mod tests {
     fn nothing_is_claimed_that_was_not_measured() {
         let (hw, caps) = machine(false, false);
         let rec = recommend(&game("SOTTR.exe"), &hw, &caps);
-        assert!(
-            rec.decisions
-                .iter()
-                .all(|d| d.evidence != Evidence::LocallyMeasured),
-            "no calibration was supplied, so nothing may say it was measured"
-        );
         let perf = rec
             .decisions
             .iter()

@@ -5,16 +5,13 @@
 //! unavailable, a conflict avoided, or failed. Every row says who owns the
 //! state, and its ⓘ says what the thing is.
 //!
-//! One distinction is kept impossible to blur: **what was changed** and **what
-//! got faster** are different claims. Changes are listed with their
-//! verification; speed is claimed only in "Measured on this machine", and only
-//! for what a benchmark here actually measured.
+//! **What was changed** and **what got faster** are different claims: changes
+//! are listed with their verification, and no speed is claimed here. Measure
+//! the difference, in a game card's menu, is what measures a game.
 
 use adw::prelude::*;
 use libadwaita as adw;
 
-use bigame_core::benchmark::calibration::Calibration;
-use bigame_core::benchmark::result::Verdict;
 use bigame_core::turbo::{Item, Kind, Report, Section};
 
 use crate::i18n::i18n;
@@ -100,7 +97,7 @@ fn kind_explanation(kind: &Kind) -> String {
             "sched-ext lets a scheduler loaded at runtime replace the kernel's CPU scheduler. falcond switches it per game when a profile asks for one, which needs the scx_loader service.",
         ),
         Kind::Knob(_) => i18n(
-            "A system-wide setting BiGame-mode's own planner considers. It is applied only if nothing else owns it and nothing measured on this machine says it is slower.",
+            "A system-wide setting BiGame-mode's own planner considers. It is applied only if nothing else owns it and it is known to help.",
         ),
     }
 }
@@ -190,48 +187,6 @@ fn live_group() -> Option<adw::PreferencesGroup> {
     Some(group)
 }
 
-/// What benchmarks on this machine found, with their numbers.
-fn measured_group() -> Option<adw::PreferencesGroup> {
-    let hw = bigame_core::hardware::Hardware::detect();
-    let fingerprint = bigame_core::inventory::fingerprint(&hw);
-    let calibration = Calibration::load(&Calibration::default_path()?, &fingerprint).ok()??;
-    if calibration.findings.is_empty() {
-        return None;
-    }
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Measured on this machine"));
-    let changes = calibration.stack_changes(&bigame_core::inventory::stack_versions());
-    let mut description = i18n(
-        "Only these are performance claims: each comes from alternating benchmark runs, judged against their own run-to-run variation.",
-    );
-    if !changes.is_empty() {
-        description.push_str("\n\n");
-        description.push_str(&i18n(
-            "Needs revalidation: the software changed since these were measured. Settings measured slower are still avoided; none measured faster is applied until measured again.",
-        ));
-        description.push_str(" (");
-        description.push_str(&changes.join(", "));
-        description.push(')');
-    }
-    group.set_description(Some(&description));
-    for finding in calibration.findings.values() {
-        let verdict = match finding.verdict {
-            Verdict::Improvement => i18n("faster"),
-            Verdict::Regression => i18n("slower — not applied"),
-            Verdict::WithinNoise => i18n("no difference above noise"),
-            Verdict::Inconclusive => i18n("inconclusive"),
-        };
-        let row = adw::ActionRow::builder()
-            .title(format!("{} · {verdict}", finding.knob))
-            .subtitle(format!("{:+.1}% · {}", finding.delta_pct, finding.workload))
-            .use_markup(false)
-            .build();
-        row.add_suffix(&info::button(&finding.knob, &finding.rationale));
-        group.add(&row);
-    }
-    Some(group)
-}
-
 /// Build a page presenting `report`.
 #[must_use]
 pub fn build(report: &Report) -> gtk4::Widget {
@@ -272,10 +227,6 @@ pub fn build(report: &Report) -> gtk4::Widget {
             group.add(&item_row(item));
         }
         page.add(&group);
-    }
-
-    if let Some(measured) = measured_group() {
-        page.add(&measured);
     }
 
     page.upcast()

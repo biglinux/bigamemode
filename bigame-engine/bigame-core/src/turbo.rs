@@ -476,12 +476,6 @@ fn absorb_booster(booster: &BoosterReport, report: &mut Report) {
                 }
                 (knob, Section::Skipped, "Booster", detail.clone())
             }
-            Skipped::MeasuredHarmful { knob, detail } => (
-                knob,
-                Section::Skipped,
-                "Booster",
-                format!("measured slower — {detail}"),
-            ),
             Skipped::NotRestorable { knob } => (
                 knob,
                 Section::Skipped,
@@ -611,9 +605,9 @@ mod tests {
                     owner: "falcond".into(),
                     detail: "per game".into(),
                 },
-                Skipped::MeasuredHarmful {
+                Skipped::NotBeneficial {
                     knob: "GPU power level (card1)".into(),
-                    detail: "8.0% slower".into(),
+                    detail: "left to the driver".into(),
                 },
                 Skipped::Unsupported {
                     knob: "sched-ext scheduler".into(),
@@ -629,7 +623,7 @@ mod tests {
         // The scheduler is reported once, from falcond's side, not twice.
         assert_eq!(report.items.len(), 2);
         let dpm = &report.items[1];
-        assert!(dpm.detail.starts_with("measured slower"), "{}", dpm.detail);
+        assert_eq!(dpm.detail, "left to the driver");
     }
 
     #[test]

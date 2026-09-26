@@ -57,7 +57,7 @@ the second to restore writes the first one's value back as the "baseline".
 | Power profile | falcond per game; the Booster never writes it while falcond is installed |
 | Governor and EPP, wherever power-profiles-daemon runs | power-profiles-daemon, through the profile (on BigLinux its companion `power-profiles-daemon-biglinux-cpufreq` maps the profile to a governor on passive drivers); falcond asks for `performance` per game |
 | Governor without power-profiles-daemon | Booster |
-| GPU DPM level | Booster, **only where a benchmark on this machine measured it faster**; `high` pins the highest fixed state and loses the firmware's boost (−7.5 to −8.3 % on an RX 9060 XT, see [BENCHMARKS.md](BENCHMARKS.md)) |
+| GPU DPM level | the driver: the Booster never forces it; `high` pins the highest fixed state and loses the firmware's boost (−7.5 to −8.3 % on an RX 9060 XT, see [BENCHMARKS.md](BENCHMARKS.md)) |
 | sched-ext scheduler | falcond, through `scx_loader`; the Booster never loads a scheduler |
 | Files inside a game folder | AI Graphics |
 | Gamescope, environment and frame generation at launch | the launch pipeline |
@@ -83,9 +83,8 @@ apply → verify → report → restore**.
 - A knob whose baseline cannot be read is never written. Restoring puts back
   only the knobs that were applied, in reverse order.
 - The planner may plan nothing. Every skip is typed: unsupported, already
-  optimal, not beneficial, not restorable, measured harmful, owned by another
-  component. Calibration from this machine is consulted first. On battery the
-  plan raises nothing. Only the GPU games render on is considered.
+  optimal, not beneficial, not restorable, owned by another component. On
+  battery the plan raises nothing. Only the GPU games render on is considered.
 - The journal (`$XDG_STATE_HOME/bigame-mode/booster-journal.json`, 0600) is
   written before the first change and carries the boot id, so a journal from a
   previous boot is discarded.
@@ -226,9 +225,9 @@ of it needs root.
   anti-cheat markers), `report` (each value with its confidence: fact,
   detected, likely, assumed), `rules` (the compatibility matrix as code),
   `plan`, `optiscaler`, `versions` (which release a game gets: the tested
-  one, the latest stable, or one kept), `outcomes` (benchmark results measured
-  on this machine), `gamedb` (a short list of per-game facts detection cannot
-  read, carried in the program, extended by the user's own), `manifest`,
+  one, the latest stable, or one kept), `gamedb` (a short list of per-game
+  facts detection cannot read, measured results among them, carried in the
+  program, extended by the user's own), `manifest`,
   `transaction`, `ingame` (the game's own upscaler switch, in its Wine
   registry), `runtime`, `support` (a redacted report archive), `config`,
   `text` (translatable templates), `backend` (the three backends — the
@@ -322,11 +321,10 @@ of it needs root.
     Keep this version — and never applied by itself or at launch. An update
     has both releases verified in the cache before the game changes, and puts
     the previous one back if the new one fails.
-  - What this machine measured beats what is known in general, only when the
-    benchmark tests settle it: OptiScaler becomes Recommended when it was
-    measured faster *and* its 1 % low shown no worse; a gain with a floor too
-    scattered to compare is reported, not chosen. Never against native DLSS
-    on RTX.
+  - What was measured reaches users through the game list: OptiScaler is
+    Recommended for a game the list prefers it for (Shadow of the Tomb Raider,
+    measured faster on both test machines), never against native DLSS on
+    RTX. Nothing is measured or recorded on the user's machine.
   - The game list can name a game's default API, prefer the game's own
     upscaler, OptiScaler or nothing, record a tested version, or block
     injection — never unblock a game with anti-cheat.
@@ -428,10 +426,9 @@ directory.
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before BiGame-mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
-| `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, calibration, benchmark history, profile-migration backups |
+| `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
-| `$XDG_STATE_HOME/bigame-mode/graphics-outcomes.json` | AI Graphics benchmark results measured on this machine (local only) |
 | `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/<version>/` | the downloaded, verified OptiScaler releases |
 | `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/releases.json` | the stable releases GitHub lists with a checksum, refreshed at most daily |
 | `$XDG_CACHE_HOME/bigame-mode/benchmark/` | MangoHud captures of *Measure the difference* |
