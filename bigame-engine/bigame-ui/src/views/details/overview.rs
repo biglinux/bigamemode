@@ -8,7 +8,7 @@ use libadwaita as adw;
 
 use bigame_core::overview::{AppliedProfile, Headline, Snapshot, State};
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{N_, i18n, ni18n};
 use crate::widgets::status::Chip;
 
 /// The overview group.
@@ -25,17 +25,18 @@ pub struct Overview {
     expected_gpu: Option<String>,
 }
 
-/// The chips, in order. Keys are stable ids, not labels.
+/// The chips, in order. Keys are stable ids, not labels; labels are marked
+/// for translation, or product names.
 const CHIPS: &[(&str, &str)] = &[
-    ("turbo", "Turbo"),
+    ("turbo", N_("Turbo")),
     ("falcond", "falcond"),
-    ("profile", "Profile"),
-    ("power", "Power"),
-    ("scheduler", "Scheduler"),
-    ("gpu", "GPU"),
+    ("profile", N_("Profile")),
+    ("power", N_("Power")),
+    ("scheduler", N_("Scheduler")),
+    ("gpu", N_("GPU")),
     ("gamescope", "Gamescope"),
-    ("upscaling", "Upscaling"),
-    ("framegen", "Frame generation"),
+    ("upscaling", N_("Upscaling")),
+    ("framegen", N_("Frame generation")),
 ];
 
 impl Overview {

@@ -16,7 +16,7 @@ use libadwaita as adw;
 
 use bigame_core::overview::{Snapshot, State};
 
-use crate::i18n::i18n;
+use crate::i18n::{N_, i18n};
 use crate::widgets::status::{self, Body, Chip, StatusRow};
 
 /// One stage of the pipeline strip.
@@ -53,18 +53,19 @@ pub struct Pipeline {
     gpu_names: Rc<std::collections::HashMap<String, String>>,
 }
 
+/// Each stage's id, label (marked for translation, or a product name) and icon.
 const STAGES: &[(&str, &str, &str)] = &[
-    ("game", "Game", "applications-games-symbolic"),
-    ("runtime", "Proton / Wine", "package-x-generic-symbolic"),
+    ("game", N_("Game"), "applications-games-symbolic"),
+    ("runtime", N_("Proton / Wine"), "package-x-generic-symbolic"),
     ("gamescope", "Gamescope", "video-display-symbolic"),
-    ("upscaling", "Upscaling", "zoom-in-symbolic"),
+    ("upscaling", N_("Upscaling"), "zoom-in-symbolic"),
     ("vkbasalt", "vkBasalt", "image-x-generic-symbolic"),
     (
         "framegen",
-        "Frame generation",
+        N_("Frame generation"),
         "media-skip-forward-symbolic",
     ),
-    ("display", "Display", "computer-symbolic"),
+    ("display", N_("Display"), "computer-symbolic"),
 ];
 
 impl Pipeline {
@@ -342,9 +343,9 @@ impl Pipeline {
                     snap.video.upscaling.base_width,
                     snap.video.upscaling.base_height,
                     match snap.video.upscaling.gamescope_filter {
-                        bigame_core::models::GamescopeFilter::Fsr => "FSR",
-                        bigame_core::models::GamescopeFilter::Nis => "NIS",
-                        bigame_core::models::GamescopeFilter::Integer => "integer",
+                        bigame_core::models::GamescopeFilter::Fsr => "FSR".to_owned(),
+                        bigame_core::models::GamescopeFilter::Nis => "NIS".to_owned(),
+                        bigame_core::models::GamescopeFilter::Integer => i18n("integer"),
                     }
                 ),
             );
