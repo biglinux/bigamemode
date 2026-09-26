@@ -49,6 +49,27 @@ depends=(
     # with the user's own Lossless.dll from Lossless Scaling, which is never
     # shipped or downloaded; without it the layer loads and does nothing.
     'lsfg-vk'
+
+    # sched-ext: scx_loader is how falcond switches CPU schedulers (without it
+    # every switch fails with ServiceUnknown), and the schedulers themselves.
+    'scx-tools'
+    'scx-scheds'
+
+    # What the per-game and launch settings drive: Gamescope, the MangoHud
+    # overlay and vkBasalt's post-processing layer.
+    'gamescope'
+    'mangohud'
+    'vkbasalt'
+
+    # The game libraries BiGame-mode detects, launches and writes settings
+    # for.
+    'steam'
+    'lutris'
+    'heroic-games-launcher'
+
+    # A native game started directly, so Measure the difference can run on
+    # any machine; also the workload of the benchmark scripts.
+    'supertuxkart'
 )
 makedepends=(
     'git'
@@ -57,16 +78,9 @@ makedepends=(
     'python'
 )
 optdepends=(
-    'scx-tools: scx_loader, needed for falcond to switch sched-ext schedulers'
-    'scx-scheds: sched-ext CPU schedulers (LAVD, bpfland, ...)'
-    'gamescope: per-game micro-compositor, resolution and FSR upscaling'
-    'mangohud: in-game performance overlay'
-    'vkbasalt: Vulkan post-processing layer'
-    'steam: Steam games, detection and launch options'
-    'lutris: Lutris games'
-    'heroic-games-launcher: Epic, GOG and Amazon games'
+    # Only for NVIDIA cards, and it conflicts with the legacy NVIDIA driver
+    # packages (nvidia-470xx-utils and the like), so it cannot be required.
     'nvidia-utils: GPU telemetry on NVIDIA cards (its NVML library)'
-    'supertuxkart: native Linux workload for Measure the difference and the benchmark scripts'
 )
 install="${pkgname}.install"
 source=("${pkgname}::git+${url}.git")
