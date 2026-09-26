@@ -18,9 +18,10 @@ machine. The raw data of every result is in `bigame-engine/benchmarks/`.
 - **A difference is real only if** it exceeds the larger spread of the two arms
   **and** passes Welch's t-test at 95 %. Otherwise the verdict is *no change*
   and the percentage is withheld (the raw number stays in the JSON).
-- **A capped workload is refused.** SuperTuxKart's default vsync and
-  `max_fps = 120` make any comparison meaningless; the workload check names
-  the keys to change.
+- **A capped workload measures nothing.** SuperTuxKart's defaults (vsync on,
+  `max_fps = 120`) hold it at the cap whatever changes; switch
+  `swap-interval-vsync` off and raise `max_fps` in its configuration before
+  a session.
 - **Frame times, not averages alone.** Games' own per-frame logs are used where
   they exist (Crystal Dynamics `*_frametimes_*.txt`, Cyberpunk 2077
   `frames.csv`), otherwise MangoHud's. Frames of one second or more are scene

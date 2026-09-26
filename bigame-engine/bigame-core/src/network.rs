@@ -196,18 +196,6 @@ impl LatencyStats {
             lost,
         })
     }
-
-    /// Fraction of attempts that failed, 0.0–1.0.
-    #[must_use]
-    pub fn loss_ratio(&self) -> f64 {
-        let total = self.samples + self.lost;
-        if total == 0 {
-            return 0.0;
-        }
-        #[allow(clippy::cast_precision_loss)]
-        let ratio = self.lost as f64 / total as f64;
-        ratio
-    }
 }
 
 // ── DNS ──────────────────────────────────────────────────────────────────────
@@ -406,14 +394,6 @@ mod tests {
     fn no_samples_yields_no_statistics() {
         // Zero measurements must not be summarised as zero latency.
         assert!(LatencyStats::from_samples(Vec::new(), 5).is_none());
-    }
-
-    #[test]
-    fn loss_ratio_counts_failures() {
-        let stats = LatencyStats::from_samples(vec![1.0, 2.0, 3.0], 1).unwrap();
-        assert!((stats.loss_ratio() - 0.25).abs() < 0.001);
-        let clean = LatencyStats::from_samples(vec![1.0], 0).unwrap();
-        assert!(clean.loss_ratio().abs() < f64::EPSILON);
     }
 
     #[test]

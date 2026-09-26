@@ -24,11 +24,9 @@
 //! writes per-frame CSV. Nothing here modifies the game or injects anything of
 //! its own.
 pub mod calibration;
-pub mod games;
 pub mod history;
 pub mod lab;
 pub mod native;
-pub mod provider;
 pub mod result;
 
 use std::path::{Path, PathBuf};
@@ -342,50 +340,6 @@ pub enum Direction {
     LowerIsBetter,
 }
 
-/// Compare one metric across two runs, against a measured noise floor.
-///
-/// `noise_floor` is a fraction (0.04 = 4%), obtained by comparing two baseline
-/// runs with [`noise_floor`]. A change smaller than the noise is reported as
-/// [`crate::booster::report::Outcome::NoChange`], not as a small win.
-#[must_use]
-pub fn compare(
-    metric: &str,
-    unit: &str,
-    before: f64,
-    after: f64,
-    direction: Direction,
-    noise_floor: f64,
-) -> crate::booster::report::Outcome {
-    if before <= 0.0 {
-        return crate::booster::report::Outcome::NotMeasured;
-    }
-    let relative = (after - before) / before;
-    if relative.abs() <= noise_floor {
-        return crate::booster::report::Outcome::NoChange {
-            metric: metric.to_owned(),
-        };
-    }
-    let better = match direction {
-        Direction::HigherIsBetter => relative > 0.0,
-        Direction::LowerIsBetter => relative < 0.0,
-    };
-    if better {
-        crate::booster::report::Outcome::Improved {
-            metric: metric.to_owned(),
-            before,
-            after,
-            unit: unit.to_owned(),
-        }
-    } else {
-        crate::booster::report::Outcome::Regressed {
-            metric: metric.to_owned(),
-            before,
-            after,
-            unit: unit.to_owned(),
-        }
-    }
-}
-
 /// Measure the noise floor from repeated baseline runs.
 ///
 /// The largest relative spread between any two runs of the *same*
@@ -429,54 +383,11 @@ const METRICS: &[Metric] = &[
     }),
 ];
 
-/// Compare two configurations across every reported metric.
-///
-/// **Each metric gets its own noise floor**, measured from the spread of that
-/// same metric across the baseline runs. A single shared floor is wrong when
-/// the metrics differ in stability, and on a real game they differ a lot: in a
-/// `SuperTuxKart` race 1% low can hold within 0.4% across runs while average
-/// FPS varies by 150%, because the capture window lands on different parts of
-/// the race. Applying the 1% low's floor to average FPS turns that variance
-/// into a confident "worse".
-///
-/// `baseline_runs` must contain at least two runs of the *same* configuration;
-/// with fewer there is no evidence about repeatability and every metric is
-/// reported as [`crate::booster::report::Outcome::NotMeasured`].
-#[must_use]
-pub fn compare_runs(
-    baseline_runs: &[FrameStats],
-    candidate: &FrameStats,
-) -> Vec<crate::booster::report::Outcome> {
-    let Some(reference) = median_by(baseline_runs, |s| s.low_1_fps) else {
-        return vec![crate::booster::report::Outcome::NotMeasured];
-    };
-
-    METRICS
-        .iter()
-        .map(|(name, unit, direction, get)| {
-            let samples: Vec<f64> = baseline_runs.iter().map(get).collect();
-            let Some(floor) = noise_floor(&samples) else {
-                return crate::booster::report::Outcome::NotMeasured;
-            };
-            compare(
-                name,
-                unit,
-                get(reference),
-                get(candidate),
-                *direction,
-                floor,
-            )
-        })
-        .collect()
-}
-
-/// Compare every run of two configurations, metric by metric, with the same
-/// test the Benchmark page describes: both arms need two runs or more and a
+/// Compare every run of two configurations, metric by metric, with the test
+/// `docs/BENCHMARKS.md` describes: both arms need two runs or more and a
 /// coefficient of variation within 5 %, and a difference counts only above
 /// the noise and past Welch's t-test at 95 % ([`crate::benchmark::result`]).
-///
-/// [`compare_runs`] judged one median candidate run against the baseline
-/// runs' range; this is what "Measure the difference" uses instead.
+/// This is what "Measure the difference" reports.
 #[must_use]
 pub fn compare_arms(
     baseline_runs: &[FrameStats],
@@ -527,21 +438,9 @@ pub fn compare_arms(
         .collect()
 }
 
-/// The run whose `metric` is the median of the set.
-#[must_use]
-pub fn median_by<F: Fn(&FrameStats) -> f64>(runs: &[FrameStats], metric: F) -> Option<&FrameStats> {
-    if runs.is_empty() {
-        return None;
-    }
-    let mut sorted: Vec<&FrameStats> = runs.iter().collect();
-    sorted.sort_by(|a, b| metric(a).total_cmp(&metric(b)));
-    sorted.get(sorted.len() / 2).copied()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::booster::report::Outcome;
 
     /// Trimmed from a real `MangoHud` 0.8.4 capture: `mangohud vkcube`, RX 9060
     /// XT, 6 seconds, 959 frames.
@@ -687,78 +586,6 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
     // ── Comparison ───────────────────────────────────────────────────────
 
     #[test]
-    fn a_change_within_the_noise_floor_is_not_a_result() {
-        // 4% measured noise; a 3% gain is not evidence of anything.
-        let outcome = compare(
-            "1% low",
-            "fps",
-            100.0,
-            103.0,
-            Direction::HigherIsBetter,
-            0.04,
-        );
-        assert_eq!(
-            outcome,
-            Outcome::NoChange {
-                metric: "1% low".into()
-            }
-        );
-    }
-
-    #[test]
-    fn a_change_beyond_the_noise_floor_is_reported() {
-        let outcome = compare("1% low", "fps", 72.0, 84.0, Direction::HigherIsBetter, 0.04);
-        assert!(matches!(outcome, Outcome::Improved { .. }));
-        assert!(outcome.describe().contains("72.0 fps → 84.0 fps"));
-    }
-
-    #[test]
-    fn direction_is_respected_for_lower_is_better_metrics() {
-        // Frametime going down is an improvement...
-        let better = compare(
-            "P99 frametime",
-            "ms",
-            18.4,
-            15.6,
-            Direction::LowerIsBetter,
-            0.02,
-        );
-        assert!(matches!(better, Outcome::Improved { .. }));
-        // ...and going up is a regression.
-        let worse = compare(
-            "P99 frametime",
-            "ms",
-            15.6,
-            18.4,
-            Direction::LowerIsBetter,
-            0.02,
-        );
-        assert!(matches!(worse, Outcome::Regressed { .. }));
-        assert!(worse.describe().contains("worse"));
-    }
-
-    #[test]
-    fn regressions_are_reported_for_higher_is_better_metrics_too() {
-        let outcome = compare(
-            "Average FPS",
-            "fps",
-            120.0,
-            100.0,
-            Direction::HigherIsBetter,
-            0.02,
-        );
-        assert!(matches!(outcome, Outcome::Regressed { .. }));
-    }
-
-    #[test]
-    fn a_zero_baseline_yields_no_claim() {
-        assert_eq!(
-            compare("1% low", "fps", 0.0, 100.0, Direction::HigherIsBetter, 0.04),
-            Outcome::NotMeasured
-        );
-    }
-
-    #[test]
     fn noise_floor_needs_repeats() {
         // One run says nothing about repeatability.
         assert_eq!(noise_floor(&[100.0]), None);
@@ -771,86 +598,6 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
         // The widest pair sets it, not the closest.
         let floor = noise_floor(&[100.0, 104.0, 110.0]).unwrap();
         assert!((floor - 0.10).abs() < 1e-9);
-    }
-
-    #[test]
-    fn a_noisy_bench_suppresses_a_small_win() {
-        // Baselines varying by 8% cannot support a 5% claim.
-        let floor = noise_floor(&[100.0, 108.0]).unwrap();
-        let outcome = compare(
-            "1% low",
-            "fps",
-            100.0,
-            105.0,
-            Direction::HigherIsBetter,
-            floor,
-        );
-        assert!(matches!(outcome, Outcome::NoChange { .. }));
-    }
-
-    #[test]
-    fn compare_runs_leads_with_the_metric_that_is_felt() {
-        let base = vec![
-            FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap(),
-            FrameStats::from_frametimes(&synthetic(1000, 8.05, 0, 0.0), 8.05).unwrap(),
-        ];
-        let cand = FrameStats::from_frametimes(&synthetic(1000, 7.0, 0, 0.0), 7.0).unwrap();
-        let outcomes = compare_runs(&base, &cand);
-        assert_eq!(outcomes.len(), 4);
-        assert!(outcomes[0].describe().starts_with("1% low"));
-        assert!(outcomes[3].describe().starts_with("Average FPS"));
-    }
-
-    #[test]
-    fn each_metric_is_judged_against_its_own_noise() {
-        // A game whose 1% low is steady across runs while average FPS swings
-        // wildly, because the capture window lands on different parts of the
-        // race. A single shared floor would report the swing as a regression.
-        let steady_low_noisy_avg = |base_ms: f64, frames: usize| {
-            // Same worst-case frametimes, very different frame counts, so
-            // 1% low matches while average FPS does not.
-            let mut v = vec![base_ms; frames];
-            v.extend(std::iter::repeat_n(15.0, 20));
-            FrameStats::from_frametimes(&v, 20.0).unwrap()
-        };
-        let base = vec![
-            steady_low_noisy_avg(4.0, 3800),
-            steady_low_noisy_avg(4.0, 1500),
-        ];
-        let cand = steady_low_noisy_avg(4.0, 2600);
-
-        let outcomes = compare_runs(&base, &cand);
-        let avg = outcomes
-            .iter()
-            .find(|o| o.describe().starts_with("Average FPS"))
-            .unwrap();
-        assert!(
-            matches!(avg, Outcome::NoChange { .. }),
-            "a metric this noisy must not be called a change: {}",
-            avg.describe()
-        );
-    }
-
-    #[test]
-    fn a_single_baseline_run_supports_no_claim() {
-        let base = vec![FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap()];
-        let cand = FrameStats::from_frametimes(&synthetic(1000, 4.0, 0, 0.0), 4.0).unwrap();
-        // Twice as fast, and still not claimable without evidence of repeatability.
-        for outcome in compare_runs(&base, &cand) {
-            assert_eq!(outcome, Outcome::NotMeasured);
-        }
-    }
-
-    #[test]
-    fn median_by_picks_the_middle_run() {
-        let runs = vec![
-            FrameStats::from_frametimes(&synthetic(1000, 10.0, 0, 0.0), 10.0).unwrap(),
-            FrameStats::from_frametimes(&synthetic(1000, 6.0, 0, 0.0), 6.0).unwrap(),
-            FrameStats::from_frametimes(&synthetic(1000, 8.0, 0, 0.0), 8.0).unwrap(),
-        ];
-        let median = median_by(&runs, |s| s.low_1_fps).unwrap();
-        assert!((median.mean_ms - 8.0).abs() < 1e-9);
-        assert!(median_by(&[], |s| s.low_1_fps).is_none());
     }
 
     #[test]

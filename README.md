@@ -208,16 +208,19 @@ cargo clippy --workspace --all-targets -- -D warnings   # lints pedantic
 - `../tests/daemon-authorization.sh` confere que o helper recusa todas as
   ações privilegiadas quando o Polkit não está disponível.
 - **Medir a diferença** (menu ⋮ de um jogo que abre diretamente) compara com
-  e sem otimizações, em várias execuções alternadas; a engine de benchmark
-  (`bigame-core/src/benchmark/`, `scripts/bench-*.sh`) não tem página própria.
+  e sem otimizações, em várias execuções alternadas.
 - `bigame-core/examples/` traz ferramentas de linha de comando: detecção
   (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
   `graphics_plan`, `graphics_apply`, `graphics_status`, `graphics_capabilities`,
-  `graphics_diagnose`, `graphics_native`, `optiscaler_fetch`, `pe_dump`), Turbo e Booster (`turbo`, `booster_run`, `measure`) e relatórios
-  de benchmark (`bench_native_report`, `bench_report`).
-  Rode com `cargo run -p bigame-core --example <nome>`.
-- `bigame-engine/scripts/` automatiza sessões de benchmark (`bench-game.sh`,
-  `bench-lab.sh`); os dados publicados ficam em `bigame-engine/benchmarks/`.
+  `graphics_diagnose`, `graphics_native`), Turbo e Booster (`turbo`,
+  `booster_run`, `measure`), lsfg-vk (`lsfg`) e relatórios de benchmark
+  (`bench_report`, `bench_native_report`, que também gravam as calibrações que
+  o aplicativo lê). Rode com `cargo run -p bigame-core --example <nome>`.
+- `bigame-engine/scripts/` automatiza sessões de benchmark: `bench-game.sh`
+  (jogos com benchmark próprio), `bench-lab.sh` (o benchmark do
+  SuperTuxKart), `gpu-telemetry.sh` (amostras da GPU durante uma execução) e
+  `scx-switch.sh` (troca de escalonador como root, via pkexec). Os dados
+  publicados ficam em `bigame-engine/benchmarks/`.
 
 **Traduções:** os catálogos ficam em `locale/*.po`. Depois de mudar textos no
 código:
