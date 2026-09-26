@@ -26,7 +26,7 @@ use libadwaita as adw;
 use bigame_core::recommend::{self, Recommendation};
 use bigame_core::running::GameIdentity;
 
-use crate::i18n::{i18n, tr};
+use crate::i18n::{error_text, i18n, tr};
 
 const NOTIFICATION_ID: &str = "profile-offer";
 
@@ -284,7 +284,7 @@ fn save_and_verify(rec: &Recommendation) -> Created {
     let result = bigame_core::dbus_client::daemon_proxy_blocking()
         .and_then(|proxy| Ok(proxy.save_profile(&rec.name, &rec.to_falcond())?));
     if let Err(e) = result {
-        return Created::Failed(format!("{e:#}"));
+        return Created::Failed(error_text(&e));
     }
     // falcond reloads and rescans; the specific profile supersedes the
     // generic Proton one for the running game. Seen within a few seconds.

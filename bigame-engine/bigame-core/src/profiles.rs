@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::error::UserError;
 use crate::text::N_;
 
 /// Default system profiles directory.
@@ -482,7 +483,10 @@ pub fn save(profile: &GameProfile) -> Result<()> {
 /// Returns an error if the profile does not exist or the D-Bus call fails.
 pub fn delete(name: &str) -> Result<()> {
     let path = user_path(name);
-    anyhow::ensure!(path.exists(), "profile not found: {}", path.display());
+    anyhow::ensure!(
+        path.exists(),
+        UserError::with(N_("profile not found: %s"), [path.display().to_string()])
+    );
 
     let proxy = crate::dbus_client::daemon_proxy_blocking()?;
     // The helper reloads falcond itself, through systemd.
@@ -580,8 +584,12 @@ pub fn imported_ai_graphics(
 pub fn import(src: &Path) -> Result<String> {
     let content =
         std::fs::read_to_string(src).with_context(|| format!("read import: {}", src.display()))?;
-    let profile: GameProfile = toml::from_str(&content).context("parse imported profile TOML")?;
-    anyhow::ensure!(!profile.name.is_empty(), "imported profile has no name");
+    let profile: GameProfile = toml::from_str(&content)
+        .map_err(|e| UserError::plain(N_("parse imported profile TOML")).caused_by(e))?;
+    anyhow::ensure!(
+        !profile.name.is_empty(),
+        UserError::plain(N_("imported profile has no name"))
+    );
     let name = profile.name.clone();
     let ai = imported_ai_graphics(&content)?;
     save(&profile)?;

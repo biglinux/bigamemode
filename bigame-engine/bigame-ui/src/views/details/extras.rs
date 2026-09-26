@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use bigame_core::network::{self, Resolver};
 
-use crate::i18n::i18n;
+use crate::i18n::{error_text, i18n};
 use crate::widgets::toast;
 
 /// Resolvers offered for comparison, alongside whatever the system uses.
@@ -264,7 +264,7 @@ fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {
             }
             Err(e) => toast::show(
                 button,
-                &i18n("Could not change it: %s").replace("%s", &e.to_string()),
+                &i18n("Could not change it: %s").replace("%s", &error_text(&e)),
             ),
         }
     });

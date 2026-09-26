@@ -21,6 +21,8 @@ use serde::{Deserialize, Serialize};
 
 use super::manifest::{self, FileKind, check_relative, sha256_file};
 use super::transaction::PlannedFile;
+use crate::error::UserError;
+use crate::text::N_;
 
 /// Component id used in manifests and the cache.
 pub const COMPONENT: &str = "optiscaler";
@@ -395,7 +397,10 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
     let got = sha256_file(&part)?;
     if got != release.sha256 {
         let _ = std::fs::remove_file(&part);
-        bail!("download does not match {}: SHA-256 {got}", release.tag);
+        bail!(UserError::with(
+            N_("download does not match %s: SHA-256 %s"),
+            [release.tag.clone(), got]
+        ));
     }
     let archive = dir.join(&release.asset);
     std::fs::rename(&part, &archive)?;

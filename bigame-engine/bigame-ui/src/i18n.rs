@@ -50,3 +50,14 @@ pub fn ni18n(singular: &str, plural: &str, n: usize) -> String {
 pub fn tr(t: &bigame_core::text::Text) -> String {
     t.render(&i18n)
 }
+
+/// An `anyhow` error as the user reads it, translated: the message a
+/// [`UserError`] gives, the cause after it; the whole chain otherwise
+/// ([`bigame_core::error::describe`]). For an `std::io::Error` its own text
+/// is enough: the system already words it in the user's language.
+///
+/// [`UserError`]: bigame_core::error::UserError
+#[must_use]
+pub fn error_text(err: &anyhow::Error) -> String {
+    tr(&bigame_core::error::describe(err))
+}

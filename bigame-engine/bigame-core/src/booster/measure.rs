@@ -27,6 +27,8 @@ use crate::benchmark::{self, FrameStats};
 use crate::booster::plan::Plan;
 use crate::booster::report::Outcome;
 use crate::booster::snapshot::Snapshot;
+use crate::error::UserError;
+use crate::text::N_;
 
 /// What to run, how long, and how many times.
 #[derive(Debug, Clone)]
@@ -216,12 +218,16 @@ pub async fn run<F: FnMut(MeasureProgress)>(
 ) -> Result<Measurement> {
     anyhow::ensure!(
         measurement.is_usable(),
-        "measurement plan needs a command, at least 5 seconds, and at least \
-         2 counted runs per arm (runs_per_arm includes one discarded warm-up)"
+        UserError::plain(N_(
+            "measurement plan needs a command, at least 5 seconds, and at least \
+             2 counted runs per arm (runs_per_arm includes one discarded warm-up)"
+        ))
     );
     anyhow::ensure!(
         !plan.is_empty(),
-        "nothing to measure: the plan changes nothing on this machine"
+        UserError::plain(N_(
+            "nothing to measure: the plan changes nothing on this machine"
+        ))
     );
 
     let mut baseline: Vec<FrameStats> = Vec::new();
@@ -252,10 +258,10 @@ pub async fn run<F: FnMut(MeasureProgress)>(
                     log_dir,
                 )?;
                 let Some(stats) = stats else {
-                    anyhow::bail!(
+                    anyhow::bail!(UserError::plain(N_(
                         "the workload produced too few frames to measure; check that \
                          it renders continuously and that MangoHud is installed"
-                    );
+                    )));
                 };
                 // The first run of each arm is discarded: shader compilation
                 // and cold caches make it unrepresentative.
@@ -281,7 +287,7 @@ pub async fn run<F: FnMut(MeasureProgress)>(
     progress(MeasureProgress::Analysing);
     anyhow::ensure!(
         baseline.len() >= 2 && !optimized.is_empty(),
-        "too few usable runs to compare"
+        UserError::plain(N_("too few usable runs to compare"))
     );
 
     // Each metric is judged over every run of both arms (Welch's t-test and

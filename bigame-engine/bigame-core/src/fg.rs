@@ -47,7 +47,9 @@ use std::sync::OnceLock;
 use anyhow::{Context, Result};
 use toml::{Table, Value};
 
+use crate::error::UserError;
 use crate::models::{FrameGenBackend, FrameGenSettings};
+use crate::text::N_;
 
 // ── Paths ───────────────────────────────────────────────────────────────────
 
@@ -83,8 +85,10 @@ fn format_supported() -> Option<bool> {
 fn ensure_format_supported() -> Result<()> {
     anyhow::ensure!(
         format_supported() != Some(false),
-        "the installed lsfg-vk uses a configuration format BiGame-mode does not write \
-         (it writes lsfg-vk 1.x's); change it in lsfg-vk-ui instead"
+        UserError::plain(N_(
+            "the installed lsfg-vk uses a configuration format BiGame-mode does not write \
+             (it writes lsfg-vk 1.x's); change it in lsfg-vk-ui instead"
+        ))
     );
     Ok(())
 }
@@ -326,11 +330,11 @@ pub fn write_profile(
     ensure_format_supported()?;
     anyhow::ensure!(
         is_lossless_dll_ready(),
-        "Lossless.dll not found in configured LSFG path"
+        UserError::plain(N_("Lossless.dll not found in configured LSFG path"))
     );
     anyhow::ensure!(
         (25..=100).contains(&flow_scale_pct),
-        "flow_scale_pct must be 25–100"
+        UserError::plain(N_("flow_scale_pct must be 25–100"))
     );
     let mut t = read_config()?;
     let new = game_entry(

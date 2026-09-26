@@ -13,6 +13,9 @@ use std::path::{Component as PathComponent, Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::error::UserError;
+use crate::text::N_;
+
 /// Current manifest format.
 pub const SCHEMA: u32 = 1;
 
@@ -245,20 +248,18 @@ impl Manifest {
         let m: Self =
             serde_json::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
         if m.schema > SCHEMA {
-            bail!(
-                "{} was written by a newer BiGame-mode (format {})",
-                path.display(),
-                m.schema
-            );
+            bail!(UserError::with(
+                N_("%s was written by a newer BiGame-mode (format %s)"),
+                [path.display().to_string(), m.schema.to_string()]
+            ));
         }
         // The key names the directories removal deletes; a manifest must not
         // be able to point it elsewhere.
         if m.game_key != game_key {
-            bail!(
-                "{} belongs to another game ({})",
-                path.display(),
-                m.game_key
-            );
+            bail!(UserError::with(
+                N_("%s belongs to another game (%s)"),
+                [path.display().to_string(), m.game_key]
+            ));
         }
         for e in &m.entries {
             check_relative(&e.path)?;

@@ -29,6 +29,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
+use crate::error::UserError;
+use crate::text::N_;
+
 use super::manifest::{
     self, Backup, Entry, FileKind, Manifest, SCHEMA, Source, State, resolve_inside, sha256_file,
 };
@@ -123,10 +126,10 @@ fn place(src: &Path, target: &Path) -> Result<()> {
     // a symlink since the transaction began.
     if std::fs::symlink_metadata(target).is_ok_and(|m| m.file_type().is_symlink()) {
         let _ = std::fs::remove_file(&tmp);
-        bail!(
-            "{} became a symlink; refusing to replace it",
-            target.display()
-        );
+        bail!(UserError::with(
+            N_("%s became a symlink; refusing to replace it"),
+            [target.display().to_string()]
+        ));
     }
     std::fs::rename(&tmp, target)
         .with_context(|| format!("rename {} → {}", tmp.display(), target.display()))?;
@@ -233,12 +236,15 @@ pub fn apply(
 ) -> Result<Manifest> {
     let (game_key, install_root) = (game.key, game.root);
     if let Some(existing) = Manifest::load(state_dir, game_key)? {
-        bail!(
-            "{game_key} already has {} {} installed ({:?}); remove it first",
-            existing.source.component,
-            existing.source.version,
-            existing.state
-        );
+        bail!(UserError::with(
+            N_("%s already has %s %s installed (%s); remove it first"),
+            [
+                game_key.to_owned(),
+                existing.source.component,
+                existing.source.version,
+                format!("{:?}", existing.state),
+            ]
+        ));
     }
     if files.is_empty() {
         bail!("nothing to install");
@@ -317,7 +323,9 @@ pub fn apply(
     if let Err(e) = placed {
         tracing::warn!(target: "graphics", game = game_key, error = %e, "apply failed; rolling back");
         rollback(state_dir, &m).context("rollback after a failed apply")?;
-        return Err(e.context("apply failed and was rolled back"));
+        return Err(UserError::plain(N_("apply failed and was rolled back"))
+            .caused_by(e)
+            .into());
     }
 
     // 6. Commit.
@@ -428,7 +436,10 @@ fn restore_or_remove(target: &Path, original: Option<&Backup>) -> Result<()> {
     match original {
         Some(b) => {
             if manifest::sha256_file(&b.path)? != b.sha256 {
-                bail!("backup {} is damaged; not restoring it", b.path.display());
+                bail!(UserError::with(
+                    N_("backup %s is damaged; not restoring it"),
+                    [b.path.display().to_string()]
+                ));
             }
             place(&b.path, target)
         }
@@ -445,8 +456,9 @@ fn restore_or_remove(target: &Path, original: Option<&Backup>) -> Result<()> {
 /// # Errors
 /// Returns an error if there is no manifest, or a file cannot be restored.
 pub fn remove(state_dir: &Path, game_key: &str) -> Result<Vec<FileOutcome>> {
-    let m = Manifest::load(state_dir, game_key)?
-        .with_context(|| format!("BiGame-mode has installed nothing in {game_key}"))?;
+    let m = Manifest::load(state_dir, game_key)?.ok_or_else(|| {
+        UserError::with(N_("BiGame-mode has installed nothing in %s"), [game_key])
+    })?;
     rollback(state_dir, &m)
 }
 
@@ -575,10 +587,10 @@ pub fn repair_missing(m: &Manifest, payload: &[PlannedFile]) -> Result<Vec<PathB
             .find(|p| p.path == path)
             .with_context(|| format!("no payload for {}", path.display()))?;
         if sha256_file(&src.source)? != entry.sha256 {
-            bail!(
-                "the cached copy of {} is not what was installed",
-                path.display()
-            );
+            bail!(UserError::with(
+                N_("the cached copy of %s is not what was installed"),
+                [path.display().to_string()]
+            ));
         }
         let target = resolve_inside(&m.install_root, &path)?;
         if let Some(parent) = target.parent() {
