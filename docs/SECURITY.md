@@ -79,13 +79,16 @@ not use:
   `MemoryDenyWriteExecute`, `RestrictAddressFamilies=AF_UNIX`,
   `SystemCallArchitectures=native`, `SystemCallFilter=@system-service` minus
   `@privileged @resources @mount @debug @obsolete`, `UMask=0022`.
-- `ProtectSystem=strict` leaves `/sys` writable, so `ProtectKernelTunables`
-  makes it read-only as well. Writable: `/etc/falcond` and
-  `/usr/share/falcond/profiles` (ignored when absent), `/sys/devices` (where
-  the cpufreq, DRM and V-Cache attributes live; the `/sys/class` and
-  `/sys/bus` paths the helper writes are symlinks into it), and
-  `StateDirectory=bigame-mode`. `/sys/kernel`, `/sys/module`, `/sys/fs` and
-  `/sys/firmware` are read-only.
+- `ProtectSystem=strict` leaves `/sys` writable, and on systemd 261 neither
+  `ProtectKernelTunables` nor `ReadOnlyPaths=/sys` makes the unit's sysfs
+  mount read-only (checked inside a unit). So every top-level `/sys`
+  directory except `/sys/devices` is listed in `ReadOnlyPaths`: `/sys/kernel`,
+  `/sys/module`, `/sys/power`, drivers' `bind`/`unbind` under `/sys/bus` and
+  the rest are out of reach. The cpufreq, DRM and V-Cache attributes the
+  helper writes live in `/sys/devices`; the `/sys/class` and `/sys/bus` paths
+  it names are symlinks into it. Also writable: `/etc/falcond` and
+  `/usr/share/falcond/profiles` (ignored when absent), and
+  `StateDirectory=bigame-mode`.
 - The bus policy lets only root own the name and denies by default, then allows
   the helper's interface plus Introspectable, Properties and Peer, so a future
   interface is not exposed automatically.
