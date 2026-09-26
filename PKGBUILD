@@ -2,7 +2,7 @@
 # Contributor: BigLinux Team <dev@biglinux.com.br>
 
 pkgname=bigame-mode
-pkgver=1.0.0
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="Gaming mode for BigLinux: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets, in a GTK4/libadwaita app"
 arch=('x86_64')
