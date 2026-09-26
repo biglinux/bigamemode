@@ -177,18 +177,29 @@ placed in a game is fetched at the user's request from the component's
 official release, checked against a known SHA-256 and cached once per machine;
 the release's license files stay with it.
 
-| Component | License | Use |
+What each third-party project allows, read from its own license, and what
+BiGame-mode does with it. This is the reading the code follows, not legal
+advice.
+
+| Component | License | What BiGame-mode does |
 |---|---|---|
-| OptiScaler | GPL-3.0 | fetched on request, pinned, never bundled |
-| fakenvapi | MIT | placed only when DLSS input needs spoofing on AMD/Intel |
-| AMD FidelityFX DLLs (in the OptiScaler release) | FidelityFX SDK | placed when FSR is the output |
-| Intel XeSS DLLs (in the release) | Intel XeSS license | placed only when XeSS is the output |
-| AMD `amdxcffx64.dll` | no redistribution grant | never placed (Proton provides it) |
-| Microsoft Agility SDK | DirectX license, Windows only | never placed |
-| NVIDIA DLSS / Streamline | NVIDIA RTX SDK license | never fetched, placed or replaced |
-| ReShade | BSD-3 source; binaries distributed by its site | not installed; detected |
-| RenoDX | MIT | detected and reported |
-| lsfg-vk | its own license; needs a Lossless Scaling purchase | configured when installed, never installed |
+| [OptiScaler](https://github.com/optiscaler/OptiScaler) | GPL-3.0 | fetched from its GitHub release when the user presses Apply, SHA-256 checked, placed as a transaction; never bundled |
+| [fakenvapi](https://github.com/FakeMichau/fakenvapi) | MIT | inside OptiScaler's release; placed only for a DLSS input on a non-NVIDIA GPU |
+| [AMD FidelityFX](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) DLLs | AMD binary license: unmodified binaries with notice, no reverse engineering | arrive inside OptiScaler's release with its `Licenses/FidelityFX_*`; placed when FSR is the output, removed with it |
+| [Intel XeSS](https://github.com/intel/xess) DLLs | Intel Simplified Software License: unmodified binaries with notice, no modification even at run time | arrive inside OptiScaler's release; placed only when XeSS is the output; the game's own `libxess.dll` is never replaced |
+| Proton's FSR 4 provider (`amdxcffx64.dll`, `amdxc64.dll`) | shipped by Valve inside Proton | detected in the game's prefix; BiGame-mode sets the launch option that makes Proton use it and verifies it in the running game; never copied |
+| [DLSS-NR-on-AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) | proprietary: personal, non-commercial use; no redistribution, no bundling in another tool, no modification | detected beside the game, its requirements checked, its official page linked; never fetched, placed or removed (`managed: false`) |
+| NVIDIA DLSS / Streamline (`nvngx_dlss*.dll`) | NVIDIA RTX SDK license: only inside an application, not as a stand-alone item, no modification | detected and versions read; never fetched, copied between games or replaced. A neural-rendering model the user has (`nvngx_dlssnr.dll`) is detected; BiGame-mode never says where to get one |
+| Microsoft Agility SDK (in OptiScaler's release) | DirectX license, Windows only | never placed: of no use under VKD3D-Proton |
+| [lsfg-vk](https://lsfg-vk.dev) | the packaged 1.0.0 is GPL-3.0; the current upstream source is CC BY-NC-ND 4.0 | a system package; BiGame-mode writes entries in its configuration and reads its log, never ships or modifies it. `Lossless.dll` is the user's own, read in place, never copied |
+| [ReShade](https://github.com/crosire/reshade) | BSD-3 source; binaries distributed by its site | detected in DLL slots and reported as a conflict; never fetched |
+| [RenoDX](https://github.com/clshortfuse/renodx) | MIT | reported as an HDR option that needs ReShade's add-on build; never fetched |
+| dgVoodoo 2 | proprietary freeware | detected as a DLL slot owner; not used: DXVK already covers DirectX 9–11 under Proton |
+
+Community tools that manage "DLSS 5" (DLSS5oneclick, MIT; DLSS-5-MANAGER,
+no open-source license) were read for their architecture only; no code was
+taken from either, and none of their leaked-DLL, NGX-gate or GPU-spoofing
+paths exists here.
 
 ## Residual risk
 

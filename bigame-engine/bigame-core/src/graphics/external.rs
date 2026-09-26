@@ -4,7 +4,7 @@
 //!
 //! Its license (2026) allows personal use and forbids redistribution,
 //! bundling in another tool, modification and reverse engineering
-//! (`docs/AI_GRAPHICS_LICENSE_AUDIT.md`). So this module reads what the user
+//! (`docs/SECURITY.md`, Licensing). So this module reads what the user
 //! installed — its proxy DLL, configuration, weights and log beside the
 //! game — checks the requirements upstream states, and tells the user what
 //! is missing, with the official page to get it from. It also needs NVIDIA's

@@ -22,10 +22,10 @@ fazer, e nada é chamado de melhoria sem medição.**
 
 ## Principais recursos
 
-| Página | O que faz |
+| Recurso | O que faz |
 |---|---|
 | **Início** | O **Turbo**, a chave principal. Desligado, o BiGame-mode não interfere em jogo nenhum; ligado, o falcond aplica o perfil de cada jogo. Mostra o jogo em execução, o perfil ativo e o estado dos Gráficos com IA. |
-| **Perfis** | Jogos do Steam, Lutris, Heroic e do menu de aplicativos (jogos nativos, como o SuperTuxKart do pacman, e Flatpaks), só os que estão mesmo instalados, cada um com seu perfil: modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, Gamescope, MangoHud e lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente** (um perfil guiado, cada opção explicada), **Gráficos com IA**, **Medir a diferença**, **Restaurar os gráficos do jogo**. Quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
+| **Perfis** | Jogos do Steam, Lutris, Heroic e do menu de aplicativos (jogos nativos, como o SuperTuxKart do pacman, e Flatpaks), só os que estão mesmo instalados, cada um com seu perfil: modo de desempenho, escalonador sched-ext, modo do 3D V-Cache, inibição de repouso, Gamescope, MangoHud (gravado onde o lançador do jogo o lê: Steam, Heroic ou Lutris) e lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente** (um perfil guiado, cada opção explicada), **Gráficos com IA**, **Medir a diferença**, **Restaurar os gráficos do jogo**. Quando um jogo desconhecido abre com o Turbo ligado, uma notificação oferece criar o perfil. |
 | **Gráficos com IA** | No menu ⋮ de cada jogo: analisa o jogo (API gráfica, DLSS/XeSS/FSR que ele já traz, DLLs de proxy, anti-cheat, a GPU em que ele renderiza), recomenda um plano e, só quando você clica em **Aplicar**, instala o OptiScaler com backup verificado ou, num jogo que já traz o FSR 3.1 da AMD, escreve a única opção de execução com que o Proton o eleva ao FSR 4 — sem tocar em arquivo nenhum. Onde a lista de jogos sabe onde o jogo guarda a chave do seu upscaler (Shadow of the Tomb Raider: o XeSS no registro), **Aplicar** também a liga e **Restaurar** a devolve. **Reparar** e **Restaurar os gráficos do jogo** devolvem cada arquivo original. **Diagnosticar** diz por que algo não funciona. Renderização neural em AMD (DLSS-NR-on-AMD) é detectada e explicada, nunca baixada: a licença não permite. |
 | **Ajustes** | Tudo o que é aplicado aos jogos, em grupos progressivos: desempenho do sistema (falcond: modo de desempenho, escalonador sched-ext, 3D V-Cache), exibição e Gamescope, upscaling e nitidez (Wine FSR, vkBasalt), geração de quadros (lsfg-vk), overlay e o avançado. O que a máquina não pode fazer aparece como **não suportado** ou **dependência ausente** com o comando que resolve, nunca como um controle quebrado; dois upscalers ligados ao mesmo tempo são apontados, com a saída num clique. |
 | **Detalhes** | O que a máquina está fazendo pelo jogo, com a evidência. Uma visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia, qual renderiza o jogo), o desempenho (Turbo, falcond e o perfil que aplicou, perfil de energia, escalonador, V-Cache) e o pipeline de vídeo (Gamescope, Wine FSR, vkBasalt, geração de quadros, MangoHud, Gráficos com IA) — cada item diz se está **ativo**, **aguardando**, **configurado mas não detectado**, **desligado**, **sem dependência** ou **não suportado**, e ao abrir a linha, o que significa, a evidência e a correção. **Problemas** reúne o que precisa de atenção, classificado (corrigível, precisa de você, hardware, informação), com comandos para copiar. Rede, carga em segundo plano, opções de lançamento da Steam quebradas e o relatório para suporte ficam aqui. |
@@ -87,7 +87,8 @@ makepkg -si
 ```
 
 O `makepkg` instala o que falta para compilar, compila, confere as traduções,
-roda os testes e instala o pacote.
+roda os testes e instala o pacote. O PKGBUILD compila a branch `main` do
+GitHub, não as mudanças locais do clone.
 
 **3. Recomendado:** os escalonadores sched-ext, para o falcond poder trocar o
 escalonador de CPU durante o jogo.
@@ -155,12 +156,13 @@ Detalhes em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e
   bandeja depende de uma extensão AppIndicator.
 - **Jogos:** Steam (incluindo Proton), Lutris, Heroic e jogos nativos do menu de
   aplicativos.
-- **Testado em:** AMD Ryzen 7 5700G com Radeon RX 9060 XT (RDNA 4), e numa
-  máquina virtual com BigLinux padrão (instalação do zero, sem aceleração 3D).
-- **Detectado, mas não testado em hardware real:** GPUs NVIDIA e Intel, sistemas
-  híbridos (Intel/AMD + NVIDIA), CPUs híbridas, 3D V-Cache, notebooks na
-  bateria, VRR e HDR. Nessas máquinas o BiGame-mode oferece só o que detectar
-  como suportado.
+- **Testado em:** AMD Ryzen 7 5700G com Radeon RX 9060 XT (RDNA 4) e a Radeon
+  Vega integrada; um notebook híbrido com Intel HD 630 e GeForce GTX 1050 Ti
+  (driver NVIDIA 580); e uma máquina virtual com BigLinux padrão (instalação do
+  zero, sem aceleração 3D).
+- **Detectado, mas não testado em hardware real:** RDNA 3, RTX, Intel Arc,
+  CPUs híbridas, 3D V-Cache, notebooks na bateria, X11, VRR e HDR. Nessas
+  máquinas o BiGame-mode oferece só o que detectar como suportado.
 
 ## Benchmarks
 
@@ -176,27 +178,27 @@ no teste t de Welch a 95 %):
 
 Já no Cyberpunk 2077, que traz o FSR 3.1 da AMD, o FSR 4 pelo Proton (uma
 opção de execução, nenhum arquivo) rendeu o mesmo que o FSR 3.1 (38,4 → 38,2,
-sem diferença) e o OptiScaler ficou 6,4 % **mais lento** — por isso ali o
+sem diferença, duas execuções por configuração) e o OptiScaler ficou 6,4 % **mais lento** — por isso ali o
 recomendado é o FSR do próprio jogo.
 
 Na mesma máquina, fixar a GPU no nível de energia `high` deixou os jogos
 7,5–8,3 % **mais lentos**, e perfil de energia, governador e escalonadores
 sched-ext não mudaram nada — por isso o BiGame-mode não os força. A geração de
 quadros do lsfg-vk custou 42 % dos quadros renderizados em x2 (88,9 → 51,8) e
-55 % em x3, e por isso nunca é ligada sozinha. Método, todos os resultados e os
-dados brutos: [docs/BENCHMARKS.md](docs/BENCHMARKS.md); cada recurso verificado
-nesta máquina: [docs/AMD_DESKTOP_AUDIT.md](docs/AMD_DESKTOP_AUDIT.md).
+55 % em x3, e por isso nunca é ligada sozinha. Método e todos os resultados:
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md); os dados brutos de cada sessão ficam
+em `bigame-engine/benchmarks/`.
 
 ## Desenvolvimento
 
-Requer Rust 1.85 ou mais novo, GTK 4.14+, libadwaita 1.6+ e
+Requer Rust 1.85 ou mais novo, GTK 4.14+, libadwaita 1.7+ e
 `glib-compile-resources`.
 
 ```bash
 cd bigame-engine
 cargo build --workspace
 cargo test --workspace
-cargo clippy --workspace --all-targets     # sem avisos (lints pedantic)
+cargo clippy --workspace --all-targets -- -D warnings   # lints pedantic
 ./target/debug/bigame-ui
 ./target/debug/bigame-ui --diagnostics     # relatório de suporte no terminal
 ```
@@ -222,7 +224,9 @@ código:
 
 ```bash
 python3 locale/extract-strings.py        # atualiza locale/bigame-mode.pot
-msgmerge -U --no-wrap locale/pt_BR.po locale/bigame-mode.pot
+for po in locale/*.po; do
+    msgmerge -U --no-wrap --no-fuzzy-matching "$po" locale/bigame-mode.pot
+done
 ```
 
 O build falha se o template estiver desatualizado.

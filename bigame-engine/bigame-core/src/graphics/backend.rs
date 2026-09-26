@@ -11,7 +11,7 @@
 //!   ([`super::transaction`]). The only backend BiGame-mode manages files for.
 //! - **AMD neural rendering, external**: DLSS-NR-on-AMD, a project whose
 //!   license allows neither redistribution nor automated installation
-//!   (see `docs/AI_GRAPHICS_LICENSE_AUDIT.md`). BiGame-mode detects it,
+//!   (see `docs/SECURITY.md`, Licensing). BiGame-mode detects it,
 //!   explains it, links to it and reports on it; it never downloads, places
 //!   or removes its files.
 //!
