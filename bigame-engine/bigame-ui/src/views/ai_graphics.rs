@@ -187,7 +187,7 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     let now = adw::PreferencesGroup::new();
     now.set_title(&i18n("Current"));
     if let Some(g) = r.gpu() {
-        let mut sub = g.family().label();
+        let mut sub = tr(&g.family().label());
         if let Some(u) = &g.userspace {
             let _ = write!(sub, " · {u}");
         }
@@ -647,15 +647,22 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
         details.add_row(&row(&i18n("Graphics card"), &sub));
     }
     let n = &r.native;
+    let version = |v: &str| {
+        if v == bigame_core::graphics::report::PRESENT {
+            i18n(bigame_core::graphics::report::PRESENT)
+        } else {
+            v.to_owned()
+        }
+    };
     let mut native = Vec::new();
     if let Some(v) = &n.dlss {
-        native.push(format!("DLSS {v}"));
+        native.push(format!("DLSS {}", version(v)));
     }
     if let Some(v) = &n.xess {
-        native.push(format!("XeSS {v}"));
+        native.push(format!("XeSS {}", version(v)));
     }
     if let Some(v) = &n.fsr {
-        native.push(format!("FSR {v}"));
+        native.push(format!("FSR {}", version(v)));
     }
     if n.frame_gen() {
         native.push(i18n("frame generation"));
