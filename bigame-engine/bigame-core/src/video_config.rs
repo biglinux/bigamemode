@@ -82,7 +82,8 @@ pub fn save_to(cfg: &VideoConfig, path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn env_file_path() -> PathBuf {
+/// The session environment file: `~/.config/environment.d/bigame-mode.conf`.
+pub(crate) fn env_file_path() -> PathBuf {
     crate::paths::config_home()
         .join("environment.d")
         .join("bigame-mode.conf")

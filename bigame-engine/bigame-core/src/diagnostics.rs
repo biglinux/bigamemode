@@ -85,11 +85,13 @@ pub fn report(include_network: bool) -> String {
     let _ = writeln!(out, "generated      {}", timestamp());
     let _ = writeln!(out);
 
+    section_bigame(&mut out);
     section_system(&mut out, &hw);
     section_cpu(&mut out, &hw);
     section_gpu(&mut out, &hw);
     section_display(&mut out, &hw);
     section_stack(&mut out, &caps);
+    section_versions(&mut out, std::path::Path::new(crate::health::PACMAN_DB));
     section_scheduler(&mut out, &caps);
     section_falcond(&mut out);
     section_booster(&mut out);
@@ -97,19 +99,25 @@ pub fn report(include_network: bool) -> String {
         section_network(&mut out);
     }
     section_conflicts(&mut out, &caps);
+    section_files(&mut out);
 
     redact_paths(&out)
 }
 
 fn timestamp() -> String {
+    // SAFETY: `time(NULL)` only reads the clock.
+    date(unsafe { libc::time(std::ptr::null_mut()) })
+}
+
+/// The local date of `when`, in seconds since the epoch.
+fn date(when: libc::time_t) -> String {
     // Date only: a precise time adds nothing to a bug report and is one more
     // thing that can correlate a user across reports.
-    // SAFETY: `time(NULL)` only reads the clock, and `localtime_r` writes
-    // only into the `tm` it is given.
+    // SAFETY: `localtime_r` only reads `when` and writes into the `tm` it is
+    // given.
     let tm = unsafe {
-        let now = libc::time(std::ptr::null_mut());
         let mut tm: libc::tm = std::mem::zeroed();
-        if libc::localtime_r(&raw const now, &raw mut tm).is_null() {
+        if libc::localtime_r(&raw const when, &raw mut tm).is_null() {
             return "unknown".into();
         }
         tm
@@ -120,6 +128,92 @@ fn timestamp() -> String {
         tm.tm_mon + 1,
         tm.tm_mday
     )
+}
+
+/// What BiGame-mode itself is doing: the first thing support asks.
+fn section_bigame(out: &mut String) {
+    use crate::turbo::Section;
+
+    let _ = writeln!(out, "── BiGame-mode ──");
+    let reader = crate::systemd::Reader::shared();
+    let unit = reader.and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+    // As Home reads it (turbo::state): falcond's unit when it is installed,
+    // Booster's journal without it.
+    let turbo = match &unit {
+        Some(u) if u.is_installed() => on_off(u.is_active()),
+        Some(_) => on_off(crate::booster::BoosterEngine::is_active()),
+        None => "unknown (systemd did not answer)",
+    };
+    let _ = writeln!(out, "  Turbo        {turbo}");
+    match &unit {
+        Some(u) if u.is_installed() => {
+            let _ = writeln!(
+                out,
+                "  falcond unit {} · {} · {} automatic restart(s)",
+                u.active_state,
+                u.unit_file_state,
+                reader
+                    .and_then(|r| r.restarts(crate::turbo::BACKEND_UNIT))
+                    .map_or_else(|| "unknown".to_owned(), |n| n.to_string())
+            );
+        }
+        Some(_) => {
+            let _ = writeln!(out, "  falcond unit not installed");
+        }
+        None => {}
+    }
+    let _ = writeln!(
+        out,
+        "  preset       {} in force · {} chosen for the next Turbo",
+        crate::turbo_preset::active().label(),
+        crate::turbo_preset::chosen().label()
+    );
+    let _ = writeln!(
+        out,
+        "  owns falcond {}",
+        crate::turbo::owned_since()
+            .and_then(|t| libc::time_t::try_from(t).ok())
+            .map_or_else(|| "no".to_owned(), |t| format!("since {}", date(t)))
+    );
+    match crate::turbo::Report::load_last() {
+        Some(report) => {
+            let counts: Vec<String> = [
+                (Section::Verified, "verified"),
+                (Section::Restored, "restored"),
+                (Section::ManagedPerGame, "managed per game"),
+                (Section::Skipped, "skipped"),
+                (Section::Unavailable, "unavailable"),
+                (Section::ConflictAvoided, "conflict avoided"),
+                (Section::Failed, "failed"),
+            ]
+            .into_iter()
+            .filter_map(|(section, name)| {
+                let n = report.count(section);
+                (n > 0).then(|| format!("{n} {name}"))
+            })
+            .collect();
+            let _ = writeln!(
+                out,
+                "  last Turbo   switched {} {} · {}",
+                on_off(report.turned_on),
+                libc::time_t::try_from(report.at).map_or_else(|_| "unknown".to_owned(), date),
+                if counts.is_empty() {
+                    "nothing to do".to_owned()
+                } else {
+                    counts.join(", ")
+                }
+            );
+            // What failed is what a supporter asks about next; the detail
+            // is kept in English for exactly this.
+            for item in report.items.iter().filter(|i| i.section == Section::Failed) {
+                let _ = writeln!(out, "     failed: {} ({})", item.detail, item.owner);
+            }
+        }
+        None => {
+            let _ = writeln!(out, "  last Turbo   no report yet");
+        }
+    }
+    let _ = writeln!(out);
 }
 
 fn section_system(out: &mut String, hw: &Hardware) {
@@ -226,6 +320,9 @@ fn section_gpu(out: &mut String, hw: &Hardware) {
     if hw.gpus.is_empty() {
         let _ = writeln!(out, "  none detected");
     }
+    // The model's name and the userspace driver's version, as AI Graphics
+    // reads them: which Mesa or NVIDIA release is the usual first question.
+    let (infos, _) = crate::graphics::report::gpu_infos(hw, None);
     for (i, gpu) in hw.gpus.iter().enumerate() {
         let role = if hw.render_gpu == Some(i) {
             "  <- renders games"
@@ -237,6 +334,16 @@ fn section_gpu(out: &mut String, hw: &Hardware) {
             "  {} {:?} {} driver {}{}",
             gpu.card, gpu.vendor, gpu.pci_id, gpu.driver, role
         );
+        if let Some(info) = infos.get(i) {
+            let _ = writeln!(
+                out,
+                "     {} · {}",
+                info.name,
+                info.userspace
+                    .as_deref()
+                    .unwrap_or("userspace driver unknown")
+            );
+        }
         let _ = writeln!(
             out,
             "     vram {} · {} · dpm {}",
@@ -335,6 +442,64 @@ fn section_stack(out: &mut String, caps: &Capabilities) {
     let _ = writeln!(out);
 }
 
+/// The packages that decide how a game runs. The version a problem was seen
+/// with is the first thing a fix is checked against.
+const PACKAGES: [&str; 13] = [
+    "bigame-mode",
+    "falcond",
+    "falcond-profiles",
+    "gamescope",
+    "mangohud",
+    "vkbasalt",
+    "lsfg-vk",
+    "scx-scheds",
+    "scx-tools",
+    "power-profiles-daemon",
+    "mesa",
+    "gtk4",
+    "libadwaita",
+];
+
+/// Listed only when installed: each belongs to one vendor or setup, and
+/// "not installed" would read as a fault on every other machine.
+const OPTIONAL_PACKAGES: [&str; 10] = [
+    "lib32-mangohud",
+    "lib32-vkbasalt",
+    "vulkan-radeon",
+    "lib32-vulkan-radeon",
+    "vulkan-intel",
+    "lib32-vulkan-intel",
+    "nvidia-utils",
+    "lib32-nvidia-utils",
+    "steam",
+    "gamemode",
+];
+
+/// Package versions, from pacman's database: what is installed, which is not
+/// always what runs (the kernel and falcond's own status say that).
+fn section_versions(out: &mut String, db: &std::path::Path) {
+    let _ = writeln!(out, "── Versions ──");
+    if !db.is_dir() {
+        let _ = writeln!(out, "  no pacman database at {}", db.display());
+        let _ = writeln!(out);
+        return;
+    }
+    for name in PACKAGES {
+        let version = crate::health::package_version(db, name);
+        let _ = writeln!(
+            out,
+            "  {name:<22} {}",
+            version.as_deref().unwrap_or("not installed")
+        );
+    }
+    for name in OPTIONAL_PACKAGES {
+        if let Some(version) = crate::health::package_version(db, name) {
+            let _ = writeln!(out, "  {name:<22} {version}");
+        }
+    }
+    let _ = writeln!(out);
+}
+
 fn section_scheduler(out: &mut String, caps: &Capabilities) {
     let scx = &caps.sched_ext;
     let _ = writeln!(out, "── sched-ext ──");
@@ -389,6 +554,14 @@ fn section_falcond(out: &mut String) {
                 out,
                 "  active       {}",
                 status.active_profile.as_deref().unwrap_or("none")
+            );
+            let _ = writeln!(
+                out,
+                "  live         performance mode {} · scx {} · vcache {} · screen kept awake {}",
+                on_off(status.perf_mode_active),
+                or_none(&status.current_scx),
+                or_none(&status.current_vcache),
+                yes_no(status.screensaver_inhibited)
             );
         }
         None => {
@@ -533,6 +706,75 @@ fn section_conflicts(out: &mut String, caps: &Capabilities) {
     let _ = writeln!(out);
 }
 
+/// Where BiGame-mode keeps its files and where its logs go, so a supporter
+/// can ask for the right one.
+fn section_files(out: &mut String) {
+    let _ = writeln!(out, "── Files and logs ──");
+    let config = crate::paths::config_home().join("bigame-mode");
+    let state = crate::paths::state_home().join("bigame-mode");
+    let _ = writeln!(out, "  settings     {}", listing(&config));
+    let _ = writeln!(out, "  state        {}", listing(&state));
+    let _ = writeln!(
+        out,
+        "  environment  {}",
+        present(&crate::video_config::env_file_path())
+    );
+    let _ = writeln!(out, "  lsfg-vk      {}", present(&crate::fg::config_path()));
+    let _ = writeln!(
+        out,
+        "  falcond      {} · profiles in {}",
+        present(std::path::Path::new(crate::config::CONFIG_PATH)),
+        crate::profiles::USER_PROFILES_DIR
+    );
+    let _ = writeln!(
+        out,
+        "  logs         journalctl -b -u falcond -u bigame-daemon -u scx_loader -u power-profiles-daemon"
+    );
+    let _ = writeln!(
+        out,
+        "               journalctl -b -t bigame-ui -t gamescope"
+    );
+    let _ = writeln!(out, "  this report  bigame-ui --diagnostics [--network]");
+    let _ = writeln!(out);
+}
+
+/// A folder and the names in it, never what they hold.
+fn listing(dir: &std::path::Path) -> String {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return format!("{} (missing)", dir.display());
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if e.file_type().is_ok_and(|t| t.is_dir()) {
+                format!("{name}/")
+            } else {
+                name
+            }
+        })
+        .collect();
+    names.sort();
+    format!("{} ({})", dir.display(), names.join(", "))
+}
+
+fn present(path: &std::path::Path) -> String {
+    if path.exists() {
+        path.display().to_string()
+    } else {
+        format!("{} (missing)", path.display())
+    }
+}
+
+/// falcond leaves a live value empty while no game runs.
+fn or_none(value: &str) -> &str {
+    if value.is_empty() { "none" } else { value }
+}
+
+fn on_off(v: bool) -> &'static str {
+    if v { "on" } else { "off" }
+}
+
 fn yes_no(v: bool) -> &'static str {
     if v { "yes" } else { "no" }
 }
@@ -611,19 +853,58 @@ mod tests {
     fn the_report_answers_the_questions_support_asks() {
         let text = report(false);
         for heading in [
+            "── BiGame-mode ──",
             "── System ──",
             "── CPU ──",
             "── GPU ──",
             "── Displays ──",
             "── Gaming stack ──",
+            "── Versions ──",
             "── sched-ext ──",
             "── falcond ──",
             "── Booster ──",
             "── Conflicts ──",
+            "── Files and logs ──",
         ] {
             assert!(text.contains(heading), "missing section {heading}");
         }
         assert!(text.contains("BiGame-mode diagnostics"));
+    }
+
+    #[test]
+    fn versions_come_from_the_package_database_and_absence_is_said() {
+        let db = tempfile::tempdir().unwrap();
+        let entry = db.path().join("falcond-2.0.3-1");
+        std::fs::create_dir(&entry).unwrap();
+        std::fs::write(
+            entry.join("desc"),
+            "%NAME%\nfalcond\n\n%VERSION%\n2.0.3-1\n",
+        )
+        .unwrap();
+        let mut out = String::new();
+        section_versions(&mut out, db.path());
+        assert!(out.contains("falcond                2.0.3-1"), "{out}");
+        assert!(
+            out.contains("gamescope              not installed"),
+            "{out}"
+        );
+        // A vendor's package is not a fault on another vendor's machine.
+        assert!(!out.contains("nvidia-utils"), "{out}");
+
+        let mut out = String::new();
+        section_versions(&mut out, &db.path().join("nowhere"));
+        assert!(out.contains("no pacman database"), "{out}");
+    }
+
+    #[test]
+    fn a_folder_is_listed_by_name_only() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("settings.toml"), "secret = 1").unwrap();
+        std::fs::create_dir(dir.path().join("games")).unwrap();
+        let text = listing(dir.path());
+        assert!(text.ends_with("(games/, settings.toml)"), "{text}");
+        assert!(!text.contains("secret"));
+        assert!(listing(&dir.path().join("gone")).ends_with("(missing)"));
     }
 
     #[test]

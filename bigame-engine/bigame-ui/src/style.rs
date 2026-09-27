@@ -29,3 +29,37 @@ pub fn load_css() {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// The application icon, as installed and as bundled in the resource.
+    const ICON: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../usr/share/icons/hicolor/scalable/apps/com.biglinux.BiGameMode.svg"
+    ));
+
+    /// A value of an attribute on the `<svg>` element.
+    fn root_attribute(svg: &str, name: &str) -> Option<String> {
+        let root = &svg[svg.find("<svg")?..];
+        let root = &root[..root.find('>')?];
+        let start = root.find(&format!(" {name}=\""))? + name.len() + 3;
+        Some(root[start..][..root[start..].find('"')?].to_owned())
+    }
+
+    #[test]
+    fn the_app_icon_declares_a_size_the_about_dialog_can_draw_sharp() {
+        // GTK draws an SVG at the size it declares and scales that picture:
+        // declared at 24 px, the About dialog's 128 px icon came out blurred
+        // and smeared. The drawing itself is in the 24-unit viewBox.
+        for name in ["width", "height"] {
+            let size: f64 = root_attribute(ICON, name)
+                .and_then(|v| v.trim_end_matches("px").parse().ok())
+                .unwrap_or(0.0);
+            assert!(size >= 256.0, "{name} is {size}");
+        }
+        assert_eq!(
+            root_attribute(ICON, "viewBox").as_deref(),
+            Some("0 0 24 24")
+        );
+    }
+}
