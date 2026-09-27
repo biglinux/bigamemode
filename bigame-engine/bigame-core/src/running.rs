@@ -937,11 +937,78 @@ pub fn frame_cap_in(environ: &[u8]) -> Option<u32> {
         .filter(|fps| *fps > 0)
 }
 
+/// The Gamescope process names: the X11 and Wayland builds, and the reaper
+/// Gamescope starts the game under.
+const GAMESCOPE_NAMES: &[&str] = &["gamescope", "gamescope-wl", "gamescopereaper"];
+
+/// Whether the game runs inside Gamescope, from the process names around
+/// it (`names`: its tree and its ancestors) and its environment.
+///
+/// Where Gamescope sits depends on who started the game: BiGame-mode's own
+/// launch puts it above the game; Steam's launch options put it above
+/// Steam's reaper, so it is an ancestor of the whole tree, never inside it
+/// (seen on the reference desktop: `steam → gamescope-wl → gamescopereaper
+/// → reaper → … → SOTTR.exe`). Gamescope also hands the game its own
+/// display (`GAMESCOPE_WAYLAND_DISPLAY`), which settles it whatever the
+/// tree looks like.
+#[must_use]
+pub fn wrapped_by_gamescope<'a>(names: impl IntoIterator<Item = &'a str>, environ: &[u8]) -> bool {
+    names.into_iter().any(|n| GAMESCOPE_NAMES.contains(&n))
+        || environ
+            .split(|b| *b == 0)
+            .any(|e| e.starts_with(b"GAMESCOPE_WAYLAND_DISPLAY="))
+}
+
+/// The names of `pid`'s ancestors, nearest first, up to init.
+fn ancestor_names(process: u32) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut current = process;
+    for _ in 0..64 {
+        let Some((_, _, parent)) = std::fs::read_to_string(format!("/proc/{current}/stat"))
+            .ok()
+            .and_then(|stat| parse_stat_name(&stat))
+        else {
+            break;
+        };
+        if parent <= 1 {
+            break;
+        }
+        current = parent;
+        if let Some((_, name, _)) = std::fs::read_to_string(format!("/proc/{current}/stat"))
+            .ok()
+            .and_then(|stat| parse_stat_name(&stat))
+        {
+            names.push(name);
+        }
+    }
+    names
+}
+
+/// `(process, comm, parent)` from a `/proc/<pid>/stat` line; the name is in
+/// parentheses and may hold spaces.
+fn parse_stat_name(stat: &str) -> Option<(u32, String, u32)> {
+    let open = stat.find('(')?;
+    let close = stat.rfind(')')?;
+    let process = stat[..open].trim().parse().ok()?;
+    let name = stat[open + 1..close].to_owned();
+    let parent = stat[close + 1..].split_whitespace().nth(1)?.parse().ok()?;
+    Some((process, name, parent))
+}
+
 /// Read [`InGame`] for `game`.
 #[must_use]
 pub fn in_game(game: &GameIdentity) -> InGame {
     let maps = std::fs::read_to_string(format!("/proc/{}/maps", game.pid)).unwrap_or_default();
     let layers = layers_from_maps(&maps);
+    let environ = std::fs::read(format!("/proc/{}/environ", game.pid)).unwrap_or_default();
+    let ancestors = ancestor_names(game.pid);
+    let gamescope = wrapped_by_gamescope(
+        game.tree
+            .iter()
+            .map(|(_, n)| n.as_str())
+            .chain(ancestors.iter().map(String::as_str)),
+        &environ,
+    );
     let frame_generation = layers
         .lsfg
         .then(|| crate::fg::read_profile(&game.process_name).0);
@@ -951,14 +1018,9 @@ pub fn in_game(game: &GameIdentity) -> InGame {
         frame_generation: frame_generation.filter(|m| *m > 1 && crate::fg::is_lossless_dll_ready()),
         frame_generation_changed: layers.lsfg
             && changed_since_start(&crate::fg::config_path(), game.pid),
-        gamescope: game
-            .tree
-            .iter()
-            .any(|(_, name)| name == "gamescope" || name == "gamescope-wl"),
+        gamescope,
         scheduler: loaded_scheduler(),
-        frame_cap: std::fs::read(format!("/proc/{}/environ", game.pid))
-            .ok()
-            .and_then(|e| frame_cap_in(&e)),
+        frame_cap: frame_cap_in(&environ),
     }
 }
 
@@ -1548,6 +1610,36 @@ mod tests {
             identify(&tree).is_empty(),
             "the launcher is not what falcond should key on"
         );
+    }
+
+    #[test]
+    fn gamescope_is_seen_above_steams_reaper_and_in_the_games_environment() {
+        // Steam's launch options: Gamescope above the reaper (an ancestor).
+        let tree = ["reaper", "pv-adverb", "python3", "SOTTR.exe"];
+        let ancestors = ["gamescopereaper", "gamescope-wl", "steam", "bash"];
+        assert!(!wrapped_by_gamescope(tree, b""));
+        assert!(wrapped_by_gamescope(tree.into_iter().chain(ancestors), b""));
+        // BiGame-mode's own launch: Gamescope in the tree.
+        assert!(wrapped_by_gamescope(["gamescope", "Game.exe"], b""));
+        // Gamescope's own display in the game's environment settles it.
+        assert!(wrapped_by_gamescope(
+            ["Game.exe"],
+            b"HOME=/h\0GAMESCOPE_WAYLAND_DISPLAY=/run/x\0"
+        ));
+        assert!(!wrapped_by_gamescope(["Game.exe"], b"DISPLAY=:0\0"));
+    }
+
+    #[test]
+    fn a_stat_line_gives_the_name_and_parent_even_with_spaces_in_the_name() {
+        assert_eq!(
+            parse_stat_name("1355477 (SOTTR.exe) S 1355400 1 2 0 -1"),
+            Some((1_355_477, "SOTTR.exe".into(), 1_355_400))
+        );
+        assert_eq!(
+            parse_stat_name("7 (my game (x)) R 3 7 7 0 -1"),
+            Some((7, "my game (x)".into(), 3))
+        );
+        assert_eq!(parse_stat_name("garbage"), None);
     }
 
     #[test]
