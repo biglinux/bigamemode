@@ -27,7 +27,7 @@
 //! on disk, it is used, and if it does not, the fallback chain degrades to an
 //! icon rather than to an empty box.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// Where a game came from.
@@ -1278,6 +1278,9 @@ pub struct HeroicEntry {
     pub executable: Option<PathBuf>,
     /// The game's id in Heroic (`app_name`), which names its settings file.
     pub app_name: Option<String>,
+    /// Its artwork's addresses (`art_square`, then `art_cover`): Heroic keeps
+    /// what it downloaded under `images-cache/`, named by their SHA-256.
+    pub art: Vec<String>,
 }
 
 /// The installed games among a Heroic store library (`store_cache/*_library.json`,
@@ -1309,6 +1312,7 @@ pub fn heroic_library_entries(json: &str) -> Vec<HeroicEntry> {
                 install_path: string(install, "install_path").map(PathBuf::from),
                 executable: string(install, "executable").map(PathBuf::from),
                 app_name: string(g, "app_name"),
+                art: heroic_art(g),
             })
         })
         .collect()
@@ -1354,7 +1358,39 @@ pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
                 app_name: string("app_name")
                     .or_else(|| string("appName"))
                     .or_else(|| string("id")),
+                art: heroic_art(r),
             })
+        })
+        .collect()
+}
+
+/// A Heroic record's artwork addresses, portrait first.
+fn heroic_art(record: &serde_json::Value) -> Vec<String> {
+    ["art_square", "art_cover"]
+        .iter()
+        .filter_map(|k| record.get(*k).and_then(serde_json::Value::as_str))
+        .filter(|u| u.starts_with("https://") || u.starts_with("http://"))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The artwork of every game a Heroic store library lists, installed or
+/// not, by `app_name`: a backend's `installed.json` names no artwork.
+#[must_use]
+pub fn heroic_library_art(json: &str) -> HashMap<String, Vec<String>> {
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(json) else {
+        return HashMap::new();
+    };
+    root.get("library")
+        .or_else(|| root.get("games"))
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|g| {
+            let name = g.get("app_name")?.as_str()?.to_owned();
+            let art = heroic_art(g);
+            (!art.is_empty()).then_some((name, art))
         })
         .collect()
 }
@@ -1381,9 +1417,11 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
     let mut games = Vec::new();
     for base in configs {
         let mut entries = Vec::new();
+        let mut art = HashMap::new();
         for file in HEROIC_LIBRARIES {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
                 entries.extend(heroic_library_entries(&json));
+                art.extend(heroic_library_art(&json));
             }
         }
         for file in HEROIC_INSTALLED {
@@ -1391,7 +1429,12 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
                 entries.extend(heroic_installed_entries(&json));
             }
         }
-        for entry in entries {
+        for mut entry in entries {
+            if entry.art.is_empty() {
+                if let Some(found) = entry.app_name.as_ref().and_then(|a| art.get(a)) {
+                    entry.art.clone_from(found);
+                }
+            }
             let Some(game) = heroic_game(base, entry) else {
                 continue;
             };
@@ -1418,7 +1461,7 @@ fn heroic_game(base: &Path, entry: HeroicEntry) -> Option<DetectedGame> {
         .filter(|exe| runs_natively(exe))
         .map(|exe| vec![exe.to_string_lossy().into_owned()]);
     Some(DetectedGame {
-        cover: heroic_cover(base, &entry.title),
+        cover: heroic_cover(base, &entry.art),
         executables: executables_of(launch_file.as_deref(), install_path.as_deref()),
         name: entry.title,
         source: Source::Heroic,
@@ -1434,19 +1477,14 @@ fn heroic_game(base: &Path, entry: HeroicEntry) -> Option<DetectedGame> {
     })
 }
 
-fn heroic_cover(base: &Path, title: &str) -> Option<PathBuf> {
-    let slug: String = title
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect();
+/// The first of `art` Heroic has downloaded: `images-cache/<SHA-256 of the
+/// address>`, without an extension.
+fn heroic_cover(base: &Path, art: &[String]) -> Option<PathBuf> {
     let dir = base.join("images-cache");
-    for ext in ["jpg", "png", "webp"] {
-        let path = dir.join(format!("{slug}.{ext}"));
-        if path.is_file() {
-            return Some(path);
-        }
-    }
-    None
+    art.iter().find_map(|url| {
+        let path = dir.join(crate::graphics::manifest::sha256_bytes(url.as_bytes()));
+        path.is_file().then_some(path)
+    })
 }
 
 #[cfg(test)]
@@ -2074,6 +2112,36 @@ mod tests {
             Some(Path::new("/g/Amazon"))
         );
         assert!(heroic_installed_entries("{}").is_empty());
+    }
+
+    #[test]
+    fn a_heroic_cover_is_found_by_the_hash_of_its_address() {
+        let root = tempdir("heroic_cover");
+        let config = root.join("config/heroic");
+        let game = root.join("Games/Worlds");
+        write(&game.join("Worlds.exe"), &vec![0u8; 300 * 1024]);
+        let url = "https://cdn1.epicgames.com/item/x/Worlds_1200x1600-abc";
+        // Only the library knows the artwork; installed.json names none.
+        write(
+            &config.join("store_cache/legendary_library.json"),
+            format!(r#"{{"library": [{{"app_name": "w", "title": "Worlds", "is_installed": false, "art_square": "{url}"}}]}}"#).as_bytes(),
+        );
+        write(
+            &config.join("legendaryConfig/legendary/installed.json"),
+            format!(
+                r#"{{"w": {{"app_name": "w", "title": "Worlds", "install_path": "{}", "executable": "Worlds.exe"}}}}"#,
+                game.display()
+            )
+            .as_bytes(),
+        );
+        // Named by the SHA-256 of the address, with no extension.
+        let expected = config
+            .join("images-cache")
+            .join(crate::graphics::manifest::sha256_bytes(url.as_bytes()));
+        write(&expected, b"\xff\xd8\xff");
+        let games = dedup(heroic_games(&[config]));
+        assert_eq!(games.len(), 1, "{games:?}");
+        assert_eq!(games[0].cover.as_deref(), Some(expected.as_path()));
     }
 
     #[test]
