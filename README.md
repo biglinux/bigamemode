@@ -139,8 +139,10 @@ classificados, com comandos para copiar.
 
 ### 🎛️ Ajustes honestos
 
-Desempenho do sistema, exibição e Gamescope, upscaling e nitidez (Wine FSR e
-vkBasalt), geração de quadros (lsfg-vk), overlay e opções avançadas. O que a
+Desempenho do sistema, exibição e Gamescope (tamanhos escolhidos entre as
+resoluções padrão, com a da tela principal detectada), upscaling e nitidez
+(Wine FSR e vkBasalt, com os visuais CAS e Nara Linux), geração de quadros
+(lsfg-vk), overlay e opções avançadas, cada opção técnica com um ⓘ. O que a
 máquina não pode fazer aparece como **não suportado** ou **dependência
 ausente**, com o comando que resolve. Nunca aparece um controle quebrado.
 
@@ -166,7 +168,7 @@ supera a variação.
 | **Perfis** | A biblioteca de jogos com capas, busca e filtros. Cada perfil mostra as mesmas seções dos Ajustes, só para aquele jogo, e o que fica em "Configuração geral" segue os Ajustes. Cada perfil define o modo de desempenho, o escalonador sched-ext, o modo do 3D V-Cache, a inibição de repouso, o Gamescope, o MangoHud (desligado, ligado ou forçado) e o lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
 | **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
-| **Registros** | O que importa numa sessão de jogo, vindo do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
+| **Registros** | O que importa numa sessão de jogo: falcond, BiGame-mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
 | **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
 
 Fechar a janela deixa o aplicativo na **bandeja**. A cor do ícone indica o
@@ -500,7 +502,12 @@ licenças:
   power-profiles-daemon, systemd, D-Bus e Polkit.
 - **Jogos e gráficos:** [OptiScaler](https://github.com/optiscaler/OptiScaler),
   Gamescope e Proton (Valve), DXVK, VKD3D-Proton,
-  [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk), MangoHud e vkBasalt. DLSS,
+  [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk), MangoHud e vkBasalt. O
+  visual **Nara Linux** do vkBasalt é do Narayan, do canal
+  [Nara Linux](https://www.youtube.com/watch?v=GGBC-qMB_0Y), e usa shaders do
+  [ReShade](https://github.com/crosire/reshade-shaders) e do
+  [SweetFX](https://github.com/CeeJayDK/SweetFX), baixados só quando esse
+  visual é escolhido, em versões fixas conferidas pelo SHA-256. DLSS,
   XeSS e FSR pertencem a NVIDIA, Intel e AMD e seguem as licenças delas.
 - **Aplicativo:** Rust, GTK e libadwaita (GNOME), gtk4-rs, zbus, Tokio, Serde,
   ksni e gettext.
