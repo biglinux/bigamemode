@@ -400,13 +400,13 @@ fn show_about_dialog(app: &adw::Application) {
     // to the page; a social-media handle is neither, so it stays text.
     dialog.add_credit_section(
         Some(&i18n("Lead Developer")),
-        &["Rafael Ruscher <rruscher@gmail.com>"],
+        &["Rafael Ruscher · rruscher@gmail.com <rruscher@gmail.com>"],
     );
     dialog.add_credit_section(
         Some(&i18n("Special Thanks")),
         &[
-            "Bruno Gonçalves <bigbruno@gmail.com>",
-            "Barnabé di Kartola <barnabedikartola@gmail.com>",
+            "Bruno Gonçalves · bigbruno@gmail.com <bigbruno@gmail.com>",
+            "Barnabé di Kartola · barnabedikartola@gmail.com <barnabedikartola@gmail.com>",
             "Alexasandro Pacheco Feliciano (Pacheco) @pachecogameroficial",
             "Alessandro e Silva Xavier (Alessandro) @alessandro741",
         ],
