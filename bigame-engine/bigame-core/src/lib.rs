@@ -35,6 +35,7 @@ pub mod profiles;
 pub mod recommend;
 pub mod running;
 pub mod sched;
+pub mod screen;
 pub mod status;
 pub mod steam;
 pub mod steam_gamescope;
@@ -44,6 +45,7 @@ pub mod turbo;
 pub mod turbo_preset;
 pub mod vcache;
 pub mod video_config;
+pub mod vkbasalt;
 pub mod watch;
 
 /// Seconds since the Unix epoch, as recorded in journals, manifests and

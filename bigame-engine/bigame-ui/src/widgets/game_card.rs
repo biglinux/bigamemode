@@ -87,16 +87,16 @@ pub struct Entry {
 }
 
 impl Entry {
-    /// Status line under the title.
+    /// Status line under the title: whether the game has a profile. The
+    /// launcher is on the cover's badge.
     #[must_use]
     pub fn status(&self) -> String {
         if !self.has_profile {
-            return self.source.clone();
-        }
-        if self.system_profile {
-            format!("{} · {}", self.source, i18n("Built-in profile"))
+            i18n("Without profile")
+        } else if self.system_profile {
+            i18n("With profile · built-in")
         } else {
-            format!("{} · {}", self.source, i18n("Custom profile"))
+            i18n("With profile")
         }
     }
 
@@ -202,7 +202,7 @@ where
     card.set_can_focus(true);
     card.update_property(&[
         gtk4::accessible::Property::Label(&entry.title),
-        gtk4::accessible::Property::Description(&entry.status()),
+        gtk4::accessible::Property::Description(&format!("{} · {}", entry.source, entry.status())),
     ]);
 
     let reveal = {
@@ -470,9 +470,9 @@ mod tests {
 
     #[test]
     fn status_distinguishes_no_profile_from_the_two_kinds_of_profile() {
-        assert_eq!(entry(false, false).status(), "Steam");
-        assert_eq!(entry(true, false).status(), "Steam · Custom profile");
-        assert_eq!(entry(true, true).status(), "Steam · Built-in profile");
+        assert_eq!(entry(false, false).status(), "Without profile");
+        assert_eq!(entry(true, false).status(), "With profile");
+        assert_eq!(entry(true, true).status(), "With profile · built-in");
     }
 
     #[test]

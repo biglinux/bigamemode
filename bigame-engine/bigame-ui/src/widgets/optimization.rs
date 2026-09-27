@@ -135,9 +135,9 @@ pub fn scope_banner(scope: Scope<'_>) -> adw::PreferencesGroup {
     let (icon, title, text) = match scope {
         Scope::General => (
             "applications-system-symbolic",
-            i18n("General configuration"),
+            i18n("General configuration · Global profile"),
             i18n(
-                "Used by every game. A game's profile replaces what it sets for that game; everything else follows this page.",
+                "A game without a profile of its own gets exactly these settings: this page is the Global profile, used by every game marked “Without profile”. A game's profile replaces only what it sets; everything else still follows this page.",
             ),
         ),
         Scope::Game(game) => (
@@ -361,7 +361,7 @@ pub fn cap_subtitle(widget: &gtk4::Widget, chars: i32) {
 /// Keep room for a combo row's value. GTK lays a row out for its height, so
 /// a subtitle that just fits on one line claims the width first and squeezes
 /// the value to an ellipsis ("Automá…"); the value keeps the width of the
-/// chosen item instead (at most 240 px: a longer one still ellipsizes).
+/// chosen item instead (at most 260 px: a longer one still ellipsizes).
 pub fn keep_value_width(row: &adw::ComboRow) {
     fn value_view(w: &gtk4::Widget) -> Option<gtk4::Widget> {
         if w.is::<gtk4::ListView>() && w.has_css_class("inline") {
@@ -386,7 +386,7 @@ pub fn keep_value_width(row: &adw::ComboRow) {
             .and_then(|m| m.string(row.selected()));
         let width = text.map_or(0, |t| row.create_pango_layout(Some(&t)).pixel_size().0);
         // The item's own padding on top of the text.
-        view.set_width_request((width + 6).min(240));
+        view.set_width_request((width + 14).min(260));
     };
     fit(row);
     row.connect_selected_notify(fit);

@@ -481,38 +481,10 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         page.add_controller(drop_target);
     }
 
-    // AdwPreferencesPage clamps its content to form width, which is right for
-    // settings and wrong for a poster grid — it holds the library to three
-    // columns on a 1250 px window. The page keeps its structure and margins,
-    // but the clamp is widened so the grid can use the space it has.
-    if let Some(clamp) = find_clamp(page.upcast_ref::<gtk4::Widget>()) {
-        clamp.set_maximum_size(1500);
-        clamp.set_tightening_threshold(1200);
-    }
-
     adw::NavigationPage::builder()
         .title(i18n("Game Library"))
         .child(&page)
         .build()
-}
-
-/// Locate the `AdwClamp` that `AdwPreferencesPage` builds internally.
-///
-/// There is no public API for this, so the widget tree is walked. Returning
-/// `None` simply leaves the default clamp in place, which is a narrower grid
-/// rather than a broken one.
-fn find_clamp(widget: &gtk4::Widget) -> Option<adw::Clamp> {
-    if let Ok(clamp) = widget.clone().downcast::<adw::Clamp>() {
-        return Some(clamp);
-    }
-    let mut child = widget.first_child();
-    while let Some(c) = child {
-        if let Some(found) = find_clamp(&c) {
-            return Some(found);
-        }
-        child = c.next_sibling();
-    }
-    None
 }
 
 /// The editor for the profile in file `stem`, each part read from its owner

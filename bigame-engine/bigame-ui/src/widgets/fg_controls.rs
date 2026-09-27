@@ -14,6 +14,7 @@ use crate::i18n::i18n;
 /// The `Lossless.dll` path row, with a file chooser and the licence note.
 /// `on_changed(ready)` runs after each write with whether the file exists.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn dll_row(on_changed: impl Fn(bool) + 'static) -> adw::EntryRow {
     let row = adw::EntryRow::builder()
         .title(i18n("Path to Lossless.dll"))
@@ -28,36 +29,65 @@ pub fn dll_row(on_changed: impl Fn(bool) + 'static) -> adw::EntryRow {
         .build();
     row.add_suffix(&file_btn);
 
-    let info_btn = gtk4::Button::builder()
-        .icon_name("dialog-information-symbolic")
-        .tooltip_text(i18n(
-            "Lossless Scaling is proprietary.
-Click to visit losslessscaling.com",
-        ))
+    // Found where Steam installs it: one click fills the path.
+    if let Some(found) = bigame_core::fg::find_steam_dll() {
+        let find_btn = gtk4::Button::builder()
+            .icon_name("edit-find-symbolic")
+            .tooltip_text(i18n("Use the Lossless.dll from Steam's Lossless Scaling"))
+            .valign(gtk4::Align::Center)
+            .css_classes(["flat"])
+            .build();
+        let row2 = row.clone();
+        find_btn.connect_clicked(move |_| row2.set_text(&found.to_string_lossy()));
+        row.add_suffix(&find_btn);
+    }
+
+    let info_btn = crate::widgets::info::dialog_button(&i18n("About Lossless.dll"), || {
+        use crate::widgets::info::Entry;
+        (
+            i18n("Lossless Scaling is required"),
+            i18n(
+                "lsfg-vk is free, but the frame generation it runs is Lossless Scaling's, a paid Windows program. lsfg-vk loads its Lossless.dll, which BiGame-mode cannot ship or download: you need your own copy, bought on Steam.",
+            ),
+            vec![
+                Entry {
+                    title: i18n("Where to buy it"),
+                    body: format!(
+                        "Steam: https://store.steampowered.com/app/{}/Lossless_Scaling/\n{}",
+                        bigame_core::fg::LOSSLESS_SCALING_APP,
+                        i18n("Developer and publisher: THS · E-mail: losslessscaling@gmail.com")
+                    ),
+                },
+                Entry {
+                    title: i18n("Where Lossless.dll is"),
+                    body: i18n(
+                        "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button.",
+                    ),
+                },
+                Entry {
+                    title: i18n("Without it"),
+                    body: i18n(
+                        "lsfg-vk loads and generates nothing, so BiGame-mode switches it off at launch.",
+                    ),
+                },
+            ],
+        )
+    });
+    let store_btn = gtk4::Button::builder()
+        .icon_name("web-browser-symbolic")
+        .tooltip_text(i18n("Open Lossless Scaling in the Steam store"))
         .valign(gtk4::Align::Center)
         .css_classes(["flat", "circular"])
         .build();
-    info_btn.connect_clicked(|btn| {
-        let dialog = adw::AlertDialog::builder()
-            .heading(i18n("Lossless Scaling Required"))
-            .body(i18n(
-                "This feature uses LSFG-VK which requires the proprietary Lossless.dll to function.
-
-You must legally acquire Lossless Scaling on Steam or other platforms to obtain this file.",
-            ))
-            .build();
-        dialog.add_response("cancel", &i18n("Close"));
-        dialog.add_response("web", &i18n("Visit Website"));
-        dialog.set_response_appearance("web", adw::ResponseAppearance::Suggested);
+    store_btn.connect_clicked(|btn| {
         let win = btn.root().and_downcast::<gtk4::Window>();
-        dialog.connect_response(None, move |_, response| {
-            if response == "web" {
-                let launcher = gtk4::UriLauncher::new("https://losslessscaling.com/");
-                launcher.launch(win.as_ref(), gio::Cancellable::NONE, |_| {});
-            }
-        });
-        dialog.present(Some(btn));
+        let launcher = gtk4::UriLauncher::new(&format!(
+            "https://store.steampowered.com/app/{}/Lossless_Scaling/",
+            bigame_core::fg::LOSSLESS_SCALING_APP
+        ));
+        launcher.launch(win.as_ref(), gio::Cancellable::NONE, |_| {});
     });
+    row.add_suffix(&store_btn);
     row.add_suffix(&info_btn);
 
     {
