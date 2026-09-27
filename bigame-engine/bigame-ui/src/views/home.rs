@@ -986,7 +986,18 @@ fn game_flags(snap: &Snapshot, native_fsr4: Option<bool>, turbo: bool) -> Vec<Fl
         text.unwrap_or_else(|| i18n("Frame generation")),
     ));
     flags.push(Flag::new(snap.mangohud_state(), "MangoHud"));
-    flags.push(Flag::new(snap.vkbasalt_state(), "vkBasalt"));
+    flags.push(Flag::new(
+        snap.vkbasalt_state(),
+        if snap
+            .in_game
+            .as_ref()
+            .is_some_and(|g| !g.vkbasalt && g.vkbasalt_in_gamescope)
+        {
+            "vkBasalt (Gamescope)"
+        } else {
+            "vkBasalt"
+        },
+    ));
     if let Some(fps) = snap.in_game.as_ref().and_then(|g| g.frame_cap) {
         flags.push(Flag::new(Fact::Active, format!("{fps} FPS")));
     }

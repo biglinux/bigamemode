@@ -593,6 +593,44 @@ impl GameOptimization {
     }
 }
 
+/// Bring every Steam game that has a Gamescope wrapper from BiGame-mode in
+/// line with Tuning: a game whose profile says Always takes Tuning's sizes
+/// and filter, so changing them there must reach its launch options too
+/// (before, only saving the game's profile did). Games with no wrapper are
+/// left alone. Each result says what happened for that game.
+#[must_use]
+pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gamescope::Applied>)> {
+    if crate::capabilities::which("gamescope").is_none() {
+        return Vec::new();
+    }
+    let Ok(dir) = std::fs::read_dir(crate::game_settings::dir()) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let mut names: Vec<String> = dir
+        .flatten()
+        .filter_map(|e| {
+            e.file_name()
+                .to_str()
+                .and_then(|n| n.strip_suffix(".toml"))
+                .map(str::to_owned)
+        })
+        .collect();
+    names.sort();
+    for name in names {
+        let recorded = crate::game_settings::load(&name)
+            .ok()
+            .and_then(|s| s.steam_gamescope);
+        if recorded.is_none() {
+            continue;
+        }
+        let game = GameOptimization::load(&name);
+        let wanted = game.steam_gamescope_segment();
+        out.push((name.clone(), crate::steam_gamescope::apply(&name, wanted)));
+    }
+    out
+}
+
 impl GameOptimization {
     /// The Gamescope wrapper a Steam game's launch options get. Only what
     /// the game's own profile asks for: Always (with the sizes from Tuning
