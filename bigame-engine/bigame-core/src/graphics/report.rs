@@ -524,6 +524,23 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
             translation,
         };
     }
+    // Direct3D 12 games are 64-bit: a 32-bit one (Tomb Raider, 2013) renders
+    // with D3D11 or older, which the running game confirmed.
+    if scan
+        .executable_pe
+        .as_ref()
+        .is_some_and(|p| p.machine == Some(super::pe::Machine::X86))
+    {
+        evidence.push(Text::plain(N_(
+            "the executable is 32-bit, and Direct3D 12 games are 64-bit: DX11 or older is assumed until the game is seen running",
+        )));
+        return ApiEvidence {
+            api: Some(Api::Dx11),
+            confidence: Confidence::Assumed,
+            evidence,
+            translation,
+        };
+    }
     evidence.push(Text::plain(N_(
         "nothing in the game's files names its API; DX12 is assumed until the game is seen running",
     )));
@@ -875,6 +892,20 @@ mod tests {
         );
         assert_eq!((e.api, e.confidence), (Some(Api::Dx12), Confidence::Likely));
         assert!(e.evidence[0].english().contains("gfsdk_ssao_d3d12"));
+    }
+
+    #[test]
+    fn a_32_bit_game_is_not_assumed_dx12() {
+        let mut scan = scan_with(&["kernel32.dll"], &[]);
+        if let Some(pe) = scan.executable_pe.as_mut() {
+            pe.machine = Some(Machine::X86);
+        }
+        let e = api_evidence(&scan, None);
+        assert_eq!(
+            (e.api, e.confidence),
+            (Some(Api::Dx11), Confidence::Assumed)
+        );
+        assert!(e.evidence[0].english().contains("32-bit"));
     }
 
     #[test]

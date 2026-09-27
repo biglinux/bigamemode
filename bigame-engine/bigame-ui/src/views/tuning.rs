@@ -1,366 +1,982 @@
-//! Tuning: everything applied to games, in one page.
+//! Tuning: the general configuration — what every game gets.
 //!
-//! Top to bottom, from what everyone touches to what few will: the system
-//! while a game runs (falcond), the display and Gamescope, upscaling and
-//! sharpening, frame generation, the overlay, and the advanced facts.
-//! Basic controls are visible; the rest sits inside expanders. What the
-//! machine cannot do is said as *not supported* or *missing*, with the fix,
-//! never shown as a broken control.
+//! The same six sections as a game's profile, in the same order and with
+//! the same rows (`widgets::optimization`): Performance, Display, Image
+//! quality, Frame generation, Monitoring, Advanced. A profile replaces what
+//! it sets for its game; this page is everything else. Basic controls are
+//! visible and the rest sits in expanders; what the machine cannot do is
+//! said as *not supported* or *missing*, with the fix.
 //!
 //! Two kinds of settings live here, and each says which it is: falcond's
 //! (written through the privileged helper, which reloads falcond) and the
 //! launch settings in `video.toml` (read when BiGame-mode starts a game;
-//! Wine FSR and vkBasalt also go into the session environment).
+//! Wine FSR and vkBasalt also go into the session environment). Every
+//! change is saved at once; a save that fails is said, with its reason.
 //!
 //! Two technologies doing the same job are never left on together in
-//! silence: the page says so and offers the one-click way out.
+//! silence: switching one on while the other is on asks which to keep
+//! (`widgets::notice::ask_conflict`), and a configuration that already has
+//! both — from an older version — is named with the two ways out.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use bigame_core::capabilities::Support;
 use bigame_core::models::{FrameGenBackend, GamescopeFilter, WineFsrMode};
+use bigame_core::optimization::{self as opt, Feature, PROFILE_SETS, VCACHE_MODES};
 use bigame_core::overview::State;
-use bigame_core::video_config;
+use bigame_core::video_config::{self, VideoConfig};
 
-use crate::i18n::{i18n, tr};
+use crate::i18n::{error_text, i18n, tr};
+use crate::widgets::notice::{self, Kind, Notice};
+use crate::widgets::optimization::{self as ui, Machine, Picker, Scope};
 use crate::widgets::status::Chip;
 
-/// Shared mutable config state for coordinated writes.
+/// falcond's configuration as the page last saved it.
 type SharedConfig = Rc<RefCell<bigame_core::config::FalcondConfig>>;
+
+/// The launch settings as the page holds them; every change writes them.
+type SharedVideo = Rc<RefCell<VideoConfig>>;
 
 /// Build the Tuning page.
 #[must_use]
 pub fn build() -> adw::PreferencesPage {
     let page = adw::PreferencesPage::new();
+    let m = Machine::detect();
+    let shared = Rc::new(RefCell::new(m.general.clone()));
+    let video = Rc::new(RefCell::new(m.video.clone()));
 
-    let config = bigame_core::config::read().unwrap_or_default();
-    let shared = Rc::new(RefCell::new(config));
-    let video = video_config::load();
-    // One probe for the page: it runs `gamescope --help` and asks D-Bus.
-    let caps = bigame_core::capabilities::Capabilities::detect();
-
-    page.add(&build_system_group(&shared));
-    let (gamescope_group, gamescope_scales) = build_gamescope_group(&video, &caps);
-    page.add(&gamescope_group);
-    page.add(&build_upscaling_group(&video, &gamescope_scales));
-    page.add(&build_framegen_group(&video));
-    page.add(&build_overlay_group());
-    page.add(&build_advanced_group(&caps));
-
+    page.add(&ui::scope_banner(Scope::General));
+    page.add(&build_performance(&shared, &m));
+    let display = Display::build(&video, &m);
+    page.add(&display.group);
+    page.add(&build_image_quality(&video, &display));
+    page.add(&build_frame_generation(&video, &m));
+    page.add(&build_monitoring(&m));
+    page.add(&build_advanced(&shared, &m));
     page
 }
 
-/// Write the shared config through the privileged helper, on a background thread.
-fn save_config(shared: &SharedConfig) {
+/// Write falcond's configuration through the helper, off the main thread,
+/// and say so when it fails.
+fn save_config(shared: &SharedConfig, anchor: &impl IsA<gtk4::Widget>) {
+    save_config_then(shared, anchor, || {});
+}
+
+/// [`save_config`], running `after` once the helper has written it.
+fn save_config_then(
+    shared: &SharedConfig,
+    anchor: &impl IsA<gtk4::Widget>,
+    after: impl Fn() + 'static,
+) {
     let cfg = shared.borrow().clone();
+    let anchor = anchor.clone().upcast::<gtk4::Widget>();
     // Not awaited here: zbus runs on Tokio, and the main thread has no runtime.
     glib::spawn_future_local(async move {
-        match gio::spawn_blocking(move || bigame_core::config::write_blocking(&cfg)).await {
-            Ok(Ok(())) => {}
-            Ok(Err(e)) => tracing::error!("config write failed: {e:#}"),
-            Err(_) => tracing::error!("config write failed: the worker thread panicked"),
-        }
+        let result = gio::spawn_blocking(move || bigame_core::config::write_blocking(&cfg)).await;
+        let failed = match result {
+            Ok(Ok(())) => {
+                after();
+                return;
+            }
+            Ok(Err(e)) => error_text(&e),
+            Err(_) => i18n("the worker thread stopped"),
+        };
+        crate::widgets::toast::error(
+            &anchor,
+            &i18n("Could not save falcond's configuration"),
+            &failed,
+        );
     });
 }
 
-fn save_upscaling(f: impl FnOnce(&mut bigame_core::models::UpscalingSettings)) {
-    let mut cfg = video_config::load();
-    f(&mut cfg.upscaling);
-    if let Err(e) = video_config::save(&cfg) {
-        tracing::warn!("failed to save video config: {e:#}");
+/// Write the launch settings (and the session environment), and say so when
+/// it fails.
+fn save_video(video: &SharedVideo, anchor: &impl IsA<gtk4::Widget>) {
+    if let Err(e) = video_config::save(&video.borrow()) {
+        crate::widgets::toast::error(
+            anchor,
+            &i18n("Could not save the launch settings"),
+            &error_text(&e),
+        );
     }
 }
 
-fn save_framegen(f: impl FnOnce(&mut bigame_core::models::FrameGenSettings)) {
-    let mut cfg = video_config::load();
-    f(&mut cfg.frame_gen);
-    if let Err(e) = video_config::save(&cfg) {
-        tracing::warn!("failed to save video config: {e:#}");
-    }
-    if let Err(e) = bigame_core::fg::sync_global_enablement(&cfg.frame_gen) {
-        tracing::warn!("failed to sync global lsfg-vk state: {e:#}");
-    }
-}
+// ── Performance (falcond) ───────────────────────────────────────────────────
 
-/// A row that says something is not there, with the command that installs
-/// it — in place of a control that could not work.
-fn missing_row(title: &str, what: &str, command: &str) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(format!("{what}\n→ {command}"))
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    let chip = Chip::new(State::Missing);
-    row.add_suffix(chip.widget());
-    let copy = gtk4::Button::builder()
-        .icon_name("edit-copy-symbolic")
-        .tooltip_text(i18n("Copy the command"))
-        .valign(gtk4::Align::Center)
-        .css_classes(["flat"])
-        .build();
-    let command = command.to_owned();
-    copy.connect_clicked(move |b| {
-        b.clipboard().set_text(&command);
-        crate::widgets::toast::show(b, &i18n("Copied"));
-    });
-    row.add_suffix(&copy);
-    row
-}
-
-/// A row that says the hardware cannot do something — a fact, not a fault.
-fn unsupported_row(title: &str, why: &str) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(why)
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    let chip = Chip::new(State::Unsupported);
-    row.add_suffix(chip.widget());
-    row
-}
-
-// ── System performance (falcond) ─────────────────────────────────────────────
-
-/// What falcond applies while a game runs: performance mode, the
-/// scheduler, 3D V-Cache, and its own settings.
+/// Performance mode, the scheduler and 3D V-Cache, as falcond applies them.
 #[allow(clippy::too_many_lines)]
-fn build_system_group(shared: &SharedConfig) -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("System performance"));
+fn build_performance(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
+    let group = ui::section(&i18n("Performance"));
     group.set_description(Some(&i18n(
-        "Applied by falcond while a game runs and undone when it exits. Saved through the privileged helper.",
+        "Applied by falcond while Turbo is on, and undone when it is turned off. Saved through the privileged helper.",
     )));
 
-    // Performance mode
-    let perf_row = adw::SwitchRow::builder()
+    let perf = adw::SwitchRow::builder()
         .title(i18n("Performance mode"))
         .subtitle(i18n(
-            "The performance power profile while a game with performance mode runs",
+            "The performance power profile while a game whose profile asks for it runs. Off, no game gets it.",
         ))
         .active(shared.borrow().enable_performance_mode)
         .build();
-    group.add(&perf_row);
+    group.add(&perf);
     {
         let cfg = Rc::clone(shared);
-        perf_row.connect_active_notify(move |row| {
+        perf.connect_active_notify(move |row| {
             cfg.borrow_mut().enable_performance_mode = row.is_active();
-            save_config(&cfg);
+            save_config(&cfg, row);
         });
     }
 
-    // Scheduler: the control when it can work, the reason when it cannot.
-    let caps = bigame_core::capabilities::SchedExtCaps::detect();
-    let detected = bigame_core::sched::detect_installed();
-    let has_schedulers = detected.len() > 1; // "none" is always there
-    match caps.switchable() {
-        Support::Unsupported(_) => group.add(&unsupported_row(
-            &i18n("CPU scheduler (sched-ext)"),
-            &i18n("The running kernel was built without sched_ext. A kernel with it (BigLinux's default) is needed."),
-        )),
-        Support::NotInstalled(pkg) if pkg == "scx-tools" => group.add(&missing_row(
-            &i18n("CPU scheduler (sched-ext)"),
-            &i18n("Schedulers are installed, but scx_loader is not; falcond switches schedulers only through it."),
-            "sudo pacman -S scx-tools && sudo systemctl enable --now scx_loader",
-        )),
-        Support::NotInstalled(_) => group.add(&missing_row(
-            &i18n("CPU scheduler (sched-ext)"),
-            &i18n("No sched-ext scheduler is installed. Game profiles can then ask for one."),
-            "sudo pacman -S scx-scheds scx-tools",
-        )),
-        Support::ServiceDown(_) => group.add(&missing_row(
-            &i18n("CPU scheduler (sched-ext)"),
-            &i18n("scx_loader is installed but its service is not running."),
-            "sudo systemctl enable --now scx_loader",
-        )),
-        Support::Available => {
-            let expander = adw::ExpanderRow::builder()
-                .title(i18n("CPU scheduler (sched-ext)"))
-                .subtitle(i18n(
-                    "For games without a scheduler in their profile. A game's profile overrides this.",
-                ))
-                .build();
-            let sched_strs: Vec<&str> = detected.iter().map(String::as_str).collect();
-            let sched_model = gtk4::StringList::new(&sched_strs);
-            let sched_row = adw::ComboRow::builder()
-                .title(i18n("Scheduler"))
-                .subtitle(i18n("none keeps the kernel's default"))
-                .model(&sched_model)
-                .sensitive(has_schedulers)
-                .build();
-            sched_row.set_selected(crate::views::profiles::find_index(
-                &sched_model,
-                &shared.borrow().scx_sched,
-            ));
-            let info_btn = gtk4::Button::builder()
-                .icon_name("dialog-information-symbolic")
-                .valign(gtk4::Align::Center)
-                .css_classes(["flat", "circular"])
-                .tooltip_text(i18n("Learn about Schedulers"))
-                .build();
-            info_btn.connect_clicked(|btn| {
-                if let Some(win) = btn.root().and_downcast::<gtk4::Window>() {
-                    crate::widgets::scheduler_info::show(&win);
-                }
+    if let Some(row) = ui::scheduler_unavailable_row(m) {
+        group.add(&row);
+    } else {
+        let sched = Picker::new(
+            &i18n("CPU scheduler"),
+            &i18n(
+                "Loaded while Turbo is on. A game whose profile names another scheduler switches to it while it runs.",
+            ),
+            &ui::scheduler_items(m, Scope::General),
+            &shared.borrow().scx_sched,
+        );
+        sched
+            .row
+            .add_suffix(&crate::widgets::scheduler_info::button());
+        group.add(&sched.row);
+        // What is loaded now, beside what is asked for: in the subtitle, so
+        // the choice keeps its width. Read again after a save: the helper
+        // restarts falcond, which loads the scheduler as it starts.
+        let refresh_now: Rc<dyn Fn(u32)> = {
+            let row = sched.row.clone();
+            Rc::new(move |delay_ms: u32| {
+                let row = row.clone();
+                glib::spawn_future_local(async move {
+                    glib::timeout_future(std::time::Duration::from_millis(delay_ms.into())).await;
+                    let loaded = gio::spawn_blocking(bigame_core::running::loaded_scheduler)
+                        .await
+                        .ok()
+                        .flatten();
+                    let now = match loaded {
+                        Some(name) => i18n("Now: %s").replace("%s", &name),
+                        None => i18n("Now: the kernel's own scheduler"),
+                    };
+                    row.set_subtitle(&format!(
+                        "{}\n{now}",
+                        i18n(
+                            "Loaded while Turbo is on. A game whose profile names another scheduler switches to it while it runs."
+                        )
+                    ));
+                });
+            })
+        };
+        refresh_now(0);
+
+        let mode = Picker::new(
+            &i18n("Scheduler mode"),
+            "",
+            &ui::mode_items(),
+            &shared.borrow().scx_sched_props,
+        );
+        mode.row
+            .add_suffix(&crate::widgets::info::scheduler_modes_button());
+        mode.row
+            .set_sensitive(!opt::inherits(&shared.borrow().scx_sched));
+        group.add(&mode.row);
+        {
+            let (cfg, mode) = (Rc::clone(shared), mode.clone());
+            let row = sched.row.clone();
+            let refresh = Rc::clone(&refresh_now);
+            sched.connect_changed(move |value| {
+                value.clone_into(&mut cfg.borrow_mut().scx_sched);
+                mode.row.set_sensitive(!opt::inherits(value));
+                let refresh = Rc::clone(&refresh);
+                save_config_then(&cfg, &row, move || refresh(3000));
             });
-            sched_row.add_suffix(&info_btn);
-            expander.add_row(&sched_row);
-
-            let mode_model =
-                gtk4::StringList::new(&["default", "gaming", "power", "latency", "server"]);
-            let mode_row = adw::ComboRow::builder()
-                .title(i18n("Mode"))
-                .subtitle(i18n("The scheduler's tuning preset"))
-                .model(&mode_model)
-                .sensitive(has_schedulers)
-                .build();
-            mode_row.set_selected(crate::views::profiles::find_index(
-                &mode_model,
-                &shared.borrow().scx_sched_props,
-            ));
-            expander.add_row(&mode_row);
-
-            let installed = adw::ActionRow::builder()
-                .title(i18n("Installed"))
-                .subtitle(if caps.installed.is_empty() {
-                    i18n("none")
-                } else {
-                    caps.installed.join(", ")
-                })
-                .use_markup(false)
-                .build();
-            expander.add_row(&installed);
-
+        }
+        {
             let cfg = Rc::clone(shared);
-            let sm = sched_model.clone();
-            sched_row.connect_selected_notify(move |row| {
-                if let Some(val) = sm.string(row.selected()) {
-                    cfg.borrow_mut().scx_sched = val.to_string();
-                    save_config(&cfg);
-                }
+            let row = mode.row.clone();
+            let refresh = Rc::clone(&refresh_now);
+            mode.connect_changed(move |value| {
+                value.clone_into(&mut cfg.borrow_mut().scx_sched_props);
+                let refresh = Rc::clone(&refresh);
+                save_config_then(&cfg, &row, move || refresh(3000));
             });
-            let cfg = Rc::clone(shared);
-            let mm = mode_model.clone();
-            mode_row.connect_selected_notify(move |row| {
-                if let Some(val) = mm.string(row.selected()) {
-                    cfg.borrow_mut().scx_sched_props = val.to_string();
-                    save_config(&cfg);
-                }
-            });
-            group.add(&expander);
         }
     }
 
-    // 3D V-Cache: a control on a CPU that has one, a fact on one that does not.
-    if bigame_core::vcache::is_available() {
-        let model = gtk4::StringList::new(&["none", "cache", "freq"]);
-        let row = adw::ComboRow::builder()
-            .title(i18n("3D V-Cache"))
-            .subtitle(i18n(
-                "Which CCD games prefer: the one with the extra cache, or the faster one",
-            ))
-            .model(&model)
-            .build();
-        row.set_selected(crate::views::profiles::find_index(
-            &model,
-            &shared.borrow().vcache_mode,
-        ));
-        let cfg = Rc::clone(shared);
-        row.connect_selected_notify(move |row| {
-            if let Some(val) = model.string(row.selected()) {
-                cfg.borrow_mut().vcache_mode = val.to_string();
-                save_config(&cfg);
-            }
-        });
-        group.add(&row);
-    } else {
-        group.add(&unsupported_row(
+    if m.vcache {
+        let items: Vec<(String, String)> = VCACHE_MODES
+            .iter()
+            .map(|c| (c.id.to_owned(), i18n(c.label)))
+            .collect();
+        let vcache = Picker::new(
             &i18n("3D V-Cache"),
-            &i18n("This processor has no 3D V-Cache (AMD X3D only). Nothing to do."),
+            &i18n("Which CCD games prefer while Turbo is on"),
+            &items,
+            &shared.borrow().vcache_mode,
+        );
+        vcache
+            .row
+            .add_suffix(&crate::widgets::info::vcache_button());
+        group.add(&vcache.row);
+        let cfg = Rc::clone(shared);
+        let row = vcache.row.clone();
+        vcache.connect_changed(move |value| {
+            value.clone_into(&mut cfg.borrow_mut().vcache_mode);
+            save_config(&cfg, &row);
+        });
+    } else {
+        group.add(&ui::vcache_unsupported_row());
+    }
+    group
+}
+
+// ── Display (Gamescope) ─────────────────────────────────────────────────────
+
+/// Gamescope: on or off, and when on, the filter, sharpness and sizes.
+struct Display {
+    group: adw::PreferencesGroup,
+    /// The Gamescope switch and the render size, for the conflict check;
+    /// `None` without Gamescope.
+    rows: Option<(adw::ExpanderRow, gtk4::SpinButton, gtk4::SpinButton)>,
+    /// Set while the page itself changes a control, so a handler does not
+    /// ask about a change the user did not make.
+    quiet: Rc<Cell<bool>>,
+}
+
+impl Display {
+    #[allow(clippy::too_many_lines)]
+    fn build(video: &SharedVideo, m: &Machine) -> Self {
+        let group = ui::section(&i18n("Display"));
+        group.set_description(Some(&i18n(
+            "For games started from BiGame-mode (Profiles → Launch). A game's profile can force Gamescope on or off.",
+        )));
+        let quiet = Rc::new(Cell::new(false));
+        if !m.gamescope {
+            group.add(&ui::missing_row(
+                "Gamescope",
+                &i18n("Not installed. It wraps the game in a micro-compositor: scaling, a frame limit, a stable fullscreen."),
+                "sudo pacman -S gamescope",
+            ));
+            return Self {
+                group,
+                rows: None,
+                quiet,
+            };
+        }
+        let cfg = video.borrow().clone();
+        let expander = adw::ExpanderRow::builder()
+            .title("Gamescope")
+            .subtitle(i18n("Wraps games started from BiGame-mode"))
+            .show_enable_switch(true)
+            .enable_expansion(cfg.upscaling.gamescope_enabled)
+            .build();
+        // The version comes from `gamescope --help`, probed off the main thread.
+        {
+            let expander = expander.clone();
+            glib::spawn_future_local(async move {
+                let caps = gio::spawn_blocking(bigame_core::capabilities::gamescope_cached)
+                    .await
+                    .ok()
+                    .flatten();
+                if let Some(v) = caps.and_then(|c| c.version) {
+                    expander.set_subtitle(
+                        &i18n("Version %v · wraps games started from BiGame-mode")
+                            .replace("%v", &v.to_string()),
+                    );
+                }
+            });
+        }
+
+        let filters = gtk4::StringList::new(&[
+            "FSR 1.0 (FidelityFX)",
+            "NIS (NVIDIA Image Scaling)",
+            &i18n("Integer scaling"),
+        ]);
+        let filter_row = adw::ComboRow::builder()
+            .title(i18n("Upscaling filter"))
+            .subtitle(i18n("Used when the render size is below the output size"))
+            .model(&filters)
+            .selected(match cfg.upscaling.gamescope_filter {
+                GamescopeFilter::Fsr => 0,
+                GamescopeFilter::Nis => 1,
+                GamescopeFilter::Integer => 2,
+            })
+            .build();
+        expander.add_row(&filter_row);
+
+        let sharpness_row = adw::SpinRow::new(
+            Some(&gtk4::Adjustment::new(
+                f64::from(cfg.upscaling.gamescope_sharpness.min(20)),
+                0.0,
+                20.0,
+                1.0,
+                5.0,
+                0.0,
+            )),
+            1.0,
+            0,
+        );
+        sharpness_row.set_title(&i18n("FSR sharpness"));
+        sharpness_row.set_subtitle(&i18n("0 = sharpest · 20 = softest"));
+        sharpness_row.set_sensitive(cfg.upscaling.gamescope_filter == GamescopeFilter::Fsr);
+        expander.add_row(&sharpness_row);
+
+        let render_width = res_spin(cfg.upscaling.base_width, 7680);
+        let render_height = res_spin(cfg.upscaling.base_height, 4320);
+        expander.add_row(&res_row(
+            &i18n("Render size"),
+            &i18n("The game draws at this size; 0 = the game's own"),
+            &render_width,
+            &render_height,
+        ));
+        let output_width = res_spin(cfg.upscaling.target_width, 7680);
+        let output_height = res_spin(cfg.upscaling.target_height, 4320);
+        expander.add_row(&res_row(
+            &i18n("Output size"),
+            &i18n("Upscaled to this size; 0 = the same as the render size"),
+            &output_width,
+            &output_height,
+        ));
+
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let size = |s: &gtk4::SpinButton| s.value() as u32;
+        {
+            let video = Rc::clone(video);
+            let sharpness_row = sharpness_row.clone();
+            filter_row.connect_selected_notify(move |row| {
+                sharpness_row.set_sensitive(row.selected() == 0);
+                video.borrow_mut().upscaling.gamescope_filter = match row.selected() {
+                    1 => GamescopeFilter::Nis,
+                    2 => GamescopeFilter::Integer,
+                    _ => GamescopeFilter::Fsr,
+                };
+                save_video(&video, row);
+            });
+        }
+        {
+            let video = Rc::clone(video);
+            sharpness_row.connect_changed(move |row| {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let v = row.value() as u8;
+                video.borrow_mut().upscaling.gamescope_sharpness = v;
+                save_video(&video, row);
+            });
+        }
+        {
+            let video = Rc::clone(video);
+            output_width.connect_value_changed(move |s| {
+                video.borrow_mut().upscaling.target_width = size(s);
+                save_video(&video, s);
+            });
+        }
+        {
+            let video = Rc::clone(video);
+            output_height.connect_value_changed(move |s| {
+                video.borrow_mut().upscaling.target_height = size(s);
+                save_video(&video, s);
+            });
+        }
+        group.add(&expander);
+        Self {
+            group,
+            rows: Some((expander, render_width, render_height)),
+            quiet,
+        }
+    }
+}
+
+/// A `SpinButton` clamped to [0, `max_val`] for resolution inputs; 0 = auto.
+fn res_spin(current: u32, max_val: u32) -> gtk4::SpinButton {
+    let adj = gtk4::Adjustment::new(f64::from(current), 0.0, f64::from(max_val), 1.0, 10.0, 0.0);
+    let spin = gtk4::SpinButton::new(Some(&adj), 1.0, 0);
+    spin.set_valign(gtk4::Align::Center);
+    spin.set_width_chars(6);
+    spin
+}
+
+/// Two `SpinButton`s (width × height) in an `AdwActionRow`.
+fn res_row(
+    title: &str,
+    subtitle: &str,
+    w: &gtk4::SpinButton,
+    h: &gtk4::SpinButton,
+) -> adw::ActionRow {
+    let separator = gtk4::Label::builder()
+        .label("×")
+        .margin_start(4)
+        .margin_end(4)
+        .valign(gtk4::Align::Center)
+        .css_classes(["dim-label"])
+        .build();
+    let row = adw::ActionRow::builder()
+        .title(title)
+        .subtitle(subtitle)
+        .build();
+    w.update_property(&[gtk4::accessible::Property::Label(&format!(
+        "{title} — {}",
+        i18n("width")
+    ))]);
+    h.update_property(&[gtk4::accessible::Property::Label(&format!(
+        "{title} — {}",
+        i18n("height")
+    ))]);
+    row.add_suffix(w);
+    row.add_suffix(&separator);
+    row.add_suffix(h);
+    row
+}
+
+// ── Image quality ───────────────────────────────────────────────────────────
+
+/// Wine FSR and vkBasalt, with the conflict against Gamescope's upscaling
+/// resolved in both directions.
+#[allow(clippy::too_many_lines)]
+fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::PreferencesGroup {
+    let group = ui::section(&i18n("Image quality"));
+    group.set_description(Some(&i18n(
+        "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it.",
+    )));
+    let cfg = video.borrow().clone();
+
+    // A configuration that already has both — an older version allowed it.
+    let legacy = Notice::new(
+        Kind::Conflict,
+        &i18n("Wine FSR and Gamescope upscaling are both on"),
+        &i18n(
+            "Two upscalers in series scale the image twice. Until one is chosen, Wine FSR is switched off at launch for games Gamescope upscales.",
+        ),
+    );
+    legacy.set_visible(!opt::general_conflicts(&cfg).is_empty());
+    group.add(legacy.widget());
+
+    let wine = adw::SwitchRow::builder()
+        .title("Wine FSR")
+        .subtitle(i18n(
+            "Wine's own upscaling for Proton games in exclusive fullscreen (WINE_FULLSCREEN_FSR=1)",
+        ))
+        .active(cfg.upscaling.wine_fsr_enabled)
+        .build();
+    group.add(&wine);
+    let quality_items = gtk4::StringList::new(&[
+        &i18n("Performance"),
+        &i18n("Balanced"),
+        &i18n("Quality"),
+        &i18n("Ultra"),
+    ]);
+    let quality = adw::ComboRow::builder()
+        .title(i18n("Wine FSR quality"))
+        .model(&quality_items)
+        .selected(match cfg.upscaling.wine_fsr_mode {
+            WineFsrMode::Performance => 0,
+            WineFsrMode::Balanced => 1,
+            WineFsrMode::Quality => 2,
+            WineFsrMode::Ultra => 3,
+        })
+        .sensitive(cfg.upscaling.wine_fsr_enabled)
+        .build();
+    group.add(&quality);
+    {
+        let video = Rc::clone(video);
+        quality.connect_selected_notify(move |row| {
+            video.borrow_mut().upscaling.wine_fsr_mode = match row.selected() {
+                0 => WineFsrMode::Performance,
+                1 => WineFsrMode::Balanced,
+                3 => WineFsrMode::Ultra,
+                _ => WineFsrMode::Quality,
+            };
+            save_video(&video, row);
+        });
+    }
+
+    let quiet = Rc::clone(&display.quiet);
+    // Once resolved, the notice says what is on now instead of vanishing.
+    let refresh_legacy = {
+        let (legacy, video) = (legacy.clone(), Rc::clone(video));
+        let had = Cell::new(!opt::general_conflicts(&cfg).is_empty());
+        Rc::new(move || {
+            let now = !opt::general_conflicts(&video.borrow()).is_empty();
+            if had.get() && !now {
+                let kept = if video.borrow().upscaling.wine_fsr_enabled {
+                    "Wine FSR".to_owned()
+                } else {
+                    notice::feature_name(Feature::GamescopeUpscaling)
+                };
+                legacy.clear_actions();
+                legacy.set(
+                    Kind::Success,
+                    &i18n("Resolved: %s is the only upscaler").replace("%s", &kept),
+                    "",
+                );
+            }
+            had.set(now);
+        })
+    };
+
+    // The page's own way to switch a feature off, used by both prompts and
+    // by the legacy notice: the control moves, the file follows.
+    let turn_off: Rc<dyn Fn(Feature)> = {
+        let (video, wine, quiet) = (Rc::clone(video), wine.clone(), Rc::clone(&quiet));
+        let rows = display.rows.clone();
+        let refresh = Rc::clone(&refresh_legacy);
+        Rc::new(move |f: Feature| {
+            quiet.set(true);
+            match f {
+                Feature::WineFsr => wine.set_active(false),
+                Feature::GamescopeUpscaling => {
+                    if let Some((_, w, h)) = &rows {
+                        w.set_value(0.0);
+                        h.set_value(0.0);
+                    }
+                }
+                _ => {}
+            }
+            quiet.set(false);
+            opt::turn_off_general(&mut video.borrow_mut(), f);
+            save_video(&video, &wine);
+            refresh();
+        })
+    };
+    {
+        let turn_off = Rc::clone(&turn_off);
+        legacy.add_action(
+            &i18n("Keep %s").replace("%s", &notice::feature_name(Feature::GamescopeUpscaling)),
+            false,
+            move |_| {
+                turn_off(Feature::WineFsr);
+            },
+        );
+    }
+    {
+        let turn_off = Rc::clone(&turn_off);
+        legacy.add_action(&i18n("Use %s").replace("%s", "Wine FSR"), true, move |_| {
+            turn_off(Feature::GamescopeUpscaling);
+        });
+    }
+
+    // Wine FSR switched on while Gamescope upscales: ask.
+    {
+        let (video, quality, quiet) = (Rc::clone(video), quality.clone(), Rc::clone(&quiet));
+        let turn_off = Rc::clone(&turn_off);
+        let refresh = Rc::clone(&refresh_legacy);
+        wine.connect_active_notify(move |row| {
+            let on = row.is_active();
+            quality.set_sensitive(on);
+            if quiet.get() {
+                return;
+            }
+            let upscales = opt::gamescope_upscales(&video.borrow().upscaling);
+            if on && upscales {
+                if let Some(c) = opt::conflict(Feature::WineFsr, Feature::GamescopeUpscaling) {
+                    let (turn_off, row2, quiet2) =
+                        (Rc::clone(&turn_off), row.clone(), Rc::clone(&quiet));
+                    let (video2, anchor) = (Rc::clone(&video), row.clone());
+                    notice::ask_conflict(row, &c, move |use_wine| {
+                        if use_wine {
+                            video2.borrow_mut().upscaling.wine_fsr_enabled = true;
+                            turn_off(Feature::GamescopeUpscaling);
+                            crate::widgets::toast::show(
+                                &anchor,
+                                &i18n(
+                                    "Wine FSR is on; Gamescope now renders at the game's own size",
+                                ),
+                            );
+                        } else {
+                            quiet2.set(true);
+                            row2.set_active(false);
+                            quiet2.set(false);
+                        }
+                    });
+                    return;
+                }
+            }
+            video.borrow_mut().upscaling.wine_fsr_enabled = on;
+            save_video(&video, row);
+            refresh();
+        });
+    }
+
+    // Gamescope's upscaling switched on (the switch, or a render size) while
+    // Wine FSR is on: ask. Keeping Wine FSR puts the render size back.
+    if let Some((expander, render_w, render_h)) = display.rows.clone() {
+        let ask = {
+            let (video, wine, quiet) = (Rc::clone(video), wine.clone(), Rc::clone(&quiet));
+            let turn_off = Rc::clone(&turn_off);
+            let refresh = Rc::clone(&refresh_legacy);
+            let (expander, render_w, render_h) =
+                (expander.clone(), render_w.clone(), render_h.clone());
+            Rc::new(move |before: (bool, u32, u32)| {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let after = (
+                    expander.enables_expansion(),
+                    render_w.value() as u32,
+                    render_h.value() as u32,
+                );
+                {
+                    let mut v = video.borrow_mut();
+                    v.upscaling.gamescope_enabled = after.0;
+                    v.upscaling.base_width = after.1;
+                    v.upscaling.base_height = after.2;
+                }
+                let was = before.0 && before.1 > 0 && before.2 > 0;
+                let now = opt::gamescope_upscales(&video.borrow().upscaling);
+                if !quiet.get() && now && !was && wine.is_active() {
+                    if let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr) {
+                        let (turn_off, video2, quiet2) =
+                            (Rc::clone(&turn_off), Rc::clone(&video), Rc::clone(&quiet));
+                        let (expander2, w2, h2) =
+                            (expander.clone(), render_w.clone(), render_h.clone());
+                        notice::ask_conflict(&expander, &c, move |use_gamescope| {
+                            if use_gamescope {
+                                turn_off(Feature::WineFsr);
+                                crate::widgets::toast::show(
+                                    &expander2,
+                                    &i18n("Gamescope upscaling is on; Wine FSR was turned off"),
+                                );
+                            } else {
+                                quiet2.set(true);
+                                expander2.set_enable_expansion(before.0);
+                                w2.set_value(f64::from(before.1));
+                                h2.set_value(f64::from(before.2));
+                                quiet2.set(false);
+                                {
+                                    let mut v = video2.borrow_mut();
+                                    v.upscaling.gamescope_enabled = before.0;
+                                    v.upscaling.base_width = before.1;
+                                    v.upscaling.base_height = before.2;
+                                }
+                                save_video(&video2, &expander2);
+                            }
+                        });
+                        // Nothing is saved until one is chosen: the file never
+                        // holds both, even while the question is open.
+                        return;
+                    }
+                }
+                save_video(&video, &expander);
+                refresh();
+            })
+        };
+        let last = Rc::new(Cell::new((
+            cfg.upscaling.gamescope_enabled,
+            cfg.upscaling.base_width,
+            cfg.upscaling.base_height,
+        )));
+        let track = {
+            let (last, expander, render_w, render_h) = (
+                Rc::clone(&last),
+                expander.clone(),
+                render_w.clone(),
+                render_h.clone(),
+            );
+            let ask = Rc::clone(&ask);
+            Rc::new(move || {
+                let before = last.get();
+                ask(before);
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                last.set((
+                    expander.enables_expansion(),
+                    render_w.value() as u32,
+                    render_h.value() as u32,
+                ));
+            })
+        };
+        {
+            let track = Rc::clone(&track);
+            expander.connect_enable_expansion_notify(move |_| track());
+        }
+        {
+            let track = Rc::clone(&track);
+            render_w.connect_value_changed(move |_| track());
+        }
+        render_h.connect_value_changed(move |_| track());
+    }
+
+    // vkBasalt: a look, not a speed-up; only where its layer is installed.
+    if bigame_core::capabilities::vkbasalt_installed() {
+        let vkb = adw::ExpanderRow::builder()
+            .title("vkBasalt")
+            .subtitle(i18n(
+                "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time.",
+            ))
+            .show_enable_switch(true)
+            .enable_expansion(cfg.upscaling.vkbasalt_enabled)
+            .build();
+        let conf = adw::EntryRow::builder()
+            .title(i18n("Configuration file"))
+            .text(cfg.upscaling.vkbasalt_config_path.as_deref().unwrap_or(""))
+            .build();
+        vkb.add_row(&conf);
+        {
+            let video = Rc::clone(video);
+            vkb.connect_enable_expansion_notify(move |e| {
+                video.borrow_mut().upscaling.vkbasalt_enabled = e.enables_expansion();
+                save_video(&video, e);
+            });
+        }
+        {
+            let video = Rc::clone(video);
+            conf.connect_changed(move |row| {
+                let text = row.text().to_string();
+                video.borrow_mut().upscaling.vkbasalt_config_path =
+                    (!text.is_empty()).then_some(text);
+                save_video(&video, row);
+            });
+        }
+        group.add(&vkb);
+    } else {
+        group.add(&ui::missing_row(
+            "vkBasalt",
+            &i18n(
+                "Not installed. Visual filters (sharpening, colour) for Vulkan and Proton games.",
+            ),
+            "sudo pacman -S vkbasalt",
         ));
     }
 
-    // falcond's own settings, rarely touched.
-    let more = adw::ExpanderRow::builder()
+    let ai = Notice::new(
+        Kind::Info,
+        &i18n("AI Graphics is per game"),
+        &i18n(
+            "Upscaling inside the game (FSR 4, XeSS, DLSS through OptiScaler) is set from the game's card in Profiles. A game with it launches without Wine FSR and without a Gamescope render size.",
+        ),
+    );
+    group.add(ai.widget());
+    group
+}
+
+// ── Frame generation ────────────────────────────────────────────────────────
+
+/// lsfg-vk's general switch and its DLL. Each game's own frame generation
+/// is in its profile.
+fn build_frame_generation(video: &SharedVideo, m: &Machine) -> adw::PreferencesGroup {
+    let group = ui::section(&i18n("Frame generation"));
+    if !m.lsfg {
+        group.add(&ui::missing_row(
+            "lsfg-vk",
+            &i18n("Not installed. Generates extra frames between rendered ones (Lossless Scaling's method, as a Vulkan layer). It needs your own Lossless.dll."),
+            "sudo pacman -S lsfg-vk",
+        ));
+        return group;
+    }
+    let switch = adw::SwitchRow::builder()
+        .title(i18n("lsfg-vk for every game with an entry"))
+        .subtitle(i18n(
+            "Raises the presented frame rate, not the rendered one, and adds latency. Off sets every entry aside; on puts them back.",
+        ))
+        .active(opt::lsfg_general_on(&video.borrow()))
+        .build();
+    group.add(&switch);
+    {
+        let video = Rc::clone(video);
+        switch.connect_active_notify(move |row| {
+            let on = row.is_active();
+            {
+                let mut v = video.borrow_mut();
+                v.frame_gen.enabled = on;
+                v.frame_gen.backend = if on {
+                    FrameGenBackend::LsfgVk
+                } else {
+                    FrameGenBackend::None
+                };
+            }
+            save_video(&video, row);
+            if let Err(e) = bigame_core::fg::sync_global_enablement(&video.borrow().frame_gen) {
+                crate::widgets::toast::error(
+                    row,
+                    &i18n("Could not update lsfg-vk's file"),
+                    &error_text(&e),
+                );
+            }
+        });
+    }
+    let dll_state = Notice::new(Kind::Warning, "", "");
+    let show_dll = {
+        let dll_state = dll_state.clone();
+        move |ready: bool| {
+            if ready {
+                dll_state.set_visible(false);
+            } else {
+                dll_state.set(
+                    Kind::Warning,
+                    &i18n("lsfg-vk needs your Lossless.dll"),
+                    &i18n("Without it lsfg-vk loads and generates nothing, so it is switched off at launch."),
+                );
+                dll_state.set_visible(true);
+            }
+        }
+    };
+    show_dll(m.lsfg_dll);
+    group.add(&crate::widgets::fg_controls::dll_row(show_dll));
+    group.add(dll_state.widget());
+    let per_game = Notice::new(
+        Kind::Info,
+        &i18n("Each game's frame generation is in its profile"),
+        &i18n(
+            "Profiles → the game → Edit profile → Frame generation. A game whose AI Graphics has OptiScaler generating frames launches with lsfg-vk off.",
+        ),
+    );
+    group.add(per_game.widget());
+    group
+}
+
+// ── Monitoring ──────────────────────────────────────────────────────────────
+
+/// `MangoHud`: shown per game (in the profile); how it looks, here.
+fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
+    use bigame_core::mangohud::{Style, StyleState};
+    let group = ui::section(&i18n("Monitoring"));
+    if !m.mangohud {
+        group.add(&ui::missing_row(
+            "MangoHud",
+            &i18n("Not installed. The performance overlay; it also captures the frametimes Measure the difference uses."),
+            "sudo pacman -S mangohud",
+        ));
+        return group;
+    }
+    let row = adw::ActionRow::builder()
+        .title("MangoHud")
+        .subtitle(i18n(
+            "Installed. Shown per game, from its profile (Off, On, Forced); Details says whether it loaded in the running game.",
+        ))
+        .subtitle_lines(3)
+        .use_markup(false)
+        .build();
+    let chip = Chip::new(State::Configured);
+    chip.set(State::Configured, Some(&i18n("Per game")));
+    row.add_suffix(chip.widget());
+    group.add(&row);
+
+    let state = bigame_core::mangohud::current_style();
+    let own_label = match state {
+        StyleState::Defaults => i18n("Default"),
+        _ => i18n("My own file"),
+    };
+    let style = Picker::new(
+        &i18n("Overlay style"),
+        &i18n(
+            "Written to ~/.config/MangoHud/MangoHud.conf; your own file is kept and comes back with “My own file”.",
+        ),
+        &[
+            ("own".to_owned(), own_label),
+            ("basic".to_owned(), i18n("Steam Deck — basic")),
+            ("full".to_owned(), i18n("Steam Deck — full")),
+        ],
+        match state {
+            StyleState::Style(Style::Basic) => "basic",
+            StyleState::Style(Style::Full) => "full",
+            _ => "own",
+        },
+    );
+    style.row.set_subtitle_lines(3);
+    style.row.add_suffix(&crate::widgets::info::button(
+        &i18n("Overlay style"),
+        &i18n("Basic is one line across the top, like the Steam Deck's level 2: frame rate, frame times, CPU and GPU load and power, memory and video memory. Full is a column, like its level 3: the GPU and the CPU each with load, temperature, clock and power, then memory, frame rate and frame times. Battery appears only on a laptop. A per-game MangoHud file (wine-<game>.conf) takes precedence, and a Flatpak launcher reads its own copy."),
+    ));
+    group.add(&style.row);
+    let row = style.row.clone();
+    style.connect_changed(move |value| {
+        let chosen = match value {
+            "basic" => Style::Basic,
+            "full" => Style::Full,
+            _ => Style::Own,
+        };
+        match bigame_core::mangohud::set_style(chosen) {
+            Ok(()) => crate::widgets::toast::show(
+                &row,
+                &i18n("Saved. It applies the next time a game starts."),
+            ),
+            Err(e) => crate::widgets::toast::error(
+                &row,
+                &i18n("Could not change MangoHud's file"),
+                &error_text(&e),
+            ),
+        }
+    });
+    group
+}
+
+// ── Advanced ────────────────────────────────────────────────────────────────
+
+/// falcond's own settings and the facts for the person who knows what a
+/// scheduler flag is: collapsed, last.
+#[allow(clippy::too_many_lines)]
+fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
+    let group = ui::section(&i18n("Advanced"));
+
+    let falcond = adw::ExpanderRow::builder()
         .title(i18n("falcond's settings"))
         .subtitle(i18n(
             "How it looks for games, and which profile set it uses",
         ))
         .build();
-
-    let poll_adj = gtk4::Adjustment::new(
-        f64::from(shared.borrow().poll_interval_ms),
+    let poll_row = adw::SpinRow::new(
+        Some(&gtk4::Adjustment::new(
+            f64::from(shared.borrow().poll_interval_ms),
+            500.0,
+            60_000.0,
+            500.0,
+            1000.0,
+            0.0,
+        )),
         500.0,
-        60_000.0,
-        500.0,
-        1000.0,
-        0.0,
+        0,
     );
-    let poll_row = adw::SpinRow::new(Some(&poll_adj), 500.0, 0);
     poll_row.set_title(&i18n("Scan interval (ms)"));
     poll_row.set_subtitle(&i18n(
         "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000.",
     ));
-    more.add_row(&poll_row);
+    falcond.add_row(&poll_row);
     {
         let cfg = Rc::clone(shared);
         poll_row.connect_changed(move |row| {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let val = row.value() as u32;
             cfg.borrow_mut().poll_interval_ms = val;
-            save_config(&cfg);
+            save_config(&cfg, row);
         });
     }
-
-    let device_model = gtk4::StringList::new(&["none", "handheld", "htpc"]);
-    let device_row = adw::ComboRow::builder()
-        .title(i18n("Profile set"))
-        .subtitle(i18n(
-            "none is the desktop set; handheld and htpc are falcond's other sets",
-        ))
-        .model(&device_model)
-        .build();
-    device_row.set_selected(crate::views::profiles::find_index(
-        &device_model,
+    let sets: Vec<(String, String)> = PROFILE_SETS
+        .iter()
+        .map(|c| (c.id.to_owned(), format!("{} ({})", i18n(c.label), c.id)))
+        .collect();
+    let set = Picker::new(
+        &i18n("Profile set"),
+        &i18n("Desktop (none) is the one for a PC at a desk"),
+        &sets,
         &shared.borrow().profile_mode,
-    ));
-    more.add_row(&device_row);
+    );
+    set.row
+        .add_suffix(&crate::widgets::info::profile_sets_button());
+    falcond.add_row(&set.row);
     {
         let cfg = Rc::clone(shared);
-        device_row.connect_selected_notify(move |row| {
-            if let Some(val) = device_model.string(row.selected()) {
-                cfg.borrow_mut().profile_mode = val.to_string();
-                save_config(&cfg);
-            }
+        let row = set.row.clone();
+        set.connect_changed(move |value| {
+            value.clone_into(&mut cfg.borrow_mut().profile_mode);
+            save_config(&cfg, &row);
         });
     }
-
     // The governor, for reference: power-profiles-daemon sets it.
     let gov_row = adw::ActionRow::builder()
         .title(i18n("CPU governor"))
         .subtitle(i18n("Reading…"))
         .use_markup(false)
         .build();
-    more.add_row(&gov_row);
+    falcond.add_row(&gov_row);
     {
         let row = gov_row.clone();
         glib::spawn_future_local(async move {
             let (available, current) = gio::spawn_blocking(|| {
-                let avail = std::fs::read_to_string(
-                    "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
+                let read = |p: &str| std::fs::read_to_string(p).unwrap_or_default();
+                (
+                    read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"),
+                    read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
                 )
-                .unwrap_or_default();
-                let curr = std::fs::read_to_string(
-                    "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor",
-                )
-                .unwrap_or_default();
-                (avail, curr)
             })
             .await
             .unwrap_or_default();
@@ -374,424 +990,40 @@ fn build_system_group(shared: &SharedConfig) -> adw::PreferencesGroup {
             });
         });
     }
-    group.add(&more);
+    group.add(&falcond);
 
-    group
-}
-
-// ── Display and Gamescope ────────────────────────────────────────────────────
-
-/// Gamescope: on or off, and when on, the filter, sharpness and sizes.
-/// Returns the group and a cell that says whether Gamescope is set to
-/// upscale (a render size below the output), for the conflict check.
-#[allow(clippy::too_many_lines)]
-fn build_gamescope_group(
-    cfg: &video_config::VideoConfig,
-    caps: &bigame_core::capabilities::Capabilities,
-) -> (adw::PreferencesGroup, Rc<std::cell::Cell<bool>>) {
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Display and Gamescope"));
-    group.set_description(Some(&i18n(
-        "For games started from BiGame-mode (Profiles → Launch). A game's profile can force Gamescope on or off.",
-    )));
-    let scales = Rc::new(std::cell::Cell::new(
-        cfg.upscaling.gamescope_enabled && cfg.upscaling.base_width > 0,
-    ));
-
-    let Some(gs) = caps.gamescope.as_ref() else {
-        group.add(&missing_row(
-            "Gamescope",
-            &i18n("Not installed. It wraps the game in a micro-compositor: scaling, a frame limit, a stable fullscreen."),
-            "sudo pacman -S gamescope",
-        ));
-        return (group, scales);
-    };
-
-    let expander = adw::ExpanderRow::builder()
-        .title("Gamescope")
-        .subtitle(
-            i18n("Version %v · wraps games started from BiGame-mode").replace(
-                "%v",
-                &gs.version
-                    .map_or_else(|| i18n("unknown"), |v| v.to_string()),
-            ),
-        )
-        .show_enable_switch(true)
-        .enable_expansion(cfg.upscaling.gamescope_enabled)
-        .build();
-
-    let filter_items = gtk4::StringList::new(&[
-        "FSR 1.0 (FidelityFX)",
-        "NIS (NVIDIA Image Scaling)",
-        &i18n("Integer scaling"),
-    ]);
-    let filter_row = adw::ComboRow::new();
-    filter_row.set_title(&i18n("Upscaling filter"));
-    filter_row.set_subtitle(&i18n("Used when the render size is below the output size"));
-    filter_row.set_model(Some(&filter_items));
-    filter_row.set_selected(match cfg.upscaling.gamescope_filter {
-        GamescopeFilter::Fsr => 0,
-        GamescopeFilter::Nis => 1,
-        GamescopeFilter::Integer => 2,
-    });
-    expander.add_row(&filter_row);
-
-    let sharpness_adj = gtk4::Adjustment::new(
-        f64::from(cfg.upscaling.gamescope_sharpness.min(20)),
-        0.0,
-        20.0,
-        1.0,
-        5.0,
-        0.0,
-    );
-    let sharpness_row = adw::SpinRow::new(Some(&sharpness_adj), 1.0, 0);
-    sharpness_row.set_title(&i18n("FSR sharpness"));
-    sharpness_row.set_subtitle(&i18n("0 = sharpest · 20 = softest"));
-    sharpness_row.set_sensitive(cfg.upscaling.gamescope_filter == GamescopeFilter::Fsr);
-    expander.add_row(&sharpness_row);
-
-    let render_width = make_res_spinbutton(cfg.upscaling.base_width, 7680);
-    let render_height = make_res_spinbutton(cfg.upscaling.base_height, 4320);
-    let base_res_row = make_resolution_row(
-        &i18n("Render size"),
-        &i18n("The game draws at this size; 0 = the game's own"),
-        &render_width,
-        &render_height,
-    );
-    expander.add_row(&base_res_row);
-
-    let output_width = make_res_spinbutton(cfg.upscaling.target_width, 7680);
-    let output_height = make_res_spinbutton(cfg.upscaling.target_height, 4320);
-    let target_res_row = make_resolution_row(
-        &i18n("Output size"),
-        &i18n("Upscaled to this size; 0 = the same as the render size"),
-        &output_width,
-        &output_height,
-    );
-    expander.add_row(&target_res_row);
-
-    // Signal handlers.
-    {
-        let scales = Rc::clone(&scales);
-        let rw = render_width.clone();
-        expander.connect_enable_expansion_notify(move |e| {
-            let enabled = e.enables_expansion();
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            scales.set(enabled && rw.value() as u32 > 0);
-            save_upscaling(|u| u.gamescope_enabled = enabled);
-        });
-    }
-    {
-        let scales = Rc::clone(&scales);
-        let ex = expander.clone();
-        render_width.connect_value_changed(move |spin| {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let v = spin.value() as u32;
-            scales.set(ex.enables_expansion() && v > 0);
-            save_upscaling(|u| u.base_width = v);
-        });
-    }
-    render_height.connect_value_changed(|spin| {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let v = spin.value() as u32;
-        save_upscaling(|u| u.base_height = v);
-    });
-    output_width.connect_value_changed(|spin| {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let v = spin.value() as u32;
-        save_upscaling(|u| u.target_width = v);
-    });
-    output_height.connect_value_changed(|spin| {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let v = spin.value() as u32;
-        save_upscaling(|u| u.target_height = v);
-    });
-    {
-        let sharpness = sharpness_row.clone();
-        filter_row.connect_selected_notify(move |row| {
-            sharpness.set_sensitive(row.selected() == 0);
-            let filter = match row.selected() {
-                1 => GamescopeFilter::Nis,
-                2 => GamescopeFilter::Integer,
-                _ => GamescopeFilter::Fsr,
-            };
-            save_upscaling(|u| u.gamescope_filter = filter);
-        });
-    }
-    sharpness_row.connect_changed(|row| {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let v = row.value() as u8;
-        save_upscaling(|u| u.gamescope_sharpness = v);
-    });
-
-    group.add(&expander);
-    (group, scales)
-}
-
-// ── Upscaling and sharpening ─────────────────────────────────────────────────
-
-/// Wine FSR and vkBasalt, with the conflict check against Gamescope's
-/// upscaling.
-#[allow(clippy::too_many_lines)]
-fn build_upscaling_group(
-    cfg: &video_config::VideoConfig,
-    gamescope_scales: &Rc<std::cell::Cell<bool>>,
-) -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Upscaling and sharpening"));
-    group.set_description(Some(&i18n(
-        "Set in the session environment and read by every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it.",
-    )));
-
-    // Two upscalers in series is a mistake the page names and can undo.
-    let banner = adw::Banner::builder()
-        .title(i18n(
-            "Wine FSR and Gamescope upscaling are both on: two upscalers in series. Keep one.",
-        ))
-        .button_label(i18n("Turn Wine FSR off"))
-        .revealed(false)
-        .build();
-    group.add(&banner);
-
-    let wine_row = adw::SwitchRow::builder()
-        .title("Wine FSR")
-        .subtitle(i18n(
-            "Wine's own upscaling for Proton games in exclusive fullscreen (WINE_FULLSCREEN_FSR=1)",
-        ))
-        .active(cfg.upscaling.wine_fsr_enabled)
-        .build();
-    group.add(&wine_row);
-
-    let wine_quality_items = gtk4::StringList::new(&[
-        &i18n("Performance"),
-        &i18n("Balanced"),
-        &i18n("Quality"),
-        &i18n("Ultra"),
-    ]);
-    let wine_quality_row = adw::ComboRow::new();
-    wine_quality_row.set_title(&i18n("Wine FSR quality"));
-    wine_quality_row.set_model(Some(&wine_quality_items));
-    wine_quality_row.set_selected(match cfg.upscaling.wine_fsr_mode {
-        WineFsrMode::Performance => 0,
-        WineFsrMode::Balanced => 1,
-        WineFsrMode::Quality => 2,
-        WineFsrMode::Ultra => 3,
-    });
-    wine_quality_row.set_sensitive(cfg.upscaling.wine_fsr_enabled);
-    group.add(&wine_quality_row);
-
-    let check_conflict = {
-        let banner = banner.clone();
-        let wine = wine_row.clone();
-        let scales = Rc::clone(gamescope_scales);
-        Rc::new(move || banner.set_revealed(wine.is_active() && scales.get()))
-    };
-    check_conflict();
-    {
-        let wq = wine_quality_row.clone();
-        let check = Rc::clone(&check_conflict);
-        wine_row.connect_active_notify(move |row| {
-            wq.set_sensitive(row.is_active());
-            save_upscaling(|u| u.wine_fsr_enabled = row.is_active());
-            check();
-        });
-    }
-    {
-        let wine = wine_row.clone();
-        banner.connect_button_clicked(move |_| wine.set_active(false));
-    }
-    // Gamescope's render size lives in the group above; the banner is
-    // re-checked when this group comes back on screen after a change there.
-    {
-        let check = Rc::clone(&check_conflict);
-        group.connect_map(move |_| check());
-    }
-    wine_quality_row.connect_selected_notify(|row| {
-        let mode = match row.selected() {
-            0 => WineFsrMode::Performance,
-            1 => WineFsrMode::Balanced,
-            3 => WineFsrMode::Ultra,
-            _ => WineFsrMode::Quality,
-        };
-        save_upscaling(|u| u.wine_fsr_mode = mode);
-    });
-
-    // vkBasalt: a look, not a speed-up; only where its layer is installed.
-    if bigame_core::capabilities::vkbasalt_installed() {
-        let vkb_expander = adw::ExpanderRow::builder()
-            .title("vkBasalt")
-            .subtitle(i18n(
-                "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time.",
-            ))
-            .show_enable_switch(true)
-            .enable_expansion(cfg.upscaling.vkbasalt_enabled)
-            .build();
-        let vkb_conf_row = adw::EntryRow::builder()
-            .title(i18n("Configuration file"))
-            .text(cfg.upscaling.vkbasalt_config_path.as_deref().unwrap_or(""))
-            .build();
-        vkb_expander.add_row(&vkb_conf_row);
-        vkb_expander.connect_enable_expansion_notify(|e| {
-            let on = e.enables_expansion();
-            save_upscaling(|u| u.vkbasalt_enabled = on);
-        });
-        vkb_conf_row.connect_changed(|row| {
-            let text = row.text().to_string();
-            save_upscaling(|u| {
-                u.vkbasalt_config_path = if text.is_empty() { None } else { Some(text) };
-            });
-        });
-        group.add(&vkb_expander);
-    } else {
-        group.add(&missing_row(
-            "vkBasalt",
-            &i18n(
-                "Not installed. Visual filters (sharpening, colour) for Vulkan and Proton games.",
-            ),
-            "sudo pacman -S vkbasalt",
-        ));
-    }
-
-    let note = adw::ActionRow::builder()
-        .title(i18n("AI Graphics"))
-        .subtitle(i18n(
-            "Upscaling inside the game (FSR 4, XeSS, DLSS through OptiScaler) is per game, from the game's card in Profiles. A game with it installed launches without Wine FSR and without a Gamescope render size.",
-        ))
-        .subtitle_lines(4)
-        .use_markup(false)
-        .build();
-    note.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
-    group.add(&note);
-
-    group
-}
-
-// ── Frame generation ─────────────────────────────────────────────────────────
-
-/// lsfg-vk: the global switch and the per-game entries, in one place.
-fn build_framegen_group(cfg: &video_config::VideoConfig) -> adw::PreferencesGroup {
-    if !bigame_core::fg::layer_installed() {
-        let group = adw::PreferencesGroup::new();
-        group.set_title(&i18n("Frame generation"));
-        group.add(&missing_row(
-            "lsfg-vk",
-            &i18n("Not installed. Generates extra frames between rendered ones (Lossless Scaling's method, as a Vulkan layer). It needs your own Lossless.dll."),
-            "sudo pacman -S lsfg-vk",
-        ));
-        return group;
-    }
-    let active_game = crate::game_watch::current()
-        .map(|g| g.process_name)
-        .or_else(|| bigame_core::status::read().and_then(|s| s.active_profile))
-        .unwrap_or_default();
-    let group = crate::widgets::fg_controls::build_tuning_fg_group(&active_game);
-    group.set_title(&i18n("Frame generation"));
-
-    // The global switch goes first: the per-game entries below only count
-    // while it is on.
-    let lsfg_row = adw::SwitchRow::builder()
-        .title(i18n("lsfg-vk for every game with an entry"))
-        .subtitle(i18n(
-            "Raises the presented frame rate, not the rendered one, and adds latency. Off sets every entry aside; on puts them back.",
-        ))
-        .active(cfg.frame_gen.enabled && cfg.frame_gen.backend == FrameGenBackend::LsfgVk)
-        .build();
-    lsfg_row.connect_active_notify(|row| {
-        let on = row.is_active();
-        save_framegen(|f| {
-            f.enabled = on;
-            f.backend = if on {
-                FrameGenBackend::LsfgVk
-            } else {
-                FrameGenBackend::None
-            };
-        });
-    });
-    // ExpanderRow-free group: the switch is inserted at the top by
-    // rebuilding the order — PreferencesGroup appends, so add and move.
-    group.add(&lsfg_row);
-    if let Some(list) = lsfg_row.parent().and_downcast::<gtk4::ListBox>() {
-        list.remove(&lsfg_row);
-        list.prepend(&lsfg_row);
-    }
-
-    let note = adw::ActionRow::builder()
-        .title(i18n("One frame generator at a time"))
-        .subtitle(i18n(
-            "A game whose AI Graphics has OptiScaler generating frames launches with lsfg-vk turned off for it.",
-        ))
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    note.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
-    group.add(&note);
-    group
-}
-
-// ── Overlay ──────────────────────────────────────────────────────────────────
-
-/// `MangoHud` is chosen per game; this says whether it can be.
-fn build_overlay_group() -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Overlay"));
-    if bigame_core::capabilities::which("mangohud").is_some() {
-        let row = adw::ActionRow::builder()
-            .title("MangoHud")
-            .subtitle(i18n(
-                "Installed. Chosen per game in Profiles (Off, On, Forced); Details shows whether it loaded in the running game.",
-            ))
-            .subtitle_lines(3)
-            .use_markup(false)
-            .build();
-        let chip = Chip::new(State::Configured);
-        chip.set(State::Configured, Some(&i18n("Per game")));
-        row.add_suffix(chip.widget());
-        group.add(&row);
-    } else {
-        group.add(&missing_row(
-            "MangoHud",
-            &i18n("Not installed. The performance overlay; it also captures the frametimes Measure the difference uses."),
-            "sudo pacman -S mangohud",
-        ));
-    }
-    group
-}
-
-// ── Advanced ─────────────────────────────────────────────────────────────────
-
-/// Facts for the person who knows what a scheduler flag is: collapsed, last.
-#[allow(clippy::too_many_lines)]
-fn build_advanced_group(caps: &bigame_core::capabilities::Capabilities) -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Advanced"));
-
-    let expander = adw::ExpanderRow::builder()
+    let facts = adw::ExpanderRow::builder()
         .title(i18n("Show advanced options"))
         .subtitle(i18n(
             "sched-ext availability, Gamescope's accepted options, the environment file",
         ))
         .build();
-    group.add(&expander);
-
-    let scx = &caps.sched_ext;
-
+    group.add(&facts);
     let scx_status = adw::ActionRow::builder()
         .title(i18n("sched-ext availability"))
-        .subtitle(match scx.switchable().describe_text() {
+        .subtitle(match m.sched.describe_text() {
             Some(reason) => tr(&reason),
             None => i18n("Available — falcond applies the scheduler you configure above"),
         })
         .use_markup(false)
         .build();
-    scx_status.add_prefix(&gtk4::Image::from_icon_name(
-        if scx.switchable().is_available() {
-            "object-select-symbolic"
-        } else {
-            "dialog-warning-symbolic"
-        },
-    ));
-    expander.add_row(&scx_status);
-
+    scx_status.add_prefix(&gtk4::Image::from_icon_name(if m.sched.is_available() {
+        "object-select-symbolic"
+    } else {
+        "dialog-warning-symbolic"
+    }));
+    facts.add_row(&scx_status);
+    facts.add_row(
+        &adw::ActionRow::builder()
+            .title(i18n("Installed"))
+            .subtitle(if m.sched_installed.is_empty() {
+                i18n("none")
+            } else {
+                m.sched_installed.join(", ")
+            })
+            .use_markup(false)
+            .build(),
+    );
     let env_row = adw::ActionRow::builder()
         .title(i18n("Environment file"))
         .subtitle(i18n(
@@ -800,94 +1032,70 @@ fn build_advanced_group(caps: &bigame_core::capabilities::Capabilities) -> adw::
         .subtitle_lines(4)
         .use_markup(false)
         .build();
-    expander.add_row(&env_row);
+    facts.add_row(&env_row);
 
+    // Gamescope's options come from `gamescope --help`, off the main thread.
     let gamescope_row = adw::ActionRow::builder()
         .title(i18n("Gamescope options this build accepts"))
-        .subtitle(match &caps.gamescope {
-            Some(gs) => i18n("Version %v — %n options detected from --help")
-                .replace(
-                    "%v",
-                    &gs.version
-                        .map_or_else(|| i18n("unknown"), |v| v.to_string()),
-                )
-                .replace("%n", &gs.flags.len().to_string()),
-            None => i18n("Gamescope is not installed"),
+        .subtitle(if m.gamescope {
+            i18n("Reading…")
+        } else {
+            i18n("Gamescope is not installed")
         })
         .use_markup(false)
         .build();
-    expander.add_row(&gamescope_row);
-
-    // The generated command line is the honest "advanced options" box: the
-    // arguments come from capabilities, so seeing what they came out as is
-    // what helps.
-    if let Some(gs) = caps.gamescope.as_ref() {
-        let sample = bigame_core::gamescope::Config {
-            render_width: 1920,
-            render_height: 1080,
-            filter: bigame_core::gamescope::Filter::Fsr,
-            sharpness: 5,
-            ..bigame_core::gamescope::Config::default()
-        };
-        let built = sample.to_args(gs);
-        // `use_markup` off before the text goes in: `<game>` is not markup.
-        let preview = adw::ActionRow::builder()
-            .title(i18n("Example command line"))
-            .use_markup(false)
-            .build();
-        preview.set_subtitle(&format!("gamescope {} -- <game>", built.args.join(" ")));
-        preview.set_subtitle_selectable(true);
-        expander.add_row(&preview);
-
-        for unsupported in &built.unsupported {
-            let row = adw::ActionRow::builder()
-                .title(i18n("Not supported by this Gamescope"))
-                .subtitle(format!(
-                    "--{} — {}",
-                    unsupported.flag,
-                    i18n(unsupported.effect)
-                ))
+    facts.add_row(&gamescope_row);
+    if m.gamescope {
+        let facts = facts.clone();
+        glib::spawn_future_local(async move {
+            let Some(gs) = gio::spawn_blocking(bigame_core::capabilities::gamescope_cached)
+                .await
+                .ok()
+                .flatten()
+            else {
+                gamescope_row.set_subtitle(&i18n("Gamescope is not installed"));
+                return;
+            };
+            gamescope_row.set_subtitle(
+                &i18n("Version %v — %n options detected from --help")
+                    .replace(
+                        "%v",
+                        &gs.version
+                            .map_or_else(|| i18n("unknown"), |v| v.to_string()),
+                    )
+                    .replace("%n", &gs.flags.len().to_string()),
+            );
+            // The generated command line is the honest "advanced options"
+            // box: the arguments come from capabilities.
+            let sample = bigame_core::gamescope::Config {
+                render_width: 1920,
+                render_height: 1080,
+                filter: bigame_core::gamescope::Filter::Fsr,
+                sharpness: 5,
+                ..bigame_core::gamescope::Config::default()
+            };
+            let built = sample.to_args(&gs);
+            let preview = adw::ActionRow::builder()
+                .title(i18n("Example command line"))
                 .use_markup(false)
                 .build();
-            row.add_prefix(&gtk4::Image::from_icon_name("dialog-warning-symbolic"));
-            expander.add_row(&row);
-        }
+            preview.set_subtitle(&format!("gamescope {} -- <game>", built.args.join(" ")));
+            preview.set_subtitle_selectable(true);
+            facts.add_row(&preview);
+            for unsupported in &built.unsupported {
+                let row = adw::ActionRow::builder()
+                    .title(i18n("Not supported by this Gamescope"))
+                    .subtitle(format!(
+                        "--{} — {}",
+                        unsupported.flag,
+                        i18n(unsupported.effect)
+                    ))
+                    .use_markup(false)
+                    .build();
+                row.add_prefix(&gtk4::Image::from_icon_name("dialog-warning-symbolic"));
+                facts.add_row(&row);
+            }
+        });
     }
-
     group
-}
-
-// ── Resolution input helpers ─────────────────────────────────────────────────
-
-/// A `SpinButton` clamped to [0, `max_val`] for resolution inputs; 0 = auto.
-fn make_res_spinbutton(current: u32, max_val: u32) -> gtk4::SpinButton {
-    let adj = gtk4::Adjustment::new(f64::from(current), 0.0, f64::from(max_val), 1.0, 10.0, 0.0);
-    let spin = gtk4::SpinButton::new(Some(&adj), 1.0, 0);
-    spin.set_valign(gtk4::Align::Center);
-    spin.set_width_chars(6);
-    spin
-}
-
-/// Two `SpinButton`s (width × height) in an `AdwActionRow`.
-fn make_resolution_row(
-    title: &str,
-    subtitle: &str,
-    w_spin: &gtk4::SpinButton,
-    h_spin: &gtk4::SpinButton,
-) -> adw::ActionRow {
-    let separator = gtk4::Label::builder()
-        .label("×")
-        .margin_start(4)
-        .margin_end(4)
-        .valign(gtk4::Align::Center)
-        .css_classes(["dim-label"])
-        .build();
-    let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(subtitle)
-        .build();
-    row.add_suffix(w_spin);
-    row.add_suffix(&separator);
-    row.add_suffix(h_spin);
-    row
 }

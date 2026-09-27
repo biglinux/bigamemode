@@ -4,8 +4,9 @@
 //! 2:3 box; the cover is painted *over* it rather than inside it, so a
 //! texture's size never reaches the layout, and a placeholder, a portrait
 //! cover and a landscape capsule all occupy exactly the same pixels. The
-//! actions are overlaid on the poster too, and revealed by opacity, so
-//! hovering a card moves nothing around it. Titles take one line and
+//! actions are overlaid on the poster too, and revealed by opacity when the
+//! pointer is over the cover, so hovering a card moves nothing around it and
+//! nothing lights up before the pointer reaches the game. Titles take one line and
 //! ellipsise; the full title is the tooltip. The grid therefore only ever
 //! changes its number of columns.
 //!
@@ -216,23 +217,27 @@ where
         }
     };
     {
+        // The pointer reveals the actions over the cover itself, not over
+        // the card's margin or its title: the card has no hover of its own,
+        // so nothing lights up before the pointer reaches the game.
         let reveal = reveal.clone();
         let motion = gtk4::EventControllerMotion::new();
         let r_enter = reveal.clone();
         motion.connect_enter(move |_, _, _| r_enter(true));
-        motion.connect_leave(move |c| {
+        let card_ref = card.downgrade();
+        motion.connect_leave(move |_| {
             // Keep the actions up while something inside the card has focus,
             // otherwise tabbing into a button would hide the button.
-            let focused = c
-                .widget()
-                .and_then(|w| w.root())
-                .and_then(|r| r.focus())
-                .is_some_and(|f| c.widget().is_some_and(|w| f.is_ancestor(&w) || f == w));
+            let focused = card_ref.upgrade().is_some_and(|card| {
+                card.root()
+                    .and_then(|r| r.focus())
+                    .is_some_and(|f| f.is_ancestor(&card) || f == card)
+            });
             if !focused {
                 reveal(false);
             }
         });
-        card.add_controller(motion);
+        poster.add_controller(motion);
     }
     {
         let focus = gtk4::EventControllerFocus::new();

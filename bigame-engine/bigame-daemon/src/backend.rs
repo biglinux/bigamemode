@@ -210,7 +210,8 @@ pub async fn reload(connection: &zbus::Connection) {
 }
 
 /// Restart a running falcond — needed only when a setting it reads at
-/// start-up changed (`enable_performance_mode`).
+/// start-up changed (`enable_performance_mode`, the global scheduler and
+/// 3D V-Cache mode).
 pub async fn restart_if_running(connection: &zbus::Connection) {
     let running = state(connection)
         .await

@@ -22,10 +22,11 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use bigame_core::profiles::GameProfile;
+use bigame_core::optimization::GameOptimization;
 
-use crate::i18n::{error_text, i18n, ni18n, tr};
+use crate::i18n::{error_text, i18n, ni18n};
 use crate::widgets::game_card;
+use crate::widgets::optimization as ui;
 use crate::widgets::toast;
 
 /// Build the Profiles view with navigation stack.
@@ -40,9 +41,19 @@ pub fn build() -> adw::NavigationView {
 /// The library page's widgets and the last library shown in them.
 struct LibraryView {
     nav: adw::NavigationView,
-    /// `grid` or `empty`.
+    /// `grid`, `empty` (no games at all) or `none` (none matches).
     stack: gtk4::Stack,
     grid: gtk4::FlowBox,
+    /// The cards' entries, in the grid's order: what the filter reads.
+    entries: RefCell<Vec<game_card::Entry>>,
+    /// The search and the two filters.
+    search: gtk4::SearchEntry,
+    status_filter: adw::ToggleGroup,
+    source_filter: gtk4::DropDown,
+    /// The launcher names in `source_filter`, after "All launchers".
+    sources: RefCell<Vec<String>>,
+    /// The page shown when nothing matches.
+    no_match: adw::StatusPage,
     refresh_btn: gtk4::Button,
     /// The user's profiles with no installed game, collapsed under the grid.
     others_group: adw::PreferencesGroup,
@@ -54,6 +65,101 @@ struct LibraryView {
     shown: RefCell<Option<(bigame_core::library::Library, HashSet<String>)>>,
     /// Whether a scan is running, and whether one was asked for meanwhile.
     scanning: RefCell<(bool, bool)>,
+}
+
+impl LibraryView {
+    /// Whether `e` passes the search and both filters: the query is found
+    /// in the title or the launcher, ignoring case.
+    fn matches(&self, e: &game_card::Entry) -> bool {
+        let query = self.search.text().trim().to_lowercase();
+        let status_ok = match self.status_filter.active_name().as_deref() {
+            Some("with") => e.has_profile,
+            Some("without") => !e.has_profile,
+            _ => true,
+        };
+        let source_ok = match self.source_filter.selected() {
+            0 | gtk4::INVALID_LIST_POSITION => true,
+            i => self
+                .sources
+                .borrow()
+                .get(i as usize - 1)
+                .is_some_and(|s| *s == e.source),
+        };
+        status_ok
+            && source_ok
+            && (query.is_empty()
+                || e.title.to_lowercase().contains(&query)
+                || e.source.to_lowercase().contains(&query))
+    }
+
+    /// Filter the grid again and show the right page for the result.
+    fn apply_filters(&self) {
+        self.grid.invalidate_filter();
+        let entries = self.entries.borrow();
+        if entries.is_empty() {
+            self.stack.set_visible_child_name("empty");
+            return;
+        }
+        if entries.iter().any(|e| self.matches(e)) {
+            self.stack.set_visible_child_name("grid");
+            return;
+        }
+        let searching = !self.search.text().trim().is_empty() || self.source_filter.selected() > 0;
+        let (title, text) = match (self.status_filter.active_name().as_deref(), searching) {
+            (Some("without"), false) => (
+                i18n("No game without a profile"),
+                i18n("Every game found already has a profile."),
+            ),
+            (Some("with"), false) => (
+                i18n("No game with a profile yet"),
+                i18n("Optimize a game from its card to create one."),
+            ),
+            _ => (
+                i18n("No games found"),
+                i18n("Try another name or remove the filters."),
+            ),
+        };
+        self.no_match.set_title(&title);
+        self.no_match.set_description(Some(&text));
+        self.stack.set_visible_child_name("none");
+    }
+
+    /// Back to every game.
+    fn clear_filters(&self) {
+        self.search.set_text("");
+        self.status_filter.set_active_name(Some("all"));
+        self.source_filter.set_selected(0);
+        self.apply_filters();
+        self.search.grab_focus();
+    }
+
+    /// Offer exactly the launchers the library has.
+    fn set_sources(&self, entries: &[game_card::Entry]) {
+        let mut sources: Vec<String> = entries.iter().map(|e| e.source.clone()).collect();
+        sources.sort();
+        sources.dedup();
+        if *self.sources.borrow() == sources {
+            return;
+        }
+        let keep = match self.source_filter.selected() {
+            0 | gtk4::INVALID_LIST_POSITION => None,
+            i => self.sources.borrow().get(i as usize - 1).cloned(),
+        };
+        let mut labels = vec![i18n("All launchers")];
+        labels.extend(sources.iter().cloned());
+        let refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+        self.source_filter
+            .set_model(Some(&gtk4::StringList::new(&refs)));
+        let selected = keep
+            .and_then(|k| sources.iter().position(|s| *s == k))
+            .and_then(|i| u32::try_from(i + 1).ok())
+            .unwrap_or(0);
+        *self.sources.borrow_mut() = sources;
+        self.source_filter.set_selected(selected);
+        // One launcher: nothing to choose.
+        self.source_filter
+            .set_visible(self.sources.borrow().len() > 1);
+    }
 }
 
 /// Build the profile list page.
@@ -83,6 +189,8 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         .valign(gtk4::Align::Start)
         .build();
 
+    grid.add_css_class("game-library");
+
     let empty = adw::StatusPage::builder()
         .icon_name("applications-games-symbolic")
         .title(i18n("No games found"))
@@ -92,11 +200,60 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         .build();
     empty.add_css_class("compact");
 
+    // Nothing matches the search and filters: say so, with the way back.
+    let clear_btn = gtk4::Button::builder()
+        .label(i18n("Clear filters"))
+        .halign(gtk4::Align::Center)
+        .css_classes(["pill"])
+        .build();
+    let no_match = adw::StatusPage::builder()
+        .icon_name("system-search-symbolic")
+        .title(i18n("No games found"))
+        .description(i18n("Try another name or remove the filters."))
+        .child(&clear_btn)
+        .build();
+    no_match.add_css_class("compact");
+
     let stack = gtk4::Stack::new();
     stack.add_named(&grid, Some("grid"));
     stack.add_named(&empty, Some("empty"));
+    stack.add_named(&no_match, Some("none"));
     stack.set_vhomogeneous(false);
     stack.set_hhomogeneous(false);
+
+    // Search and filters: instant, over what is on screen — typing filters
+    // the cards already built, it never rescans the library.
+    let search = gtk4::SearchEntry::builder()
+        .placeholder_text(i18n("Search games…"))
+        .hexpand(true)
+        .build();
+    search.update_property(&[gtk4::accessible::Property::Label(&i18n("Search games"))]);
+    let source_filter = gtk4::DropDown::from_strings(&[&i18n("All launchers")]);
+    source_filter.set_valign(gtk4::Align::Center);
+    source_filter.set_tooltip_text(Some(&i18n("Launcher")));
+    source_filter.update_property(&[gtk4::accessible::Property::Label(&i18n("Launcher"))]);
+    let status_filter = adw::ToggleGroup::new();
+    for (name, label) in [
+        ("all", i18n("All")),
+        ("with", i18n("With a profile")),
+        ("without", i18n("Without a profile")),
+    ] {
+        let t = adw::Toggle::new();
+        t.set_name(Some(name));
+        t.set_label(Some(&label));
+        status_filter.add(t);
+    }
+    status_filter.set_active_name(Some("all"));
+    status_filter.set_halign(gtk4::Align::Start);
+    let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+    top.append(&search);
+    top.append(&source_filter);
+    let filters = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
+    filters.add_css_class("library-filters");
+    filters.set_margin_bottom(12);
+    filters.append(&top);
+    filters.append(&status_filter);
+    group.add(&filters);
     group.add(&stack);
 
     // Action buttons
@@ -148,6 +305,12 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         nav: nav_view.clone(),
         stack,
         grid,
+        entries: RefCell::new(Vec::new()),
+        search: search.clone(),
+        status_filter: status_filter.clone(),
+        source_filter: source_filter.clone(),
+        sources: RefCell::new(Vec::new()),
+        no_match,
         refresh_btn: refresh_btn.clone(),
         others_group,
         others,
@@ -155,6 +318,44 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         shown: RefCell::new(None),
         scanning: RefCell::new((false, false)),
     });
+
+    // The filter reads the entries by the card's position in the grid.
+    {
+        let weak = Rc::downgrade(&view);
+        view.grid.set_filter_func(move |child| {
+            weak.upgrade().is_none_or(|v| {
+                usize::try_from(child.index())
+                    .ok()
+                    .and_then(|i| v.entries.borrow().get(i).map(|e| v.matches(e)))
+                    .unwrap_or(true)
+            })
+        });
+    }
+    {
+        let v = Rc::clone(&view);
+        search.connect_search_changed(move |_| v.apply_filters());
+    }
+    {
+        let v = Rc::clone(&view);
+        search.connect_stop_search(move |s| {
+            s.set_text("");
+            v.apply_filters();
+        });
+    }
+    // Typing anywhere on the page goes to the search.
+    search.set_key_capture_widget(Some(&page));
+    {
+        let v = Rc::clone(&view);
+        status_filter.connect_active_name_notify(move |_| v.apply_filters());
+    }
+    {
+        let v = Rc::clone(&view);
+        source_filter.connect_selected_notify(move |_| v.apply_filters());
+    }
+    {
+        let v = Rc::clone(&view);
+        clear_btn.connect_clicked(move |_| v.clear_filters());
+    }
 
     // Rescanned whenever the list comes on screen: the first time the page is
     // shown, on return from a detail or create page, and after a profile was
@@ -190,7 +391,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     {
         let nav = nav_view.clone();
         add_btn.connect_clicked(move |_| {
-            nav.push(&build_detail_page_for(&GameProfile::default()));
+            nav.push(&build_new_page("", None));
         });
     }
 
@@ -226,7 +427,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                                 Ok(name) => {
                                     toast::show(&btn_ref, &i18n("Profile imported"));
                                     refresh_library(&view);
-                                    view.nav.push(&build_detail_page(&name));
+                                    view.nav.push(&build_detail_page(&name, None));
                                 }
                                 Err(e) => {
                                     toast::show(
@@ -267,7 +468,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
                     Ok(name) => {
                         refresh_library(&view);
                         toast::show(&widget, &i18n("Profile imported via drag-and-drop"));
-                        view.nav.push(&build_detail_page(&name));
+                        view.nav.push(&build_detail_page(&name, None));
                     }
                     Err(e) => toast::show(
                         &widget,
@@ -314,821 +515,301 @@ fn find_clamp(widget: &gtk4::Widget) -> Option<adw::Clamp> {
     None
 }
 
-/// Build detail page loading profile from disk by name.
-fn build_detail_page(profile_name: &str) -> adw::NavigationPage {
-    let profile = bigame_core::profiles::load(profile_name).unwrap_or_else(|_| GameProfile {
-        name: profile_name.to_owned(),
-        ..GameProfile::default()
-    });
-    build_detail_page_for(&profile)
+/// The editor for the profile in file `stem`, each part read from its owner
+/// (`GameOptimization::load`). `card` is the game's card, when the editor
+/// was opened from one: its title and install folder.
+fn build_detail_page(stem: &str, card: Option<&game_card::Entry>) -> adw::NavigationPage {
+    build_editor(GameOptimization::load(stem), card, false)
 }
 
-/// `MangoHud` for this game: off, on or forced. BiGame-mode's own setting, not
-/// falcond's, so it applies at once — no Save — and says where it took effect.
-fn build_mangohud_group(process: &str) -> adw::PreferencesGroup {
-    use bigame_core::mangohud::{Applied, Mode};
-
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("MangoHud"));
-    let installed = bigame_core::capabilities::which("mangohud").is_some();
-    group.set_description(Some(&if installed {
-        i18n("The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. It is written where the game's launcher reads it: Steam's launch options (with Steam closed), the game's settings in Heroic (with Heroic closed) or in Lutris.")
-    } else {
-        i18n("MangoHud is not installed.")
-    }));
-    let model = gtk4::StringList::new(&[&i18n("Off"), &i18n("On"), &i18n("Forced")]);
-    let current = bigame_core::mangohud::mode_for(process);
-    let row = adw::ComboRow::builder()
-        .title(i18n("Show MangoHud"))
-        .model(&model)
-        .selected(match current {
-            Mode::Off => 0,
-            Mode::On => 1,
-            Mode::Forced => 2,
-        })
-        .sensitive(installed)
-        .build();
-    group.add(&row);
-
-    let process = process.to_owned();
-    let applying = Rc::new(std::cell::Cell::new(false));
-    row.connect_selected_notify(move |row| {
-        if applying.get() {
-            return;
-        }
-        let mode = match row.selected() {
-            1 => Mode::On,
-            2 => Mode::Forced,
-            _ => Mode::Off,
-        };
-        let (row, process, applying) = (row.clone(), process.clone(), Rc::clone(&applying));
-        glib::spawn_future_local(async move {
-            let name = process.clone();
-            let result = gio::spawn_blocking(move || bigame_core::mangohud::apply(&name, mode)).await;
-            let message = match result {
-                Ok(Ok(Applied::LaunchPlan)) => i18n("Saved. It applies when BiGame-mode starts the game."),
-                Ok(Ok(Applied::Launcher { name, missing_extension: None })) => {
-                    i18n("Written into the game's settings in %s: it applies the next time %s starts the game.")
-                        .replace("%s", name)
-                }
-                Ok(Ok(Applied::Launcher { name, missing_extension: Some(command) })) => {
-                    i18n("Written into the game's settings in %l, but %l is a Flatpak without MangoHud's Flatpak extension, so the overlay cannot load. Install it and restart %l: %c")
-                        .replace("%l", name)
-                        .replace("%c", &command)
-                }
-                Ok(Ok(Applied::LauncherRunning(name))) => {
-                    applying.set(true);
-                    row.set_selected(match current {
-                        Mode::Off => 0,
-                        Mode::On => 1,
-                        Mode::Forced => 2,
-                    });
-                    applying.set(false);
-                    i18n("Close %s first: it keeps the game's settings in memory and would overwrite the change.")
-                        .replace("%s", name)
-                }
-                Ok(Ok(Applied::SteamLaunchOptions(opts))) if opts.is_empty() => {
-                    i18n("Removed from the game's Steam launch options.")
-                }
-                Ok(Ok(Applied::SteamLaunchOptions(opts))) => {
-                    i18n("Steam launch options: %s").replace("%s", &opts)
-                }
-                Ok(Ok(Applied::SteamRunning)) => {
-                    // Saved, but not in effect for Steam: say so and show the
-                    // choice that is actually in Steam.
-                    applying.set(true);
-                    row.set_selected(match current {
-                        Mode::Off => 0,
-                        Mode::On => 1,
-                        Mode::Forced => 2,
-                    });
-                    applying.set(false);
-                    i18n("Close Steam first: it keeps its launch options in memory and would overwrite the change.")
-                }
-                Ok(Err(e)) => format!("{}: {}", i18n("Could not apply"), error_text(&e)),
-                Err(_) => i18n("Could not apply"),
-            };
-            crate::widgets::toast::show(&row, &message);
-        });
-    });
-    group
+/// The editor for a new profile keyed on `process`.
+fn build_new_page(process: &str, card: Option<&game_card::Entry>) -> adw::NavigationPage {
+    build_editor(GameOptimization::new(process), card, true)
 }
 
-/// Find index of `needle` in a `StringList`.
-pub(crate) fn find_index(model: &gtk4::StringList, needle: &str) -> u32 {
-    for i in 0..model.n_items() {
-        if model.string(i).as_deref() == Some(needle) {
-            return i;
-        }
-    }
-    0
-}
-
-/// Build the performance widgets for the detail page.
+/// A game's profile: the same sections as Tuning, for this game only.
+///
+/// The rows are `widgets::optimization`'s, the same the wizard shows one
+/// per step, over the same `GameOptimization`; Save writes each part to its
+/// owner and says which part did not take.
 #[allow(clippy::too_many_lines)]
-fn build_perf_widgets(page: &adw::PreferencesPage, profile: &GameProfile) -> PerfWidgets {
-    // Performance group
-    let perf = adw::PreferencesGroup::new();
-    perf.set_title(&i18n("Performance Settings"));
-
-    let perf_mode = adw::SwitchRow::builder()
-        .title(i18n("Performance Mode"))
-        .subtitle(i18n("Enable system-wide optimizations"))
-        .active(profile.performance_mode)
-        .build();
-    perf.add(&perf_mode);
-
-    let idle_inhibit = adw::SwitchRow::builder()
-        .title(i18n("Idle Inhibit"))
-        .subtitle(i18n("Prevent screensaver while running"))
-        .active(profile.idle_inhibit)
-        .build();
-    perf.add(&idle_inhibit);
-
-    // No per-game CPU governor: falcond has no such field.
-    let installed = bigame_core::sched::detect_installed();
-    let installed_refs: Vec<&str> = installed.iter().map(String::as_str).collect();
-    let sched_model = gtk4::StringList::new(&installed_refs);
-    let sched_row = adw::ComboRow::builder()
-        .title(i18n("Scheduler"))
-        .model(&sched_model)
-        .build();
-    sched_row.set_selected(find_index(&sched_model, &profile.scx_sched));
-
-    let info_btn2 = gtk4::Button::builder()
-        .icon_name("dialog-information-symbolic")
-        .valign(gtk4::Align::Center)
-        .css_classes(["flat", "circular"])
-        .tooltip_text(i18n("Learn about Schedulers"))
-        .build();
-    info_btn2.connect_clicked(|btn| {
-        if let Some(win) = btn.root().and_downcast::<gtk4::Window>() {
-            crate::widgets::scheduler_info::show(&win);
-        }
-    });
-    sched_row.add_suffix(&info_btn2);
-
-    perf.add(&sched_row);
-
-    let mode_model = gtk4::StringList::new(&["default", "gaming", "power", "latency", "server"]);
-    let mode_row = adw::ComboRow::builder()
-        .title(i18n("Scheduler Mode"))
-        .model(&mode_model)
-        .build();
-    mode_row.set_selected(find_index(&mode_model, &profile.scx_sched_props));
-    perf.add(&mode_row);
-
-    // No custom scheduler flags either: falcond 2.0.2 does not read them.
-    let vcache_model = gtk4::StringList::new(&["none", "cache", "freq"]);
-    let vcache_row = adw::ComboRow::builder()
-        .title(i18n("VCache Mode"))
-        .model(&vcache_model)
-        .build();
-    vcache_row.set_selected(find_index(&vcache_model, &profile.vcache_mode));
-    // Only on a CPU with 3D V-Cache. Hidden, the row still holds the
-    // profile's value, so saving keeps what the file had.
-    vcache_row.set_visible(bigame_core::vcache::is_available());
-    perf.add(&vcache_row);
-    page.add(&perf);
-
-    // Scripts group
-    // No start/stop script fields. falcond runs them as root through /bin/sh,
-    // so the helper refuses any profile that sets one; a field whose only
-    // possible outcome is a failed save is not a feature.
-
-    // Gamescope per-game overrides
-    let gs_group = adw::PreferencesGroup::new();
-    gs_group.set_title(&i18n("Gamescope"));
-    gs_group.set_description(Some(&i18n(
-        "Per-game overrides (leave disabled for global defaults)",
-    )));
-
-    // Pre-populate with the saved global defaults if no per-game override exists.
-    let gs_cfg = profile
-        .gamescope
-        .clone()
-        .unwrap_or_else(bigame_core::gamescope::load_global);
-
-    // When Gamescope runs: automatically, always, or never.
-    //
-    // A plain on/off switch is the wrong shape. Some titles are worse inside
-    // Gamescope — overlay, input and HDR problems — and some simply do not
-    // need it; wrapping a game that gains nothing adds a compositor, a copy and
-    // a frame of latency for no benefit.
-    let gs_mode_model =
-        gtk4::StringList::new(&[&i18n("Automatic"), &i18n("Always"), &i18n("Never")]);
-    let gs_mode = adw::ComboRow::builder()
-        .title(i18n("Use Gamescope"))
-        .model(&gs_mode_model)
-        .selected(match profile.gamescope_mode {
-            bigame_core::gamescope::Mode::Auto => 0,
-            bigame_core::gamescope::Mode::Enabled => 1,
-            bigame_core::gamescope::Mode::Disabled => 2,
-        })
-        .build();
-    gs_group.add(&gs_mode);
-
-    // What Automatic would decide, given the settings below — shown so the
-    // choice is not a mystery, and updated as those settings change.
-    let gs_explain = adw::ActionRow::builder()
-        .title(i18n("What Automatic does here"))
-        .subtitle(i18n("Checking…"))
-        .build();
-    gs_explain.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
-    gs_group.add(&gs_explain);
-
-    let gs_enable = adw::SwitchRow::builder()
-        .title(i18n("Override Gamescope settings for this game"))
-        .subtitle(i18n("Leave off to use the global defaults"))
-        .active(profile.gamescope.is_some())
-        .build();
-    gs_group.add(&gs_enable);
-
-    let gs_width = adw::SpinRow::new(
-        Some(&gtk4::Adjustment::new(
-            f64::from(gs_cfg.render_width),
-            640.0,
-            7680.0,
-            1.0,
-            10.0,
-            0.0,
-        )),
-        1.0,
-        0,
-    );
-    gs_width.set_title(&i18n("Width"));
-    gs_width.set_sensitive(profile.gamescope.is_some());
-    gs_group.add(&gs_width);
-
-    let gs_height = adw::SpinRow::new(
-        Some(&gtk4::Adjustment::new(
-            f64::from(gs_cfg.render_height),
-            480.0,
-            4320.0,
-            1.0,
-            10.0,
-            0.0,
-        )),
-        1.0,
-        0,
-    );
-    gs_height.set_title(&i18n("Height"));
-    gs_height.set_sensitive(profile.gamescope.is_some());
-    gs_group.add(&gs_height);
-
-    let gs_fsr = adw::SwitchRow::builder()
-        .title(i18n("FSR"))
-        .active(gs_cfg.filter == bigame_core::gamescope::Filter::Fsr)
-        .sensitive(profile.gamescope.is_some())
-        .build();
-    gs_group.add(&gs_fsr);
-
-    let gs_fps = adw::SpinRow::new(
-        Some(&gtk4::Adjustment::new(
-            f64::from(match gs_cfg.frame_limit {
-                bigame_core::gamescope::FrameLimit::NestedRefresh(hz) => hz,
-                bigame_core::gamescope::FrameLimit::None => 0,
-            }),
-            0.0,
-            500.0,
-            1.0,
-            10.0,
-            0.0,
-        )),
-        1.0,
-        0,
-    );
-    gs_fps.set_title(&i18n("Framerate Limit"));
-    gs_fps.set_sensitive(profile.gamescope.is_some());
-    gs_group.add(&gs_fps);
-
-    // Toggle sensitivity of gamescope fields
-    let w_ref = gs_width.clone();
-    let h_ref = gs_height.clone();
-    let fsr_ref = gs_fsr.clone();
-    let fps_ref = gs_fps.clone();
-    gs_enable.connect_active_notify(move |sw| {
-        let on = sw.is_active();
-        w_ref.set_sensitive(on);
-        h_ref.set_sensitive(on);
-        fsr_ref.set_sensitive(on);
-        fps_ref.set_sensitive(on);
-    });
-
-    // Keep the explanation honest as the controls change.
-    {
-        let explain = gs_explain.clone();
-        let mode = gs_mode.clone();
-        let width = gs_width.clone();
-        let height = gs_height.clone();
-        let fsr = gs_fsr.clone();
-        let fps = gs_fps.clone();
-        // `gamescope --help` is run once, off the main thread; until it
-        // answers the explanation stays hidden.
-        let caps: Rc<RefCell<Option<Option<bigame_core::capabilities::GamescopeCaps>>>> =
-            Rc::new(RefCell::new(None));
-        let caps_read = Rc::clone(&caps);
-        let refresh = Rc::new(move || {
-            let caps = caps_read.borrow();
-            let Some(caps) = caps.as_ref() else {
-                explain.set_visible(false);
-                return;
-            };
-            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-            let cfg = bigame_core::gamescope::Config {
-                render_width: width.value() as u32,
-                render_height: height.value() as u32,
-                filter: if fsr.is_active() {
-                    bigame_core::gamescope::Filter::Fsr
-                } else {
-                    bigame_core::gamescope::Filter::Linear
-                },
-                frame_limit: {
-                    let hz = fps.value() as u32;
-                    if hz > 0 {
-                        bigame_core::gamescope::FrameLimit::NestedRefresh(hz)
-                    } else {
-                        bigame_core::gamescope::FrameLimit::None
-                    }
-                },
-                ..bigame_core::gamescope::Config::default()
-            };
-            let session = bigame_core::hardware::detect_session();
-            let decision = bigame_core::gamescope::decide(
-                bigame_core::gamescope::Mode::Auto,
-                &cfg,
-                caps.as_ref(),
-                session,
-            );
-            explain.set_subtitle(&format!(
-                "{} — {}",
-                if decision.use_gamescope {
-                    i18n("Gamescope would run")
-                } else {
-                    i18n("Gamescope would not run")
-                },
-                tr(&decision.reason)
-            ));
-            // The explanation only describes Automatic.
-            explain.set_visible(mode.selected() == 0);
-        });
-        {
-            let refresh = Rc::clone(&refresh);
-            glib::spawn_future_local(async move {
-                let probed = gio::spawn_blocking(bigame_core::capabilities::detect_gamescope)
-                    .await
-                    .ok()
-                    .flatten();
-                *caps.borrow_mut() = Some(probed);
-                refresh();
-            });
-        }
-        for widget in [&gs_width, &gs_height] {
-            let refresh = Rc::clone(&refresh);
-            widget.connect_value_notify(move |_| refresh());
-        }
-        {
-            let refresh = Rc::clone(&refresh);
-            gs_fps.connect_value_notify(move |_| refresh());
-        }
-        {
-            let refresh = Rc::clone(&refresh);
-            gs_fsr.connect_active_notify(move |_| refresh());
-        }
-        {
-            let refresh = Rc::clone(&refresh);
-            gs_mode.connect_selected_notify(move |_| refresh());
-        }
-    }
-
-    page.add(&gs_group);
-
-    // Frame Generation group
-    let fg_group = adw::PreferencesGroup::new();
-    fg_group.set_title(&i18n("Frame Generation (LSFG-VK)"));
-
-    let fg_dll_path = adw::EntryRow::builder()
-        .title(i18n("Path to Lossless.dll"))
-        .text(profile.fg_dll_path.as_deref().unwrap_or(""))
-        .build();
-
-    let file_btn = gtk4::Button::builder()
-        .icon_name("folder-open-symbolic")
-        .valign(gtk4::Align::Center)
-        .css_classes(["flat"])
-        .build();
-    fg_dll_path.add_suffix(&file_btn);
-
-    let info_btn = gtk4::Button::builder()
-        .icon_name("dialog-information-symbolic")
-        .tooltip_text(i18n(
-            "Lossless Scaling is proprietary.
-Click to visit losslessscaling.com",
-        ))
-        .valign(gtk4::Align::Center)
-        .css_classes(["flat", "circular"])
-        .build();
-    info_btn.connect_clicked(|btn| {
-        if let Some(win) = btn.root().and_downcast::<gtk4::Window>() {
-            let dialog = adw::AlertDialog::builder()
-                .heading(i18n("Lossless Scaling Required"))
-                .body(i18n("This feature uses LSFG-VK which requires the proprietary Lossless.dll to function.
-
-You must legally acquire Lossless Scaling on Steam or other platforms to obtain this file."))
-                .body_use_markup(true)
-                .build();
-
-            dialog.add_response("cancel", &i18n("Close"));
-            dialog.add_response("web", &i18n("Visit Website"));
-            dialog.set_response_appearance("web", adw::ResponseAppearance::Suggested);
-
-            let win_clone = win.clone();
-            dialog.choose(&win, gtk4::gio::Cancellable::NONE, move |response| {
-                if response == "web" {
-                    let launcher = gtk4::UriLauncher::new("https://losslessscaling.com/");
-                    launcher.launch(Some(&win_clone), gtk4::gio::Cancellable::NONE, |_| {});
-                }
-            });
-        }
-    });
-    fg_dll_path.add_suffix(&info_btn);
-
-    let r_clone = fg_dll_path.clone();
-    file_btn.connect_clicked(move |btn| {
-        let dialog = gtk4::FileDialog::builder()
-            .title(i18n("Select Lossless.dll"))
-            .modal(true)
-            .build();
-        let f = gtk4::FileFilter::new();
-        f.set_name(Some(&format!("{} (*.dll)", i18n("DLL files"))));
-        f.add_pattern("*.dll");
-        let filters = gio::ListStore::new::<gtk4::FileFilter>();
-        filters.append(&f);
-        dialog.set_filters(Some(&filters));
-
-        let r = r_clone.clone();
-        if let Some(win) = btn.root().and_downcast::<gtk4::Window>() {
-            dialog.open(Some(&win), gio::Cancellable::NONE, move |res| {
-                if let Ok(file) = res {
-                    if let Some(path) = file.path() {
-                        r.set_text(&path.to_string_lossy());
-                    }
-                }
-            });
-        }
-    });
-    fg_group.add(&fg_dll_path);
-
-    let fg_multiplier = adw::SpinRow::new(
-        Some(&gtk4::Adjustment::new(
-            f64::from(profile.fg_multiplier).clamp(1.0, 20.0),
-            1.0,
-            20.0,
-            1.0,
-            1.0,
-            0.0,
-        )),
-        1.0,
-        0,
-    );
-    fg_multiplier.set_title(&i18n("Multiplier (1-20x)"));
-    fg_group.add(&fg_multiplier);
-
-    let fg_flow_scale = adw::SpinRow::new(
-        Some(&gtk4::Adjustment::new(
-            f64::from(profile.fg_flow_scale).clamp(25.0, 100.0),
-            25.0,
-            100.0,
-            1.0,
-            10.0,
-            0.0,
-        )),
-        1.0,
-        0,
-    );
-    fg_flow_scale.set_title(&i18n("Flow Scale (25-100%)"));
-    fg_group.add(&fg_flow_scale);
-
-    let fg_perf_mode = adw::SwitchRow::builder()
-        .title(i18n("Performance Mode"))
-        .active(profile.fg_perf_mode)
-        .build();
-    fg_group.add(&fg_perf_mode);
-
-    let fg_hdr = adw::SwitchRow::builder()
-        .title(i18n("HDR Mode"))
-        .active(profile.fg_hdr)
-        .build();
-    fg_group.add(&fg_hdr);
-
-    let fg_present_model = gtk4::StringList::new(&[
-        &i18n("VSync/FIFO (default)"),
-        &i18n("Recommended"),
-        &i18n("Mailbox"),
-        &i18n("Immediate"),
-    ]);
-    let fg_present_mode = adw::ComboRow::new();
-    fg_present_mode.set_title(&i18n("Present Mode"));
-    fg_present_mode.set_model(Some(&fg_present_model));
-    fg_present_mode.set_selected(profile.fg_present_mode);
-    fg_group.add(&fg_present_mode);
-
-    page.add(&fg_group);
-
-    PerfWidgets {
-        perf_mode,
-        idle_inhibit,
-        sched_model,
-        sched_row,
-        mode_model,
-        mode_row,
-        vcache_model,
-        vcache_row,
-        gs_enable,
-        gs_mode,
-        gs_width,
-        gs_height,
-        gs_fsr,
-        gs_fps,
-        fg_dll_path,
-        fg_multiplier,
-        fg_flow_scale,
-        fg_perf_mode,
-        fg_hdr,
-        fg_present_mode,
-    }
-}
-
-/// Intermediate struct holding references to detail page widgets.
-struct PerfWidgets {
-    perf_mode: adw::SwitchRow,
-    idle_inhibit: adw::SwitchRow,
-    sched_model: gtk4::StringList,
-    sched_row: adw::ComboRow,
-    mode_model: gtk4::StringList,
-    mode_row: adw::ComboRow,
-    vcache_model: gtk4::StringList,
-    vcache_row: adw::ComboRow,
-    gs_enable: adw::SwitchRow,
-    gs_mode: adw::ComboRow,
-    gs_width: adw::SpinRow,
-    gs_height: adw::SpinRow,
-    gs_fsr: adw::SwitchRow,
-    gs_fps: adw::SpinRow,
-    fg_dll_path: adw::EntryRow,
-    fg_multiplier: adw::SpinRow,
-    fg_flow_scale: adw::SpinRow,
-    fg_perf_mode: adw::SwitchRow,
-    fg_hdr: adw::SwitchRow,
-    fg_present_mode: adw::ComboRow,
-}
-
-/// Build a profile detail/editor page with save button.
-#[allow(clippy::too_many_lines)]
-fn build_detail_page_for(profile: &GameProfile) -> adw::NavigationPage {
+fn build_editor(
+    g: GameOptimization,
+    card: Option<&game_card::Entry>,
+    is_new: bool,
+) -> adw::NavigationPage {
     let page = adw::PreferencesPage::new();
-    let shared = Rc::new(RefCell::new(profile.clone()));
+    let m = ui::Machine::detect();
+    let title = card.map_or_else(|| g.profile.name.clone(), |c| c.title.clone());
+    let target = card.and_then(|c| c.target.clone());
+    let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
+    game.steam = card.is_some_and(|c| c.source == "Steam");
 
-    // Identity group
+    page.add(&ui::scope_banner(ui::Scope::Game(&game.title)));
+
+    // The process name: first for a new profile, which needs one; last for
+    // one that exists, where it is rarely changed and should not take the
+    // focus (typing would replace it).
     let identity = adw::PreferencesGroup::new();
-    identity.set_title(&i18n("Profile"));
-
+    if !is_new {
+        identity.set_title(&i18n("Advanced"));
+    }
     let name_row = adw::EntryRow::builder()
         .title(i18n("Process Name"))
-        .text(&profile.name)
+        .text(&g.profile.name)
         .build();
+    name_row.add_suffix(&crate::widgets::info::button(
+        &i18n("Process Name"),
+        &i18n("falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."),
+    ));
     identity.add(&name_row);
-    page.add(&identity);
+    if is_new {
+        page.add(&identity);
+    }
 
-    let w = build_perf_widgets(&page, profile);
-    page.add(&build_mangohud_group(&profile.name));
+    let fields = Rc::new(ui::GameFields::build(&g, &m, &game, true));
+    page.add(&fields.performance.group);
+    page.add(&fields.scheduler.group);
+    page.add(&fields.vcache.group);
+    page.add(&fields.gamescope.group);
+    page.add(&image_quality_group(&m, &game));
+    page.add(&fields.frame_generation.group);
+    page.add(&fields.mangohud.group);
+    if !is_new {
+        page.add(&identity);
+    }
 
-    // Save button
+    // Save sits in a bar that stays on screen, not at the end of the page.
     let save_btn = gtk4::Button::builder()
         .label(i18n("Save Profile"))
         .css_classes(["suggested-action", "pill"])
-        .halign(gtk4::Align::Center)
-        .margin_top(12)
         .build();
-    let save_group = adw::PreferencesGroup::new();
-    save_group.add(&save_btn);
-    page.add(&save_group);
+    let save_hint = gtk4::Label::builder()
+        .label(i18n("Changes apply when you save"))
+        .css_classes(["dim-label", "caption"])
+        .wrap(true)
+        .xalign(0.0)
+        .hexpand(true)
+        .build();
+    let bar = gtk4::Box::new(gtk4::Orientation::Horizontal, 12);
+    bar.add_css_class("editor-save-bar");
+    bar.set_margin_top(8);
+    bar.set_margin_bottom(8);
+    bar.set_margin_start(16);
+    bar.set_margin_end(16);
+    bar.append(&save_hint);
+    bar.append(&save_btn);
 
-    // Collect widget values on save
-    let cfg = Rc::clone(&shared);
-    save_btn.connect_clicked(move |btn| {
-        {
-            let mut p = cfg.borrow_mut();
-            p.name = name_row.text().to_string();
-            p.performance_mode = w.perf_mode.is_active();
-            p.idle_inhibit = w.idle_inhibit.is_active();
-            if let Some(v) = w.sched_model.string(w.sched_row.selected()) {
-                p.scx_sched = v.to_string();
+    let shared = Rc::new(RefCell::new(g));
+    {
+        let (shared, fields) = (Rc::clone(&shared), Rc::clone(&fields));
+        save_btn.connect_clicked(move |btn| {
+            let mut g = shared.borrow().clone();
+            name_row.text().trim().clone_into(&mut g.profile.name);
+            fields.apply(&mut g);
+            let (errors, warnings) = g.problems();
+            if !errors.is_empty() {
+                let errors: Vec<String> = errors.iter().map(|e| i18n(e)).collect();
+                crate::widgets::toast::error(
+                    btn,
+                    &i18n("The profile was not saved"),
+                    &errors.join("\n"),
+                );
+                return;
             }
-            if let Some(v) = w.mode_model.string(w.mode_row.selected()) {
-                p.scx_sched_props = v.to_string();
+            if !warnings.is_empty() {
+                let soft: Vec<String> = warnings.iter().map(|w| i18n(w)).collect();
+                toast::show(btn, &format!("⚠ {}", soft.join("; ")));
             }
-            if let Some(v) = w.vcache_model.string(w.vcache_row.selected()) {
-                p.vcache_mode = v.to_string();
-            }
-
-            p.gamescope_mode = match w.gs_mode.selected() {
-                1 => bigame_core::gamescope::Mode::Enabled,
-                2 => bigame_core::gamescope::Mode::Disabled,
-                _ => bigame_core::gamescope::Mode::Auto,
-            };
-
-            // Per-game Gamescope overrides
-            p.gamescope = if w.gs_enable.is_active() {
-                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-                {
-                    let fps = w.gs_fps.value() as u32;
-                    Some(bigame_core::gamescope::Config {
-                        render_width: w.gs_width.value() as u32,
-                        render_height: w.gs_height.value() as u32,
-                        filter: if w.gs_fsr.is_active() {
-                            bigame_core::gamescope::Filter::Fsr
-                        } else {
-                            bigame_core::gamescope::Filter::Linear
-                        },
-                        frame_limit: if fps > 0 {
-                            bigame_core::gamescope::FrameLimit::NestedRefresh(fps)
-                        } else {
-                            bigame_core::gamescope::FrameLimit::None
-                        },
-                        ..bigame_core::gamescope::Config::default()
-                    })
+            btn.set_sensitive(false);
+            btn.set_label(&i18n("Saving…"));
+            let (btn, shared) = (btn.clone(), Rc::clone(&shared));
+            glib::spawn_future_local(async move {
+                // Off the main thread: the call may wait on a Polkit password
+                // prompt, and the window must keep drawing meanwhile.
+                let result = gio::spawn_blocking(move || {
+                    let mut g = g;
+                    g.save().map(|report| (g, report))
+                })
+                .await;
+                match result {
+                    Ok(Ok((saved, report))) => {
+                        *shared.borrow_mut() = saved;
+                        crate::widgets::optimization::report_save(&btn, &report);
+                    }
+                    Ok(Err(e)) => crate::widgets::toast::error(
+                        &btn,
+                        &i18n("The profile was not saved"),
+                        &error_text(&e),
+                    ),
+                    Err(_) => crate::widgets::toast::error(
+                        &btn,
+                        &i18n("The profile was not saved"),
+                        &i18n("the worker thread stopped"),
+                    ),
                 }
-            } else {
-                None
-            };
-
-            #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-            {
-                let dll = w.fg_dll_path.text().to_string();
-                p.fg_dll_path = if dll.is_empty() { None } else { Some(dll) };
-                p.fg_multiplier = w.fg_multiplier.value() as u32;
-                p.fg_flow_scale = w.fg_flow_scale.value() as u32;
-                p.fg_perf_mode = w.fg_perf_mode.is_active();
-                p.fg_hdr = w.fg_hdr.is_active();
-                p.fg_present_mode = w.fg_present_mode.selected();
-            }
-        }
-        let profile_clone = cfg.borrow().clone();
-
-        // Block save only on hard errors (empty/invalid name, zero resolution).
-        let errors = bigame_core::profiles::critical_errors(&profile_clone);
-        if !errors.is_empty() {
-            let errors: Vec<String> = errors.iter().map(|e| i18n(e)).collect();
-            toast::show(btn, &errors.join("; "));
-            return;
-        }
-
-        // Advisory warnings (VCache on non-AMD, scheduler mismatch, etc.) —
-        // show as toast but do NOT block saving.
-        let warnings = bigame_core::profiles::validate(&profile_clone);
-        let soft: Vec<_> = warnings
-            .iter()
-            .filter(|w| !errors.contains(w))
-            .map(|w| i18n(w))
-            .collect();
-        if !soft.is_empty() {
-            toast::show(btn, &format!("⚠ {}", soft.join("; ")));
-        }
-
-        btn.set_sensitive(false);
-        btn.set_label(&i18n("Saving…"));
-        let btn_ref = btn.clone();
-        glib::spawn_future_local(async move {
-            // Off the main thread: the call may wait on a Polkit password
-            // prompt, and the window must keep drawing meanwhile. The result
-            // is reported, whichever it is.
-            let result =
-                gio::spawn_blocking(move || bigame_core::profiles::save(&profile_clone)).await;
-            match result {
-                Ok(Ok(())) => toast::show(&btn_ref, &i18n("Profile saved")),
-                Ok(Err(e)) => {
-                    tracing::warn!(error = %format!("{e:#}"), "profile not saved");
-                    toast::show(
-                        &btn_ref,
-                        &i18n("Could not save: %s").replace("%s", &error_text(&e)),
-                    );
-                }
-                Err(_) => toast::show(&btn_ref, &i18n("Could not save: %s").replace("%s", "")),
-            }
-            glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
-                btn_ref.set_sensitive(true);
-                btn_ref.set_label(&i18n("Save Profile"));
+                btn.set_sensitive(true);
+                btn.set_label(&i18n("Save Profile"));
             });
         });
-    });
+    }
 
     let toolbar = adw::ToolbarView::new();
     let detail_header = adw::HeaderBar::new();
     detail_header.set_show_end_title_buttons(false);
     detail_header.set_show_start_title_buttons(false);
+    if !is_new {
+        add_header_actions(&detail_header, &shared.borrow().profile.name);
+    }
+    toolbar.add_top_bar(&detail_header);
+    toolbar.set_content(Some(&page));
+    toolbar.add_bottom_bar(&bar);
 
-    // Delete button (only for existing profiles)
-    if !profile.name.is_empty() {
-        // Export button
-        let export_btn = gtk4::Button::builder()
-            .icon_name("document-save-as-symbolic")
-            .tooltip_text(i18n("Export Profile"))
+    adw::NavigationPage::builder()
+        .title(if is_new {
+            i18n("New Profile")
+        } else {
+            game.title.clone()
+        })
+        .child(&toolbar)
+        .build()
+}
+
+/// Image quality for one game: AI Graphics is per game; Wine FSR is
+/// general, and the page says what it does for this game.
+fn image_quality_group(m: &ui::Machine, game: &ui::Game) -> adw::PreferencesGroup {
+    use bigame_core::overview::State;
+    let group = ui::section(&i18n("Image quality"));
+    let installed = !game.optiscaler.is_empty();
+    let ai = adw::ActionRow::builder()
+        .title(i18n("AI Graphics"))
+        .subtitle(if game.target.is_none() {
+            i18n("Needs the game's install folder, which its launcher does not record")
+        } else if installed {
+            i18n("OptiScaler installed by BiGame-mode for this game")
+        } else {
+            i18n("Upscaling and frame generation inside the game, with backup and undo")
+        })
+        .subtitle_lines(3)
+        .use_markup(false)
+        .build();
+    let chip = crate::widgets::status::Chip::new(State::Off);
+    if installed {
+        chip.set(State::Configured, Some(&i18n("Installed")));
+    } else {
+        chip.set(State::Off, Some(&i18n("Not set up")));
+    }
+    ai.add_suffix(chip.widget());
+    if let Some(target) = game.target.clone() {
+        let open = gtk4::Button::builder()
+            .label(i18n("Open"))
+            .valign(gtk4::Align::Center)
             .build();
-        let export_name = profile.name.clone();
-        export_btn.connect_clicked(move |btn| {
-            let dialog = gtk4::FileDialog::builder()
-                .title(i18n("Export Profile"))
-                .initial_name(format!("{export_name}.conf"))
-                .build();
-            let btn_ref = btn.clone();
-            let name = export_name.clone();
-            let win = btn.root().and_downcast::<gtk4::Window>();
-            dialog.save(win.as_ref(), gio::Cancellable::NONE, move |result| {
-                if let Ok(file) = result {
-                    if let Some(path) = file.path() {
-                        match bigame_core::profiles::export(&name, &path) {
-                            Ok(()) => toast::show(&btn_ref, &i18n("Profile exported")),
-                            Err(e) => toast::show(
-                                &btn_ref,
-                                &i18n("Export failed: %s").replace("%s", &error_text(&e)),
-                            ),
-                        }
+        open.connect_clicked(move |b| {
+            crate::views::ai_graphics::open(b, target.clone(), None);
+        });
+        ai.add_suffix(&open);
+    }
+    group.add(&ai);
+
+    let wine_on = m.video.upscaling.wine_fsr_enabled;
+    let wine = adw::ActionRow::builder()
+        .title("Wine FSR")
+        .subtitle(if installed && wine_on {
+            i18n("On in Tuning, with nothing to scale here: OptiScaler upscales inside the game, which runs at the display's resolution")
+        } else if wine_on {
+            i18n("On in Tuning, for every game")
+        } else {
+            i18n("Off in Tuning, for every game")
+        })
+        .subtitle_lines(3)
+        .use_markup(false)
+        .build();
+    wine.add_suffix(ui::on_off_chip(wine_on && !installed).widget());
+    group.add(&wine);
+    group
+}
+
+/// Export and Delete, for a profile that exists.
+fn add_header_actions(header: &adw::HeaderBar, name: &str) {
+    let export_btn = gtk4::Button::builder()
+        .icon_name("document-save-as-symbolic")
+        .tooltip_text(i18n("Export Profile"))
+        .build();
+    export_btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Export Profile"))]);
+    let export_name = name.to_owned();
+    export_btn.connect_clicked(move |btn| {
+        let dialog = gtk4::FileDialog::builder()
+            .title(i18n("Export Profile"))
+            .initial_name(format!("{export_name}.conf"))
+            .build();
+        let btn_ref = btn.clone();
+        let name = export_name.clone();
+        let win = btn.root().and_downcast::<gtk4::Window>();
+        dialog.save(win.as_ref(), gio::Cancellable::NONE, move |result| {
+            if let Some(path) = result.ok().and_then(|f| f.path()) {
+                match bigame_core::profiles::export(&name, &path) {
+                    Ok(()) => toast::show(&btn_ref, &i18n("Profile exported")),
+                    Err(e) => toast::show(
+                        &btn_ref,
+                        &i18n("Export failed: %s").replace("%s", &error_text(&e)),
+                    ),
+                }
+            }
+        });
+    });
+    header.pack_end(&export_btn);
+
+    // No "activate" button: falcond applies a game's profile by itself
+    // when the game's process starts.
+    let delete_btn = gtk4::Button::builder()
+        .icon_name("user-trash-symbolic")
+        .tooltip_text(i18n("Delete Profile"))
+        .css_classes(["destructive-action"])
+        .build();
+    delete_btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Delete Profile"))]);
+    let profile_name = name.to_owned();
+    delete_btn.connect_clicked(move |btn| {
+        let dialog = adw::AlertDialog::builder()
+            .heading(i18n("Delete Profile?"))
+            .body(i18n("Remove \"%s\" permanently?").replace("%s", &profile_name))
+            .build();
+        dialog.add_response("cancel", &i18n("Cancel"));
+        dialog.add_response("delete", &i18n("Delete"));
+        dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        let name = profile_name.clone();
+        let btn_ref = btn.clone();
+        dialog.connect_response(None, move |_dlg, response| {
+            if response != "delete" {
+                return;
+            }
+            // Report what happened, not what was attempted.
+            let n = name.clone();
+            btn_ref.set_sensitive(false);
+            let feedback = btn_ref.clone();
+            glib::spawn_future_local(async move {
+                let result = gio::spawn_blocking(move || bigame_core::profiles::delete(&n)).await;
+                match result {
+                    Ok(Ok(())) => toast::show(&feedback, &i18n("Profile deleted")),
+                    Ok(Err(e)) => {
+                        feedback.set_sensitive(true);
+                        toast::show(
+                            &feedback,
+                            &i18n("Could not delete profile: %s").replace("%s", &error_text(&e)),
+                        );
+                    }
+                    Err(_) => {
+                        feedback.set_sensitive(true);
+                        toast::show(&feedback, &i18n("Could not delete profile"));
                     }
                 }
             });
         });
-        detail_header.pack_end(&export_btn);
-
-        // No "activate" button: falcond applies a game's profile by itself
-        // when the game's process starts, and one that did nothing but show
-        // "Profile activated" claimed an action that never happened.
-
-        let delete_btn = gtk4::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .tooltip_text(i18n("Delete Profile"))
-            .css_classes(["destructive-action"])
-            .build();
-        let profile_name = profile.name.clone();
-        delete_btn.connect_clicked(move |btn| {
-            let dialog = adw::AlertDialog::builder()
-                .heading(i18n("Delete Profile?"))
-                .body(i18n("Remove \"%s\" permanently?").replace("%s", &profile_name))
-                .build();
-            dialog.add_response("cancel", &i18n("Cancel"));
-            dialog.add_response("delete", &i18n("Delete"));
-            dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
-            dialog.set_default_response(Some("cancel"));
-            dialog.set_close_response("cancel");
-
-            let name = profile_name.clone();
-            let btn_ref = btn.clone();
-            dialog.connect_response(None, move |_dlg, response| {
-                if response == "delete" {
-                    // Report what happened, not what was attempted.
-                    let n = name.clone();
-                    btn_ref.set_sensitive(false);
-                    let feedback = btn_ref.clone();
-                    glib::spawn_future_local(async move {
-                        let result =
-                            gio::spawn_blocking(move || bigame_core::profiles::delete(&n)).await;
-                        match result {
-                            Ok(Ok(())) => toast::show(&feedback, &i18n("Profile deleted")),
-                            Ok(Err(e)) => {
-                                feedback.set_sensitive(true);
-                                toast::show(
-                                    &feedback,
-                                    &i18n("Could not delete profile: %s")
-                                        .replace("%s", &error_text(&e)),
-                                );
-                            }
-                            Err(_) => {
-                                feedback.set_sensitive(true);
-                                toast::show(&feedback, &i18n("Could not delete profile"));
-                            }
-                        }
-                    });
-                }
-            });
-
-            let widget = btn.root().and_downcast::<gtk4::Window>();
-            dialog.present(widget.as_ref());
-        });
-        detail_header.pack_end(&delete_btn);
-    }
-
-    toolbar.add_top_bar(&detail_header);
-    toolbar.set_content(Some(&page));
-
-    let title = if profile.name.is_empty() {
-        i18n("New Profile")
-    } else {
-        profile.name.clone()
-    };
-    adw::NavigationPage::builder()
-        .title(&title)
-        .child(&toolbar)
-        .build()
+        dialog.present(Some(btn));
+    });
+    header.pack_end(&delete_btn);
 }
 
 /// Scan the machine off the main thread and show the result.
@@ -1185,8 +866,14 @@ fn show_library(
     while let Some(child) = view.grid.first_child() {
         view.grid.remove(&child);
     }
-    for entry in &library.games {
-        let entry = card_entry(entry, ai_installed);
+    let entries: Vec<game_card::Entry> = library
+        .games
+        .iter()
+        .map(|e| card_entry(e, ai_installed))
+        .collect();
+    view.entries.borrow_mut().clone_from(&entries);
+    view.set_sources(&entries);
+    for entry in entries {
         let nav_activate = view.nav.clone();
         let nav_menu = view.nav.clone();
         let card = game_card::build(
@@ -1195,13 +882,13 @@ fn show_library(
             move |entry, anchor| show_card_menu(entry, anchor, &nav_menu),
         );
         view.grid.insert(&card, -1);
+        // The card is the focus stop, not the cell around it: one ring,
+        // one Tab per game.
+        if let Some(cell) = view.grid.last_child() {
+            cell.set_focusable(false);
+        }
     }
-    view.stack
-        .set_visible_child_name(if library.games.is_empty() {
-            "empty"
-        } else {
-            "grid"
-        });
+    view.apply_filters();
 
     for row in view.other_rows.borrow_mut().drain(..) {
         view.others.remove(&row);
@@ -1222,7 +909,7 @@ fn show_library(
         row.add_suffix(&gtk4::Image::from_icon_name("go-next-symbolic"));
         let nav = view.nav.clone();
         let stem = profile.stem.clone();
-        row.connect_activated(move |_| nav.push(&build_detail_page(&stem)));
+        row.connect_activated(move |_| nav.push(&build_detail_page(&stem, None)));
         view.others.add_row(&row);
         view.other_rows.borrow_mut().push(row);
     }
@@ -1361,11 +1048,8 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
 /// keyed on the game's real process name, so falcond can match it.
 fn open_profile(entry: &game_card::Entry, nav: &adw::NavigationView) {
     match &entry.profile_stem {
-        Some(stem) => nav.push(&build_detail_page(stem)),
-        None => nav.push(&build_detail_page_for(&GameProfile {
-            name: entry.key.clone(),
-            ..GameProfile::default()
-        })),
+        Some(stem) => nav.push(&build_detail_page(stem, Some(entry))),
+        None => nav.push(&build_new_page(&entry.key, Some(entry))),
     }
 }
 

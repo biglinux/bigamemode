@@ -827,7 +827,15 @@ pub fn read_log(text: &str) -> LogFindings {
         if fsr4_runtime_missing {
             f.amdxcffx64 = Some(false);
         }
+        // Also not a failure: OptiScaler tried to hand the game's frame
+        // generation swapchain to the FSR 4 provider, which lacks that
+        // interface (E_NOINTERFACE), and goes on with the one it has.
+        // Measured on the reference desktop (Shadow of the Tomb Raider, RX
+        // 9060 XT): frames and upscaling unaffected.
+        let provider_swap_refused =
+            line.contains("UpdateFfxApiProviderEx") && line.contains("0X80004002");
         let failed = !fsr4_runtime_missing
+            && !provider_swap_refused
             && (line.contains("can't load")
                 || line.contains("Upscaler can't created")
                 || line.contains("Failed to load")
@@ -1022,6 +1030,12 @@ mod tests {
         assert_eq!(f.errors.len(), 1);
         assert!(f.errors[0].contains("amd_fidelityfx_dx12.dll"));
         assert_eq!(read_log(""), LogFindings::default());
+        // The FSR 4 provider refusing the frame-generation swapchain is not
+        // a failure; another [E] line is.
+        let swap =
+            "[09:11:09.465212] [E] UpdateFfxApiProviderEx for: SwapchainDX12, result: 0X80004002\n";
+        assert!(read_log(swap).errors.is_empty());
+        assert_eq!(read_log("[1] [E] f something broke\n").errors.len(), 1);
     }
 
     #[test]

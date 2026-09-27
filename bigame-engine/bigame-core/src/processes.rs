@@ -46,6 +46,8 @@ pub enum Kind {
     Media,
     /// Another game, or a game launcher.
     Gaming,
+    /// BiGame-mode itself.
+    ThisApp,
     /// Recognised as nothing in particular.
     Other,
 }
@@ -67,6 +69,9 @@ impl Kind {
             }
             Self::Media => N_("Encoding or transcoding media."),
             Self::Gaming => N_("Another game or a game launcher."),
+            Self::ThisApp => N_(
+                "BiGame-mode itself. Details reads the system every second while it is on screen; minimised, it costs almost nothing.",
+            ),
             Self::Other => N_("Unrecognised."),
         }
     }
@@ -121,6 +126,9 @@ const SIGNATURES: &[(&str, Kind)] = &[
 #[must_use]
 pub fn classify(comm: &str) -> Kind {
     let lower = comm.to_ascii_lowercase();
+    if lower == "bigame-ui" {
+        return Kind::ThisApp;
+    }
     SIGNATURES
         .iter()
         .find(|(needle, _)| lower.contains(needle))
@@ -320,6 +328,7 @@ mod tests {
         assert_eq!(classify("syncthing"), Kind::Sync);
         assert_eq!(classify("firefox"), Kind::Browser);
         assert_eq!(classify("chrome"), Kind::Browser);
+        assert_eq!(classify("bigame-ui"), Kind::ThisApp);
         assert_eq!(classify("qemu-system-x86_64"), Kind::Virtualisation);
         assert_eq!(classify("ffmpeg"), Kind::Media);
         assert_eq!(classify("steam"), Kind::Gaming);

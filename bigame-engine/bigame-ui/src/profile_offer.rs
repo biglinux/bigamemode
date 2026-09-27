@@ -346,9 +346,72 @@ fn show_review(app: &adw::Application, process: &str) {
     let process = process.to_owned();
     glib::spawn_future_local(async move {
         if let Some((game, rec)) = recommendation_for(&process).await {
-            present_review(&app, &process, &game, &rec);
+            // The falcond profile has no GPU in it; what this GPU gets is
+            // AI Graphics' answer, read like the page reads it.
+            let probed = process.clone();
+            let graphics = gio::spawn_blocking(move || graphics_line(&probed))
+                .await
+                .ok()
+                .flatten();
+            present_review(&app, &process, &game, &rec, graphics.as_deref());
         }
     });
+}
+
+/// What AI Graphics recommends for the game on the GPU it renders on, in a
+/// line: `Radeon RX 9060 XT: the game's own FSR — FSR 4 through Proton…`.
+fn graphics_line(process: &str) -> Option<String> {
+    use bigame_core::graphics::{self, config, plan::Standing};
+    let target = graphics::target_for_process(process)?;
+    let cfg = config::AiGraphicsConfig {
+        mode: config::Mode::Recommended,
+        ..config::AiGraphicsConfig::default()
+    };
+    let analysis = graphics::analyze(&target, &cfg);
+    let mut line = tr(&analysis.plan.summary);
+    if matches!(
+        analysis.plan.standing,
+        Standing::Recommended | Standing::Compatible
+    ) {
+        // The summary is a phrase, not a sentence.
+        if !line.ends_with(['.', '!', '?', '。']) {
+            line.push('.');
+        }
+        line.push(' ');
+        line.push_str(&i18n("Apply it in AI Graphics, with the game closed."));
+    }
+    Some(match analysis.report.gpu() {
+        Some(gpu) => format!("{}: {line}", graphics::report::display_name(&gpu.name)),
+        None => line,
+    })
+}
+
+/// A decision as the rest of BiGame-mode names it: the field's title and
+/// its value, a scheduler left to Tuning shown with what Tuning runs.
+fn decision_row(
+    d: &recommend::Decision,
+    general: &bigame_core::config::FalcondConfig,
+) -> (String, String) {
+    use crate::widgets::optimization as o;
+    let on_off = |v: &str| if v == "true" { i18n("On") } else { i18n("Off") };
+    match d.key.as_str() {
+        "name" => (i18n("Process"), d.value.clone()),
+        "performance_mode" => (i18n("Performance mode"), on_off(&d.value)),
+        "scx_sched" if bigame_core::optimization::inherits(&d.value) => (
+            i18n("CPU scheduler"),
+            o::inherit_label(&o::scheduler_summary(
+                &general.scx_sched,
+                &general.scx_sched_props,
+            )),
+        ),
+        "scx_sched" => (i18n("CPU scheduler"), o::scheduler_name(&d.value)),
+        "vcache_mode" if d.evidence == recommend::Evidence::Unsupported => {
+            (i18n("3D V-Cache"), i18n("Not supported"))
+        }
+        "vcache_mode" => (i18n("3D V-Cache"), o::vcache_name(&d.value)),
+        "idle_inhibit" => (i18n("Keep the screen awake"), on_off(&d.value)),
+        _ => (d.key.clone(), d.value.clone()),
+    }
 }
 
 fn present_review(
@@ -356,6 +419,7 @@ fn present_review(
     process: &str,
     game: &GameIdentity,
     rec: &Recommendation,
+    graphics: Option<&str>,
 ) {
     let window = app
         .active_window()
@@ -368,14 +432,34 @@ fn present_review(
     let list = gtk4::ListBox::new();
     list.add_css_class("boxed-list");
     list.set_selection_mode(gtk4::SelectionMode::None);
-    for d in rec.decisions.iter().filter(|d| d.key != "scx_sched_props") {
+    let general = bigame_core::config::read().unwrap_or_default();
+    let row = |title: &str, value: Option<&str>, why: &str| {
         let row = adw::ActionRow::builder()
-            .title(format!("{} = {}", d.key, d.value))
-            .subtitle(format!("{} — {}", i18n(d.evidence.label()), tr(&d.why)))
-            .subtitle_lines(4)
+            .title(title)
+            .subtitle(why)
             .use_markup(false)
             .build();
-        list.append(&row);
+        if let Some(value) = value {
+            let label = gtk4::Label::new(Some(value));
+            label.add_css_class("dim-label");
+            label.set_wrap(true);
+            label.set_max_width_chars(20);
+            label.set_xalign(1.0);
+            label.set_justify(gtk4::Justification::Right);
+            row.add_suffix(&label);
+        }
+        row
+    };
+    for d in rec.decisions.iter().filter(|d| d.key != "scx_sched_props") {
+        let (title, value) = decision_row(d, &general);
+        list.append(&row(
+            &title,
+            Some(&value),
+            &format!("{} — {}", i18n(d.evidence.label()), tr(&d.why)),
+        ));
+    }
+    if let Some(line) = graphics {
+        list.append(&row(&i18n("AI Graphics"), None, line));
     }
     let never = gtk4::CheckButton::with_label(&i18n("Don't ask again for this game"));
     let body = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
@@ -389,6 +473,8 @@ fn present_review(
         ))
         .extra_child(&body)
         .build();
+    // Room for each reason on a line or two, not a column of words.
+    dialog.set_prefer_wide_layout(true);
     // "Not now" leaves the game on falcond's general Proton profile, which is
     // what a separate "Use general optimization" choice also did.
     dialog.add_responses(&[
