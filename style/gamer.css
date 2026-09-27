@@ -406,7 +406,23 @@ toast {
 
 /* ── The Turbo control ─────────────────────────────────────────────── */
 
-/* The disc is drawn; the design only restyles the presets under it. */
+/* The disc is drawn; the design restyles what sits round it. */
+.home-mini,
+.home-steam,
+.home-card {
+    background-color: var(--gm-surface-primary);
+    box-shadow: 0 0 0 1px var(--gm-border-subtle);
+}
+
+.home-card {
+    background-image: radial-gradient(circle at 100% 0%, rgba(131, 93, 255, 0.12), rgba(131, 93, 255, 0) 55%);
+}
+
+.home-card-icon {
+    color: var(--gm-cyan);
+}
+
+
 .turbo-preset {
     background-color: var(--gm-surface-primary);
     border: 1px solid var(--gm-border-subtle, rgba(139, 110, 255, 0.18));

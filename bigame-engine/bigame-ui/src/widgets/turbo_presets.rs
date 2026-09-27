@@ -88,18 +88,18 @@ impl PresetPicker {
         let mut first: Option<gtk4::ToggleButton> = None;
         for preset in turbo_preset::ALL {
             let image = gtk4::Image::from_icon_name(icon(preset));
-            image.set_pixel_size(22);
+            image.set_pixel_size(18);
             let label = gtk4::Label::new(Some(&i18n(preset.label())));
             label.set_wrap(true);
             label.set_justify(gtk4::Justification::Center);
             label.set_max_width_chars(12);
-            let content = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+            let content = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
             content.append(&image);
             content.append(&label);
             let button = gtk4::ToggleButton::builder()
                 .child(&content)
                 .css_classes(["turbo-preset"])
-                .width_request(116)
+                .width_request(108)
                 .active(preset == chosen)
                 .build();
             button.update_property(&[gtk4::accessible::Property::Label(&i18n(preset.label()))]);
@@ -117,11 +117,16 @@ impl PresetPicker {
         }
 
         let machine = Machine::detect();
+        // Two lines on the page; the whole text as a tooltip.
         let description = gtk4::Label::new(Some(&describe(chosen, machine, &[])));
         description.add_css_class("dim-label");
+        description.add_css_class("caption");
         description.set_wrap(true);
+        description.set_lines(2);
+        description.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         description.set_justify(gtk4::Justification::Center);
-        description.set_max_width_chars(58);
+        description.set_max_width_chars(70);
+        description.set_tooltip_text(Some(&describe(chosen, machine, &[])));
 
         let note = gtk4::Label::new(None);
         note.add_css_class("caption");
@@ -130,7 +135,7 @@ impl PresetPicker {
         note.set_justify(gtk4::Justification::Center);
         note.set_visible(false);
 
-        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
+        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
         root.set_halign(gtk4::Align::Center);
         root.append(&heading);
         root.append(&row);
@@ -167,11 +172,7 @@ impl PresetPicker {
                     tracing::warn!(error = %format!("{e:#}"), "could not keep the Turbo preset");
                 }
                 if let Some(me) = weak.upgrade() {
-                    me.description.set_label(&describe(
-                        preset,
-                        me.machine,
-                        &me.generating.borrow(),
-                    ));
+                    me.refresh();
                 }
             });
         }
@@ -185,8 +186,9 @@ impl PresetPicker {
             .iter()
             .find(|(_, b)| b.is_active())
             .map_or(Preset::Standard, |(p, _)| *p);
-        self.description
-            .set_label(&describe(shown, self.machine, &self.generating.borrow()));
+        let text = describe(shown, self.machine, &self.generating.borrow());
+        self.description.set_label(&text);
+        self.description.set_tooltip_text(Some(&text));
     }
 
     /// The widget.

@@ -75,18 +75,6 @@ impl State {
         }
     }
 
-    /// The line under the disc, when the state has one.
-    #[must_use]
-    pub fn caption(&self) -> Option<String> {
-        match self {
-            Self::Off => Some(i18n("Standard game settings")),
-            Self::On { .. } | Self::Partial { .. } => {
-                Some(i18n("Full focus, maximum performance!"))
-            }
-            _ => None,
-        }
-    }
-
     /// Where the artwork stands in this state ([`super::turbo_art`]): off 0,
     /// on 1; switching on starts from the first spark and is moved on by
     /// each real stage ([`BoosterButton::set_progress`]).
@@ -105,18 +93,6 @@ impl State {
             Self::Partial { .. } => super::turbo_art::Tint::Warning,
             Self::Error { .. } => super::turbo_art::Tint::Error,
             _ => super::turbo_art::Tint::Spectrum,
-        }
-    }
-
-    /// Symbolic icon name for this state.
-    #[must_use]
-    pub fn icon(&self) -> &'static str {
-        match self {
-            Self::Off => "power-profile-performance-symbolic",
-            Self::Working { .. } | Self::Restoring => "content-loading-symbolic",
-            Self::On { .. } => "object-select-symbolic",
-            Self::Partial { .. } => "dialog-warning-symbolic",
-            Self::Error { .. } => "dialog-error-symbolic",
         }
     }
 
@@ -188,9 +164,6 @@ const IDLE_FRAME: std::time::Duration = std::time::Duration::from_millis(33);
 /// The Turbo Mode control.
 pub struct BoosterButton {
     button: gtk4::Button,
-    icon: gtk4::Image,
-    title: gtk4::Label,
-    subtitle: gtk4::Label,
     caption: gtk4::Label,
     area: gtk4::DrawingArea,
     art: std::rc::Rc<std::cell::RefCell<Art>>,
@@ -200,7 +173,7 @@ pub struct BoosterButton {
 }
 
 /// The disc's size.
-const SIZE: i32 = 300;
+const SIZE: i32 = 200;
 
 impl BoosterButton {
     /// Build the control in its [`State::Off`] state.
@@ -221,40 +194,10 @@ impl BoosterButton {
 
         let area = art_area(&art);
 
-        let icon = gtk4::Image::from_icon_name(State::Off.icon());
-        icon.set_pixel_size(28);
-        icon.add_css_class("turbo-icon");
-
-        let title = gtk4::Label::new(Some(&State::Off.title().to_uppercase()));
-        title.add_css_class("turbo-title");
-        title.set_wrap(true);
-        title.set_justify(gtk4::Justification::Center);
-        title.set_max_width_chars(12);
-
-        let subtitle = gtk4::Label::new(None);
-        subtitle.add_css_class("turbo-detail");
-        subtitle.set_wrap(true);
-        subtitle.set_justify(gtk4::Justification::Center);
-        subtitle.set_max_width_chars(22);
-        subtitle.set_visible(false);
-
-        let content = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
-        content.set_halign(gtk4::Align::Center);
-        content.set_valign(gtk4::Align::Center);
-        // As wide as the disc's face allows, so the name breaks into two
-        // lines ("TURBO MODE / ACTIVATED") rather than one word a line.
-        content.set_width_request(SIZE * 2 / 3);
-        content.set_can_target(false);
-        content.append(&icon);
-        content.append(&title);
-        content.append(&subtitle);
-
-        let overlay = gtk4::Overlay::new();
-        overlay.set_child(Some(&area));
-        overlay.add_overlay(&content);
-
+        // Nothing is written on the disc: the symbol says on or off, and
+        // what is happening goes under it (`caption`).
         let button = gtk4::Button::builder()
-            .child(&overlay)
+            .child(&area)
             .halign(gtk4::Align::Center)
             .valign(gtk4::Align::Center)
             .css_classes(["booster-button", "booster-ready"])
@@ -274,10 +217,12 @@ impl BoosterButton {
             button.add_controller(motion);
         }
 
-        let caption = gtk4::Label::new(State::Off.caption().as_deref());
+        let caption = gtk4::Label::new(None);
         caption.add_css_class("turbo-caption");
         caption.set_wrap(true);
         caption.set_justify(gtk4::Justification::Center);
+        caption.set_max_width_chars(40);
+        caption.set_visible(false);
 
         // Screen readers announce the state, not just the word "button".
         button.update_property(&[
@@ -287,9 +232,6 @@ impl BoosterButton {
 
         Rc::new(Self {
             button,
-            icon,
-            title,
-            subtitle,
             caption,
             area,
             art,
@@ -305,7 +247,8 @@ impl BoosterButton {
     }
 
     /// The line under the disc, packed by the page right after
-    /// [`Self::widget`].
+    /// [`Self::widget`]: what is happening while switching, or what went
+    /// wrong; nothing while plainly on or off.
     #[must_use]
     pub fn caption(&self) -> &gtk4::Label {
         &self.caption
@@ -324,20 +267,14 @@ impl BoosterButton {
         }
         self.button.add_css_class(state.css_class());
 
-        let working = !state.is_interactive();
-        self.icon.set_visible(!working);
-        if !working {
-            self.icon.set_icon_name(Some(state.icon()));
-        }
-
         let title = state.title();
         let subtitle = state.subtitle();
-        self.title.set_label(&title.to_uppercase());
-        // Off says it under the disc; inside there is only the name.
-        let inside = !matches!(state, State::Off);
-        self.subtitle.set_visible(inside);
-        self.subtitle.set_label(if inside { &subtitle } else { "" });
-        let caption = state.caption();
+        let caption = match state {
+            State::Off | State::On { .. } => None,
+            State::Working { step } => Some(step.clone()),
+            State::Restoring => Some(subtitle.clone()),
+            State::Partial { detail } | State::Error { detail } => Some(detail.clone()),
+        };
         self.caption.set_visible(caption.is_some());
         self.caption
             .set_label(caption.as_deref().unwrap_or_default());
@@ -513,7 +450,6 @@ mod tests {
         for state in all() {
             assert!(!state.title().is_empty(), "{state:?} has no title");
             assert!(!state.subtitle().is_empty(), "{state:?} has no subtitle");
-            assert!(!state.icon().is_empty());
             assert!(classes.contains(&state.css_class()), "{state:?}");
         }
     }
