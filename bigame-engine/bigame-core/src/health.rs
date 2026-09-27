@@ -118,7 +118,7 @@ pub fn package_version(db: &Path, name: &str) -> Option<String> {
     None
 }
 
-const PACMAN_DB: &str = "/var/lib/pacman/local";
+pub(crate) const PACMAN_DB: &str = "/var/lib/pacman/local";
 
 /// The 32-bit Vulkan driver a render GPU needs, and whether it is present.
 ///

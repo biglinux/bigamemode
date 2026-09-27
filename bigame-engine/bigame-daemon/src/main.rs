@@ -135,22 +135,17 @@ impl BiGameDaemon {
             std::fs::create_dir_all(parent)
                 .map_err(|e| failed(&format!("create {}: {e}", parent.display())))?;
         }
-        // falcond reads `enable_performance_mode` only at start-up (falcond
-        // 2.0.2: a reload keeps the power-profiles connection it has), so a
-        // change to it needs a restart. Everything else it re-reads on SIGHUP.
-        let startup_flag = |text: &str| {
-            text.lines()
-                .find_map(|l| l.trim().strip_prefix("enable_performance_mode"))
-                .map(|rest| rest.trim_start_matches([' ', '=']).trim().to_owned())
-        };
         let before = std::fs::read_to_string(path).ok();
         write_atomic(path, config_payload.as_bytes(), 0o644)
             .map_err(|e| failed(&format!("write falcond config: {e:#}")))?;
 
         info!(path = FALCOND_CONFIG, "falcond configuration written");
-        if before.as_deref().and_then(startup_flag) == startup_flag(config_payload) {
+        if startup_settings(before.as_deref().unwrap_or_default())
+            == startup_settings(config_payload)
+        {
             backend::reload(&self.connection).await;
         } else {
+            info!("a setting falcond reads only at start-up changed; restarting it");
             backend::restart_if_running(&self.connection).await;
         }
         Ok(())
@@ -444,4 +439,65 @@ async fn main() -> Result<()> {
     info!("serving com.biglinux.BiGameMode on the system bus");
     std::future::pending::<()>().await;
     Ok(())
+}
+
+/// The settings falcond reads only when it starts, as written in `text`.
+///
+/// Its SIGHUP reload re-reads the file and the profiles, but the global
+/// scheduler and 3D V-Cache mode are applied only at start-up, and
+/// `enable_performance_mode` decides at start-up whether it connects to
+/// power-profiles-daemon at all (falcond 2.0.2, `daemon.zig`). A change to
+/// any of them needs a restart to take effect; anything else, a reload.
+fn startup_settings(text: &str) -> Vec<(String, String)> {
+    const KEYS: &[&str] = &[
+        "enable_performance_mode",
+        "scx_sched",
+        "scx_sched_props",
+        "vcache_mode",
+    ];
+    let mut found: Vec<(String, String)> = text
+        .lines()
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| (k.trim(), v.trim().trim_matches('"')))
+        .filter(|(k, _)| KEYS.contains(k))
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+    found.sort();
+    found
+}
+
+#[cfg(test)]
+mod tests {
+    use super::startup_settings;
+
+    #[test]
+    fn a_change_falcond_reads_only_at_start_up_is_told_apart() {
+        let base = "enable_performance_mode = true\nscx_sched = lavd\nscx_sched_props = gaming\nvcache_mode = none\nprofile_mode = none\npoll_interval_ms = 9000\n";
+        // Only a reloadable key changed.
+        let poll = base.replace("9000", "5000");
+        assert_eq!(startup_settings(base), startup_settings(&poll));
+        let set = base.replace("profile_mode = none", "profile_mode = htpc");
+        assert_eq!(startup_settings(base), startup_settings(&set));
+        // Each start-up key changed.
+        for (from, to) in [
+            ("scx_sched = lavd", "scx_sched = bpfland"),
+            ("scx_sched_props = gaming", "scx_sched_props = latency"),
+            ("vcache_mode = none", "vcache_mode = cache"),
+            (
+                "enable_performance_mode = true",
+                "enable_performance_mode = false",
+            ),
+        ] {
+            assert_ne!(
+                startup_settings(base),
+                startup_settings(&base.replace(from, to)),
+                "{to}"
+            );
+        }
+        // Quoting does not count as a change.
+        assert_eq!(
+            startup_settings(base),
+            startup_settings(&base.replace("scx_sched = lavd", "scx_sched = \"lavd\""))
+        );
+    }
 }

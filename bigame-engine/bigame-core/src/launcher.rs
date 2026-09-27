@@ -136,6 +136,25 @@ impl LaunchPlan {
             gs_override,
         );
         let gs_override = gs_local.as_ref();
+        // Wine FSR and Gamescope upscaling are two upscalers in series: when
+        // Gamescope renders below its output for this game, Wine FSR is off
+        // for this launch (a file from an older version can have both on).
+        if effective_video.upscaling.wine_fsr_enabled
+            && (crate::optimization::gamescope_upscales(&effective_video.upscaling)
+                || gs_override.is_some_and(|g| g.render_width > 0 && g.render_height > 0))
+            && game_mode != Some(gamescope::Mode::Disabled)
+        {
+            effective_video.upscaling.wine_fsr_enabled = false;
+            tracing::info!(
+                game = logical_game,
+                "harmony: Wine FSR off for this launch — Gamescope already upscales"
+            );
+        }
+        // The session may hold WINE_FULLSCREEN_FSR=1 (environment.d), and the
+        // game inherits it: a Wine FSR switched off for this launch has to be
+        // switched off explicitly.
+        let wine_fsr_suppressed =
+            video.upscaling.wine_fsr_enabled && !effective_video.upscaling.wine_fsr_enabled;
         let upscaling = &effective_video.upscaling;
 
         // `steam -applaunch` starts the *client*, which then starts the game in
@@ -162,6 +181,9 @@ impl LaunchPlan {
         Self::check_and_warn_conflicts(logical_game, &effective_video);
 
         collect_upscaling_env(upscaling, &mut env);
+        if wine_fsr_suppressed {
+            env.insert("WINE_FULLSCREEN_FSR".into(), "0".into());
+        }
         // On a hybrid laptop an OpenGL game renders on the GPU that drives the
         // panel unless it is offloaded; Vulkan games pick the discrete GPU
         // anyway, and the offload variables do not change what they choose.
@@ -829,6 +851,48 @@ mod tests {
         let plan = build("game", &video, None);
         assert_eq!(plan.env.get("WINE_FULLSCREEN_FSR").unwrap(), "1");
         assert_eq!(plan.env.get("WINE_FULLSCREEN_FSR_MODE").unwrap(), "ultra");
+    }
+
+    #[test]
+    fn wine_fsr_and_gamescope_upscaling_never_run_together() {
+        // A file from an older version can have both on: Gamescope's render
+        // size wins for the launch, and Wine FSR is switched off explicitly,
+        // because the game would inherit the session's WINE_FULLSCREEN_FSR=1.
+        let mut video = VideoConfig::default();
+        video.upscaling.wine_fsr_enabled = true;
+        video.upscaling.gamescope_enabled = true;
+        video.upscaling.base_width = 1280;
+        video.upscaling.base_height = 720;
+        let plan = build("game", &video, None);
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+        assert!(!plan.env.contains_key("WINE_FULLSCREEN_FSR_MODE"));
+
+        // A game's own render size counts the same.
+        let mut video = VideoConfig::default();
+        video.upscaling.wine_fsr_enabled = true;
+        let own = gamescope::Config {
+            render_width: 1280,
+            render_height: 720,
+            ..gamescope::Config::default()
+        };
+        let plan = build("game", &video, Some(&own));
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+
+        // Gamescope without a render size does not upscale: Wine FSR stays.
+        let mut video = VideoConfig::default();
+        video.upscaling.wine_fsr_enabled = true;
+        video.upscaling.gamescope_enabled = true;
+        let plan = build("game", &video, None);
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("1")
+        );
     }
 
     #[test]

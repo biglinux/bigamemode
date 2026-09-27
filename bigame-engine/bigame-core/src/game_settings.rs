@@ -25,6 +25,16 @@ pub struct GameSettings {
     pub ai_graphics: AiGraphicsConfig,
     /// `MangoHud` for this game: off, on (Vulkan layer) or forced (wrapper).
     pub mangohud: crate::mangohud::Mode,
+    /// The Gamescope wrapper BiGame-mode put into the game's Steam launch
+    /// options, so it can replace or remove exactly that
+    /// (`crate::steam_gamescope`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub steam_gamescope: Option<String>,
+    /// BiGame-mode put `WINE_FULLSCREEN_FSR=0` into the game's Steam launch
+    /// options: `OptiScaler` upscales it, and Wine FSR would be a second
+    /// upscaler (`crate::steam_gamescope::set_wine_fsr_off`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub steam_wine_fsr_off: bool,
 }
 
 /// The folder the per-game files are in.

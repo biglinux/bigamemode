@@ -5,6 +5,8 @@ pub mod error_indicator;
 pub mod fg_controls;
 pub mod game_card;
 pub mod info;
+pub mod notice;
+pub mod optimization;
 pub mod scheduler_info;
 pub mod sparkline;
 pub mod status;

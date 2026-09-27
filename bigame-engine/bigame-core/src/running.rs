@@ -258,6 +258,12 @@ const INFRASTRUCTURE: &[&str] = &[
     "beservice.exe",
     "epicwebhelper.exe",
     "gameoverlayui",
+    // The web pages launchers draw their windows with (REDlauncher's Qt,
+    // CEF, WebView2): never a game, even while the launcher is the only
+    // thing running.
+    "qtwebengineprocess.exe",
+    "cefsharp.browsersubprocess.exe",
+    "msedgewebview2.exe",
 ];
 
 /// Name prefixes of the Steam Linux Runtime's own programs (pressure-vessel
@@ -323,7 +329,45 @@ pub fn is_infrastructure(name: &str) -> bool {
             .iter()
             .any(|n| lower.contains(n))
         || lower.contains("launcher")
+        // REDupdater.exe, EA's EADesktopUpdater…: they update, they do not play.
+        || lower.contains("updater")
         || crate::games::is_support_binary(&lower)
+}
+
+/// The processes of a Steam tree the game can be, out of `candidates`.
+fn game_pool<'a>(candidates: Vec<&'a &'a Proc>, proton: bool) -> Vec<&'a &'a Proc> {
+    // In a Proton tree the game is a Windows binary. A Linux helper inside
+    // the container -- an overlay, a wrapper -- must not outrank a game
+    // that is still loading and has burned little CPU yet.
+    let windows: Vec<&&Proc> = candidates
+        .iter()
+        .copied()
+        .filter(|p| p.argv0.to_ascii_lowercase().ends_with(".exe"))
+        .collect();
+    if proton && !windows.is_empty() {
+        // Steam runs its games from the library. A launcher the game
+        // installed in the prefix (CD Projekt's REDlauncher, in
+        // C:\users\…\AppData) runs beside it, and its web page
+        // (`QtWebEngineProcess.exe`) can be the busiest `.exe` there:
+        // while one runs from the library, only those can be the game.
+        let library: Vec<&&Proc> = windows
+            .iter()
+            .copied()
+            .filter(|p| in_steam_library(&p.argv0))
+            .collect();
+        if library.is_empty() { windows } else { library }
+    } else {
+        candidates
+    }
+}
+
+/// Whether a Windows process runs from a Steam library
+/// (`S:\steamapps\common\…`, `Z:\…/steamapps/common/…`).
+fn in_steam_library(argv0: &str) -> bool {
+    argv0
+        .to_ascii_lowercase()
+        .replace('/', "\\")
+        .contains("\\steamapps\\common\\")
 }
 
 /// The Steam app id a reaper was started for.
@@ -410,19 +454,7 @@ pub fn identify_with<S: std::hash::BuildHasher>(
             .iter()
             .filter(|p| !p.argv0.is_empty() && !is_infrastructure(falcond_name(&p.argv0)))
             .collect();
-        // In a Proton tree the game is a Windows binary. A Linux helper inside
-        // the container -- an overlay, a wrapper -- must not outrank a game
-        // that is still loading and has burned little CPU yet.
-        let windows: Vec<&&Proc> = candidates
-            .iter()
-            .copied()
-            .filter(|p| p.argv0.to_ascii_lowercase().ends_with(".exe"))
-            .collect();
-        let pool = if proton.is_some() && !windows.is_empty() {
-            windows
-        } else {
-            candidates
-        };
+        let pool = game_pool(candidates, proton.is_some());
         let Some(game) = pool.into_iter().max_by_key(|p| p.cpu_ticks) else {
             continue;
         };
@@ -1488,6 +1520,59 @@ mod tests {
             identify(&tree).is_empty(),
             "the launcher is not what falcond should key on"
         );
+    }
+
+    #[test]
+    fn a_launchers_web_page_is_not_the_game() {
+        // Cyberpunk 2077 on the reference desktop: REDlauncher, installed in
+        // the prefix, draws its window with Qt's web engine, busier than
+        // anything else before the game starts.
+        let launcher = |pid, ppid, exe: &str, cpu| {
+            p(
+                pid,
+                ppid,
+                &format!(
+                    "C:\\users\\steamuser\\AppData\\Local\\Programs\\CD Projekt Red\\REDlauncher\\{exe}|"
+                ),
+                cpu,
+            )
+        };
+        let mut tree = vec![
+            p(
+                1,
+                0,
+                "/home/u/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=1091500 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "python3|/s/steamapps/common/Proton - Experimental/proton waitforexitandrun x",
+                5,
+            ),
+            p(
+                3,
+                2,
+                "S:\\steamapps\\common\\Cyberpunk 2077\\REDprelauncher.exe|",
+                50,
+            ),
+            launcher(4, 3, "REDlauncher.exe", 900),
+            launcher(5, 4, "QtWebEngineProcess.exe", 4000),
+            launcher(6, 4, "REDupdater.exe", 3000),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
+        // The game starts from the library: it is the game, however busy the
+        // launcher's page still is.
+        tree.push(p(
+            7,
+            4,
+            "S:\\steamapps\\common\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe|",
+            200,
+        ));
+        tree.push(launcher(8, 4, "Other.exe", 9000));
+        let games = identify(&tree);
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].process_name, "Cyberpunk2077.exe");
     }
 
     fn known() -> HashMap<String, String> {

@@ -382,9 +382,337 @@ pub fn mode_for(process: &str) -> Mode {
     crate::game_settings::load(process).map_or(Mode::Off, |s| s.mangohud)
 }
 
+// ── Overlay style ───────────────────────────────────────────────────────────
+
+/// How the overlay looks, for every game that shows it.
+///
+/// `MangoHud` reads `$XDG_CONFIG_HOME/MangoHud/MangoHud.conf` (a per-game file
+/// there, `wine-<game>.conf` or `<program>.conf`, takes precedence, and so
+/// do `MANGOHUD_CONFIG`/`MANGOHUD_CONFIGFILE`). BiGame-mode writes that file
+/// only when a style is chosen, marks it as its own, and keeps the user's
+/// file to put back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Style {
+    /// The user's own file, or `MangoHud`'s defaults when there is none.
+    Own,
+    /// One line across the top, as the Steam Deck's level 2: frame rate,
+    /// frame times, CPU, GPU, memory and power.
+    Basic,
+    /// A column, as the Steam Deck's level 3: each processor with its load,
+    /// temperature, clock and power, then memory and the frame times.
+    Full,
+}
+
+/// The first line of a file BiGame-mode wrote.
+const STYLE_MARKER: &str = "# Managed by BiGame-mode";
+
+/// Options every style shares. Only options `MangoHud` 0.8.4 parses
+/// (`overlay_params.h`); a key it does not know is ignored with a warning.
+const STYLE_COMMON: &[&str] = &[
+    "legacy_layout=0",
+    "position=top-left",
+    "background_alpha=0.5",
+    "round_corners=8",
+    "font_size=20",
+    "text_outline",
+];
+
+const STYLE_BASIC: &[&str] = &[
+    "horizontal",
+    "hud_no_margin",
+    "table_columns=20",
+    "fps",
+    "frame_timing",
+    "cpu_stats",
+    "cpu_power",
+    "gpu_stats",
+    "gpu_power",
+    "ram",
+    "vram",
+    "battery",
+];
+
+const STYLE_FULL: &[&str] = &[
+    "gpu_stats",
+    "gpu_temp",
+    "gpu_core_clock",
+    "gpu_mem_clock",
+    "gpu_power",
+    "vram",
+    "cpu_stats",
+    "cpu_temp",
+    "cpu_mhz",
+    "cpu_power",
+    "ram",
+    "fps",
+    "frametime",
+    "frame_timing",
+    "battery",
+];
+
+/// What this machine can show: `MangoHud` logs an error and leaves an empty
+/// line for a metric it cannot read, so a style asks only for these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Metrics {
+    /// CPU power: RAPL readable by the user, or a `zenpower`/`amd_energy`
+    /// sensor (RAPL is root-only on many systems).
+    pub cpu_power: bool,
+    /// A battery (a laptop or a handheld).
+    pub battery: bool,
+}
+
+impl Metrics {
+    /// Read them from sysfs.
+    #[must_use]
+    pub fn detect() -> Self {
+        let rapl = std::fs::File::open("/sys/class/powercap/intel-rapl:0/energy_uj").is_ok();
+        let sensor = std::fs::read_dir("/sys/class/hwmon").is_ok_and(|d| {
+            d.flatten().any(|h| {
+                std::fs::read_to_string(h.path().join("name"))
+                    .is_ok_and(|n| matches!(n.trim(), "zenpower" | "amd_energy"))
+            })
+        });
+        let battery = std::fs::read_dir("/sys/class/power_supply").is_ok_and(|d| {
+            d.flatten()
+                .any(|p| p.file_name().to_string_lossy().starts_with("BAT"))
+        });
+        Self {
+            cpu_power: rapl || sensor,
+            battery,
+        }
+    }
+}
+
+/// The file for `style` on this machine; `None` for [`Style::Own`].
+#[must_use]
+pub fn style_config(style: Style) -> Option<String> {
+    style_config_for(style, Metrics::detect())
+}
+
+/// The file for `style` with the metrics `m` says exist.
+#[must_use]
+pub fn style_config_for(style: Style, m: Metrics) -> Option<String> {
+    let (name, options) = match style {
+        Style::Own => return None,
+        Style::Basic => ("basic", STYLE_BASIC),
+        Style::Full => ("full", STYLE_FULL),
+    };
+    let mut out = format!(
+        "{STYLE_MARKER}: style {name}.\n\
+         # Written by BiGame-mode (Tuning → Monitoring). Choose \"My own file\" there to\n\
+         # put back the file that was here. Shift_R+F12 shows or hides the overlay.\n"
+    );
+    for o in STYLE_COMMON.iter().chain(options) {
+        if (*o == "cpu_power" && !m.cpu_power) || (*o == "battery" && !m.battery) {
+            continue;
+        }
+        out.push_str(o);
+        out.push('\n');
+    }
+    Some(out)
+}
+
+/// `MangoHud`'s configuration file.
+#[must_use]
+pub fn style_path() -> std::path::PathBuf {
+    crate::paths::config_home().join("MangoHud/MangoHud.conf")
+}
+
+/// Where the user's own file is kept while a style is in place.
+fn style_backup() -> std::path::PathBuf {
+    crate::paths::state_home().join("bigame-mode/mangohud/MangoHud.conf.user")
+}
+
+/// What `MangoHud.conf` holds now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StyleState {
+    /// No file: `MangoHud`'s own defaults.
+    Defaults,
+    /// A file BiGame-mode did not write.
+    Own,
+    /// A style BiGame-mode wrote.
+    Style(Style),
+}
+
+/// Read which style is in place.
+#[must_use]
+pub fn current_style() -> StyleState {
+    style_state_of(std::fs::read_to_string(style_path()).ok().as_deref())
+}
+
+fn style_state_of(text: Option<&str>) -> StyleState {
+    let Some(text) = text else {
+        return StyleState::Defaults;
+    };
+    let first = text.lines().next().unwrap_or_default();
+    match first.strip_prefix(STYLE_MARKER) {
+        Some(rest) if rest.contains("style full") => StyleState::Style(Style::Full),
+        Some(rest) if rest.contains("style basic") => StyleState::Style(Style::Basic),
+        _ => StyleState::Own,
+    }
+}
+
+/// Put `style` in place. The first time, the user's own file (if any) is
+/// moved aside; [`Style::Own`] puts it back, or removes BiGame-mode's file
+/// when there was none. A file BiGame-mode did not write is never replaced
+/// without being kept first.
+///
+/// # Errors
+/// Returns an error if a file cannot be read, moved or written.
+pub fn set_style(style: Style) -> Result<()> {
+    set_style_at(style, &style_path(), &style_backup())
+}
+
+fn set_style_at(style: Style, path: &std::path::Path, backup: &std::path::Path) -> Result<()> {
+    use anyhow::Context;
+    let state = style_state_of(std::fs::read_to_string(path).ok().as_deref());
+    match style_config(style) {
+        None => {
+            if !matches!(state, StyleState::Style(_)) {
+                return Ok(()); // Already the user's own.
+            }
+            if backup.exists() {
+                std::fs::rename(backup, path)
+                    .with_context(|| format!("put back {}", path.display()))?;
+            } else {
+                std::fs::remove_file(path).with_context(|| format!("remove {}", path.display()))?;
+            }
+        }
+        Some(text) => {
+            if state == StyleState::Own {
+                if let Some(dir) = backup.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
+                std::fs::copy(path, backup).with_context(|| format!("keep {}", path.display()))?;
+            }
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let tmp = path.with_extension("conf.bigame-new");
+            std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
+            std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every option `MangoHud` 0.8.4 parses that a style uses
+    /// (`src/overlay_params.h`, v0.8.4).
+    const KNOWN_084: &[&str] = &[
+        "legacy_layout",
+        "position",
+        "background_alpha",
+        "round_corners",
+        "font_size",
+        "text_outline",
+        "horizontal",
+        "hud_no_margin",
+        "table_columns",
+        "fps",
+        "frametime",
+        "frame_timing",
+        "cpu_stats",
+        "cpu_temp",
+        "cpu_mhz",
+        "cpu_power",
+        "gpu_stats",
+        "gpu_temp",
+        "gpu_core_clock",
+        "gpu_mem_clock",
+        "gpu_power",
+        "ram",
+        "vram",
+        "battery",
+    ];
+
+    #[test]
+    fn styles_use_only_options_mangohud_084_knows() {
+        for style in [Style::Basic, Style::Full] {
+            let text = style_config(style).unwrap();
+            for line in text.lines().filter(|l| !l.starts_with('#')) {
+                let key = line.split('=').next().unwrap();
+                assert!(KNOWN_084.contains(&key), "{style:?}: {key}");
+            }
+        }
+        assert_eq!(style_config(Style::Own), None);
+    }
+
+    #[test]
+    fn a_style_asks_only_for_what_the_machine_can_show() {
+        let desktop = Metrics {
+            cpu_power: false,
+            battery: false,
+        };
+        let text = style_config_for(Style::Full, desktop).unwrap();
+        assert!(
+            !text.lines().any(|l| l == "cpu_power" || l == "battery"),
+            "{text}"
+        );
+        let laptop = Metrics {
+            cpu_power: true,
+            battery: true,
+        };
+        let text = style_config_for(Style::Basic, laptop).unwrap();
+        assert!(text.lines().any(|l| l == "cpu_power") && text.lines().any(|l| l == "battery"));
+    }
+
+    #[test]
+    fn a_style_is_recognised_by_its_first_line() {
+        assert_eq!(style_state_of(None), StyleState::Defaults);
+        assert_eq!(style_state_of(Some("fps\n")), StyleState::Own);
+        for style in [Style::Basic, Style::Full] {
+            let text = style_config(style).unwrap();
+            assert_eq!(style_state_of(Some(&text)), StyleState::Style(style));
+        }
+    }
+
+    #[test]
+    fn the_users_own_file_is_kept_and_put_back() {
+        let dir = crate::tests::tempdir("mangohud_style");
+        let path = dir.join("MangoHud/MangoHud.conf");
+        let backup = dir.join("state/MangoHud.conf.user");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "# Goverlay\nfps\n").unwrap();
+
+        set_style_at(Style::Basic, &path, &backup).unwrap();
+        assert!(
+            std::fs::read_to_string(&path)
+                .unwrap()
+                .starts_with(STYLE_MARKER)
+        );
+        assert_eq!(
+            std::fs::read_to_string(&backup).unwrap(),
+            "# Goverlay\nfps\n"
+        );
+        // Switching between styles keeps the first backup.
+        set_style_at(Style::Full, &path, &backup).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&backup).unwrap(),
+            "# Goverlay\nfps\n"
+        );
+
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "# Goverlay\nfps\n");
+        assert!(!backup.exists());
+        // Own again changes nothing.
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "# Goverlay\nfps\n");
+    }
+
+    #[test]
+    fn with_no_file_before_own_removes_the_style() {
+        let dir = crate::tests::tempdir("mangohud_style_none");
+        let path = dir.join("MangoHud/MangoHud.conf");
+        let backup = dir.join("state/MangoHud.conf.user");
+        set_style_at(Style::Full, &path, &backup).unwrap();
+        assert!(path.exists() && !backup.exists());
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert!(!path.exists());
+    }
 
     #[test]
     fn empty_launch_options_get_the_layer_or_the_wrapper() {

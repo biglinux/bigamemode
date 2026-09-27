@@ -204,6 +204,130 @@ pub struct Analysis {
     pub installed_frame_generation: Option<bool>,
     /// The Steam launch option `FSR4_UPGRADE=1` is set for this game.
     pub fsr4_upgrade_set: bool,
+    /// Apply switched the game's upscaler on in its settings, and it has
+    /// been turned off again since (in its menu): `OptiScaler` then has
+    /// nothing to take over.
+    pub game_setting_off: bool,
+}
+
+/// Where the user's choice stands. Selected, configured, loaded and active
+/// are different things, and the page says which one it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChoiceState {
+    /// The choice needs no file and no launch option: nothing to apply.
+    NothingToApply,
+    /// Chosen and not applied yet: Apply does it.
+    Selected,
+    /// The choice needs nothing BiGame-mode installed here: Restore puts
+    /// the game's own files back.
+    NeedsRestore,
+    /// Applied; it takes effect when the game starts.
+    Configured,
+    /// The game runs and loaded it, and it has not started working yet.
+    Loaded,
+    /// Working in the running game.
+    Active,
+    /// Applied, and the game shows it failed or did not load it, or files
+    /// changed since: Diagnose says why.
+    Failed,
+    /// Not offered for this game (anti-cheat, or no way to do it).
+    Blocked,
+}
+
+/// The facts [`choice_state`] reads, so the rule can be tested alone.
+// Independent facts about one analysis, read in one place.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ChoiceFacts {
+    blocked: bool,
+    pending_changes: bool,
+    installed: Option<RuntimeStage>,
+    /// The plan installs files.
+    needs_files: bool,
+    /// The plan's only action is the FSR 4 launch option.
+    launch_option_only: bool,
+    launch_option_set: bool,
+    /// The running game has the FSR 4 provider mapped (`None`: not running).
+    provider_loaded: Option<bool>,
+}
+
+/// The runtime status of what BiGame-mode installed, in [`ChoiceState`]'s
+/// terms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeStage {
+    Waiting,
+    Loaded,
+    Active,
+    Failed,
+}
+
+fn choice_state_of(f: ChoiceFacts) -> ChoiceState {
+    if f.blocked {
+        return ChoiceState::Blocked;
+    }
+    if f.pending_changes {
+        return ChoiceState::Selected;
+    }
+    if let Some(stage) = f.installed {
+        if !f.needs_files {
+            return ChoiceState::NeedsRestore;
+        }
+        return match stage {
+            RuntimeStage::Waiting => ChoiceState::Configured,
+            RuntimeStage::Loaded => ChoiceState::Loaded,
+            RuntimeStage::Active => ChoiceState::Active,
+            RuntimeStage::Failed => ChoiceState::Failed,
+        };
+    }
+    if f.launch_option_only {
+        return match (f.launch_option_set, f.provider_loaded) {
+            (false, _) => ChoiceState::Selected,
+            (true, None) => ChoiceState::Configured,
+            (true, Some(true)) => ChoiceState::Active,
+            (true, Some(false)) => ChoiceState::Failed,
+        };
+    }
+    if f.needs_files {
+        ChoiceState::Selected
+    } else {
+        ChoiceState::NothingToApply
+    }
+}
+
+/// Where the choice in `a` stands.
+#[must_use]
+pub fn choice_state(a: &Analysis) -> ChoiceState {
+    choice_state_of(choice_facts(a))
+}
+
+/// Where what is installed stands, leaving a pending change aside: for a
+/// page that knows which part of the choice changed.
+#[must_use]
+pub fn installed_state(a: &Analysis) -> ChoiceState {
+    choice_state_of(ChoiceFacts {
+        pending_changes: false,
+        needs_files: true,
+        ..choice_facts(a)
+    })
+}
+
+fn choice_facts(a: &Analysis) -> ChoiceFacts {
+    use runtime::Status as S;
+    let installed = a.report.installed.as_ref().map(|_| match &a.status {
+        S::NotInstalled | S::Configured => RuntimeStage::Waiting,
+        S::Starting | S::Loaded { .. } => RuntimeStage::Loaded,
+        S::Active { .. } => RuntimeStage::Active,
+        S::FilesChanged { .. } | S::NotDetected | S::Failed { .. } => RuntimeStage::Failed,
+    });
+    ChoiceFacts {
+        blocked: a.plan.standing == plan::Standing::Blocked,
+        pending_changes: a.pending_changes,
+        installed,
+        needs_files: a.plan.optiscaler.is_some(),
+        launch_option_only: a.plan.optiscaler.is_none() && a.plan.native_action.is_some(),
+        launch_option_set: a.fsr4_upgrade_set,
+        provider_loaded: a.native.fsr4_provider_loaded,
+    }
 }
 
 /// The running game, when it is `target`.
@@ -303,6 +427,9 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         "graphics backend selection");
     let pending_changes = pending_changes(target, &plan);
     let installed_frame_generation = installed.as_ref().map(optiscaler_frame_gen_on);
+    let game_setting_off = installed
+        .as_ref()
+        .is_some_and(|m| !ingame::switched_off_again(&m.settings).is_empty());
     Analysis {
         report,
         plan,
@@ -312,7 +439,27 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
         pending_changes,
         installed_frame_generation,
         fsr4_upgrade_set: context.fsr4_upgrade,
+        game_setting_off,
     }
+}
+
+/// Switch the game's upscaler back on in its settings, as Apply did, after
+/// it was turned off in the game's menu (`Analysis::game_setting_off`).
+/// Not while the game runs: Wine writes its copy of the registry back when
+/// the prefix exits.
+///
+/// # Errors
+/// Returns an error when the game runs, nothing is installed, or the
+/// registry cannot be written.
+pub fn switch_game_setting_on_again(target: &Target) -> anyhow::Result<usize> {
+    ensure_closed(target)?;
+    let m = manifest::Manifest::load(&state_dir(), &target.key())?.ok_or_else(|| {
+        UserError::with(
+            N_("BiGame-mode has installed nothing in %s"),
+            [&target.name],
+        )
+    })?;
+    ingame::switch_on_again(&m.settings)
 }
 
 fn status_of(
@@ -879,6 +1026,87 @@ pub fn repair(target: &Target) -> anyhow::Result<Vec<PathBuf>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selected_configured_loaded_and_active_are_told_apart() {
+        let base = ChoiceFacts {
+            blocked: false,
+            pending_changes: false,
+            installed: None,
+            needs_files: true,
+            launch_option_only: false,
+            launch_option_set: false,
+            provider_loaded: None,
+        };
+        assert_eq!(choice_state_of(base), ChoiceState::Selected);
+        let installed = |stage| ChoiceFacts {
+            installed: Some(stage),
+            ..base
+        };
+        assert_eq!(
+            choice_state_of(installed(RuntimeStage::Waiting)),
+            ChoiceState::Configured
+        );
+        assert_eq!(
+            choice_state_of(installed(RuntimeStage::Loaded)),
+            ChoiceState::Loaded
+        );
+        assert_eq!(
+            choice_state_of(installed(RuntimeStage::Active)),
+            ChoiceState::Active
+        );
+        assert_eq!(
+            choice_state_of(installed(RuntimeStage::Failed)),
+            ChoiceState::Failed
+        );
+        // A changed choice over an install is pending, whatever runs.
+        let pending = ChoiceFacts {
+            pending_changes: true,
+            ..installed(RuntimeStage::Active)
+        };
+        assert_eq!(choice_state_of(pending), ChoiceState::Selected);
+        // Installed, and the choice needs none of it: Restore, not Apply.
+        let not_needed = ChoiceFacts {
+            needs_files: false,
+            ..installed(RuntimeStage::Active)
+        };
+        assert_eq!(choice_state_of(not_needed), ChoiceState::NeedsRestore);
+        let nothing = ChoiceFacts {
+            needs_files: false,
+            ..base
+        };
+        assert_eq!(choice_state_of(nothing), ChoiceState::NothingToApply);
+        let blocked = ChoiceFacts {
+            blocked: true,
+            ..pending
+        };
+        assert_eq!(choice_state_of(blocked), ChoiceState::Blocked);
+    }
+
+    #[test]
+    fn the_fsr4_launch_option_is_active_only_when_the_game_shows_it() {
+        let option = ChoiceFacts {
+            blocked: false,
+            pending_changes: false,
+            installed: None,
+            needs_files: false,
+            launch_option_only: true,
+            launch_option_set: false,
+            provider_loaded: None,
+        };
+        assert_eq!(choice_state_of(option), ChoiceState::Selected);
+        let set = ChoiceFacts {
+            launch_option_set: true,
+            ..option
+        };
+        assert_eq!(choice_state_of(set), ChoiceState::Configured);
+        let running = |loaded| ChoiceFacts {
+            provider_loaded: Some(loaded),
+            ..set
+        };
+        assert_eq!(choice_state_of(running(true)), ChoiceState::Active);
+        assert_eq!(choice_state_of(running(false)), ChoiceState::Failed);
+    }
     use crate::graphics::manifest::FileKind;
     use crate::graphics::transaction::{Game, PlannedFile, apply};
 

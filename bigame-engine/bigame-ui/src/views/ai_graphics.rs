@@ -6,7 +6,7 @@
 //! Details that most people do not need (the API and how sure that is, DLL
 //! slots, versions) are one click away, not on top.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Write as _;
 use std::rc::Rc;
 
@@ -17,28 +17,77 @@ use libadwaita as adw;
 use bigame_core::graphics::config::{
     AiGraphicsConfig, FrameGeneration, Layer, Mode, Upscaler, VersionPolicy,
 };
-use bigame_core::graphics::plan::{FrameGenPlan, NativeAction, Standing, Step};
+use bigame_core::graphics::plan::{NativeAction, Standing, Step};
 use bigame_core::graphics::report::Confidence;
 use bigame_core::graphics::runtime::Status;
 use bigame_core::graphics::versions::Offer;
-use bigame_core::graphics::{self, Analysis, Target, backend, diagnose, external};
+use bigame_core::graphics::{self, Analysis, ChoiceState, Target, backend, diagnose, external};
+use bigame_core::optimization::Feature;
+use bigame_core::overview::State;
 
 use crate::i18n::{error_text, i18n, ni18n};
+use crate::widgets::notice::{self, Kind, Notice};
+use crate::widgets::status::Chip;
 
 struct Page {
     target: Target,
     cfg: RefCell<AiGraphicsConfig>,
     analysis: RefCell<Option<Analysis>>,
-    body: gtk4::Box,
+    scroll: gtk4::ScrolledWindow,
+    /// What the game has and what runs now: facts that do not depend on the
+    /// choice, so the controls below them never move when a choice changes.
+    now: gtk4::Box,
+    /// The choice. Built once and never rebuilt: the control in use keeps
+    /// its place and its focus while the rest of the page follows it.
+    choice: Choice,
+    /// What Apply would do, below the choice; rebuilt with each analysis.
+    plan: gtk4::Box,
+    /// Versions, neural rendering, technical details and Diagnose.
+    extras: gtk4::Box,
     /// Where the installed version and any update offer go, filled once the
     /// offer is known (it may take a network request).
     versions: RefCell<Option<gtk4::Box>>,
+    /// The Diagnose expander, to open from a failure.
+    diagnose: RefCell<Option<adw::ExpanderRow>>,
     overlay: adw::ToastOverlay,
     apply: gtk4::Button,
     repair: gtk4::Button,
     remove: gtk4::Button,
     spinner: gtk4::Spinner,
     busy_label: gtk4::Label,
+    /// Where the whole choice stands, beside the buttons.
+    status: Chip,
+    /// Set while the page moves a control itself.
+    quiet: Cell<bool>,
+    /// Counts analyses, so only the latest one is shown.
+    generation: Cell<u64>,
+    /// The upscaler was changed since the last apply.
+    upscaler_touched: Cell<bool>,
+    /// What [`render_now`] last showed.
+    now_rows: RefCell<Vec<(String, String)>>,
+}
+
+/// The choice rows and their state.
+struct Choice {
+    group: adw::PreferencesGroup,
+    upscaler: adw::ComboRow,
+    upscaler_chip: Chip,
+    frame_gen: adw::ComboRow,
+    frame_gen_chip: Chip,
+    experimental: adw::SwitchRow,
+    version: adw::ComboRow,
+    versions: gtk4::StringList,
+    /// The version "Keep one version" keeps.
+    keep_version: RefCell<String>,
+    /// Said when what was applied failed, with the way to Diagnose.
+    failure: Notice,
+    /// Said when lsfg-vk also generates frames in this game.
+    lsfg_conflict: Notice,
+    /// Said when the game's upscaler `OptiScaler` takes over was turned off
+    /// again in the game's menu.
+    setting_off: Notice,
+    /// Said when Wine FSR is also on for this Steam game.
+    wine_fsr: Notice,
 }
 
 /// Plain, translatable text for a status.
@@ -172,20 +221,67 @@ fn step_row(step: &Step) -> adw::ActionRow {
     r
 }
 
-// Linear widget building, as `open`.
-#[allow(clippy::too_many_lines)]
+/// Put `a` on screen: the facts, the state of the choice, the plan and the
+/// extras. The choice rows stay; what is above them depends only on the
+/// game, so a change of choice never moves them.
 fn render(page: &Rc<Page>, a: &Analysis) {
-    while let Some(child) = page.body.first_child() {
-        page.body.remove(&child);
-    }
-    let r = &a.report;
-    let p = &a.plan;
+    keep_in_place(&page.scroll, page.choice.group.upcast_ref(), || {
+        render_now(page, a);
+        render_choice_state(page, a);
+        render_plan(page, a);
+        render_extras(page, a);
+        render_buttons(page, a);
+    });
+}
 
-    // ── Current ──────────────────────────────────────────────────────
-    // What the game has and runs on, in four rows a person reads in
-    // order: GPU, API and translation, upscaling now, frame generation.
-    let now = adw::PreferencesGroup::new();
-    now.set_title(&i18n("Current"));
+/// Run `change`, then keep `anchor` where it was on screen: when content
+/// above it grows or shrinks (the game started, a row wrapped), the view
+/// scrolls by the same amount, after the new layout, instead of jumping.
+fn keep_in_place(scroll: &gtk4::ScrolledWindow, anchor: &gtk4::Widget, change: impl FnOnce()) {
+    let Some(content) = scroll.child() else {
+        change();
+        return;
+    };
+    let y = move |w: &gtk4::Widget| {
+        w.compute_point(&content, &gtk4::graphene::Point::new(0.0, 0.0))
+            .map(|p| f64::from(p.y()))
+    };
+    let before = y(anchor);
+    change();
+    let Some(before) = before else {
+        return;
+    };
+    let (anchor, adj) = (anchor.clone(), scroll.vadjustment());
+    // Measured two frames later: new rows can take a second layout pass to
+    // settle (wrapping labels), and correcting from the first would itself
+    // move the page.
+    let frames = Cell::new(0u8);
+    scroll.add_tick_callback(move |_, _| {
+        frames.set(frames.get() + 1);
+        if frames.get() < 2 {
+            return glib::ControlFlow::Continue;
+        }
+        if let Some(after) = y(&anchor) {
+            let delta = after - before;
+            if delta.abs() >= 1.0 {
+                adj.set_value(adj.value() + delta);
+            }
+        }
+        glib::ControlFlow::Break
+    });
+}
+
+fn clear(b: &gtk4::Box) {
+    while let Some(child) = b.first_child() {
+        b.remove(&child);
+    }
+}
+
+/// What the game has and runs on, in four rows a person reads in order:
+/// the GPU, the API, what the game ships, and what runs now.
+fn render_now(page: &Rc<Page>, a: &Analysis) {
+    let r = &a.report;
+    let mut rows: Vec<(String, String)> = Vec::new();
     if let Some(g) = r.gpu() {
         let mut sub = tr(&g.family().label());
         if let Some(u) = &g.userspace {
@@ -202,17 +298,231 @@ fn render(page: &Rc<Page>, a: &Analysis) {
                 i18n("the only GPU")
             }
         );
-        now.add(&row(
-            &bigame_core::graphics::report::display_name(&g.name),
-            &sub,
-        ));
+        rows.push((bigame_core::graphics::report::display_name(&g.name), sub));
     }
-    now.add(&row(&i18n("Game API"), &api_line(r)));
-    now.add(&row(&i18n("Upscaling"), &upscaling_now(a)));
-    now.add(&row(&i18n("Frame generation"), &frame_gen_text(a)));
-    page.body.append(&now);
+    rows.push((i18n("Game API"), api_line(r)));
+    rows.push((i18n("The game ships"), shipped(r)));
+    rows.push((i18n("Running now"), running_now(a)));
+    // Rebuilt only when it says something else: a change of choice leaves
+    // everything above the choice exactly where it is.
+    if *page.now_rows.borrow() == rows {
+        return;
+    }
+    clear(&page.now);
+    let now = adw::PreferencesGroup::new();
+    now.set_title(&i18n("Current state"));
+    now.set_description(Some(&i18n("What the game has and what it runs now.")));
+    for (title, subtitle) in &rows {
+        now.add(&row(title, subtitle));
+    }
+    page.now.append(&now);
+    *page.now_rows.borrow_mut() = rows;
+}
 
-    // ── Recommendation ───────────────────────────────────────────────
+/// The game's own upscalers and frame generation.
+fn shipped(r: &bigame_core::graphics::report::Report) -> String {
+    let n = &r.native;
+    let mut own = Vec::new();
+    if n.dlss.is_some() {
+        own.push("DLSS".to_owned());
+    }
+    if n.fsr.is_some() {
+        own.push("FSR".to_owned());
+    }
+    if n.xess.is_some() {
+        own.push("XeSS".to_owned());
+    }
+    if n.frame_gen() {
+        own.push(i18n("frame generation"));
+    }
+    if own.is_empty() {
+        i18n("The game ships no upscaler")
+    } else {
+        own.join(" · ")
+    }
+}
+
+/// `DirectX 12 · VKD3D-Proton · Vulkan on the host`, with how sure.
+fn api_line(r: &bigame_core::graphics::report::Report) -> String {
+    let api = r
+        .api
+        .api
+        .map_or_else(|| i18n("Unknown"), |a| backend::api_name(a).to_owned());
+    let mut s = api;
+    match r.api.translation {
+        Some(t) => {
+            let _ = write!(s, " · {t} · {}", i18n("Vulkan on the host"));
+        }
+        None if r.executable.is_some() && r.runtime.as_deref() != Some("native") => {
+            let _ = write!(
+                s,
+                " · {}",
+                i18n("through DXVK or VKD3D-Proton, seen when the game runs")
+            );
+        }
+        None => {}
+    }
+    let _ = write!(s, " — {}", confidence_text(r.api.confidence));
+    s
+}
+
+/// What runs in the game now: `OptiScaler`'s live status when it is
+/// installed, otherwise the game's own path and, on RDNA 4, whether the
+/// FSR 4 provider was seen in the running game.
+fn running_now(a: &Analysis) -> String {
+    if a.report.installed.is_some() {
+        let mut s = status_text(&a.status);
+        if a.installed_frame_generation == Some(true) {
+            let _ = write!(s, " · {}", i18n("OptiScaler frame generation"));
+        }
+        return s;
+    }
+    if a.report.native_fsr4_path() {
+        return match (a.native.fsr4_provider_loaded, a.native.fsr4_upgrade_env) {
+            (Some(true), _) => i18n("FSR 4 provider loaded in the running game"),
+            (Some(false), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
+            (Some(false), _) => i18n("running without the FSR 4 provider: FSR is off in its menu"),
+            (None, _) if a.fsr4_upgrade_set => i18n("FSR 4 expected through Proton's provider"),
+            (None, _) => i18n("Nothing from BiGame-mode: the game's own graphics"),
+        };
+    }
+    i18n("Nothing from BiGame-mode: the game's own graphics")
+}
+
+/// A choice's state as a short word on its chip and a sentence under it.
+fn state_words(s: ChoiceState) -> (State, String, String) {
+    match s {
+        ChoiceState::NothingToApply => (
+            State::Off,
+            i18n("No change"),
+            i18n("Nothing to install for this choice"),
+        ),
+        ChoiceState::Selected => (
+            State::Waiting,
+            i18n("Selected"),
+            i18n("Not applied yet — press Apply"),
+        ),
+        ChoiceState::NeedsRestore => (
+            State::Waiting,
+            i18n("Selected"),
+            i18n("Not applied yet — Restore Game Graphics puts the game's own files back"),
+        ),
+        ChoiceState::Configured => (
+            State::Waiting,
+            i18n("Configured"),
+            i18n("Applied; it starts working when the game starts"),
+        ),
+        ChoiceState::Loaded => (
+            State::Waiting,
+            i18n("Loaded"),
+            i18n("Loaded — choose the upscaler named in the steps in the game's graphics menu"),
+        ),
+        ChoiceState::Active => (
+            State::Active,
+            i18n("Active"),
+            i18n("Working in the running game"),
+        ),
+        ChoiceState::Failed => (
+            State::Error,
+            i18n("Failed"),
+            i18n("Applied, but the game shows a problem — Diagnose says why"),
+        ),
+        ChoiceState::Blocked => (
+            State::Unsupported,
+            i18n("Blocked"),
+            i18n("Not offered for this game"),
+        ),
+    }
+}
+
+/// The chips and subtitles of the choice rows, and the version names.
+fn render_choice_state(page: &Rc<Page>, a: &Analysis) {
+    let c = &page.choice;
+    let state = graphics::choice_state(a);
+    let cfg = page.cfg.borrow().clone();
+    if !a.pending_changes {
+        page.upscaler_touched.set(false);
+    }
+    // A pending change belongs to the row that changed: when only frame
+    // generation differs from what is installed, the upscaler still says
+    // where the installed one stands.
+    let fg_differs =
+        cfg.optiscaler_frame_generation() != (a.installed_frame_generation == Some(true));
+    let up_state = if state == ChoiceState::Selected && fg_differs && !page.upscaler_touched.get() {
+        graphics::installed_state(a)
+    } else {
+        state
+    };
+    let (chip, word, text) = state_words(up_state);
+    c.upscaler_chip.widget().set_visible(true);
+    c.frame_gen_chip.widget().set_visible(true);
+    c.upscaler_chip.set(chip, Some(&word));
+    c.upscaler.set_subtitle(&text);
+
+    let fg_state = match (
+        cfg.optiscaler_frame_generation(),
+        a.installed_frame_generation,
+    ) {
+        (true, Some(true)) if !a.pending_changes => Some(state),
+        (true, _) | (false, Some(true)) => Some(ChoiceState::Selected),
+        (false, _) => None,
+    };
+    if let Some(s) = fg_state {
+        let (chip, word, text) = state_words(s);
+        c.frame_gen_chip.set(chip, Some(&word));
+        c.frame_gen.set_subtitle(&text);
+    } else {
+        c.frame_gen_chip.set(State::Off, Some(&i18n("Off")));
+        c.frame_gen
+            .set_subtitle(&i18n("More frames shown, not rendered; adds latency"));
+    }
+
+    // Named while the choice keeps OptiScaler's frame generation; a choice
+    // that drops it resolves the pair when it is applied.
+    c.lsfg_conflict.set_visible(
+        cfg.optiscaler_frame_generation()
+            && bigame_core::fg::layer_installed()
+            && bigame_core::fg::read_profile_any(&page.target.process).0 > 1,
+    );
+
+    c.setting_off.set_visible(a.game_setting_off);
+
+    c.failure.set_visible(state == ChoiceState::Failed);
+    if state == ChoiceState::Failed {
+        c.failure.set(
+            Kind::Error,
+            &i18n("What was applied is not working"),
+            &status_text(&a.status),
+        );
+    }
+
+    // "Keep one version" names the installed version once it is known.
+    let tested = bigame_core::graphics::optiscaler::Release::recommended().version;
+    let keep = match &cfg.version {
+        VersionPolicy::Pinned(v) => v.clone(),
+        _ => a
+            .report
+            .installed
+            .as_ref()
+            .map_or_else(|| tested.clone(), |m| m.source.version.clone()),
+    };
+    if *c.keep_version.borrow() != keep {
+        page.quiet.set(true);
+        let selected = c.version.selected();
+        c.versions
+            .splice(2, 1, &[&format!("{} ({keep})", i18n("Keep one version"))]);
+        c.version.set_selected(selected);
+        page.quiet.set(false);
+        *c.keep_version.borrow_mut() = keep;
+    }
+}
+
+/// What Apply would do: the plan's summary, standing, steps, files and the
+/// technologies it switches off.
+fn render_plan(page: &Rc<Page>, a: &Analysis) {
+    clear(&page.plan);
+    let r = &a.report;
+    let p = &a.plan;
     let rec = adw::PreferencesGroup::new();
     rec.set_title(&sentence(&tr(&p.summary)));
     wrap_title(&rec);
@@ -252,6 +562,12 @@ fn render(page: &Rc<Page>, a: &Analysis) {
         .build();
     standing_row.add_suffix(&badge);
     rec.add(&standing_row);
+    if p.native_action == Some(NativeAction::Fsr4Upgrade) && !a.fsr4_upgrade_set {
+        rec.add(&row(
+            "FSR 4",
+            &i18n("FSR 4 available with the launch option FSR4_UPGRADE=1"),
+        ));
+    }
     for s in &p.steps {
         rec.add(&step_row(s));
     }
@@ -268,30 +584,35 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     }
     files.set_sensitive(!p.files.is_empty());
     rec.add(&files);
+    page.plan.append(&rec);
     for problem in &p.problems {
-        rec.add(&row(
+        let n = Notice::new(
+            Kind::Conflict,
             &format!("{} + {}", i18n(problem.a.label()), i18n(problem.b.label())),
-            &i18n(problem.why),
-        ));
+            &sentence(&i18n(problem.why)),
+        );
+        page.plan.append(n.widget());
     }
-    page.body.append(&rec);
+}
 
-    // ── OptiScaler version (installed games) ─────────────────────────
+/// Versions, neural rendering, the evidence and Diagnose.
+fn render_extras(page: &Rc<Page>, a: &Analysis) {
+    clear(&page.extras);
     let versions = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     versions.set_visible(false);
-    page.body.append(&versions);
+    page.extras.append(&versions);
     *page.versions.borrow_mut() = Some(versions);
+    page.extras.append(&neural_group(page, a));
+    page.extras.append(&found_group(&a.report));
+    let (group, expander) = diagnose_group(a);
+    page.extras.append(&group);
+    *page.diagnose.borrow_mut() = Some(expander);
+}
 
-    // ── Neural rendering ─────────────────────────────────────────────
-    page.body.append(&neural_group(page, a));
-
-    // ── Choose yourself ──────────────────────────────────────────────
-    page.body.append(&advanced_group(page));
-
-    page.body.append(&found_group(r));
-    page.body.append(&diagnose_group(a));
-
-    // ── Buttons ──────────────────────────────────────────────────────
+/// Which buttons apply, and the one word that says where things stand.
+fn render_buttons(page: &Rc<Page>, a: &Analysis) {
+    let r = &a.report;
+    let p = &a.plan;
     let installed = r.installed.is_some();
     let option_set = a.fsr4_upgrade_set;
     page.apply.set_visible(
@@ -311,98 +632,17 @@ fn render(page: &Rc<Page>, a: &Analysis) {
     } else {
         i18n("Restore Game Graphics")
     });
-}
-
-/// `DirectX 12 · VKD3D-Proton · Vulkan on the host`, with how sure.
-fn api_line(r: &bigame_core::graphics::report::Report) -> String {
-    let api = r
-        .api
-        .api
-        .map_or_else(|| i18n("Unknown"), |a| backend::api_name(a).to_owned());
-    let mut s = api;
-    match r.api.translation {
-        Some(t) => {
-            let _ = write!(s, " · {t} · {}", i18n("Vulkan on the host"));
-        }
-        None if r.executable.is_some() && r.runtime.as_deref() != Some("native") => {
-            let _ = write!(
-                s,
-                " · {}",
-                i18n("through DXVK or VKD3D-Proton, seen when the game runs")
-            );
-        }
-        None => {}
-    }
-    let _ = write!(s, " — {}", confidence_text(r.api.confidence));
-    s
-}
-
-/// What upscales the game now: `OptiScaler`'s live status when it is
-/// installed, otherwise the game's own path and, on RDNA 4, whether the
-/// FSR 4 provider was seen in the running game.
-fn upscaling_now(a: &Analysis) -> String {
-    if a.report.installed.is_some() {
-        return status_text(&a.status);
-    }
-    let r = &a.report;
-    let mut own = Vec::new();
-    if r.native.dlss.is_some() {
-        own.push("DLSS".to_owned());
-    }
-    if r.native.fsr.is_some() {
-        own.push("FSR".to_owned());
-    }
-    if r.native.xess.is_some() {
-        own.push("XeSS".to_owned());
-    }
-    let mut s = if own.is_empty() {
-        i18n("The game ships no upscaler")
-    } else {
-        format!("{} {}", i18n("The game's own:"), own.join(", "))
+    let (chip, word) = match graphics::choice_state(a) {
+        ChoiceState::Selected => (State::Waiting, i18n("Ready to apply")),
+        ChoiceState::NeedsRestore => (State::Waiting, i18n("Restore to apply")),
+        ChoiceState::NothingToApply => (State::Off, i18n("Nothing to apply")),
+        ChoiceState::Blocked => (State::Unsupported, i18n("Blocked")),
+        ChoiceState::Failed => (State::Error, i18n("Applied, not working")),
+        ChoiceState::Active => (State::Active, i18n("Applied and active")),
+        ChoiceState::Configured | ChoiceState::Loaded => (State::Configured, i18n("Applied")),
     };
-    if r.native_fsr4_path() {
-        let _ = write!(
-            s,
-            " · {}",
-            match (a.native.fsr4_provider_loaded, a.native.fsr4_upgrade_env) {
-                (Some(true), _) => i18n("FSR 4 provider loaded in the running game"),
-                (Some(false), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
-                (Some(false), _) =>
-                    i18n("running without the FSR 4 provider: FSR is off in its menu"),
-                (None, _) if a.plan.native_action == Some(NativeAction::Fsr4Upgrade) => {
-                    i18n("FSR 4 available with the launch option FSR4_UPGRADE=1")
-                }
-                (None, _) => i18n("FSR 4 expected through Proton's provider"),
-            }
-        );
-    }
-    s
-}
-
-/// Which frame generation the game is left with, and what the running game
-/// shows.
-fn frame_gen_text(a: &Analysis) -> String {
-    // Installed, the files decide what runs, not the choice below: it
-    // applies only with Apply changes.
-    match a.installed_frame_generation {
-        Some(true) => {
-            return i18n(
-                "OptiScaler (experimental): more frames shown, not rendered, and more latency",
-            );
-        }
-        Some(false) if a.plan.frame_generation == FrameGenPlan::OptiScaler => return i18n("Off"),
-        _ => {}
-    }
-    match a.plan.frame_generation {
-        FrameGenPlan::Off => i18n("Off"),
-        FrameGenPlan::Native => i18n("The game's own, as set in its menu"),
-        FrameGenPlan::OptiScaler => {
-            i18n("OptiScaler (experimental): more frames shown, not rendered, and more latency")
-        }
-        FrameGenPlan::LsfgVk => {
-            i18n("lsfg-vk, from the Profiles page: more frames shown, not rendered")
-        }
-    }
+    page.status.set(chip, Some(&word));
+    page.status.widget().set_visible(true);
 }
 
 /// Neural rendering: the external backend's state, what is missing, and
@@ -550,7 +790,7 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
 }
 
 /// Diagnose: every check with what it found and what to do.
-fn diagnose_group(a: &Analysis) -> adw::PreferencesGroup {
+fn diagnose_group(a: &Analysis) -> (adw::PreferencesGroup, adw::ExpanderRow) {
     let group = adw::PreferencesGroup::new();
     let findings = diagnose::diagnose(a);
     let problems = findings
@@ -593,7 +833,7 @@ fn diagnose_group(a: &Analysis) -> adw::PreferencesGroup {
         exp.add_row(&r);
     }
     group.add(&exp);
-    group
+    (group, exp)
 }
 
 /// "What was found": the evidence behind the plan, for whoever wants it.
@@ -743,132 +983,383 @@ fn found_group(r: &bigame_core::graphics::report::Report) -> adw::PreferencesGro
     found
 }
 
+/// The choice rows, built once. Their handlers are wired by
+/// [`wire_choice`] once the page exists.
 // Linear widget building, as `open`.
 #[allow(clippy::too_many_lines)]
-fn advanced_group(page: &Rc<Page>) -> adw::PreferencesGroup {
+fn build_choice(cfg: &AiGraphicsConfig) -> Choice {
     let group = adw::PreferencesGroup::new();
-    let exp = adw::ExpanderRow::builder()
-        .title(i18n("Choose yourself"))
-        .subtitle(i18n("Upscaler, frame generation and experimental options"))
-        .expanded(page.cfg.borrow().mode == Mode::Advanced)
-        .build();
-    let cfg = page.cfg.borrow().clone();
+    group.set_title(&i18n("Your choice"));
+    group.set_description(Some(&i18n(
+        "Recommended picks for this game and graphics card. The quality preset stays the one chosen in the game's own menu.",
+    )));
 
     let ups = gtk4::StringList::new(&[
-        &i18n("Best for this game"),
+        &i18n("Recommended for this game"),
         &i18n("The game's own only"),
         "FSR (OptiScaler)",
         "XeSS (OptiScaler)",
     ]);
-    let up_row = adw::ComboRow::builder()
+    let upscaler = adw::ComboRow::builder()
         .title(i18n("Upscaler"))
         .model(&ups)
+        .selected(match (cfg.mode, cfg.layer, cfg.upscaler) {
+            (Mode::Advanced, Layer::Native, _) => 1,
+            (Mode::Advanced, _, Upscaler::Fsr) => 2,
+            (Mode::Advanced, _, Upscaler::Xess) => 3,
+            _ => 0,
+        })
         .build();
-    up_row.set_selected(match (cfg.mode, cfg.layer, cfg.upscaler) {
-        (Mode::Advanced, Layer::Native, _) => 1,
-        (Mode::Advanced, _, Upscaler::Fsr) => 2,
-        (Mode::Advanced, _, Upscaler::Xess) => 3,
-        _ => 0,
-    });
-    exp.add_row(&up_row);
+    // Hidden until the first analysis says where things stand.
+    crate::widgets::optimization::cap_subtitle(upscaler.upcast_ref(), 34);
+    crate::widgets::optimization::keep_value_width(&upscaler);
+    let upscaler_chip = Chip::new(State::Off);
+    upscaler_chip.widget().set_visible(false);
+    upscaler.add_suffix(upscaler_chip.widget());
+    group.add(&upscaler);
 
     let fgs = gtk4::StringList::new(&[&i18n("Off"), &i18n("OptiScaler frame generation")]);
-    let fg_row = adw::ComboRow::builder()
+    let frame_gen = adw::ComboRow::builder()
         .title(i18n("Frame generation"))
-        .subtitle(i18n("More frames shown, not rendered; adds latency"))
         .model(&fgs)
+        .selected(u32::from(cfg.optiscaler_frame_generation()))
         .build();
-    fg_row.set_selected(u32::from(
-        cfg.frame_generation == FrameGeneration::OptiScaler,
-    ));
-    exp.add_row(&fg_row);
+    crate::widgets::optimization::cap_subtitle(frame_gen.upcast_ref(), 34);
+    crate::widgets::optimization::keep_value_width(&frame_gen);
+    let frame_gen_chip = Chip::new(State::Off);
+    frame_gen_chip.widget().set_visible(false);
+    frame_gen.add_suffix(frame_gen_chip.widget());
+    group.add(&frame_gen);
 
-    let exp_row = adw::SwitchRow::builder()
+    let failure = Notice::new(Kind::Error, "", "");
+    failure.set_visible(false);
+    group.add(failure.widget());
+    let lsfg_conflict = Notice::new(
+        Kind::Conflict,
+        &i18n("OptiScaler and lsfg-vk both generate frames in this game"),
+        &i18n(
+            "Two frame generators at once cause artefacts, added latency and unpredictable behaviour. Keep one.",
+        ),
+    );
+    lsfg_conflict.set_visible(false);
+    group.add(lsfg_conflict.widget());
+    let setting_off = Notice::new(
+        Kind::Warning,
+        &i18n("The game's upscaler is off in its settings"),
+        &i18n(
+            "OptiScaler takes over the upscaler Apply switched on in the game, and it has been turned off since, in the game's menu. With it off, OptiScaler has nothing to run. Switch it back on here with the game closed, or choose it again in the game's graphics menu.",
+        ),
+    );
+    setting_off.set_visible(false);
+    group.add(setting_off.widget());
+    let wine_fsr = Notice::new(
+        Kind::Conflict,
+        &i18n("Wine FSR is also on for this game"),
+        &i18n(
+            "OptiScaler upscales it, and Wine FSR would scale the image a second time whenever the game runs fullscreen below the display's resolution. BiGame-mode's own launch turns it off; the Steam client needs it in the game's launch options.",
+        ),
+    );
+    wine_fsr.set_visible(false);
+    group.add(wine_fsr.widget());
+
+    // Progressive disclosure: what few people need.
+    let advanced = adw::ExpanderRow::builder()
+        .title(i18n("Advanced options"))
+        .subtitle(i18n("Experimental combinations and the OptiScaler version"))
+        .build();
+    let experimental = adw::SwitchRow::builder()
         .title(i18n("Allow experimental options"))
-        .subtitle(i18n("Combinations reported to work but not established"))
+        .subtitle(i18n(
+            "Combinations reported to work but not established. OptiScaler's frame generation is one of them.",
+        ))
         .active(cfg.experimental)
         .build();
-    exp.add_row(&exp_row);
-
-    // Which OptiScaler release: the tested one, the newest stable one, or
-    // one version kept — the installed one, or the one already pinned.
+    advanced.add_row(&experimental);
     let tested = bigame_core::graphics::optiscaler::Release::recommended().version;
-    let keep_version = match &cfg.version {
+    let keep = match &cfg.version {
         VersionPolicy::Pinned(v) => v.clone(),
-        _ => page
-            .analysis
-            .borrow()
-            .as_ref()
-            .and_then(|a| a.report.installed.as_ref())
-            .map_or_else(|| tested.clone(), |m| m.source.version.clone()),
+        _ => tested.clone(),
     };
     let versions = gtk4::StringList::new(&[
         &format!("{} ({tested})", i18n("Tested with BiGame-mode")),
         &i18n("Latest stable"),
-        &format!("{} ({keep_version})", i18n("Keep one version")),
+        &format!("{} ({keep})", i18n("Keep one version")),
     ]);
-    let version_row = adw::ComboRow::builder()
+    let version = adw::ComboRow::builder()
         .title(i18n("OptiScaler version"))
         .subtitle(i18n(
             "Used for the next install; an installed game is updated only when you choose",
         ))
         .model(&versions)
+        .selected(match cfg.version {
+            VersionPolicy::Recommended => 0,
+            VersionPolicy::Latest => 1,
+            VersionPolicy::Pinned(_) => 2,
+        })
         .build();
-    version_row.set_selected(match cfg.version {
-        VersionPolicy::Recommended => 0,
-        VersionPolicy::Latest => 1,
-        VersionPolicy::Pinned(_) => 2,
-    });
+    advanced.add_row(&version);
+    group.add(&advanced);
+    Choice {
+        group,
+        upscaler,
+        upscaler_chip,
+        frame_gen,
+        frame_gen_chip,
+        experimental,
+        version,
+        versions,
+        keep_version: RefCell::new(keep),
+        failure,
+        lsfg_conflict,
+        setting_off,
+        wine_fsr,
+    }
+}
+
+/// What the choice rows do. A change updates the choice and analyses
+/// again; only what depends on the choice is redrawn, below the rows.
+#[allow(clippy::too_many_lines)]
+fn wire_choice(page: &Rc<Page>) {
+    let c = &page.choice;
     {
-        let page = page.clone();
-        version_row.connect_selected_notify(move |r| {
+        let page = Rc::clone(page);
+        c.upscaler.connect_selected_notify(move |r| {
+            if page.quiet.get() {
+                return;
+            }
+            page.upscaler_touched.set(true);
+            {
+                let mut cfg = page.cfg.borrow_mut();
+                let (mode, layer, upscaler) = match r.selected() {
+                    1 => (Mode::Advanced, Layer::Native, Upscaler::Auto),
+                    2 => (Mode::Advanced, Layer::OptiScaler, Upscaler::Fsr),
+                    3 => (Mode::Advanced, Layer::OptiScaler, Upscaler::Xess),
+                    _ => (Mode::Recommended, Layer::Auto, Upscaler::Auto),
+                };
+                cfg.mode = if cfg.frame_generation == FrameGeneration::OptiScaler {
+                    Mode::Advanced
+                } else {
+                    mode
+                };
+                cfg.layer = layer;
+                cfg.upscaler = upscaler;
+            }
+            refresh(&page);
+        });
+    }
+    {
+        let page = Rc::clone(page);
+        c.frame_gen.connect_selected_notify(move |r| {
+            if page.quiet.get() {
+                return;
+            }
+            let wants = r.selected() == 1;
+            // Two frame generators never run together: lsfg-vk on for this
+            // game asks which one to keep.
+            let lsfg_on = wants
+                && bigame_core::fg::layer_installed()
+                && bigame_core::fg::read_profile_any(&page.target.process).0 > 1;
+            let conflict = lsfg_on
+                .then(|| {
+                    bigame_core::optimization::conflict(
+                        Feature::OptiScalerFrameGen,
+                        Feature::LsfgVk,
+                    )
+                })
+                .flatten();
+            if let Some(conflict) = conflict {
+                let (page2, row) = (Rc::clone(&page), r.clone());
+                notice::ask_conflict(r, &conflict, move |use_optiscaler| {
+                    if use_optiscaler {
+                        let process = page2.target.process.clone();
+                        match bigame_core::fg::save_for_game(
+                            &process, 1, 100, false, false, 1, true,
+                        ) {
+                            Ok(()) => page2.overlay.add_toast(adw::Toast::new(&i18n(
+                                "lsfg-vk was turned off for this game",
+                            ))),
+                            Err(e) => page2.overlay.add_toast(adw::Toast::new(&format!(
+                                "{}: {}",
+                                i18n("Could not turn lsfg-vk off"),
+                                error_text(&e)
+                            ))),
+                        }
+                        choose_frame_generation(&page2, true);
+                    } else {
+                        page2.quiet.set(true);
+                        row.set_selected(0);
+                        page2.quiet.set(false);
+                    }
+                });
+                return;
+            }
+            choose_frame_generation(&page, wants);
+        });
+    }
+    {
+        let page = Rc::clone(page);
+        c.experimental.connect_active_notify(move |r| {
+            if page.quiet.get() {
+                return;
+            }
+            page.cfg.borrow_mut().experimental = r.is_active();
+            if !r.is_active() && page.cfg.borrow().frame_generation == FrameGeneration::OptiScaler {
+                // OptiScaler's frame generation is experimental: it goes too.
+                page.quiet.set(true);
+                page.choice.frame_gen.set_selected(0);
+                page.quiet.set(false);
+                page.cfg.borrow_mut().frame_generation = FrameGeneration::Off;
+            }
+            refresh(&page);
+        });
+    }
+    {
+        let page = Rc::clone(page);
+        c.version.connect_selected_notify(move |r| {
+            if page.quiet.get() {
+                return;
+            }
+            let keep = page.choice.keep_version.borrow().clone();
             page.cfg.borrow_mut().version = match r.selected() {
                 1 => VersionPolicy::Latest,
-                2 => VersionPolicy::Pinned(keep_version.clone()),
+                2 => VersionPolicy::Pinned(keep),
                 _ => VersionPolicy::Recommended,
             };
             save_settings(&page);
             refresh(&page);
         });
     }
-    exp.add_row(&version_row);
-
-    let update = {
-        let page = page.clone();
-        let (up_row, fg_row, exp_row) = (up_row.clone(), fg_row.clone(), exp_row.clone());
-        move || {
-            {
-                let mut c = page.cfg.borrow_mut();
-                let (mode, layer, upscaler) = match up_row.selected() {
-                    1 => (Mode::Advanced, Layer::Native, Upscaler::Auto),
-                    2 => (Mode::Advanced, Layer::OptiScaler, Upscaler::Fsr),
-                    3 => (Mode::Advanced, Layer::OptiScaler, Upscaler::Xess),
-                    _ => (Mode::Recommended, Layer::Auto, Upscaler::Auto),
-                };
-                c.mode = if fg_row.selected() == 1 {
-                    Mode::Advanced
-                } else {
-                    mode
-                };
-                c.layer = layer;
-                c.upscaler = upscaler;
-                c.frame_generation = if fg_row.selected() == 1 {
-                    FrameGeneration::OptiScaler
-                } else {
-                    FrameGeneration::Off
-                };
-                c.experimental = exp_row.is_active();
+    {
+        let page = Rc::clone(page);
+        c.lsfg_conflict.add_action(
+            &i18n("Keep %s").replace("%s", &notice::feature_name(Feature::OptiScalerFrameGen)),
+            false,
+            move |_| {
+                let process = page.target.process.clone();
+                match bigame_core::fg::save_for_game(&process, 1, 100, false, false, 1, true) {
+                    Ok(()) => page.overlay.add_toast(adw::Toast::new(&i18n(
+                        "lsfg-vk was turned off for this game",
+                    ))),
+                    Err(e) => page.overlay.add_toast(adw::Toast::new(&format!(
+                        "{}: {}",
+                        i18n("Could not turn lsfg-vk off"),
+                        error_text(&e)
+                    ))),
+                }
+                refresh(&page);
+            },
+        );
+    }
+    {
+        let page = Rc::clone(page);
+        c.lsfg_conflict
+            .add_action(&i18n("Use %s").replace("%s", "lsfg-vk"), true, move |_| {
+                page.quiet.set(true);
+                page.choice.frame_gen.set_selected(0);
+                page.quiet.set(false);
+                choose_frame_generation(&page, false);
+            });
+    }
+    {
+        let page = Rc::clone(page);
+        c.setting_off
+            .add_action(&i18n("Switch it back on"), true, move |_| {
+                let page = Rc::clone(&page);
+                glib::spawn_future_local(async move {
+                    if refuse_while_running(&page, &page.overlay) {
+                        return;
+                    }
+                    busy(&page, Some(&i18n("Writing the game's settings…")));
+                    let target = page.target.clone();
+                    let result = gio::spawn_blocking(move || {
+                        graphics::switch_game_setting_on_again(&target)
+                    })
+                    .await;
+                    busy(&page, None);
+                    let text = match result {
+                        Ok(Ok(_)) => i18n("Switched back on in the game's settings"),
+                        Ok(Err(e)) => {
+                            format!("{}: {}", i18n("Nothing was changed"), error_text(&e))
+                        }
+                        Err(_) => i18n("Nothing was changed"),
+                    };
+                    page.overlay.add_toast(adw::Toast::new(&text));
+                    refresh(&page);
+                });
+            });
+    }
+    {
+        let page = Rc::clone(page);
+        c.wine_fsr.add_action(
+            &i18n("Turn Wine FSR off for this game"),
+            true,
+            move |_| {
+                let page = Rc::clone(&page);
+                glib::spawn_future_local(async move {
+                    let process = page.target.process.clone();
+                    let result = gio::spawn_blocking(move || {
+                        bigame_core::steam_gamescope::set_wine_fsr_off(&process, true)
+                    })
+                    .await;
+                    let text = match result {
+                        Ok(Ok(bigame_core::steam_gamescope::Applied::SteamRunning)) => i18n(
+                            "Close Steam first: it keeps its launch options in memory and would overwrite the change.",
+                        ),
+                        Ok(Ok(bigame_core::steam_gamescope::Applied::Written(o))) => {
+                            i18n("Steam launch options: %s").replace("%s", &o)
+                        }
+                        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
+                        Ok(Ok(_)) | Err(_) => i18n("Nothing was changed"),
+                    };
+                    page.overlay.add_toast(adw::Toast::new(&text));
+                    refresh(&page);
+                });
+            },
+        );
+    }
+    {
+        let page = Rc::clone(page);
+        c.failure.add_action(&i18n("Diagnose"), true, move |_| {
+            if let Some(d) = page.diagnose.borrow().as_ref() {
+                d.set_expanded(true);
+                d.grab_focus();
             }
-            refresh(&page);
+        });
+    }
+}
+
+/// Whether Wine FSR would run next to `OptiScaler` in this Steam game: on in
+/// Tuning or in its own launch options, and not switched off for it by
+/// BiGame-mode. Blocking (it reads Steam's configuration).
+fn wine_fsr_second(target: &Target) -> bool {
+    target.app_id.is_some()
+        && !bigame_core::game_settings::load(&target.process).is_ok_and(|s| s.steam_wine_fsr_off)
+        && (bigame_core::video_config::load().upscaling.wine_fsr_enabled
+            || bigame_core::steam_gamescope::wine_fsr_in_options(&target.process))
+}
+
+/// Switch `OptiScaler`'s frame generation on or off in the choice. It is
+/// experimental, so choosing it allows experimental options too.
+fn choose_frame_generation(page: &Rc<Page>, on: bool) {
+    {
+        let mut cfg = page.cfg.borrow_mut();
+        if on {
+            cfg.mode = Mode::Advanced;
+            cfg.frame_generation = FrameGeneration::OptiScaler;
+            cfg.experimental = true;
+        } else {
+            cfg.frame_generation = FrameGeneration::Off;
+            if page.choice.upscaler.selected() == 0 {
+                cfg.mode = Mode::Recommended;
+            }
         }
-    };
-    let u1 = update.clone();
-    up_row.connect_selected_notify(move |_| u1());
-    let u2 = update.clone();
-    fg_row.connect_selected_notify(move |_| u2());
-    exp_row.connect_active_notify(move |_| update());
-    group.add(&exp);
-    group
+    }
+    if on && !page.choice.experimental.is_active() {
+        page.quiet.set(true);
+        page.choice.experimental.set_active(true);
+        page.quiet.set(false);
+    }
+    refresh(page);
 }
 
 fn busy(page: &Page, text: Option<&str>) {
@@ -882,17 +1373,31 @@ fn busy(page: &Page, text: Option<&str>) {
     }
 }
 
+/// Analyse again and redraw. Choices made quickly start several analyses;
+/// only the latest one's answer is shown, so an older result arriving late
+/// never overwrites a newer choice.
 fn refresh(page: &Rc<Page>) {
     let page = page.clone();
+    let generation = page.generation.get() + 1;
+    page.generation.set(generation);
     glib::spawn_future_local(async move {
         busy(&page, Some(&i18n("Looking at the game…")));
         let target = page.target.clone();
         let cfg = page.cfg.borrow().clone();
-        let analysis = gio::spawn_blocking(move || graphics::analyze(&target, &cfg)).await;
+        let analysis = gio::spawn_blocking(move || {
+            let a = graphics::analyze(&target, &cfg);
+            let second = a.report.installed.is_some() && wine_fsr_second(&target);
+            (a, second)
+        })
+        .await;
+        if page.generation.get() != generation {
+            return;
+        }
         busy(&page, None);
-        let Ok(a) = analysis else {
+        let Ok((a, wine_second)) = analysis else {
             return;
         };
+        page.choice.wine_fsr.set_visible(wine_second);
         let installed = a.report.installed.is_some();
         // Stored first: the page reads it while it is built.
         *page.analysis.borrow_mut() = Some(a.clone());
@@ -1043,11 +1548,32 @@ fn save_settings(page: &Page) {
 
 /// Open AI Graphics for `target`. `mode` is the starting choice (from the
 /// profile wizard, or the game's saved settings).
-///
+pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>) {
+    open_with(parent, target, move |cfg| {
+        if let Some(m) = mode {
+            cfg.mode = m;
+        }
+    });
+}
+
+/// Open AI Graphics for `target` with `change` made to its saved choice —
+/// selected, not applied: the page says so and Apply does it.
+pub fn open_to_change(
+    parent: &impl IsA<gtk4::Widget>,
+    target: Target,
+    change: impl FnOnce(&mut AiGraphicsConfig),
+) {
+    open_with(parent, target, change);
+}
+
 /// Building a widget tree and wiring its three actions is linear; splitting
 /// it yields helpers with a single caller, so the length lint is allowed.
 #[allow(clippy::too_many_lines)]
-pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>) {
+fn open_with(
+    parent: &impl IsA<gtk4::Widget>,
+    target: Target,
+    change: impl FnOnce(&mut AiGraphicsConfig),
+) {
     tracing::info!(target: "graphics", game = %target.process, "AI Graphics page opened");
     let mut cfg = match bigame_core::game_settings::load(&target.process) {
         Ok(s) => s.ai_graphics,
@@ -1057,16 +1583,14 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
             AiGraphicsConfig::default()
         }
     };
-    if let Some(m) = mode {
-        cfg.mode = m;
-    }
+    change(&mut cfg);
     if cfg.mode == Mode::Off {
         cfg.mode = Mode::Recommended;
     }
 
     let dialog = adw::Dialog::builder()
         .title(i18n("AI Graphics"))
-        .content_width(620)
+        .content_width(700)
         .content_height(720)
         .build();
     let header = adw::HeaderBar::new();
@@ -1080,11 +1604,6 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
         .build();
     header.pack_end(&report_btn);
 
-    let body = gtk4::Box::new(gtk4::Orientation::Vertical, 18);
-    body.set_margin_top(12);
-    body.set_margin_bottom(12);
-    body.set_margin_start(12);
-    body.set_margin_end(12);
     let intro = gtk4::Label::new(Some(&i18n(
         "Improve image quality and performance using technologies such as DLSS, FSR, XeSS, \
          OptiScaler and compatible neural-rendering features.",
@@ -1092,11 +1611,22 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
     intro.set_wrap(true);
     intro.set_xalign(0.0);
     intro.add_css_class("dim-label");
+    let now = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    let choice = build_choice(&cfg);
+    let plan = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
+    let extras = gtk4::Box::new(gtk4::Orientation::Vertical, 18);
     let content = gtk4::Box::new(gtk4::Orientation::Vertical, 18);
+    content.set_margin_top(12);
+    content.set_margin_bottom(12);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
     content.append(&intro);
-    content.append(&body);
+    content.append(&now);
+    content.append(&choice.group);
+    content.append(&plan);
+    content.append(&extras);
     let clamp = adw::Clamp::builder()
-        .maximum_size(640)
+        .maximum_size(700)
         .child(&content)
         .build();
     let scroll = gtk4::ScrolledWindow::builder()
@@ -1116,19 +1646,40 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
     let spinner = gtk4::Spinner::new();
     let busy_label = gtk4::Label::new(None);
     busy_label.add_css_class("dim-label");
+    let status = Chip::new(State::Off);
+    status.widget().set_visible(false);
+    // The status and the busy line on one side, the buttons on the other;
+    // the buttons wrap under it when a translation is long.
+    let left = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+    left.set_valign(gtk4::Align::Center);
+    left.append(status.widget());
+    left.append(&spinner);
+    left.append(&busy_label);
+    let buttons = gtk4::FlowBox::builder()
+        .selection_mode(gtk4::SelectionMode::None)
+        .max_children_per_line(3)
+        .column_spacing(8)
+        .row_spacing(8)
+        .halign(gtk4::Align::End)
+        .hexpand(true)
+        .build();
+    for b in [&remove, &repair, &apply] {
+        buttons.insert(b, -1);
+    }
+    // FlowBox children are focusable cells; the buttons inside are what
+    // Tab should reach.
+    let mut child = buttons.first_child();
+    while let Some(c) = child {
+        c.set_focusable(false);
+        child = c.next_sibling();
+    }
     let actions = gtk4::Box::new(gtk4::Orientation::Horizontal, 12);
-    actions.set_halign(gtk4::Align::Center);
     actions.set_margin_top(6);
     actions.set_margin_bottom(12);
-    for w in [
-        spinner.upcast_ref::<gtk4::Widget>(),
-        busy_label.upcast_ref(),
-        remove.upcast_ref(),
-        repair.upcast_ref(),
-        apply.upcast_ref(),
-    ] {
-        actions.append(w);
-    }
+    actions.set_margin_start(12);
+    actions.set_margin_end(12);
+    actions.append(&left);
+    actions.append(&buttons);
 
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
@@ -1142,15 +1693,26 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
         target,
         cfg: RefCell::new(cfg),
         analysis: RefCell::new(None),
-        body,
+        scroll,
+        now,
+        choice,
+        plan,
+        extras,
         versions: RefCell::new(None),
+        diagnose: RefCell::new(None),
         overlay: overlay.clone(),
         apply: apply.clone(),
         repair: repair.clone(),
         remove: remove.clone(),
         spinner,
         busy_label,
+        status,
+        quiet: Cell::new(false),
+        generation: Cell::new(0),
+        upscaler_touched: Cell::new(false),
+        now_rows: RefCell::new(Vec::new()),
     });
+    wire_choice(&page);
     busy(&page, None);
     for b in [&page.apply, &page.repair, &page.remove] {
         b.set_visible(false);
@@ -1211,22 +1773,40 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 let cfg = page.cfg.borrow().clone();
                 let result = gio::spawn_blocking(move || {
                     let a = graphics::analyze(&target, &cfg);
-                    if a.pending_changes {
+                    let done = if a.pending_changes {
                         graphics::reinstall(&target, &a.plan, &cfg.version)
                     } else {
                         graphics::install(&target, &a.plan, &cfg.version)
+                    }?;
+                    // Two frame generators never run together — not even
+                    // for a launch BiGame-mode does not make (Steam's): with
+                    // OptiScaler generating frames, the game's lsfg-vk entry
+                    // goes, in lsfg-vk's own file.
+                    let lsfg_removed = cfg.optiscaler_frame_generation()
+                        && bigame_core::fg::read_profile_any(&target.process).0 > 1
+                        && bigame_core::fg::save_for_game(&target.process, 1, 100, false, false, 1, true)
+                            .is_ok();
+                    // And one upscaler: Wine FSR off for this game in its
+                    // Steam launch options, when Steam is closed (the page
+                    // offers it otherwise).
+                    if wine_fsr_second(&target) {
+                        let _ = bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true);
                     }
+                    anyhow::Ok((done, lsfg_removed))
                 })
                 .await;
                 busy(&page, None);
                 let text = match result {
-                    Ok(Ok(done)) => {
+                    Ok(Ok((done, lsfg_removed))) => {
                         use bigame_core::graphics::ingame::Applied;
-                        let files = format!(
+                        let mut files = format!(
                             "{} ({})",
                             i18n("Installed; every replaced file was backed up"),
                             ni18n("%n file", "%n files", done.manifest.entries.len())
                         );
+                        if lsfg_removed {
+                            let _ = write!(files, " · {}", i18n("lsfg-vk was turned off for this game"));
+                        }
                         match done.game_setting {
                             Some(Applied::TurnedOn(input)) => format!(
                                 "{files} · {}",
@@ -1314,7 +1894,19 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
                 }
                 busy(&page, Some(&i18n("Restoring the game's own files…")));
                 let target = page.target.clone();
-                let result = gio::spawn_blocking(move || graphics::remove(&target)).await;
+                let result = gio::spawn_blocking(move || {
+                    let out = graphics::remove(&target)?;
+                    // BiGame-mode's WINE_FULLSCREEN_FSR=0 went in with
+                    // OptiScaler, and goes with it (Steam closed; otherwise
+                    // it stays, harmless, until the next Restore).
+                    if bigame_core::game_settings::load(&target.process)
+                        .is_ok_and(|s| s.steam_wine_fsr_off)
+                    {
+                        let _ = bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, false);
+                    }
+                    anyhow::Ok(out)
+                })
+                .await;
                 busy(&page, None);
                 let text = match result {
                     Ok(Ok(outcomes)) => {
@@ -1390,7 +1982,7 @@ pub fn open(parent: &impl IsA<gtk4::Widget>, target: Target, mode: Option<Mode>)
             let Some(page) = weak.upgrade() else {
                 return glib::ControlFlow::Break;
             };
-            if !first.replace(false) && page.body.is_mapped() {
+            if !first.replace(false) && page.now.is_mapped() {
                 refresh(&page);
             }
             glib::ControlFlow::Continue
