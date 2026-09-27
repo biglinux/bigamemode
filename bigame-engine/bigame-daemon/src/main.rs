@@ -234,8 +234,10 @@ impl BiGameDaemon {
 
     /// Turn the game performance backend (falcond) on or off, persistently.
     ///
-    /// This is Turbo's master switch. Returns the unit's active state as
-    /// systemd reports it afterwards.
+    /// This is Turbo's master switch, and also how control is taken back
+    /// after a hand-back: the first call, and the first after a release,
+    /// records falcond's state before changing it. Returns the unit's active
+    /// state as systemd reports it afterwards.
     #[zbus(name = "SetGameBackend")]
     async fn set_game_backend(
         &self,

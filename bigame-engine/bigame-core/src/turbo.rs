@@ -44,6 +44,9 @@ pub const BACKEND_UNIT: &str = "falcond.service";
 /// Where the pre-ownership record is published by the helper.
 pub const OWNERSHIP_RECORD: &str = "/var/lib/bigame-mode/game-backend.json";
 
+/// Where the helper notes a hand-back, until BiGame-mode takes charge again.
+pub const RELEASE_RECORD: &str = "/var/lib/bigame-mode/game-backend.released.json";
+
 /// Whether Turbo is on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum State {
@@ -120,6 +123,131 @@ pub fn owned_since() -> Option<u64> {
     let text = std::fs::read_to_string(OWNERSHIP_RECORD).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
     value.get("taken_at")?.as_u64()
+}
+
+/// Who is in charge of falcond's service.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Control {
+    /// falcond is not installed: there is nothing to manage.
+    NotInstalled,
+    /// BiGame-mode switches it with Turbo, since this Unix time; handing it
+    /// back restores the state recorded then.
+    Managed {
+        /// When the state before BiGame-mode was recorded.
+        since: u64,
+    },
+    /// It was handed back at this Unix time, and has been left alone since.
+    HandedBack {
+        /// When it was handed back.
+        at: u64,
+    },
+    /// BiGame-mode has never changed it.
+    NeverManaged,
+}
+
+impl Control {
+    /// Whether taking control makes sense: falcond is there and BiGame-mode
+    /// is not managing it.
+    #[must_use]
+    pub fn can_take(self) -> bool {
+        matches!(self, Self::HandedBack { .. } | Self::NeverManaged)
+    }
+}
+
+/// Who is in charge, from whether falcond is installed and the two records
+/// the helper keeps. The ownership record wins: the helper removes the
+/// release note whenever it records ownership again, and a note left over by
+/// a failed removal must not hide that BiGame-mode manages falcond.
+#[must_use]
+pub fn control_from(installed: bool, owned: Option<u64>, released: Option<u64>) -> Control {
+    match (installed, owned, released) {
+        (false, _, _) => Control::NotInstalled,
+        (true, Some(since), _) => Control::Managed { since },
+        (true, None, Some(at)) => Control::HandedBack { at },
+        (true, None, None) => Control::NeverManaged,
+    }
+}
+
+/// When falcond was handed back, while BiGame-mode has not taken it again.
+#[must_use]
+pub fn released_at() -> Option<u64> {
+    let text = std::fs::read_to_string(RELEASE_RECORD).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    value.get("released_at")?.as_u64()
+}
+
+/// Who is in charge of falcond now, for the UI's worker threads.
+///
+/// # Errors
+/// Returns an error if systemd cannot be reached.
+pub fn control_blocking() -> Result<Control> {
+    let unit = crate::systemd::Reader::shared()
+        .and_then(|r| r.unit_state(BACKEND_UNIT))
+        .ok_or_else(|| anyhow::anyhow!("systemd could not be asked about {BACKEND_UNIT}"))?;
+    Ok(control_from(
+        unit.is_installed(),
+        owned_since(),
+        released_at(),
+    ))
+}
+
+/// Take charge of falcond again after it was handed back (or before
+/// BiGame-mode ever changed it).
+///
+/// Exactly what the first Turbo switch did: the helper records falcond's
+/// state as it is now — so a later hand-back restores *this* — and the
+/// service follows Turbo from then on. Turbo's state is falcond's state, so
+/// the switch is asked for the state falcond is already in: a running falcond
+/// stays running and is enabled; a stopped one stays stopped and is disabled,
+/// which is what Turbo off means. Nothing is restarted, so a game's profile
+/// is not torn down. Returns the control read back afterwards.
+///
+/// No method of its own on the helper: `SetGameBackend` already records
+/// ownership before its first change, under the same Polkit action.
+///
+/// # Errors
+/// Returns an error if falcond is not installed, the helper refuses or fails,
+/// or no ownership record is there afterwards.
+pub async fn take_back() -> Result<Control> {
+    let connection = zbus::Connection::system().await?;
+    let unit = crate::systemd::unit_state(&connection, BACKEND_UNIT).await?;
+    if !unit.is_installed() {
+        anyhow::bail!(crate::error::UserError::plain(N_(
+            "falcond is not installed"
+        )));
+    }
+    let want = if unit.is_active() {
+        "active"
+    } else {
+        "inactive"
+    };
+    let proxy = crate::dbus_client::daemon_proxy().await?;
+    let reached = proxy.set_game_backend(unit.is_active()).await?;
+    if reached != want {
+        anyhow::bail!(crate::error::UserError::with(
+            N_("falcond is %s, not %s as it was"),
+            [reached.as_str(), want]
+        ));
+    }
+    let now = control_from(true, owned_since(), released_at());
+    if !matches!(now, Control::Managed { .. }) {
+        anyhow::bail!(crate::error::UserError::plain(N_(
+            "The helper did not record falcond's state"
+        )));
+    }
+    tracing::info!(target: "turbo", reached, "took control of falcond again");
+    Ok(now)
+}
+
+/// Blocking variant of [`take_back`], for the UI's worker threads.
+///
+/// # Errors
+/// As [`take_back`].
+pub fn take_back_blocking() -> Result<Control> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(take_back())
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────
@@ -717,6 +845,30 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn who_controls_falcond_is_read_from_both_records() {
+        assert_eq!(control_from(false, Some(1), None), Control::NotInstalled);
+        assert_eq!(
+            control_from(true, Some(10), None),
+            Control::Managed { since: 10 }
+        );
+        // A release note left behind must not hide a newer ownership record.
+        assert_eq!(
+            control_from(true, Some(20), Some(15)),
+            Control::Managed { since: 20 }
+        );
+        assert_eq!(
+            control_from(true, None, Some(15)),
+            Control::HandedBack { at: 15 }
+        );
+        assert_eq!(control_from(true, None, None), Control::NeverManaged);
+        // Taking control is offered only where it means something.
+        assert!(Control::HandedBack { at: 1 }.can_take());
+        assert!(Control::NeverManaged.can_take());
+        assert!(!Control::Managed { since: 1 }.can_take());
+        assert!(!Control::NotInstalled.can_take());
+    }
 
     #[test]
     fn handheld_profiles_are_corrected_only_off_handhelds() {

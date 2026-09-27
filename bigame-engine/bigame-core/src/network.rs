@@ -233,6 +233,45 @@ pub fn system_resolvers() -> Vec<IpAddr> {
         .collect()
 }
 
+/// Public resolvers offered for comparison, alongside whatever the system
+/// uses. Also the ping targets Settings offers, so the two lists cannot drift.
+pub const PUBLIC_RESOLVERS: &[(&str, &str)] = &[
+    ("Cloudflare", "1.1.1.1"),
+    ("Google", "8.8.8.8"),
+    ("Quad9", "9.9.9.9"),
+    ("OpenDNS", "208.67.222.222"),
+];
+
+/// The resolvers the DNS comparison measures: the system's own, named by
+/// `system_name` from their position (1-based), then each public one the
+/// system does not already use.
+#[must_use]
+pub fn comparison_candidates(
+    system: &[IpAddr],
+    system_name: impl Fn(usize) -> String,
+) -> Vec<Resolver> {
+    let mut candidates: Vec<Resolver> = system
+        .iter()
+        .enumerate()
+        .map(|(i, address)| Resolver {
+            name: system_name(i + 1),
+            address: *address,
+        })
+        .collect();
+    for (name, address) in PUBLIC_RESOLVERS {
+        let Ok(address) = address.parse() else {
+            continue;
+        };
+        if !candidates.iter().any(|c| c.address == address) {
+            candidates.push(Resolver {
+                name: (*name).to_owned(),
+                address,
+            });
+        }
+    }
+    candidates
+}
+
 /// Build a DNS query for an A record.
 ///
 /// A hand-rolled query keeps this dependency-free and, more importantly, lets
@@ -481,6 +520,20 @@ mod tests {
         assert_eq!(fastest(&results).unwrap().resolver.name, "Google");
         assert!(fastest(&[result("Dead", None)]).is_none());
         assert!(fastest(&[]).is_none());
+    }
+
+    #[test]
+    fn candidates_are_the_system_resolvers_then_public_ones_not_already_used() {
+        let system: Vec<IpAddr> = vec!["192.168.0.1".parse().unwrap(), "1.1.1.1".parse().unwrap()];
+        let list = comparison_candidates(&system, |n| format!("System #{n}"));
+        let names: Vec<&str> = list.iter().map(|r| r.name.as_str()).collect();
+        // Cloudflare is the system's second resolver, so it is not listed twice.
+        assert_eq!(
+            names,
+            ["System #1", "System #2", "Google", "Quad9", "OpenDNS"]
+        );
+        assert_eq!(list[1].address, system[1]);
+        assert_eq!(comparison_candidates(&[], |_| String::new()).len(), 4);
     }
 
     #[test]
