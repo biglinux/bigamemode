@@ -302,6 +302,8 @@ pub fn corrected_profile_mode(chassis: Chassis, current: &str) -> Option<&'stati
 /// unreachable before any change. Anything that fails part-way is an item in
 /// the report, not an error, so the user sees what did take effect.
 pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
+    // The preset chosen when Turbo was asked for, whatever changes meanwhile.
+    let preset = crate::turbo_preset::chosen();
     progress(Step::Detecting);
     let hardware = Hardware::detect();
     let caps = Capabilities::detect();
@@ -356,6 +358,8 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         Ok(booster) => absorb_booster(&booster, &mut report),
         Err(e) => booster_failed(&mut report, &e),
     }
+
+    apply_preset(preset, &mut report).await;
 
     report.save();
     tracing::info!(
@@ -454,6 +458,82 @@ async fn enable_backend<F: FnMut(Step)>(
             Kind::GameBackend,
             Section::Failed,
             "falcond",
+            crate::error::describe(&e),
+        ),
+    }
+}
+
+/// Put the chosen Turbo preset in force and say so in the report.
+///
+/// The session's environment is set through zbus's blocking API, which
+/// must not run on the runtime's own thread ("Cannot start a runtime from
+/// within a runtime", seen on the first real run): it goes to the blocking
+/// pool.
+async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) {
+    use crate::turbo_preset::Preset;
+    let title = Text::plain(N_("Turbo preset"));
+    if preset == Preset::Standard {
+        // Nothing to lay over Tuning; a preset left from before goes.
+        let cleared = tokio::task::spawn_blocking(crate::turbo_preset::deactivate).await;
+        if let Ok(Err(e)) = cleared {
+            tracing::warn!(error = %format!("{e:#}"), "could not clear a previous Turbo preset");
+        }
+        return;
+    }
+    let name = Text::plain(preset.label());
+    let applied = tokio::task::spawn_blocking(move || crate::turbo_preset::activate(preset))
+        .await
+        .unwrap_or_else(|e| Err(anyhow::anyhow!("{e}")));
+    match applied {
+        Ok(_) if crate::steam::is_running() => report.push_knob(
+            title,
+            Section::Verified,
+            "BiGame-mode",
+            Text::with(
+                N_(
+                    "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset",
+                ),
+                [Arg::Text(name)],
+            ),
+        ),
+        Ok(_) => report.push_knob(
+            title,
+            Section::Verified,
+            "BiGame-mode",
+            Text::with(
+                N_("%s: in the session's environment for every game started from now on"),
+                [Arg::Text(name)],
+            ),
+        ),
+        Err(e) => report.push_knob(title, Section::Failed, "BiGame-mode", crate::error::describe(&e)),
+    }
+}
+
+/// Take the Turbo preset away and say so in the report (on the blocking
+/// pool, as [`apply_preset`]).
+async fn remove_preset(report: &mut Report) {
+    let preset = crate::turbo_preset::active();
+    if preset == crate::turbo_preset::Preset::Standard {
+        return;
+    }
+    let title = Text::plain(N_("Turbo preset"));
+    let removed = tokio::task::spawn_blocking(crate::turbo_preset::deactivate)
+        .await
+        .unwrap_or_else(|e| Err(anyhow::anyhow!("{e}")));
+    match removed {
+        Ok(_) => report.push_knob(
+            title,
+            Section::Restored,
+            "BiGame-mode",
+            Text::with(
+                N_("%s taken away: games get Tuning's settings again"),
+                [Arg::Text(Text::plain(preset.label()))],
+            ),
+        ),
+        Err(e) => report.push_knob(
+            title,
+            Section::Failed,
+            "BiGame-mode",
             crate::error::describe(&e),
         ),
     }
@@ -593,6 +673,7 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     }
 
     progress(Step::Restoring);
+    remove_preset(&mut report).await;
     match BoosterEngine::deactivate().await {
         Ok(outcomes) => {
             for outcome in outcomes {

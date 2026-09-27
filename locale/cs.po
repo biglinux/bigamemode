@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-27 11:09-0300\n"
+"POT-Creation-Date: 2026-09-27 14:11-0300\n"
 "PO-Revision-Date: 2026-04-20 22:15\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Czech <cs@li.org>\n"
@@ -41,7 +41,7 @@ msgstr "Požadováno %a, ale nastaveno je %c"
 msgid "%c now, set by power-profiles-daemon through the power profile (available: %a)"
 msgstr "Nyní %c, nastaveno službou power-profiles-daemon přes profil napájení (k dispozici: %a)"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:474
+#: bigame-engine/bigame-ui/src/views/home.rs:555
 msgid "%n applied"
 msgid_plural "%n applied"
 msgstr[0] "%n použito"
@@ -62,14 +62,14 @@ msgstr[0] "%n kontrola prošla"
 msgstr[1] "%n kontroly prošly"
 msgstr[2] "%n kontrol prošlo"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:486
+#: bigame-engine/bigame-ui/src/views/home.rs:567
 msgid "%n conflict avoided"
 msgid_plural "%n conflicts avoided"
 msgstr[0] "%n konflikt odvrácen"
 msgstr[1] "%n konflikty odvráceny"
 msgstr[2] "%n konfliktů odvráceno"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:454
+#: bigame-engine/bigame-ui/src/views/home.rs:535
 msgid "%n did not take effect — see details"
 msgid_plural "%n did not take effect — see details"
 msgstr[0] "%n se neprojevilo — viz podrobnosti"
@@ -83,7 +83,7 @@ msgstr[0] "%n chyba"
 msgstr[1] "%n chyby"
 msgstr[2] "%n chyb"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:494
+#: bigame-engine/bigame-ui/src/views/home.rs:575
 msgid "%n failed"
 msgid_plural "%n failed"
 msgstr[0] "%n selhalo"
@@ -104,7 +104,7 @@ msgstr[0] "%n položka vyžaduje pozornost"
 msgstr[1] "%n položky vyžadují pozornost"
 msgstr[2] "%n položek vyžaduje pozornost"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:478
+#: bigame-engine/bigame-ui/src/views/home.rs:559
 msgid "%n per game"
 msgid_plural "%n per game"
 msgstr[0] "%n pro hru"
@@ -132,7 +132,7 @@ msgstr[0] "%n zobrazen"
 msgstr[1] "%n zobrazeny"
 msgstr[2] "%n zobrazeno"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:482
+#: bigame-engine/bigame-ui/src/views/home.rs:563
 msgid "%n skipped"
 msgid_plural "%n skipped"
 msgstr[0] "%n přeskočeno"
@@ -177,7 +177,7 @@ msgstr "%s (%s)%s"
 msgid "%s + %s: %s"
 msgstr "%s + %s: %s"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:882 bigame-engine/bigame-ui/src/views/home.rs:883 bigame-engine/bigame-ui/src/views/home.rs:884
+#: bigame-engine/bigame-ui/src/views/home.rs:966 bigame-engine/bigame-ui/src/views/home.rs:967 bigame-engine/bigame-ui/src/views/home.rs:968
 msgid "%s GPU"
 msgstr "GPU %s"
 
@@ -221,7 +221,7 @@ msgstr "%s je symbolický odkaz; nebude nahrazen"
 msgid "%s is not installed"
 msgstr "%s není nainstalován"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:207 bigame-engine/bigame-ui/src/profile_offer.rs:466 bigame-engine/bigame-ui/src/views/details/performance.rs:276
+#: bigame-engine/bigame-ui/src/profile_offer.rs:207 bigame-engine/bigame-ui/src/profile_offer.rs:470 bigame-engine/bigame-ui/src/views/details/performance.rs:276
 msgid "%s is running"
 msgstr "%s běží"
 
@@ -260,6 +260,10 @@ msgstr "%s zapnuto v nastavení hry"
 #: bigame-engine/bigame-core/src/graphics/plan.rs:537
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s se zapne v nastavení hry, pokud je vypnuto, a funkce Obnovit ho vrátí zpět — OptiScaler místo něj spouští %s; kvalitu si dál měníte v nabídce hry"
+
+#: bigame-engine/bigame-core/src/turbo.rs:516
+msgid "%s taken away: games get Tuning's settings again"
+msgstr "Předvolba %s odebrána: hry opět dostávají nastavení z Ladění"
 
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:103
 msgid "%s through %s (%s)"
@@ -305,7 +309,7 @@ msgstr "%s · služba selhala; příčinu najdete v Záznamech"
 msgid "%s → %s"
 msgstr "%s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:391
+#: bigame-engine/bigame-core/src/turbo.rs:395
 msgid "%s → %s: the handheld profiles run games in power-saving mode, and this machine is not a handheld"
 msgstr "%s → %s: profily pro kapesní zařízení spouštějí hry v úsporném režimu a tento počítač kapesní zařízení není"
 
@@ -317,7 +321,7 @@ msgstr "%s, podle globálního nastavení falcond"
 msgid "%s, by the game's profile"
 msgstr "%s, podle profilu hry"
 
-#: bigame-engine/bigame-core/src/turbo.rs:348
+#: bigame-engine/bigame-core/src/turbo.rs:350
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s, takže herní profily, které požadují plánovač, ho nemohou nastavit"
 
@@ -336,6 +340,14 @@ msgstr "%s: %s %s → %s %s (hůře)"
 #: bigame-engine/bigame-core/src/booster/report.rs:49
 msgid "%s: %s → %s"
 msgstr "%s: %s → %s"
+
+#: bigame-engine/bigame-core/src/turbo.rs:495
+msgid "%s: in the session's environment for every game started from now on"
+msgstr "%s: v prostředí relace pro každou hru spuštěnou od této chvíle"
+
+#: bigame-engine/bigame-core/src/turbo.rs:484
+msgid "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset"
+msgstr "%s: v prostředí relace. Steam už byl otevřený a ponechává si prostředí, se kterým se spustil: zavřete ho a znovu otevřete, aby jeho hry dostaly předvolbu"
 
 #: bigame-engine/bigame-core/src/booster/report.rs:138
 msgid "%s: no measurable change"
@@ -383,7 +395,7 @@ msgstr "32bitový Vulkan"
 msgid "32-bit game"
 msgstr "32bitová hra"
 
-#: bigame-engine/bigame-core/src/health.rs:543 bigame-engine/bigame-core/src/health.rs:550 bigame-engine/bigame-ui/src/profile_offer.rs:405 bigame-engine/bigame-ui/src/profile_offer.rs:407 bigame-engine/bigame-ui/src/views/details/performance.rs:56 bigame-engine/bigame-ui/src/views/details/problems.rs:246 bigame-engine/bigame-ui/src/views/profile_wizard.rs:118 bigame-engine/bigame-ui/src/views/tuning.rs:217 bigame-engine/bigame-ui/src/widgets/info.rs:180 bigame-engine/bigame-ui/src/widgets/optimization.rs:1407 bigame-engine/bigame-ui/src/widgets/optimization.rs:267 bigame-engine/bigame-ui/src/widgets/optimization.rs:691
+#: bigame-engine/bigame-core/src/health.rs:543 bigame-engine/bigame-core/src/health.rs:550 bigame-engine/bigame-ui/src/profile_offer.rs:409 bigame-engine/bigame-ui/src/profile_offer.rs:411 bigame-engine/bigame-ui/src/views/details/performance.rs:56 bigame-engine/bigame-ui/src/views/details/problems.rs:246 bigame-engine/bigame-ui/src/views/profile_wizard.rs:118 bigame-engine/bigame-ui/src/views/tuning.rs:217 bigame-engine/bigame-ui/src/widgets/info.rs:180 bigame-engine/bigame-ui/src/widgets/optimization.rs:1407 bigame-engine/bigame-ui/src/widgets/optimization.rs:267 bigame-engine/bigame-ui/src/widgets/optimization.rs:691
 msgid "3D V-Cache"
 msgstr "3D V-Cache"
 
@@ -527,6 +539,10 @@ msgstr "Vzhled, ne zrychlení: stojí trochu času GPU. Důkaz: libvkbasalt nama
 msgid "A micro-compositor around the game: scaling, frame limit, a stable fullscreen"
 msgstr "Mikrokompozitor kolem hry: škálování, limit snímků, stabilní celá obrazovka"
 
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:53
+msgid "A native Linux game is capped only when BiGame-mode starts it (Profiles → Launch)."
+msgstr "Nativní linuxová hra je omezena, jen když ji BiGame-mode spustí (Profily → Spustit)."
+
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:108
 msgid "A sched-ext scheduler can smooth frame times in some games. Leave it on the general configuration unless a game stutters; the (i) buttons explain each choice."
 msgstr "Plánovač sched-ext může v některých hrách vyhladit časy snímků. Nechte ho na obecné konfiguraci, pokud se hra nezasekává; tlačítka (i) vysvětlují každou volbu."
@@ -551,7 +567,7 @@ msgstr "Virtuální stroj nebo kontejner. Jeho zavření může přerušit prác
 msgid "A web browser. Tabs playing video or running scripts cost the most."
 msgstr "Webový prohlížeč. Nejvíc stojí karty, které přehrávají video nebo spouštějí skripty."
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:458 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1592 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1598 bigame-engine/bigame-ui/src/views/home.rs:787 bigame-engine/bigame-ui/src/views/profile_wizard.rs:183 bigame-engine/bigame-ui/src/views/profile_wizard.rs:485 bigame-engine/bigame-ui/src/views/profiles.rs:685
+#: bigame-engine/bigame-ui/src/profile_offer.rs:462 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1592 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1598 bigame-engine/bigame-ui/src/views/home.rs:868 bigame-engine/bigame-ui/src/views/profile_wizard.rs:183 bigame-engine/bigame-ui/src/views/profile_wizard.rs:485 bigame-engine/bigame-ui/src/views/profiles.rs:685
 msgid "AI Graphics"
 msgstr "AI grafika"
 
@@ -735,7 +751,7 @@ msgstr "Použít přidá možnost spuštění (Steam zavřený); hru je pak nutn
 msgid "Apply changes"
 msgstr "Použít změny"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:377
+#: bigame-engine/bigame-ui/src/profile_offer.rs:381
 msgid "Apply it in AI Graphics, with the game closed."
 msgstr "Použijte ho v AI grafice se zavřenou hrou."
 
@@ -859,7 +875,7 @@ msgstr "BiGame-mode spravuje falcond od %s"
 msgid "BiGame-mode has no profile for this game yet. Create one tuned for this machine?"
 msgstr "BiGame-mode pro tuto hru zatím nemá profil. Vytvořit profil vyladěný pro tento počítač?"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:467
+#: bigame-engine/bigame-ui/src/profile_offer.rs:471
 msgid "BiGame-mode has no profile for this game yet. This is the profile it would create, and why each value was chosen."
 msgstr "BiGame-mode pro tuto hru zatím nemá profil. Toto je profil, který by vytvořil, a proč byla zvolena každá hodnota."
 
@@ -875,7 +891,7 @@ msgstr "Pomocník BiGame-mode"
 msgid "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back."
 msgstr "BiGame-mode do této hry nainstaloval OptiScaler a s volbou níže už není potřeba. Obnovit vrátí původní soubory hry."
 
-#: bigame-engine/bigame-ui/src/views/home.rs:254
+#: bigame-engine/bigame-ui/src/views/home.rs:324
 msgid "BiGame-mode is not intervening in games"
 msgstr "BiGame-mode do her nezasahuje"
 
@@ -939,7 +955,7 @@ msgstr "Energetická preference CPU"
 msgid "CPU governor"
 msgstr "Governor CPU"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:397 bigame-engine/bigame-ui/src/profile_offer.rs:403 bigame-engine/bigame-ui/src/views/details/problems.rs:222 bigame-engine/bigame-ui/src/views/profile_wizard.rs:107 bigame-engine/bigame-ui/src/views/tuning.rs:138 bigame-engine/bigame-ui/src/widgets/optimization.rs:1392 bigame-engine/bigame-ui/src/widgets/optimization.rs:576
+#: bigame-engine/bigame-ui/src/profile_offer.rs:401 bigame-engine/bigame-ui/src/profile_offer.rs:407 bigame-engine/bigame-ui/src/views/details/problems.rs:222 bigame-engine/bigame-ui/src/views/profile_wizard.rs:107 bigame-engine/bigame-ui/src/views/tuning.rs:138 bigame-engine/bigame-ui/src/widgets/optimization.rs:1392 bigame-engine/bigame-ui/src/widgets/optimization.rs:576
 msgid "CPU scheduler"
 msgstr "Plánovač CPU"
 
@@ -971,7 +987,7 @@ msgstr "Změny se použijí po uložení"
 msgid "Checking files…"
 msgstr "Kontrola souborů…"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:420
+#: bigame-engine/bigame-ui/src/views/home.rs:490
 msgid "Checking global settings"
 msgstr "Kontrola globálních nastavení"
 
@@ -995,7 +1011,7 @@ msgstr "Vyberte, co ponechat; to druhé se vypne."
 msgid "Choose the upscaler and frame generation yourself."
 msgstr "Upscaler a generování snímků si vyberte sami."
 
-#: bigame-engine/bigame-ui/src/views/home.rs:418
+#: bigame-engine/bigame-ui/src/views/home.rs:488
 msgid "Choosing falcond's profile set"
 msgstr "Výběr sady profilů falcond"
 
@@ -1267,7 +1283,7 @@ msgstr "Zprávu nelze zapsat"
 msgid "Create Profile"
 msgstr "Vytvořit profil"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:213 bigame-engine/bigame-ui/src/profile_offer.rs:478 bigame-engine/bigame-ui/src/views/home.rs:594 bigame-engine/bigame-ui/src/views/profiles.rs:1080
+#: bigame-engine/bigame-ui/src/profile_offer.rs:213 bigame-engine/bigame-ui/src/profile_offer.rs:482 bigame-engine/bigame-ui/src/views/home.rs:675 bigame-engine/bigame-ui/src/views/profiles.rs:1080
 msgid "Create profile"
 msgstr "Vytvořit profil"
 
@@ -1435,7 +1451,7 @@ msgstr "Zobrazovací vrstva"
 msgid "Don't ask again"
 msgstr "Už se neptat"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:460
+#: bigame-engine/bigame-ui/src/profile_offer.rs:464
 msgid "Don't ask again for this game"
 msgstr "Pro tuto hru se už neptat"
 
@@ -1470,6 +1486,10 @@ msgstr "Upravit profil"
 #: bigame-engine/bigame-core/src/processes.rs:70
 msgid "Encoding or transcoding media."
 msgstr "Kódování nebo překódování médií."
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:69
+msgid "Enhanced graphics"
+msgstr "Lepší grafika"
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:88
 msgid ""
@@ -1575,7 +1595,7 @@ msgstr "FSR 2"
 msgid "FSR 4 (game's own)"
 msgstr "FSR 4 (vlastní ve hře)"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:773
+#: bigame-engine/bigame-ui/src/views/home.rs:854
 msgid "FSR 4 (the game's own, Proton's provider loaded)"
 msgstr "FSR 4 (vlastní ve hře, načten poskytovatel z Protonu)"
 
@@ -1603,7 +1623,7 @@ msgstr "Poskytovatel FSR 4"
 msgid "FSR 4 provider loaded in the running game"
 msgstr "Poskytovatel FSR 4 načten ve spuštěné hře"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:777
+#: bigame-engine/bigame-ui/src/views/home.rs:858
 msgid "FSR off in the game's menu (FSR 4 provider not loaded)"
 msgstr "FSR vypnuto v nabídce hry (poskytovatel FSR 4 nenačten)"
 
@@ -1727,6 +1747,10 @@ msgstr "Zobrazené snímky na jeden vykreslený snímek"
 msgid "Frequency CCD"
 msgstr "Frekvenční CCD"
 
+#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:84
+msgid "Full focus, maximum performance!"
+msgstr "Plné soustředění, maximální výkon!"
+
 #: bigame-engine/bigame-core/src/graphics/backend.rs:225 bigame-engine/bigame-core/src/graphics/backend.rs:231 bigame-engine/bigame-core/src/graphics/backend.rs:241 bigame-engine/bigame-core/src/graphics/backend.rs:252 bigame-engine/bigame-core/src/graphics/diagnose.rs:117 bigame-engine/bigame-core/src/graphics/diagnose.rs:136 bigame-engine/bigame-core/src/health.rs:471 bigame-engine/bigame-ui/src/views/details/overview.rs:36 bigame-engine/bigame-ui/src/views/details/telemetry.rs:60 bigame-engine/bigame-ui/src/views/home.rs:92
 msgid "GPU"
 msgstr "GPU"
@@ -1779,7 +1803,7 @@ msgstr "Herní profily"
 msgid "Gamer"
 msgstr "Herní"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:252
+#: bigame-engine/bigame-ui/src/views/home.rs:322
 msgid "Games are optimized as they start"
 msgstr "Hry se optimalizují při spuštění"
 
@@ -1798,6 +1822,10 @@ msgstr "Hry upřednostňují CCD bez další mezipaměti, které běží na vyš
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:229
 msgid "Games render here"
 msgstr "Zde se vykreslují hry"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:77
+msgid "Games run with Tuning as it is; the preset changes nothing."
+msgstr "Hry běží s Laděním tak, jak je; předvolba nic nemění."
 
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:143
 msgid "Games run without BiGame-mode's optimizations. Turn Turbo on at Home."
@@ -2051,7 +2079,7 @@ msgstr ""
 msgid "In series"
 msgstr "Za sebou"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:911 bigame-engine/bigame-ui/src/views/home.rs:782
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:911 bigame-engine/bigame-ui/src/views/home.rs:863
 msgid "In the game"
 msgstr "Ve hře"
 
@@ -2135,6 +2163,10 @@ msgstr "Motiv rozhraní"
 msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and BiGame-mode does not change firmware settings"
 msgstr "Nastavuje se ve firmwaru počítače (Above 4G Decoding a Re-Size BAR). Některým hrám pomáhá; na tomto počítači to nebylo změřeno a BiGame-mode nastavení firmwaru nemění"
 
+#: bigame-engine/bigame-ui/src/views/home.rs:123
+msgid "It keeps the environment it started with, so its games get the preset once Steam is opened again. Opening it again closes it the way it closes itself."
+msgstr "Ponechává si prostředí, se kterým se spustil, takže jeho hry dostanou předvolbu, jakmile se Steam znovu otevře. Opětovné otevření ho zavře stejně, jako se zavírá sám."
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:422
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Projeví se jen v exkluzivním režimu celé obrazovky při rozlišení nižším, než má plocha. Důkaz: prostředí procesu hry."
@@ -2159,7 +2191,7 @@ msgstr "Ponechat %s"
 msgid "Keep one version"
 msgstr "Ponechat jednu verzi"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:408 bigame-engine/bigame-ui/src/widgets/optimization.rs:1388 bigame-engine/bigame-ui/src/widgets/optimization.rs:537
+#: bigame-engine/bigame-ui/src/profile_offer.rs:412 bigame-engine/bigame-ui/src/widgets/optimization.rs:1388 bigame-engine/bigame-ui/src/widgets/optimization.rs:537
 msgid "Keep the screen awake"
 msgstr "Nenechat obrazovku zhasnout"
 
@@ -2266,6 +2298,10 @@ msgstr "Načte se, když je Turbo zapnuté. Hra, jejíž profil uvádí jiný pl
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:106 bigame-engine/bigame-ui/src/views/ai_graphics.rs:418
 msgid "Loaded — choose the upscaler named in the steps in the game's graphics menu"
 msgstr "Načteno — v grafické nabídce hry zvolte upscaler uvedený v krocích"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:68
+msgid "Locked 60 FPS"
+msgstr "Pevných 60 FPS"
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:409
 msgid "Log exported"
@@ -2411,6 +2447,10 @@ msgstr "Režim %s použit"
 msgid "Monitoring"
 msgstr "Monitorování"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:67
+msgid "More FPS"
+msgstr "Více FPS"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:477
 msgid "More frames shown, not rendered; adds latency"
 msgstr "Více zobrazených snímků, ne vykreslených; přidává latenci"
@@ -2451,7 +2491,7 @@ msgstr "N/A"
 msgid "NVIDIA PRIME render offload"
 msgstr "NVIDIA PRIME render offload"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:251 bigame-engine/bigame-ui/src/views/home.rs:690 bigame-engine/bigame-ui/src/views/profiles.rs:1060
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:251 bigame-engine/bigame-ui/src/views/home.rs:771 bigame-engine/bigame-ui/src/views/profiles.rs:1060
 msgid "Native"
 msgstr "Nativně"
 
@@ -2523,6 +2563,10 @@ msgstr "Žádný ovladač cpufreq nehlásí governor"
 msgid "No default route — this machine is offline"
 msgstr "Žádná výchozí trasa — tento počítač je offline"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:78
+msgid "No frame cap and no image filter. Wine FSR scales a game you run in fullscreen below the display's resolution: lowering the resolution in the game is where the frames come from."
+msgstr "Žádný limit snímků ani obrazový filtr. Wine FSR škáluje hru spuštěnou na celou obrazovku pod rozlišením displeje: snímky navíc přináší snížení rozlišení ve hře."
+
 #: bigame-engine/bigame-ui/src/widgets/game_card.rs:355
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Nebyl nalezen spustitelný soubor hry, takže tento profil nemusí odpovídat spuštěné hře."
@@ -2551,11 +2595,11 @@ msgstr "Pro toto zobrazení není k dispozici nápověda."
 msgid "No preference asked for"
 msgstr "Nepožadována žádná preference"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:811
+#: bigame-engine/bigame-ui/src/views/home.rs:892
 msgid "No profile is active for this game"
 msgstr "Pro tuto hru není aktivní žádný profil"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:807
+#: bigame-engine/bigame-ui/src/views/home.rs:888
 msgid "No profile of its own yet · using falcond's general Proton profile"
 msgstr "Zatím bez vlastního profilu · používá obecný profil Proton z falcond"
 
@@ -2655,7 +2699,7 @@ msgstr "Nenainstalováno. Vizuální filtry (doostření, barvy) pro hry pro Vul
 msgid "Not needed for the upscaling above. A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project BiGame-mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton."
 msgstr "Pro zvýšení rozlišení výše není potřeba. Neurální průchod nad vlastním výstupem FSR hry, přes DLSS-NR-on-AMD — externí projekt, který BiGame-mode nešíří, neinstaluje ani neodstraňuje. Experimentální: zdokumentováno pro Windows, pod Protonem neověřeno."
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:477 bigame-engine/bigame-ui/src/views/profile_wizard.rs:175 bigame-engine/bigame-ui/src/views/profile_wizard.rs:489
+#: bigame-engine/bigame-ui/src/profile_offer.rs:481 bigame-engine/bigame-ui/src/views/profile_wizard.rs:175 bigame-engine/bigame-ui/src/views/profile_wizard.rs:489
 msgid "Not now"
 msgstr "Teď ne"
 
@@ -2679,7 +2723,7 @@ msgstr "Ovladač nehlásí"
 msgid "Not set up"
 msgstr "Nenastaveno"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:405 bigame-engine/bigame-ui/src/widgets/status.rs:25
+#: bigame-engine/bigame-ui/src/profile_offer.rs:409 bigame-engine/bigame-ui/src/widgets/status.rs:25
 msgid "Not supported"
 msgstr "Nepodporováno"
 
@@ -2767,7 +2811,7 @@ msgstr "Nyní: vlastní plánovač jádra"
 msgid "OK"
 msgstr "OK"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:392 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1021 bigame-engine/bigame-ui/src/views/ai_graphics.rs:475 bigame-engine/bigame-ui/src/views/details/pipeline.rs:528 bigame-engine/bigame-ui/src/widgets/optimization.rs:1274 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1383 bigame-engine/bigame-ui/src/widgets/optimization.rs:1443 bigame-engine/bigame-ui/src/widgets/optimization.rs:1450 bigame-engine/bigame-ui/src/widgets/optimization.rs:487 bigame-engine/bigame-ui/src/widgets/status.rs:23
+#: bigame-engine/bigame-ui/src/profile_offer.rs:396 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1021 bigame-engine/bigame-ui/src/views/ai_graphics.rs:475 bigame-engine/bigame-ui/src/views/details/pipeline.rs:528 bigame-engine/bigame-ui/src/widgets/optimization.rs:1274 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1383 bigame-engine/bigame-ui/src/widgets/optimization.rs:1443 bigame-engine/bigame-ui/src/widgets/optimization.rs:1450 bigame-engine/bigame-ui/src/widgets/optimization.rs:487 bigame-engine/bigame-ui/src/widgets/status.rs:23
 msgid "Off"
 msgstr "Vypnuto"
 
@@ -2791,7 +2835,7 @@ msgstr "Vypnuto: velikosti a filtr z Ladění"
 msgid "Offer a profile for new games"
 msgstr "Nabízet profil pro nové hry"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:920
+#: bigame-engine/bigame-ui/src/views/home.rs:1004
 msgid "Offline"
 msgstr "Offline"
 
@@ -2799,7 +2843,7 @@ msgstr "Offline"
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "Starší verze pojmenovávaly profily podle názvu hry, který falcond nikdy nerozpozná, a ukládaly nastavení, která falcond ignoruje. Oprava každý z nich přejmenuje na skutečný proces hry a ponechá jen nastavení falcond. Každý profil se nejprve zálohuje do ~/.local/state/bigame-mode. Vlastních profilů falcond se nic nedotkne."
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:392 bigame-engine/bigame-ui/src/widgets/optimization.rs:1275 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1382 bigame-engine/bigame-ui/src/widgets/optimization.rs:1451 bigame-engine/bigame-ui/src/widgets/optimization.rs:487
+#: bigame-engine/bigame-ui/src/profile_offer.rs:396 bigame-engine/bigame-ui/src/widgets/optimization.rs:1275 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1382 bigame-engine/bigame-ui/src/widgets/optimization.rs:1451 bigame-engine/bigame-ui/src/widgets/optimization.rs:487
 msgid "On"
 msgstr "Zapnuto"
 
@@ -3007,7 +3051,7 @@ msgstr "Optimalizovat"
 msgid "Optimize a game from its card to create one."
 msgstr "Profil vytvoříte optimalizací hry z její karty."
 
-#: bigame-engine/bigame-ui/src/views/details/overview.rs:152 bigame-engine/bigame-ui/src/views/home.rs:410
+#: bigame-engine/bigame-ui/src/views/details/overview.rs:152 bigame-engine/bigame-ui/src/views/home.rs:480
 msgid "Optimizing %s"
 msgstr "Optimalizace %s"
 
@@ -3055,7 +3099,7 @@ msgstr "Pro každou hru, z karty hry v Profilech"
 msgid "Per-game optimization (falcond)"
 msgstr "Optimalizace pro jednotlivé hry (falcond)"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:447
+#: bigame-engine/bigame-ui/src/views/home.rs:528
 msgid "Per-game optimization could not be started"
 msgstr "Optimalizaci pro jednotlivé hry nelze spustit"
 
@@ -3067,7 +3111,7 @@ msgstr "Výkon"
 msgid "Performance impact not measured"
 msgstr "Dopad na výkon nezměřen"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:395 bigame-engine/bigame-ui/src/views/tuning.rs:119 bigame-engine/bigame-ui/src/widgets/optimization.rs:1084 bigame-engine/bigame-ui/src/widgets/optimization.rs:1380 bigame-engine/bigame-ui/src/widgets/optimization.rs:515
+#: bigame-engine/bigame-ui/src/profile_offer.rs:399 bigame-engine/bigame-ui/src/views/tuning.rs:119 bigame-engine/bigame-ui/src/widgets/optimization.rs:1084 bigame-engine/bigame-ui/src/widgets/optimization.rs:1380 bigame-engine/bigame-ui/src/widgets/optimization.rs:515
 msgid "Performance mode"
 msgstr "Režim výkonu"
 
@@ -3127,7 +3171,7 @@ msgstr "Režim prezentace"
 msgid "Problems"
 msgstr "Problémy"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:394 bigame-engine/bigame-ui/src/views/report.rs:180
+#: bigame-engine/bigame-ui/src/profile_offer.rs:398 bigame-engine/bigame-ui/src/views/report.rs:180
 msgid "Process"
 msgstr "Proces"
 
@@ -3139,7 +3183,7 @@ msgstr "Název procesu"
 msgid "Profile"
 msgstr "Profil"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:810
+#: bigame-engine/bigame-ui/src/views/home.rs:891
 msgid "Profile %s"
 msgstr "Profil %s"
 
@@ -3259,6 +3303,10 @@ msgstr "Proton (obecný)"
 msgid "Proton / Wine"
 msgstr "Proton / Wine"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:81
+msgid "Proton games are capped at 60 FPS: steady frame times, a cooler and quieter GPU. Wine FSR stays available to hold 60 at a lower resolution."
+msgstr "Hry přes Proton jsou omezeny na 60 FPS: stabilní časy snímků, chladnější a tišší GPU. Wine FSR zůstává k dispozici, aby udrželo 60 FPS při nižším rozlišení."
+
 #: bigame-engine/bigame-ui/src/views/report.rs:34
 msgid "Put back"
 msgstr "Vráceno"
@@ -3267,7 +3315,7 @@ msgstr "Vráceno"
 msgid "Putting everything back as it was"
 msgstr "Vracení všeho do původního stavu"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:421
+#: bigame-engine/bigame-ui/src/views/home.rs:491
 msgid "Putting global settings back"
 msgstr "Vracení globálních nastavení"
 
@@ -3307,11 +3355,11 @@ msgstr "Zvyšuje zobrazovanou snímkovou frekvenci, ne vykreslovanou, a přidáv
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "Sestavení ReShade s doplňky je určeno jen pro hry pro jednoho hráče; anti-cheat může za vložené DLL udělit ban"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:143
+#: bigame-engine/bigame-ui/src/views/home.rs:196
 msgid "Reading Turbo's state"
 msgstr "Čtení stavu Turbo"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:205 bigame-engine/bigame-ui/src/views/home.rs:417
+#: bigame-engine/bigame-ui/src/views/home.rs:268 bigame-engine/bigame-ui/src/views/home.rs:487
 msgid "Reading hardware and tools"
 msgstr "Čtení hardwaru a nástrojů"
 
@@ -3398,6 +3446,10 @@ msgstr "RenoDX vyžaduje sestavení ReShade s doplňky, které je určeno jen pr
 #: bigame-engine/bigame-core/src/graphics/rules.rs:388
 msgid "RenoDX runs as a ReShade add-on loaded through OptiScaler; not established, and RenoDX does not support Linux officially"
 msgstr "RenoDX běží jako doplněk ReShade načtený přes OptiScaler; neověřeno a RenoDX Linux oficiálně nepodporuje"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:130
+msgid "Reopen Steam"
+msgstr "Znovu otevřít Steam"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1641
 msgid "Repair"
@@ -3499,7 +3551,7 @@ msgstr "Běh %r z %t — %w"
 msgid "Run %r of %t — %w (warm-up, discarded)"
 msgstr "Běh %r z %t — %w (zahřívací, zahozen)"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:276 bigame-engine/bigame-ui/src/views/home.rs:730
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:276 bigame-engine/bigame-ui/src/views/home.rs:811
 msgid "Running"
 msgstr "Probíhá"
 
@@ -3635,6 +3687,10 @@ msgstr "Nyní nastaveno"
 msgid "Settings"
 msgstr "Nastavení"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:84
+msgid "Sharper image (vkBasalt's CAS) at the display's resolution, FSR 4 for games with FSR 3.1 on a GPU that has it, and a 60 FPS cap so the heavier image plays steadily."
+msgstr "Ostřejší obraz (CAS z vkBasalt) v rozlišení displeje, FSR 4 pro hry s FSR 3.1 na GPU, která ho má, a limit 60 FPS, aby náročnější obraz běžel plynule."
+
 #: bigame-engine/bigame-ui/src/views/logs.rs:88
 msgid "Show"
 msgstr "Zobrazit"
@@ -3679,13 +3735,21 @@ msgstr "Přeskočeno"
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "Aby byly hry spuštěné ze Steamu zaznamenány i se zavřeným tímto oknem"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:438
+#: bigame-engine/bigame-ui/src/views/home.rs:519
 msgid "Some settings could not be put back"
 msgstr "Některá nastavení nelze vrátit"
 
 #: bigame-engine/bigame-ui/src/app.rs:375
 msgid "Special Thanks"
 msgstr "Zvláštní poděkování"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:66
+msgid "Standard"
+msgstr "Standardní"
+
+#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:82
+msgid "Standard game settings"
+msgstr "Standardní nastavení her"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:560
 msgid "Standing"
@@ -3711,7 +3775,7 @@ msgstr "Spusťte hru z Profily → ⋮ → Spustit (Turbo). Hru ze Steamu spouš
 msgid "Starting"
 msgstr "Spouštění"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:419
+#: bigame-engine/bigame-ui/src/views/home.rs:489
 msgid "Starting per-game optimization"
 msgstr "Spouštění optimalizace pro jednotlivé hry"
 
@@ -3735,7 +3799,11 @@ msgstr "Steam Deck — úplný"
 msgid "Steam app %s"
 msgstr "Aplikace Steam %s"
 
-#: bigame-engine/bigame-core/src/steam.rs:194
+#: bigame-engine/bigame-ui/src/views/home.rs:146
+msgid "Steam could not be opened again"
+msgstr "Steam se nepodařilo znovu otevřít"
+
+#: bigame-engine/bigame-core/src/steam.rs:239
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam běží. Uchovává localconfig.vdf v paměti a při ukončení ho přepíše, takže by tato úprava byla zahozena. Zavřete Steam a zkuste to znovu."
 
@@ -3747,7 +3815,15 @@ msgstr "Možnosti spuštění Steamu"
 msgid "Steam launch options: %s"
 msgstr "Možnosti spuštění Steamu: %s"
 
-#: bigame-engine/bigame-core/src/steam.rs:236
+#: bigame-engine/bigame-ui/src/views/home.rs:141
+msgid "Steam opened again: its games get the preset"
+msgstr "Steam znovu otevřen: jeho hry dostávají předvolbu"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:122
+msgid "Steam was already open"
+msgstr "Steam už byl otevřený"
+
+#: bigame-engine/bigame-core/src/steam.rs:281
 msgid "Steam's configuration has no apps section: %s"
 msgstr "Konfigurace Steamu nemá sekci aplikací: %s"
 
@@ -3823,7 +3899,7 @@ msgstr "Tuto hru spouští klient Steam"
 msgid "The address the Details page pings for its latency graph. It is only contacted while that page is on screen."
 msgstr "Adresa, kterou stránka Podrobnosti pinguje pro graf latence. Kontaktuje se jen tehdy, když je tato stránka na obrazovce."
 
-#: bigame-engine/bigame-ui/src/views/home.rs:230
+#: bigame-engine/bigame-ui/src/views/home.rs:294
 msgid "The change stopped without an answer. Open Logs to see why."
 msgstr "Změna se zastavila bez odpovědi. Příčinu zjistíte v Záznamech."
 
@@ -3967,6 +4043,10 @@ msgstr "Proměnná se zapíše do ~/.config/environment.d a předá do relace, a
 msgid "There was nothing to hand back"
 msgstr "Nebylo co vrátit"
 
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:48
+msgid "This GPU has no FSR 4, so that part is left out."
+msgstr "Tato GPU nemá FSR 4, takže tato část je vynechána."
+
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:43
 msgid ""
 "This feature uses LSFG-VK which requires the proprietary Lossless.dll to function.\n"
@@ -4029,13 +4109,9 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turbo se nepodařilo spustit"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:101 bigame-engine/bigame-ui/src/widgets/booster_button.rs:57
+#: bigame-engine/bigame-ui/src/views/settings.rs:101
 msgid "Turbo Mode"
 msgstr "Režim Turbo"
-
-#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:59
-msgid "Turbo Mode On"
-msgstr "Režim Turbo zapnut"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:54
 msgid "Turbo as the master switch over falcond, per-game profiles offered when an unknown game starts, AI Graphics with OptiScaler (backup, repair and restore), a benchmark lab with A/B verdicts, diagnostics and a unified log view."
@@ -4049,13 +4125,25 @@ msgstr "Turbo je služba falcond, jak ji hlásí systemd: zapnuto znamená povol
 msgid "Turbo is off"
 msgstr "Turbo je vypnuto"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:801
+#: bigame-engine/bigame-ui/src/views/home.rs:882
 msgid "Turbo is off, so this game is not being optimized"
 msgstr "Turbo je vypnuto, takže se tato hra neoptimalizuje"
 
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:148
 msgid "Turbo is on. The next game gets its profile as it starts."
 msgstr "Turbo je zapnuto. Další hra dostane svůj profil při spuštění."
+
+#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:59
+msgid "Turbo mode activated"
+msgstr "Režim Turbo aktivován"
+
+#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:57
+msgid "Turbo mode inactive"
+msgstr "Režim Turbo neaktivní"
+
+#: bigame-engine/bigame-core/src/turbo.rs:469 bigame-engine/bigame-core/src/turbo.rs:509
+msgid "Turbo preset"
+msgstr "Předvolba Turbo"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:220
 msgid "Turbo turned off"
@@ -4069,13 +4157,17 @@ msgstr "Turbo zapíná a vypíná službu falcond. Když to udělalo poprvé, za
 msgid "Turbo's state cannot be read"
 msgstr "Stav Turbo nelze přečíst"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:159
+#: bigame-engine/bigame-ui/src/views/home.rs:221
 msgid "Turbo's state cannot be read: systemd did not answer"
 msgstr "Stav Turbo nelze přečíst: systemd neodpověděl"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:115
 msgid "Turn Turbo off and on again at Home to restart it. Logs show why it failed."
 msgstr "Pro restart vypněte a znovu zapněte Turbo na stránce Domů. Proč selhalo, ukážou Záznamy."
+
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:214
+msgid "Turn Turbo off to choose another preset."
+msgstr "Pro výběr jiné předvolby vypněte Turbo."
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:119
 msgid "Turn Turbo on at Home. Until then no profile, scheduler or power profile is applied for a game."
@@ -4253,7 +4345,7 @@ msgstr "Čekání na hru"
 msgid "Warnings and errors"
 msgstr "Varování a chyby"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:411
+#: bigame-engine/bigame-ui/src/views/home.rs:481
 msgid "Watching for games"
 msgstr "Sledování her"
 
@@ -4284,6 +4376,10 @@ msgstr "Co se v systému použije, zatímco hra běží, a jak byla každá polo
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:93
 msgid "What needs attention, and what can be done about it. Commands are copied, never run."
 msgstr "Co vyžaduje pozornost a co se s tím dá dělat. Příkazy se kopírují, nikdy nespouštějí."
+
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:73
+msgid "What should games favour?"
+msgstr "Co mají hry upřednostnit?"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:78
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -4409,6 +4505,10 @@ msgstr "Kabelové"
 msgid "With a profile"
 msgstr "S profilem"
 
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:59
+msgid "With frame generation the cap counts the frames shown, so these games render about half of it: %s."
+msgstr "S generováním snímků limit počítá zobrazené snímky, takže tyto hry vykreslují zhruba polovinu z něj: %s."
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:239
 msgid "Without a profile"
 msgstr "Bez profilu"
@@ -4501,7 +4601,7 @@ msgstr "je nastaven cíl snímkové frekvence"
 msgid "a native Linux game has no DLL slots; nothing can be injected, and its own options are all there is"
 msgstr "nativní linuxová hra nemá pozice DLL; nelze nic vložit a k dispozici jsou jen její vlastní volby"
 
-#: bigame-engine/bigame-core/src/turbo.rs:548
+#: bigame-engine/bigame-core/src/turbo.rs:615
 msgid "already %s"
 msgstr "již %s"
 
@@ -4561,6 +4661,10 @@ msgstr "zablokováno: nic se nenainstaluje"
 msgid "both hook the game's FSR path and both want a DLL slot beside the game; until a test shows the pair stable, one at a time"
 msgstr "oba se napojují na cestu FSR hry a oba chtějí pozici DLL vedle hry; dokud test neukáže, že je dvojice stabilní, jen jeden po druhém"
 
+#: bigame-engine/bigame-ui/src/views/home.rs:932
+msgid "capped at %s FPS"
+msgstr "omezeno na %s FPS"
+
 #: bigame-engine/bigame-core/src/graphics/plan.rs:227
 msgid "choose %s (Quality) in the game's graphics menu"
 msgstr "v grafické nabídce hry zvolte %s (Kvalita)"
@@ -4589,7 +4693,7 @@ msgstr "potvrzeno"
 msgid "converted weights"
 msgstr "převedené váhy"
 
-#: bigame-engine/bigame-core/src/turbo.rs:616
+#: bigame-engine/bigame-core/src/turbo.rs:684
 msgid "could not restore %s: %s"
 msgstr "%s nelze obnovit: %s"
 
@@ -4597,7 +4701,7 @@ msgstr "%s nelze obnovit: %s"
 msgid "current settings"
 msgstr "současné nastavení"
 
-#: bigame-engine/bigame-core/src/turbo.rs:464 bigame-engine/bigame-ui/src/views/details/performance.rs:147
+#: bigame-engine/bigame-core/src/turbo.rs:531 bigame-engine/bigame-ui/src/views/details/performance.rs:147
 msgid "desktop"
 msgstr "stolní počítače"
 
@@ -4713,7 +4817,7 @@ msgstr "falcond nepoužívá profil hry %s"
 msgid "falcond is not installed"
 msgstr "falcond není nainstalován"
 
-#: bigame-engine/bigame-core/src/turbo.rs:334
+#: bigame-engine/bigame-core/src/turbo.rs:336
 msgid "falcond is not installed, so there are no per-game profiles; only global settings can be applied"
 msgstr "falcond není nainstalován, takže nejsou profily pro jednotlivé hry; lze použít jen globální nastavení"
 
@@ -4829,7 +4933,7 @@ msgstr "nalezeno"
 msgid "frame generation"
 msgstr "generování snímků"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:836
+#: bigame-engine/bigame-ui/src/views/home.rs:917
 msgid "frame generation changed since the game started: restart the game to turn it on or off"
 msgstr "generování snímků se od spuštění hry změnilo: pro zapnutí nebo vypnutí hru restartujte"
 
@@ -4837,7 +4941,7 @@ msgstr "generování snímků se od spuštění hry změnilo: pro zapnutí nebo 
 msgid "frame generation raises the presented frame rate, not the rendered one, and adds latency"
 msgstr "generování snímků zvyšuje zobrazovanou snímkovou frekvenci, ne vykreslovanou, a přidává latenci"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:833
+#: bigame-engine/bigame-ui/src/views/home.rs:914
 msgid "frame generation ×%s (lsfg-vk)"
 msgstr "generování snímků ×%s (lsfg-vk)"
 
@@ -4905,7 +5009,7 @@ msgstr "nainstalován vedle falcond; BiGame-mode ho nepoužívá, protože by dv
 msgid "installed and intact; it loads when the game starts"
 msgstr "nainstalováno a neporušeno; načte se při spuštění hry"
 
-#: bigame-engine/bigame-core/src/turbo.rs:319
+#: bigame-engine/bigame-core/src/turbo.rs:321
 msgid "installed but not used: falcond already owns per-game performance state, and two controllers would each snapshot and restore the same power profile"
 msgstr "nainstalován, ale nepoužíván: stav výkonu pro jednotlivé hry už vlastní falcond a dva ovladače by každý zvlášť ukládaly a obnovovaly stejný profil napájení"
 
@@ -4925,7 +5029,7 @@ msgstr "celočíselné"
 msgid "integer scaling not applied"
 msgstr "celočíselné škálování se nepoužije"
 
-#: bigame-engine/bigame-core/src/turbo.rs:538
+#: bigame-engine/bigame-core/src/turbo.rs:605
 msgid "its current value could not be read, so it could not be restored"
 msgstr "jeho současnou hodnotu nelze přečíst, takže ji nelze obnovit"
 
@@ -4953,7 +5057,7 @@ msgstr "výchozí v jádře"
 msgid "kernel has no sched_ext support"
 msgstr "jádro nemá podporu sched_ext"
 
-#: bigame-engine/bigame-core/src/steam.rs:213
+#: bigame-engine/bigame-core/src/steam.rs:258
 msgid "launch options may not contain quotes, backslashes or newlines"
 msgstr "možnosti spuštění nesmějí obsahovat uvozovky, zpětná lomítka ani konce řádků"
 
@@ -5197,7 +5301,7 @@ msgstr "jednoho CPU"
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "vypnuto: CPU dosáhne najednou na %s z %s video paměti karty"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:712
+#: bigame-engine/bigame-ui/src/views/home.rs:793
 msgid "on %s"
 msgstr "na %s"
 
@@ -5297,7 +5401,7 @@ msgstr "vykresluje hru"
 msgid "reported a failure: %s"
 msgstr "nahlásil selhání: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:610
+#: bigame-engine/bigame-core/src/turbo.rs:678
 msgid "restored to %s"
 msgstr "obnoveno na %s"
 
@@ -5309,7 +5413,7 @@ msgstr "spusťte hru jednou: API se potvrdí podle toho, co načte, a OptiScaler
 msgid "running %s%s"
 msgstr "běží %s%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:441
+#: bigame-engine/bigame-core/src/turbo.rs:445
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "běží (systemd ho hlásí jako aktivní; falcond zatím nezveřejnil svůj stav)"
 
@@ -5329,7 +5433,7 @@ msgstr "běží bez FSR4_UPGRADE=1: FSR 3.1"
 msgid "running without the FSR 4 provider: FSR is off in its menu"
 msgstr "běží bez poskytovatele FSR 4: FSR je v její nabídce vypnuté"
 
-#: bigame-engine/bigame-core/src/turbo.rs:427
+#: bigame-engine/bigame-core/src/turbo.rs:431
 msgid "running, %s profiles loaded (%s set); applies a profile to each game as it starts"
 msgstr "běží, načteno profilů: %s (sada %s); použije profil na každou hru při jejím spuštění"
 
@@ -5365,7 +5469,7 @@ msgstr "sched-ext nahrazuje plánovač CPU v jádře plánovačem načteným za 
 msgid "sched-ext scheduler"
 msgstr "Plánovač sched-ext"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:848
+#: bigame-engine/bigame-ui/src/views/home.rs:929
 msgid "scheduler %s"
 msgstr "plánovač %s"
 
@@ -5385,7 +5489,7 @@ msgstr "scx_loader je nainstalován, ale jeho služba neběží."
 msgid "sharpness left at default"
 msgstr "ostrost ponechána na výchozí hodnotě"
 
-#: bigame-engine/bigame-core/src/turbo.rs:576
+#: bigame-engine/bigame-core/src/turbo.rs:643
 msgid "stopped and disabled; any game profile it held was put back as it stopped"
 msgstr "zastaven a zakázán; herní profil, který držel, byl při zastavení vrácen"
 
@@ -5397,7 +5501,7 @@ msgstr "během hry přepne na profil napájení performance a poté zpět, stejn
 msgid "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing."
 msgstr "systemd neodpověděl přes systémovou sběrnici, takže není známo, zda falcond běží. Údaje níže, které to potřebují, chybí."
 
-#: bigame-engine/bigame-core/src/turbo.rs:468
+#: bigame-engine/bigame-core/src/turbo.rs:535
 msgid "systemd reports it %s"
 msgstr "systemd ho hlásí jako %s"
 
@@ -5445,7 +5549,7 @@ msgstr "kopie %s v mezipaměti neodpovídá tomu, co bylo nainstalováno"
 msgid "the component runs its kernels through AMD's Windows HIP runtime (amdhip64_7.dll), which comes with the Adrenalin driver; Proton ships none, and this prefix has none"
 msgstr "komponenta spouští své kernely přes běhové prostředí AMD HIP pro Windows (amdhip64_7.dll), které se dodává s ovladačem Adrenalin; Proton žádné nemá a tento prefix také ne"
 
-#: bigame-engine/bigame-core/src/turbo.rs:402
+#: bigame-engine/bigame-core/src/turbo.rs:406
 msgid "the configuration was written but reads back unchanged"
 msgstr "konfigurace byla zapsána, ale při zpětném čtení je nezměněná"
 
@@ -5765,13 +5869,17 @@ msgstr "hodnotu nelze zpětně přečíst"
 msgid "variable refresh rate is requested"
 msgstr "je požadována proměnná obnovovací frekvence"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:845
+#: bigame-engine/bigame-ui/src/views/home.rs:926
 msgid "vkBasalt filter"
 msgstr "Filtr vkBasalt"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:449
 msgid "vkBasalt is a Vulkan layer: it loads only in Vulkan (and Proton) games, and only when ENABLE_VKBASALT=1 reached the game. A launcher started before the setting keeps its old environment; restart it."
 msgstr "vkBasalt je vrstva Vulkan: načítá se jen ve hrách pro Vulkan (a Proton) a jen tehdy, když se ke hře dostalo ENABLE_VKBASALT=1. Spouštěč spuštěný před nastavením si ponechá staré prostředí; restartujte ho."
+
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:42
+msgid "vkBasalt is not installed, so there is no sharpening."
+msgstr "vkBasalt není nainstalován, takže se doostření nepoužije."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:422
 msgid "width"
@@ -5785,7 +5893,7 @@ msgstr "okno nebude na celou obrazovku"
 msgid "wrote %s but the knob reads %s"
 msgstr "zapsáno %s, ale nastavení čte %s"
 
-#: bigame-engine/bigame-core/src/steam.rs:294
+#: bigame-engine/bigame-core/src/steam.rs:339
 msgid "wrote launch options but the file reads back %s"
 msgstr "možnosti spuštění byly zapsány, ale soubor při zpětném čtení obsahuje %s"
 
@@ -5801,6 +5909,6 @@ msgstr "váš seznam her uvádí API, kterým tato hra vykresluje"
 msgid "your own copy of NVIDIA's DLSS neural-rendering model (nvngx_dlssnr.dll) beside the game; BiGame-mode does not download it or say where to get it"
 msgstr "vaše vlastní kopie modelu neurálního vykreslování NVIDIA DLSS (nvngx_dlssnr.dll) vedle hry; BiGame-mode ji nestahuje ani neříká, kde ji získat"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:897 bigame-engine/bigame-ui/src/views/home.rs:908
+#: bigame-engine/bigame-ui/src/views/home.rs:981 bigame-engine/bigame-ui/src/views/home.rs:992
 msgid "—"
 msgstr "—"

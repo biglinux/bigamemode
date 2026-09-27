@@ -97,6 +97,10 @@ pub const SESSION_KEYS: &[&str] = &[
     "WINE_FULLSCREEN_FSR_MODE",
     "ENABLE_VKBASALT",
     "VKBASALT_CONFIG_FILE",
+    // A Turbo preset's own ([`crate::turbo_preset::PRESET_KEYS`]).
+    "DXVK_CONFIG",
+    "VKD3D_FRAME_RATE",
+    "FSR4_UPGRADE",
 ];
 
 /// Write `~/.config/environment.d/bigame-mode.conf` with persistent video env
@@ -133,16 +137,38 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
             .with_context(|| format!("write env file: {}", path.display()))?;
     }
 
-    let (unset, set) = session_change(&env);
-    if let Err(e) = sync_session(&unset, &set) {
+    if let Err(e) = sync_session_env(cfg) {
         tracing::warn!(error = %format!("{e:#}"), "could not update the running session's environment");
     }
     Ok(())
 }
 
+/// Bring the running session to `cfg`'s variables with the Turbo preset in
+/// force laid over them ([`crate::turbo_preset`]), and return the
+/// assignments it holds afterwards (read back).
+///
+/// The preset's part never goes to `environment.d`: only here.
+///
+/// # Errors
+/// Returns an error when the session's environment cannot be set, or reads
+/// back different.
+pub fn sync_session_env(cfg: &VideoConfig) -> Result<Vec<String>> {
+    let mut env = crate::launcher::build_persistent_env(cfg);
+    crate::turbo_preset::overlay(&mut env, crate::turbo_preset::active_levers());
+    let (unset, set) = session_change(&env);
+    sync_session(&unset, &set)?;
+    Ok(set)
+}
+
 /// The switches that turn a feature on only when set to `1`, and are turned
 /// off by `0`.
 const SWITCHES: &[&str] = &["WINE_FULLSCREEN_FSR", "ENABLE_VKBASALT"];
+
+/// Variables read only while their switch is on: (detail, switch).
+const DETAILS: &[(&str, &str)] = &[
+    ("WINE_FULLSCREEN_FSR_MODE", "WINE_FULLSCREEN_FSR"),
+    ("VKBASALT_CONFIG_FILE", "ENABLE_VKBASALT"),
+];
 
 /// The managed keys to unset and the `KEY=VALUE` assignments to set so the
 /// session holds exactly `env`.
@@ -191,8 +217,17 @@ fn sync_session(unset: &[String], set: &[String]) -> Result<()> {
         .get_property("Environment")
         .context("read the session environment back")?;
     let missing: Vec<&String> = set.iter().filter(|a| !now.contains(a)).collect();
+    // A detail of a switch that is off (Wine FSR's mode with
+    // WINE_FULLSCREEN_FSR=0) may stay: the login put it there and systemd
+    // keeps it, and with its switch at 0 nothing reads it.
+    let harmless = |k: &str| {
+        DETAILS
+            .iter()
+            .any(|(detail, switch)| *detail == k && set.iter().any(|a| *a == format!("{switch}=0")))
+    };
     let left: Vec<&String> = unset
         .iter()
+        .filter(|k| !harmless(k))
         .filter(|k| {
             now.iter()
                 .any(|a| a.split_once('=').is_some_and(|(n, _)| n == k.as_str()))

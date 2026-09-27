@@ -10,8 +10,8 @@
 //! animation standing in for work, and the control never shows "active" for an
 //! operation that did not verify.
 
-use adw::prelude::*;
-use libadwaita as adw;
+use gtk4::glib;
+use gtk4::prelude::*;
 
 use crate::i18n::i18n;
 
@@ -54,9 +54,9 @@ impl State {
     #[must_use]
     pub fn title(&self) -> String {
         match self {
-            Self::Off => i18n("Turbo Mode"),
+            Self::Off => i18n("Turbo mode inactive"),
             Self::Working { .. } => i18n("Turning On"),
-            Self::On { .. } | Self::Partial { .. } => i18n("Turbo Mode On"),
+            Self::On { .. } | Self::Partial { .. } => i18n("Turbo mode activated"),
             Self::Error { .. } => i18n("Turbo Could Not Start"),
             Self::Restoring => i18n("Turning Off"),
         }
@@ -72,6 +72,39 @@ impl State {
                 detail.clone()
             }
             Self::Restoring => i18n("Putting everything back as it was"),
+        }
+    }
+
+    /// The line under the disc, when the state has one.
+    #[must_use]
+    pub fn caption(&self) -> Option<String> {
+        match self {
+            Self::Off => Some(i18n("Standard game settings")),
+            Self::On { .. } | Self::Partial { .. } => {
+                Some(i18n("Full focus, maximum performance!"))
+            }
+            _ => None,
+        }
+    }
+
+    /// Where the artwork stands in this state ([`super::turbo_art`]): off 0,
+    /// on 1; switching on starts from the first spark and is moved on by
+    /// each real stage ([`BoosterButton::set_progress`]).
+    #[must_use]
+    pub fn level(&self) -> f64 {
+        match self {
+            Self::Off | Self::Error { .. } => 0.0,
+            Self::Working { .. } => 0.12,
+            Self::Restoring => 0.2,
+            Self::On { .. } | Self::Partial { .. } => 1.0,
+        }
+    }
+
+    fn tint(&self) -> super::turbo_art::Tint {
+        match self {
+            Self::Partial { .. } => super::turbo_art::Tint::Warning,
+            Self::Error { .. } => super::turbo_art::Tint::Error,
+            _ => super::turbo_art::Tint::Spectrum,
         }
     }
 
@@ -129,56 +162,122 @@ impl State {
     }
 }
 
+/// What the artwork is drawing, and where it is heading.
+struct Art {
+    /// Shown now, 0 … 1.
+    level: f64,
+    /// Where the state wants it.
+    target: f64,
+    tint: super::turbo_art::Tint,
+    hover: bool,
+    /// For what turns.
+    started: std::time::Instant,
+    /// The frame clock's time at the last tick, µs.
+    last_tick: i64,
+    /// When the artwork was last redrawn while nothing but its turning moved.
+    last_draw: std::time::Instant,
+}
+
+/// Something told of every state the control shows.
+type Listener = Box<dyn Fn(&State)>;
+
+/// Redraw at most this often when only the turning moves: the disc is
+/// something to glance at, and a game may be running.
+const IDLE_FRAME: std::time::Duration = std::time::Duration::from_millis(33);
+
 /// The Turbo Mode control.
 pub struct BoosterButton {
     button: gtk4::Button,
     icon: gtk4::Image,
     title: gtk4::Label,
     subtitle: gtk4::Label,
-    spinner: adw::Spinner,
+    caption: gtk4::Label,
+    area: gtk4::DrawingArea,
+    art: std::rc::Rc<std::cell::RefCell<Art>>,
     state: std::cell::RefCell<State>,
+    /// Called with every state shown.
+    listeners: std::cell::RefCell<Vec<Listener>>,
 }
+
+/// The disc's size.
+const SIZE: i32 = 300;
 
 impl BoosterButton {
     /// Build the control in its [`State::Off`] state.
     #[must_use]
     pub fn new() -> std::rc::Rc<Self> {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let art = Rc::new(RefCell::new(Art {
+            level: 0.0,
+            target: 0.0,
+            tint: super::turbo_art::Tint::Spectrum,
+            hover: false,
+            started: std::time::Instant::now(),
+            last_tick: 0,
+            last_draw: std::time::Instant::now(),
+        }));
+
+        let area = art_area(&art);
+
         let icon = gtk4::Image::from_icon_name(State::Off.icon());
-        icon.set_pixel_size(48);
+        icon.set_pixel_size(28);
+        icon.add_css_class("turbo-icon");
 
-        let spinner = adw::Spinner::new();
-        spinner.set_size_request(48, 48);
-        spinner.set_visible(false);
+        let title = gtk4::Label::new(Some(&State::Off.title().to_uppercase()));
+        title.add_css_class("turbo-title");
+        title.set_wrap(true);
+        title.set_justify(gtk4::Justification::Center);
+        title.set_max_width_chars(12);
 
-        let art = gtk4::Overlay::new();
-        art.set_child(Some(&icon));
-        art.add_overlay(&spinner);
-        art.set_halign(gtk4::Align::Center);
-
-        let title = gtk4::Label::new(Some(&State::Off.title()));
-        title.add_css_class("title-1");
-
-        let subtitle = gtk4::Label::new(Some(&State::Off.subtitle()));
-        subtitle.add_css_class("dim-label");
+        let subtitle = gtk4::Label::new(None);
+        subtitle.add_css_class("turbo-detail");
         subtitle.set_wrap(true);
         subtitle.set_justify(gtk4::Justification::Center);
-        subtitle.set_max_width_chars(34);
+        subtitle.set_max_width_chars(22);
+        subtitle.set_visible(false);
 
-        let content = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
+        let content = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
         content.set_halign(gtk4::Align::Center);
         content.set_valign(gtk4::Align::Center);
-        content.append(&art);
+        // As wide as the disc's face allows, so the name breaks into two
+        // lines ("TURBO MODE / ACTIVATED") rather than one word a line.
+        content.set_width_request(SIZE * 2 / 3);
+        content.set_can_target(false);
+        content.append(&icon);
         content.append(&title);
         content.append(&subtitle);
 
+        let overlay = gtk4::Overlay::new();
+        overlay.set_child(Some(&area));
+        overlay.add_overlay(&content);
+
         let button = gtk4::Button::builder()
-            .child(&content)
+            .child(&overlay)
             .halign(gtk4::Align::Center)
             .valign(gtk4::Align::Center)
-            .width_request(280)
-            .height_request(280)
             .css_classes(["booster-button", "booster-ready"])
             .build();
+        {
+            let motion = gtk4::EventControllerMotion::new();
+            let (enter, leave) = (Rc::clone(&art), Rc::clone(&art));
+            let (a1, a2) = (area.clone(), area.clone());
+            motion.connect_enter(move |_, _, _| {
+                enter.borrow_mut().hover = true;
+                a1.queue_draw();
+            });
+            motion.connect_leave(move |_| {
+                leave.borrow_mut().hover = false;
+                a2.queue_draw();
+            });
+            button.add_controller(motion);
+        }
+
+        let caption = gtk4::Label::new(State::Off.caption().as_deref());
+        caption.add_css_class("turbo-caption");
+        caption.set_wrap(true);
+        caption.set_justify(gtk4::Justification::Center);
 
         // Screen readers announce the state, not just the word "button".
         button.update_property(&[
@@ -186,13 +285,16 @@ impl BoosterButton {
             gtk4::accessible::Property::Description(&State::Off.subtitle()),
         ]);
 
-        std::rc::Rc::new(Self {
+        Rc::new(Self {
             button,
             icon,
             title,
             subtitle,
-            spinner,
-            state: std::cell::RefCell::new(State::Off),
+            caption,
+            area,
+            art,
+            state: RefCell::new(State::Off),
+            listeners: RefCell::new(Vec::new()),
         })
     }
 
@@ -200,6 +302,13 @@ impl BoosterButton {
     #[must_use]
     pub fn widget(&self) -> &gtk4::Button {
         &self.button
+    }
+
+    /// The line under the disc, packed by the page right after
+    /// [`Self::widget`].
+    #[must_use]
+    pub fn caption(&self) -> &gtk4::Label {
+        &self.caption
     }
 
     /// The state currently displayed.
@@ -216,7 +325,6 @@ impl BoosterButton {
         self.button.add_css_class(state.css_class());
 
         let working = !state.is_interactive();
-        self.spinner.set_visible(working);
         self.icon.set_visible(!working);
         if !working {
             self.icon.set_icon_name(Some(state.icon()));
@@ -224,9 +332,23 @@ impl BoosterButton {
 
         let title = state.title();
         let subtitle = state.subtitle();
-        self.title.set_label(&title);
-        self.subtitle.set_label(&subtitle);
+        self.title.set_label(&title.to_uppercase());
+        // Off says it under the disc; inside there is only the name.
+        let inside = !matches!(state, State::Off);
+        self.subtitle.set_visible(inside);
+        self.subtitle.set_label(if inside { &subtitle } else { "" });
+        let caption = state.caption();
+        self.caption.set_visible(caption.is_some());
+        self.caption
+            .set_label(caption.as_deref().unwrap_or_default());
         self.button.set_sensitive(state.is_interactive());
+
+        {
+            let mut art = self.art.borrow_mut();
+            art.target = state.level();
+            art.tint = state.tint();
+        }
+        self.area.queue_draw();
 
         self.button.update_property(&[
             gtk4::accessible::Property::Label(&title),
@@ -234,12 +356,98 @@ impl BoosterButton {
         ]);
 
         *self.state.borrow_mut() = state.clone();
+        for listener in self.listeners.borrow().iter() {
+            listener(state);
+        }
+    }
+
+    /// Call `f` with every state the control shows from now on.
+    pub fn connect_state_changed(&self, f: impl Fn(&State) + 'static) {
+        self.listeners.borrow_mut().push(Box::new(f));
+    }
+
+    /// While switching on, how far it has really got (0 … 1): each stage
+    /// the engine reports moves the artwork on, from the sparks to the
+    /// colours filling the mesh.
+    pub fn set_progress(&self, done: f64) {
+        if matches!(*self.state.borrow(), State::Working { .. }) {
+            let mut art = self.art.borrow_mut();
+            art.target = art.target.max(0.12 + done.clamp(0.0, 1.0) * 0.76);
+        }
     }
 
     /// Run `handler` when the control is activated.
     pub fn connect_activated<F: Fn() + 'static>(self: &std::rc::Rc<Self>, handler: F) {
         self.button.connect_clicked(move |_| handler());
     }
+}
+
+/// The drawing area for the artwork, redrawn as `art` moves.
+fn art_area(art: &std::rc::Rc<std::cell::RefCell<Art>>) -> gtk4::DrawingArea {
+    use std::rc::Rc;
+    let area = gtk4::DrawingArea::new();
+    area.set_content_width(SIZE);
+    area.set_content_height(SIZE);
+    {
+        let art = Rc::clone(art);
+        area.set_draw_func(move |_, cr, width, height| {
+            let a = art.borrow();
+            let size = f64::from(width.min(height));
+            cr.translate(
+                (f64::from(width) - size) / 2.0,
+                (f64::from(height) - size) / 2.0,
+            );
+            let time = if animations_enabled() {
+                a.started.elapsed().as_secs_f64()
+            } else {
+                0.0
+            };
+            super::turbo_art::draw(
+                cr,
+                size,
+                super::turbo_art::Look {
+                    level: a.level,
+                    time,
+                    tint: a.tint,
+                    hover: a.hover,
+                },
+            );
+        });
+    }
+    // Moves the level towards its target, and keeps what turns turning.
+    // GTK only ticks a widget that is on screen, so a hidden window or
+    // another page costs nothing.
+    {
+        let art = Rc::clone(art);
+        area.add_tick_callback(move |area, clock| {
+            let mut a = art.borrow_mut();
+            let now = clock.frame_time();
+            #[allow(clippy::cast_precision_loss)]
+            let dt = if a.last_tick == 0 {
+                0.0
+            } else {
+                ((now - a.last_tick) as f64 / 1e6).min(0.1)
+            };
+            a.last_tick = now;
+            let animate = animations_enabled();
+            let moving = (a.target - a.level).abs() > 0.002;
+            if moving {
+                a.level = if animate {
+                    // About a second from off to on.
+                    a.level + (a.target - a.level) * (1.0 - (-dt * 3.5).exp())
+                } else {
+                    a.target
+                };
+            }
+            let turning = animate && a.level > 0.02;
+            if moving || (turning && a.last_draw.elapsed() >= IDLE_FRAME) {
+                a.last_draw = std::time::Instant::now();
+                area.queue_draw();
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+    area
 }
 
 /// Whether the desktop has asked for reduced motion.

@@ -10,51 +10,74 @@
  */
 
 .booster-button {
+    /* The disc is drawn (widgets/turbo_art.rs); the button itself is only
+     * the hit area, the focus ring and the breathing glow. */
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
     border-radius: 999px;
-    padding: 24px;
-    border: 2px solid transparent;
-    transition:
-        background-color 200ms ease,
-        border-color 200ms ease,
-        box-shadow 200ms ease;
+    transition: box-shadow 200ms ease;
 }
 
-/* Idle: inviting but calm. */
-.booster-button.booster-ready {
-    background-color: alpha(@accent_bg_color, 0.12);
-    border-color: alpha(@accent_bg_color, 0.45);
-    color: @accent_color;
+.booster-button:hover,
+.booster-button:active,
+.booster-button:disabled {
+    background: none;
 }
 
-.booster-button.booster-ready:hover {
-    background-color: alpha(@accent_bg_color, 0.2);
-    border-color: @accent_bg_color;
+/* The words on the disc: it is always dark, whatever the theme. */
+.booster-button .turbo-title {
+    color: #f2f4ff;
+    font-weight: 800;
+    font-size: 13pt;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.9);
 }
 
-/* Working: neutral, so nothing is claimed while work is still in progress. */
-.booster-button.booster-working {
-    background-color: alpha(@window_fg_color, 0.08);
-    border-color: alpha(@window_fg_color, 0.2);
+.booster-button .turbo-detail {
+    color: rgba(236, 240, 255, 0.85);
+    font-size: 9.5pt;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
-/* Applied and verified. */
-.booster-button.booster-active {
-    background-color: alpha(@success_color, 0.16);
-    border-color: @success_color;
+.booster-button .turbo-icon {
+    color: rgba(200, 206, 216, 0.8);
+}
+
+/* Green still means "applied and verified", as everywhere else. */
+.booster-button.booster-active .turbo-icon {
     color: @success_color;
 }
 
-/* Some changes took, some did not. */
-.booster-button.booster-partial {
-    background-color: alpha(@warning_color, 0.16);
-    border-color: @warning_color;
+.booster-button.booster-partial .turbo-icon {
     color: @warning_color;
 }
 
-.booster-button.booster-error {
-    background-color: alpha(@error_color, 0.14);
-    border-color: @error_color;
+.booster-button.booster-error .turbo-icon {
     color: @error_color;
+}
+
+.turbo-caption {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+}
+
+/* The presets under the control. */
+.turbo-preset {
+    border-radius: 14px;
+    padding: 10px 8px;
+}
+
+.turbo-preset:checked {
+    background-color: alpha(@accent_bg_color, 0.22);
+    box-shadow: inset 0 0 0 2px @accent_bg_color;
+    color: @window_fg_color;
+}
+
+.turbo-preset-note {
+    opacity: 0.75;
 }
 
 /* A slow breath on the idle control, to draw the eye once without nagging.
@@ -62,9 +85,9 @@
  * are enabled, so the reduced-motion preference removes it entirely rather
  * than merely shortening it. */
 @keyframes booster-breathe {
-    0%   { box-shadow: 0 0 0 0 alpha(@accent_bg_color, 0.35); }
-    70%  { box-shadow: 0 0 0 18px alpha(@accent_bg_color, 0); }
-    100% { box-shadow: 0 0 0 0 alpha(@accent_bg_color, 0); }
+    0%   { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.30); }
+    70%  { box-shadow: 0 0 0 16px rgba(34, 211, 238, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
 }
 
 .booster-button.booster-pulse {

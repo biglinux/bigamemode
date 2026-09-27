@@ -910,6 +910,31 @@ pub struct InGame {
     pub gamescope: bool,
     /// The sched-ext scheduler the kernel has loaded, if any.
     pub scheduler: Option<String>,
+    /// The frame cap in the game's own environment (a Turbo preset's
+    /// `VKD3D_FRAME_RATE`, or DXVK's `maxFrameRate` in `DXVK_CONFIG`).
+    pub frame_cap: Option<u32>,
+}
+
+/// The frame cap an environment asks DXVK or VKD3D-Proton for.
+#[must_use]
+pub fn frame_cap_in(environ: &[u8]) -> Option<u32> {
+    environ
+        .split(|b| *b == 0)
+        .filter_map(|e| std::str::from_utf8(e).ok())
+        .find_map(|e| {
+            if let Some(v) = e.strip_prefix("VKD3D_FRAME_RATE=") {
+                return v.trim().parse().ok();
+            }
+            let config = e.strip_prefix("DXVK_CONFIG=")?;
+            config.split(';').find_map(|kv| {
+                let (k, v) = kv.split_once('=')?;
+                k.trim()
+                    .ends_with("maxFrameRate")
+                    .then(|| v.trim().parse().ok())
+                    .flatten()
+            })
+        })
+        .filter(|fps| *fps > 0)
 }
 
 /// Read [`InGame`] for `game`.
@@ -931,6 +956,9 @@ pub fn in_game(game: &GameIdentity) -> InGame {
             .iter()
             .any(|(_, name)| name == "gamescope" || name == "gamescope-wl"),
         scheduler: loaded_scheduler(),
+        frame_cap: std::fs::read(format!("/proc/{}/environ", game.pid))
+            .ok()
+            .and_then(|e| frame_cap_in(&e)),
     }
 }
 
@@ -1520,6 +1548,17 @@ mod tests {
             identify(&tree).is_empty(),
             "the launcher is not what falcond should key on"
         );
+    }
+
+    #[test]
+    fn the_frame_cap_is_read_from_the_games_environment() {
+        let env = b"HOME=/h\0VKD3D_FRAME_RATE=60\0X=1\0";
+        assert_eq!(frame_cap_in(env), Some(60));
+        let env = b"DXVK_CONFIG=dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60\0";
+        assert_eq!(frame_cap_in(env), Some(60));
+        assert_eq!(frame_cap_in(b"DXVK_CONFIG=dxgi.syncInterval = 0\0"), None);
+        assert_eq!(frame_cap_in(b"VKD3D_FRAME_RATE=0\0"), None);
+        assert_eq!(frame_cap_in(b""), None);
     }
 
     #[test]

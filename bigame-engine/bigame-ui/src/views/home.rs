@@ -102,8 +102,61 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     column.set_margin_bottom(24);
     column.set_margin_start(18);
     column.set_margin_end(18);
+    // The preset is chosen before Turbo is switched on, and locked while it
+    // is on or switching.
+    let presets = crate::widgets::turbo_presets::PresetPicker::new();
+    {
+        let presets = Rc::clone(&presets);
+        button.connect_state_changed(move |state| {
+            presets.set_locked(
+                !matches!(state, State::Off | State::Error { .. }),
+                state.is_on(),
+            );
+        });
+    }
+
+    // Steam keeps the environment it started with: a preset switched on
+    // while it is open reaches its games only once it is opened again.
+    let steam_notice = crate::widgets::notice::Notice::new(
+        crate::widgets::notice::Kind::Info,
+        &i18n("Steam was already open"),
+        &i18n(
+            "It keeps the environment it started with, so its games get the preset once Steam is opened again. Opening it again closes it the way it closes itself.",
+        ),
+    );
+    steam_notice.set_visible(false);
+    {
+        let notice = steam_notice.clone();
+        steam_notice.add_action(&i18n("Reopen Steam"), true, move |b| {
+            b.set_sensitive(false);
+            let (notice, b) = (notice.clone(), b.clone());
+            glib::spawn_future_local(async move {
+                let done = gio::spawn_blocking(bigame_core::steam::restart_in_session).await;
+                b.set_sensitive(true);
+                match done {
+                    Ok(Ok(())) => {
+                        notice.set_visible(false);
+                        crate::widgets::toast::show(
+                            notice.widget(),
+                            &i18n("Steam opened again: its games get the preset"),
+                        );
+                    }
+                    Ok(Err(e)) => crate::widgets::toast::error(
+                        notice.widget(),
+                        &i18n("Steam could not be opened again"),
+                        &format!("{e:#}"),
+                    ),
+                    Err(_) => {}
+                }
+            });
+        });
+    }
+
     column.append(&status);
     column.append(button.widget());
+    column.append(button.caption());
+    column.append(presets.widget());
+    column.append(steam_notice.widget());
     column.append(game.widget());
     column.append(&summary);
     column.append(&details);
@@ -151,6 +204,15 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
             let state = gtk4::gio::spawn_blocking(turbo::state_blocking).await;
             let on = matches!(state, Ok(Ok(turbo::State::On)));
             let readable = matches!(state, Ok(Ok(_)));
+            // A preset lives only in the running session: after a login it
+            // is set again while Turbo is on, and dropped if Turbo is off.
+            if readable {
+                gio::spawn_blocking(move || {
+                    if let Err(e) = bigame_core::turbo_preset::resync(on) {
+                        tracing::warn!(error = %format!("{e:#}"), "could not bring the Turbo preset back");
+                    }
+                });
+            }
             turbo_on.set(on);
             game.turbo_readable.set(readable);
             let state = if !readable {
@@ -196,6 +258,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let turbo_on = Rc::clone(&turbo_on);
         let show_summary = Rc::clone(&show_summary);
         let game = game.clone();
+        let steam_notice = steam_notice.clone();
         button.clone().connect_activated(move || {
             let turning_off = button.state().is_on();
             let working = if turning_off {
@@ -218,6 +281,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
             let turbo_on = Rc::clone(&turbo_on);
             let show_summary = Rc::clone(&show_summary);
             let game = game.clone();
+            let steam_notice = steam_notice.clone();
             glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
                 loop {
                     let event = match rx.try_recv() {
@@ -240,11 +304,17 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                                 button.set_state(&State::Working {
                                     step: step_text(&step),
                                 });
+                                button.set_progress(step_progress(&step));
                             }
                         }
                         Event::Done(report) => {
                             let report = *report;
                             let (state, on) = finished_state(&report);
+                            steam_notice.set_visible(
+                                on && bigame_core::turbo_preset::active()
+                                    != bigame_core::turbo_preset::Preset::Standard
+                                    && bigame_core::steam::is_running(),
+                            );
                             turbo_on.set(on);
                             button.set_state(&state);
                             booster_button::set_pulse(button.widget(), !on);
@@ -419,6 +489,17 @@ fn step_text(step: &Step) -> String {
         Step::SwitchingBackend => i18n("Starting per-game optimization"),
         Step::Booster(_) => i18n("Checking global settings"),
         Step::Restoring => i18n("Putting global settings back"),
+    }
+}
+
+/// How far switching on has got at `step`, for the artwork.
+fn step_progress(step: &Step) -> f64 {
+    match step {
+        Step::Detecting => 0.1,
+        Step::ConfiguringProfiles => 0.3,
+        Step::SwitchingBackend => 0.5,
+        Step::Booster(_) => 0.75,
+        Step::Restoring => 0.0,
     }
 }
 
@@ -846,6 +927,9 @@ fn in_game_parts(g: &bigame_core::running::InGame) -> Vec<String> {
     }
     if let Some(s) = &g.scheduler {
         parts.push(i18n("scheduler %s").replace("%s", s));
+    }
+    if let Some(fps) = g.frame_cap {
+        parts.push(i18n("capped at %s FPS").replace("%s", &fps.to_string()));
     }
     parts
 }
