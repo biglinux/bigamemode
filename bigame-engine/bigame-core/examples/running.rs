@@ -21,6 +21,7 @@ fn main() {
                 .map(|c| c.profile_mode)
                 .unwrap_or_default();
             println!("{g:#?}");
+            println!("in game: {:#?}", running::in_game(&g));
             println!("detected in {took:?}");
             println!(
                 "falcond profile for '{}': {:?}",
