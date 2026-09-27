@@ -137,7 +137,7 @@ pub fn scope_banner(scope: Scope<'_>) -> adw::PreferencesGroup {
             "applications-system-symbolic",
             i18n("General configuration · Global profile"),
             i18n(
-                "A game without a profile of its own gets exactly these settings: this page is the Global profile, used by every game marked “Without profile”. A game's profile replaces only what it sets; everything else still follows this page.",
+                "A game without a profile of its own gets exactly these settings: this page is the Global profile, used by every game marked “Without a profile”. A game's profile replaces only what it sets; everything else still follows this page.",
             ),
         ),
         Scope::Game(game) => (

@@ -38,9 +38,9 @@ use crate::i18n::i18n;
 /// Poster size, in logical pixels: 2:3, matching Steam's `library_600x900`
 /// artwork. Wide enough for the actions row in any language the interface
 /// ships, narrow enough for three columns in the default window.
-pub const POSTER_WIDTH: i32 = 176;
+pub const POSTER_WIDTH: i32 = 160;
 /// See [`POSTER_WIDTH`].
-pub const POSTER_HEIGHT: i32 = 264;
+pub const POSTER_HEIGHT: i32 = 240;
 
 /// What a card shows.
 // Independent facts about one game; grouping them to please the lint would
@@ -92,11 +92,11 @@ impl Entry {
     #[must_use]
     pub fn status(&self) -> String {
         if !self.has_profile {
-            i18n("Without profile")
+            i18n("Without a profile")
         } else if self.system_profile {
-            i18n("With profile · built-in")
+            i18n("Built-in profile")
         } else {
-            i18n("With profile")
+            i18n("With a profile")
         }
     }
 
@@ -470,9 +470,9 @@ mod tests {
 
     #[test]
     fn status_distinguishes_no_profile_from_the_two_kinds_of_profile() {
-        assert_eq!(entry(false, false).status(), "Without profile");
-        assert_eq!(entry(true, false).status(), "With profile");
-        assert_eq!(entry(true, true).status(), "With profile · built-in");
+        assert_eq!(entry(false, false).status(), "Without a profile");
+        assert_eq!(entry(true, false).status(), "With a profile");
+        assert_eq!(entry(true, true).status(), "Built-in profile");
     }
 
     #[test]
