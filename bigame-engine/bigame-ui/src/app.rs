@@ -111,6 +111,14 @@ pub fn run() -> adw::glib::ExitCode {
             Err(e) => tracing::warn!(target: "turbo", error = %e, "could not check for left-over Booster changes"),
         });
 
+        // Programs a previous run paused from Details and could not resume
+        // (it was killed, or crashed) are resumed before anything else: a
+        // program must never stay frozen because BiGame-mode went away.
+        match bigame_core::processes::resume_all() {
+            0 => {}
+            n => tracing::info!(target: "processes", resumed = n, "programs left paused by an earlier run resumed"),
+        }
+
         let quit = adw::gio::ActionEntry::builder("quit")
             .activate(|app: &adw::Application, _, _| app.quit())
             .build();
@@ -158,6 +166,14 @@ pub fn run() -> adw::glib::ExitCode {
 
             start_status_loop(tray_handle, error_indicator);
         }
+    });
+
+    // Quitting (the tray's Quit, Ctrl+Q) resumes what Details paused: the
+    // Resume button goes away with the window, so the programs must not
+    // stay behind frozen.
+    app.connect_shutdown(|_| match bigame_core::processes::resume_all() {
+        0 => {}
+        n => tracing::info!(target: "processes", resumed = n, "paused programs resumed on quit"),
     });
 
     app.run_with_args(&args)
