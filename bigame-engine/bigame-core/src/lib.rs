@@ -41,6 +41,7 @@ pub mod steam_gamescope;
 pub mod systemd;
 pub mod text;
 pub mod turbo;
+pub mod turbo_preset;
 pub mod vcache;
 pub mod video_config;
 pub mod watch;

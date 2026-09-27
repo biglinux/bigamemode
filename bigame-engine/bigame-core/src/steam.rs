@@ -79,6 +79,77 @@ pub fn is_running() -> bool {
     })
 }
 
+/// Close the Steam client and open it again in the session's current
+/// environment, so the games it starts get what was set there since it
+/// started (a Turbo preset, Wine FSR).
+///
+/// # Errors
+/// Returns an error when Steam does not close within a minute or cannot be
+/// started again.
+pub fn restart_in_session() -> anyhow::Result<()> {
+    while_closed(|| ())?;
+    if !is_running() {
+        start_in_session()?;
+    }
+    Ok(())
+}
+
+/// Start the Steam client as a unit of the user's systemd manager.
+fn start_in_session() -> anyhow::Result<()> {
+    use anyhow::Context;
+    let status = std::process::Command::new("systemd-run")
+        .args(["--user", "--collect", "--quiet"])
+        .arg(format!("--unit=app-steam-bigame-{}", crate::unix_now()))
+        .arg("steam")
+        .stdin(std::process::Stdio::null())
+        .status()
+        .context("start Steam")?;
+    anyhow::ensure!(
+        status.success(),
+        "systemd-run could not start Steam ({status})"
+    );
+    Ok(())
+}
+
+/// Run `f` with the Steam client closed — it keeps its configuration in
+/// memory and writes it back on exit, so a launch option changed while it
+/// runs is lost — and open Steam again afterwards if it was open.
+///
+/// Closed the way Steam closes itself (`steam -shutdown`), which lets it
+/// save its state; opened as a unit of the user's systemd manager, which is
+/// how the desktop's menu starts it (KDE Plasma: `app-…@.service`), so it
+/// inherits the manager's environment rather than BiGame-mode's own.
+///
+/// # Errors
+/// Returns an error when Steam does not close within a minute or cannot be
+/// started again; `f` has not run in the first case.
+pub fn while_closed<T>(f: impl FnOnce() -> T) -> anyhow::Result<T> {
+    use anyhow::Context;
+    let was_open = is_running();
+    if was_open {
+        std::process::Command::new("steam")
+            .arg("-shutdown")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .context("ask Steam to close")?;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while is_running() {
+            anyhow::ensure!(
+                std::time::Instant::now() < deadline,
+                "Steam did not close within a minute"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    }
+    let result = f();
+    if was_open {
+        start_in_session()?;
+    }
+    Ok(result)
+}
+
 // ── VDF navigation ───────────────────────────────────────────────────────────
 
 /// Indentation depth of a line, in leading tab characters.

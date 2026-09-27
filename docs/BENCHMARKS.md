@@ -48,13 +48,15 @@ machine. The raw data of every result is in `bigame-engine/benchmarks/`.
 
 | Tool | Use |
 |---|---|
-| `scripts/bench-game.sh` | a game's built-in benchmark, alternating arms in one launch (Shadow of the Tomb Raider's `[R]` rerun), with GPU telemetry. `GAME`, `RUNS`, `LABEL`, `SCX_PROFILE` |
-| `scripts/bench-lab.sh` | SuperTuxKart A/B sessions. `RUNS`, `LABEL` |
-| `scripts/gpu-telemetry.sh` | GPU clock, power, temperature and utilisation 4×/s, without forking (a forking sampler raised the run-to-run spread from about 1.4 % to about 9 %) |
-| `scripts/scx-switch.sh` | the root side of scheduler sessions: one Polkit approval, the profile restored when the session ends |
-| `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a `bench-game.sh` session |
-| `cargo run -p bigame-core --example bench_report -- <session> <baseline>` | verdicts for a `bench-lab.sh` session |
+| `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a session of a game's built-in benchmark, in the layout of `bigame-engine/benchmarks/` |
+| `cargo run -p bigame-core --example bench_report -- <session> <baseline>` | verdicts for a SuperTuxKart A/B session |
+| `cargo run -p bigame-core --example turbo_preset -- <id\|off>` and `--example launch_plan -- <executable>` | put a Turbo preset in force as Turbo does, and print the command BiGame-mode's launcher would run with it |
 | *Measure the difference* (a game card's menu) | the same A/B method for any game that starts directly, driven by the application |
+
+The session scripts behind the results below (built-in benchmarks with the
+`[R]` rerun, SuperTuxKart sessions, a non-forking GPU sampler, the root side of
+scheduler sessions) are no longer in the repository; the data they produced
+is.
 
 Each session directory holds `system.json` (the machine, with no host name,
 user, home or address), the runs of every arm, and the report.
@@ -143,6 +145,19 @@ What follows for the code:
   or the game list records it as faster.
 - The game's `XESS` registry value 1 is *Performance* in its menu and 3 is
   *Quality*; the results above record the upscaler, not its preset.
+
+### Turbo presets (2.1.0)
+
+Single runs per configuration, the game's own benchmark, GPU power read from
+the RX 9060 XT's sensor every 0.5 s. They show what each lever does, not a
+throughput verdict: no arm was repeated.
+
+| Game | Standard | Preset | What it shows |
+|---|---|---|---|
+| SuperTuxKart 1.5, native, started by BiGame-mode's launcher (Gamescope, 3440×1440, vsync off) | 455 FPS typical, 142 steady; GPU 53 W, 62 % busy | Locked 60: 60 typical, 59 steady; GPU 31 W, 15 % busy | MangoHud's `fps_limit` holds a native game; Gamescope's `-r` and `--framerate-limit` did not (570 FPS presented) |
+| Cyberpunk 2077, RT Ultra, FSR 2.1 auto | 37.5 FPS | Enhanced: 37.3 FPS | vkBasalt's CAS costs about nothing here; Proton's FSR 4 provider loaded, used only once FSR 3.1/4 is chosen in the game; the 60 cap is not reached |
+| Shadow of the Tomb Raider, OptiScaler frame generation | 62.5 FPS (game counter) | Locked 60: 30.0 FPS | a cap counts the frames shown, generated ones included: the game renders half. The preset now names such games |
+| Shadow of the Tomb Raider in Gamescope from Steam's launch options (3440×1440 output) | 70.3 FPS | Enhanced: 30.0 FPS, GPU 44 W against 99 W | Gamescope wraps a Steam game through its launch options; the same frame-generation halving under the cap |
 
 ## Limits
 

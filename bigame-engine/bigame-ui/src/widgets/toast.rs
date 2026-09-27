@@ -22,6 +22,25 @@ pub fn show(widget: &impl IsA<gtk4::Widget>, message: &str) {
     }
 }
 
+/// A toast with one button, which runs `action` when pressed.
+pub fn with_action(
+    widget: &impl IsA<gtk4::Widget>,
+    message: &str,
+    button: &str,
+    action: impl Fn() + 'static,
+) {
+    let Some(overlay) = find_overlay(widget) else {
+        return;
+    };
+    let toast = adw::Toast::builder()
+        .title(message)
+        .button_label(button)
+        .timeout(0)
+        .build();
+    toast.connect_button_clicked(move |_| action());
+    overlay.add_toast(toast);
+}
+
 /// Say that something failed: a short toast with the message, and a
 /// *Details* button that shows the technical text. The full error also goes
 /// to the log.

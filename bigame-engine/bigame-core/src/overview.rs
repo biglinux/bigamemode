@@ -620,7 +620,9 @@ impl Snapshot {
             self.video.upscaling.vkbasalt_enabled,
             self.vkbasalt_installed,
             self.game.is_some(),
-            self.in_game.as_ref().map(|g| g.vkbasalt),
+            self.in_game
+                .as_ref()
+                .map(|g| g.vkbasalt || g.vkbasalt_in_gamescope),
         )
     }
 

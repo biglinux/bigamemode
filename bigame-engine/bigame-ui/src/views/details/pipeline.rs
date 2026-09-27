@@ -443,7 +443,11 @@ impl Pipeline {
             )
             .fact(
                 &i18n("Detected in the game"),
-                &detected(snap.in_game.as_ref().map(|g| g.vkbasalt)),
+                &detected(
+                    snap.in_game
+                        .as_ref()
+                        .map(|g| g.vkbasalt || g.vkbasalt_in_gamescope),
+                ),
             );
         body = match vb {
             State::NotDetected => body.note(&i18n(
@@ -452,6 +456,15 @@ impl Pipeline {
             State::Missing => body.command("sudo pacman -S vkbasalt"),
             _ => body,
         };
+        if snap
+            .in_game
+            .as_ref()
+            .is_some_and(|g| !g.vkbasalt && g.vkbasalt_in_gamescope)
+        {
+            body = body.note(&i18n(
+                "Loaded in the Gamescope around the game, not in the game: Gamescope took ENABLE_VKBASALT for itself, so the filter applies to the image it composites, after its own scaling.",
+            ));
+        }
         body = body.note(&i18n("A look, not a speed-up: it costs a little GPU time. Evidence: libvkbasalt mapped in the game."));
         self.vkbasalt.set_body(body.build());
 
