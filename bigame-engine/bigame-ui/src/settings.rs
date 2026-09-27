@@ -40,6 +40,8 @@ pub struct Settings {
     pub ping_target: String,
     /// Offer a profile when a game falcond has no profile for starts.
     pub offer_profiles: bool,
+    /// Show the welcome screen when the window first opens.
+    pub show_welcome: bool,
 }
 
 impl Default for Settings {
@@ -57,6 +59,9 @@ impl Default for Settings {
             notifications_enabled: true,
             ping_target: String::from("1.1.1.1"),
             offer_profiles: true,
+            // An existing user who upgrades sees it once too: it is where
+            // the features they have not met yet are listed.
+            show_welcome: true,
         }
     }
 }

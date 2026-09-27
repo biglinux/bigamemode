@@ -14,3 +14,4 @@ pub mod toast;
 pub mod turbo_art;
 pub mod turbo_presets;
 pub mod tutorial;
+pub mod welcome;
