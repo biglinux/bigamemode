@@ -5,10 +5,10 @@
 # BiGame-mode
 
 **O modo de jogo do BigLinux.**<br>
-Turbo com um clique, perfis por jogo, Gráficos com IA e uma página que mostra,
-com evidência, o que está mesmo em vigor.
+Turbo com um clique e um preset, perfis por jogo, Gráficos com IA e uma página
+que mostra, com evidência, o que está mesmo em vigor.
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.0.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.1.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -45,25 +45,30 @@ sempre com backup e desfazer completos.
 > Uma regra atravessa o projeto: **nada é oferecido que a máquina não possa
 > fazer, e nada é chamado de melhoria sem medição.**
 
-## 🚀 Novidades da 2.0.0
+## 🚀 Novidades da 2.1.0
 
-- **Seis páginas** (Início, Perfis, Ajustes, Detalhes, Registros e
-  Configurações). **Detalhes** mostra o que está realmente em vigor e a
-  evidência de cada item.
-- **FSR 4 pelo Proton.** Num jogo que já traz o FSR 3.1 da AMD, os
-  **Gráficos com IA** o elevam ao FSR 4 com uma única opção de execução, sem
-  tocar em arquivo nenhum.
-- Os **upscalers que jogos da Unreal Engine trazem como plugins** agora são
-  encontrados.
-- **MangoHud por jogo**, gravado onde o lançador do jogo o lê (Steam, Heroic
-  ou Lutris).
-- **Tema Gamer** ao lado do Padrão, claro, escuro ou o do sistema.
-- **29 idiomas.** O aplicativo é escrito em inglês e todo texto, inclusive as
-  mensagens de erro, é traduzível e está traduzido.
-- **Sandbox mais rígido** para o auxiliar privilegiado: `/sys` somente leitura,
-  exceto os dispositivos.
-- Wine FSR e vkBasalt desligados passam a valer na sessão em execução, e um
-  falcond que já estava rodando é reconhecido pelo seu estado.
+- **Presets do Turbo.** Antes de ligar, escolha o que os jogos priorizam:
+  **Padrão**, **Mais FPS**, **FPS cravado em 60** ou **Gráficos aprimorados**.
+  Cada preset usa só o que os jogos leem de verdade e sai junto com o Turbo.
+- **Nova Início.** Um botão power que se enche como um líquido nas cores do
+  tema a cada etapa real do Turbo, CPU, GPU e rede ao vivo, e um card do jogo
+  em execução com uma flag colorida por recurso. Tudo cabe na janela.
+- **Ajustes, perfil do jogo e Assistente num só modelo**, com as mesmas seções
+  e o que fica em "Configuração geral" seguindo os Ajustes. Toda colisão entre
+  tecnologias (Wine FSR, upscaling do Gamescope, OptiScaler, lsfg-vk) é
+  perguntada, nunca resolvida em silêncio.
+- **Jogos da Steam recebem o Gamescope e o Wine FSR** pelas opções de
+  inicialização, gravadas com a Steam fechada. Mudar os tamanhos do Gamescope
+  nos Ajustes atualiza os jogos que o usam, e a Steam aberta ganha um botão
+  para fechar, gravar e reabrir.
+- **Detecção do jogo mais certeira.** O lançador de um jogo (a página do
+  REDlauncher, atualizadores) não é mais tomado pelo jogo. O Gamescope e o
+  vkBasalt são vistos também quando a Steam os coloca em volta do jogo.
+- **Detalhes diz quando o falcond não aplica o perfil de um jogo, e por quê**
+  (o falcond 2.0.2 não enxerga jogos que renomeiam a thread principal, como o
+  Cyberpunk 2077; a correção veio no falcond 2.0.3).
+- A revisão do perfil oferecido mostra a recomendação dos Gráficos com IA para
+  a placa de vídeo, e o MangoHud ganhou estilos inspirados no Steam Deck.
 
 ## ✨ Recursos
 
@@ -78,12 +83,20 @@ Ligado, o falcond aplica o perfil de cada jogo (perfil de energia, escalonador
 sched-ext, modo do 3D V-Cache, inibição de repouso) e restaura tudo quando o
 jogo fecha.
 
-Antes de ligar, escolha o que os jogos devem priorizar: **Padrão**, **Mais
-FPS** (sem limite de quadros e sem filtro), **FPS cravado em 60** (limite do
-DXVK e do VKD3D-Proton; nos jogos nativos, o limitador do MangoHud) ou
-**Gráficos aprimorados** (nitidez CAS do vkBasalt, FSR 4 onde a GPU tem, 60
-FPS). O preset vale enquanto o Turbo está ligado e sai com ele; a Steam aberta
-antes recebe o preset quando é reaberta, e a Início oferece reabrir.
+Antes de ligar, escolha o que os jogos devem priorizar:
+
+- **Padrão**: os Ajustes como estão.
+- **Mais FPS**: sem limite de quadros e sem filtro de imagem. Os quadros
+  vêm de baixar a resolução no jogo, com o Wine FSR ampliando.
+- **FPS cravado em 60**: limite do DXVK e do VKD3D-Proton nos jogos do
+  Proton; nos jogos nativos abertos pelo BiGame-mode, o limitador do MangoHud.
+- **Gráficos aprimorados**: nitidez CAS do vkBasalt, FSR 4 onde a GPU tem e
+  60 FPS para a imagem mais pesada rodar estável.
+
+O preset vale enquanto o Turbo está ligado e sai com ele. Jogos com geração de
+quadros são avisados: o limite conta os quadros exibidos, então eles
+renderizam metade. A Steam aberta antes recebe o preset quando é reaberta, e a
+Início oferece reabrir.
 
 </td>
 <td width="50%" valign="top">
@@ -151,7 +164,7 @@ supera a variação.
 |---|---|
 | **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. |
 | **Perfis** | A biblioteca de jogos com capas, busca e filtros. Cada perfil mostra as mesmas seções dos Ajustes, só para aquele jogo, e o que fica em "Configuração geral" segue os Ajustes. Cada perfil define o modo de desempenho, o escalonador sched-ext, o modo do 3D V-Cache, a inibição de repouso, o Gamescope, o MangoHud (desligado, ligado ou forçado) e o lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
-| **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com o estilo do MangoHud inspirado no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. |
+| **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
 | **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede, a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
 | **Registros** | O que importa numa sessão de jogo, vindo do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
 | **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações e **Devolver**, que entrega o falcond exatamente como estava antes. |
@@ -165,6 +178,12 @@ um aviso.
 ## 📸 Capturas de tela
 
 <table>
+<tr>
+<td colspan="2"><img src="docs/screenshots/home-game.png" alt="Início com Shadow of the Tomb Raider em execução no Gamescope"></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><b>Início</b> com um jogo aberto: cada recurso numa flag colorida, com o que está ativo e o que não está</td>
+</tr>
 <tr>
 <td width="50%"><img src="docs/screenshots/profiles.png" alt="Perfis: biblioteca de jogos com capas"></td>
 <td width="50%"><img src="docs/screenshots/details.png" alt="Detalhes: visão geral, telemetria e GPUs"></td>
@@ -202,7 +221,14 @@ um aviso.
 - **Duas tecnologias com a mesma função não rodam em série.** Num jogo com
   OptiScaler, o Wine FSR e o upscaling do Gamescope ficam desligados naquela
   execução. O lsfg-vk também fica desligado quando o OptiScaler gera os
-  quadros.
+  quadros. Ligar uma quando a outra já está ligada pergunta qual manter.
+- **Um jogo da Steam é aberto pela Steam**, fora do alcance do BiGame-mode. O
+  que o perfil pede para ele (Gamescope, Wine FSR desligado, MangoHud) vai para
+  as opções de inicialização do jogo, gravadas com a Steam fechada, em todas as
+  contas, e só o trecho que o BiGame-mode escreveu é trocado ou removido.
+- **Os presets do Turbo ficam só na sessão em execução** (o gerenciador do
+  systemd do usuário), nunca no `environment.d`, para saírem por completo
+  quando o Turbo desliga.
 - **Os Gráficos com IA detectam o que o jogo realmente usa** pela tabela de
   importação do executável, não pelo nome das DLLs. Eles nunca tocam jogos com
   anti-cheat e baixam o [OptiScaler](https://github.com/optiscaler/OptiScaler)
@@ -316,7 +342,7 @@ D-Bus e a política do Polkit. Instala também o `.desktop`, o metainfo, os
 
 | | |
 |---|---|
-| **Sistema** | BigLinux e derivados do Manjaro/Arch, com systemd e o falcond do repositório BigCommunity |
+| **Sistema** | BigLinux e derivados do Manjaro/Arch, com systemd e o falcond do repositório BigCommunity. Recomenda-se o falcond 2.0.3 ou mais novo: o 2.0.2 não aplica o perfil a jogos que renomeiam a thread principal (Cyberpunk 2077), e Detalhes avisa quando isso acontece |
 | **Área de trabalho** | Testado no KDE Plasma (Wayland). No GNOME, o ícone da bandeja depende de uma extensão AppIndicator |
 | **Jogos** | Steam (incluindo Proton), Lutris, Heroic e jogos nativos do menu de aplicativos, nativos ou Flatpak |
 | **GPUs** | AMD, NVIDIA e Intel, inclusive notebooks híbridos (a GPU em que o jogo renderiza é identificada, com PRIME offload) |
@@ -324,6 +350,22 @@ D-Bus e a política do Polkit. Instala também o `.desktop`, o metainfo, os
 | **Detectado, ainda não testado em hardware real** | RDNA 3, RTX, Intel Arc, CPUs híbridas, 3D V-Cache, notebooks na bateria, X11, VRR e HDR. Nessas máquinas, o BiGame-mode oferece só o que detectar como suportado |
 
 ## 📊 Benchmarks
+
+**Presets do Turbo** (2.1.0, uma execução por configuração, com o benchmark do
+próprio jogo e a potência lida do sensor da GPU):
+
+| Jogo | Padrão | Com preset |
+|---|---|---|
+| SuperTuxKart (nativo, aberto pelo BiGame-mode) | 455 FPS típicos, GPU a 53 W | **FPS cravado em 60**: 60 típicos, 59 estáveis, GPU a **31 W** |
+| Cyberpunk 2077 (traçado de raios ultra) | 37,5 FPS | **Gráficos aprimorados**: 37,3 FPS, com o vkBasalt e o provedor do FSR 4 carregados no jogo |
+| Shadow of the Tomb Raider, com geração de quadros do OptiScaler | 62,5 FPS | **FPS cravado em 60**: 30 FPS renderizados (60 na tela), o motivo do aviso sobre geração de quadros |
+
+O limitador próprio do Gamescope (`-r`, `--framerate-limit`) não segurou o
+SuperTuxKart com o V-Sync do jogo desligado (570 FPS apresentados); por isso,
+nos jogos nativos, o limite é o do MangoHud.
+
+**Resultados anteriores:**
+
 
 Medido com o benchmark do próprio **Shadow of the Tomb Raider** (3440×1440, três
 execuções alternadas por configuração, diferença exigida acima da variação e
@@ -391,13 +433,10 @@ O código é um workspace Rust em `bigame-engine/`:
   (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
   `graphics_plan`, `graphics_apply`, `graphics_status`,
   `graphics_capabilities`, `graphics_diagnose`, `graphics_native`), Turbo e
-  Booster (`turbo`, `booster_run`, `measure`), lsfg-vk (`lsfg`) e relatórios
-  de benchmark (`bench_report`, `bench_native_report`). Rode com
+  Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), o comando que o
+  lançador monta (`launch_plan`), lsfg-vk (`lsfg`) e relatórios de benchmark
+  (`bench_report`, `bench_native_report`). Rode com
   `cargo run -p bigame-core --example <nome>`.
-- `bigame-engine/scripts/` automatiza sessões de benchmark: `bench-game.sh`
-  (jogos com benchmark próprio), `bench-lab.sh` (o benchmark do SuperTuxKart),
-  `gpu-telemetry.sh` (amostras da GPU durante uma execução) e `scx-switch.sh`
-  (troca de escalonador como root, via pkexec).
 
 <details>
 <summary><b>Traduções</b></summary>

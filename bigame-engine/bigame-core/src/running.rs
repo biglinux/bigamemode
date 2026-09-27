@@ -899,6 +899,11 @@ pub struct InGame {
     pub mangohud: bool,
     /// vkBasalt's post-processing layer is in the game.
     pub vkbasalt: bool,
+    /// vkBasalt is in the Gamescope around the game instead: Gamescope, a
+    /// Vulkan program itself, takes `ENABLE_VKBASALT` from Steam's launch
+    /// options and filters the image it composites (seen with Shadow of the
+    /// Tomb Raider: the layer mapped in `gamescope`, not in the game).
+    pub vkbasalt_in_gamescope: bool,
     /// lsfg-vk generates frames for the game: its multiplier.
     pub frame_generation: Option<u32>,
     /// lsfg-vk's file changed after the game started. lsfg-vk applies a new
@@ -959,8 +964,8 @@ pub fn wrapped_by_gamescope<'a>(names: impl IntoIterator<Item = &'a str>, enviro
             .any(|e| e.starts_with(b"GAMESCOPE_WAYLAND_DISPLAY="))
 }
 
-/// The names of `pid`'s ancestors, nearest first, up to init.
-fn ancestor_names(process: u32) -> Vec<String> {
+/// `pid`'s ancestors, nearest first, up to init: (pid, name).
+fn ancestors(process: u32) -> Vec<(u32, String)> {
     let mut names = Vec::new();
     let mut current = process;
     for _ in 0..64 {
@@ -978,7 +983,7 @@ fn ancestor_names(process: u32) -> Vec<String> {
             .ok()
             .and_then(|stat| parse_stat_name(&stat))
         {
-            names.push(name);
+            names.push((current, name));
         }
     }
     names
@@ -1001,20 +1006,31 @@ pub fn in_game(game: &GameIdentity) -> InGame {
     let maps = std::fs::read_to_string(format!("/proc/{}/maps", game.pid)).unwrap_or_default();
     let layers = layers_from_maps(&maps);
     let environ = std::fs::read(format!("/proc/{}/environ", game.pid)).unwrap_or_default();
-    let ancestors = ancestor_names(game.pid);
+    let ancestors = ancestors(game.pid);
     let gamescope = wrapped_by_gamescope(
         game.tree
             .iter()
             .map(|(_, n)| n.as_str())
-            .chain(ancestors.iter().map(String::as_str)),
+            .chain(ancestors.iter().map(|(_, n)| n.as_str())),
         &environ,
     );
+    // The Gamescope itself (not its reaper), in the tree or above it.
+    let vkbasalt_in_gamescope = game
+        .tree
+        .iter()
+        .chain(ancestors.iter())
+        .filter(|(_, n)| n == "gamescope" || n == "gamescope-wl")
+        .any(|(pid, _)| {
+            std::fs::read_to_string(format!("/proc/{pid}/maps"))
+                .is_ok_and(|m| layers_from_maps(&m).vkbasalt)
+        });
     let frame_generation = layers
         .lsfg
         .then(|| crate::fg::read_profile(&game.process_name).0);
     InGame {
         mangohud: layers.mangohud,
         vkbasalt: layers.vkbasalt,
+        vkbasalt_in_gamescope,
         frame_generation: frame_generation.filter(|m| *m > 1 && crate::fg::is_lossless_dll_ready()),
         frame_generation_changed: layers.lsfg
             && changed_since_start(&crate::fg::config_path(), game.pid),
