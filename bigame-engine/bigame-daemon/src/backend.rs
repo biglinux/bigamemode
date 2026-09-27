@@ -18,7 +18,10 @@
 //! **Ownership.** falcond may have been set up by someone else before
 //! BiGame-mode ever touched it. The first time this service changes it, the
 //! state it found is recorded in [`OWNERSHIP_RECORD`], and
-//! [`release`] puts exactly that back.
+//! [`release`] puts exactly that back. A release leaves [`RELEASE_RECORD`]
+//! behind, so the UI can tell "handed back" from "never taken"; the next
+//! change — Turbo, or taking control back — records the state afresh, exactly
+//! as the first one did, and removes it.
 //!
 //! Everything goes through systemd's D-Bus API rather than `systemctl`, so no
 //! process is spawned and no argument ever reaches a shell.
@@ -35,6 +38,10 @@ pub const UNIT: &str = "falcond.service";
 /// Where the pre-ownership state is kept. Inside the service's systemd
 /// `StateDirectory`, world-readable so the UI can say who owns falcond.
 pub const OWNERSHIP_RECORD: &str = "/var/lib/bigame-mode/game-backend.json";
+
+/// Written when falcond is handed back, removed when BiGame-mode takes charge
+/// again. World-readable, like the ownership record.
+pub const RELEASE_RECORD: &str = "/var/lib/bigame-mode/game-backend.released.json";
 
 /// How long to wait for systemd to report the state asked for.
 const SETTLE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -65,6 +72,15 @@ impl Ownership {
     }
 }
 
+/// What a release put back, and when.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Release {
+    /// Unix time of the release.
+    pub released_at: u64,
+    /// The state that was restored.
+    pub restored: Ownership,
+}
+
 pub use bigame_core::systemd::UnitState;
 
 async fn manager(connection: &zbus::Connection) -> zbus::Result<ManagerProxy<'_>> {
@@ -86,14 +102,18 @@ async fn take_ownership(connection: &zbus::Connection) -> anyhow::Result<()> {
     }
     let found = state(connection).await?;
     let record = Ownership {
-        taken_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs()),
+        taken_at: bigame_core::unix_now(),
         unit_file_state: found.unit_file_state,
         was_active: found.active_state == "active",
     };
     let json = serde_json::to_vec_pretty(&record)?;
     crate::write_atomic(Path::new(OWNERSHIP_RECORD), &json, 0o644)?;
+    // Managed again: an earlier hand-back is history, not the current state.
+    match std::fs::remove_file(RELEASE_RECORD) {
+        Ok(()) => info!("taking charge of a game backend that had been handed back"),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => warn!(error = %e, "could not remove the release record"),
+    }
     info!(
         ?record,
         "took ownership of the game backend; prior state recorded"
@@ -182,6 +202,17 @@ pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Own
         manager.stop_unit(UNIT, "replace").await?;
     }
     std::fs::remove_file(OWNERSHIP_RECORD)?;
+    // Only a note for the UI: failing to leave it changes nothing restored.
+    let note = Release {
+        released_at: bigame_core::unix_now(),
+        restored: record.clone(),
+    };
+    if let Err(e) = serde_json::to_vec_pretty(&note)
+        .map_err(anyhow::Error::from)
+        .and_then(|json| crate::write_atomic(Path::new(RELEASE_RECORD), &json, 0o644))
+    {
+        warn!(error = %e, "could not record the release");
+    }
     info!(?record, "released the game backend to its prior state");
     Ok(Some(record))
 }
@@ -250,9 +281,27 @@ mod tests {
     }
 
     #[test]
+    fn the_release_record_round_trips() {
+        let note = Release {
+            released_at: 1_790_000_100,
+            restored: Ownership {
+                taken_at: 1_790_000_000,
+                unit_file_state: "disabled".into(),
+                was_active: false,
+            },
+        };
+        let json = serde_json::to_string(&note).unwrap();
+        assert_eq!(serde_json::from_str::<Release>(&json).unwrap(), note);
+    }
+
+    #[test]
     fn the_controlled_unit_is_fixed() {
         // Nothing a caller sends chooses the unit; it is a constant.
         assert_eq!(UNIT, "falcond.service");
         assert!(OWNERSHIP_RECORD.starts_with("/var/lib/bigame-mode/"));
+        assert!(RELEASE_RECORD.starts_with("/var/lib/bigame-mode/"));
+        // The UI reads both from the same places.
+        assert_eq!(OWNERSHIP_RECORD, bigame_core::turbo::OWNERSHIP_RECORD);
+        assert_eq!(RELEASE_RECORD, bigame_core::turbo::RELEASE_RECORD);
     }
 }

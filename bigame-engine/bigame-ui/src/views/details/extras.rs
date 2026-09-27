@@ -20,14 +20,6 @@ use bigame_core::network::{self, Resolver};
 use crate::i18n::{error_text, i18n};
 use crate::widgets::toast;
 
-/// Resolvers offered for comparison, alongside whatever the system uses.
-const PUBLIC_RESOLVERS: &[(&str, &str)] = &[
-    ("Cloudflare", "1.1.1.1"),
-    ("Google", "8.8.8.8"),
-    ("Quad9", "9.9.9.9"),
-    ("OpenDNS", "208.67.222.222"),
-];
-
 /// Domains queried by the DNS benchmark.
 ///
 /// Distinct names on purpose: querying one repeatedly measures the resolver's
@@ -362,6 +354,10 @@ pub fn network_group() -> adw::PreferencesGroup {
     dns_group.add_suffix(&run_button);
     group.add(&dns_group);
 
+    // What the computer uses now, and the way back from a change made here.
+    let computer = super::dns::ComputerDns::new();
+    group.add(computer.row());
+
     let rows: Rc<RefCell<Vec<adw::ActionRow>>> = Rc::new(RefCell::new(Vec::new()));
     {
         let dns_group = dns_group.clone();
@@ -371,6 +367,7 @@ pub fn network_group() -> adw::PreferencesGroup {
             for row in rows.borrow_mut().drain(..) {
                 dns_group.remove(&row);
             }
+            computer.clear_buttons();
             run_button.set_sensitive(false);
             run_button.set_label(&i18n("Measuring…"));
             dns_group.set_expanded(true);
@@ -378,6 +375,7 @@ pub fn network_group() -> adw::PreferencesGroup {
             let dns_group = dns_group.clone();
             let rows = Rc::clone(&rows);
             let run_button = run_button.clone();
+            let computer = Rc::clone(&computer);
             glib::spawn_future_local(async move {
                 let results = gio::spawn_blocking(run_dns_benchmark)
                     .await
@@ -385,8 +383,12 @@ pub fn network_group() -> adw::PreferencesGroup {
 
                 let fastest = network::fastest(&results).map(|r| r.resolver.name.clone());
                 for result in &results {
+                    // With its address: that is what "Use" would set.
                     let row = adw::ActionRow::builder()
-                        .title(&result.resolver.name)
+                        .title(format!(
+                            "{} · {}",
+                            result.resolver.name, result.resolver.address
+                        ))
                         .build();
                     match &result.stats {
                         Some(stats) => {
@@ -405,6 +407,10 @@ pub fn network_group() -> adw::PreferencesGroup {
                                 badge.add_css_class("success");
                                 badge.set_valign(gtk4::Align::Center);
                                 row.add_suffix(&badge);
+                            }
+                            // Only a resolver that answered is worth offering.
+                            if let Some(use_button) = computer.use_button(&result.resolver) {
+                                row.add_suffix(&use_button);
                             }
                         }
                         None => row.set_subtitle(&i18n("No response")),
@@ -434,28 +440,18 @@ pub fn network_group() -> adw::PreferencesGroup {
 
 /// Benchmark the system resolvers plus a handful of well-known public ones.
 fn run_dns_benchmark() -> Vec<network::DnsResult> {
-    let mut candidates: Vec<Resolver> = Vec::new();
-    for (i, address) in network::system_resolvers().into_iter().enumerate() {
-        candidates.push(Resolver {
-            name: format!("{} #{}", i18n("System"), i + 1),
-            address,
-        });
-    }
-    for (name, address) in PUBLIC_RESOLVERS {
-        let Ok(address) = address.parse() else {
-            continue;
-        };
-        if !candidates.iter().any(|c| c.address == address) {
-            candidates.push(Resolver {
-                name: (*name).to_owned(),
-                address,
-            });
-        }
-    }
-    candidates
+    candidates()
         .iter()
         .map(|r| network::benchmark_resolver(r, PROBE_DOMAINS, Duration::from_secs(2)))
         .collect()
+}
+
+/// The resolvers the comparison measures, named as it shows them. Settings
+/// offers the same list as ping targets.
+pub fn candidates() -> Vec<Resolver> {
+    network::comparison_candidates(&network::system_resolvers(), |n| {
+        format!("{} #{n}", i18n("System"))
+    })
 }
 
 pub fn status_icon(good: bool) -> gtk4::Image {

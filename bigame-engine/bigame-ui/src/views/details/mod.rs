@@ -12,7 +12,8 @@
 //! changes or the running game changes. Telemetry has its own, faster
 //! reading (1 s), also only while the page is on screen.
 
-mod extras;
+mod dns;
+pub(crate) mod extras;
 mod gpus;
 pub(crate) mod overview;
 mod performance;
