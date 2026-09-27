@@ -165,9 +165,9 @@ supera a variação.
 | **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. |
 | **Perfis** | A biblioteca de jogos com capas, busca e filtros. Cada perfil mostra as mesmas seções dos Ajustes, só para aquele jogo, e o que fica em "Configuração geral" segue os Ajustes. Cada perfil define o modo de desempenho, o escalonador sched-ext, o modo do 3D V-Cache, a inibição de repouso, o Gamescope, o MangoHud (desligado, ligado ou forçado) e o lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
-| **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede, a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
+| **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
 | **Registros** | O que importa numa sessão de jogo, vindo do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
-| **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações e **Devolver**, que entrega o falcond exatamente como estava antes. |
+| **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
 
 Fechar a janela deixa o aplicativo na **bandeja**. A cor do ícone indica o
 estado: azul quando ocioso, verde com um jogo otimizado e amarelo quando há
@@ -328,7 +328,9 @@ Depois, abra **BiGame-mode** no menu de aplicativos.
 
 **Opcional:** `nvidia-utils` fornece a telemetria em placas NVIDIA, pela
 biblioteca NVML. Só serve a placas NVIDIA e conflita com os pacotes dos
-drivers NVIDIA antigos.
+drivers NVIDIA antigos. `networkmanager` permite trocar o DNS da conexão a
+partir da comparação de DNS; sem ele a opção aparece indisponível, com o
+motivo.
 
 Os lançadores **não** são dependências: o BiGame-mode encontra os jogos do
 Steam, do Lutris e do Heroic que estiverem instalados, nativos ou em Flatpak.
