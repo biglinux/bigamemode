@@ -406,47 +406,24 @@ toast {
 
 /* ── The Turbo control ─────────────────────────────────────────────── */
 
-/* Off: the signature gradient as a ring, the one strong accent on Home. */
-.booster-button.booster-ready {
+/* The disc is drawn; the design only restyles the presets under it. */
+.turbo-preset {
     background-color: var(--gm-surface-primary);
-    background-image: radial-gradient(circle, rgba(131, 93, 255, 0.10), rgba(131, 93, 255, 0) 70%);
-    border-color: var(--gm-violet);
-    color: var(--gm-text-primary);
-    box-shadow: 0 0 0 7px var(--gm-bg-primary),
-                0 0 0 8px rgba(34, 211, 238, 0.35),
-                0 0 30px 4px var(--gm-glow);
+    border: 1px solid var(--gm-border-subtle, rgba(139, 110, 255, 0.18));
 }
 
-.booster-button.booster-ready:hover {
+.turbo-preset:hover {
     background-color: var(--gm-surface-secondary);
-    border-color: var(--gm-cyan);
-    box-shadow: 0 0 0 7px var(--gm-bg-primary),
-                0 0 0 8px rgba(34, 211, 238, 0.6),
-                0 0 38px 6px var(--gm-glow);
 }
 
-.booster-button.booster-ready image {
-    color: var(--gm-violet);
+.turbo-preset:checked {
+    background-image: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(131, 93, 255, 0.22));
+    box-shadow: inset 0 0 0 2px var(--gm-violet), 0 0 18px 2px var(--gm-glow);
+    color: var(--gm-text-primary);
 }
 
-.booster-button.booster-working {
-    background-color: var(--gm-surface-primary);
-    border-color: var(--gm-border-active);
-}
-
-/* On keeps the success colour: green means "applied and verified" in the
- * tray icon and everywhere else, in both designs. */
-.booster-button.booster-active {
-    background-color: var(--gm-surface-primary);
-    background-image: radial-gradient(circle, alpha(@success_color, 0.14), alpha(@success_color, 0) 72%);
-    box-shadow: 0 0 0 7px var(--gm-bg-primary),
-                0 0 0 8px rgba(131, 93, 255, 0.45),
-                0 0 34px 6px alpha(@success_color, 0.16);
-}
-
-.booster-button.booster-partial,
-.booster-button.booster-error {
-    background-color: var(--gm-surface-primary);
+.turbo-preset:checked image {
+    color: var(--gm-cyan);
 }
 
 /* ── Game library ──────────────────────────────────────────────────── */

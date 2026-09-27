@@ -78,6 +78,13 @@ Ligado, o falcond aplica o perfil de cada jogo (perfil de energia, escalonador
 sched-ext, modo do 3D V-Cache, inibição de repouso) e restaura tudo quando o
 jogo fecha.
 
+Antes de ligar, escolha o que os jogos devem priorizar: **Padrão**, **Mais
+FPS** (sem limite de quadros e sem filtro), **FPS cravado em 60** (limite do
+DXVK e do VKD3D-Proton; nos jogos nativos, o limitador do MangoHud) ou
+**Gráficos aprimorados** (nitidez CAS do vkBasalt, FSR 4 onde a GPU tem, 60
+FPS). O preset vale enquanto o Turbo está ligado e sai com ele; a Steam aberta
+antes recebe o preset quando é reaberta, e a Início oferece reabrir.
+
 </td>
 <td width="50%" valign="top">
 
@@ -142,7 +149,7 @@ supera a variação.
 
 | Página | O que faz |
 |---|---|
-| **Início** | O **Turbo**, o processador e a GPU, o jogo em execução, o perfil ativo, o estado dos Gráficos com IA e um resumo da telemetria (CPU, GPU, rede). |
+| **Início** | O **Turbo** e o seu preset, o processador e a GPU, o jogo em execução, o perfil ativo, o estado dos Gráficos com IA e um resumo da telemetria (CPU, GPU, rede). |
 | **Perfis** | A biblioteca de jogos com capas, busca e filtros. Cada perfil mostra as mesmas seções dos Ajustes, só para aquele jogo, e o que fica em "Configuração geral" segue os Ajustes. Cada perfil define o modo de desempenho, o escalonador sched-ext, o modo do 3D V-Cache, a inibição de repouso, o Gamescope, o MangoHud (desligado, ligado ou forçado) e o lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com o estilo do MangoHud inspirado no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. |
 | **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede, a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
