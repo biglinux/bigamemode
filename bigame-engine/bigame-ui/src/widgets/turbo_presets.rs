@@ -23,7 +23,8 @@ pub struct PresetPicker {
     generating: std::cell::RefCell<Vec<String>>,
 }
 
-fn icon(preset: Preset) -> &'static str {
+/// The icon a preset is shown with, here and in its help.
+pub(crate) fn icon(preset: Preset) -> &'static str {
     match preset {
         Preset::Standard => "applications-games-symbolic",
         Preset::MoreFps => "power-profile-performance-symbolic",
