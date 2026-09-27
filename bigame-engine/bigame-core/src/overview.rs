@@ -96,6 +96,9 @@ pub enum Headline {
     FalcondFailed,
     /// Turbo's state could not be read (systemd did not answer).
     TurboUnreadable,
+    /// A game runs whose own profile falcond has, and falcond is not
+    /// applying it ([`ProfileNotApplied`]).
+    ProfileNotApplied,
 }
 
 /// The headline from Turbo, falcond and the game.
@@ -170,6 +173,51 @@ pub fn applied_profile(
             _ => AppliedProfile::Other(name.to_owned()),
         },
     }
+}
+
+/// The running game's own falcond profile, which falcond is not applying.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileNotApplied {
+    /// The profile's name (the game's process name).
+    pub name: String,
+    /// What the game's main thread renamed itself to (`GameThread`), when
+    /// the name no longer looks like the executable's.
+    pub renamed_to: Option<String>,
+    /// Whether the installed falcond is one that never looks at such a
+    /// process: before 2.0.3 it inspects a process only when its thread
+    /// name starts with `wine`, holds `.exe`, is cut at 15 characters or is
+    /// a profile's name (`couldMatch`, fixed upstream in 2d9b455).
+    pub falcond_misses_renamed: bool,
+}
+
+/// What a game's main thread is called, when that is no longer its
+/// executable's name: the kernel keeps 15 characters of it
+/// (`Cyberpunk2077.e`), and Wine names it after the program or the
+/// preloader; a game's engine can rename it (`REDengine`: `GameThread`).
+#[must_use]
+pub fn renamed_main_thread(comm: &str, process_name: &str) -> Option<String> {
+    let comm = comm.trim();
+    let lower = comm.to_ascii_lowercase();
+    let looks_like_exe = comm.is_empty()
+        || process_name.to_ascii_lowercase().starts_with(&lower)
+        || lower.contains(".exe")
+        || lower.starts_with("wine");
+    (!looks_like_exe).then(|| comm.to_owned())
+}
+
+/// Whether falcond `version` (`2.0.2-2`) predates the 2.0.3 fix that makes
+/// it look at processes whose main thread renamed itself.
+#[must_use]
+pub fn falcond_misses_renamed(version: &str) -> bool {
+    let numbers: Vec<u32> = version
+        .split(['-', '+'])
+        .next()
+        .unwrap_or_default()
+        .split('.')
+        .map_while(|n| n.parse().ok())
+        .collect();
+    matches!(numbers.as_slice(), [2, 0, patch, ..] if *patch < 3)
+        || numbers.first().is_some_and(|major| *major < 2)
 }
 
 /// The sched-ext scheduler: what can be switched, what was asked, what runs.
@@ -291,6 +339,8 @@ pub struct Snapshot {
     pub falcond: Option<FalcondStatus>,
     /// The profile falcond applied, explained.
     pub profile: AppliedProfile,
+    /// The game's own profile, when falcond has one and is not applying it.
+    pub profile_not_applied: Option<ProfileNotApplied>,
     /// power-profiles-daemon's active profile.
     pub power_profile: Option<String>,
     /// The scheduler.
@@ -322,6 +372,59 @@ pub struct Snapshot {
     pub ai_frame_generation: bool,
     /// Whether the running game's profile asks Gamescope never / always.
     pub gamescope_mode: crate::gamescope::Mode,
+    /// The running game is started by the Steam client, and BiGame-mode's
+    /// Gamescope reaches it only through its launch options: whether its
+    /// profile put a wrapper there (`crate::steam_gamescope`).
+    pub steam_launch: Option<bool>,
+    /// BiGame-mode switched Wine FSR off for the running game in its Steam
+    /// launch options.
+    pub wine_fsr_off_for_game: bool,
+}
+
+/// For a running Steam game, whether its profile put a Gamescope wrapper in
+/// its Steam launch options (`None` for a game Steam does not start), and
+/// whether BiGame-mode switched Wine FSR off for it there.
+/// The game's own profile, when falcond has one and, the game having
+/// settled, still applies another or none.
+fn profile_not_applied(
+    game: Option<&GameIdentity>,
+    matched: Option<&crate::running::ProfileMatch>,
+    applied: &AppliedProfile,
+) -> Option<ProfileNotApplied> {
+    let (game, matched) = (game?, matched?);
+    if matches!(applied, AppliedProfile::Own { name, .. } if *name == matched.name) {
+        return None;
+    }
+    // falcond takes a few seconds to see a new game.
+    if crate::running::running_for(game.pid).is_none_or(|secs| secs < 20) {
+        return None;
+    }
+    let comm = std::fs::read_to_string(format!("/proc/{}/comm", game.pid)).unwrap_or_default();
+    let renamed_to = renamed_main_thread(&comm, &game.process_name);
+    let falcond_misses_renamed = renamed_to.is_some()
+        && crate::health::package_version(
+            std::path::Path::new(crate::health::PACMAN_DB),
+            "falcond",
+        )
+        .is_some_and(|v| falcond_misses_renamed(&v));
+    Some(ProfileNotApplied {
+        name: matched.name.clone(),
+        renamed_to,
+        falcond_misses_renamed,
+    })
+}
+
+fn steam_launch_facts(game: Option<&GameIdentity>) -> (Option<bool>, bool) {
+    let Some(g) = game else {
+        return (None, false);
+    };
+    let settings = crate::game_settings::load(&g.process_name).unwrap_or_default();
+    (
+        g.steam_app_id
+            .is_some()
+            .then_some(settings.steam_gamescope.is_some()),
+        settings.steam_wine_fsr_off,
+    )
 }
 
 /// Turbo from falcond's unit: whether it is on, whether the unit failed,
@@ -359,6 +462,7 @@ impl Snapshot {
         });
         let active = falcond.as_ref().and_then(|s| s.active_profile.as_deref());
         let profile = applied_profile(active, matched.as_ref());
+        let profile_not_applied = profile_not_applied(game.as_ref(), matched.as_ref(), &profile);
 
         // What the active profile asks for; the global configuration
         // otherwise.
@@ -369,17 +473,19 @@ impl Snapshot {
             AppliedProfile::GenericProton => crate::profiles::load("Proton").ok(),
             AppliedProfile::None => None,
         };
-        let (requested_scx, requested_by) = match (&profile_file, &config) {
-            (Some(p), _) => (p.scx_sched.clone(), RequestedBy::GameProfile),
-            (None, Some(c)) if !c.scx_sched.is_empty() && c.scx_sched != "none" => {
-                (c.scx_sched.clone(), RequestedBy::GlobalConfig)
-            }
-            _ => (String::new(), RequestedBy::Nobody),
+        // falcond's rule: a profile's `none` keeps the general value it
+        // loaded at start-up (`optimization::effective_scheduler`).
+        let general = config.clone().unwrap_or_default();
+        let scx = crate::optimization::effective_scheduler(profile_file.as_ref(), &general);
+        let (requested_scx, requested_by) = match scx.source {
+            crate::optimization::Source::Game => (scx.value, RequestedBy::GameProfile),
+            crate::optimization::Source::General => (scx.value, RequestedBy::GlobalConfig),
+            crate::optimization::Source::System => (String::new(), RequestedBy::Nobody),
         };
-        let requested_vcache = match (&profile_file, &config) {
-            (Some(p), _) => p.vcache_mode.clone(),
-            (None, Some(c)) => c.vcache_mode.clone(),
-            _ => String::new(),
+        let requested_vcache = if profile_file.is_none() && config.is_none() {
+            String::new()
+        } else {
+            crate::optimization::effective_vcache(profile_file.as_ref(), &general).value
         };
         let non_empty = |s: &str| (!s.is_empty()).then(|| s.to_owned());
 
@@ -410,6 +516,7 @@ impl Snapshot {
         let gamescope_mode = profile_file
             .as_ref()
             .map_or(crate::gamescope::Mode::Auto, |p| p.gamescope_mode);
+        let (steam_launch, wine_fsr_off_for_game) = steam_launch_facts(game.as_ref());
 
         Self {
             turbo_on,
@@ -417,6 +524,7 @@ impl Snapshot {
             unit_failed,
             falcond_installed: capabilities::which("falcond").is_some(),
             profile,
+            profile_not_applied,
             power_profile: crate::dbus::power_profile_get(),
             scheduler,
             vcache,
@@ -438,6 +546,8 @@ impl Snapshot {
                 .contains(&crate::graphics::rules::Tech::LsfgVk)
             }),
             gamescope_mode,
+            steam_launch,
+            wine_fsr_off_for_game,
             video,
             falcond,
             in_game,
@@ -451,23 +561,32 @@ impl Snapshot {
         if self.turbo_unreadable {
             return Headline::TurboUnreadable;
         }
-        headline(
+        match headline(
             self.turbo_on,
             self.unit_failed,
             self.falcond.as_ref(),
             self.game.is_some(),
-        )
+        ) {
+            Headline::Optimizing | Headline::GameWithoutProfile
+                if self.profile_not_applied.is_some() =>
+            {
+                Headline::ProfileNotApplied
+            }
+            other => other,
+        }
     }
 
     /// Gamescope: configured globally or by the game's profile, seen in the
     /// game's process tree.
     #[must_use]
     pub fn gamescope_state(&self) -> State {
-        let configured = match self.gamescope_mode {
+        // A Steam game gets Gamescope only from its launch options: the
+        // general switch is for BiGame-mode's own launches.
+        let configured = self.steam_launch.unwrap_or(match self.gamescope_mode {
             crate::gamescope::Mode::Enabled => true,
             crate::gamescope::Mode::Disabled => false,
             crate::gamescope::Mode::Auto => self.video.upscaling.gamescope_enabled,
-        };
+        });
         feature_state(
             configured,
             self.gamescope_installed,
@@ -479,12 +598,19 @@ impl Snapshot {
     /// Wine FSR: the variable in the game's environment.
     #[must_use]
     pub fn wine_fsr_state(&self) -> State {
-        feature_state(
-            self.video.upscaling.wine_fsr_enabled,
-            true,
-            self.game.is_some(),
-            self.wine_fsr_in_game,
-        )
+        // Not asked for a game BiGame-mode switched it off for: one with AI
+        // Graphics files (its own launch leaves it out) and one whose Steam
+        // launch options carry WINE_FULLSCREEN_FSR=0 from BiGame-mode.
+        let asked = self.video.upscaling.wine_fsr_enabled
+            && !(self.game.is_some() && (self.ai_graphics.is_some() || self.wine_fsr_off_for_game));
+        match feature_state(asked, true, self.game.is_some(), self.wine_fsr_in_game) {
+            // The variable in the game says Wine FSR is ready, not that it
+            // scales: it does only when the game picks a fullscreen mode below
+            // the display's, which cannot be read from outside. Tomb Raider
+            // (2013) at the display's 3440×1440 had it and scaled nothing.
+            State::Active => State::Configured,
+            state => state,
+        }
     }
 
     /// vkBasalt: its layer mapped in the game.
@@ -712,6 +838,69 @@ mod tests {
     }
 
     #[test]
+    fn a_main_thread_that_renamed_itself_is_told_apart() {
+        // Cyberpunk 2077 under Proton: REDengine renames its main thread.
+        assert_eq!(
+            renamed_main_thread("GameThread\n", "Cyberpunk2077.exe").as_deref(),
+            Some("GameThread")
+        );
+        // The kernel's 15 characters, Wine's own names: not renamed.
+        assert_eq!(
+            renamed_main_thread("Cyberpunk2077.e", "Cyberpunk2077.exe"),
+            None
+        );
+        assert_eq!(renamed_main_thread("SOTTR.exe", "SOTTR.exe"), None);
+        assert_eq!(renamed_main_thread("wine64-preloade", "Game.exe"), None);
+        assert_eq!(renamed_main_thread("", "Game.exe"), None);
+    }
+
+    #[test]
+    fn falcond_before_2_0_3_misses_a_renamed_game() {
+        assert!(falcond_misses_renamed("2.0.2-2"));
+        assert!(falcond_misses_renamed("1.9.0-1"));
+        assert!(!falcond_misses_renamed("2.0.3-1"));
+        assert!(!falcond_misses_renamed("2.0.14-1"));
+        assert!(!falcond_misses_renamed("2.1.0-1"));
+        assert!(!falcond_misses_renamed("3.0.0-1"));
+        assert!(
+            !falcond_misses_renamed("unknown"),
+            "no claim without a version"
+        );
+    }
+
+    #[test]
+    fn the_games_own_profile_not_applied_changes_the_headline() {
+        let mut s = Snapshot {
+            turbo_on: true,
+            falcond: Some(status(None)),
+            game: Some(crate::running::GameIdentity {
+                display_name: "Cyberpunk 2077".into(),
+                steam_app_id: Some("1091500".into()),
+                install_path: None,
+                compatdata_path: None,
+                pid: 1,
+                process_name: "Cyberpunk2077.exe".into(),
+                executable: "S:\\x\\Cyberpunk2077.exe".into(),
+                runtime: crate::running::Runtime::Proton(String::new()),
+                graphics: crate::running::Graphics::Vkd3dProton,
+                render_card: None,
+                tree: vec![],
+            }),
+            ..Snapshot::default()
+        };
+        assert_eq!(s.headline(), Headline::GameWithoutProfile);
+        s.profile_not_applied = Some(ProfileNotApplied {
+            name: "Cyberpunk2077.exe".into(),
+            renamed_to: Some("GameThread".into()),
+            falcond_misses_renamed: true,
+        });
+        assert_eq!(s.headline(), Headline::ProfileNotApplied);
+        // falcond's Proton profile in its place is not the game's either.
+        s.falcond = Some(status(Some("Proton")));
+        assert_eq!(s.headline(), Headline::ProfileNotApplied);
+    }
+
+    #[test]
     fn falconds_proton_profile_is_explained_not_shown_as_the_games() {
         assert_eq!(applied_profile(None, None), AppliedProfile::None);
         assert_eq!(applied_profile(Some("None"), None), AppliedProfile::None);
@@ -911,6 +1100,31 @@ mod tests {
         s.wine_fsr_in_game = Some(true);
         s.ai_graphics = Some(crate::graphics::runtime::Status::Configured);
         assert_eq!(s.upscaler_conflict(), None);
+    }
+
+    #[test]
+    fn wine_fsr_in_the_game_is_ready_not_proven_scaling() {
+        let mut s = Snapshot {
+            game: Some(crate::running::GameIdentity {
+                display_name: "Tomb Raider".into(),
+                steam_app_id: Some("203160".into()),
+                install_path: None,
+                compatdata_path: None,
+                pid: 1,
+                process_name: "TombRaider.exe".into(),
+                executable: "S:\\x\\TombRaider.exe".into(),
+                runtime: crate::running::Runtime::Proton("Proton - Experimental".into()),
+                graphics: crate::running::Graphics::Dxvk,
+                render_card: None,
+                tree: vec![],
+            }),
+            wine_fsr_in_game: Some(true),
+            ..Snapshot::default()
+        };
+        s.video.upscaling.wine_fsr_enabled = true;
+        assert_eq!(s.wine_fsr_state(), State::Configured);
+        s.wine_fsr_in_game = Some(false);
+        assert_eq!(s.wine_fsr_state(), State::NotDetected);
     }
 
     #[test]

@@ -211,6 +211,62 @@ fn restore_with(
     Ok(out)
 }
 
+/// The upscaler switches Apply turned on that read off again now — turned
+/// off in the game's own menu since. With them off, the upscaler `OptiScaler`
+/// takes over is never created, and `OptiScaler` has nothing to run.
+#[must_use]
+pub fn switched_off_again(changes: &[SettingChange]) -> Vec<SettingChange> {
+    changes
+        .iter()
+        .filter(|c| c.set != 0)
+        .filter(|c| {
+            std::fs::read_to_string(&c.file)
+                .ok()
+                .is_some_and(|t| reg::get(&t, &c.key, &c.value) == Some(0))
+        })
+        .cloned()
+        .collect()
+}
+
+/// Switch those back on, as Apply did. What was there before Apply stays in
+/// the manifest, so Restore still puts the original back.
+///
+/// # Errors
+/// Returns an error, having changed nothing, if a process of the prefix
+/// keeps running or the registry cannot be read or written.
+pub fn switch_on_again(changes: &[SettingChange]) -> Result<usize> {
+    switch_on_again_with(changes, &prefix_in_use, SETTLE)
+}
+
+fn switch_on_again_with(
+    changes: &[SettingChange],
+    in_use: &dyn Fn(&Path) -> bool,
+    settle: Duration,
+) -> Result<usize> {
+    let off = switched_off_again(changes);
+    let mut done = 0;
+    let mut files: Vec<&Path> = off.iter().map(|c| c.file.as_path()).collect();
+    files.dedup();
+    for file in files {
+        let prefix = file.parent().context("registry file without a folder")?;
+        if !wait_until_free(prefix, in_use, settle) {
+            bail!(UserError::plain(N_(
+                "the game's Wine prefix is still in use; close the game completely and try again"
+            )));
+        }
+        let mut text =
+            std::fs::read_to_string(file).with_context(|| format!("read {}", file.display()))?;
+        for c in off.iter().filter(|c| c.file == file) {
+            if let Some(t) = reg::set(&text, &c.key, &c.value, Some(c.set)) {
+                text = t;
+                done += 1;
+            }
+        }
+        write_atomic(file, &text)?;
+    }
+    Ok(done)
+}
+
 fn wait_until_free(prefix: &Path, in_use: &dyn Fn(&Path) -> bool, settle: Duration) -> bool {
     let start = Instant::now();
     loop {
@@ -468,6 +524,32 @@ mod tests {
         assert_eq!(restored, [Restored::LeftAsChanged("XESS".into())]);
         let text = std::fs::read_to_string(&file).unwrap();
         assert_eq!(reg::get(&text, KEY, "XESS"), Some(2));
+    }
+
+    #[test]
+    fn a_switch_turned_off_again_in_the_menu_is_found_and_switched_back_on() {
+        let (dir, file) = prefix_with(USER_REG);
+        let (_, changes) = switch_on_with(Some(dir.path()), &sottr(), &free, Duration::ZERO);
+        assert!(switched_off_again(&changes).is_empty(), "still on");
+        // The player turns XeSS off in the game's menu.
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(&file, reg::set(&text, KEY, "XESS", Some(0)).unwrap()).unwrap();
+        assert_eq!(switched_off_again(&changes).len(), 1);
+        assert_eq!(
+            switch_on_again_with(&changes, &free, Duration::ZERO).unwrap(),
+            1
+        );
+        let text = std::fs::read_to_string(&file).unwrap();
+        assert_eq!(reg::get(&text, KEY, "XESS"), changes[0].set.into());
+        assert!(switched_off_again(&changes).is_empty());
+        // Restore still puts back what was there before Apply.
+        restore_with(&changes, &free, Duration::ZERO).unwrap();
+        let text = std::fs::read_to_string(&file).unwrap();
+        assert_eq!(reg::get(&text, KEY, "XESS"), Some(0));
+        // A busy prefix changes nothing.
+        let busy = |_: &Path| true;
+        std::fs::write(&file, reg::set(&text, KEY, "XESS", Some(0)).unwrap()).unwrap();
+        assert!(switch_on_again_with(&changes, &busy, Duration::ZERO).is_err());
     }
 
     #[test]

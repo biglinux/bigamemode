@@ -103,6 +103,13 @@ apply → verify → report → restore**.
 - The global configuration is `/etc/falcond/config.conf`; system profiles are
   in `/usr/share/falcond/profiles/` (and `handheld/`, `htpc/`), user profiles
   in `…/user/`.
+- How the two combine (falcond's source, V2): the global `scx_sched` and
+  `vcache_mode` are loaded when falcond starts, as the baseline while Turbo
+  is on; a profile's `none` keeps that baseline and any other value switches
+  for the game. `enable_performance_mode = false` gives no game the
+  performance profile, whatever its profile says. The profile editor shows a
+  `none` as "General configuration" with the value it stands for
+  (`optimization::effective_scheduler`, also used by Details).
 - The library (`library.rs`) is the installed games, each with the profile
   that matches one of its process names, if any. Profiles are looked up for
   games, never turned into games: falcond ships profiles for titles that may
@@ -200,6 +207,10 @@ apply → verify → report → restore**.
     `org.freedesktop.Platform.VulkanLayer.MangoHud` for its runtime is
     installed; the toast and a health check name the command.
   - Any other game gets it when BiGame-mode starts it.
+- A game's lsfg-vk values are read from lsfg-vk's own file (an entry the
+  general switch set aside included), never from the copy in the falcond
+  profile; saving a profile while the general switch is off sets the entry
+  aside instead of switching it on.
 - lsfg-vk 1.0 reads `version = 1`, `[global] dll` and `[[game]]` entries
   (`exe`, `multiplier` ≥ 2, `flow_scale` 0.25–1.0, `performance_mode`,
   `hdr_mode`, `experimental_present_mode`); one invalid value makes it ignore
@@ -219,7 +230,11 @@ of it needs root.
   transaction) / Update (to a newer release, keeping the previous one to Go
   back to) / Repair (put back missing files of the installed release) /
   Restore (remove what BiGame-mode placed and put every original back). Runtime status comes from the game's mapped libraries and an
-  `OptiScaler.log` written since the process started.
+  `OptiScaler.log` written since the process started. The page tells
+  *selected* (not applied), *configured* (applied, game not running),
+  *loaded*, *active* and *failed* apart (`graphics::choice_state`); its
+  choice rows are built once and never rebuilt, so choosing does not move
+  the page.
 - **Modules:** `pe` (import tables and file versions by positioned reads),
   `scan` (upscalers and their versions, proxy-DLL owners by content,
   anti-cheat markers), `report` (each value with its confidence: fact,
@@ -350,19 +365,28 @@ of it needs root.
 ## The pages, and where each state comes from
 
 - **Home** is the one control: Turbo, and the running game.
-- **Profiles** is the games. Every action on a game is in its card's menu —
+- **Profiles** is the games, with an instant search (title or launcher) and
+  filters (with or without a profile, launcher) over the cards already built.
+  Every action on a game is in its card's menu —
   Launch (Turbo), Create with Wizard, Edit, AI Graphics, Measure the
   difference, Restore the game's graphics, Delete — and only the ones that
   apply are shown (Launch for a Steam id or a launcher command, Measure only
   for a direct command, Restore only with files installed).
-- **Tuning** is what is applied: falcond's settings (through the helper) and
-  the launch settings (`video.toml`, the session environment), as
-  collapsible groups. Software that is not installed is a *missing* row with
-  the command; hardware that cannot do something is a *not supported* row.
-  Wine FSR and Gamescope's render size both on is named in a banner with a
-  one-click way out; the other pairs (OptiScaler against Wine FSR and
-  Gamescope scaling, OptiScaler's frame generation against lsfg-vk) are
-  reconciled at launch and said on the page.
+- **Tuning** is the *general configuration*: falcond's settings (through
+  the helper) and the launch settings (`video.toml`, the session
+  environment). A game's profile and the profile wizard show the same
+  sections with the same rows (`widgets::optimization`, over
+  `bigame_core::optimization`), for one game; the wizard builds exactly the
+  `GameOptimization` the editor edits and saves it with the same call.
+  Software that is not installed is a *missing* row with the command;
+  hardware that cannot do something is a *not supported* row. Switching on a
+  technology that collides with one already on (Wine FSR and Gamescope
+  upscaling; lsfg-vk and OptiScaler's frame generation) asks which to keep,
+  from the one compatibility matrix (`graphics::rules`); a configuration that
+  already has both is named with the two ways out. A game's OptiScaler never
+  changes the general settings: the launch leaves Wine FSR
+  (`WINE_FULLSCREEN_FSR=0`) and the Gamescope render size out for that game,
+  and the page says so.
 - **Details** is what is really happening. One reading
   (`bigame_core::overview::Snapshot`) taken off the main thread every 3 s
   while the page is on screen (6 s unfocused), and again when falcond's
@@ -452,7 +476,8 @@ directory.
 
 - Activation applies the profile and deactivation puts the previous state
   back; SIGTERM deactivates before exit; SIGHUP reloads and re-reads
-  `user/`. The **power profile it puts back is the one in use when the
+  `user/`, but applies the global scheduler and 3D V-Cache mode only at
+  start-up, so the helper restarts falcond when one of those changes. The **power profile it puts back is the one in use when the
   service started**, not the one before the game: on the reference desktop,
   falcond started in balanced, the profile was switched to power-saver, a
   profiled process ran and balanced came back; started in performance, every

@@ -21,7 +21,7 @@ pub const USER_PROFILES_DIR: &str = "/usr/share/falcond/profiles/user";
 /// switches. Restructuring it here would only make the round trip harder to
 /// verify against the file falcond actually reads.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GameProfile {
     /// Executable/process name to match.
     pub name: String,
@@ -443,11 +443,7 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
 /// # Errors
 /// Returns an error if serialization or the D-Bus call fails.
 pub fn save(profile: &GameProfile) -> Result<()> {
-    let content = serialize_profile_otter_conf(profile);
-
-    // Use blocking proxy to avoid requiring a Tokio reactor in GTK main-thread flows.
-    let proxy = crate::dbus_client::daemon_proxy_blocking()?;
-    proxy.save_profile(&profile.name, &content)?;
+    save_file(profile)?;
 
     // Sync FG parameters to ~/.config/lsfg-vk/conf.toml (best-effort).
     // Do not fail profile save if lsfg-vk config is invalid/incompatible.
@@ -472,6 +468,20 @@ pub fn save(profile: &GameProfile) -> Result<()> {
     // It is a *per-game* setting, and falcond applies it when the game starts.
     // Writing it at save time would change the governor system-wide,
     // immediately, with no record of the previous value and no way back.
+    Ok(())
+}
+
+/// Save only the profile file, through the privileged helper, which reloads
+/// falcond. [`crate::optimization::GameOptimization::save`] writes lsfg-vk
+/// and `MangoHud` itself and reports each.
+///
+/// # Errors
+/// Returns an error if the D-Bus call fails or the helper refuses.
+pub fn save_file(profile: &GameProfile) -> Result<()> {
+    let content = serialize_profile_otter_conf(profile);
+    // Blocking proxy: no Tokio reactor in GTK main-thread flows.
+    let proxy = crate::dbus_client::daemon_proxy_blocking()?;
+    proxy.save_profile(&profile.name, &content)?;
     Ok(())
 }
 

@@ -113,6 +113,7 @@ pub fn background_group() -> adw::PreferencesGroup {
                     bigame_core::processes::Kind::Gaming => "applications-games-symbolic",
                     bigame_core::processes::Kind::Media => "video-x-generic-symbolic",
                     bigame_core::processes::Kind::Virtualisation => "computer-symbolic",
+                    bigame_core::processes::Kind::ThisApp => "com.biglinux.BiGameMode",
                     _ => "system-run-symbolic",
                 }));
                 group.add(&row);

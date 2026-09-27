@@ -453,13 +453,6 @@ toast {
 
 .game-card {
     border-radius: var(--gm-radius-lg);
-    transition: background-color var(--gm-duration-normal) var(--gm-ease),
-                box-shadow var(--gm-duration-normal) var(--gm-ease);
-}
-
-.game-card:hover {
-    background-color: var(--gm-surface-hover);
-    box-shadow: 0 0 0 1px var(--gm-border-active), var(--gm-shadow-md);
 }
 
 .game-cover-frame,
@@ -546,4 +539,25 @@ toast {
     * {
         transition: none;
     }
+}
+
+/* ── Scope card, notices ───────────────────────────────────────────── */
+
+.scope-card {
+    border-radius: var(--gm-radius-md);
+    background-color: var(--gm-surface-primary);
+    background-image: radial-gradient(circle at 0% 0%, rgba(131, 93, 255, 0.14), rgba(131, 93, 255, 0) 60%);
+    box-shadow: 0 0 0 1px var(--gm-border-subtle), var(--gm-shadow-sm);
+}
+
+.scope-card .scope-icon {
+    color: var(--gm-violet);
+}
+
+.notice {
+    border-radius: var(--gm-radius-sm);
+}
+
+.notice-info {
+    background-color: var(--gm-surface-secondary);
 }

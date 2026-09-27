@@ -61,7 +61,9 @@ an administrator's password.
 - cpufreq values go to every online CPU; partial success is reported as
   failure.
 - falcond is reloaded with SIGHUP through systemd's `KillUnit`, and restarted
-  only when `enable_performance_mode` changed, which falcond reads at start-up.
+  only when a setting falcond reads at start-up changed: `enable_performance_mode`,
+  the global `scx_sched`/`scx_sched_props` and `vcache_mode` (a reload re-reads
+  the file but applies none of them).
 - The helper runs no external program and reads no environment variable;
   systemd is driven through its D-Bus API.
 
