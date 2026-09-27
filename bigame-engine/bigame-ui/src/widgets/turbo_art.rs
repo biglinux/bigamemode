@@ -1,17 +1,18 @@
 //! The Turbo control's artwork, drawn with cairo.
 //!
-//! One disc, drawn from one number: `level`, from 0 (off) to 1 (on).
+//! One disc with a power symbol, drawn from one number: `level`, from 0
+//! (off) to 1 (on).
 //!
-//! - 0: a cold grey disc under a 3D wireframe sphere.
-//! - up to 0.35: sparks of blue light blink on the mesh's vertices.
-//! - up to 1: the mesh fills with the spectrum (cyan, blue, purple, magenta)
-//!   and starts to turn.
-//! - 1: a spectrum rim swirling round the disc, and a neon whirl at its
-//!   centre.
+//! - 0: a dark glass disc, a thin cold rim, the symbol grey.
+//! - 0 → 1: the disc fills from the bottom like a liquid, its surface
+//!   swaying, in the spectrum (cyan, blue, purple, magenta); the rim lights
+//!   clockwise from the top at the same pace.
+//! - 1: the rim swirls with the spectrum and glows; the symbol is white with
+//!   a cyan glow over the deep, filled disc.
 //!
 //! The level follows what Turbo is really doing ([`super::booster_button`]):
-//! each stage of switching on moves it, never a timer. `time` only turns
-//! what is already there.
+//! each stage of switching on moves it, never a timer. `time` only turns the
+//! rim and sways the liquid.
 
 use std::f64::consts::{PI, TAU};
 
@@ -34,7 +35,7 @@ pub enum Tint {
 pub struct Look {
     /// 0 off … 1 on.
     pub level: f64,
-    /// Seconds, for what turns.
+    /// Seconds, for what turns and sways.
     pub time: f64,
     /// The colour treatment.
     pub tint: Tint,
@@ -45,12 +46,14 @@ pub struct Look {
 type Rgb = (f64, f64, f64);
 
 const CYAN: Rgb = (0.13, 0.86, 0.95);
-const BLUE: Rgb = (0.20, 0.45, 1.00);
+const BLUE: Rgb = (0.24, 0.45, 1.00);
 const PURPLE: Rgb = (0.58, 0.34, 0.98);
 const MAGENTA: Rgb = (0.96, 0.25, 0.70);
-const COLD: Rgb = (0.42, 0.45, 0.50);
+const COLD: Rgb = (0.40, 0.43, 0.50);
 const AMBER: Rgb = (0.98, 0.70, 0.18);
 const RED: Rgb = (0.95, 0.28, 0.30);
+/// The disc's deep blue, what the filled disc settles into.
+const DEEP: Rgb = (0.05, 0.08, 0.30);
 
 fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
@@ -86,217 +89,221 @@ fn smooth(edge0: f64, edge1: f64, x: f64) -> f64 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// A stable pseudo-random number in 0..1 for a mesh vertex.
-fn hash(i: i32, j: i32) -> f64 {
-    let n = i.wrapping_mul(374_761_393) ^ j.wrapping_mul(668_265_263);
-    let n = (n ^ (n >> 13)).wrapping_mul(1_274_126_177);
-    f64::from((n ^ (n >> 16)) & 0xffff) / 65535.0
-}
-
 /// Draw the whole disc into a `size`×`size` square.
 pub fn draw(cr: &cairo::Context, size: f64, look: Look) {
     let c = size / 2.0;
-    let r = size * 0.43;
+    let r = size * 0.40;
     cr.save().ok();
     cr.translate(c, c);
+    halo(cr, r, look);
     body(cr, r, look);
-    mesh(cr, r * 0.86, look);
-    sparks(cr, r * 0.86, look);
-    whirl(cr, r * 0.55, look);
+    liquid(cr, r, look);
+    glass(cr, r);
     rim(cr, r, look);
+    symbol(cr, r, look);
     cr.restore().ok();
 }
 
-/// The disc itself: cold metal, warming to a deep violet as it comes on.
+/// The glow round the disc while it is on: one smooth ring in the colour
+/// passing the top of the rim.
+fn halo(cr: &cairo::Context, r: f64, look: Look) {
+    let on = smooth(0.2, 1.0, look.level);
+    if on <= 0.0 {
+        return;
+    }
+    let col = spectrum(look.time * 0.25, look.tint);
+    let outer = r * 1.22;
+    let g = cairo::RadialGradient::new(0.0, 0.0, r * 0.9, 0.0, 0.0, outer);
+    g.add_color_stop_rgba(0.0, col.0, col.1, col.2, 0.0);
+    g.add_color_stop_rgba(0.35, col.0, col.1, col.2, 0.30 * on);
+    g.add_color_stop_rgba(1.0, col.0, col.1, col.2, 0.0);
+    let _ = cr.set_source(&g);
+    cr.arc(0.0, 0.0, outer, 0.0, TAU);
+    let _ = cr.fill();
+}
+
+/// The disc itself: dark glass, lifted a little under the pointer.
 fn body(cr: &cairo::Context, r: f64, look: Look) {
-    let on = smooth(0.35, 1.0, look.level);
-    let g = cairo::RadialGradient::new(-r * 0.3, -r * 0.35, r * 0.1, 0.0, 0.0, r);
-    let hi = mix((0.24, 0.26, 0.30), (0.20, 0.14, 0.34), on);
-    let lo = mix((0.07, 0.08, 0.10), (0.05, 0.03, 0.12), on);
-    let lift = if look.hover { 0.04 } else { 0.0 };
-    g.add_color_stop_rgb(0.0, hi.0 + lift, hi.1 + lift, hi.2 + lift);
+    let g = cairo::RadialGradient::new(-r * 0.3, -r * 0.4, r * 0.1, 0.0, 0.0, r);
+    let lift = if look.hover { 0.035 } else { 0.0 };
+    let hi = (0.17 + lift, 0.18 + lift, 0.24 + lift);
+    let lo = (0.05, 0.06, 0.10);
+    g.add_color_stop_rgb(0.0, hi.0, hi.1, hi.2);
     g.add_color_stop_rgb(1.0, lo.0, lo.1, lo.2);
     cr.arc(0.0, 0.0, r, 0.0, TAU);
     let _ = cr.set_source(&g);
     let _ = cr.fill();
 }
 
-/// Project a point of the unit sphere, turned by `spin` about the vertical
-/// axis and tipped towards the viewer: (x, y, depth), depth > 0 in front.
-fn project(lat: f64, lon: f64, spin: f64) -> (f64, f64, f64) {
-    let tilt: f64 = 0.42;
-    let (sl, cl) = lat.sin_cos();
-    let (so, co) = (lon + spin).sin_cos();
-    let x = cl * so;
-    let y0 = sl;
-    let z0 = cl * co;
-    let (st, ct) = tilt.sin_cos();
-    (x, y0 * ct - z0 * st, y0 * st + z0 * ct)
-}
-
-/// The wireframe sphere: parallels and meridians, the far side dimmer.
-fn mesh(cr: &cairo::Context, r: f64, look: Look) {
-    let fill = smooth(0.35, 1.0, look.level);
-    let spin = look.time * 0.35 * fill;
-    cr.set_line_width(1.0);
-    cr.set_line_cap(cairo::LineCap::Round);
-    // Each line in two passes, back then front, one stroke per pass.
-    for front in [false, true] {
-        let alpha = if front { 0.55 } else { 0.18 };
-        for i in -5..=5 {
-            let lat = f64::from(i) * PI / 12.0;
-            let hue = spectrum(f64::from(i + 5) / 11.0 + look.time * 0.05, look.tint);
-            let col = mix(COLD, hue, fill);
-            path_along(cr, r, 64, front, |t| project(lat, t * TAU, spin));
-            cr.set_source_rgba(col.0, col.1, col.2, alpha * (0.6 + 0.4 * fill));
-            let _ = cr.stroke();
-        }
-        for k in 0..12 {
-            let lon = f64::from(k) * TAU / 12.0;
-            let hue = spectrum(f64::from(k) / 12.0 + look.time * 0.05, look.tint);
-            let col = mix(COLD, hue, fill);
-            path_along(cr, r, 32, front, |t| project(-PI / 2.0 + t * PI, lon, spin));
-            cr.set_source_rgba(col.0, col.1, col.2, alpha * (0.6 + 0.4 * fill));
-            let _ = cr.stroke();
-        }
-    }
-}
-
-/// One mesh line as a path, keeping only the segments on the side asked for.
-fn path_along(
-    cr: &cairo::Context,
-    r: f64,
-    steps: u32,
-    front: bool,
-    at: impl Fn(f64) -> (f64, f64, f64),
-) {
-    let mut open = false;
+/// The swaying surface of the liquid, as a path across the disc.
+fn surface_path(cr: &cairo::Context, r: f64, wave: impl Fn(f64) -> f64) {
+    let steps = 48;
+    cr.move_to(-r - 2.0, wave(-r - 2.0));
     for s in 0..=steps {
-        let (x, y, z) = at(f64::from(s) / f64::from(steps));
-        if (z >= 0.0) == front {
-            if open {
-                cr.line_to(x * r, y * r);
-            } else {
-                cr.move_to(x * r, y * r);
-                open = true;
-            }
-        } else {
-            open = false;
-        }
+        let x = -r - 2.0 + (2.0 * r + 4.0) * f64::from(s) / f64::from(steps);
+        cr.line_to(x, wave(x));
     }
 }
 
-/// Blue sparks blinking on the mesh while Turbo starts.
-fn sparks(cr: &cairo::Context, radius: f64, look: Look) {
-    // Most at the start of the transition, fading as the colours take over.
-    let amount = smooth(0.02, 0.2, look.level) * (1.0 - smooth(0.6, 1.0, look.level));
-    if amount <= 0.0 {
+/// The liquid rising in the disc: a swaying surface, the spectrum below
+/// it, settling into the deep blue as the disc fills.
+fn liquid(cr: &cairo::Context, r: f64, look: Look) {
+    if look.level <= 0.0 {
         return;
     }
-    let spin = look.time * 0.35 * smooth(0.35, 1.0, look.level);
-    for i in -5..=5 {
-        for j in 0..12 {
-            let seed = hash(i, j);
-            // Each vertex blinks on its own beat.
-            let phase = (look.time * (0.6 + seed) + seed * 7.0).rem_euclid(1.0);
-            let lit = (1.0 - (phase * 2.0 - 1.0).abs()).powi(3) * amount;
-            if lit < 0.05 || seed > 0.25 + amount * 0.6 {
-                continue;
-            }
-            let (px, py, depth) =
-                project(f64::from(i) * PI / 12.0, f64::from(j) * TAU / 12.0, spin);
-            if depth < 0.0 {
-                continue;
-            }
-            let (px, py) = (px * radius, py * radius);
-            let glow = cairo::RadialGradient::new(px, py, 0.0, px, py, 7.0);
-            glow.add_color_stop_rgba(0.0, 0.75, 0.95, 1.0, lit);
-            glow.add_color_stop_rgba(0.35, CYAN.0, CYAN.1, CYAN.2, lit * 0.8);
-            glow.add_color_stop_rgba(1.0, BLUE.0, BLUE.1, BLUE.2, 0.0);
-            let _ = cr.set_source(&glow);
-            cr.arc(px, py, 7.0, 0.0, TAU);
-            let _ = cr.fill();
-        }
-    }
-}
-
-/// The neon whirl at the centre: spiral arms of light turning slowly.
-fn whirl(cr: &cairo::Context, r: f64, look: Look) {
-    let on = smooth(0.55, 1.0, look.level);
-    if on <= 0.0 {
-        return;
-    }
-    let turn = look.time * 0.6;
-    // A soft glow underneath.
-    let glow = cairo::RadialGradient::new(0.0, 0.0, 0.0, 0.0, 0.0, r);
-    let core = spectrum(look.time * 0.04, look.tint);
-    glow.add_color_stop_rgba(0.0, core.0, core.1, core.2, 0.35 * on);
-    glow.add_color_stop_rgba(1.0, core.0, core.1, core.2, 0.0);
-    let _ = cr.set_source(&glow);
-    cr.arc(0.0, 0.0, r, 0.0, TAU);
+    let level = look.level.min(1.0);
+    // The surface: at 1 it is above the disc, and the sway has died down.
+    let surface = r - level * 2.0 * r - r * 0.12 * smooth(0.85, 1.0, level);
+    let sway = r * 0.055 * (1.0 - smooth(0.7, 1.0, level));
+    let t = look.time;
+    let wave = |x: f64| {
+        surface
+            + sway * ((x / r) * 3.1 + t * 2.3).sin()
+            + sway * 0.5 * ((x / r) * 5.7 - t * 1.7).sin()
+    };
+    cr.save().ok();
+    cr.arc(0.0, 0.0, r - 0.5, 0.0, TAU);
+    cr.clip();
+    // The body of the liquid: the spectrum, drifting, darkened towards the
+    // bottom; more of the deep blue the fuller the disc.
+    let deep = smooth(0.55, 1.0, level);
+    let top = mix(spectrum(t * 0.05, look.tint), DEEP, deep * 0.75);
+    let bottom = mix(
+        spectrum(t * 0.05 + 0.45, look.tint),
+        DEEP,
+        0.55 + deep * 0.35,
+    );
+    let g = cairo::LinearGradient::new(0.0, surface, 0.0, r);
+    g.add_color_stop_rgba(0.0, top.0, top.1, top.2, 0.92);
+    g.add_color_stop_rgba(1.0, bottom.0, bottom.1, bottom.2, 0.96);
+    let _ = cr.set_source(&g);
+    surface_path(cr, r, wave);
+    cr.line_to(r + 2.0, r + 2.0);
+    cr.line_to(-r - 2.0, r + 2.0);
+    cr.close_path();
     let _ = cr.fill();
-    cr.set_line_cap(cairo::LineCap::Round);
-    for arm in 0..5 {
-        let base = f64::from(arm) * TAU / 5.0 + turn;
-        let col = spectrum(f64::from(arm) / 5.0 + look.time * 0.05, look.tint);
-        // Log spiral from the centre outwards, thinning as it goes.
-        for pass in [(6.0, 0.10), (2.2, 0.75)] {
-            cr.set_line_width(pass.0);
-            cr.move_to(0.0, 0.0);
-            for s in 1..=40 {
-                let t = f64::from(s) / 40.0;
-                let a = base + t * 3.4;
-                let d = r * t.powf(1.25);
-                cr.line_to(a.cos() * d, a.sin() * d);
-            }
-            cr.set_source_rgba(col.0, col.1, col.2, pass.1 * on);
+    // The crest: a line of light on the surface, gone once full.
+    let crest = 1.0 - smooth(0.8, 1.0, level);
+    if crest > 0.0 {
+        let col = spectrum(t * 0.05 - 0.1, look.tint);
+        for (w, a) in [(r * 0.06, 0.18), (r * 0.02, 0.9)] {
+            cr.set_line_width(w);
+            cr.set_source_rgba(
+                lerp(col.0, 1.0, 0.45),
+                lerp(col.1, 1.0, 0.45),
+                lerp(col.2, 1.0, 0.45),
+                a * crest,
+            );
+            surface_path(cr, r, wave);
             let _ = cr.stroke();
         }
     }
+    // Once full, a soft light at the centre for the symbol to sit in.
+    if deep > 0.0 {
+        let col = spectrum(t * 0.05 + 0.2, look.tint);
+        let g = cairo::RadialGradient::new(0.0, 0.0, 0.0, 0.0, 0.0, r * 0.75);
+        g.add_color_stop_rgba(0.0, col.0, col.1, col.2, 0.32 * deep);
+        g.add_color_stop_rgba(1.0, col.0, col.1, col.2, 0.0);
+        let _ = cr.set_source(&g);
+        cr.arc(0.0, 0.0, r, 0.0, TAU);
+        let _ = cr.fill();
+    }
+    cr.restore().ok();
 }
 
-/// The rim: cold grey off; a swirling spectrum with a glow on.
+/// A glass highlight across the top of the disc.
+fn glass(cr: &cairo::Context, r: f64) {
+    cr.save().ok();
+    cr.arc(0.0, 0.0, r - 0.5, 0.0, TAU);
+    cr.clip();
+    let g = cairo::LinearGradient::new(0.0, -r, 0.0, -r * 0.1);
+    g.add_color_stop_rgba(0.0, 1.0, 1.0, 1.0, 0.14);
+    g.add_color_stop_rgba(1.0, 1.0, 1.0, 1.0, 0.0);
+    let _ = cr.set_source(&g);
+    cr.save().ok();
+    cr.translate(0.0, -r * 0.55);
+    cr.scale(1.0, 0.5);
+    cr.arc(0.0, 0.0, r * 0.85, 0.0, TAU);
+    cr.restore().ok();
+    let _ = cr.fill();
+    cr.restore().ok();
+}
+
+/// The rim: thin and cold off; a swirling spectrum on, lit clockwise from
+/// the top as the level rises.
 fn rim(cr: &cairo::Context, r: f64, look: Look) {
-    let on = smooth(0.35, 1.0, look.level);
-    let width = lerp(3.0, 7.0, on);
-    // Off, or the part of the rim not yet lit.
+    let on = smooth(0.0, 1.0, look.level);
+    let width = lerp(r * 0.035, r * 0.06, on);
     cr.set_line_width(width);
     let cold = if look.tint == Tint::Error { RED } else { COLD };
-    cr.set_source_rgba(cold.0, cold.1, cold.2, lerp(0.55, 0.15, on));
+    cr.set_source_rgba(cold.0, cold.1, cold.2, lerp(0.6, 0.12, on));
     cr.arc(0.0, 0.0, r, 0.0, TAU);
     let _ = cr.stroke();
     if on <= 0.0 {
         return;
     }
     let turn = look.time * 0.25;
-    let segments = 96;
-    // The glow: one smooth ring (segments would show their seams), in the
-    // colour passing the top of the rim.
-    let glow = spectrum(turn, look.tint);
-    let halo = cairo::RadialGradient::new(0.0, 0.0, r - width * 2.0, 0.0, 0.0, r + width * 3.5);
-    halo.add_color_stop_rgba(0.0, glow.0, glow.1, glow.2, 0.0);
-    halo.add_color_stop_rgba(0.45, glow.0, glow.1, glow.2, 0.28 * on);
-    halo.add_color_stop_rgba(1.0, glow.0, glow.1, glow.2, 0.0);
-    let _ = cr.set_source(&halo);
-    cr.arc(0.0, 0.0, r + width * 3.5, 0.0, TAU);
-    cr.arc_negative(0.0, 0.0, (r - width * 2.0).max(0.0), TAU, 0.0);
-    let _ = cr.fill();
-    // Then the rim itself, lit from the top, clockwise, as the level rises.
-    for (w, alpha) in [(width, 0.95)] {
-        cr.set_line_width(w);
-        cr.set_line_cap(cairo::LineCap::Butt);
-        for s in 0..segments {
-            let a0 = f64::from(s) / f64::from(segments);
-            if a0 > on {
-                break;
-            }
-            let col = spectrum(a0 + turn, look.tint);
-            let start = -PI / 2.0 + a0 * TAU;
-            cr.arc(0.0, 0.0, r, start, start + TAU / f64::from(segments) + 0.01);
-            cr.set_source_rgba(col.0, col.1, col.2, alpha * on);
+    let segments = 120;
+    cr.set_line_cap(cairo::LineCap::Butt);
+    for s in 0..segments {
+        let a0 = f64::from(s) / f64::from(segments);
+        if a0 > on {
+            break;
+        }
+        let col = spectrum(a0 + turn, look.tint);
+        let start = -PI / 2.0 + a0 * TAU;
+        cr.arc(
+            0.0,
+            0.0,
+            r,
+            start,
+            start + TAU / f64::from(segments) + 0.008,
+        );
+        cr.set_source_rgba(col.0, col.1, col.2, 0.95);
+        let _ = cr.stroke();
+    }
+}
+
+/// The power symbol: an open ring and a bar, grey off, white with a cyan
+/// glow on.
+fn symbol(cr: &cairo::Context, r: f64, look: Look) {
+    let on = smooth(0.0, 1.0, look.level);
+    let ri = r * 0.30;
+    let w = r * 0.075;
+    // Half the opening at the top, in radians.
+    let gap = 0.62;
+    let path = |cr: &cairo::Context| {
+        cr.new_path();
+        cr.arc(0.0, 0.0, ri, -PI / 2.0 + gap, -PI / 2.0 - gap + TAU);
+        cr.new_sub_path();
+        cr.move_to(0.0, -ri * 1.2);
+        cr.line_to(0.0, -ri * 0.2);
+    };
+    cr.set_line_cap(cairo::LineCap::Round);
+    let glow = match look.tint {
+        Tint::Spectrum => CYAN,
+        Tint::Warning => AMBER,
+        Tint::Error => RED,
+    };
+    // The glow, on: wide and faint, then tighter.
+    if on > 0.0 {
+        for (mul, alpha) in [(4.0, 0.10), (2.4, 0.22), (1.5, 0.35)] {
+            cr.set_line_width(w * mul);
+            cr.set_source_rgba(glow.0, glow.1, glow.2, alpha * on);
+            path(cr);
             let _ = cr.stroke();
         }
     }
+    let off_col = if look.tint == Tint::Error {
+        RED
+    } else {
+        (0.62, 0.65, 0.72)
+    };
+    let core = mix(off_col, (0.97, 0.99, 1.0), on);
+    cr.set_line_width(w);
+    cr.set_source_rgba(core.0, core.1, core.2, lerp(0.9, 1.0, on));
+    path(cr);
+    let _ = cr.stroke();
 }
 
 #[cfg(test)]
@@ -314,8 +321,9 @@ mod tests {
         assert_eq!(spectrum(0.0, Tint::Spectrum), spectrum(1.0, Tint::Spectrum));
     }
 
-    /// Renders the disc's stages to PNG files for a look at them:
-    /// `BIGAME_ART_DIR=/some/dir cargo test -p bigame-ui turbo_art -- --ignored`.
+    /// Renders the disc's stages for a look at them:
+    /// `BIGAME_ART_DIR=/some/dir cargo test -p bigame-ui turbo_art -- --ignored`
+    /// writes Netpbm files there.
     #[test]
     #[ignore = "writes images for a person to look at"]
     fn render_the_stages() {
@@ -324,8 +332,8 @@ mod tests {
         };
         for (name, level, tint) in [
             ("1-off", 0.0, Tint::Spectrum),
-            ("2-sparks", 0.18, Tint::Spectrum),
-            ("3-filling", 0.6, Tint::Spectrum),
+            ("2-filling", 0.3, Tint::Spectrum),
+            ("3-nearly", 0.75, Tint::Spectrum),
             ("4-on", 1.0, Tint::Spectrum),
             ("partial", 1.0, Tint::Warning),
             ("error", 0.0, Tint::Error),
@@ -348,7 +356,6 @@ mod tests {
             surface.flush();
             let stride = usize::try_from(surface.stride()).unwrap();
             let data = surface.take_data().unwrap();
-            // Netpbm: no image library needed; BGRA rows to RGB.
             let mut ppm = b"P6 300 300 255\n".to_vec();
             for row in data.chunks(stride).take(300) {
                 for px in row.chunks(4).take(300) {
@@ -361,18 +368,18 @@ mod tests {
 
     #[test]
     fn every_level_draws_without_error() {
-        let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 300, 300).unwrap();
+        let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, 200, 200).unwrap();
         let cr = cairo::Context::new(&surface).unwrap();
         for tint in [Tint::Spectrum, Tint::Warning, Tint::Error] {
-            for level in [0.0, 0.1, 0.3, 0.6, 1.0] {
+            for level in [0.0, 0.1, 0.3, 0.6, 0.9, 1.0] {
                 draw(
                     &cr,
-                    300.0,
+                    200.0,
                     Look {
                         level,
                         time: 3.7,
                         tint,
-                        hover: false,
+                        hover: true,
                     },
                 );
                 assert_eq!(cr.status(), Ok(()));

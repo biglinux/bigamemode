@@ -14,11 +14,11 @@
 
 mod extras;
 mod gpus;
-mod overview;
+pub(crate) mod overview;
 mod performance;
 mod pipeline;
 mod problems;
-mod telemetry;
+pub(crate) mod telemetry;
 
 use std::cell::Cell;
 use std::rc::Rc;
