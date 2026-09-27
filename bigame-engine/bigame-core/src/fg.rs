@@ -365,6 +365,70 @@ pub fn write_profile(
     write_state(&s)
 }
 
+/// Write `name`'s entry where it belongs: in lsfg-vk's file when the general
+/// switch is on, set aside with the other paused entries when it is off, so
+/// saving a profile never switches frame generation on behind the general
+/// switch. Multiplier 1 removes the entry from both.
+///
+/// # Errors
+/// Returns error if the DLL is not configured, a value is out of range, or
+/// the files cannot be written.
+pub fn save_for_game(
+    name: &str,
+    multiplier: u32,
+    flow_scale_pct: u32,
+    perf_mode: bool,
+    hdr: bool,
+    present_mode: u32,
+    general_on: bool,
+) -> Result<()> {
+    if general_on || multiplier <= 1 {
+        write_profile(
+            name,
+            multiplier,
+            flow_scale_pct,
+            perf_mode,
+            hdr,
+            present_mode,
+        )?;
+        if multiplier <= 1 {
+            let mut s = read_state();
+            let before = s.paused.len();
+            s.paused
+                .retain(|g| g.get("exe").and_then(Value::as_str) != Some(name));
+            if s.paused.len() != before {
+                write_state(&s)?;
+            }
+        }
+        return Ok(());
+    }
+    anyhow::ensure!(
+        is_lossless_dll_ready(),
+        UserError::plain(N_("Lossless.dll not found in configured LSFG path"))
+    );
+    anyhow::ensure!(
+        (25..=100).contains(&flow_scale_pct),
+        UserError::plain(N_("flow_scale_pct must be 25–100"))
+    );
+    // Not in lsfg-vk's file while the switch is off.
+    disable_for_game(name)?;
+    let mut s = read_state();
+    s.paused
+        .retain(|g| g.get("exe").and_then(Value::as_str) != Some(name));
+    s.paused.push(Value::Table(game_entry(
+        name,
+        multiplier.clamp(2, 20),
+        flow_scale_pct,
+        perf_mode,
+        hdr,
+        present_mode,
+    )));
+    if !s.managed.iter().any(|m| m == name) {
+        s.managed.push(name.to_owned());
+    }
+    write_state(&s)
+}
+
 /// Remove the frame generation entry for a game (its profile was deleted).
 ///
 /// # Errors
@@ -382,13 +446,37 @@ pub fn delete_profile(name: &str) -> Result<()> {
 /// present_mode)`. Multiplier 1 means off (no entry).
 #[must_use]
 pub fn read_profile(name: &str) -> (u32, u32, bool, bool, u32) {
-    let off = (1, 100, false, false, 1);
-    let Ok(t) = read_config() else {
-        return off;
-    };
-    let Some(g) = entry(&t, name) else {
-        return off;
-    };
+    read_config()
+        .ok()
+        .and_then(|t| entry(&t, name).map(entry_values))
+        .unwrap_or(OFF)
+}
+
+/// What BiGame-mode set for `name`, whether lsfg-vk reads it now or the
+/// global switch has set it aside: the value a game's profile shows. The
+/// entry lsfg-vk reads comes first; a paused one is what the switch puts
+/// back when it is turned on again.
+#[must_use]
+pub fn read_profile_any(name: &str) -> (u32, u32, bool, bool, u32) {
+    if let Some(values) = read_config()
+        .ok()
+        .and_then(|t| entry(&t, name).map(entry_values))
+    {
+        return values;
+    }
+    read_state()
+        .paused
+        .iter()
+        .filter_map(Value::as_table)
+        .find(|g| g.get("exe").and_then(Value::as_str) == Some(name))
+        .map_or(OFF, entry_values)
+}
+
+/// No entry: frame generation off.
+const OFF: (u32, u32, bool, bool, u32) = (1, 100, false, false, 1);
+
+/// The values of one `[[game]]` entry, lsfg-vk's defaults where it has none.
+fn entry_values(g: &Table) -> (u32, u32, bool, bool, u32) {
     let multiplier = g
         .get("multiplier")
         .and_then(Value::as_integer)

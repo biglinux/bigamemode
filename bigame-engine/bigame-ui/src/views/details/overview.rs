@@ -175,6 +175,29 @@ impl Overview {
                     "falcond has no profile for it, so nothing per game is applied. Create one in Profiles.",
                 ),
             ),
+            Headline::ProfileNotApplied => {
+                let missed = snap.profile_not_applied.as_ref();
+                let name = missed.map_or("", |m| m.name.as_str());
+                (
+                    "dialog-warning-symbolic",
+                    i18n("falcond is not applying the profile of %s")
+                        .replace("%s", game_name.as_deref().unwrap_or("")),
+                    match missed.and_then(|m| {
+                        m.renamed_to.as_deref().filter(|_| m.falcond_misses_renamed)
+                    }) {
+                        // Seen with Cyberpunk 2077 on falcond 2.0.2.
+                        Some(thread) => i18n(
+                            "falcond has the profile %s for this game, but the game renamed its main thread to “%t”, and the installed falcond never looks at such a process (fixed in falcond 2.0.3). Update falcond; until then this profile is not applied.",
+                        )
+                        .replace("%s", name)
+                        .replace("%t", thread),
+                        None => i18n(
+                            "falcond has the profile %s for this game but has not applied it. It usually does within seconds; if it does not, start the game again.",
+                        )
+                        .replace("%s", name),
+                    },
+                )
+            }
             Headline::FalcondSilent => (
                 "dialog-warning-symbolic",
                 i18n("falcond is running but reports nothing"),
@@ -289,6 +312,18 @@ pub(crate) fn upscaling_summary(snap: &Snapshot) -> (State, Option<String>) {
             Some(format!("OptiScaler {}", upscaler_name(upscaler))),
         );
     }
+    // OptiScaler in the running game, not upscaling yet (it waits for the
+    // game's own upscaler to be chosen in its menu): it is still the one
+    // that will, never Wine FSR's variable next to it.
+    match &snap.ai_graphics {
+        Some(Status::Starting | Status::Loaded { .. }) if snap.game.is_some() => {
+            return (State::Waiting, Some("OptiScaler".to_owned()));
+        }
+        Some(Status::Failed { .. } | Status::NotDetected) if snap.game.is_some() => {
+            return (State::NotDetected, Some("OptiScaler".to_owned()));
+        }
+        _ => {}
+    }
     let gamescope_scales =
         snap.video.upscaling.base_width > 0 && snap.video.upscaling.gamescope_enabled;
     let wine = snap.wine_fsr_state();
@@ -317,6 +352,15 @@ pub(crate) fn frame_generation_summary(snap: &Snapshot) -> (State, Option<String
     use bigame_core::graphics::runtime::Status;
     if snap.ai_frame_generation && matches!(snap.ai_graphics, Some(Status::Active { .. })) {
         return (State::Active, Some("OptiScaler".to_owned()));
+    }
+    if snap.ai_frame_generation
+        && snap.game.is_some()
+        && matches!(
+            snap.ai_graphics,
+            Some(Status::Starting | Status::Loaded { .. })
+        )
+    {
+        return (State::Waiting, Some("OptiScaler".to_owned()));
     }
     let state = snap.frame_generation_state();
     let text = match (

@@ -296,6 +296,33 @@ pub fn which(binary: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// [`detect_gamescope`], run once per installed binary: the answer is kept
+/// with the binary's path and modification time, so pages that open often
+/// do not start `gamescope --help` each time, and an update or a new install
+/// is seen at once.
+#[must_use]
+pub fn gamescope_cached() -> Option<GamescopeCaps> {
+    type Key = (PathBuf, Option<std::time::SystemTime>);
+    static CACHE: std::sync::Mutex<Option<(Key, Option<GamescopeCaps>)>> =
+        std::sync::Mutex::new(None);
+    let path = which("gamescope")?;
+    let key = (
+        path.clone(),
+        std::fs::metadata(&path).and_then(|m| m.modified()).ok(),
+    );
+    let mut cache = CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some((k, caps)) = cache.as_ref() {
+        if *k == key {
+            return caps.clone();
+        }
+    }
+    let caps = detect_gamescope();
+    *cache = Some((key, caps.clone()));
+    caps
+}
+
 /// The installed Gamescope's version and options (`gamescope --help`), or
 /// `None` without Gamescope.
 #[must_use]

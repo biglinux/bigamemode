@@ -208,14 +208,19 @@
  * desktop's light/dark and accent settings instead of imposing its own.
  */
 
+/* The grid cell is wider than the card, and libadwaita paints a cell on
+ * hover: in the library that lit up empty space before the pointer reached
+ * a game. The cover's own reveal is the one hover. */
+flowbox.game-library > flowboxchild:hover,
+flowbox.game-library > flowboxchild:active {
+    background-color: transparent;
+}
+
+/* The card has no hover of its own: the cover reveals the actions when the
+ * pointer reaches it, and the margin and title around it stay still. */
 .game-card {
     padding: 6px;
     border-radius: 12px;
-    transition: background-color 160ms ease;
-}
-
-.game-card:hover {
-    background-color: alpha(@window_fg_color, 0.06);
 }
 
 .game-card:focus-visible {
@@ -387,3 +392,46 @@
 .pipeline-stage.state-attention { color: @warning_color; }
 .pipeline-stage.state-error { color: @error_color; }
 .pipeline-stage.state-neutral { color: alpha(@window_fg_color, 0.45); }
+
+/* ── Scope card (Tuning, a game's profile) ───────────────────────────
+ *
+ * Says whose settings a page holds, in the same shape on both pages. */
+.scope-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background-color: alpha(@accent_bg_color, 0.10);
+}
+
+.scope-card .scope-icon {
+    color: @accent_color;
+}
+
+/* ── Notices (widgets/notice.rs) ─────────────────────────────────────
+ *
+ * One look for information, warnings, conflicts, errors and successes.
+ * The icon and the title carry the meaning; the tint only repeats it. */
+.notice {
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-top: 6px;
+    background-color: alpha(@window_fg_color, 0.05);
+}
+
+.notice .notice-icon {
+    margin-top: 1px;
+}
+
+.notice-info .notice-icon { color: @accent_color; }
+.notice-warning { background-color: alpha(@warning_color, 0.12); }
+.notice-warning .notice-icon { color: @warning_color; }
+.notice-conflict { background-color: alpha(@warning_color, 0.14); }
+.notice-conflict .notice-icon { color: @warning_color; }
+.notice-error { background-color: alpha(@error_color, 0.12); }
+.notice-error .notice-icon { color: @error_color; }
+.notice-success { background-color: alpha(@success_color, 0.12); }
+.notice-success .notice-icon { color: @success_color; }
+
+/* The save bar under a profile: it stays on screen while the page scrolls. */
+.editor-save-bar {
+    min-height: 40px;
+}
