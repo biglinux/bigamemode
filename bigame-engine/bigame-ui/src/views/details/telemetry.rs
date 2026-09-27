@@ -207,7 +207,7 @@ fn card(title: &str, icon: &str) -> (gtk4::Box, gtk4::Label, SparkHandle) {
 }
 
 /// CPU core 0 frequency, kHz.
-fn read_cpu_khz() -> Option<u64> {
+pub(crate) fn read_cpu_khz() -> Option<u64> {
     std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")
         .ok()?
         .trim()
@@ -237,7 +237,7 @@ fn read_disk_sectors() -> Option<(u64, u64)> {
 }
 
 /// One ICMP ping to `target`: the round trip, as ping prints it.
-fn read_ping_ms(target: &str) -> Option<String> {
+pub(crate) fn read_ping_ms(target: &str) -> Option<String> {
     // Passed as an argument, never through a shell; a target beginning with
     // '-' would still be read as an option by ping.
     if target.is_empty() || target.starts_with('-') {

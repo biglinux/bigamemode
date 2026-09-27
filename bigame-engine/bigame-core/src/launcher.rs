@@ -56,6 +56,11 @@ pub struct LaunchPlan {
     pub args: Vec<String>,
     /// Environment variables to inject alongside the parent environment.
     pub env: HashMap<String, String>,
+    /// A frame cap for `MangoHud` to hold in a game that also shows its
+    /// overlay: at spawn, a copy of the user's `MangoHud` configuration with
+    /// `fps_limit` is written and the game pointed at it
+    /// (`MANGOHUD_CONFIG` would replace their configuration, not add to it).
+    pub mangohud_fps_limit: Option<u32>,
 }
 
 impl LaunchPlan {
@@ -81,6 +86,7 @@ impl LaunchPlan {
             video,
             gs_override,
             Some(gamescope_mode),
+            crate::turbo_preset::active_levers(),
         )
     }
 
@@ -103,10 +109,11 @@ impl LaunchPlan {
             video,
             gs_override,
             None,
+            crate::turbo_preset::Levers::default(),
         )
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     fn build_on_with_mode(
         host: &Host,
         executable: &str,
@@ -115,6 +122,7 @@ impl LaunchPlan {
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
         game_mode: Option<gamescope::Mode>,
+        preset: crate::turbo_preset::Levers,
     ) -> Self {
         // Presentation-layer settings (Gamescope, Wine FSR, vkBasalt, frame
         // generation) are not a CPU power policy and do not depend on the power
@@ -122,6 +130,14 @@ impl LaunchPlan {
         // Turbo are doing. The harmony policy keeps enabled technologies from
         // conflicting.
         let mut effective_video = Self::apply_harmony_policy(logical_game, video);
+        // The Turbo preset in force lays its choices over Tuning's, before
+        // AI Graphics' own disables, which still win for their game.
+        if let Some(on) = preset.wine_fsr {
+            effective_video.upscaling.wine_fsr_enabled = on;
+        }
+        if let Some(on) = preset.vkbasalt {
+            effective_video.upscaling.vkbasalt_enabled = on;
+        }
         // A game BiGame-mode installed OptiScaler into already upscales;
         // Gamescope and Wine FSR would be second upscalers.
         let disables = crate::graphics::launch_disables(
@@ -173,6 +189,7 @@ impl LaunchPlan {
                 program: executable.to_string(),
                 args: executable_args.to_vec(),
                 env: HashMap::new(),
+                mangohud_fps_limit: None,
             };
         }
 
@@ -184,6 +201,11 @@ impl LaunchPlan {
         if wine_fsr_suppressed {
             env.insert("WINE_FULLSCREEN_FSR".into(), "0".into());
         }
+        // vkBasalt switched off by the preset while the session has it on.
+        if video.upscaling.vkbasalt_enabled && !upscaling.vkbasalt_enabled {
+            env.insert("ENABLE_VKBASALT".into(), "0".into());
+        }
+        env.extend(crate::turbo_preset::preset_env(preset));
         // On a hybrid laptop an OpenGL game renders on the GPU that drives the
         // panel unless it is offloaded; Vulkan games pick the discrete GPU
         // anyway, and the offload variables do not change what they choose.
@@ -221,16 +243,47 @@ impl LaunchPlan {
             reason = %decision.reason,
             "gamescope decision"
         );
+        // A native game reads no DXVK or VKD3D variable, and Gamescope's
+        // limiters (`-r`, `--framerate-limit`) did not hold SuperTuxKart
+        // with its vsync off (570 FPS presented, MangoHud's log): the cap is
+        // MangoHud's `fps_limit`, which waits inside the game's own swap.
+        let native_cap = preset
+            .frame_cap
+            .filter(|fps| *fps > 0)
+            .filter(|_| is_native(executable, executable_args));
         if decision.use_gamescope {
             let mut gs = gs_override.cloned().unwrap_or_default();
-            if mangohud != crate::mangohud::Mode::Off {
+            // Gamescope's own overlay cannot limit the game; the game's own
+            // MangoHud, which draws the same overlay, can.
+            if mangohud != crate::mangohud::Mode::Off && native_cap.is_none() {
                 gs.mangoapp = true;
             }
-            let gs_override = (gs_override.is_some() || gs.mangoapp).then_some(&gs);
+            // The preset's rate for the nested display too.
+            let capped = match preset.frame_cap {
+                Some(0) => {
+                    gs.frame_limit = gamescope::FrameLimit::None;
+                    true
+                }
+                Some(fps) => {
+                    gs.frame_limit = gamescope::FrameLimit::NestedRefresh(fps);
+                    true
+                }
+                None => false,
+            };
+            let gs_override = (gs_override.is_some() || gs.mangoapp || capped).then_some(&gs);
             let (program, mut args) =
                 build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
             keep_vkbasalt_in_the_game(&mut args, &mut env);
-            Self { program, args, env }
+            let mut plan = Self {
+                program,
+                args,
+                env,
+                mangohud_fps_limit: None,
+            };
+            if let Some(fps) = native_cap {
+                plan.limit_native(fps, mangohud);
+            }
+            plan
         } else {
             // On: MangoHud's Vulkan layer. Forced: its wrapper, which also
             // reaches OpenGL games.
@@ -238,6 +291,7 @@ impl LaunchPlan {
                 program: executable.to_string(),
                 args: executable_args.to_vec(),
                 env,
+                mangohud_fps_limit: None,
             };
             match mangohud {
                 crate::mangohud::Mode::On => {
@@ -249,7 +303,33 @@ impl LaunchPlan {
                 }
                 crate::mangohud::Mode::Off => {}
             }
+            if let Some(fps) = native_cap {
+                plan.limit_native(fps, mangohud);
+            }
             plan
+        }
+    }
+
+    /// Hold a native game at `fps` with `MangoHud`'s limiter: its wrapper in
+    /// front of the game (inside Gamescope when there is one), hidden when
+    /// the game's profile does not show `MangoHud`.
+    fn limit_native(&mut self, fps: u32, mangohud: crate::mangohud::Mode) {
+        let wrapped = self.program == "mangohud" || self.args.iter().any(|a| a == "mangohud");
+        if !wrapped {
+            if let Some(sep) = self.args.iter().position(|a| a == "--") {
+                self.args.insert(sep + 1, "mangohud".into());
+            } else {
+                self.args
+                    .insert(0, std::mem::replace(&mut self.program, "mangohud".into()));
+            }
+        }
+        if mangohud == crate::mangohud::Mode::Off {
+            self.env.insert(
+                "MANGOHUD_CONFIG".into(),
+                format!("no_display,fps_limit={fps}"),
+            );
+        } else {
+            self.mangohud_fps_limit = Some(fps);
         }
     }
 
@@ -356,10 +436,43 @@ impl LaunchPlan {
         let mut cmd = std::process::Command::new(&self.program);
         cmd.args(&self.args);
         cmd.envs(&self.env);
+        if let Some(fps) = self.mangohud_fps_limit {
+            match write_capped_mangohud_config(fps) {
+                Ok(path) => {
+                    cmd.env("MANGOHUD_CONFIGFILE", path);
+                }
+                Err(e) => tracing::warn!(error = %format!("{e:#}"), "frame cap not applied"),
+            }
+        }
         in_own_process_group(&mut cmd);
         cmd.spawn()
             .with_context(|| format!("spawn '{}'", self.program))
     }
+}
+
+/// Whether BiGame-mode starts a native Linux program rather than a Windows
+/// one through Wine or Proton.
+fn is_native(executable: &str, args: &[String]) -> bool {
+    let exe = |s: &str| s.to_ascii_lowercase().ends_with(".exe");
+    !exe(executable) && !args.iter().any(|a| exe(a))
+}
+
+/// The user's `MangoHud` configuration with `fps_limit` added, written in the
+/// runtime directory for one launch.
+fn write_capped_mangohud_config(fps: u32) -> Result<std::path::PathBuf> {
+    let theirs = std::fs::read_to_string(crate::mangohud::style_path()).unwrap_or_default();
+    let kept: Vec<&str> = theirs
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("fps_limit"))
+        .collect();
+    let dir = std::env::var_os("XDG_RUNTIME_DIR")
+        .map_or_else(std::env::temp_dir, std::path::PathBuf::from)
+        .join("bigame-mode");
+    std::fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
+    let path = dir.join("mangohud-fps-limit.conf");
+    std::fs::write(&path, format!("{}\nfps_limit={fps}\n", kept.join("\n")))
+        .with_context(|| format!("write {}", path.display()))?;
+    Ok(path)
 }
 
 /// Start `cmd` as the leader of a new process group, so [`terminate`] can
@@ -751,6 +864,7 @@ mod tests {
             &video,
             None,
             Some(gamescope::Mode::Disabled),
+            crate::turbo_preset::Levers::default(),
         );
         assert_eq!(never.program, "game");
         let auto = LaunchPlan::build_on_with_mode(
@@ -761,6 +875,7 @@ mod tests {
             &video,
             None,
             Some(gamescope::Mode::Auto),
+            crate::turbo_preset::Levers::default(),
         );
         assert_eq!(
             auto.program, "gamescope",
@@ -775,6 +890,7 @@ mod tests {
             &video,
             None,
             Some(gamescope::Mode::Enabled),
+            crate::turbo_preset::Levers::default(),
         );
         assert_eq!(always.program, "gamescope");
     }
@@ -851,6 +967,92 @@ mod tests {
         let plan = build("game", &video, None);
         assert_eq!(plan.env.get("WINE_FULLSCREEN_FSR").unwrap(), "1");
         assert_eq!(plan.env.get("WINE_FULLSCREEN_FSR_MODE").unwrap(), "ultra");
+    }
+
+    #[test]
+    fn a_turbo_preset_reaches_the_games_bigame_mode_starts() {
+        use crate::turbo_preset::{Machine, Preset, levers};
+        let desktop_fsr4 = Machine {
+            vkbasalt: true,
+            fsr4: true,
+        };
+        let host = Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: ["r", "w", "h", "W", "H", "f"]
+                    .iter()
+                    .map(|f| (*f).to_owned())
+                    .collect(),
+            }),
+            session: crate::hardware::Session::Wayland,
+            offload: None,
+        };
+        let plan_with = |video: &VideoConfig, preset| {
+            LaunchPlan::build_on_with_mode(
+                &host,
+                "game",
+                &[],
+                "game",
+                video,
+                None,
+                None,
+                levers(preset, desktop_fsr4),
+            )
+        };
+        // Locked 60: the Proton caps in the environment, Gamescope's -r too,
+        // and for this native game MangoHud's limiter, hidden, inside it.
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let plan = plan_with(&video, Preset::Locked60);
+        assert_eq!(
+            plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
+            Some("60")
+        );
+        assert!(plan.env.contains_key("DXVK_CONFIG"));
+        let r = plan.args.iter().position(|a| a == "-r").expect("-r");
+        assert_eq!(plan.args[r + 1], "60");
+        let sep = plan.args.iter().position(|a| a == "--").unwrap();
+        assert_eq!(plan.args[sep + 1], "mangohud");
+        assert_eq!(
+            plan.env.get("MANGOHUD_CONFIG").map(String::as_str),
+            Some("no_display,fps_limit=60")
+        );
+        // Without Gamescope, the wrapper goes in front of the game.
+        let plan = plan_with(&VideoConfig::default(), Preset::Locked60);
+        assert_eq!(
+            (plan.program.as_str(), plan.args[0].as_str()),
+            ("mangohud", "game")
+        );
+        // A Windows game is capped by DXVK and VKD3D-Proton, not MangoHud.
+        let plan = LaunchPlan::build_on_with_mode(
+            &host,
+            "game.exe",
+            &[],
+            "game.exe",
+            &VideoConfig::default(),
+            None,
+            None,
+            levers(Preset::Locked60, desktop_fsr4),
+        );
+        assert_eq!(plan.program, "game.exe");
+        assert!(!plan.env.contains_key("MANGOHUD_CONFIG"));
+        // Enhanced over a Tuning with Wine FSR on: switched off explicitly,
+        // vkBasalt on, FSR 4 asked for.
+        let mut video = VideoConfig::default();
+        video.upscaling.wine_fsr_enabled = true;
+        let plan = plan_with(&video, Preset::Enhanced);
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(
+            plan.env.get("ENABLE_VKBASALT").map(String::as_str),
+            Some("1")
+        );
+        assert_eq!(plan.env.get("FSR4_UPGRADE").map(String::as_str), Some("1"));
+        // Standard adds nothing.
+        let plan = plan_with(&VideoConfig::default(), Preset::Standard);
+        assert!(plan.env.is_empty(), "{:?}", plan.env);
     }
 
     #[test]
@@ -1038,6 +1240,7 @@ mod tests {
             program: "sh".into(),
             args: vec!["-c".into(), "sleep 30 & wait".into()],
             env: HashMap::new(),
+            mangohud_fps_limit: None,
         };
         let mut child = plan.spawn().expect("spawn");
         let child_pid = i32::try_from(child.id()).unwrap();
@@ -1059,6 +1262,7 @@ mod tests {
             program: "sh".into(),
             args: vec!["-c".into(), "sleep 60 & echo $! > /dev/null; wait".into()],
             env: HashMap::new(),
+            mangohud_fps_limit: None,
         };
         let mut child = plan.spawn().expect("spawn");
         let pid = i32::try_from(child.id()).unwrap();

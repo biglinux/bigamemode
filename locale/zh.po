@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-27 11:09-0300\n"
+"POT-Creation-Date: 2026-09-27 17:34-0300\n"
 "PO-Revision-Date: 2026-04-20 22:28\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Chinese <zh@li.org>\n"
@@ -37,11 +37,11 @@ msgstr "“Proton” 是 falcond 为所有没有自己配置文件的 Proton 游
 msgid "%a was asked for, but %c is set"
 msgstr "请求的是 %a，但当前设置为 %c"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:987
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1078
 msgid "%c now, set by power-profiles-daemon through the power profile (available: %a)"
 msgstr "当前为 %c，由 power-profiles-daemon 通过电源配置设置（可用：%a）"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:474
+#: bigame-engine/bigame-ui/src/views/home.rs:505
 msgid "%n applied"
 msgid_plural "%n applied"
 msgstr[0] "已应用 %n 项"
@@ -56,12 +56,12 @@ msgid "%n check passed"
 msgid_plural "%n checks passed"
 msgstr[0] "%n 项检查通过"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:486
+#: bigame-engine/bigame-ui/src/views/home.rs:521
 msgid "%n conflict avoided"
 msgid_plural "%n conflicts avoided"
 msgstr[0] "已避免 %n 个冲突"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:454
+#: bigame-engine/bigame-ui/src/views/home.rs:485
 msgid "%n did not take effect — see details"
 msgid_plural "%n did not take effect — see details"
 msgstr[0] "%n 项未生效 — 查看详情"
@@ -71,7 +71,7 @@ msgid "%n error"
 msgid_plural "%n errors"
 msgstr[0] "%n 个错误"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:494
+#: bigame-engine/bigame-ui/src/views/home.rs:529
 msgid "%n failed"
 msgid_plural "%n failed"
 msgstr[0] "%n 项失败"
@@ -86,7 +86,7 @@ msgid "%n item needs attention"
 msgid_plural "%n items need attention"
 msgstr[0] "%n 项需要注意"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:478
+#: bigame-engine/bigame-ui/src/views/home.rs:513
 msgid "%n per game"
 msgid_plural "%n per game"
 msgstr[0] "%n 项按游戏"
@@ -101,12 +101,17 @@ msgid "%n profile without an installed game"
 msgid_plural "%n profiles without an installed game"
 msgstr[0] "%n 个配置文件没有对应的已安装游戏"
 
+#: bigame-engine/bigame-ui/src/views/home.rs:509
+msgid "%n restored"
+msgid_plural "%n restored"
+msgstr[0] "已恢复 %n 项"
+
 #: bigame-engine/bigame-ui/src/views/logs.rs:372
 msgid "%n shown"
 msgid_plural "%n shown"
 msgstr[0] "显示 %n 条"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:482
+#: bigame-engine/bigame-ui/src/views/home.rs:517
 msgid "%n skipped"
 msgid_plural "%n skipped"
 msgstr[0] "已跳过 %n 项"
@@ -145,7 +150,7 @@ msgstr "%s (%s)%s"
 msgid "%s + %s: %s"
 msgstr "%s + %s：%s"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:882 bigame-engine/bigame-ui/src/views/home.rs:883 bigame-engine/bigame-ui/src/views/home.rs:884
+#: bigame-engine/bigame-ui/src/views/home.rs:1036 bigame-engine/bigame-ui/src/views/home.rs:1037 bigame-engine/bigame-ui/src/views/home.rs:1038
 msgid "%s GPU"
 msgstr "%s GPU"
 
@@ -189,7 +194,7 @@ msgstr "%s 是符号链接；拒绝替换它"
 msgid "%s is not installed"
 msgstr "%s 未安装"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:207 bigame-engine/bigame-ui/src/profile_offer.rs:466 bigame-engine/bigame-ui/src/views/details/performance.rs:276
+#: bigame-engine/bigame-ui/src/profile_offer.rs:207 bigame-engine/bigame-ui/src/profile_offer.rs:470 bigame-engine/bigame-ui/src/views/details/performance.rs:276
 msgid "%s is running"
 msgstr "%s 正在运行"
 
@@ -228,6 +233,10 @@ msgstr "已在游戏设置中开启 %s"
 #: bigame-engine/bigame-core/src/graphics/plan.rs:537
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "如果游戏设置中 %s 处于关闭状态则将其开启，“恢复”时还原 — OptiScaler 会以 %s 取而代之；画质仍由你在游戏菜单中调整"
+
+#: bigame-engine/bigame-core/src/turbo.rs:529
+msgid "%s taken away: games get Tuning's settings again"
+msgstr "已移除“%s”：游戏重新采用“调优”中的设置"
 
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:103
 msgid "%s through %s (%s)"
@@ -273,7 +282,7 @@ msgstr "%s · 服务失败；原因请查看“日志”"
 msgid "%s → %s"
 msgstr "%s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:391
+#: bigame-engine/bigame-core/src/turbo.rs:395
 msgid "%s → %s: the handheld profiles run games in power-saving mode, and this machine is not a handheld"
 msgstr "%s → %s：掌机配置文件会让游戏以省电模式运行，而本机不是掌机"
 
@@ -285,7 +294,7 @@ msgstr "%s，来自 falcond 的全局设置"
 msgid "%s, by the game's profile"
 msgstr "%s，来自游戏的配置文件"
 
-#: bigame-engine/bigame-core/src/turbo.rs:348
+#: bigame-engine/bigame-core/src/turbo.rs:350
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s，因此请求调度器的游戏配置文件无法设置调度器"
 
@@ -304,6 +313,14 @@ msgstr "%s：%s %s → %s %s（变差）"
 #: bigame-engine/bigame-core/src/booster/report.rs:49
 msgid "%s: %s → %s"
 msgstr "%s：%s → %s"
+
+#: bigame-engine/bigame-core/src/turbo.rs:504
+msgid "%s: in the session's environment for every game started from now on"
+msgstr "%s：已写入会话环境，对从现在起启动的所有游戏生效"
+
+#: bigame-engine/bigame-core/src/turbo.rs:493
+msgid "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset"
+msgstr "%s：已写入会话环境。Steam 此前已经打开，会保留其启动时的环境：请关闭并重新打开 Steam，其游戏才会获得该预设"
 
 #: bigame-engine/bigame-core/src/booster/report.rs:138
 msgid "%s: no measurable change"
@@ -335,7 +352,7 @@ msgstr ""
 "\n"
 "结果如何判定：两种配置交替运行，每种配置的第一次运行会被丢弃（着色器缓存未预热时与之后的每次运行都不同），只有当差异大于同一配置重复运行之间的波动，并且在 95 % 置信水平上显著时才计入。更小的差异一律报告为无变化，绝不报告为小幅提升。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:325
+#: bigame-engine/bigame-ui/src/views/tuning.rs:416
 msgid "0 = sharpest · 20 = softest"
 msgstr "0 = 最锐利 · 20 = 最柔和"
 
@@ -351,7 +368,7 @@ msgstr "32 位 Vulkan"
 msgid "32-bit game"
 msgstr "32 位游戏"
 
-#: bigame-engine/bigame-core/src/health.rs:543 bigame-engine/bigame-core/src/health.rs:550 bigame-engine/bigame-ui/src/profile_offer.rs:405 bigame-engine/bigame-ui/src/profile_offer.rs:407 bigame-engine/bigame-ui/src/views/details/performance.rs:56 bigame-engine/bigame-ui/src/views/details/problems.rs:246 bigame-engine/bigame-ui/src/views/profile_wizard.rs:118 bigame-engine/bigame-ui/src/views/tuning.rs:217 bigame-engine/bigame-ui/src/widgets/info.rs:180 bigame-engine/bigame-ui/src/widgets/optimization.rs:1407 bigame-engine/bigame-ui/src/widgets/optimization.rs:267 bigame-engine/bigame-ui/src/widgets/optimization.rs:691
+#: bigame-engine/bigame-core/src/health.rs:543 bigame-engine/bigame-core/src/health.rs:550 bigame-engine/bigame-ui/src/profile_offer.rs:409 bigame-engine/bigame-ui/src/profile_offer.rs:411 bigame-engine/bigame-ui/src/views/details/performance.rs:56 bigame-engine/bigame-ui/src/views/details/problems.rs:246 bigame-engine/bigame-ui/src/views/profile_wizard.rs:118 bigame-engine/bigame-ui/src/views/tuning.rs:308 bigame-engine/bigame-ui/src/widgets/info.rs:180 bigame-engine/bigame-ui/src/widgets/optimization.rs:1407 bigame-engine/bigame-ui/src/widgets/optimization.rs:267 bigame-engine/bigame-ui/src/widgets/optimization.rs:691
 msgid "3D V-Cache"
 msgstr "3D V-Cache"
 
@@ -487,13 +504,17 @@ msgstr "引导式配置文件：为你选择的游戏解释每个选项"
 msgid "A highly robust, general-purpose scheduler that ensures extreme fairness. It guarantees that no background app gets 'starved' while keeping the foreground responsive."
 msgstr "一个非常稳健的通用调度器，确保极高的公平性。它保证后台应用不会“饿死”，同时保持前台响应迅速。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:455
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:468
 msgid "A look, not a speed-up: it costs a little GPU time. Evidence: libvkbasalt mapped in the game."
 msgstr "这是视觉效果，而非加速：它会消耗少量 GPU 时间。依据：游戏中已映射 libvkbasalt。"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:150
 msgid "A micro-compositor around the game: scaling, frame limit, a stable fullscreen"
 msgstr "包裹游戏的微型合成器：缩放、帧率限制、稳定的全屏"
+
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:53
+msgid "A native Linux game is capped only when BiGame-mode starts it (Profiles → Launch)."
+msgstr "原生 Linux 游戏只有在由 BiGame-mode 启动时才会被限帧（配置文件 → 启动）。"
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:108
 msgid "A sched-ext scheduler can smooth frame times in some games. Leave it on the general configuration unless a game stutters; the (i) buttons explain each choice."
@@ -519,7 +540,7 @@ msgstr "虚拟机或容器。关闭它可能会中断工作。"
 msgid "A web browser. Tabs playing video or running scripts cost the most."
 msgstr "网页浏览器。播放视频或运行脚本的标签页开销最大。"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:458 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1592 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1598 bigame-engine/bigame-ui/src/views/home.rs:787 bigame-engine/bigame-ui/src/views/profile_wizard.rs:183 bigame-engine/bigame-ui/src/views/profile_wizard.rs:485 bigame-engine/bigame-ui/src/views/profiles.rs:685
+#: bigame-engine/bigame-ui/src/profile_offer.rs:462 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1592 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1598 bigame-engine/bigame-ui/src/views/profile_wizard.rs:183 bigame-engine/bigame-ui/src/views/profile_wizard.rs:485 bigame-engine/bigame-ui/src/views/profiles.rs:685
 msgid "AI Graphics"
 msgstr "AI 图形"
 
@@ -531,7 +552,7 @@ msgstr "AI 图形 (OptiScaler)"
 msgid "AI Graphics is off for this game"
 msgstr "此游戏的 AI 图形已关闭"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:743
+#: bigame-engine/bigame-ui/src/views/tuning.rs:834
 msgid "AI Graphics is per game"
 msgstr "AI 图形按游戏设置"
 
@@ -583,7 +604,7 @@ msgstr "添加启动选项"
 msgid "Adds a login entry for your user only (~/.config/autostart). BiGame-mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "仅为你的用户添加登录启动项 (~/.config/autostart)。之后 BiGame-mode 会在托盘中运行，并可在新游戏启动时提示创建配置文件。关闭此项会删除该启动项。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:555 bigame-engine/bigame-ui/src/views/tuning.rs:909
+#: bigame-engine/bigame-ui/src/views/profiles.rs:555 bigame-engine/bigame-ui/src/views/tuning.rs:1000
 msgid "Advanced"
 msgstr "高级"
 
@@ -671,7 +692,7 @@ msgstr "已应用并生效"
 msgid "Applied and verified"
 msgstr "已应用并验证"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:114
+#: bigame-engine/bigame-ui/src/views/tuning.rs:205
 msgid "Applied by falcond while Turbo is on, and undone when it is turned off. Saved through the privileged helper."
 msgstr "Turbo 开启时由 falcond 应用，关闭时撤销。通过特权辅助程序保存。"
 
@@ -703,7 +724,7 @@ msgstr "“应用”会添加启动选项（需关闭 Steam）；之后必须重
 msgid "Apply changes"
 msgstr "应用更改"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:377
+#: bigame-engine/bigame-ui/src/profile_offer.rs:381
 msgid "Apply it in AI Graphics, with the game closed."
 msgstr "请在游戏关闭时于“AI 图形”中应用。"
 
@@ -727,7 +748,7 @@ msgstr "请求值"
 msgid "Asked for, but it cannot be switched"
 msgstr "已请求，但无法切换"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:11 bigame-engine/bigame-ui/src/gpu_reading.rs:24 bigame-engine/bigame-ui/src/views/details/gpus.rs:234
+#: bigame-engine/bigame-ui/src/gpu_reading.rs:11 bigame-engine/bigame-ui/src/gpu_reading.rs:24 bigame-engine/bigame-ui/src/views/details/gpus.rs:234 bigame-engine/bigame-ui/src/views/home.rs:1051
 msgid "Asleep"
 msgstr "休眠"
 
@@ -759,7 +780,7 @@ msgstr "自动：仅在下方此游戏自己的设置需要时"
 msgid "Available"
 msgstr "可用"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1006
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1097
 msgid "Available — falcond applies the scheduler you configure above"
 msgstr "可用 — falcond 会应用你在上方配置的调度器"
 
@@ -791,7 +812,7 @@ msgstr "后台负载"
 msgid "Backup or file sync. Usually safe to pause."
 msgstr "备份或文件同步。通常可以安全暂停。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:467
+#: bigame-engine/bigame-ui/src/views/tuning.rs:558
 msgid "Balanced"
 msgstr "平衡"
 
@@ -799,7 +820,7 @@ msgstr "平衡"
 msgid "Based on the famous CAKE networking algorithm, adapted for CPUs. It focuses on keeping task queues short and responsive under heavy system load."
 msgstr "基于著名的 CAKE 网络算法，针对 CPU 进行了改编。它专注于在系统高负载下保持任务队列短小且响应迅速。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:878
+#: bigame-engine/bigame-ui/src/views/tuning.rs:969
 msgid "Basic is one line across the top, like the Steam Deck's level 2: frame rate, frame times, CPU and GPU load and power, memory and video memory. Full is a column, like its level 3: the GPU and the CPU each with load, temperature, clock and power, then memory, frame rate and frame times. Battery appears only on a laptop. A per-game MangoHud file (wine-<game>.conf) takes precedence, and a Flatpak launcher reads its own copy."
 msgstr "“基本”是顶部的一行，类似 Steam Deck 的 2 级：帧率、帧时间、CPU 和 GPU 负载与功耗、内存和显存。“完整”是一列，类似其 3 级：GPU 和 CPU 各自的负载、温度、频率和功耗，然后是内存、帧率和帧时间。电池信息仅在笔记本上显示。每个游戏的 MangoHud 文件（wine-<game>.conf）优先，Flatpak 启动器会读取它自己的副本。"
 
@@ -827,7 +848,7 @@ msgstr "BiGame-mode 自 %s 起管理 falcond"
 msgid "BiGame-mode has no profile for this game yet. Create one tuned for this machine?"
 msgstr "BiGame-mode 还没有此游戏的配置文件。要创建一个针对本机调优的配置文件吗？"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:467
+#: bigame-engine/bigame-ui/src/profile_offer.rs:471
 msgid "BiGame-mode has no profile for this game yet. This is the profile it would create, and why each value was chosen."
 msgstr "BiGame-mode 还没有此游戏的配置文件。以下是它将创建的配置文件，以及选择每个值的原因。"
 
@@ -843,7 +864,7 @@ msgstr "BiGame-mode 辅助程序"
 msgid "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back."
 msgstr "BiGame-mode 已在此游戏中安装 OptiScaler，而按下方的选择则不再需要它。“恢复”会放回游戏自己的文件。"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:254
+#: bigame-engine/bigame-ui/src/views/home.rs:255
 msgid "BiGame-mode is not intervening in games"
 msgstr "BiGame-mode 未干预游戏"
 
@@ -891,7 +912,7 @@ msgstr "falcond 内置"
 msgid "Built-in profile"
 msgstr "内置配置文件"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:364 bigame-engine/bigame-ui/src/views/details/performance.rs:373 bigame-engine/bigame-ui/src/views/home.rs:91
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:364 bigame-engine/bigame-ui/src/views/details/performance.rs:373 bigame-engine/bigame-ui/src/views/home.rs:74
 msgid "CPU"
 msgstr "CPU"
 
@@ -903,11 +924,11 @@ msgstr "CPU 频率"
 msgid "CPU energy preference"
 msgstr "CPU 能耗偏好"
 
-#: bigame-engine/bigame-core/src/booster/knob.rs:62 bigame-engine/bigame-ui/src/views/tuning.rs:966
+#: bigame-engine/bigame-core/src/booster/knob.rs:62 bigame-engine/bigame-ui/src/views/tuning.rs:1057
 msgid "CPU governor"
 msgstr "CPU 调速器"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:397 bigame-engine/bigame-ui/src/profile_offer.rs:403 bigame-engine/bigame-ui/src/views/details/problems.rs:222 bigame-engine/bigame-ui/src/views/profile_wizard.rs:107 bigame-engine/bigame-ui/src/views/tuning.rs:138 bigame-engine/bigame-ui/src/widgets/optimization.rs:1392 bigame-engine/bigame-ui/src/widgets/optimization.rs:576
+#: bigame-engine/bigame-ui/src/profile_offer.rs:401 bigame-engine/bigame-ui/src/profile_offer.rs:407 bigame-engine/bigame-ui/src/views/details/problems.rs:222 bigame-engine/bigame-ui/src/views/profile_wizard.rs:107 bigame-engine/bigame-ui/src/views/tuning.rs:229 bigame-engine/bigame-ui/src/widgets/optimization.rs:1392 bigame-engine/bigame-ui/src/widgets/optimization.rs:576
 msgid "CPU scheduler"
 msgstr "CPU 调度器"
 
@@ -939,11 +960,11 @@ msgstr "保存时应用更改"
 msgid "Checking files…"
 msgstr "正在检查文件…"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:420
+#: bigame-engine/bigame-ui/src/views/home.rs:440
 msgid "Checking global settings"
 msgstr "正在检查全局设置"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:58
+#: bigame-engine/bigame-ui/src/views/home.rs:65
 msgid "Checking your system…"
 msgstr "正在检查你的系统…"
 
@@ -963,7 +984,7 @@ msgstr "选择要保留的一项；另一项将被关闭。"
 msgid "Choose the upscaler and frame generation yourself."
 msgstr "自行选择超分辨率工具和帧生成。"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:418
+#: bigame-engine/bigame-ui/src/views/home.rs:438
 msgid "Choosing falcond's profile set"
 msgstr "正在选择 falcond 的配置文件集"
 
@@ -987,9 +1008,13 @@ msgstr "清除启动选项"
 msgid "Clock"
 msgstr "频率"
 
-#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:274 bigame-engine/bigame-ui/src/views/measure_dialog.rs:67 bigame-engine/bigame-ui/src/widgets/error_indicator.rs:71 bigame-engine/bigame-ui/src/widgets/fg_controls.rs:49 bigame-engine/bigame-ui/src/widgets/toast.rs:43
+#: bigame-engine/bigame-ui/src/views/measure_dialog.rs:274 bigame-engine/bigame-ui/src/views/measure_dialog.rs:67 bigame-engine/bigame-ui/src/widgets/error_indicator.rs:71 bigame-engine/bigame-ui/src/widgets/fg_controls.rs:49 bigame-engine/bigame-ui/src/widgets/toast.rs:62
 msgid "Close"
 msgstr "关闭"
+
+#: bigame-engine/bigame-ui/src/views/tuning.rs:174
+msgid "Close Steam and apply"
+msgstr "关闭 Steam 并应用"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:253
 msgid "Close Steam first — it would overwrite this change when it exits."
@@ -1035,7 +1060,7 @@ msgstr "命令"
 msgid "Compatible — not yet verified in practice"
 msgstr "兼容 — 尚未经过实际验证"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:710
+#: bigame-engine/bigame-ui/src/views/tuning.rs:801
 msgid "Configuration file"
 msgstr "配置文件路径"
 
@@ -1043,7 +1068,7 @@ msgstr "配置文件路径"
 msgid "Configured"
 msgstr "已配置"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:534
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:547
 msgid "Configured for this game"
 msgstr "已为此游戏配置"
 
@@ -1059,7 +1084,7 @@ msgstr "已配置，但 lsfg-vk 未安装。"
 msgid "Configured, but no Lossless.dll is set: set its path in Tuning → Frame generation."
 msgstr "已配置，但未设置 Lossless.dll：请在“调优 → 帧生成”中设置其路径。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:674
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:687
 msgid "Configured, but not %s"
 msgstr "已配置，但未%s"
 
@@ -1075,7 +1100,7 @@ msgstr "已配置，但未安装。"
 msgid "Configured, but not loaded in the game: it loads in Vulkan and Proton games whose environment has ENABLE_VKBASALT=1."
 msgstr "已配置，但未在游戏中加载：它只会在环境中包含 ENABLE_VKBASALT=1 的 Vulkan 和 Proton 游戏中加载。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:677
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:690
 msgid "Configured, but something it needs is missing"
 msgstr "已配置，但缺少它所需的某些组件"
 
@@ -1087,11 +1112,11 @@ msgstr "已配置，但游戏并未在其中运行。请从“配置文件 → �
 msgid "Configured, but the variable is not in the game's environment. Close and reopen Steam, then start the game again."
 msgstr "已配置，但该变量不在游戏的环境中。请关闭并重新打开 Steam，然后重新启动游戏。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:673
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:686
 msgid "Configured; applies when a game starts from BiGame-mode"
 msgstr "已配置；从 BiGame-mode 启动游戏时生效"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:675
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:688
 msgid "Configured; whether it took cannot be read from outside"
 msgstr "已配置；无法从外部读取它是否生效"
 
@@ -1139,7 +1164,7 @@ msgstr "复制所显示的内容"
 msgid "Could not apply"
 msgstr "无法应用"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:895
+#: bigame-engine/bigame-ui/src/views/tuning.rs:986
 msgid "Could not change MangoHud's file"
 msgstr "无法更改 MangoHud 的文件"
 
@@ -1223,7 +1248,11 @@ msgstr "无法启动 %t：%e"
 msgid "Could not turn lsfg-vk off"
 msgstr "无法关闭 lsfg-vk"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:791
+#: bigame-engine/bigame-ui/src/views/tuning.rs:158
+msgid "Could not update Gamescope in Steam's launch options"
+msgstr "无法更新 Steam 启动选项中的 Gamescope"
+
+#: bigame-engine/bigame-ui/src/views/tuning.rs:882
 msgid "Could not update lsfg-vk's file"
 msgstr "无法更新 lsfg-vk 的文件"
 
@@ -1235,7 +1264,7 @@ msgstr "无法写入报告"
 msgid "Create Profile"
 msgstr "创建配置文件"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:213 bigame-engine/bigame-ui/src/profile_offer.rs:478 bigame-engine/bigame-ui/src/views/home.rs:594 bigame-engine/bigame-ui/src/views/profiles.rs:1080
+#: bigame-engine/bigame-ui/src/profile_offer.rs:213 bigame-engine/bigame-ui/src/profile_offer.rs:482 bigame-engine/bigame-ui/src/views/home.rs:746 bigame-engine/bigame-ui/src/views/profiles.rs:1080
 msgid "Create profile"
 msgstr "创建配置文件"
 
@@ -1311,7 +1340,7 @@ msgstr "DNS 解析器对比"
 msgid "Dark"
 msgstr "深色"
 
-#: bigame-engine/bigame-core/src/optimization.rs:50 bigame-engine/bigame-ui/src/views/settings.rs:55 bigame-engine/bigame-ui/src/views/tuning.rs:856
+#: bigame-engine/bigame-core/src/optimization.rs:50 bigame-engine/bigame-ui/src/views/settings.rs:55 bigame-engine/bigame-ui/src/views/tuning.rs:947
 msgid "Default"
 msgstr "默认"
 
@@ -1355,7 +1384,7 @@ msgstr "旨在消除不必要的 CPU “时钟节拍”（定时器唤醒）。�
 msgid "Desktop"
 msgstr "桌面"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:949
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1040
 msgid "Desktop (none) is the one for a PC at a desk"
 msgstr "“桌面”（none）适用于放在桌前使用的 PC"
 
@@ -1363,7 +1392,7 @@ msgstr "“桌面”（none）适用于放在桌前使用的 PC"
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "在游戏配置文件应用和恢复时显示桌面通知。配置文件提示在上方单独控制。"
 
-#: bigame-engine/bigame-ui/src/widgets/toast.rs:35 bigame-engine/bigame-ui/src/widgets/tutorial.rs:87 bigame-engine/bigame-ui/src/window.rs:147
+#: bigame-engine/bigame-ui/src/widgets/toast.rs:54 bigame-engine/bigame-ui/src/widgets/tutorial.rs:87 bigame-engine/bigame-ui/src/window.rs:147
 msgid "Details"
 msgstr "详情"
 
@@ -1371,7 +1400,7 @@ msgstr "详情"
 msgid "Detect again"
 msgstr "重新检测"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:331 bigame-engine/bigame-ui/src/views/details/pipeline.rs:396 bigame-engine/bigame-ui/src/views/details/pipeline.rs:445 bigame-engine/bigame-ui/src/views/details/pipeline.rs:493 bigame-engine/bigame-ui/src/views/details/pipeline.rs:542
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:331 bigame-engine/bigame-ui/src/views/details/pipeline.rs:396 bigame-engine/bigame-ui/src/views/details/pipeline.rs:445 bigame-engine/bigame-ui/src/views/details/pipeline.rs:506 bigame-engine/bigame-ui/src/views/details/pipeline.rs:555
 msgid "Detected in the game"
 msgstr "已在游戏中检测到"
 
@@ -1391,7 +1420,7 @@ msgstr "未生效"
 msgid "Disk I/O"
 msgstr "磁盘 I/O"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68 bigame-engine/bigame-ui/src/views/tuning.rs:254
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68 bigame-engine/bigame-ui/src/views/tuning.rs:345
 msgid "Display"
 msgstr "显示"
 
@@ -1403,7 +1432,7 @@ msgstr "显示层"
 msgid "Don't ask again"
 msgstr "不再询问"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:460
+#: bigame-engine/bigame-ui/src/profile_offer.rs:464
 msgid "Don't ask again for this game"
 msgstr "不再为此游戏询问"
 
@@ -1415,7 +1444,7 @@ msgstr "正在下载、检查并安装…"
 msgid "Dynamic gaming performance orchestration for BigLinux"
 msgstr "BigLinux 的动态游戏性能编排"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:818
+#: bigame-engine/bigame-ui/src/views/tuning.rs:909
 msgid "Each game's frame generation is in its profile"
 msgstr "每个游戏的帧生成在其配置文件中设置"
 
@@ -1439,6 +1468,10 @@ msgstr "编辑配置文件"
 msgid "Encoding or transcoding media."
 msgstr "正在编码或转码媒体。"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:69
+msgid "Enhanced graphics"
+msgstr "增强画质"
+
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:88
 msgid ""
 "Enter the exact name of the executable you want to trigger this profile.\n"
@@ -1447,7 +1480,7 @@ msgstr ""
 "输入要触发此配置文件的可执行文件的确切名称。\n"
 "示例：minecraft、dota2、steam"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1028
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1119
 msgid "Environment file"
 msgstr "环境文件"
 
@@ -1479,7 +1512,7 @@ msgstr "游戏配置文件所做的所有更改均已还原。"
 msgid "Evidence: /sys/kernel/sched_ext (what the kernel runs), falcond's status (what it asked), the installed scx_* binaries."
 msgstr "依据：/sys/kernel/sched_ext（内核正在运行的）、falcond 的状态（它所请求的）、已安装的 scx_* 程序。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:601
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:614
 msgid "Evidence: OptiScaler's log in the game folder, written since the process started, and the DLLs the game mapped."
 msgstr "依据：游戏文件夹中自进程启动以来写入的 OptiScaler 日志，以及游戏映射的 DLL。"
 
@@ -1491,7 +1524,7 @@ msgstr "依据：falcond 自身的状态文件，每隔几秒读取一次并监�
 msgid "Evidence: the parent processes of the game."
 msgstr "依据：游戏的父进程。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1079
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1170
 msgid "Example command line"
 msgstr "示例命令行"
 
@@ -1543,10 +1576,6 @@ msgstr "FSR 2"
 msgid "FSR 4 (game's own)"
 msgstr "FSR 4（游戏自带）"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:773
-msgid "FSR 4 (the game's own, Proton's provider loaded)"
-msgstr "FSR 4（游戏自带，已加载 Proton 的提供者）"
-
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:568
 msgid "FSR 4 available with the launch option FSR4_UPGRADE=1"
 msgstr "使用启动选项 FSR4_UPGRADE=1 即可使用 FSR 4"
@@ -1571,15 +1600,11 @@ msgstr "FSR 4 提供者"
 msgid "FSR 4 provider loaded in the running game"
 msgstr "FSR 4 提供者已在运行中的游戏里加载"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:777
-msgid "FSR off in the game's menu (FSR 4 provider not loaded)"
-msgstr "游戏菜单中 FSR 已关闭（未加载 FSR 4 提供者）"
-
 #: bigame-engine/bigame-core/src/graphics/backend.rs:289
 msgid "FSR path"
 msgstr "FSR 路径"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:324
+#: bigame-engine/bigame-ui/src/views/tuning.rs:415
 msgid "FSR sharpness"
 msgstr "FSR 锐度"
 
@@ -1591,7 +1616,7 @@ msgstr "FSR 超分辨率滤镜"
 msgid "Fact"
 msgstr "已证实"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:120 bigame-engine/bigame-ui/src/views/ai_graphics.rs:427 bigame-engine/bigame-ui/src/views/ai_graphics.rs:684 bigame-engine/bigame-ui/src/views/details/pipeline.rs:679
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:120 bigame-engine/bigame-ui/src/views/ai_graphics.rs:427 bigame-engine/bigame-ui/src/views/ai_graphics.rs:684 bigame-engine/bigame-ui/src/views/details/pipeline.rs:692
 msgid "Failed"
 msgstr "失败"
 
@@ -1647,15 +1672,15 @@ msgstr "跟随调优"
 msgid "Follows Tuning: %s"
 msgstr "跟随调优：%s"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:547
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:560
 msgid "For a Steam game the choice is written into Steam's launch options, with Steam closed; Steam started before the change keeps the old options."
 msgstr "对于 Steam 游戏，此选择会在 Steam 关闭时写入 Steam 的启动选项；在更改之前已启动的 Steam 会保留旧选项。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:255
+#: bigame-engine/bigame-ui/src/views/tuning.rs:346
 msgid "For games started from BiGame-mode (Profiles → Launch). A game's profile can force Gamescope on or off."
 msgstr "适用于从 BiGame-mode 启动的游戏（配置文件 → 启动）。游戏的配置文件可以强制开启或关闭 Gamescope。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:473
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:486
 msgid "For this game"
 msgstr "针对此游戏"
 
@@ -1663,7 +1688,7 @@ msgstr "针对此游戏"
 msgid "Forced"
 msgstr "强制"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:530
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:543
 msgid "Forced (wrapper)"
 msgstr "强制（包装器）"
 
@@ -1675,7 +1700,7 @@ msgstr "在游戏旁边找到"
 msgid "Frame Generation"
 msgstr "帧生成"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1023 bigame-engine/bigame-ui/src/views/details/overview.rs:39 bigame-engine/bigame-ui/src/views/details/pipeline.rs:65 bigame-engine/bigame-ui/src/views/details/problems.rs:282 bigame-engine/bigame-ui/src/views/tuning.rs:757 bigame-engine/bigame-ui/src/widgets/optimization.rs:1437
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1023 bigame-engine/bigame-ui/src/views/details/overview.rs:39 bigame-engine/bigame-ui/src/views/details/pipeline.rs:65 bigame-engine/bigame-ui/src/views/details/problems.rs:282 bigame-engine/bigame-ui/src/views/home.rs:986 bigame-engine/bigame-ui/src/views/tuning.rs:848 bigame-engine/bigame-ui/src/widgets/optimization.rs:1437
 msgid "Frame generation"
 msgstr "帧生成"
 
@@ -1695,7 +1720,7 @@ msgstr "每个渲染帧显示的帧数"
 msgid "Frequency CCD"
 msgstr "频率 CCD"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:225 bigame-engine/bigame-core/src/graphics/backend.rs:231 bigame-engine/bigame-core/src/graphics/backend.rs:241 bigame-engine/bigame-core/src/graphics/backend.rs:252 bigame-engine/bigame-core/src/graphics/diagnose.rs:117 bigame-engine/bigame-core/src/graphics/diagnose.rs:136 bigame-engine/bigame-core/src/health.rs:471 bigame-engine/bigame-ui/src/views/details/overview.rs:36 bigame-engine/bigame-ui/src/views/details/telemetry.rs:60 bigame-engine/bigame-ui/src/views/home.rs:92
+#: bigame-engine/bigame-core/src/graphics/backend.rs:225 bigame-engine/bigame-core/src/graphics/backend.rs:231 bigame-engine/bigame-core/src/graphics/backend.rs:241 bigame-engine/bigame-core/src/graphics/backend.rs:252 bigame-engine/bigame-core/src/graphics/diagnose.rs:117 bigame-engine/bigame-core/src/graphics/diagnose.rs:136 bigame-engine/bigame-core/src/health.rs:471 bigame-engine/bigame-ui/src/views/details/overview.rs:36 bigame-engine/bigame-ui/src/views/details/telemetry.rs:60 bigame-engine/bigame-ui/src/views/home.rs:75
 msgid "GPU"
 msgstr "GPU"
 
@@ -1747,7 +1772,7 @@ msgstr "游戏配置文件"
 msgid "Gamer"
 msgstr "玩家风格"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:252
+#: bigame-engine/bigame-ui/src/views/home.rs:253
 msgid "Games are optimized as they start"
 msgstr "游戏启动时即进行优化"
 
@@ -1767,11 +1792,19 @@ msgstr "游戏优先使用没有额外缓存、频率更高的 CCD。适合少�
 msgid "Games render here"
 msgstr "游戏在此渲染"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:77
+msgid "Games run with Tuning as it is; the preset changes nothing."
+msgstr "游戏按“调优”的现有设置运行；该预设不做任何更改。"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:845
+msgid "Games run without BiGame-mode's optimizations."
+msgstr "游戏在没有 BiGame-mode 优化的情况下运行。"
+
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:143
 msgid "Games run without BiGame-mode's optimizations. Turn Turbo on at Home."
 msgstr "游戏在没有 BiGame-mode 优化的情况下运行。请在“主页”开启 Turbo。"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:633
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:646
 msgid "Games with files installed"
 msgstr "已安装文件的游戏"
 
@@ -1779,7 +1812,7 @@ msgstr "已安装文件的游戏"
 msgid "Gamescope"
 msgstr "Gamescope"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:146 bigame-engine/bigame-ui/src/views/tuning.rs:1043 bigame-engine/bigame-ui/src/views/tuning.rs:1056
+#: bigame-engine/bigame-core/src/gamescope.rs:146 bigame-engine/bigame-ui/src/views/tuning.rs:1134 bigame-engine/bigame-ui/src/views/tuning.rs:1147
 msgid "Gamescope is not installed"
 msgstr "Gamescope 未安装"
 
@@ -1791,7 +1824,7 @@ msgstr "此游戏已关闭 Gamescope"
 msgid "Gamescope is turned on for this game"
 msgstr "此游戏已开启 Gamescope"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1039
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1130
 msgid "Gamescope options this build accepts"
 msgstr "此版本支持的 Gamescope 选项"
 
@@ -1815,6 +1848,10 @@ msgstr "Gamescope 以低于输出的分辨率渲染，而 OptiScaler 也在进�
 msgid "Gamescope resolution needs both width and height"
 msgstr "Gamescope 分辨率需要同时设置宽度和高度"
 
+#: bigame-engine/bigame-ui/src/views/tuning.rs:165
+msgid "Gamescope updated in Steam's launch options: %s"
+msgstr "已更新 Steam 启动选项中的 Gamescope：%s"
+
 #: bigame-engine/bigame-core/src/graphics/rules.rs:61 bigame-engine/bigame-core/src/optimization.rs:281
 msgid "Gamescope upscaling"
 msgstr "Gamescope 超分辨率"
@@ -1823,7 +1860,7 @@ msgstr "Gamescope 超分辨率"
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "此游戏使用 Gamescope 超分辨率：两个超分辨率工具串联"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:638
+#: bigame-engine/bigame-ui/src/views/tuning.rs:729
 msgid "Gamescope upscaling is on; Wine FSR was turned off"
 msgstr "Gamescope 超分辨率已开启；Wine FSR 已关闭"
 
@@ -1879,7 +1916,7 @@ msgstr "从其官方页面获取"
 msgid "GitHub lists no stable OptiScaler release with a checksum"
 msgstr "GitHub 上没有附带校验和的 OptiScaler 稳定版本"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:469
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:482
 msgid "Global switch (Tuning)"
 msgstr "全局开关（调优）"
 
@@ -1971,11 +2008,11 @@ msgstr "Heroic 中 %s 的设置不是对象"
 msgid "Home"
 msgstr "主页"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:913
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1004
 msgid "How it looks for games, and which profile set it uses"
 msgstr "它如何查找游戏，以及使用哪个配置文件集"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:930
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1021
 msgid "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000."
 msgstr "falcond 查找运行中游戏的频率。值越低反应越快，但开销越大；默认值为 9000。"
 
@@ -1987,7 +2024,7 @@ msgstr "如何做出此决定"
 msgid "Hybrid graphics"
 msgstr "混合显卡"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:682 bigame-engine/bigame-ui/src/views/tuning.rs:440
+#: bigame-engine/bigame-ui/src/views/profiles.rs:682 bigame-engine/bigame-ui/src/views/tuning.rs:531
 msgid "Image quality"
 msgstr "画质"
 
@@ -2019,7 +2056,7 @@ msgstr ""
 msgid "In series"
 msgstr "串联"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:911 bigame-engine/bigame-ui/src/views/home.rs:782
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:911
 msgid "In the game"
 msgstr "在游戏中"
 
@@ -2035,7 +2072,7 @@ msgstr "在后台索引文件。通常可以安全暂停。"
 msgid "Information"
 msgstr "信息"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:59
+#: data/com.biglinux.BiGameMode.metainfo.xml:64
 msgid "Initial release with dashboard, profiles, tuning, and gamescope panels."
 msgstr "首个版本，包含仪表盘、配置文件、调优和 gamescope 面板。"
 
@@ -2055,7 +2092,7 @@ msgstr "安装缺失的软件包"
 msgid "Install missing packages with your package manager"
 msgstr "使用你的软件包管理器安装缺失的软件包"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:317 bigame-engine/bigame-ui/src/views/details/pipeline.rs:335 bigame-engine/bigame-ui/src/views/details/pipeline.rs:538 bigame-engine/bigame-ui/src/views/profiles.rs:698 bigame-engine/bigame-ui/src/views/tuning.rs:1018
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:317 bigame-engine/bigame-ui/src/views/details/pipeline.rs:335 bigame-engine/bigame-ui/src/views/details/pipeline.rs:551 bigame-engine/bigame-ui/src/views/profiles.rs:698 bigame-engine/bigame-ui/src/views/tuning.rs:1109
 msgid "Installed"
 msgstr "已安装"
 
@@ -2079,7 +2116,7 @@ msgstr "已安装 — 游戏启动时生效"
 msgid "Installed, but the game did not load it"
 msgstr "已安装，但游戏未加载它"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:843
+#: bigame-engine/bigame-ui/src/views/tuning.rs:934
 msgid "Installed. Shown per game, from its profile (Off, On, Forced); Details says whether it loaded in the running game."
 msgstr "已安装。按游戏根据其配置文件显示（关闭、开启、强制）；“详情”会说明它是否已在运行中的游戏里加载。"
 
@@ -2087,7 +2124,7 @@ msgstr "已安装。按游戏根据其配置文件显示（关闭、开启、强
 msgid "Installed; every replaced file was backed up"
 msgstr "已安装；所有被替换的文件均已备份"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:298
+#: bigame-engine/bigame-ui/src/views/tuning.rs:389
 msgid "Integer scaling"
 msgstr "整数缩放"
 
@@ -2102,6 +2139,10 @@ msgstr "界面主题"
 #: bigame-engine/bigame-core/src/health.rs:629
 msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and BiGame-mode does not change firmware settings"
 msgstr "它在计算机固件中设置（Above 4G Decoding 和 Re-Size BAR）。有些游戏能从中受益；尚未在本机上测量过，并且 BiGame-mode 不会更改固件设置"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:591
+msgid "It keeps the environment it started with, so its games get the preset once Steam is opened again. Opening it again closes it the way it closes itself."
+msgstr "它会保留启动时的环境，因此重新打开 Steam 后，其游戏才会获得该预设。重新打开时，会以 Steam 自行关闭的方式将其关闭。"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:422
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
@@ -2119,7 +2160,7 @@ msgstr "其日志显示"
 msgid "Its status file could not be read. See Problems below."
 msgstr "无法读取其状态文件。请查看下方的“问题”。"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1235 bigame-engine/bigame-ui/src/views/tuning.rs:547 bigame-engine/bigame-ui/src/widgets/notice.rs:199 bigame-engine/bigame-ui/src/widgets/optimization.rs:1147
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1235 bigame-engine/bigame-ui/src/views/tuning.rs:638 bigame-engine/bigame-ui/src/widgets/notice.rs:199 bigame-engine/bigame-ui/src/widgets/optimization.rs:1147
 msgid "Keep %s"
 msgstr "保留 %s"
 
@@ -2127,7 +2168,7 @@ msgstr "保留 %s"
 msgid "Keep one version"
 msgstr "保留一个版本"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:408 bigame-engine/bigame-ui/src/widgets/optimization.rs:1388 bigame-engine/bigame-ui/src/widgets/optimization.rs:537
+#: bigame-engine/bigame-ui/src/profile_offer.rs:412 bigame-engine/bigame-ui/src/widgets/optimization.rs:1388 bigame-engine/bigame-ui/src/widgets/optimization.rs:537
 msgid "Keep the screen awake"
 msgstr "保持屏幕常亮"
 
@@ -2187,7 +2228,7 @@ msgstr "启动选项已清除"
 msgid "Launcher"
 msgstr "启动器"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:441 bigame-engine/bigame-ui/src/views/details/pipeline.rs:481
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:441 bigame-engine/bigame-ui/src/views/details/pipeline.rs:494
 msgid "Layer installed"
 msgstr "层已安装"
 
@@ -2219,6 +2260,10 @@ msgstr "负载"
 msgid "Loaded"
 msgstr "已加载"
 
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:464
+msgid "Loaded in the Gamescope around the game, not in the game: Gamescope took ENABLE_VKBASALT for itself, so the filter applies to the image it composites, after its own scaling."
+msgstr "加载在包裹游戏的 Gamescope 中，而不是游戏中：Gamescope 把 ENABLE_VKBASALT 留给了自己，因此滤镜作用于它合成的图像，在它自身的缩放之后。"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:680
 msgid "Loaded in the game — the pass has not reported yet"
 msgstr "已在游戏中加载 — 该处理过程尚未报告"
@@ -2227,13 +2272,17 @@ msgstr "已在游戏中加载 — 该处理过程尚未报告"
 msgid "Loaded now"
 msgstr "当前已加载"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:139 bigame-engine/bigame-ui/src/views/tuning.rs:168
+#: bigame-engine/bigame-ui/src/views/tuning.rs:230 bigame-engine/bigame-ui/src/views/tuning.rs:259
 msgid "Loaded while Turbo is on. A game whose profile names another scheduler switches to it while it runs."
 msgstr "Turbo 开启时加载。配置文件指定了其他调度器的游戏会在运行期间切换到该调度器。"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:106 bigame-engine/bigame-ui/src/views/ai_graphics.rs:418
 msgid "Loaded — choose the upscaler named in the steps in the game's graphics menu"
 msgstr "已加载 — 请在游戏的图形菜单中选择步骤中指定的超分辨率工具"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:68
+msgid "Locked 60 FPS"
+msgstr "锁定 60 FPS"
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:409
 msgid "Log exported"
@@ -2259,7 +2308,7 @@ msgstr ""
 "Lossless Scaling 是专有软件。\n"
 "点击访问 losslessscaling.com"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:485
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:498
 msgid "Lossless.dll"
 msgstr "Lossless.dll"
 
@@ -2375,9 +2424,13 @@ msgstr "缺失的软件包"
 msgid "Mode %s applied"
 msgstr "已应用模式 %s"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:296 bigame-engine/bigame-ui/src/views/tuning.rs:832
+#: bigame-engine/bigame-ui/src/views/settings.rs:296 bigame-engine/bigame-ui/src/views/tuning.rs:923
 msgid "Monitoring"
 msgstr "监控"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:67
+msgid "More FPS"
+msgstr "更高 FPS"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:477
 msgid "More frames shown, not rendered; adds latency"
@@ -2407,7 +2460,7 @@ msgstr "倍数"
 msgid "Multiplier, flow scale, HDR and present mode"
 msgstr "倍数、流缩放、HDR 和呈现模式"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:857
+#: bigame-engine/bigame-ui/src/views/tuning.rs:948
 msgid "My own file"
 msgstr "我自己的文件"
 
@@ -2419,7 +2472,7 @@ msgstr "不适用"
 msgid "NVIDIA PRIME render offload"
 msgstr "NVIDIA PRIME 渲染卸载"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:251 bigame-engine/bigame-ui/src/views/home.rs:690 bigame-engine/bigame-ui/src/views/profiles.rs:1060
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:251 bigame-engine/bigame-ui/src/views/home.rs:892 bigame-engine/bigame-ui/src/views/profiles.rs:1060
 msgid "Native"
 msgstr "原生"
 
@@ -2431,7 +2484,7 @@ msgstr "需要游戏的安装文件夹，但其启动器没有记录"
 msgid "Needs you"
 msgstr "需要你处理"
 
-#: bigame-engine/bigame-ui/src/views/details/extras.rs:284 bigame-engine/bigame-ui/src/views/home.rs:93
+#: bigame-engine/bigame-ui/src/views/details/extras.rs:284 bigame-engine/bigame-ui/src/views/home.rs:76
 msgid "Network"
 msgstr "网络"
 
@@ -2483,13 +2536,17 @@ msgstr "未找到 GPU"
 msgid "No change"
 msgstr "无变化"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:985
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1076
 msgid "No cpufreq driver reports a governor"
 msgstr "没有 cpufreq 驱动报告调速器"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:342
 msgid "No default route — this machine is offline"
 msgstr "没有默认路由 — 本机处于离线状态"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:78
+msgid "No frame cap and no image filter. Wine FSR scales a game you run in fullscreen below the display's resolution: lowering the resolution in the game is where the frames come from."
+msgstr "不限帧，也不使用图像滤镜。Wine FSR 会放大以低于显示器分辨率的全屏模式运行的游戏：帧数的提升正来自降低游戏内的分辨率。"
 
 #: bigame-engine/bigame-ui/src/widgets/game_card.rs:355
 msgid "No game executable was found, so this profile may not match the running game."
@@ -2519,13 +2576,9 @@ msgstr "此视图没有可用的帮助。"
 msgid "No preference asked for"
 msgstr "未请求任何偏好"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:811
-msgid "No profile is active for this game"
-msgstr "此游戏没有活动的配置文件"
-
-#: bigame-engine/bigame-ui/src/views/home.rs:807
-msgid "No profile of its own yet · using falcond's general Proton profile"
-msgstr "尚无自己的配置文件 · 正在使用 falcond 的通用 Proton 配置文件"
+#: bigame-engine/bigame-ui/src/views/home.rs:961
+msgid "No profile"
+msgstr "无配置文件"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:93
 msgid "No program of yours is using a noticeable share."
@@ -2591,7 +2644,7 @@ msgstr "在本机上不可用"
 msgid "Not available on this system"
 msgstr "此系统上不可用"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:676
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:689
 msgid "Not configured"
 msgstr "未配置"
 
@@ -2603,19 +2656,19 @@ msgstr "未检测到"
 msgid "Not installed"
 msgstr "未安装"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:761 bigame-engine/bigame-ui/src/widgets/optimization.rs:1048
+#: bigame-engine/bigame-ui/src/views/tuning.rs:852 bigame-engine/bigame-ui/src/widgets/optimization.rs:1048
 msgid "Not installed. Generates extra frames between rendered ones (Lossless Scaling's method, as a Vulkan layer). It needs your own Lossless.dll."
 msgstr "未安装。在渲染帧之间生成额外的帧（Lossless Scaling 的方法，以 Vulkan 层实现）。它需要你自己的 Lossless.dll。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:262 bigame-engine/bigame-ui/src/widgets/optimization.rs:761
+#: bigame-engine/bigame-ui/src/views/tuning.rs:353 bigame-engine/bigame-ui/src/widgets/optimization.rs:761
 msgid "Not installed. It wraps the game in a micro-compositor: scaling, a frame limit, a stable fullscreen."
 msgstr "未安装。它将游戏包裹在一个微型合成器中：缩放、帧率限制、稳定的全屏。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:836 bigame-engine/bigame-ui/src/widgets/optimization.rs:1262
+#: bigame-engine/bigame-ui/src/views/tuning.rs:927 bigame-engine/bigame-ui/src/widgets/optimization.rs:1262
 msgid "Not installed. The performance overlay; it also captures the frametimes Measure the difference uses."
 msgstr "未安装。性能覆盖层；它还会采集“测量差异”所使用的帧时间。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:734
+#: bigame-engine/bigame-ui/src/views/tuning.rs:825
 msgid "Not installed. Visual filters (sharpening, colour) for Vulkan and Proton games."
 msgstr "未安装。适用于 Vulkan 和 Proton 游戏的视觉滤镜（锐化、色彩）。"
 
@@ -2623,7 +2676,7 @@ msgstr "未安装。适用于 Vulkan 和 Proton 游戏的视觉滤镜（锐化�
 msgid "Not needed for the upscaling above. A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project BiGame-mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton."
 msgstr "上方的超分辨率不需要它。通过 DLSS-NR-on-AMD 对游戏自带的 FSR 输出进行神经处理 — 这是一个外部项目，BiGame-mode 不会分发、安装或移除它。实验性：仅有 Windows 下的文档，在 Proton 下尚未确认可用。"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:477 bigame-engine/bigame-ui/src/views/profile_wizard.rs:175 bigame-engine/bigame-ui/src/views/profile_wizard.rs:489
+#: bigame-engine/bigame-ui/src/profile_offer.rs:481 bigame-engine/bigame-ui/src/views/profile_wizard.rs:175 bigame-engine/bigame-ui/src/views/profile_wizard.rs:489
 msgid "Not now"
 msgstr "暂不"
 
@@ -2647,15 +2700,15 @@ msgstr "驱动未报告"
 msgid "Not set up"
 msgstr "未设置"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:405 bigame-engine/bigame-ui/src/widgets/status.rs:25
+#: bigame-engine/bigame-ui/src/profile_offer.rs:409 bigame-engine/bigame-ui/src/widgets/status.rs:25
 msgid "Not supported"
 msgstr "不支持"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1087
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1178
 msgid "Not supported by this Gamescope"
 msgstr "此版本 Gamescope 不支持"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:678
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:691
 msgid "Not supported here"
 msgstr "此处不支持"
 
@@ -2687,7 +2740,7 @@ msgstr "BiGame-mode 不做任何改动：使用游戏自身的图形"
 msgid "Nothing installed"
 msgstr "未安装任何内容"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:568
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:581
 msgid "Nothing installed for the running game"
 msgstr "未为运行中的游戏安装任何内容"
 
@@ -2723,11 +2776,11 @@ msgstr "未做任何更改"
 msgid "Notifications"
 msgstr "通知"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:163
+#: bigame-engine/bigame-ui/src/views/tuning.rs:254
 msgid "Now: %s"
 msgstr "当前：%s"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:164
+#: bigame-engine/bigame-ui/src/views/tuning.rs:255
 msgid "Now: the kernel's own scheduler"
 msgstr "当前：内核自带的调度器"
 
@@ -2735,7 +2788,7 @@ msgstr "当前：内核自带的调度器"
 msgid "OK"
 msgstr "正常"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:392 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1021 bigame-engine/bigame-ui/src/views/ai_graphics.rs:475 bigame-engine/bigame-ui/src/views/details/pipeline.rs:528 bigame-engine/bigame-ui/src/widgets/optimization.rs:1274 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1383 bigame-engine/bigame-ui/src/widgets/optimization.rs:1443 bigame-engine/bigame-ui/src/widgets/optimization.rs:1450 bigame-engine/bigame-ui/src/widgets/optimization.rs:487 bigame-engine/bigame-ui/src/widgets/status.rs:23
+#: bigame-engine/bigame-ui/src/profile_offer.rs:396 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1021 bigame-engine/bigame-ui/src/views/ai_graphics.rs:475 bigame-engine/bigame-ui/src/views/details/pipeline.rs:541 bigame-engine/bigame-ui/src/widgets/optimization.rs:1274 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1383 bigame-engine/bigame-ui/src/widgets/optimization.rs:1443 bigame-engine/bigame-ui/src/widgets/optimization.rs:1450 bigame-engine/bigame-ui/src/widgets/optimization.rs:487 bigame-engine/bigame-ui/src/widgets/status.rs:23
 msgid "Off"
 msgstr "关闭"
 
@@ -2759,7 +2812,7 @@ msgstr "关闭：使用调优中的尺寸和滤镜"
 msgid "Offer a profile for new games"
 msgstr "为新游戏提示创建配置文件"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:920
+#: bigame-engine/bigame-ui/src/views/home.rs:1064
 msgid "Offline"
 msgstr "离线"
 
@@ -2767,11 +2820,11 @@ msgstr "离线"
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "旧版本以游戏标题命名配置文件，falcond 永远无法匹配这些名称，而且还存储了 falcond 会忽略的设置。修复会将每个配置文件重命名为游戏的真实进程名，并只保留 falcond 的设置。每个配置文件都会先备份到 ~/.local/state/bigame-mode。falcond 自己的配置文件绝不会被改动。"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:392 bigame-engine/bigame-ui/src/widgets/optimization.rs:1275 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1382 bigame-engine/bigame-ui/src/widgets/optimization.rs:1451 bigame-engine/bigame-ui/src/widgets/optimization.rs:487
+#: bigame-engine/bigame-ui/src/profile_offer.rs:396 bigame-engine/bigame-ui/src/widgets/optimization.rs:1275 bigame-engine/bigame-ui/src/widgets/optimization.rs:1377 bigame-engine/bigame-ui/src/widgets/optimization.rs:1382 bigame-engine/bigame-ui/src/widgets/optimization.rs:1451 bigame-engine/bigame-ui/src/widgets/optimization.rs:487
 msgid "On"
 msgstr "开启"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:529
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:542
 msgid "On (Vulkan layer)"
 msgstr "开启（Vulkan 层）"
 
@@ -2815,7 +2868,7 @@ msgstr "仅适用于此游戏。保留为“通用配置”的选项跟随调优
 msgid "Only the look changes: every page works the same"
 msgstr "只改变外观：所有页面的功能不变"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:649 bigame-engine/bigame-ui/src/views/profiles.rs:705
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:662 bigame-engine/bigame-ui/src/views/profiles.rs:705
 msgid "Open"
 msgstr "打开"
 
@@ -2871,7 +2924,7 @@ msgstr "OptiScaler 只适用于 64 位游戏；只能使用游戏自身的选项
 msgid "OptiScaler frame generation"
 msgstr "OptiScaler 帧生成"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:518
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:531
 msgid "OptiScaler generates this game's frames, so lsfg-vk is turned off for its launch: two frame generators never run in series."
 msgstr "OptiScaler 正在为此游戏生成帧，因此启动时会为其关闭 lsfg-vk：绝不串联运行两个帧生成器。"
 
@@ -2887,7 +2940,7 @@ msgstr "OptiScaler 以 DLL 形式加载到游戏中；反作弊可能因此封�
 msgid "OptiScaler is loaded into the game as a DLL; its own documentation says not to use it in online games, and anti-cheat can ban for it"
 msgstr "OptiScaler 以 DLL 形式加载到游戏中；其自身文档说明不要在在线游戏中使用，反作弊可能因此封号"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:597
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:610
 msgid "OptiScaler loaded but created no upscaler: the game's own upscaler that it takes over is off. Choose it in the game's graphics menu (the plan names it), or open the game's AI Graphics and apply again."
 msgstr "OptiScaler 已加载，但未创建超分辨率：它所接管的游戏自带超分辨率处于关闭状态。请在游戏的图形菜单中选择它（方案中已指明），或打开该游戏的“AI 图形”并重新应用。"
 
@@ -2899,7 +2952,7 @@ msgstr "OptiScaler 需要 dxgi.dll；请移除此文件，或通过 OptiScaler �
 msgid "OptiScaler replaces an upscaler the game already has; this game ships none"
 msgstr "OptiScaler 替换的是游戏已有的超分辨率；此游戏没有自带任何超分辨率"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:587
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:600
 msgid "OptiScaler runs FSR, XeSS or DLSS in place of the upscaler the game already has, and can generate frames. It is installed per game, with every replaced file backed up."
 msgstr "OptiScaler 以 FSR、XeSS 或 DLSS 取代游戏已有的超分辨率，并可生成帧。它按游戏安装，所有被替换的文件都会备份。"
 
@@ -2975,7 +3028,7 @@ msgstr "优化"
 msgid "Optimize a game from its card to create one."
 msgstr "从游戏卡片进行优化即可创建。"
 
-#: bigame-engine/bigame-ui/src/views/details/overview.rs:152 bigame-engine/bigame-ui/src/views/home.rs:410
+#: bigame-engine/bigame-ui/src/views/details/overview.rs:152 bigame-engine/bigame-ui/src/views/home.rs:430
 msgid "Optimizing %s"
 msgstr "正在优化 %s"
 
@@ -2991,11 +3044,11 @@ msgstr "将任务组织为严格的优先级层级。高优先级任务保证先
 msgid "Outcome"
 msgstr "结果"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:340
+#: bigame-engine/bigame-ui/src/views/tuning.rs:431
 msgid "Output size"
 msgstr "输出尺寸"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:860 bigame-engine/bigame-ui/src/views/tuning.rs:877
+#: bigame-engine/bigame-ui/src/views/tuning.rs:951 bigame-engine/bigame-ui/src/views/tuning.rs:968
 msgid "Overlay style"
 msgstr "覆盖层样式"
 
@@ -3011,11 +3064,11 @@ msgstr "P99 帧时间"
 msgid "Path to Lossless.dll"
 msgstr "Lossless.dll 路径"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:850
+#: bigame-engine/bigame-ui/src/views/tuning.rs:941
 msgid "Per game"
 msgstr "按游戏"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:576
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:589
 msgid "Per game, from the game's card in Profiles"
 msgstr "按游戏设置，在“配置文件”中的游戏卡片上"
 
@@ -3023,11 +3076,11 @@ msgstr "按游戏设置，在“配置文件”中的游戏卡片上"
 msgid "Per-game optimization (falcond)"
 msgstr "按游戏优化 (falcond)"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:447
+#: bigame-engine/bigame-ui/src/views/home.rs:478
 msgid "Per-game optimization could not be started"
 msgstr "无法启动按游戏优化"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:31 bigame-engine/bigame-ui/src/views/profile_wizard.rs:97 bigame-engine/bigame-ui/src/views/tuning.rs:113 bigame-engine/bigame-ui/src/views/tuning.rs:466
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:31 bigame-engine/bigame-ui/src/views/profile_wizard.rs:97 bigame-engine/bigame-ui/src/views/tuning.rs:204 bigame-engine/bigame-ui/src/views/tuning.rs:557
 msgid "Performance"
 msgstr "性能"
 
@@ -3035,7 +3088,7 @@ msgstr "性能"
 msgid "Performance impact not measured"
 msgstr "未测量性能影响"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:395 bigame-engine/bigame-ui/src/views/tuning.rs:119 bigame-engine/bigame-ui/src/widgets/optimization.rs:1084 bigame-engine/bigame-ui/src/widgets/optimization.rs:1380 bigame-engine/bigame-ui/src/widgets/optimization.rs:515
+#: bigame-engine/bigame-ui/src/profile_offer.rs:399 bigame-engine/bigame-ui/src/views/tuning.rs:210 bigame-engine/bigame-ui/src/widgets/optimization.rs:1084 bigame-engine/bigame-ui/src/widgets/optimization.rs:1380 bigame-engine/bigame-ui/src/widgets/optimization.rs:515
 msgid "Performance mode"
 msgstr "性能模式"
 
@@ -3095,7 +3148,7 @@ msgstr "呈现模式"
 msgid "Problems"
 msgstr "问题"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:394 bigame-engine/bigame-ui/src/views/report.rs:180
+#: bigame-engine/bigame-ui/src/profile_offer.rs:398 bigame-engine/bigame-ui/src/views/report.rs:180
 msgid "Process"
 msgstr "进程"
 
@@ -3106,10 +3159,6 @@ msgstr "进程名称"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:251 bigame-engine/bigame-ui/src/views/details/overview.rs:33 bigame-engine/bigame-ui/src/views/report.rs:179
 msgid "Profile"
 msgstr "配置文件"
-
-#: bigame-engine/bigame-ui/src/views/home.rs:810
-msgid "Profile %s"
-msgstr "配置文件 %s"
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:194
 msgid "Profile Summary"
@@ -3167,7 +3216,7 @@ msgstr "配置文件已保存"
 msgid "Profile saved, but not every part was applied"
 msgstr "配置文件已保存，但并非所有部分都已应用"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:145 bigame-engine/bigame-ui/src/views/tuning.rs:948 bigame-engine/bigame-ui/src/widgets/info.rs:194
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:145 bigame-engine/bigame-ui/src/views/tuning.rs:1039 bigame-engine/bigame-ui/src/widgets/info.rs:194
 msgid "Profile set"
 msgstr "配置文件集"
 
@@ -3195,7 +3244,7 @@ msgstr "已加载的配置文件"
 msgid "Profiles of yours that match no installed game. They stay until you delete them."
 msgstr "你的配置文件中没有匹配任何已安装游戏的那些。它们会一直保留，直到你删除。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:819
+#: bigame-engine/bigame-ui/src/views/tuning.rs:910
 msgid "Profiles → the game → Edit profile → Frame generation. A game whose AI Graphics has OptiScaler generating frames launches with lsfg-vk off."
 msgstr "“配置文件 → 游戏 → 编辑配置文件 → 帧生成”。在 AI 图形中由 OptiScaler 生成帧的游戏会在关闭 lsfg-vk 的情况下启动。"
 
@@ -3219,13 +3268,17 @@ msgstr "你的程序中占用明显 CPU 的那些。关闭或暂停它们可以�
 msgid "Proton"
 msgstr "Proton"
 
-#: bigame-engine/bigame-ui/src/views/details/overview.rs:256
+#: bigame-engine/bigame-ui/src/views/details/overview.rs:256 bigame-engine/bigame-ui/src/views/home.rs:960
 msgid "Proton (general)"
 msgstr "Proton（通用）"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:59
 msgid "Proton / Wine"
 msgstr "Proton / Wine"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:81
+msgid "Proton games are capped at 60 FPS: steady frame times, a cooler and quieter GPU. Wine FSR stays available to hold 60 at a lower resolution."
+msgstr "Proton 游戏限制为 60 FPS：帧时间稳定，GPU 更凉爽、更安静。Wine FSR 仍然可用，以便在较低分辨率下保持 60 帧。"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:34
 msgid "Put back"
@@ -3235,11 +3288,11 @@ msgstr "已还原"
 msgid "Putting everything back as it was"
 msgstr "正在将一切恢复原状"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:421
+#: bigame-engine/bigame-ui/src/views/home.rs:441
 msgid "Putting global settings back"
 msgstr "正在还原全局设置"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:468
+#: bigame-engine/bigame-ui/src/views/tuning.rs:559
 msgid "Quality"
 msgstr "质量"
 
@@ -3259,11 +3312,11 @@ msgstr "内存使用情况"
 msgid "Rafael Ruscher"
 msgstr "Rafael Ruscher"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:520
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:533
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
 msgstr "提高的是显示帧率而非渲染帧率，并且会增加延迟。依据：游戏中已映射 liblsfg-vk，以及 lsfg-vk 中为它设置的条目。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:768
+#: bigame-engine/bigame-ui/src/views/tuning.rs:859
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Off sets every entry aside; on puts them back."
 msgstr "提高的是显示帧率而非渲染帧率，并且会增加延迟。关闭会暂时搁置所有条目；开启则将它们放回。"
 
@@ -3275,11 +3328,11 @@ msgstr "提高的是显示帧率，而不是渲染帧率，并会增加延迟。
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "ReShade 的附加组件版本仅适用于单人游戏；反作弊可能因注入的 DLL 而封号"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:143
+#: bigame-engine/bigame-ui/src/views/home.rs:130
 msgid "Reading Turbo's state"
 msgstr "正在读取 Turbo 状态"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:205 bigame-engine/bigame-ui/src/views/home.rs:417
+#: bigame-engine/bigame-ui/src/views/home.rs:200 bigame-engine/bigame-ui/src/views/home.rs:437
 msgid "Reading hardware and tools"
 msgstr "正在读取硬件和工具"
 
@@ -3287,7 +3340,7 @@ msgstr "正在读取硬件和工具"
 msgid "Reading the system…"
 msgstr "正在读取系统…"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1041 bigame-engine/bigame-ui/src/views/tuning.rs:967
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1058 bigame-engine/bigame-ui/src/views/tuning.rs:1132
 msgid "Reading…"
 msgstr "正在读取…"
 
@@ -3343,7 +3396,7 @@ msgstr "正在移除启动选项…"
 msgid "Render height"
 msgstr "渲染高度"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:340 bigame-engine/bigame-ui/src/views/tuning.rs:332
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:340 bigame-engine/bigame-ui/src/views/tuning.rs:423
 msgid "Render size"
 msgstr "渲染尺寸"
 
@@ -3366,6 +3419,10 @@ msgstr "RenoDX 需要 ReShade 的附加组件版本，而它仅适用于单人�
 #: bigame-engine/bigame-core/src/graphics/rules.rs:388
 msgid "RenoDX runs as a ReShade add-on loaded through OptiScaler; not established, and RenoDX does not support Linux officially"
 msgstr "RenoDX 作为通过 OptiScaler 加载的 ReShade 附加组件运行；尚未确认可用，且 RenoDX 官方不支持 Linux"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:606
+msgid "Reopen Steam"
+msgstr "重新打开 Steam"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1641
 msgid "Repair"
@@ -3403,7 +3460,7 @@ msgstr "将所有调优和 Gamescope 设置重置为推荐的默认值。此操�
 msgid "Resizable BAR"
 msgstr "Resizable BAR"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:512
+#: bigame-engine/bigame-ui/src/views/tuning.rs:603
 msgid "Resolved: %s is the only upscaler"
 msgstr "已解决：%s 是唯一的超分辨率工具"
 
@@ -3467,11 +3524,11 @@ msgstr "第 %r 次，共 %t 次 — %w"
 msgid "Run %r of %t — %w (warm-up, discarded)"
 msgstr "第 %r 次，共 %t 次 — %w（预热，已丢弃）"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:276 bigame-engine/bigame-ui/src/views/home.rs:730
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:276
 msgid "Running"
 msgstr "运行中"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:592
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:605
 msgid "Running game"
 msgstr "正在运行的游戏"
 
@@ -3515,7 +3572,7 @@ msgstr "保存诊断信息"
 msgid "Save to file…"
 msgstr "保存到文件…"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:891
+#: bigame-engine/bigame-ui/src/views/tuning.rs:982
 msgid "Saved. It applies the next time a game starts."
 msgstr "已保存。将在下次启动游戏时应用。"
 
@@ -3523,15 +3580,15 @@ msgstr "已保存。将在下次启动游戏时应用。"
 msgid "Saving…"
 msgstr "正在保存…"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:929
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1020
 msgid "Scan interval (ms)"
 msgstr "扫描间隔（毫秒）"
 
-#: bigame-engine/bigame-ui/src/views/details/overview.rs:35 bigame-engine/bigame-ui/src/views/details/performance.rs:192 bigame-engine/bigame-ui/src/views/report.rs:192
+#: bigame-engine/bigame-ui/src/views/details/overview.rs:35 bigame-engine/bigame-ui/src/views/details/performance.rs:192 bigame-engine/bigame-ui/src/views/home.rs:969 bigame-engine/bigame-ui/src/views/report.rs:192
 msgid "Scheduler"
 msgstr "调度器"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:178 bigame-engine/bigame-ui/src/widgets/info.rs:159 bigame-engine/bigame-ui/src/widgets/optimization.rs:590
+#: bigame-engine/bigame-ui/src/views/tuning.rs:269 bigame-engine/bigame-ui/src/widgets/info.rs:159 bigame-engine/bigame-ui/src/widgets/optimization.rs:590
 msgid "Scheduler mode"
 msgstr "调度器模式"
 
@@ -3587,7 +3644,7 @@ msgstr "服务"
 msgid "Service Issues Detected"
 msgstr "检测到服务问题"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:441
+#: bigame-engine/bigame-ui/src/views/tuning.rs:532
 msgid "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it."
 msgstr "在会话环境中设置，对之后启动的所有游戏生效。已在运行的启动器（Steam）会保留旧环境：请关闭后重新打开。"
 
@@ -3603,6 +3660,10 @@ msgstr "当前设置"
 msgid "Settings"
 msgstr "设置"
 
+#: bigame-engine/bigame-core/src/turbo_preset.rs:84
+msgid "Sharper image (vkBasalt's CAS) at the display's resolution, FSR 4 for games with FSR 3.1 on a GPU that has it, and a 60 FPS cap so the heavier image plays steadily."
+msgstr "以显示器分辨率呈现更锐利的画面（vkBasalt 的 CAS），在支持 FSR 4 的 GPU 上为带有 FSR 3.1 的游戏启用 FSR 4，并限制为 60 FPS，使更重的画面平稳运行。"
+
 #: bigame-engine/bigame-ui/src/views/logs.rs:88
 msgid "Show"
 msgstr "显示"
@@ -3615,7 +3676,7 @@ msgstr "显示仪表盘"
 msgid "Show MangoHud"
 msgstr "显示 MangoHud"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:996
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1087
 msgid "Show advanced options"
 msgstr "显示高级选项"
 
@@ -3631,7 +3692,7 @@ msgstr "只显示通知，绝不会在游戏上方弹出窗口。配置文件是
 msgid "Similar to Chaos, it aggressively stress-tests the CPU by constantly migrating tasks between cores in the most unpredictable ways possible."
 msgstr "与 Chaos 类似，它以最不可预测的方式不断在核心之间迁移任务，对 CPU 进行激进的压力测试。"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:49
+#: data/com.biglinux.BiGameMode.metainfo.xml:54
 msgid "Six pages, with Details showing what is really in effect and the evidence for it; AI Graphics raises FSR 3.1 to FSR 4 through Proton and finds the upscalers Unreal Engine games ship as plugins; MangoHud per game for Steam, Heroic and Lutris; the Gamer theme; every text translated into 29 languages; a stricter sandbox for the privileged helper."
 msgstr "六个页面，其中“详情”显示真正生效的内容及其依据；AI 图形通过 Proton 将 FSR 3.1 提升到 FSR 4，并能找到 Unreal Engine 游戏以插件形式附带的超分辨率组件；为 Steam、Heroic 和 Lutris 提供按游戏设置的 MangoHud；Gamer 主题；所有文本已翻译为 29 种语言；为特权辅助程序提供更严格的沙箱。"
 
@@ -3647,13 +3708,17 @@ msgstr "已跳过"
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "这样即使关闭此窗口，也能察觉你从 Steam 启动的游戏"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:438
+#: bigame-engine/bigame-ui/src/views/home.rs:469
 msgid "Some settings could not be put back"
 msgstr "部分设置无法还原"
 
 #: bigame-engine/bigame-ui/src/app.rs:375
 msgid "Special Thanks"
 msgstr "特别鸣谢"
+
+#: bigame-engine/bigame-core/src/turbo_preset.rs:66
+msgid "Standard"
+msgstr "标准"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:560
 msgid "Standing"
@@ -3679,7 +3744,7 @@ msgstr "请从“配置文件 → ⋮ → 启动（Turbo）”启动游戏。Ste
 msgid "Starting"
 msgstr "正在启动"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:419
+#: bigame-engine/bigame-ui/src/views/home.rs:439
 msgid "Starting per-game optimization"
 msgstr "正在启动按游戏优化"
 
@@ -3691,11 +3756,11 @@ msgstr "状态"
 msgid "Steam"
 msgstr "Steam"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:866
+#: bigame-engine/bigame-ui/src/views/tuning.rs:957
 msgid "Steam Deck — basic"
 msgstr "Steam Deck — 基本"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:867
+#: bigame-engine/bigame-ui/src/views/tuning.rs:958
 msgid "Steam Deck — full"
 msgstr "Steam Deck — 完整"
 
@@ -3703,7 +3768,15 @@ msgstr "Steam Deck — 完整"
 msgid "Steam app %s"
 msgstr "Steam 应用 %s"
 
-#: bigame-engine/bigame-core/src/steam.rs:194
+#: bigame-engine/bigame-ui/src/views/home.rs:636 bigame-engine/bigame-ui/src/views/tuning.rs:188
+msgid "Steam could not be opened again"
+msgstr "无法重新打开 Steam"
+
+#: bigame-engine/bigame-ui/src/views/tuning.rs:173
+msgid "Steam is open: its games with Gamescope keep the old sizes until it is closed"
+msgstr "Steam 已打开：在关闭 Steam 之前，其使用 Gamescope 的游戏仍保持旧尺寸"
+
+#: bigame-engine/bigame-core/src/steam.rs:265
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam 正在运行。它会将 localconfig.vdf 保留在内存中，并在退出时重写该文件，因此此次修改会被丢弃。请关闭 Steam 后重试。"
 
@@ -3715,7 +3788,15 @@ msgstr "Steam 启动选项"
 msgid "Steam launch options: %s"
 msgstr "Steam 启动选项：%s"
 
-#: bigame-engine/bigame-core/src/steam.rs:236
+#: bigame-engine/bigame-ui/src/views/home.rs:631
+msgid "Steam opened again: its games get the preset"
+msgstr "Steam 已重新打开：其游戏将获得该预设"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:588
+msgid "Steam was already open"
+msgstr "Steam 此前已经打开"
+
+#: bigame-engine/bigame-core/src/steam.rs:307
 msgid "Steam's configuration has no apps section: %s"
 msgstr "Steam 的配置中没有 apps 部分：%s"
 
@@ -3791,7 +3872,7 @@ msgstr "此游戏由 Steam 客户端启动"
 msgid "The address the Details page pings for its latency graph. It is only contacted while that page is on screen."
 msgstr "“详情”页面为绘制延迟图而 ping 的地址。只有在该页面显示时才会联系它。"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:230
+#: bigame-engine/bigame-ui/src/views/home.rs:225
 msgid "The change stopped without an answer. Open Logs to see why."
 msgstr "更改中途停止且没有响应。打开“日志”查看原因。"
 
@@ -3799,7 +3880,7 @@ msgstr "更改中途停止且没有响应。打开“日志”查看原因。"
 msgid "The current version stays one click away. Updating while a version works is your choice."
 msgstr "当前版本始终可以一键恢复。在版本运行良好时是否更新由你决定。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:333
+#: bigame-engine/bigame-ui/src/views/tuning.rs:424
 msgid "The game draws at this size; 0 = the game's own"
 msgstr "游戏以此尺寸绘制；0 = 游戏自身的尺寸"
 
@@ -3835,7 +3916,7 @@ msgstr "图像会被缩放两次，这会让画面模糊，并白白耗费时间
 msgid "The launch option was removed; the game's own FSR runs as it did"
 msgstr "启动选项已移除；游戏自带的 FSR 照常运行"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:512
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:525
 msgid "The layer loads only in Vulkan (and Proton) games, and generates only for a game that started with an entry. Start the game again."
 msgstr "该层只在 Vulkan（及 Proton）游戏中加载，并且只为启动时已有条目的游戏生成帧。请重新启动游戏。"
 
@@ -3854,6 +3935,10 @@ msgstr "当 falcond 启动 sched-ext 调度器时，模式会被传给 scx_loade
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:247
 msgid "The mode the profile asked for is not the one set."
 msgstr "配置文件请求的模式与实际设置的不一致。"
+
+#: bigame-engine/bigame-ui/src/views/home.rs:835
+msgid "The next game gets its profile as it starts."
+msgstr "下一个游戏启动时即会获得其配置文件。"
 
 #: bigame-engine/bigame-ui/src/app.rs:222
 msgid "The per-game optimization service failed, so games are not being optimized."
@@ -3875,7 +3960,7 @@ msgstr "性能覆盖层，在“配置文件”中按游戏选择"
 msgid "The performance overlay: frame rate, frame times, processor and graphics card. How it looks is chosen in Tuning → Monitoring."
 msgstr "性能覆盖层：帧率、帧时间、处理器和显卡。其外观在“调优 → 监控”中选择。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:120
+#: bigame-engine/bigame-ui/src/views/tuning.rs:211
 msgid "The performance power profile while a game whose profile asks for it runs. Off, no game gets it."
 msgstr "在配置文件要求使用的游戏运行期间使用 performance 电源配置。关闭后，任何游戏都不会使用。"
 
@@ -3935,6 +4020,10 @@ msgstr "该变量已写入 ~/.config/environment.d 并推送到会话中，但�
 msgid "There was nothing to hand back"
 msgstr "没有需要交还的内容"
 
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:48
+msgid "This GPU has no FSR 4, so that part is left out."
+msgstr "此 GPU 不支持 FSR 4，因此略过该部分。"
+
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:43
 msgid ""
 "This feature uses LSFG-VK which requires the proprietary Lossless.dll to function.\n"
@@ -3989,7 +4078,7 @@ msgstr "请尝试其他名称或移除筛选条件。"
 msgid "Tuning"
 msgstr "调优"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:250 bigame-engine/bigame-ui/src/views/details/overview.rs:31 bigame-engine/bigame-ui/src/views/details/performance.rs:36 bigame-engine/bigame-ui/src/views/details/problems.rs:191
+#: bigame-engine/bigame-ui/src/profile_offer.rs:250 bigame-engine/bigame-ui/src/views/details/overview.rs:31 bigame-engine/bigame-ui/src/views/details/performance.rs:36 bigame-engine/bigame-ui/src/views/details/problems.rs:191 bigame-engine/bigame-ui/src/views/home.rs:837 bigame-engine/bigame-ui/src/views/home.rs:846 bigame-engine/bigame-ui/src/views/home.rs:975
 msgid "Turbo"
 msgstr "Turbo"
 
@@ -3997,15 +4086,11 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turbo 无法启动"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:101 bigame-engine/bigame-ui/src/widgets/booster_button.rs:57
+#: bigame-engine/bigame-ui/src/views/settings.rs:101
 msgid "Turbo Mode"
 msgstr "Turbo 模式"
 
-#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:59
-msgid "Turbo Mode On"
-msgstr "Turbo 模式已开启"
-
-#: data/com.biglinux.BiGameMode.metainfo.xml:54
+#: data/com.biglinux.BiGameMode.metainfo.xml:59
 msgid "Turbo as the master switch over falcond, per-game profiles offered when an unknown game starts, AI Graphics with OptiScaler (backup, repair and restore), a benchmark lab with A/B verdicts, diagnostics and a unified log view."
 msgstr "Turbo 作为控制 falcond 的总开关；未知游戏启动时提示创建按游戏配置文件；基于 OptiScaler 的 AI 图形（备份、修复和恢复）；提供 A/B 结论的基准测试实验室；诊断以及统一的日志视图。"
 
@@ -4013,17 +4098,29 @@ msgstr "Turbo 作为控制 falcond 的总开关；未知游戏启动时提示创
 msgid "Turbo is falcond's service, as systemd reports it: on means enabled and running, off means stopped. Nothing is claimed that systemd does not confirm."
 msgstr "Turbo 即 systemd 所报告的 falcond 服务：开启表示已启用并正在运行，关闭表示已停止。凡是 systemd 未确认的，一概不作声明。"
 
-#: bigame-engine/bigame-ui/src/views/details/overview.rs:142
+#: bigame-engine/bigame-ui/src/views/details/overview.rs:142 bigame-engine/bigame-ui/src/views/home.rs:843
 msgid "Turbo is off"
 msgstr "Turbo 已关闭"
-
-#: bigame-engine/bigame-ui/src/views/home.rs:801
-msgid "Turbo is off, so this game is not being optimized"
-msgstr "Turbo 已关闭，因此此游戏未被优化"
 
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:148
 msgid "Turbo is on. The next game gets its profile as it starts."
 msgstr "Turbo 已开启。下一个游戏启动时即会获得其配置文件。"
+
+#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:59
+msgid "Turbo mode activated"
+msgstr "Turbo 模式已开启"
+
+#: bigame-engine/bigame-ui/src/widgets/booster_button.rs:57
+msgid "Turbo mode inactive"
+msgstr "Turbo 模式未开启"
+
+#: bigame-engine/bigame-core/src/turbo.rs:474 bigame-engine/bigame-core/src/turbo.rs:519
+msgid "Turbo preset"
+msgstr "Turbo 预设"
+
+#: data/com.biglinux.BiGameMode.metainfo.xml:49
+msgid "Turbo presets chosen before switching it on (More FPS, Locked 60 FPS, Enhanced graphics), a redrawn Home with a power button, live readings and the running game's features as coloured flags; Tuning, game profiles and the profile wizard on one model, with every conflict asked; Gamescope and Wine FSR reach Steam games through their launch options; launchers are no longer taken for the game; Details tells when falcond does not apply a game's profile, and why."
+msgstr "开启前即可选择的 Turbo 预设（更高 FPS、锁定 60 FPS、增强画质）；重新设计的“主页”，带电源按钮、实时读数，并以彩色标记显示正在运行游戏的特性；“调优”、游戏配置文件和配置文件向导统一为同一模型，每处冲突都会询问；Gamescope 和 Wine FSR 通过启动选项作用于 Steam 游戏；启动器不再被误认为游戏；“详情”会说明 falcond 何时不应用某个游戏的配置文件及其原因。"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:220
 msgid "Turbo turned off"
@@ -4037,13 +4134,17 @@ msgstr "Turbo 负责开启和关闭 falcond 服务。它首次这样做时，记
 msgid "Turbo's state cannot be read"
 msgstr "无法读取 Turbo 的状态"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:159
+#: bigame-engine/bigame-ui/src/views/home.rs:154
 msgid "Turbo's state cannot be read: systemd did not answer"
 msgstr "无法读取 Turbo 的状态：systemd 没有响应"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:115
 msgid "Turn Turbo off and on again at Home to restart it. Logs show why it failed."
 msgstr "在“主页”关闭再开启 Turbo 以重新启动它。“日志”会显示失败原因。"
+
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:216
+msgid "Turn Turbo off to choose another preset."
+msgstr "请先关闭 Turbo，再选择其他预设。"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:119
 msgid "Turn Turbo on at Home. Until then no profile, scheduler or power profile is applied for a game."
@@ -4077,11 +4178,11 @@ msgstr "两个串联"
 msgid "Two upscalers in series"
 msgstr "两个超分辨率工具串联"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:450
+#: bigame-engine/bigame-ui/src/views/tuning.rs:541
 msgid "Two upscalers in series scale the image twice. Until one is chosen, Wine FSR is switched off at launch for games Gamescope upscales."
 msgstr "两个超分辨率工具串联会将图像缩放两次。在选定其中一个之前，由 Gamescope 进行超分辨率的游戏在启动时会关闭 Wine FSR。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:469
+#: bigame-engine/bigame-ui/src/views/tuning.rs:560
 msgid "Ultra"
 msgstr "超高"
 
@@ -4109,7 +4210,7 @@ msgstr "更新"
 msgid "Update available:"
 msgstr "有可用更新："
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:341
+#: bigame-engine/bigame-ui/src/views/tuning.rs:432
 msgid "Upscaled to this size; 0 = the same as the render size"
 msgstr "超分辨率到此尺寸；0 = 与渲染尺寸相同"
 
@@ -4117,7 +4218,7 @@ msgstr "超分辨率到此尺寸；0 = 与渲染尺寸相同"
 msgid "Upscaler"
 msgstr "超分辨率工具"
 
-#: bigame-engine/bigame-ui/src/views/details/overview.rs:38 bigame-engine/bigame-ui/src/views/details/pipeline.rs:61
+#: bigame-engine/bigame-ui/src/views/details/overview.rs:38 bigame-engine/bigame-ui/src/views/details/pipeline.rs:61 bigame-engine/bigame-ui/src/views/home.rs:981
 msgid "Upscaling"
 msgstr "超分辨率"
 
@@ -4129,15 +4230,15 @@ msgstr "游戏内的超分辨率和帧生成，在“配置文件”中按游戏
 msgid "Upscaling and frame generation inside the game, with backup and undo"
 msgstr "游戏内的超分辨率和帧生成，支持备份与撤销"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:301
+#: bigame-engine/bigame-ui/src/views/tuning.rs:392
 msgid "Upscaling filter"
 msgstr "超分辨率滤镜"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:744
+#: bigame-engine/bigame-ui/src/views/tuning.rs:835
 msgid "Upscaling inside the game (FSR 4, XeSS, DLSS through OptiScaler) is set from the game's card in Profiles. A game with it launches without Wine FSR and without a Gamescope render size."
 msgstr "游戏内超分辨率（通过 OptiScaler 实现的 FSR 4、XeSS、DLSS）在“配置文件”中从游戏卡片设置。使用它的游戏启动时不使用 Wine FSR，也不使用 Gamescope 渲染尺寸。"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1256 bigame-engine/bigame-ui/src/views/tuning.rs:556 bigame-engine/bigame-ui/src/widgets/notice.rs:200 bigame-engine/bigame-ui/src/widgets/optimization.rs:1159
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1256 bigame-engine/bigame-ui/src/views/tuning.rs:647 bigame-engine/bigame-ui/src/widgets/notice.rs:200 bigame-engine/bigame-ui/src/widgets/optimization.rs:1159
 msgid "Use %s"
 msgstr "使用 %s"
 
@@ -4153,7 +4254,7 @@ msgstr "用于所有游戏。游戏的配置文件会替换它为该游戏设置
 msgid "Used for the next install; an installed game is updated only when you choose"
 msgstr "用于下次安装；已安装的游戏只会在你选择时更新"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:302
+#: bigame-engine/bigame-ui/src/views/tuning.rs:393
 msgid "Used when the render size is below the output size"
 msgstr "在渲染尺寸小于输出尺寸时使用"
 
@@ -4181,11 +4282,11 @@ msgstr "垂直同步/FIFO（默认）"
 msgid "Variable"
 msgstr "变量"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:288
+#: bigame-engine/bigame-ui/src/views/tuning.rs:379
 msgid "Version %v · wraps games started from BiGame-mode"
 msgstr "版本 %v · 包裹从 BiGame-mode 启动的游戏"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1060
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1151
 msgid "Version %v — %n options detected from --help"
 msgstr "版本 %v — 从 --help 检测到 %n 个选项"
 
@@ -4193,7 +4294,7 @@ msgstr "版本 %v — 从 --help 检测到 %n 个选项"
 msgid "Video pipeline"
 msgstr "视频管线"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:73
+#: bigame-engine/bigame-ui/src/views/home.rs:733
 msgid "View optimization details"
 msgstr "查看优化详情"
 
@@ -4205,7 +4306,7 @@ msgstr "虚拟"
 msgid "Visit Website"
 msgstr "访问网站"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:703
+#: bigame-engine/bigame-ui/src/views/tuning.rs:794
 msgid "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time."
 msgstr "适用于 Vulkan 和 Proton 游戏的视觉滤镜（锐化、色彩）。这是视觉效果，而非加速：它会消耗少量 GPU 时间。"
 
@@ -4221,7 +4322,7 @@ msgstr "等待游戏"
 msgid "Warnings and errors"
 msgstr "警告和错误"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:411
+#: bigame-engine/bigame-ui/src/views/home.rs:431 bigame-engine/bigame-ui/src/views/home.rs:833
 msgid "Watching for games"
 msgstr "正在监视游戏"
 
@@ -4252,6 +4353,10 @@ msgstr "游戏运行时应用到系统的内容，以及每项是如何验证的
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:93
 msgid "What needs attention, and what can be done about it. Commands are copied, never run."
 msgstr "需要注意的事项，以及可以采取的措施。命令只会被复制，绝不会被执行。"
+
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:73
+msgid "What should games favour?"
+msgstr "游戏应优先考虑什么？"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:78
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -4293,7 +4398,7 @@ msgstr "何时不起作用"
 msgid "Which CCD games prefer on an AMD X3D processor"
 msgstr "在 AMD X3D 处理器上游戏优先使用哪个 CCD"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:218
+#: bigame-engine/bigame-ui/src/views/tuning.rs:309
 msgid "Which CCD games prefer while Turbo is on"
 msgstr "Turbo 开启时游戏优先使用的 CCD"
 
@@ -4321,7 +4426,7 @@ msgstr "Wi-Fi"
 msgid "Wine FSR"
 msgstr "Wine FSR"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:449
+#: bigame-engine/bigame-ui/src/views/tuning.rs:540
 msgid "Wine FSR and Gamescope upscaling are both on"
 msgstr "Wine FSR 和 Gamescope 超分辨率都已开启"
 
@@ -4333,7 +4438,7 @@ msgstr "Wine FSR 和 OptiScaler 都在为此游戏进行超分辨率：两个超
 msgid "Wine FSR and OptiScaler both upscale this game: two upscalers in series. WINE_FULLSCREEN_FSR=1 does not come from BiGame-mode: remove it from the game's launch options in Steam (Properties → Launch options)."
 msgstr "Wine FSR 和 OptiScaler 都在为此游戏进行超分辨率：两个超分辨率工具串联。WINE_FULLSCREEN_FSR=1 并非来自 BiGame-mode：请从 Steam 中该游戏的启动选项里移除它（属性 → 启动选项）。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1029
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1120
 msgid "Wine FSR and vkBasalt are written to ~/.config/environment.d/bigame-mode.conf and pushed into the user systemd manager, so every game started afterwards inherits them."
 msgstr "Wine FSR 和 vkBasalt 会写入 ~/.config/environment.d/bigame-mode.conf 并推送到用户 systemd 管理器，因此之后启动的每个游戏都会继承它们。"
 
@@ -4349,11 +4454,11 @@ msgstr "此游戏也开启了 Wine FSR"
 msgid "Wine FSR is on in Tuning"
 msgstr "调优中 Wine FSR 已开启"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:584
+#: bigame-engine/bigame-ui/src/views/tuning.rs:675
 msgid "Wine FSR is on; Gamescope now renders at the game's own size"
 msgstr "Wine FSR 已开启；Gamescope 现在以游戏自身的尺寸渲染"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:472
+#: bigame-engine/bigame-ui/src/views/tuning.rs:563
 msgid "Wine FSR quality"
 msgstr "Wine FSR 质量"
 
@@ -4365,7 +4470,7 @@ msgstr "Wine 的 FSR 会将较低的全屏分辨率放大 — 在 OptiScaler 之
 msgid "Wine's own upscaling for Proton games in exclusive fullscreen"
 msgstr "Wine 自带的超分辨率，用于独占全屏的 Proton 游戏"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:459
+#: bigame-engine/bigame-ui/src/views/tuning.rs:550
 msgid "Wine's own upscaling for Proton games in exclusive fullscreen (WINE_FULLSCREEN_FSR=1)"
 msgstr "Wine 自带的超分辨率，用于独占全屏的 Proton 游戏 (WINE_FULLSCREEN_FSR=1)"
 
@@ -4377,11 +4482,15 @@ msgstr "有线"
 msgid "With a profile"
 msgstr "有配置文件"
 
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:59
+msgid "With frame generation the cap counts the frames shown, so these games render about half of it: %s."
+msgstr "启用帧生成时，限制计算的是显示的帧，因此这些游戏实际渲染的帧数约为其一半：%s。"
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:239
 msgid "Without a profile"
 msgstr "无配置文件"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:807
+#: bigame-engine/bigame-ui/src/views/tuning.rs:898
 msgid "Without it lsfg-vk loads and generates nothing, so it is switched off at launch."
 msgstr "没有它，lsfg-vk 虽然会加载，却不会生成任何内容，因此启动时会将其关闭。"
 
@@ -4389,11 +4498,11 @@ msgstr "没有它，lsfg-vk 虽然会加载，却不会生成任何内容，因�
 msgid "Working in the running game"
 msgstr "在运行中的游戏里生效"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:672
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:685
 msgid "Working: %s"
 msgstr "正在工作：%s"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:274
+#: bigame-engine/bigame-ui/src/views/tuning.rs:365
 msgid "Wraps games started from BiGame-mode"
 msgstr "包裹从 BiGame-mode 启动的游戏"
 
@@ -4417,7 +4526,7 @@ msgstr "这是一个用 Rust 编写的高度智能且均衡的调度器。它充
 msgid "Written into the game's settings in %l, but %l is a Flatpak without MangoHud's Flatpak extension, so the overlay cannot load. Install it and restart %l: %c"
 msgstr "已写入 %l 中的游戏设置，但 %l 是未安装 MangoHud Flatpak 扩展的 Flatpak，因此覆盖层无法加载。请安装该扩展并重新启动 %l：%c"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:861
+#: bigame-engine/bigame-ui/src/views/tuning.rs:952
 msgid "Written to ~/.config/MangoHud/MangoHud.conf; your own file is kept and comes back with “My own file”."
 msgstr "写入 ~/.config/MangoHud/MangoHud.conf；你自己的文件会被保留，选择“我自己的文件”即可恢复。"
 
@@ -4469,7 +4578,7 @@ msgstr "已设置帧率目标"
 msgid "a native Linux game has no DLL slots; nothing can be injected, and its own options are all there is"
 msgstr "原生 Linux 游戏没有 DLL 槽位；无法注入任何内容，只能使用其自身的选项"
 
-#: bigame-engine/bigame-core/src/turbo.rs:548
+#: bigame-engine/bigame-core/src/turbo.rs:628
 msgid "already %s"
 msgstr "已是 %s"
 
@@ -4557,7 +4666,7 @@ msgstr "已确认"
 msgid "converted weights"
 msgstr "转换后的权重"
 
-#: bigame-engine/bigame-core/src/turbo.rs:616
+#: bigame-engine/bigame-core/src/turbo.rs:697
 msgid "could not restore %s: %s"
 msgstr "无法恢复 %s：%s"
 
@@ -4565,7 +4674,7 @@ msgstr "无法恢复 %s：%s"
 msgid "current settings"
 msgstr "当前设置"
 
-#: bigame-engine/bigame-core/src/turbo.rs:464 bigame-engine/bigame-ui/src/views/details/performance.rs:147
+#: bigame-engine/bigame-core/src/turbo.rs:544 bigame-engine/bigame-ui/src/views/details/performance.rs:147
 msgid "desktop"
 msgstr "桌面"
 
@@ -4681,7 +4790,7 @@ msgstr "falcond 未应用 %s 的配置文件"
 msgid "falcond is not installed"
 msgstr "falcond 未安装"
 
-#: bigame-engine/bigame-core/src/turbo.rs:334
+#: bigame-engine/bigame-core/src/turbo.rs:336
 msgid "falcond is not installed, so there are no per-game profiles; only global settings can be applied"
 msgstr "falcond 未安装，因此没有按游戏配置文件；只能应用全局设置"
 
@@ -4769,7 +4878,7 @@ msgstr "falcond 服务失败"
 msgid "falcond's service failed; turn Turbo off and on again, and see Logs."
 msgstr "falcond 服务失败；请关闭再开启 Turbo，并查看“日志”。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:912
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1003
 msgid "falcond's settings"
 msgstr "falcond 的设置"
 
@@ -4789,7 +4898,7 @@ msgstr "falcond.service 未活动"
 msgid "flow_scale_pct must be 25–100"
 msgstr "flow_scale_pct 必须在 25–100 之间"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:487
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:500
 msgid "found"
 msgstr "已找到"
 
@@ -4797,17 +4906,9 @@ msgstr "已找到"
 msgid "frame generation"
 msgstr "帧生成"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:836
-msgid "frame generation changed since the game started: restart the game to turn it on or off"
-msgstr "游戏启动后帧生成设置已更改：请重新启动游戏以开启或关闭它"
-
 #: bigame-engine/bigame-core/src/graphics/plan.rs:584
 msgid "frame generation raises the presented frame rate, not the rendered one, and adds latency"
 msgstr "帧生成提高的是显示帧率而非渲染帧率，并且会增加延迟"
-
-#: bigame-engine/bigame-ui/src/views/home.rs:833
-msgid "frame generation ×%s (lsfg-vk)"
-msgstr "帧生成 ×%s (lsfg-vk)"
 
 #: bigame-engine/bigame-core/src/gamescope.rs:340
 msgid "frame rate not limited"
@@ -4825,7 +4926,7 @@ msgstr "游戏在 %s GPU（%s）上渲染；BiGame-mode 启动的游戏使用 %s
 msgid "gaming;performance;boost;scheduler;governor;gamescope;"
 msgstr "gaming;performance;boost;scheduler;governor;gamescope;游戏;性能;加速;调度器;调速器;"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:465
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:478
 msgid "generating in the game"
 msgstr "在游戏中生成帧"
 
@@ -4841,7 +4942,7 @@ msgstr "在非掌机上使用掌机配置文件：游戏会以省电模式运行
 msgid "hardware slowdown"
 msgstr "硬件降频"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:426
+#: bigame-engine/bigame-ui/src/views/tuning.rs:517
 msgid "height"
 msgstr "高度"
 
@@ -4873,7 +4974,7 @@ msgstr "与 falcond 一同安装；BiGame-mode 不使用它，因为两个控制
 msgid "installed and intact; it loads when the game starts"
 msgstr "已安装且完好；游戏启动时加载"
 
-#: bigame-engine/bigame-core/src/turbo.rs:319
+#: bigame-engine/bigame-core/src/turbo.rs:321
 msgid "installed but not used: falcond already owns per-game performance state, and two controllers would each snapshot and restore the same power profile"
 msgstr "已安装但未使用：按游戏的性能状态已由 falcond 负责，两个控制者会各自快照并恢复同一电源配置"
 
@@ -4893,7 +4994,7 @@ msgstr "整数"
 msgid "integer scaling not applied"
 msgstr "未应用整数缩放"
 
-#: bigame-engine/bigame-core/src/turbo.rs:538
+#: bigame-engine/bigame-core/src/turbo.rs:618
 msgid "its current value could not be read, so it could not be restored"
 msgstr "无法读取其当前值，因此无法恢复"
 
@@ -4921,7 +5022,7 @@ msgstr "内核默认"
 msgid "kernel has no sched_ext support"
 msgstr "内核不支持 sched_ext"
 
-#: bigame-engine/bigame-core/src/steam.rs:213
+#: bigame-engine/bigame-core/src/steam.rs:284
 msgid "launch options may not contain quotes, backslashes or newlines"
 msgstr "启动选项不能包含引号、反斜杠或换行符"
 
@@ -4933,7 +5034,7 @@ msgstr "交由驱动决定：强制设为 'high' 会锁定在最高的固定功�
 msgid "likely"
 msgstr "可能"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:430 bigame-engine/bigame-ui/src/views/details/pipeline.rs:526
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:430 bigame-engine/bigame-ui/src/views/details/pipeline.rs:539
 msgid "loaded in the game"
 msgstr "在游戏中加载"
 
@@ -4945,7 +5046,7 @@ msgstr "已在游戏中加载（%s），但未创建超分辨率"
 msgid "loaded into the game as a DLL: never for games with anti-cheat"
 msgstr "以 DLL 形式加载到游戏中：绝不用于带反作弊的游戏"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:767
+#: bigame-engine/bigame-ui/src/views/tuning.rs:858
 msgid "lsfg-vk for every game with an entry"
 msgstr "为每个有条目的游戏启用 lsfg-vk"
 
@@ -4961,7 +5062,7 @@ msgstr "lsfg-vk 帧生成"
 msgid "lsfg-vk is not installed"
 msgstr "lsfg-vk 未安装"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:507
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:520
 msgid "lsfg-vk is not installed."
 msgstr "lsfg-vk 未安装。"
 
@@ -4969,11 +5070,11 @@ msgstr "lsfg-vk 未安装。"
 msgid "lsfg-vk is off in Tuning"
 msgstr "调优中 lsfg-vk 已关闭"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:806 bigame-engine/bigame-ui/src/widgets/optimization.rs:1134
+#: bigame-engine/bigame-ui/src/views/tuning.rs:897 bigame-engine/bigame-ui/src/widgets/optimization.rs:1134
 msgid "lsfg-vk needs your Lossless.dll"
 msgstr "lsfg-vk 需要你的 Lossless.dll"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:509
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:522
 msgid "lsfg-vk needs your own Lossless.dll (from Lossless Scaling on Steam). Set its path in Tuning → Frame generation."
 msgstr "lsfg-vk 需要你自己的 Lossless.dll（来自 Steam 上的 Lossless Scaling）。请在“调优 → 帧生成”中设置其路径。"
 
@@ -4985,7 +5086,7 @@ msgstr "lsfg-vk 选项"
 msgid "lsfg-vk was turned off for this game"
 msgstr "已为此游戏关闭 lsfg-vk"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:501
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:514
 msgid "lsfg-vk's file changed after the game started. It takes a new multiplier live, but turning generation on or off waits for the game's next start."
 msgstr "游戏启动后 lsfg-vk 的文件已更改。新的倍数会实时生效，但开启或关闭帧生成要等到游戏下次启动。"
 
@@ -5049,7 +5150,7 @@ msgstr "游戏文件夹中未找到 Windows 可执行文件"
 msgid "no baseline was captured for this knob"
 msgstr "未为此项捕获基线值"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:476
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:489
 msgid "no entry (off)"
 msgstr "无条目（关闭）"
 
@@ -5085,7 +5186,7 @@ msgstr "没有可用的超分辨率"
 msgid "no upscaler for OptiScaler to take over"
 msgstr "没有可供 OptiScaler 接管的超分辨率"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:313 bigame-engine/bigame-ui/src/views/details/performance.rs:87 bigame-engine/bigame-ui/src/views/details/pipeline.rs:633 bigame-engine/bigame-ui/src/views/tuning.rs:1020
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:313 bigame-engine/bigame-ui/src/views/details/performance.rs:87 bigame-engine/bigame-ui/src/views/details/pipeline.rs:646 bigame-engine/bigame-ui/src/views/tuning.rs:1111
 msgid "none"
 msgstr "无"
 
@@ -5097,7 +5198,7 @@ msgstr "无（内核默认）"
 msgid "none — Turbo is off or falcond has not matched it"
 msgstr "无 — Turbo 已关闭，或 falcond 尚未匹配到它"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:489
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:502
 msgid "not configured"
 msgstr "未配置"
 
@@ -5164,10 +5265,6 @@ msgstr "单核"
 #: bigame-engine/bigame-core/src/health.rs:626
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "关闭：CPU 每次只能访问 %s，而显卡共有 %s 显存"
-
-#: bigame-engine/bigame-ui/src/views/home.rs:712
-msgid "on %s"
-msgstr "在 %s 上"
 
 #: bigame-engine/bigame-core/src/recommend.rs:123
 msgid "on battery, holding the performance power profile costs more in heat and throttling than it returns"
@@ -5265,7 +5362,7 @@ msgstr "渲染游戏"
 msgid "reported a failure: %s"
 msgstr "报告了失败：%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:610
+#: bigame-engine/bigame-core/src/turbo.rs:691
 msgid "restored to %s"
 msgstr "已恢复为 %s"
 
@@ -5277,7 +5374,7 @@ msgstr "运行一次游戏：会根据其加载的内容确认 API，并据此�
 msgid "running %s%s"
 msgstr "正在运行 %s%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:441
+#: bigame-engine/bigame-core/src/turbo.rs:445
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "运行中（systemd 报告其处于活动状态；falcond 尚未发布其状态）"
 
@@ -5297,7 +5394,7 @@ msgstr "未使用 FSR4_UPGRADE=1 运行：FSR 3.1"
 msgid "running without the FSR 4 provider: FSR is off in its menu"
 msgstr "未加载 FSR 4 提供者运行：其菜单中 FSR 已关闭"
 
-#: bigame-engine/bigame-core/src/turbo.rs:427
+#: bigame-engine/bigame-core/src/turbo.rs:431
 msgid "running, %s profiles loaded (%s set); applies a profile to each game as it starts"
 msgstr "运行中，已加载 %s 个配置文件（%s 配置文件集）；在每个游戏启动时为其应用配置文件"
 
@@ -5309,11 +5406,11 @@ msgstr "可运行 DLSS"
 msgid "sched-ext"
 msgstr "sched-ext"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1003
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1094
 msgid "sched-ext availability"
 msgstr "sched-ext 可用性"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:997
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1088
 msgid "sched-ext availability, Gamescope's accepted options, the environment file"
 msgstr "sched-ext 可用性、Gamescope 支持的选项、环境文件"
 
@@ -5333,10 +5430,6 @@ msgstr "sched-ext 用运行时加载的调度器替换内核的 CPU 调度器。
 msgid "sched-ext scheduler"
 msgstr "sched-ext 调度器"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:848
-msgid "scheduler %s"
-msgstr "调度器 %s"
-
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:319
 msgid "scx_loader"
 msgstr "scx_loader"
@@ -5353,7 +5446,7 @@ msgstr "scx_loader 已安装，但其服务未运行。"
 msgid "sharpness left at default"
 msgstr "锐度保持默认"
 
-#: bigame-engine/bigame-core/src/turbo.rs:576
+#: bigame-engine/bigame-core/src/turbo.rs:656
 msgid "stopped and disabled; any game profile it held was put back as it stopped"
 msgstr "已停止并禁用；停止时已还原它所持有的任何游戏配置文件"
 
@@ -5365,7 +5458,7 @@ msgstr "游戏运行期间切换到 performance 电源配置，之后再切回�
 msgid "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing."
 msgstr "systemd 没有通过系统总线响应，因此无法得知 falcond 是否在运行。下方依赖它的读数缺失。"
 
-#: bigame-engine/bigame-core/src/turbo.rs:468
+#: bigame-engine/bigame-core/src/turbo.rs:548
 msgid "systemd reports it %s"
 msgstr "systemd 报告其状态为 %s"
 
@@ -5413,7 +5506,7 @@ msgstr "%s 的缓存副本与安装的内容不一致"
 msgid "the component runs its kernels through AMD's Windows HIP runtime (amdhip64_7.dll), which comes with the Adrenalin driver; Proton ships none, and this prefix has none"
 msgstr "该组件通过 AMD 的 Windows HIP 运行时 (amdhip64_7.dll) 运行其计算内核，该运行时随 Adrenalin 驱动提供；Proton 不自带，此前缀中也没有"
 
-#: bigame-engine/bigame-core/src/turbo.rs:402
+#: bigame-engine/bigame-core/src/turbo.rs:406
 msgid "the configuration was written but reads back unchanged"
 msgstr "配置已写入，但读回时未发生变化"
 
@@ -5709,7 +5802,7 @@ msgstr "不可用"
 msgid "unavailable: %s"
 msgstr "不可用：%s"
 
-#: bigame-engine/bigame-core/src/graphics/diagnose.rs:90 bigame-engine/bigame-core/src/graphics/report.rs:149 bigame-engine/bigame-core/src/graphics/scan.rs:123 bigame-engine/bigame-ui/src/views/details/extras.rs:330 bigame-engine/bigame-ui/src/views/report.rs:177 bigame-engine/bigame-ui/src/views/tuning.rs:1064
+#: bigame-engine/bigame-core/src/graphics/diagnose.rs:90 bigame-engine/bigame-core/src/graphics/report.rs:149 bigame-engine/bigame-core/src/graphics/scan.rs:123 bigame-engine/bigame-ui/src/views/details/extras.rs:330 bigame-engine/bigame-ui/src/views/report.rs:177 bigame-engine/bigame-ui/src/views/tuning.rs:1155
 msgid "unknown"
 msgstr "未知"
 
@@ -5733,15 +5826,15 @@ msgstr "无法读回该值"
 msgid "variable refresh rate is requested"
 msgstr "已请求可变刷新率"
 
-#: bigame-engine/bigame-ui/src/views/home.rs:845
-msgid "vkBasalt filter"
-msgstr "vkBasalt 滤镜"
-
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:449
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:453
 msgid "vkBasalt is a Vulkan layer: it loads only in Vulkan (and Proton) games, and only when ENABLE_VKBASALT=1 reached the game. A launcher started before the setting keeps its old environment; restart it."
 msgstr "vkBasalt 是一个 Vulkan 层：它只在 Vulkan（及 Proton）游戏中加载，并且只有当 ENABLE_VKBASALT=1 传递到游戏时才会加载。在设置之前启动的启动器会保留其旧环境；请重新启动它。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:422
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:42
+msgid "vkBasalt is not installed, so there is no sharpening."
+msgstr "未安装 vkBasalt，因此没有锐化。"
+
+#: bigame-engine/bigame-ui/src/views/tuning.rs:513
 msgid "width"
 msgstr "宽度"
 
@@ -5753,7 +5846,7 @@ msgstr "窗口不会全屏"
 msgid "wrote %s but the knob reads %s"
 msgstr "已写入 %s，但该项读回为 %s"
 
-#: bigame-engine/bigame-core/src/steam.rs:294
+#: bigame-engine/bigame-core/src/steam.rs:365
 msgid "wrote launch options but the file reads back %s"
 msgstr "已写入启动选项，但读回的文件内容为 %s"
 
@@ -5768,7 +5861,3 @@ msgstr "你的游戏列表指明了此游戏使用的渲染 API"
 #: bigame-engine/bigame-core/src/graphics/external.rs:204
 msgid "your own copy of NVIDIA's DLSS neural-rendering model (nvngx_dlssnr.dll) beside the game; BiGame-mode does not download it or say where to get it"
 msgstr "你自己的一份 NVIDIA DLSS 神经渲染模型 (nvngx_dlssnr.dll)，放在游戏旁边；BiGame-mode 不会下载它，也不会告诉你从哪里获取"
-
-#: bigame-engine/bigame-ui/src/views/home.rs:897 bigame-engine/bigame-ui/src/views/home.rs:908
-msgid "—"
-msgstr "—"

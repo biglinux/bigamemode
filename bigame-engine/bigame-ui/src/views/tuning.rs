@@ -102,6 +102,97 @@ fn save_video(video: &SharedVideo, anchor: &impl IsA<gtk4::Widget>) {
             &i18n("Could not save the launch settings"),
             &error_text(&e),
         );
+        return;
+    }
+    schedule_steam_gamescope(anchor.upcast_ref());
+}
+
+thread_local! {
+    /// Bumped by every change; a refresh runs only if no change came after
+    /// the one that scheduled it.
+    static STEAM_REFRESH: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// A Steam game whose profile says Gamescope Always takes Tuning's sizes and
+/// filter in its launch options: after a change settles (a spin button
+/// sends one per step), bring them in line, and say what happened.
+fn schedule_steam_gamescope(anchor: &gtk4::Widget) {
+    let generation = STEAM_REFRESH.with(|g| {
+        g.set(g.get().wrapping_add(1));
+        g.get()
+    });
+    let anchor = anchor.clone();
+    glib::timeout_add_local_once(std::time::Duration::from_millis(1500), move || {
+        if STEAM_REFRESH.with(std::cell::Cell::get) != generation {
+            return;
+        }
+        glib::spawn_future_local(async move {
+            let results = gio::spawn_blocking(bigame_core::optimization::refresh_steam_gamescope)
+                .await
+                .unwrap_or_default();
+            report_steam_gamescope(&anchor, &results);
+        });
+    });
+}
+
+/// Say what bringing the Steam games' Gamescope wrappers in line did.
+fn report_steam_gamescope(
+    anchor: &gtk4::Widget,
+    results: &[(
+        String,
+        anyhow::Result<bigame_core::steam_gamescope::Applied>,
+    )],
+) {
+    use bigame_core::steam_gamescope::Applied;
+    let written: Vec<&str> = results
+        .iter()
+        .filter(|(_, r)| matches!(r, Ok(Applied::Written(_))))
+        .map(|(n, _)| n.as_str())
+        .collect();
+    let blocked = results
+        .iter()
+        .any(|(_, r)| matches!(r, Ok(Applied::SteamRunning)));
+    if let Some((name, Err(e))) = results.iter().find(|(_, r)| r.is_err()) {
+        crate::widgets::toast::error(
+            anchor,
+            &i18n("Could not update Gamescope in Steam's launch options"),
+            &format!("{name}: {e:#}"),
+        );
+    }
+    if !written.is_empty() {
+        crate::widgets::toast::show(
+            anchor,
+            &i18n("Gamescope updated in Steam's launch options: %s")
+                .replace("%s", &written.join(", ")),
+        );
+    }
+    if blocked {
+        let a = anchor.clone();
+        crate::widgets::toast::with_action(
+            anchor,
+            &i18n("Steam is open: its games with Gamescope keep the old sizes until it is closed"),
+            &i18n("Close Steam and apply"),
+            move || {
+                let a = a.clone();
+                glib::spawn_future_local(async move {
+                    let done = gio::spawn_blocking(|| {
+                        bigame_core::steam::while_closed(
+                            bigame_core::optimization::refresh_steam_gamescope,
+                        )
+                    })
+                    .await;
+                    match done {
+                        Ok(Ok(results)) => report_steam_gamescope(&a, &results),
+                        Ok(Err(e)) => crate::widgets::toast::error(
+                            &a,
+                            &i18n("Steam could not be opened again"),
+                            &format!("{e:#}"),
+                        ),
+                        Err(_) => {}
+                    }
+                });
+            },
+        );
     }
 }
 
