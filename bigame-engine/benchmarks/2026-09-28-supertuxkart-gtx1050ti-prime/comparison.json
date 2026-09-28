@@ -1,0 +1,110 @@
+[
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "dgpu",
+      "runs": [
+        61.6296,
+        61.8689,
+        60.374,
+        61.0297
+      ],
+      "mean": 61.22555,
+      "median": 61.32965,
+      "min": 60.374,
+      "max": 61.8689,
+      "stddev": 0.6684933931361363,
+      "cov": 0.010918536348569124
+    },
+    "candidate": {
+      "arm": "dgpu_gamescope",
+      "runs": [
+        62.123,
+        61.3182,
+        60.3478,
+        60.8723
+      ],
+      "mean": 61.165324999999996,
+      "median": 61.09525,
+      "min": 60.3478,
+      "max": 62.123,
+      "stddev": 0.7516033855476335,
+      "cov": 0.012288063302984716
+    },
+    "delta_pct": -0.09836579663229264,
+    "verdict": "within_noise",
+    "rationale": "the 0.1% difference is within the 1.2% spread of the runs themselves, so it cannot be attributed to the change"
+  },
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "dgpu",
+      "runs": [
+        61.6296,
+        61.8689,
+        60.374,
+        61.0297
+      ],
+      "mean": 61.22555,
+      "median": 61.32965,
+      "min": 60.374,
+      "max": 61.8689,
+      "stddev": 0.6684933931361363,
+      "cov": 0.010918536348569124
+    },
+    "candidate": {
+      "arm": "dgpu_mangohud",
+      "runs": [
+        61.572,
+        61.4033,
+        61.1346,
+        61.2475
+      ],
+      "mean": 61.33935,
+      "median": 61.3254,
+      "min": 61.1346,
+      "max": 61.572,
+      "stddev": 0.19024073345807718,
+      "cov": 0.003101446843797288
+    },
+    "delta_pct": 0.1858701146825219,
+    "verdict": "within_noise",
+    "rationale": "the 0.2% difference is within the 1.1% spread of the runs themselves, so it cannot be attributed to the change"
+  },
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "dgpu",
+      "runs": [
+        61.6296,
+        61.8689,
+        60.374,
+        61.0297
+      ],
+      "mean": 61.22555,
+      "median": 61.32965,
+      "min": 60.374,
+      "max": 61.8689,
+      "stddev": 0.6684933931361363,
+      "cov": 0.010918536348569124
+    },
+    "candidate": {
+      "arm": "igpu",
+      "runs": [
+        13.1708,
+        13.0898,
+        12.942,
+        12.9282
+      ],
+      "mean": 13.032700000000002,
+      "median": 13.0159,
+      "min": 12.9282,
+      "max": 13.1708,
+      "stddev": 0.11758508975772947,
+      "cov": 0.009022312318838726
+    },
+    "delta_pct": -78.7136252757223,
+    "verdict": "regression",
+    "rationale": "78.7% slower, above the 1.1% run-to-run spread and significant at 95% (Welch's t = 142.00 against a 3.18 threshold)"
+  }
+]
