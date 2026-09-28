@@ -195,7 +195,7 @@ fn outside_the_game() -> Vec<Step> {
             "Gamescope's or Wine's FSR 1 upscales the finished image from outside the game: spatial, less sharp than a temporal upscaler, but it needs nothing from the game",
         ))),
         Step::Instead(Text::plain(N_(
-            "lsfg-vk frame generation, in the game's profile, works in any game, with added latency",
+            "frame generation with lsfg-vk, in the game's profile, works in any game, with added latency",
         ))),
     ]
 }
@@ -257,7 +257,13 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 Standing::NotRecommended,
                 Text::plain(N_("no upscaler available")),
                 [
-                    Step::Note(Text::plain(N_("the game ships no DLSS, FSR or XeSS"))),
+                    // Rise of the Tomb Raider on an AMD card: DLSS is there,
+                    // and it is not an upscaler this GPU runs.
+                    Step::Note(Text::plain(if r.native.dlss.is_some() {
+                        N_("the game's only upscaler is DLSS, which runs only on NVIDIA RTX cards")
+                    } else {
+                        N_("the game ships no DLSS, FSR or XeSS")
+                    })),
                     Step::Note(why),
                 ]
                 .into_iter()
@@ -380,13 +386,23 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     // API, and Proton ships AMD's provider into its prefix) has nothing to
     // gain from OptiScaler's FSR 4: fewest changes wins.
     let native_fsr4 = r.native_fsr4_path();
-    let optiscaler_worth_it = match (cfg.mode, vendor) {
-        (Mode::Advanced, _) => {
+    let recommended_worth_it = match vendor {
+        GpuVendor::Amd => (fsr4 && !native_fsr4) || listed_optiscaler,
+        _ => listed_optiscaler,
+    };
+    // Advanced with the upscaler left on "Recommended" (the page's choice
+    // once OptiScaler's frame generation is picked) decides the upscaler as
+    // Recommended does; OptiScaler's frame generation needs OptiScaler.
+    let optiscaler_worth_it = match cfg.mode {
+        Mode::Advanced => {
             cfg.layer == Layer::OptiScaler
                 || !matches!(cfg.upscaler, Upscaler::Auto | Upscaler::Off)
+                || cfg.optiscaler_frame_generation()
+                || cfg.layer == Layer::Auto
+                    && cfg.upscaler == Upscaler::Auto
+                    && recommended_worth_it
         }
-        (_, GpuVendor::Amd) => (fsr4 && !native_fsr4) || listed_optiscaler,
-        _ => listed_optiscaler,
+        _ => recommended_worth_it,
     };
     if want_output == Output::Dlss && dlss_runs && n.dlss.is_some() {
         return keep_native(Text::plain(N_(
@@ -1221,6 +1237,34 @@ mod tests {
             &ctx,
         );
         assert_eq!(p.optiscaler.unwrap().frame_gen, FrameGen::Off);
+    }
+
+    #[test]
+    fn frame_generation_with_the_recommended_upscaler_keeps_the_recommendation() {
+        // The page's choice once OptiScaler's frame generation is picked:
+        // Advanced, the upscaler left on Recommended. On RDNA 4 that is
+        // still OptiScaler's FSR 4, now with its frame generation — not the
+        // game's own FSR with a note that the card is not RDNA 4.
+        let cfg = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            frame_generation: FrameGeneration::OptiScaler,
+            experimental: true,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(
+            &report(tow(), gpu(GpuVendor::Amd, Some(4))),
+            &cfg,
+            &Context::default(),
+        );
+        let o = p.optiscaler.expect("OptiScaler");
+        assert_eq!((o.output, o.frame_gen), (Output::Fsr, FrameGen::OptiFgFsr));
+        // Frame generation alone asks for OptiScaler below RDNA 4 too.
+        let p = plan(
+            &report(tow(), gpu(GpuVendor::Amd, Some(3))),
+            &cfg,
+            &Context::default(),
+        );
+        assert_eq!(p.optiscaler.map(|o| o.frame_gen), Some(FrameGen::OptiFgFsr));
     }
 
     #[test]
