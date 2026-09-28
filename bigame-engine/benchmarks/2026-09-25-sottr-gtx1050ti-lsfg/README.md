@@ -16,3 +16,6 @@ presented frames over 110 s, generated ones included).
 | 02 | B lsfg-vk x2 | 27 | 57.9 | 16.1 | 1329 |
 | 03 | A no frame generation | 39 | 42.3 | 12.7 | 132 |
 | 04 | B lsfg-vk x2 | 27 | 57.0 | 14.2 | 908 |
+
+The per-frame captures, GPU samples and screenshots named here are kept at the
+tag `benchmarks-raw-data`.

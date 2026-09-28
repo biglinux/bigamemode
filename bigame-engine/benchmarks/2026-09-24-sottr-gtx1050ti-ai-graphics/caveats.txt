@@ -4,3 +4,6 @@ Order A, B, A: an arm needs its own launch (OptiScaler's files cannot change whi
 GPU telemetry is in each run's nvidia.csv (nvidia-smi, 1 s): utilisation, graphics and memory clocks, temperature, VRAM. This laptop GPU reports no power draw. The report's GPU columns read amdgpu's gpu.csv and are empty here.
 The game itself reports "GPU limit 100%": GPU-bound throughout. VRAM use was ~3.77 GB of 4 GB at High in both arms.
 StereoSeparation read 0.0225 in the first launch and 0.0220 in the later two; stereoscopic 3D is off (Stereoscopic3DMode=0) in every run, so it does not affect rendering. Declared with --vary=StereoSeparation; every other setting is identical in all runs.
+
+The per-frame captures, GPU samples and screenshots named here are kept at the
+tag `benchmarks-raw-data`.

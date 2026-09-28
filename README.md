@@ -427,8 +427,9 @@ no teste t de Welch a 95 %):
 - **Geração de quadros:** o lsfg-vk custou 42 % dos quadros renderizados em x2
   (88,9 → 51,8) e 55 % em x3, por isso nunca é ligado sozinho.
 
-Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Os
-dados brutos de cada sessão ficam em `bigame-engine/benchmarks/`.
+Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). O
+relatório e as métricas de cada sessão ficam em `bigame-engine/benchmarks/`; as
+capturas brutas, no histórico (tag `benchmarks-raw-data`).
 
 ## 🌍 Idiomas
 

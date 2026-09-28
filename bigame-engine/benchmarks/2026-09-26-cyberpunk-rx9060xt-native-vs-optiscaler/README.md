@@ -46,3 +46,6 @@ only proof; Proton logged the replacement), latency, and presented frames.
 The `UserSettings.json` of the OptiScaler arm differs in `FSR3Enabled`,
 `XeSSEnabled` and `upscalingType`, which is the arm's own change; the report
 was produced with those keys listed under `--vary`.
+
+The per-frame captures, GPU samples and screenshots named here are kept at the
+tag `benchmarks-raw-data`.

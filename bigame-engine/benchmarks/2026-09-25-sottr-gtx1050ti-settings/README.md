@@ -25,3 +25,6 @@ removed from the game afterwards; see docs/BENCHMARKS.md.
 
 The GPU samples of F and G were overwritten by the sampler before they were
 kept; their MangoHud logs are complete. E's result screen was not captured.
+
+The per-frame captures, GPU samples and screenshots named here are kept at the
+tag `benchmarks-raw-data`.
