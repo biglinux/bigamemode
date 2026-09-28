@@ -142,21 +142,33 @@ impl GameLaunch {
         u
     }
 
-    /// The per-game Gamescope configuration for the launch: the sizes of
-    /// `effective` ([`Self::over`]), this game's filter and its frame limit.
-    /// It carries them when Gamescope is off in Tuning, where the launch
-    /// reads the filter from the game alone. `None` when the game sets
-    /// nothing of Gamescope's.
+    /// The per-game Gamescope configuration for the launch: this game's own
+    /// sizes, filter and frame limit, and Tuning's sizes where the game has
+    /// none and Gamescope is on there (`effective` is [`Self::over`]'s). It
+    /// carries them when Gamescope is off in Tuning, where the launch reads
+    /// the sizes and the filter from the game alone. `None` when the game
+    /// sets nothing of Gamescope's.
     #[must_use]
     pub fn gamescope_override(&self, effective: &UpscalingSettings) -> Option<gamescope::Config> {
         if !self.sets_gamescope() {
             return None;
         }
+        let on = effective.gamescope_enabled;
+        let size = |own: Option<Size>, general: Size| match own {
+            Some(s) => zero_is_none(s),
+            None if on => general,
+            None => (0, 0),
+        };
+        let render = size(self.render, (effective.base_width, effective.base_height));
+        let output = size(
+            self.output,
+            (effective.target_width, effective.target_height),
+        );
         Some(gamescope::Config {
-            render_width: effective.base_width,
-            render_height: effective.base_height,
-            output_width: effective.target_width,
-            output_height: effective.target_height,
+            render_width: render.0,
+            render_height: render.1,
+            output_width: output.0,
+            output_height: output.1,
             filter: match self.filter {
                 Some(GamescopeFilter::Fsr) => gamescope::Filter::Fsr,
                 Some(GamescopeFilter::Nis) => gamescope::Filter::Nis,
@@ -207,19 +219,22 @@ impl GameLaunch {
         gamescope::decide(mode, &self.config(general, mode), caps, session)
     }
 
-    /// Whether Gamescope runs this game below its output size. `follows`
-    /// says whether Automatic follows Tuning's Gamescope switch (a game
+    /// Whether Gamescope runs this game at a render size of its own, which
+    /// it enlarges: the job Wine FSR would do a second time. `follows` says
+    /// whether Automatic follows Tuning's Gamescope switch (a game
     /// BiGame-mode starts) or runs only for the game's own values (a Steam
     /// game, whose launch options only the profile writes).
     #[must_use]
     pub fn upscales(&self, general: &UpscalingSettings, mode: Mode, follows: bool) -> bool {
-        let u = self.over(general, mode);
-        let runs = match mode {
-            Mode::Disabled => false,
-            Mode::Enabled => true,
-            Mode::Auto => (follows && general.gamescope_enabled) || self.sets_gamescope(),
-        };
-        runs && u.base_width > 0 && u.base_height > 0
+        // Whether it runs, as the launch decides it where Gamescope is
+        // installed and there is a session.
+        let caps = crate::capabilities::GamescopeCaps::default();
+        let session = crate::hardware::Session::Wayland;
+        let runs = self
+            .decide(general, mode, !follows, Some(&caps), session)
+            .use_gamescope;
+        let cfg = self.config(general, mode);
+        runs && cfg.render_width > 0 && cfg.render_height > 0
     }
 
     /// The variables a Steam game's launch options get, in front of
@@ -338,9 +353,14 @@ mod tests {
         let u = own.over(&general(), Mode::Auto);
         let cfg = own.gamescope_override(&u).unwrap();
         assert_eq!((cfg.render_width, cfg.render_height), (1920, 1080));
-        assert_eq!((cfg.output_width, cfg.output_height), (2560, 1440));
+        // Gamescope is off in Tuning: its output size is not the game's.
+        assert_eq!((cfg.output_width, cfg.output_height), (0, 0));
         assert_eq!(cfg.filter, gamescope::Filter::Linear, "none of its own");
         assert_eq!(cfg.frame_limit, gamescope::FrameLimit::NestedRefresh(60));
+        // On there, or with Always, the game's own size goes with Tuning's
+        // output.
+        let cfg = own.config(&general(), Mode::Enabled);
+        assert_eq!((cfg.render_width, cfg.output_width), (1920, 2560));
     }
 
     #[test]
@@ -382,6 +402,18 @@ mod tests {
             ..GameLaunch::default()
         };
         assert!(!native.upscales(&g, Mode::Enabled, true));
+        // A render size alone, where Automatic has nothing to enlarge it
+        // to, does not run Gamescope at all.
+        let alone = GameLaunch {
+            render: Some((1280, 720)),
+            ..GameLaunch::default()
+        };
+        assert!(!alone.upscales(&general(), Mode::Auto, false));
+        let to = GameLaunch {
+            output: Some((2560, 1440)),
+            ..alone
+        };
+        assert!(to.upscales(&general(), Mode::Auto, false));
     }
 
     #[test]

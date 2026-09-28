@@ -517,10 +517,12 @@ fn build_editor(
     let target = card.and_then(|c| c.target.clone());
     let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
     // What reaches the game: its Steam launch options, BiGame-mode's own
-    // launch, or — from its own launcher — nothing of the game's own.
+    // launch, or — started through its own launcher — nothing of the
+    // game's own.
+    let steam = source_label(bigame_core::games::Source::Steam);
     game.reach = match card {
-        Some(c) if c.source == source_label(bigame_core::games::Source::Steam) => ui::Reach::Steam,
-        Some(c) if c.launch.is_some() => ui::Reach::Launch,
+        Some(c) if c.source == steam => ui::Reach::Steam,
+        Some(c) if matches!(c.launch, Some(game_card::Launch::Direct(..))) => ui::Reach::Launch,
         Some(_) => ui::Reach::Nothing,
         None => ui::Reach::Unknown,
     };

@@ -346,7 +346,7 @@ impl Display {
     fn build(video: &SharedVideo, m: &Machine) -> Self {
         let group = ui::section(&i18n("Display"));
         group.set_description(Some(&i18n(
-            "For games started from BiGame-mode (Profiles → Launch). A game's profile can force Gamescope on or off.",
+            "For games started from BiGame-mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
         )));
         let quiet = Rc::new(Cell::new(false));
         if !m.gamescope {

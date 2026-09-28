@@ -644,12 +644,28 @@ pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gam
         })
         .collect();
     names.sort();
+    // Read once: a game with launch settings of its own and nothing written
+    // yet is looked at only if Steam starts it.
+    let mut steam_games: Option<std::collections::HashSet<String>> = None;
     for name in names {
-        let involved = crate::game_settings::load(&name).is_ok_and(|s| {
-            s.steam_gamescope.is_some() || s.steam_env.is_some() || !s.launch.is_empty()
-        });
-        if !involved {
+        let Ok(settings) = crate::game_settings::load(&name) else {
             continue;
+        };
+        let written = settings.steam_gamescope.is_some() || settings.steam_env.is_some();
+        if !written {
+            if settings.launch.is_empty() {
+                continue;
+            }
+            let steam = steam_games.get_or_insert_with(|| {
+                crate::games::detect_all()
+                    .into_iter()
+                    .filter(|g| g.source == crate::games::Source::Steam)
+                    .map(|g| g.profile_key().to_owned())
+                    .collect()
+            });
+            if !steam.contains(&name) {
+                continue;
+            }
         }
         let game = GameOptimization::load(&name);
         let wanted = game.steam_wanted();
