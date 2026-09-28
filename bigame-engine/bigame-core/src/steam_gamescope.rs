@@ -8,9 +8,14 @@
 //! Steam is closed (it keeps its configuration in memory), in every Steam
 //! account of the user, and read back.
 //!
-//! BiGame-mode owns only the segment it wrote (kept in the game's settings);
-//! the user's own options and a Gamescope they typed themselves are left
-//! alone.
+//! The game's own Wine FSR and vkBasalt go the same way, as variables in
+//! front of everything (`crate::game_launch::GameLaunch::steam_env`): a
+//! variable after another wrapper (`gamemoderun VAR=1 %command%`) would be
+//! taken for the program to run.
+//!
+//! BiGame-mode owns only the segment and the variables it wrote (kept in the
+//! game's settings); the user's own options and a Gamescope they typed
+//! themselves are left alone.
 
 use anyhow::Result;
 
@@ -86,13 +91,52 @@ pub enum Applied {
     Written(String),
 }
 
-/// Put the Gamescope wrapper for the game whose process is `process` into
-/// its Steam launch options, or take BiGame-mode's out (`wanted` `None`).
+/// `current` launch options with the variables BiGame-mode wrote before
+/// (`previous`) taken out and `wanted` put in front of everything. Each
+/// variable is taken out once, wherever it is, so one that something else
+/// moved or removed does not keep the others in.
+#[must_use]
+pub fn env_options(current: &str, previous: Option<&str>, wanted: Option<&str>) -> String {
+    let mut words: Vec<&str> = current.split_whitespace().collect();
+    for old in previous.unwrap_or_default().split_whitespace() {
+        if let Some(at) = words.iter().position(|w| *w == old) {
+            words.remove(at);
+        }
+    }
+    let wanted: Vec<&str> = wanted.unwrap_or_default().split_whitespace().collect();
+    if wanted.is_empty() {
+        let rest = words.join(" ");
+        return if rest == COMMAND { String::new() } else { rest };
+    }
+    if !words.contains(&COMMAND) {
+        // Plain arguments: they follow the command.
+        words.insert(0, COMMAND);
+    }
+    wanted
+        .into_iter()
+        .chain(words)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// What a game's launch options should hold from BiGame-mode: its
+/// Gamescope wrapper and its variables, each `None` for nothing.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Wanted {
+    /// `gamescope <args> --`, in front of `%command%`.
+    pub gamescope: Option<String>,
+    /// `NAME=value …`, in front of everything.
+    pub env: Option<String>,
+}
+
+/// Put the Gamescope wrapper and the variables for the game whose process
+/// is `process` into its Steam launch options, or take BiGame-mode's out
+/// (`None`).
 ///
 /// # Errors
 /// Returns an error when Steam's configuration cannot be written or read
 /// back, or the game's settings cannot be saved.
-pub fn apply(process: &str, wanted: Option<String>) -> Result<Applied> {
+pub fn apply(process: &str, wanted: Wanted) -> Result<Applied> {
     let apps: Vec<String> = crate::games::detect_all()
         .into_iter()
         .filter(|g| g.profile_key() == process && g.source == crate::games::Source::Steam)
@@ -102,7 +146,7 @@ pub fn apply(process: &str, wanted: Option<String>) -> Result<Applied> {
         return Ok(Applied::NotSteam);
     }
     let mut settings = crate::game_settings::load(process).unwrap_or_default();
-    if settings.steam_gamescope == wanted {
+    if settings.steam_gamescope == wanted.gamescope && settings.steam_env == wanted.env {
         return Ok(Applied::Unchanged);
     }
     if crate::steam::is_running() {
@@ -113,9 +157,13 @@ pub fn apply(process: &str, wanted: Option<String>) -> Result<Applied> {
         for app in &apps {
             let current = crate::steam::launch_options(&user.config, app).unwrap_or_default();
             let next = launch_options(
-                &current,
+                &env_options(
+                    &current,
+                    settings.steam_env.as_deref(),
+                    wanted.env.as_deref(),
+                ),
                 settings.steam_gamescope.as_deref(),
-                wanted.as_deref(),
+                wanted.gamescope.as_deref(),
             );
             if next != current {
                 crate::steam::set_launch_options(&user.config, app, &next)?;
@@ -123,7 +171,8 @@ pub fn apply(process: &str, wanted: Option<String>) -> Result<Applied> {
             last = next;
         }
     }
-    settings.steam_gamescope = wanted;
+    settings.steam_gamescope = wanted.gamescope;
+    settings.steam_env = wanted.env;
     crate::game_settings::save(process, &settings)?;
     Ok(Applied::Written(last))
 }
@@ -162,6 +211,20 @@ pub fn wine_fsr_in_options(process: &str) -> bool {
             .iter()
             .filter_map(|u| crate::steam::launch_options(&u.config, app))
             .any(|o| o.split_whitespace().any(|w| w == "WINE_FULLSCREEN_FSR=1"))
+    })
+}
+
+/// The game's Steam launch options as they read now, from the first
+/// account that has any; `None` for a game that is not a Steam game or has
+/// none.
+#[must_use]
+pub fn current_options(process: &str) -> Option<String> {
+    let users = crate::steam::users(&crate::paths::home_dir());
+    steam_apps(process).iter().find_map(|app| {
+        users
+            .iter()
+            .filter_map(|u| crate::steam::launch_options(&u.config, app))
+            .find(|o| !o.trim().is_empty())
     })
 }
 
@@ -249,6 +312,34 @@ mod tests {
         assert_eq!(
             wine_fsr_options("WINE_FULLSCREEN_FSR=0 %command%", false),
             ""
+        );
+    }
+
+    #[test]
+    fn a_games_variables_go_in_front_of_everything_and_come_out_again() {
+        let env = "WINE_FULLSCREEN_FSR=0 ENABLE_VKBASALT=1";
+        assert_eq!(env_options("", None, Some(env)), format!("{env} %command%"));
+        let mine = "MANGOHUD=1 gamemoderun %command% -dx12";
+        let on = env_options(mine, None, Some(env));
+        assert_eq!(on, format!("{env} {mine}"));
+        assert_eq!(env_options(&on, Some(env), None), mine);
+        // Replaced, not added twice.
+        assert_eq!(
+            env_options(&on, Some(env), Some("ENABLE_VKBASALT=0")),
+            format!("ENABLE_VKBASALT=0 {mine}")
+        );
+        assert_eq!(
+            env_options(&format!("{env} %command%"), Some(env), None),
+            ""
+        );
+        // One variable removed by something else: the other still goes.
+        let moved = wine_fsr_options(&on, false);
+        assert_eq!(env_options(&moved, Some(env), None), mine);
+        // With the Gamescope wrapper, each in its place.
+        let both = launch_options(&env_options(mine, None, Some(env)), None, Some(SEG));
+        assert_eq!(
+            both,
+            format!("{env} MANGOHUD=1 gamemoderun {SEG} %command% -dx12")
         );
     }
 
