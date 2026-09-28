@@ -4,7 +4,7 @@
 //! These are the global defaults; a game's profile overrides the Gamescope part
 //! (see `crate::launcher`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -154,11 +154,39 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
 /// Returns an error when the session's environment cannot be set, or reads
 /// back different.
 pub fn sync_session_env(cfg: &VideoConfig) -> Result<Vec<String>> {
-    let mut env = crate::launcher::build_persistent_env(cfg);
-    crate::turbo_preset::overlay(&mut env, crate::turbo_preset::active_levers());
+    let env = session_env(cfg);
     let (unset, set) = session_change(&env);
     sync_session(&unset, &set)?;
     Ok(set)
+}
+
+/// What [`sync_session_env`] brings the running session to: `cfg`'s
+/// variables with the Turbo preset in force laid over them.
+#[must_use]
+pub fn session_env(cfg: &VideoConfig) -> HashMap<String, String> {
+    let mut env = crate::launcher::build_persistent_env(cfg);
+    crate::turbo_preset::overlay(&mut env, crate::turbo_preset::active_levers());
+    env
+}
+
+/// What of BiGame-mode's variables ([`SESSION_KEYS`]) an environment really
+/// puts in force, `get` reading one variable: a switch counts only at `1`
+/// (`0` and absent are both off), and a switch's detail only while its
+/// switch is on. Two environments that give games the same thing compare
+/// equal, however each came to say it.
+pub fn in_force<'a>(get: impl Fn(&str) -> Option<&'a str>) -> BTreeMap<&'static str, &'a str> {
+    let on = |switch: &str| get(switch) == Some("1");
+    SESSION_KEYS
+        .iter()
+        .filter(|k| !SWITCHES.contains(k) || on(k))
+        .filter(|k| {
+            DETAILS
+                .iter()
+                .find(|(detail, _)| detail == *k)
+                .is_none_or(|(_, switch)| on(switch))
+        })
+        .filter_map(|k| get(k).map(|v| (*k, v)))
+        .collect()
 }
 
 /// The switches that turn a feature on only when set to `1`, and are turned
