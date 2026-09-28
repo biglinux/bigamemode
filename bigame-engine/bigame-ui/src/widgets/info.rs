@@ -4,6 +4,7 @@
 //! setting is, what it changes, who controls it, and what was measured — so
 //! the page stays readable for someone who only wants to play.
 
+use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::i18n::i18n;
@@ -32,6 +33,13 @@ pub fn button(heading: &str, text: &str) -> gtk4::MenuButton {
 
     let popover = gtk4::Popover::new();
     popover.set_child(Some(&content));
+    // The popover hands its focus to the text, and a selectable label
+    // takes keyboard focus by selecting everything: the explanation opened
+    // painted as one blue block. It stays selectable, starting with none.
+    popover.connect_show(move |_| {
+        let body = body.clone();
+        glib::idle_add_local_once(move || body.select_region(0, 0));
+    });
 
     let button = gtk4::MenuButton::builder()
         .icon_name("help-about-symbolic")

@@ -305,6 +305,8 @@ mod tests {
             app_id: Some("1".into()),
             install_root: "/g".into(),
             executable: Some("G.exe".into()),
+            launcher_stub: None,
+            engine: None,
             machine: Some(crate::graphics::pe::Machine::X64),
             runtime: None,
             api: ApiEvidence {
