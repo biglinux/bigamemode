@@ -517,12 +517,16 @@ fn build_editor(
     let target = card.and_then(|c| c.target.clone());
     let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
     // What reaches the game: its Steam launch options, BiGame-mode's own
-    // launch, or — started through its own launcher — nothing of the
-    // game's own.
+    // launch, its settings in Heroic, or — started through another
+    // launcher (Lutris, Flatpak) — nothing of the game's own.
     let steam = source_label(bigame_core::games::Source::Steam);
     game.reach = match card {
         Some(c) if c.source == steam => ui::Reach::Steam,
         Some(c) if matches!(c.launch, Some(game_card::Launch::Direct(..))) => ui::Reach::Launch,
+        Some(game_card::Entry {
+            heroic: Some(flatpak),
+            ..
+        }) => ui::Reach::Heroic { flatpak: *flatpak },
         Some(_) => ui::Reach::Nothing,
         None => ui::Reach::Unknown,
     };
@@ -701,7 +705,7 @@ fn advanced_group(
             .into_owned(),
         "folder-symbolic",
         &i18n(
-            "BiGame-mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What BiGame-mode wrote into Steam's launch options is recorded there, so it changes or removes exactly that.",
+            "BiGame-mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What BiGame-mode wrote into Steam's launch options or Heroic's settings is recorded there, so it changes or removes exactly that.",
         ),
     ));
     if reach == ui::Reach::Steam && !process.is_empty() {
@@ -723,6 +727,34 @@ fn advanced_group(
             .ok()
             .flatten();
             row.set_subtitle(&options.unwrap_or_else(|| i18n("none")));
+        });
+    }
+    if matches!(reach, ui::Reach::Heroic { .. }) && !process.is_empty() {
+        let row = file(
+            &i18n("Heroic's settings for this game"),
+            i18n("Reading…"),
+            "text-x-generic-symbolic",
+            &i18n(
+                "The file Heroic keeps this game's settings in. When you save, BiGame-mode writes the game's own Gamescope, Wine FSR and vkBasalt there (with Heroic closed, after keeping a copy of your file) and later takes out only what it wrote; the rest is yours.",
+            ),
+        );
+        group.add(&row);
+        let process = process.to_owned();
+        glib::spawn_future_local(async move {
+            let files = gio::spawn_blocking(move || {
+                bigame_core::heroic_launch::targets(&process)
+                    .iter()
+                    .map(|t| t.file().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .await
+            .unwrap_or_default();
+            row.set_subtitle(&if files.is_empty() {
+                i18n("none")
+            } else {
+                files
+            });
         });
     }
     group
@@ -940,6 +972,12 @@ fn card_entry(
                 install_root: root,
             }),
         launch: launch_command(game),
+        heroic: match &game.launcher {
+            Some(r @ bigame_core::games::LauncherRef::Heroic { .. }) => {
+                Some(r.flatpak_id().is_some())
+            }
+            _ => None,
+        },
         ai_installed: ai_installed.contains(&key.to_lowercase()),
         key,
     }
@@ -1064,6 +1102,10 @@ fn launch_through(
                 } else if by == "Steam" {
                     i18n(
                         "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options.",
+                    )
+                } else if by == "Heroic" {
+                    i18n(
+                        "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved.",
                     )
                 } else {
                     i18n(

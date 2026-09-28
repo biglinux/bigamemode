@@ -21,6 +21,7 @@ pub mod gpu_telemetry;
 pub mod graphics;
 pub mod hardware;
 pub mod health;
+pub mod heroic_launch;
 pub mod inventory;
 pub mod launcher;
 pub mod launchers;

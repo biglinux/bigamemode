@@ -102,6 +102,7 @@ pub const SESSION_KEYS: &[&str] = &[
     "DXVK_CONFIG",
     "VKD3D_FRAME_RATE",
     "FSR4_UPGRADE",
+    "PROTON_FSR4_UPGRADE",
 ];
 
 /// Write `~/.config/environment.d/bigame-mode.conf` with persistent video env

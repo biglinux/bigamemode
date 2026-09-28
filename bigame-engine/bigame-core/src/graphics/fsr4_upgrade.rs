@@ -12,8 +12,11 @@
 //! A game the Steam client starts gets its environment from its launch
 //! options, so that is where the variable goes: written with Steam closed,
 //! backed up and read back ([`crate::steam::set_launch_options`]), and only
-//! the word this module adds is ever removed. It is never applied by itself:
-//! the plan names it, Apply writes it.
+//! the word this module adds is ever removed. A game Heroic starts gets it
+//! in its settings there (`crate::heroic_launch`), both names, since Heroic
+//! runs games with GE-Proton as often as with Valve's Proton: written with
+//! Heroic closed, and only what BiGame-mode wrote is ever removed. It is
+//! never applied by itself: the plan names it, Apply writes it.
 //!
 //! Verified, never assumed: the running game's environment holds the
 //! variable, and it has the provider mapped ([`super::runtime::NativeRuntime`]).
@@ -62,25 +65,55 @@ pub fn launch_options(current: &str, on: bool) -> String {
     words.join(" ")
 }
 
-/// Where the setting stands for a Steam game.
+/// Where the setting stands for a game.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Applied {
     /// Written to Steam's launch options, which now read as given.
     SteamLaunchOptions(String),
     /// Nothing changed: Steam is running and would discard the edit.
     SteamRunning,
-    /// Not a Steam game: BiGame-mode's own launch plan carries the variable.
+    /// In the game's settings in Heroic: [`GE_VARIABLE`] and [`VARIABLE`],
+    /// for whichever Proton Heroic runs it with.
+    Heroic,
+    /// Nothing changed: Heroic is open and would write its own copy of the
+    /// game's settings back over the edit.
+    HeroicRunning {
+        /// The Heroic that is open.
+        launcher: crate::launchers::Launcher,
+        /// It runs a game now, so it must not be closed for this.
+        game_running: bool,
+    },
+    /// Neither a Steam nor a Heroic game: BiGame-mode's own launch plan
+    /// carries the variable.
     LaunchPlan,
 }
 
-/// Switch the upgrade on or off for the Steam game `app_id`, in every Steam
-/// account on this machine.
+/// Switch the upgrade on or off for the game whose process is `process`:
+/// the Steam game `app_id`, in every Steam account on this machine, or a
+/// game Heroic starts, in its settings there.
 ///
 /// # Errors
-/// Returns an error if Steam's configuration cannot be written or verified.
-pub fn apply(app_id: Option<&str>, on: bool) -> Result<Applied> {
+/// Returns an error if Steam's or Heroic's configuration cannot be written
+/// or verified.
+pub fn apply(process: &str, app_id: Option<&str>, on: bool) -> Result<Applied> {
+    use crate::heroic_launch::Applied as H;
     let Some(app) = app_id else {
-        return Ok(Applied::LaunchPlan);
+        if crate::heroic_launch::targets(process).is_empty() {
+            return Ok(Applied::LaunchPlan);
+        }
+        return Ok(
+            match crate::optimization::set_heroic_fsr4_upgrade(process, on)? {
+                H::NotHeroic => Applied::LaunchPlan,
+                H::Unchanged | H::Written => Applied::Heroic,
+                H::HeroicRunning {
+                    launcher,
+                    game_running,
+                } => Applied::HeroicRunning {
+                    launcher,
+                    game_running,
+                },
+            },
+        );
     };
     if crate::steam::is_running() {
         return Ok(Applied::SteamRunning);
@@ -101,11 +134,13 @@ pub fn apply(app_id: Option<&str>, on: bool) -> Result<Applied> {
 }
 
 /// Whether the Steam game `app_id` has the upgrade in its launch options in
-/// any account.
+/// any account, or the game whose process is `process` has it in its
+/// settings in Heroic.
 #[must_use]
-pub fn is_enabled(app_id: Option<&str>) -> bool {
+pub fn is_enabled(process: &str, app_id: Option<&str>) -> bool {
     let Some(app) = app_id else {
-        return false;
+        // Kept only once written (`crate::optimization::set_heroic_fsr4_upgrade`).
+        return crate::game_settings::load(process).is_ok_and(|s| s.heroic_fsr4_upgrade);
     };
     crate::steam::users(&crate::paths::home_dir())
         .iter()
