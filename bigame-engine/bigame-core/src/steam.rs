@@ -112,12 +112,15 @@ fn start_in_session() -> anyhow::Result<()> {
 /// inherits the manager's environment rather than BiGame-mode's own.
 ///
 /// # Errors
-/// Returns an error when Steam does not close within a minute or cannot be
-/// started again; `f` has not run in the first case.
+/// Returns an error when a Steam game is running, when Steam does not close
+/// within a minute or cannot be started again; `f` has not run in the first
+/// two cases.
 pub fn while_closed<T>(f: impl FnOnce() -> T) -> anyhow::Result<T> {
     use anyhow::Context;
     let was_open = is_running();
     if was_open {
+        // Closing the client would close a game it runs.
+        crate::launchers::ensure_launcher_idle(crate::launchers::Launcher::Steam)?;
         std::process::Command::new("steam")
             .arg("-shutdown")
             .stdin(std::process::Stdio::null())
