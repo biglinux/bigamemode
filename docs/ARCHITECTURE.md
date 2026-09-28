@@ -501,9 +501,11 @@ directory.
   which switch: `__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`
   for NVIDIA's driver (`DRI_PRIME=1` there gives zink, OpenGL on NVIDIA's
   Vulkan), `DRI_PRIME=pci-…` for Mesa. DXVK and VKD3D-Proton pick the
-  discrete GPU themselves. A native OpenGL game started by the Steam client
-  needs `prime-run %command%` in its launch options; the hybrid health check
-  says so.
+  discrete GPU themselves; a native game does not, OpenGL or Vulkan
+  (SuperTuxKart's Vulkan renderer took the HD 630, listed first, until the
+  Optimus layer filter put the GTX first). A native game started by the Steam
+  client needs `prime-run %command%` in its launch options; the hybrid health
+  check says so.
 - **Gamescope composites where the display is.** Told to composite on a
   discrete GPU that drives no output (`--prefer-vk-device`), nested Gamescope
   shows no window; without it, it composites on the display's GPU while the

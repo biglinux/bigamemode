@@ -228,9 +228,10 @@ impl LaunchPlan {
             env.insert("ENABLE_VKBASALT".into(), "0".into());
         }
         env.extend(crate::turbo_preset::preset_env(preset));
-        // On a hybrid laptop an OpenGL game renders on the GPU that drives the
-        // panel unless it is offloaded; Vulkan games pick the discrete GPU
-        // anyway, and the offload variables do not change what they choose.
+        // On a hybrid laptop a native game renders on the GPU that drives the
+        // panel unless it is offloaded: an OpenGL one through libglvnd, a
+        // Vulkan one that takes the first device listed (SuperTuxKart did).
+        // DXVK and VKD3D-Proton pick the discrete GPU themselves.
         // A value the user already set in their environment wins.
         if let Some(offload) = &host.offload {
             for (k, v) in offload.env() {
