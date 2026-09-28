@@ -195,6 +195,11 @@ mod tests {
             switch.registry,
             r"Software\Eidos Montreal\Shadow of the Tomb Raider\Graphics"
         );
+        let worlds = db
+            .lookup(None, "TheOuterWorldsSpacersChoiceEdition.exe")
+            .unwrap();
+        assert_eq!(worlds.prefer, Some(Prefer::Native));
+        assert_eq!(worlds.bad_optiscaler, ["0.9.4"]);
         let cp = db.lookup(Some("1091500"), "Cyberpunk2077.exe").unwrap();
         assert_eq!(cp.api, Some(Api::Dx12));
         assert!(cp.notes.is_some());
