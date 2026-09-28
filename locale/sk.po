@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-28 00:10-0300\n"
+"POT-Creation-Date: 2026-09-28 00:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:26\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Slovak <sk@li.org>\n"
@@ -320,7 +320,7 @@ msgstr "%s spúšťa %s"
 msgid "%s switched on in the game's settings"
 msgstr "%s zapnuté v nastaveniach hry"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:620
+#: bigame-engine/bigame-core/src/graphics/plan.rs:635
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s zapnuté v nastaveniach hry, ak je vypnuté, a vrátené späť funkciou Obnoviť — OptiScaler namiesto neho spúšťa %s; kvalitu si naďalej meníte v ponuke hry"
 
@@ -332,7 +332,7 @@ msgstr "Predvoľba „%s“ bola odstránená: hry opäť dostávajú nastavenia
 msgid "%s through %s (%s)"
 msgstr "%s cez %s (%s)"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:716
+#: bigame-engine/bigame-core/src/graphics/plan.rs:731
 msgid "%s through OptiScaler, from the game's %s"
 msgstr "%s cez OptiScaler, z %s hry"
 
@@ -2221,7 +2221,7 @@ msgstr "Gamescope aktualizovaný v možnostiach spustenia Steam: %s"
 msgid "Gamescope upscaling"
 msgstr "Zvýšenie rozlíšenia Gamescope"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:668
+#: bigame-engine/bigame-core/src/graphics/plan.rs:683
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "Zvýšenie rozlíšenia Gamescope pre túto hru: dva upscalery za sebou"
 
@@ -3581,7 +3581,7 @@ msgstr "Otvoriť oficiálnu stránku"
 msgid "OptiScaler"
 msgstr "OptiScaler"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:603
+#: bigame-engine/bigame-core/src/graphics/plan.rs:618
 msgid "OptiScaler %s as %s beside the game, with %s configured as the output"
 msgstr "OptiScaler %s ako %s vedľa hry, s %s nastaveným ako výstup"
 
@@ -3641,7 +3641,7 @@ msgstr "OptiScaler sa načítal, ale nevytvoril žiadny upscaler: vlastný upsca
 msgid "OptiScaler needs dxgi.dll; remove this file, or load it through OptiScaler's own plugin loading, before AI Graphics can install"
 msgstr "OptiScaler potrebuje dxgi.dll; odstráňte tento súbor alebo ho načítajte cez vlastné načítanie pluginov OptiScaler, aby sa AI grafika mohla nainštalovať"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:525
+#: bigame-engine/bigame-core/src/graphics/plan.rs:540
 msgid "OptiScaler replaces an upscaler the game already has (DLSS, FSR 2 or newer, XeSS); this game has none"
 msgstr "OptiScaler nahrádza upscaler, ktorý hra už má (DLSS, FSR 2 alebo novšie, XeSS); táto hra žiadny nemá"
 
@@ -3652,6 +3652,10 @@ msgstr "OptiScaler spúšťa FSR, XeSS alebo DLSS namiesto upscalera, ktorý hra
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1636
 msgid "OptiScaler runs Intel XeSS in place of the game's upscaler. Fastest on Intel Arc; other GPUs run it through a slower general path. The game must have an upscaler for OptiScaler to take over."
 msgstr "OptiScaler spúšťa Intel XeSS namiesto upscalera hry. Najrýchlejší na Intel Arc; ostatné GPU ho spúšťajú pomalšou všeobecnou cestou. Hra musí mať upscaler, ktorý OptiScaler prevezme."
+
+#: bigame-engine/bigame-core/src/graphics/plan.rs:499
+msgid "OptiScaler takes over an FSR 2 built into the game, but under VKD3D-Proton FSR 3.1 or FSR 4 in its place crashed the game at once — tested with The Outer Worlds: Spacer's Choice Edition and The Callisto Protocol on an RDNA 4 card (OptiScaler 0.9.4). The game's own FSR stays"
+msgstr "OptiScaler prevezme FSR 2 zabudované v hre, ale pod VKD3D-Proton FSR 3.1 alebo FSR 4 na jeho mieste hru okamžite zhodilo — testované s The Outer Worlds: Spacer's Choice Edition a The Callisto Protocol na karte RDNA 4 (OptiScaler 0.9.4). Vlastné FSR hry zostáva"
 
 #: bigame-engine/bigame-core/src/graphics/rules.rs:234
 msgid "OptiScaler takes over the game's DLSS: choose DLSS in the game's menu; on AMD and Intel this needs GPU spoofing"
@@ -5625,7 +5629,7 @@ msgstr "Wine FSR zväčší hru, ktorá beží v exkluzívnom režime celej obra
 msgid "Wine FSR for Proton games in exclusive fullscreen, and vkBasalt's filters."
 msgstr "Wine FSR pre hry cez Proton v exkluzívnom režime celej obrazovky a filtre vkBasalt."
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:674
+#: bigame-engine/bigame-core/src/graphics/plan.rs:689
 msgid "Wine FSR for this game: two upscalers in series"
 msgstr "Wine FSR pre túto hru: dva upscalery za sebou"
 
@@ -5897,7 +5901,7 @@ msgstr "v grafickej ponuke hry vyberte %s (Kvalita)"
 msgid "choose %s in the game's graphics menu"
 msgstr "v grafickej ponuke hry vyberte %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:627
+#: bigame-engine/bigame-core/src/graphics/plan.rs:642
 msgid "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place"
 msgstr "v grafickej ponuke hry vyberte %s v požadovanej kvalite — OptiScaler namiesto neho spustí %s"
 
@@ -5957,7 +5961,7 @@ msgstr "nespúšťa DLSS"
 msgid "download does not match %s: SHA-256 %s"
 msgstr "stiahnutý súbor nezodpovedá %s: SHA-256 %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:560
+#: bigame-engine/bigame-core/src/graphics/plan.rs:575
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "dxgi.dll vedľa hry patrí k %s; neprepíše sa. Odstráňte ho alebo ho načítajte cez OptiScaler, aby AI grafika mohla nainštalovať OptiScaler"
 
@@ -5965,7 +5969,7 @@ msgstr "dxgi.dll vedľa hry patrí k %s; neprepíše sa. Odstráňte ho alebo ho
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "profil každej hry nastavuje režim V-Cache, kým hra beží"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:634
+#: bigame-engine/bigame-core/src/graphics/plan.rs:649
 msgid "every file that is replaced is backed up first, and Restore puts it back"
 msgstr "každý nahrádzaný súbor sa najprv zálohuje a Obnoviť ho vráti"
 
@@ -6181,7 +6185,7 @@ msgstr "nájdené"
 msgid "frame generation"
 msgstr "generovanie snímok"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:682
+#: bigame-engine/bigame-core/src/graphics/plan.rs:697
 msgid "frame generation raises the presented frame rate, not the rendered one, and adds latency"
 msgstr "generovanie snímok zvyšuje zobrazovanú snímkovú frekvenciu, nie vykresľovanú, a pridáva latenciu"
 
@@ -6225,7 +6229,7 @@ msgstr "hardvérové spomalenie"
 msgid "held off while the game runs"
 msgstr "pozdržané, kým hra beží"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:647
+#: bigame-engine/bigame-core/src/graphics/plan.rs:662
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "ak hra s ním padá, wiki OptiScaler odporúča %s v sekcii [SystemSettings] v súbore Engine.ini hry"
 
@@ -6329,7 +6333,7 @@ msgstr "načítava sa do hry ako DLL: nikdy pre hry s anti-cheatom"
 msgid "lsfg-vk for every game with an entry"
 msgstr "lsfg-vk pre každú hru so záznamom"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:687
+#: bigame-engine/bigame-core/src/graphics/plan.rs:702
 msgid "lsfg-vk for this game: two frame generators in series"
 msgstr "lsfg-vk pre túto hru: dva generátory snímok za sebou"
 
@@ -6477,7 +6481,7 @@ msgstr "od spustenia žiadne tepelné obmedzovanie"
 msgid "no upscaler available"
 msgstr "nie je dostupný žiadny upscaler"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:541
+#: bigame-engine/bigame-core/src/graphics/plan.rs:556
 msgid "no upscaler for OptiScaler to take over"
 msgstr "žiadny upscaler, ktorý by OptiScaler mohol prevziať"
 
@@ -6793,7 +6797,7 @@ msgstr "CPU od spustenia %s-krát dosiahol teplotný limit (spomalený celkovo %
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "CPU od spustenia raz dosiahol teplotný limit (spomalený celkovo %s s): chladenie obmedzuje jeho rýchlosť a výkonnostný profil napájania pridáva teplo"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:558
+#: bigame-engine/bigame-core/src/graphics/plan.rs:573
 msgid "the DLL slot OptiScaler needs is taken"
 msgstr "pozícia DLL, ktorú OptiScaler potrebuje, je obsadená"
 
@@ -6817,7 +6821,7 @@ msgstr "komponent spúšťa svoje jadrá cez runtime AMD HIP pre Windows (amdhip
 msgid "the configuration was written but reads back unchanged"
 msgstr "konfigurácia bola zapísaná, ale pri spätnom čítaní je nezmenená"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:532
+#: bigame-engine/bigame-core/src/graphics/plan.rs:547
 msgid "the executable has code for %s, but the DLL it runs from is not in the game's folder, so the game cannot offer it"
 msgstr "spustiteľný súbor obsahuje kód pre %s, ale DLL, z ktorého beží, v priečinku hry nie je, takže ho hra nemôže ponúknuť"
 
@@ -6833,11 +6837,11 @@ msgstr "spustiteľný súbor linkuje %s"
 msgid "the game has just started; OptiScaler has not reported yet"
 msgstr "hra sa práve spustila; OptiScaler sa zatiaľ neohlásil"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:511
+#: bigame-engine/bigame-core/src/graphics/plan.rs:526
 msgid "the game has only DLSS, which does not run on this GeForce: whether the game offers it anyway for OptiScaler to take over depends on the game and is not established"
 msgstr "hra má iba DLSS, ktoré na tejto GeForce nebeží: či ho hra aj tak ponúkne, aby ho OptiScaler mohol prevziať, závisí od hry a nie je potvrdené"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:520
+#: bigame-engine/bigame-core/src/graphics/plan.rs:535
 msgid "the game has only DLSS, which it hides on this GPU: OptiScaler has to report an NVIDIA GPU (spoofing), which can send the game down NVIDIA-only code paths"
 msgstr "hra má iba DLSS, ktoré na tejto GPU skrýva: OptiScaler musí hlásiť GPU NVIDIA (podvrhnutie), čo môže hru poslať do kódu určeného iba pre NVIDIA"
 
@@ -6853,7 +6857,7 @@ msgstr "hra beží bez FSR4_UPGRADE=1 vo svojom prostredí, takže Proton neodov
 msgid "the game list blocks graphics injection for this game: %s"
 msgstr "zoznam hier blokuje vkladanie grafiky pre túto hru: %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:655
+#: bigame-engine/bigame-core/src/graphics/plan.rs:670
 msgid "the game list records this game as tested with OptiScaler %s"
 msgstr "zoznam hier uvádza túto hru ako testovanú s OptiScaler %s"
 
@@ -6889,7 +6893,7 @@ msgstr "DLSS hry"
 msgid "the game's FSR"
 msgstr "FSR hry"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:502
+#: bigame-engine/bigame-core/src/graphics/plan.rs:517
 msgid "the game's FSR is built into its executable, not shipped as a DLL: OptiScaler takes over a built-in FSR in some games and not in others, depending on how the game built it — its compatibility list is the place to check. If nothing changes in the game, Restore Game Graphics puts every file back"
 msgstr "FSR hry je zabudované v jej spustiteľnom súbore, nie dodávané ako DLL: OptiScaler prevezme zabudované FSR v niektorých hrách a v iných nie, podľa toho, ako ho hra zostavila — overiť sa to dá v jeho zozname kompatibility. Ak sa v hre nič nezmení, Obnoviť grafiku hry vráti všetky súbory"
 
@@ -6909,7 +6913,7 @@ msgstr "spustiteľný súbor hry sa nenašiel"
 msgid "the game's frame generation"
 msgstr "generovanie snímok hry"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:660
+#: bigame-engine/bigame-core/src/graphics/plan.rs:675
 msgid "the game's graphics API is not certain yet; it is confirmed the first time the game runs"
 msgstr "grafické API hry zatiaľ nie je isté; potvrdí sa pri prvom spustení hry"
 
@@ -7101,7 +7105,7 @@ msgstr "príliš málo použiteľných behov na porovnanie"
 msgid "translator-credits"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:692
+#: bigame-engine/bigame-core/src/graphics/plan.rs:707
 msgid "turn the game's own frame generation off"
 msgstr "vypnite vlastné generovanie snímok hry"
 
