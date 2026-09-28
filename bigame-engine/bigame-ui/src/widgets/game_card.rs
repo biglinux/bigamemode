@@ -92,6 +92,9 @@ pub struct Entry {
     /// How BiGame-mode starts this game. `None` when there is no way,
     /// rather than a guessed program name.
     pub launch: Option<Launch>,
+    /// Heroic lists it: `Some(true)` for Heroic's Flatpak. Its launch
+    /// settings go into its settings there.
+    pub heroic: Option<bool>,
     /// BiGame-mode has placed AI Graphics files in this game.
     pub ai_installed: bool,
 }
@@ -474,6 +477,7 @@ mod tests {
             key_is_verified: true,
             target: None,
             launch: None,
+            heroic: None,
             ai_installed: false,
         }
     }

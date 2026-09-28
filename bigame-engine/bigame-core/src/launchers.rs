@@ -638,10 +638,53 @@ pub fn reopen(launcher: Launcher) -> Result<()> {
     if launcher == Launcher::Steam {
         return crate::steam::restart_in_session();
     }
+    let exe = close(&open)?;
+    start(launcher, exe.as_deref())
+}
+
+/// Run `f` with `launcher` closed, and open it again afterwards if it was
+/// open. Heroic keeps a game's settings in memory and writes them back, so
+/// a change made to its files while it runs would be lost. Closed as
+/// [`reopen`] closes it, and never while it runs a game.
+///
+/// # Errors
+/// Returns an error, and `f` has not run, while the launcher runs a game or
+/// when it does not close in time; also when it cannot be opened again.
+pub fn while_closed<T>(launcher: Launcher, f: impl FnOnce() -> T) -> Result<T> {
+    if launcher == Launcher::Steam {
+        return crate::steam::while_closed(f);
+    }
+    let procs = snapshot();
+    let Some(open) = find_open(&procs)
+        .into_iter()
+        .find(|o| o.launcher == launcher)
+    else {
+        return Ok(f());
+    };
+    ensure_idle(&open, &procs)?;
+    let exe = close(&open)?;
+    let out = f();
+    start(launcher, exe.as_deref())?;
+    Ok(out)
+}
+
+/// Whether `launcher` is open now.
+#[must_use]
+pub fn is_open(launcher: Launcher) -> bool {
+    find_open(&snapshot())
+        .iter()
+        .any(|o| o.launcher == launcher)
+}
+
+/// Close `open`, which runs no game, the way it closes itself, and wait
+/// until it is gone. Returns the file a native one runs from, to start it
+/// again from there when its name is not on the `PATH`.
+fn close(open: &Open) -> Result<Option<std::path::PathBuf>> {
+    let launcher = open.launcher;
     // A native launcher that is not on the PATH is started again from the
     // file it runs from now.
     let exe = std::fs::read_link(format!("/proc/{}/exe", open.main)).ok();
-    ask_to_close(&open);
+    ask_to_close(open);
     if !wait_closed(launcher, CLOSE_TIMEOUT) {
         let Some(id) = launcher.flatpak_id() else {
             anyhow::bail!(UserError::with(
@@ -673,7 +716,7 @@ pub fn reopen(launcher: Launcher) -> Result<()> {
             )
         );
     }
-    start(launcher, exe.as_deref())
+    Ok(exe)
 }
 
 /// Refuse while `launcher` is open and runs a game — before anything closes

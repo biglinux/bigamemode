@@ -10,7 +10,8 @@
 //! A row is offered only where it reaches the game ([`Reach`]): falcond's
 //! and lsfg-vk's settings reach it however it is started, `MangoHud` goes
 //! where its launcher reads it, and Gamescope, Wine FSR and vkBasalt reach
-//! it when BiGame-mode starts it, or through its Steam launch options.
+//! it when BiGame-mode starts it, through its Steam launch options, or
+//! through its settings in Heroic.
 //!
 //! Display and Image quality edit one set of values ([`Live`]), so turning
 //! on one upscaler where the other already works for this game asks which to
@@ -196,7 +197,7 @@ fn upscalers(general: &UpscalingSettings, game: &Game, before: Before) -> (bool,
     }
     let (launch, mode) = before;
     (
-        launch.upscales(general, mode, game.reach != Reach::Steam),
+        launch.upscales(general, mode, !game.reach.launcher_written()),
         launch.over(general, mode).wine_fsr_enabled,
     )
 }
@@ -449,7 +450,27 @@ impl GamescopeFields {
         into: Option<&adw::PreferencesGroup>,
     ) -> Self {
         let group = group_in(into);
-        if !m.gamescope {
+        // Heroic's Flatpak runs its own Gamescope, from Flathub's extension:
+        // without it, Heroic starts the game without Gamescope, so nothing
+        // of Gamescope's is offered, rather than a setting that does nothing.
+        let heroic_flatpak = game.reach.heroic_flatpak();
+        if let Some(command) = heroic_flatpak
+            .then(bigame_core::heroic_launch::flatpak_gamescope_missing)
+            .flatten()
+        {
+            group.add(&missing_row(
+                "Gamescope",
+                &i18n(
+                    "Heroic's Flatpak finds Gamescope only in Flathub's Gamescope extension for its runtime, which is not installed. Heroic would start this game without it, so nothing of Gamescope's is written for it. Install it and restart Heroic:",
+                ),
+                &command,
+            ));
+            return Self {
+                group,
+                available: false,
+            };
+        }
+        if !m.gamescope && !heroic_flatpak {
             group.add(&missing_row(
                 "Gamescope",
                 &i18n("Not installed. It wraps the game in a micro-compositor: scaling, a frame limit, a stable fullscreen."),
@@ -469,6 +490,10 @@ impl GamescopeFields {
         }
         let general = m.video.upscaling.clone();
         let steam = game.reach == Reach::Steam;
+        let heroic = matches!(game.reach, Reach::Heroic { .. });
+        // Its launcher's settings carry it: Automatic runs Gamescope only
+        // for the game's own values.
+        let written = game.reach.launcher_written();
         let own = *live.launch.borrow();
 
         // Whether it runs: the general configuration, Always or Never.
@@ -657,8 +682,12 @@ impl GamescopeFields {
                 let applies = mode == Mode::Enabled || general.gamescope_enabled;
                 let off_there = i18n("nothing, Gamescope is off there");
                 let or_off = |v: String| if applies { v } else { off_there.clone() };
-                mode_row.set_subtitle(&if steam {
-                    let what = i18n("Written into this game's Steam launch options");
+                mode_row.set_subtitle(&if written {
+                    let what = if steam {
+                        i18n("Written into this game's Steam launch options")
+                    } else {
+                        i18n("Written into Heroic's settings for this game, with Heroic closed")
+                    };
                     if mode == Mode::Auto {
                         format!(
                             "{what}\n{}",
@@ -689,8 +718,16 @@ impl GamescopeFields {
                     false
                 };
                 sharpness_row.set_sensitive(fsr);
+                let scale = i18n("0 = sharpest · 20 = softest");
                 sharpness_row.set_subtitle(&follow_subtitle(
-                    &i18n("0 = sharpest · 20 = softest"),
+                    &if heroic {
+                        format!(
+                            "{scale}\n{}",
+                            i18n("Heroic has no sharpness setting: it goes into Heroic's additional Gamescope options for this game")
+                        )
+                    } else {
+                        scale
+                    },
                     own.sharpness
                         .is_none()
                         .then(|| general.clamped_sharpness().to_string())
@@ -731,7 +768,7 @@ impl GamescopeFields {
                     let d = own.decide(
                         &general,
                         mode,
-                        steam,
+                        written,
                         caps.as_ref(),
                         bigame_core::hardware::detect_session(),
                     );
@@ -746,7 +783,7 @@ impl GamescopeFields {
                     ));
                 }
                 let optiscaler = game.optiscaler.contains(&Feature::OptiScalerUpscaling);
-                collide.set_visible(optiscaler && own.upscales(&general, mode, !steam));
+                collide.set_visible(optiscaler && own.upscales(&general, mode, !written));
             })
         };
         {
@@ -754,10 +791,15 @@ impl GamescopeFields {
             live.on_refresh(move || refresh());
         }
         glib::spawn_future_local(async move {
-            let probed = gio::spawn_blocking(bigame_core::capabilities::gamescope_cached)
-                .await
-                .ok()
-                .flatten();
+            // Heroic's Flatpak runs the extension's Gamescope, found above.
+            let probed = if heroic_flatpak {
+                Some(bigame_core::capabilities::GamescopeCaps::default())
+            } else {
+                gio::spawn_blocking(bigame_core::capabilities::gamescope_cached)
+                    .await
+                    .ok()
+                    .flatten()
+            };
             *caps.borrow_mut() = Some(probed);
             refresh();
         });
@@ -794,6 +836,8 @@ impl ImageQualityFields {
         let general = m.video.upscaling.clone();
         let own = *live.launch.borrow();
         let optiscaler = game.optiscaler.contains(&Feature::OptiScalerUpscaling);
+        let heroic = matches!(game.reach, Reach::Heroic { .. });
+        let heroic_flatpak = game.reach.heroic_flatpak();
 
         if game.reach == Reach::Nothing {
             group.add(&no_reach_row());
@@ -860,11 +904,24 @@ impl ImageQualityFields {
                 });
             }
 
-            let vkbasalt = if bigame_core::capabilities::vkbasalt_installed() {
+            // Heroic's Flatpak loads Flathub's vkBasalt, not the system's,
+            // and cannot see the user's configuration folder.
+            let flatpak_note = heroic_flatpak.then(|| {
+                match bigame_core::heroic_launch::flatpak_vkbasalt_missing() {
+                    Some(command) => i18n(
+                        "Heroic's Flatpak needs Flathub's vkBasalt extension for this to take effect, and it is not installed. Install it and restart Heroic: %s",
+                    )
+                    .replace("%s", &command),
+                    None => i18n(
+                        "In Heroic's Flatpak, vkBasalt reads its own file inside Heroic's folder, not the look chosen in Tuning: without one it uses its own sharpening (CAS).",
+                    ),
+                }
+            });
+            let vkbasalt = if heroic_flatpak || bigame_core::capabilities::vkbasalt_installed() {
                 let vkb = Picker::new("vkBasalt", "", &tri_items(), tri_id(own.vkbasalt));
                 vkb.row
                     .add_prefix(&gtk4::Image::from_icon_name("image-x-generic-symbolic"));
-                vkb.row.set_subtitle_lines(4);
+                vkb.row.set_subtitle_lines(if heroic { 7 } else { 4 });
                 group.add(&vkb.row);
                 // The look is vkBasalt's own file, the same for every game.
                 let look = adw::ActionRow::builder()
@@ -930,6 +987,21 @@ impl ImageQualityFields {
                         wine_row.set_subtitle(&i18n(
                             "OptiScaler upscales this game (AI Graphics): Wine FSR is switched off for it at launch.",
                         ));
+                    } else if heroic {
+                        // Heroic sets WINE_FULLSCREEN_FSR itself, from its
+                        // own switch, over the session's.
+                        let mut text = i18n(
+                            "Wine's own upscaling for Proton games in exclusive fullscreen: Heroic's own Wine FSR switch, written into its settings for this game",
+                        );
+                        if own.wine_fsr.is_none() {
+                            text.push('\n');
+                            text.push_str(&i18n(
+                                "General configuration: Heroic's own setting for this game, which Heroic applies over the session's",
+                            ));
+                        }
+                        wine_row.set_subtitle(&text);
+                        quality_row
+                            .set_sensitive(own.wine_fsr.is_none() || effective.wine_fsr_enabled);
                     } else {
                         wine_row.set_subtitle(&follow_subtitle(
                             &what,
@@ -948,8 +1020,19 @@ impl ImageQualityFields {
                             .as_deref(),
                     ));
                     if let Some(row) = &vkbasalt_row {
+                        let mut what = i18n("Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, Home turns it on and off.");
+                        if heroic {
+                            what.push('\n');
+                            what.push_str(&i18n(
+                                "Written into Heroic's settings for this game, with Heroic closed",
+                            ));
+                        }
+                        if let Some(note) = &flatpak_note {
+                            what.push('\n');
+                            what.push_str(note);
+                        }
                         row.set_subtitle(&follow_subtitle(
-                            &i18n("Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, Home turns it on and off."),
+                            &what,
                             own.vkbasalt
                                 .is_none()
                                 .then(|| on_off(general.vkbasalt_enabled))
@@ -1399,8 +1482,11 @@ impl GameFields {
             Reach::Launch => {
                 i18n("For this game when BiGame-mode starts it (Profiles → Launch (Turbo)).")
             }
+            Reach::Heroic { .. } => i18n(
+                "Written into Heroic's settings for this game when you save, with Heroic closed; your own settings there are kept.",
+            ),
             Reach::Unknown => i18n(
-                "For this game when BiGame-mode starts it, and in its Steam launch options when Steam starts it (written when you save, with Steam closed).",
+                "For this game when BiGame-mode starts it, and in its Steam launch options or its settings in Heroic when one of them starts it (written when you save, with that launcher closed).",
             ),
             Reach::Nothing => i18n(
                 "Started through its own launcher, this game gets Tuning's settings from the session environment.",

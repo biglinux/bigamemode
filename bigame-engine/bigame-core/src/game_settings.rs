@@ -44,6 +44,17 @@ pub struct GameSettings {
     /// Tuning's; what it leaves unset follows Tuning.
     #[serde(skip_serializing_if = "crate::game_launch::GameLaunch::is_empty")]
     pub launch: crate::game_launch::GameLaunch,
+    /// Proton's FSR 4 upgrade for a game Heroic starts, from AI Graphics:
+    /// its variables go into the game's settings in Heroic
+    /// (`crate::heroic_launch`), as a Steam game's go into its launch
+    /// options.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub heroic_fsr4_upgrade: bool,
+    /// What BiGame-mode wrote into the game's settings in Heroic, one entry
+    /// per settings file, so it can replace or remove exactly that
+    /// (`crate::heroic_launch`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub heroic: Vec<crate::heroic_launch::Written>,
 }
 
 /// The folder the per-game files are in.
