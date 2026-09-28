@@ -15,6 +15,7 @@
 use std::rc::Rc;
 
 use adw::prelude::*;
+use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use bigame_core::capabilities::Support;
@@ -84,14 +85,36 @@ pub enum Reach {
     /// The Steam client starts it: its launch options, written with Steam
     /// closed.
     Steam,
+    /// Heroic starts it: its settings there, written with Heroic closed.
+    Heroic {
+        /// Heroic's Flatpak, which needs Flathub's extensions for Gamescope
+        /// and vkBasalt.
+        flatpak: bool,
+    },
     /// BiGame-mode starts it (Profiles → Launch).
     Launch,
     /// Not known here (a profile with no game card, the wizard): whichever
-    /// of the two starts it.
+    /// of them starts it.
     #[default]
     Unknown,
     /// Its own launcher starts it, and BiGame-mode cannot.
     Nothing,
+}
+
+impl Reach {
+    /// Whether its launcher's own settings carry the game's launch
+    /// settings (Steam, Heroic), where Automatic runs Gamescope only for the
+    /// game's own values rather than following Tuning's switch.
+    #[must_use]
+    pub fn launcher_written(self) -> bool {
+        matches!(self, Self::Steam | Self::Heroic { .. })
+    }
+
+    /// Heroic's Flatpak starts it.
+    #[must_use]
+    pub fn heroic_flatpak(self) -> bool {
+        self == Self::Heroic { flatpak: true }
+    }
 }
 
 /// The game a profile is for, as far as its pages need it.
@@ -634,6 +657,10 @@ pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
             )),
         }
     }
+    let close_heroic = report
+        .heroic
+        .as_ref()
+        .and_then(|h| heroic_outcome(h, &mut problems, &mut note));
     if let Some(m) = &report.mangohud {
         match m {
             Ok(Applied::SteamRunning) => problems.push(i18n(
@@ -666,4 +693,94 @@ pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
             &problems.join("\n"),
         );
     }
+    if let Some(launcher) = close_heroic {
+        let process = report.process.clone();
+        offer_close_heroic(
+            anchor,
+            launcher,
+            &i18n(
+                "Heroic is open: this game's launch settings were not written into its settings there",
+            ),
+            move || bigame_core::optimization::apply_heroic(&process).map(|_| ()),
+        );
+    }
+}
+
+/// What writing a Heroic game's settings did, as a save's problem or note;
+/// the Heroic to offer to close, when it is open and runs no game.
+fn heroic_outcome(
+    applied: &anyhow::Result<bigame_core::heroic_launch::Applied>,
+    problems: &mut Vec<String>,
+    note: &mut Option<String>,
+) -> Option<bigame_core::launchers::Launcher> {
+    use bigame_core::heroic_launch::Applied as H;
+    match applied {
+        Ok(H::Written) => {
+            note.get_or_insert_with(|| {
+                i18n("Profile saved. Written into Heroic's settings for this game.")
+            });
+        }
+        Ok(H::HeroicRunning {
+            game_running: true, ..
+        }) => problems.push(i18n(
+            "Launch settings: Heroic is running a game. Close the game, then save again with Heroic closed: it keeps this game's settings in memory and would overwrite the change.",
+        )),
+        Ok(H::HeroicRunning { launcher, .. }) => {
+            problems.push(i18n(
+                "Launch settings: close Heroic first: it keeps this game's settings in memory and would overwrite the change.",
+            ));
+            return Some(*launcher);
+        }
+        Ok(_) => {}
+        Err(e) => problems.push(format!(
+            "{}: {}",
+            i18n("Heroic's settings"),
+            crate::i18n::error_text(e)
+        )),
+    }
+    None
+}
+
+/// Offer to close `launcher` — a Heroic that runs no game, as it said when
+/// the change was refused — run `job` while it is closed, and open it again.
+/// Closing is refused again, and `job` does not run, if a game from it has
+/// started since.
+pub fn offer_close_heroic(
+    anchor: &impl IsA<gtk4::Widget>,
+    launcher: bigame_core::launchers::Launcher,
+    message: &str,
+    job: impl Fn() -> anyhow::Result<()> + Send + Clone + 'static,
+) {
+    let a = anchor.clone().upcast::<gtk4::Widget>();
+    crate::widgets::toast::with_action(
+        anchor,
+        message,
+        &i18n("Close Heroic and apply"),
+        move || {
+            let (a, job) = (a.clone(), job.clone());
+            glib::spawn_future_local(async move {
+                let done = gio::spawn_blocking(move || {
+                    bigame_core::launchers::while_closed(launcher, job)
+                })
+                .await;
+                match done {
+                    Ok(Ok(Ok(()))) => crate::widgets::toast::show(
+                        &a,
+                        &i18n("Written into Heroic's settings; Heroic was opened again"),
+                    ),
+                    Ok(Ok(Err(e))) => crate::widgets::toast::error(
+                        &a,
+                        &i18n("Heroic's settings were not written"),
+                        &crate::i18n::error_text(&e),
+                    ),
+                    Ok(Err(e)) => crate::widgets::toast::error(
+                        &a,
+                        &i18n("Heroic was not closed, or could not be opened again"),
+                        &crate::i18n::error_text(&e),
+                    ),
+                    Err(_) => {}
+                }
+            });
+        },
+    );
 }

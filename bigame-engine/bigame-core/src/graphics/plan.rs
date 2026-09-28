@@ -144,6 +144,9 @@ pub struct Context {
     pub lsfg: bool,
     /// `MangoHud` is on.
     pub mangohud: bool,
+    /// Heroic starts the game: its FSR 4 upgrade goes into the game's
+    /// settings in Heroic, not into Steam's launch options.
+    pub heroic: bool,
     /// The `OptiScaler` version the profile's policy resolves to; `None` for
     /// the recommended release.
     pub optiscaler_version: Option<String>,
@@ -426,9 +429,15 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 p.summary = Text::plain(N_("the game's own FSR — FSR 4 expected through Proton"));
                 p.steps.insert(
                     1,
-                    Step::Keep(Text::plain(N_(
-                        "the launch option FSR4_UPGRADE=1 is set: Proton hands the game's FSR to AMD's FSR 4 provider",
-                    ))),
+                    Step::Keep(Text::plain(if ctx.heroic {
+                        N_(
+                            "Heroic's settings for this game carry PROTON_FSR4_UPGRADE=1 and FSR4_UPGRADE=1: Proton hands the game's FSR to AMD's FSR 4 provider",
+                        )
+                    } else {
+                        N_(
+                            "the launch option FSR4_UPGRADE=1 is set: Proton hands the game's FSR to AMD's FSR 4 provider",
+                        )
+                    })),
                 );
             } else {
                 p.summary = Text::plain(N_(
@@ -437,9 +446,15 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 p.native_action = Some(NativeAction::Fsr4Upgrade);
                 p.steps.insert(
                     1,
-                    Step::Install(Text::plain(N_(
-                        "the launch option FSR4_UPGRADE=1 in Steam for this game (Steam closed; backed up and read back): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
-                    ))),
+                    Step::Install(Text::plain(if ctx.heroic {
+                        N_(
+                            "the variables PROTON_FSR4_UPGRADE=1 (GE-Proton, which also fetches the provider) and FSR4_UPGRADE=1 (Valve's Proton) in Heroic's settings for this game (Heroic closed; backed up): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
+                        )
+                    } else {
+                        N_(
+                            "the launch option FSR4_UPGRADE=1 in Steam for this game (Steam closed; backed up and read back): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
+                        )
+                    })),
                 );
             }
             p.steps.push(Step::Note(Text::plain(N_(

@@ -129,12 +129,79 @@ fn schedule_steam_gamescope(anchor: &gtk4::Widget) {
             return;
         }
         glib::spawn_future_local(async move {
+            // Heroic games too: what a game leaves to Tuning is written
+            // into its settings there.
+            let heroic = gio::spawn_blocking(bigame_core::optimization::refresh_heroic)
+                .await
+                .unwrap_or_default();
+            report_heroic(&anchor, &heroic);
             let results = gio::spawn_blocking(bigame_core::optimization::refresh_steam_gamescope)
                 .await
                 .unwrap_or_default();
             report_steam_gamescope(&anchor, &results);
         });
     });
+}
+
+/// Say what bringing the Heroic games' settings in line with Tuning did; a
+/// Heroic that is open and runs no game is offered to be closed for it.
+fn report_heroic(
+    anchor: &gtk4::Widget,
+    results: &[(String, anyhow::Result<bigame_core::heroic_launch::Applied>)],
+) {
+    use bigame_core::heroic_launch::Applied;
+    let written: Vec<&str> = results
+        .iter()
+        .filter(|(_, r)| matches!(r, Ok(Applied::Written)))
+        .map(|(n, _)| n.as_str())
+        .collect();
+    if let Some((name, Err(e))) = results.iter().find(|(_, r)| r.is_err()) {
+        crate::widgets::toast::error(
+            anchor,
+            &i18n("Could not update Heroic's settings for a game"),
+            &format!("{name}: {}", error_text(e)),
+        );
+    }
+    if !written.is_empty() {
+        crate::widgets::toast::show(
+            anchor,
+            &i18n("Launch settings updated in Heroic's settings: %s")
+                .replace("%s", &written.join(", ")),
+        );
+    }
+    let open = results.iter().find_map(|(_, r)| match r {
+        Ok(Applied::HeroicRunning {
+            launcher,
+            game_running,
+        }) => Some((*launcher, *game_running)),
+        _ => None,
+    });
+    match open {
+        Some((_, true)) => crate::widgets::toast::show(
+            anchor,
+            &i18n(
+                "Heroic is running a game: its games keep their old launch settings until Heroic is closed and Tuning is saved again",
+            ),
+        ),
+        Some((launcher, false)) => crate::widgets::optimization::offer_close_heroic(
+            anchor,
+            launcher,
+            &i18n(
+                "Heroic is open: its games with launch settings of their own keep the old ones until it is closed",
+            ),
+            || {
+                let results = bigame_core::optimization::refresh_heroic();
+                match results
+                    .into_iter()
+                    .find_map(|(name, r)| r.err().map(|e| (name, e)))
+                {
+                    Some((name, e)) => Err(e.context(name)),
+                    None => Ok(()),
+                }
+            },
+        ),
+        None => {}
+    }
 }
 
 /// Say what bringing the Steam games' Gamescope wrappers in line did.

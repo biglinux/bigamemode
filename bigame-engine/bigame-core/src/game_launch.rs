@@ -8,10 +8,11 @@
 //! in falcond's profile: falcond does not read them, and they need no root.
 //!
 //! They reach a game the ways its other launch settings do: BiGame-mode's
-//! own launch (`crate::launcher`), and a Steam game's launch options
-//! (`crate::steam_gamescope`), written with Steam closed. A game another
-//! launcher starts (Heroic, Lutris) gets them only when BiGame-mode starts
-//! it.
+//! own launch (`crate::launcher`), a Steam game's launch options
+//! (`crate::steam_gamescope`), written with Steam closed, and a Heroic
+//! game's settings in Heroic (`crate::heroic_launch`), written with Heroic
+//! closed. A game Lutris or Flatpak starts gets them only when BiGame-mode
+//! starts it.
 
 use serde::{Deserialize, Serialize};
 
@@ -282,6 +283,56 @@ impl GameLaunch {
         }
         words
     }
+
+    /// What a Heroic game's settings get for the values this game sets
+    /// itself: Heroic's own Wine FSR switch (`enableFSR`: Heroic sets
+    /// `WINE_FULLSCREEN_FSR` from it over the game's variables) and the
+    /// variables. Where Gamescope or `OptiScaler` upscales the game, Wine
+    /// FSR must be off, as BiGame-mode's own launch has it — never two
+    /// upscalers: no switch and no mode here, and the caller switches
+    /// Heroic's off where it is on. `vkbasalt_config` is Tuning's vkBasalt
+    /// file, for a Heroic that can read it.
+    #[must_use]
+    pub fn heroic_env(
+        &self,
+        general: &UpscalingSettings,
+        gamescope_upscales: bool,
+        optiscaler_upscales: bool,
+        vkbasalt_config: Option<&str>,
+    ) -> (Option<bool>, Vec<(String, String)>) {
+        let mut env = Vec::new();
+        let u = self.over(general, Mode::Auto);
+        let mode = || {
+            (
+                "WINE_FULLSCREEN_FSR_MODE".to_owned(),
+                wine_fsr_mode_word(u.wine_fsr_mode).to_owned(),
+            )
+        };
+        let wine_fsr = if optiscaler_upscales || gamescope_upscales {
+            // Off, which Heroic's settings get as "off where it is on"
+            // (`crate::heroic_launch::Wanted::wine_fsr_off_where_on`).
+            None
+        } else {
+            match self.wine_fsr {
+                Some(true) => env.push(mode()),
+                // Over Heroic's own switch, when that is on.
+                None if self.wine_fsr_mode.is_some() => env.push(mode()),
+                _ => {}
+            }
+            self.wine_fsr
+        };
+        match self.vkbasalt {
+            Some(true) => {
+                env.push(("ENABLE_VKBASALT".to_owned(), "1".to_owned()));
+                if let Some(path) = vkbasalt_config {
+                    env.push(("VKBASALT_CONFIG_FILE".to_owned(), path.to_owned()));
+                }
+            }
+            Some(false) => env.push(("ENABLE_VKBASALT".to_owned(), "0".to_owned())),
+            None => {}
+        }
+        (wine_fsr, env)
+    }
 }
 
 /// The word `WINE_FULLSCREEN_FSR_MODE` takes for `mode`.
@@ -484,6 +535,49 @@ mod tests {
         assert_eq!(
             GameLaunch::default().steam_env(&general(), true, false),
             ["WINE_FULLSCREEN_FSR=0"]
+        );
+    }
+
+    #[test]
+    fn a_heroic_game_gets_heroics_switch_and_only_the_variables_it_sets() {
+        let g = general();
+        assert_eq!(
+            GameLaunch::default().heroic_env(&g, false, false, None),
+            (None, Vec::new())
+        );
+        let on = GameLaunch {
+            wine_fsr: Some(true),
+            wine_fsr_mode: Some(WineFsrMode::Ultra),
+            vkbasalt: Some(true),
+            ..GameLaunch::default()
+        };
+        let pair = |k: &str, v: &str| (k.to_owned(), v.to_owned());
+        assert_eq!(
+            on.heroic_env(&g, false, false, Some("/cfg/vk.conf")),
+            (
+                Some(true),
+                vec![
+                    pair("WINE_FULLSCREEN_FSR_MODE", "ultra"),
+                    pair("ENABLE_VKBASALT", "1"),
+                    pair("VKBASALT_CONFIG_FILE", "/cfg/vk.conf"),
+                ]
+            )
+        );
+        // Gamescope or OptiScaler upscales it: no Wine FSR of the game's own
+        // (Heroic's goes off where it is on, `heroic_launch`).
+        for (gamescope, optiscaler) in [(true, false), (false, true)] {
+            let (fsr, env) = on.heroic_env(&g, gamescope, optiscaler, None);
+            assert_eq!(fsr, None);
+            assert_eq!(env, [pair("ENABLE_VKBASALT", "1")]);
+        }
+        // A mode alone goes over Heroic's own switch.
+        let mode = GameLaunch {
+            wine_fsr_mode: Some(WineFsrMode::Performance),
+            ..GameLaunch::default()
+        };
+        assert_eq!(
+            mode.heroic_env(&g, false, false, None),
+            (None, vec![pair("WINE_FULLSCREEN_FSR_MODE", "performance")])
         );
     }
 
