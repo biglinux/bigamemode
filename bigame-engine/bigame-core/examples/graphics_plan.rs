@@ -27,6 +27,9 @@ fn main() {
         t.elapsed()
     );
     println!("  executable: {:?} {:?}", r.executable, r.machine);
+    if let Some(stub) = &r.launcher_stub {
+        println!("  started through: {} ({:?})", stub.display(), r.engine);
+    }
     println!(
         "  api: {:?} [{:?}] {}",
         r.api.api,

@@ -330,9 +330,16 @@ fn choice_facts(a: &Analysis) -> ChoiceFacts {
     }
 }
 
-/// The running game, when it is `target`.
+/// The running game, when it is `target` — by the name its launcher
+/// records, or by the game an Unreal Engine bootstrap of that name starts
+/// (The Outer Worlds: Spacer's Choice Edition runs as
+/// `IndianaEpicGameStore-Win64-Shipping.exe`, not as the `.exe` Heroic
+/// starts). Without the second, a running game would read as closed, and
+/// its files would not be protected from a change while in use.
 fn running_as(target: &Target) -> Option<crate::running::GameIdentity> {
-    crate::running::detect().filter(|g| g.process_name.eq_ignore_ascii_case(&target.process))
+    let names = scan::runs_as(&target.install_root, &target.process);
+    crate::running::detect()
+        .filter(|g| names.iter().any(|n| g.process_name.eq_ignore_ascii_case(n)))
 }
 
 /// What else is configured that the plan has to reconcile.
