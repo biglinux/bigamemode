@@ -332,32 +332,40 @@ pub fn build(
             let th2 = Rc::clone(&th);
             dialog.connect_response(None, move |_, response| {
                 if response != "restore" { return; }
-                // Write default gamescope config (user-space), then falcond's
-                // through the helper -- off the main thread, since it may wait
-                // on a password prompt -- and say what actually happened.
-                let gamescope = bigame_core::gamescope::save_global(&bigame_core::gamescope::Config::default());
-                let overlay3 = overlay2.clone();
+                // Tuning's launch settings (Gamescope, Wine FSR, vkBasalt,
+                // lsfg-vk: video.toml, the session environment and lsfg-vk's
+                // file), then falcond's through the helper -- off the main
+                // thread, since it may wait on a password prompt -- and say
+                // what actually happened.
+                let (overlay3, stack3, th3) = (overlay2.clone(), stack2.clone(), Rc::clone(&th2));
                 glib::spawn_future_local(async move {
-                    let falcond = gtk4::gio::spawn_blocking(|| {
-                        bigame_core::config::write_blocking(&bigame_core::config::FalcondConfig::default())
+                    let restored = gtk4::gio::spawn_blocking(|| {
+                        let video = bigame_core::video_config::VideoConfig::default();
+                        let launch = bigame_core::video_config::save(&video).and_then(|()| {
+                            bigame_core::fg::sync_global_enablement(&video.frame_gen).map(|_| ())
+                        });
+                        let falcond = bigame_core::config::write_blocking(
+                            &bigame_core::config::FalcondConfig::default(),
+                        );
+                        (falcond, launch)
                     })
                     .await;
-                    let message = match (falcond, gamescope) {
-                        (Ok(Ok(())), Ok(())) => i18n("Default settings restored"),
-                        (Ok(Err(e)), _) => format!("{}: {}", i18n("Could not restore falcond's settings"), error_text(&e)),
-                        (Err(_), _) => i18n("Could not restore falcond's settings"),
-                        (_, Err(e)) => format!("{}: {}", i18n("Could not restore Gamescope's settings"), error_text(&e)),
+                    let message = match restored {
+                        Ok((Ok(()), Ok(()))) => i18n("Default settings restored"),
+                        Ok((Err(e), _)) => format!("{}: {}", i18n("Could not restore falcond's settings"), error_text(&e)),
+                        Ok((_, Err(e))) => format!("{}: {}", i18n("Could not save the launch settings"), error_text(&e)),
+                        Err(_) => i18n("Could not restore falcond's settings"),
                     };
                     overlay3.add_toast(adw::Toast::new(&message));
+                    // Rebuilt from the files as they now are, so the page
+                    // shows what was restored.
+                    let old = th3.borrow().clone();
+                    stack3.remove(&old);
+                    let new_tuning = views::tuning::build();
+                    stack3.add_named(&new_tuning, Some("tuning"));
+                    *th3.borrow_mut() = new_tuning;
+                    stack3.set_visible_child_name("tuning");
                 });
-                // Swap tuning page in the view stack
-                let old = th2.borrow().clone();
-                stack2.remove(&old);
-                let new_tuning = views::tuning::build();
-                stack2.add_named(&new_tuning, Some("tuning"));
-                *th2.borrow_mut() = new_tuning;
-                // Navigate to tuning so user sees the reset values
-                stack2.set_visible_child_name("tuning");
             });
             dialog.present(Some(&win));
         });
