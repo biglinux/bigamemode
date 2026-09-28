@@ -127,15 +127,26 @@ fn from_kscreen(json: &str) -> Option<(u32, u32)> {
     Some(if turned { (h, w) } else { (w, h) })
 }
 
-/// `DP-1 connected primary 3440x1440+3440+0 …`
+/// `DP-1 connected primary 3440x1440+3440+0 …`; without an output marked
+/// primary, which X11 desktops other than KDE often leave unset, the first
+/// connected output that is on.
 fn from_xrandr(text: &str) -> Option<(u32, u32)> {
-    let line = text.lines().find(|l| l.contains(" connected primary "))?;
-    let geometry = line
-        .split_whitespace()
-        .find(|w| w.contains('x') && w.contains('+'))?;
-    let (size, _) = geometry.split_once('+')?;
-    let (w, h) = size.split_once('x')?;
-    Some((w.parse().ok()?, h.parse().ok()?))
+    let size_of = |line: &str| -> Option<(u32, u32)> {
+        let geometry = line
+            .split_whitespace()
+            .find(|w| w.contains('x') && w.contains('+'))?;
+        let (size, _) = geometry.split_once('+')?;
+        let (w, h) = size.split_once('x')?;
+        Some((w.parse().ok()?, h.parse().ok()?))
+    };
+    text.lines()
+        .find(|l| l.contains(" connected primary "))
+        .and_then(size_of)
+        .or_else(|| {
+            text.lines()
+                .filter(|l| l.contains(" connected "))
+                .find_map(size_of)
+        })
 }
 
 #[cfg(test)]
@@ -168,7 +179,16 @@ mod tests {
             DP-1 connected primary 3440x1440+3440+0 (normal left inverted right x axis y axis) 800mm x 334mm\n\
             DP-2 connected 2560x1080+6880+0 (normal left inverted right x axis y axis) 798mm x 334mm\n";
         assert_eq!(from_xrandr(text), Some((3440, 1440)));
-        assert_eq!(from_xrandr("DP-2 connected 2560x1080+0+0\n"), None);
+    }
+
+    #[test]
+    fn xrandr_without_a_primary_names_the_first_output_that_is_on() {
+        let text = "Screen 0: minimum 8 x 8, current 1920 x 1080, maximum 32767 x 32767\n\
+            eDP-1 connected (normal left inverted right x axis y axis)\n\
+            HDMI-1 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm\n\
+            DP-1 disconnected (normal left inverted right x axis y axis)\n";
+        assert_eq!(from_xrandr(text), Some((1920, 1080)));
+        assert_eq!(from_xrandr("DP-1 disconnected\n"), None);
     }
 
     #[test]
