@@ -853,6 +853,39 @@ pub fn acf_value(content: &str, key: &str) -> Option<String> {
 
 /// Cover art Steam has already downloaded for `app_id`.
 ///
+/// The installed game a running process belongs to, from any launcher: the
+/// game whose install folder holds the process, else the one that lists its
+/// executable. What names it and shows its cover when the process alone
+/// says neither.
+#[must_use]
+pub fn installed_game_for_process(
+    process_name: &str,
+    install_path: Option<&Path>,
+) -> Option<DetectedGame> {
+    game_among(&detect_all(), process_name, install_path).cloned()
+}
+
+fn game_among<'a>(
+    games: &'a [DetectedGame],
+    process_name: &str,
+    install_path: Option<&Path>,
+) -> Option<&'a DetectedGame> {
+    let by_folder = install_path.and_then(|dir| {
+        games.iter().find(|g| {
+            g.install_path
+                .as_deref()
+                .is_some_and(|root| dir.starts_with(root) || root.starts_with(dir))
+        })
+    });
+    by_folder.or_else(|| {
+        games.iter().find(|g| {
+            g.executables
+                .iter()
+                .any(|e| e.eq_ignore_ascii_case(process_name))
+        })
+    })
+}
+
 /// Steam keeps covers under a per-app directory in a further hash-named
 /// subdirectory, so the search recurses rather than building a fixed path. The
 /// filename preference degrades gracefully: not every title has
@@ -2112,6 +2145,32 @@ mod tests {
             Some(Path::new("/g/Amazon"))
         );
         assert!(heroic_installed_entries("{}").is_empty());
+    }
+
+    #[test]
+    fn a_running_game_is_found_in_the_library_by_folder_or_executable() {
+        let mut heroic = game(Source::Heroic, "Worlds");
+        heroic.install_path = Some(PathBuf::from("/g/Worlds"));
+        heroic.executables = vec!["Worlds.exe".into(), "Indiana-Win64-Shipping.exe".into()];
+        heroic.cover = Some(PathBuf::from("/c/worlds"));
+        let mut other = game(Source::Lutris, "Kart");
+        other.executables = vec!["kart".into()];
+        other.cover = Some(PathBuf::from("/c/kart"));
+        let games = vec![heroic, other];
+        let name = |p: &str, dir: Option<&str>| {
+            game_among(&games, p, dir.map(Path::new)).map(|g| g.name.clone())
+        };
+        // The real game is deeper in the install folder than the launcher.
+        assert_eq!(
+            name("x.exe", Some("/g/Worlds/Indiana/Binaries/Win64")).as_deref(),
+            Some("Worlds")
+        );
+        assert_eq!(
+            name("indiana-win64-shipping.exe", None).as_deref(),
+            Some("Worlds")
+        );
+        assert_eq!(name("kart", None).as_deref(), Some("Kart"));
+        assert_eq!(name("nothing", None), None);
     }
 
     #[test]

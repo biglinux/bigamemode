@@ -87,11 +87,22 @@ pub fn is_running() -> bool {
 /// Returns an error when Steam does not close within a minute or cannot be
 /// started again.
 pub fn restart_in_session() -> anyhow::Result<()> {
-    while_closed(|| ())?;
-    if !is_running() {
-        start_in_session()?;
+    // `while_closed` opens it again itself when it was open; asking a second
+    // time, before the new client is up, started a second unit.
+    if is_running() {
+        while_closed(|| ())
+    } else {
+        start_in_session()
     }
-    Ok(())
+}
+
+/// A unit name no other start can have taken: two starts in the same second
+/// asked for the same name, and systemd refused the second.
+fn unit_name() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    format!("app-steam-bigame-{}-{nanos}", std::process::id())
 }
 
 /// Start the Steam client as a unit of the user's systemd manager.
@@ -99,7 +110,7 @@ fn start_in_session() -> anyhow::Result<()> {
     use anyhow::Context;
     let status = std::process::Command::new("systemd-run")
         .args(["--user", "--collect", "--quiet"])
-        .arg(format!("--unit=app-steam-bigame-{}", crate::unix_now()))
+        .arg(format!("--unit={}", unit_name()))
         .arg("steam")
         .stdin(std::process::Stdio::null())
         .status()

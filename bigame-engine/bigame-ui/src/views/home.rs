@@ -851,30 +851,62 @@ impl InfoCard {
         self.root.set_visible(true);
         self.icon.set_visible(false);
         self.name.set_label(&g.display_name);
-        let cover = g.steam_app_id.as_ref().and_then(|id| {
-            let home = std::env::var_os("HOME")?;
-            bigame_core::games::steam_cover(std::path::Path::new(&home), id)
-        });
-        self.cover.set_visible(cover.is_some());
-        if let Some(path) = cover {
-            // Decoded off the main thread at the size shown; dropped if
-            // another game took the card meanwhile.
+        // Steam's cover by its id; any other launcher's from the library.
+        // Found and decoded off the main thread at the size shown; dropped
+        // if another game took the card meanwhile.
+        self.cover.set_visible(false);
+        {
             let image = self.cover.clone();
             let shown = Rc::clone(&self.game);
             let pid = g.pid;
             let size = image.pixel_size() * image.scale_factor().max(1);
+            let (app_id, process, folder) = (
+                g.steam_app_id.clone(),
+                g.process_name.clone(),
+                g.install_path.clone(),
+            );
+            let name = self.name.clone();
+            let bare_name = g.display_name == g.process_name;
             glib::spawn_future_local(async move {
-                let texture = gio::spawn_blocking(move || {
-                    gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, size, size, true)
-                        .ok()
-                        .map(|p| gtk4::gdk::Texture::for_pixbuf(&p))
+                let found = gio::spawn_blocking(move || {
+                    let steam = app_id.as_ref().and_then(|id| {
+                        let home = std::env::var_os("HOME")?;
+                        bigame_core::games::steam_cover(std::path::Path::new(&home), id)
+                    });
+                    // Only a process name: the library knows the title.
+                    let installed = (steam.is_none() || bare_name)
+                        .then(|| {
+                            bigame_core::games::installed_game_for_process(
+                                &process,
+                                folder.as_deref(),
+                            )
+                        })
+                        .flatten();
+                    let title = installed.as_ref().map(|g| g.name.clone());
+                    let texture =
+                        steam
+                            .or_else(|| installed.and_then(|g| g.cover))
+                            .and_then(|path| {
+                                gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(
+                                    &path, size, size, true,
+                                )
+                                .ok()
+                                .map(|p| gtk4::gdk::Texture::for_pixbuf(&p))
+                            });
+                    (title, texture)
                 })
                 .await
-                .ok()
-                .flatten();
+                .ok();
                 let still_shown = shown.borrow().as_ref().is_some_and(|g| g.pid == pid);
-                if let Some(texture) = texture.filter(|_| still_shown) {
+                let Some((title, texture)) = found.filter(|_| still_shown) else {
+                    return;
+                };
+                if let Some(title) = title.filter(|_| bare_name) {
+                    name.set_label(&title);
+                }
+                if let Some(texture) = texture {
                     image.set_paintable(Some(&texture));
+                    image.set_visible(true);
                 }
             });
         }
