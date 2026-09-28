@@ -257,7 +257,6 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     group.add(&filters);
     group.add(&stack);
 
-    // Action buttons
     let wizard_btn = gtk4::Button::builder()
         .label(i18n("Create with Wizard"))
         .tooltip_text(i18n(
@@ -396,7 +395,6 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         });
     }
 
-    // Import profile from file
     {
         let view = Rc::clone(&view);
         import_btn.connect_clicked(move |btn| {
