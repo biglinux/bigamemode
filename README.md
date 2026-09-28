@@ -8,7 +8,7 @@
 Turbo com um clique e um preset, perfis por jogo, Gráficos com IA e uma página
 que mostra, com evidência, o que está mesmo em vigor.
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.1.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.2.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -45,7 +45,34 @@ sempre com backup e desfazer completos.
 > Uma regra atravessa o projeto: **nada é oferecido que a máquina não possa
 > fazer, e nada é chamado de melhoria sem medição.**
 
-## 🚀 Novidades da 2.1.0
+## 🚀 Novidades da 2.2.0
+
+- **Boas-vindas, Sobre e Ajuda refeitos.** Uma tela de boas-vindas com os
+  recursos, o Sobre com a descrição, créditos e informações de depuração
+  completas, e uma Ajuda passo a passo para cada página.
+- **Ajustes mais claros.** O Gamescope fica sempre à vista, com os tamanhos
+  escolhidos entre as resoluções padrão e a da tela principal detectada; cada
+  opção técnica tem um ⓘ. O vkBasalt ganhou visuais: CAS ou o estilo
+  **Nara Linux** (do Narayan), com os shaders do ReShade baixados só quando
+  escolhido e conferidos pelo SHA-256.
+- **Perfil do jogo igual aos Ajustes**, com as mesmas seções e linhas. Os
+  valores próprios do jogo chegam a ele pelo **Iniciar (Turbo)**, pelas opções
+  de inicialização da Steam ou pelas configurações do jogo no **Heroic**.
+- **Iniciar (Turbo) em todos os lançadores** (Steam, Heroic, Lutris,
+  Flatpak), e **Reabrir** para o lançador que estava aberto antes do preset,
+  recusado enquanto um jogo dele roda.
+- **Gráficos com IA redesenhados**: veredito primeiro, o porquê, o que fazer
+  no jogo, opções legíveis com ⓘ, **Verificar de novo** e **Salvar escolha**.
+  A análise segue o inicializador até o jogo real e reconhece upscalers
+  embutidos no executável.
+- **Detalhes**: fechar ou pausar programas em segundo plano (nunca os do
+  sistema, da área de trabalho ou do jogo), aplicar um DNS medido como o
+  principal, com backup e restauração, e escolher o alvo do ping entre os
+  servidores medidos. **Registros** cobre todas as fontes de que o app
+  depende. O controle do falcond pode ser devolvido e retomado.
+
+<details>
+<summary><b>Novidades da 2.1.0</b></summary>
 
 - **Presets do Turbo.** Antes de ligar, escolha o que os jogos priorizam:
   **Padrão**, **Mais FPS**, **FPS cravado em 60** ou **Gráficos aprimorados**.
@@ -69,6 +96,8 @@ sempre com backup e desfazer completos.
   Cyberpunk 2077; a correção veio no falcond 2.0.3).
 - A revisão do perfil oferecido mostra a recomendação dos Gráficos com IA para
   a placa de vídeo, e o MangoHud ganhou estilos inspirados no Steam Deck.
+
+</details>
 
 ## ✨ Recursos
 
