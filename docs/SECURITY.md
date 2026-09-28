@@ -1,8 +1,11 @@
 # Security
 
 BiGame-mode has one privileged component, a small root helper on the system
-bus. The UI and AI Graphics run as the user; the one other root action,
-installing a missing package, goes through the distribution's own installer.
+bus. The UI and AI Graphics run as the user. Two other privileged actions
+go through the system's own services, never through BiGame-mode's: installing
+a missing package (the distribution's installer) and setting a connection's
+DNS servers from the DNS comparison (NetworkManager, `nmcli connection modify
+uuid …`, authorised by NetworkManager's own Polkit actions).
 
 ```text
 UI (user) → bigame-core → system bus → bigame-daemon (root) → sysfs, /etc/falcond, systemd
@@ -64,8 +67,10 @@ an administrator's password.
   only when a setting falcond reads at start-up changed: `enable_performance_mode`,
   the global `scx_sched`/`scx_sched_props` and `vcache_mode` (a reload re-reads
   the file but applies none of them).
-- The helper runs no external program and reads no environment variable;
-  systemd is driven through its D-Bus API.
+- The helper runs no external program; systemd is driven through its D-Bus
+  API. The only environment variable it honours is the bus library's
+  `DBUS_SYSTEM_BUS_ADDRESS`, which systemd does not set for the unit and which
+  `tests/daemon-authorization.sh` uses to run it on a private bus.
 
 ## Sandbox
 
@@ -111,10 +116,13 @@ that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
 - No command passes through a shell. External programs are run with
   argument vectors, as the user: `curl` and `bsdtar` (AI Graphics),
   `journalctl` (Logs), `ping` (to the target set in Settings, a leading `-`
-  refused) and `tc` (Details), `lspci` (About), `systemctl is-active`,
-  `gamescope --help` and the version flags of `glxinfo`, `vulkaninfo`,
+  refused), `tc`, `nmcli` and `resolvectl` (Details), `lspci` (About),
+  `systemctl is-active`, `kscreen-doctor` or `xrandr` (the main screen's
+  size), `gamescope --help` and the version flags of `glxinfo`, `vulkaninfo`,
   `mangohud` and `gamemoded` (capabilities and the support report), and the
-  game itself. NVIDIA GPU readings come from the driver's NVML library,
+  game itself — directly, through `steam`, `heroic`, `lutris` or
+  `systemd-run --user`, under the `mangohud` wrapper when asked; a Flatpak
+  launcher that does not close when asked is stopped with `flatpak kill`. NVIDIA GPU readings come from the driver's NVML library,
   loaded in the unprivileged UI process; no NVIDIA program is run.
 - One action runs something as root outside the helper: when Gamescope or
   vkBasalt is enabled but not installed, *Install Missing Packages* runs
@@ -228,6 +236,10 @@ paths exists here.
 - A user who passes the administrator prompt can write falcond profiles and
   its configuration, but cannot make falcond run code (script hooks are
   refused). The helper's code writes only falcond's directories, the listed
-  sysfs attributes and `/var/lib/bigame-mode`. Its sandbox is narrower than
-  root but does not enforce that list within `/sys/devices`: code execution
-  inside the helper could still write other device attributes there.
+  sysfs attributes and `/var/lib/bigame-mode`. Its sandbox confines its own
+  file writes, but not what it can ask of other services: it is uid 0 on the
+  system bus, which systemd authorises without Polkit, so code execution
+  inside the helper could start a transient unit that runs unconfined. Within
+  `/sys/devices` the sandbox does not enforce the attribute list either. A
+  dedicated user with a Polkit rule limited to `falcond.service` would narrow
+  this; the helper's defence today is its small, validated interface.

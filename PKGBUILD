@@ -149,6 +149,9 @@ package() {
         "${pkgdir}/usr/lib/systemd/system/bigame-daemon.service"
     install -Dm644 data/com.biglinux.BiGameMode.service \
         "${pkgdir}/usr/share/dbus-1/system-services/com.biglinux.BiGameMode.service"
+    # Where the helper writes falcond's global configuration; falcond's
+    # package does not ship it. Owned here so removal takes it away when empty.
+    install -dm755 "${pkgdir}/etc/falcond"
 
     # Icons: the application icon and the four tray states. The tray also
     # carries them inside the binary; installing them lets tray hosts that
