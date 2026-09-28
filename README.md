@@ -427,8 +427,9 @@ no teste t de Welch a 95 %):
 - **Geração de quadros:** o lsfg-vk custou 42 % dos quadros renderizados em x2
   (88,9 → 51,8) e 55 % em x3, por isso nunca é ligado sozinho.
 
-Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Os
-dados brutos de cada sessão ficam em `bigame-engine/benchmarks/`.
+Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). O
+relatório e as métricas de cada sessão ficam em `bigame-engine/benchmarks/`; as
+capturas brutas, no histórico (tag `benchmarks-raw-data`).
 
 ## 🌍 Idiomas
 
@@ -473,8 +474,11 @@ O código é um workspace Rust em `bigame-engine/`:
   (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
   `graphics_plan`, `graphics_apply`, `graphics_status`,
   `graphics_capabilities`, `graphics_diagnose`, `graphics_native`), Turbo e
-  Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), o comando que o
-  lançador monta (`launch_plan`), lsfg-vk (`lsfg`) e relatórios de benchmark
+  Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), quem controla o
+  falcond (`falcond_control`), o comando que o lançador monta (`launch_plan`),
+  um jogo iniciado pelo próprio lançador (`launch_through`), os ajustes de um
+  jogo gravados no Heroic (`heroic_apply`), o estilo do vkBasalt
+  (`vkbasalt_style`), lsfg-vk (`lsfg`) e relatórios de benchmark
   (`bench_report`, `bench_native_report`). Rode com
   `cargo run -p bigame-core --example <nome>`.
 

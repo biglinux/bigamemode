@@ -611,9 +611,25 @@ fn section_booster(out: &mut String) {
         );
     }
     for skipped in &plan.skipped {
-        let _ = writeln!(out, "    skipped: {skipped:?}");
+        let _ = writeln!(out, "    skipped: {}", skipped_line(skipped));
     }
     let _ = writeln!(out);
+}
+
+/// One skipped knob as a line of the report, in English like the rest of it.
+fn skipped_line(skipped: &crate::booster::plan::Skipped) -> String {
+    use crate::booster::plan::Skipped;
+    match skipped {
+        Skipped::Unsupported { knob, detail } => format!("{knob} (unsupported: {detail})"),
+        Skipped::AlreadyOptimal { knob, value } => format!("{knob} (already {value})"),
+        Skipped::NotBeneficial { knob, detail } => format!("{knob} (not beneficial: {detail})"),
+        Skipped::OwnedBy {
+            knob,
+            owner,
+            detail,
+        } => format!("{knob} (owned by {owner}: {detail})"),
+        Skipped::NotRestorable { knob } => format!("{knob} (baseline unreadable, not restorable)"),
+    }
 }
 
 fn section_network(out: &mut String) {

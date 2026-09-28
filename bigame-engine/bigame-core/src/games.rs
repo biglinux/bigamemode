@@ -1361,9 +1361,15 @@ pub fn heroic_library_entries(json: &str) -> Vec<HeroicEntry> {
 /// The games of a store backend's own `installed.json`: legendary's map of
 /// app name to record, GOG's `{"installed": [...]}` and Amazon's list. Each
 /// record names its `install_path` (Amazon: `path`) and, when it can, its
-/// `title` and `executable`.
+/// `title` and `executable`. A record without a title takes the one the store
+/// library has for its app name (`titles`), whether or not that library still
+/// marks it installed, else its install folder's name: GOG's records carry
+/// only a numeric id.
 #[must_use]
-pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
+pub(crate) fn heroic_installed_entries(
+    json: &str,
+    titles: &HashMap<String, String>,
+) -> Vec<HeroicEntry> {
     let Ok(root) = serde_json::from_str::<serde_json::Value>(json) else {
         return Vec::new();
     };
@@ -1385,22 +1391,45 @@ pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
                     .map(str::to_owned)
             };
             let install_path = string("install_path").or_else(|| string("path"))?;
+            let app_name = string("app_name")
+                .or_else(|| string("appName"))
+                .or_else(|| string("id"));
+            let folder = Path::new(&install_path)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .filter(|n| !n.is_empty());
             Some(HeroicEntry {
-                // Not every backend records the title here; the directory
-                // name is what the user would recognise otherwise.
                 title: string("title")
-                    .or_else(|| string("app_name"))
-                    .or_else(|| string("appName"))
-                    .or_else(|| string("id"))
+                    .or_else(|| app_name.as_ref().and_then(|a| titles.get(a)).cloned())
+                    .or(folder)
+                    .or_else(|| app_name.clone())
                     .unwrap_or_else(|| install_path.clone()),
                 executable: string("executable").map(PathBuf::from),
                 install_path: Some(PathBuf::from(install_path)),
-                app_name: string("app_name")
-                    .or_else(|| string("appName"))
-                    .or_else(|| string("id")),
+                app_name,
                 art: heroic_art(r),
                 runner: None,
             })
+        })
+        .collect()
+}
+
+/// Every title a store library lists, by app name, installed or not.
+#[must_use]
+pub fn heroic_library_titles(json: &str) -> HashMap<String, String> {
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(json) else {
+        return HashMap::new();
+    };
+    root.get("library")
+        .or_else(|| root.get("games"))
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|g| {
+            let name = g.get("app_name")?.as_str()?;
+            let title = g.get("title")?.as_str().filter(|t| !t.is_empty())?;
+            Some((name.to_owned(), title.to_owned()))
         })
         .collect()
 }
@@ -1465,6 +1494,7 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
     for base in configs {
         let mut entries = Vec::new();
         let mut art = HashMap::new();
+        let mut titles = HashMap::new();
         let with_runner = |list: Vec<HeroicEntry>, runner: Option<&'static str>| {
             list.into_iter().map(move |e| HeroicEntry { runner, ..e })
         };
@@ -1472,11 +1502,15 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
                 entries.extend(with_runner(heroic_library_entries(&json), *runner));
                 art.extend(heroic_library_art(&json));
+                titles.extend(heroic_library_titles(&json));
             }
         }
         for (file, runner) in HEROIC_INSTALLED {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
-                entries.extend(with_runner(heroic_installed_entries(&json), *runner));
+                entries.extend(with_runner(
+                    heroic_installed_entries(&json, &titles),
+                    *runner,
+                ));
             }
         }
         for mut entry in entries {
@@ -2145,24 +2179,46 @@ mod tests {
 
     #[test]
     fn heroic_backend_records_are_read_in_their_three_shapes() {
+        let none = HashMap::new();
         let legendary = r#"{"Fortnite": {"app_name": "Fortnite", "title": "Fortnite", "install_path": "/g/Fortnite", "executable": "FortniteLauncher.exe"}}"#;
         let gog = r#"{"installed": [{"appName": "1", "install_path": "/g/Cuphead", "platform": "windows"}]}"#;
         let nile = r#"[{"id": "amzn1", "path": "/g/Amazon", "version": "1"}]"#;
-        let l = heroic_installed_entries(legendary);
+        let l = heroic_installed_entries(legendary, &none);
         assert_eq!(l[0].title, "Fortnite");
         assert_eq!(
             l[0].executable.as_deref(),
             Some(Path::new("FortniteLauncher.exe"))
         );
         assert_eq!(
-            heroic_installed_entries(gog)[0].install_path.as_deref(),
+            heroic_installed_entries(gog, &none)[0]
+                .install_path
+                .as_deref(),
             Some(Path::new("/g/Cuphead"))
         );
         assert_eq!(
-            heroic_installed_entries(nile)[0].install_path.as_deref(),
+            heroic_installed_entries(nile, &none)[0]
+                .install_path
+                .as_deref(),
             Some(Path::new("/g/Amazon"))
         );
-        assert!(heroic_installed_entries("{}").is_empty());
+        assert!(heroic_installed_entries("{}", &none).is_empty());
+    }
+
+    #[test]
+    fn a_gog_record_without_a_title_is_named_by_the_library_else_its_folder() {
+        // GOG's installed.json has only the numeric id; its library cache can
+        // still list the game as not installed.
+        let installed = r#"{"installed": [{"appName": "1207658845", "install_path": "/g/Another World 20th Anniversary Edition"}]}"#;
+        let library = r#"{"games": [{"app_name": "1207658845", "title": "Another World: 20th Anniversary Edition", "is_installed": false}]}"#;
+        let titles = heroic_library_titles(library);
+        assert_eq!(
+            heroic_installed_entries(installed, &titles)[0].title,
+            "Another World: 20th Anniversary Edition"
+        );
+        assert_eq!(
+            heroic_installed_entries(installed, &HashMap::new())[0].title,
+            "Another World 20th Anniversary Edition"
+        );
     }
 
     #[test]

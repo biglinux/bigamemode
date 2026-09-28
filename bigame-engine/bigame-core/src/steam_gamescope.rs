@@ -45,7 +45,8 @@ pub fn segment(
 /// `current` launch options with the segment BiGame-mode wrote before
 /// (`previous`) taken out and `wanted` put in front of `%command%` — before a
 /// `mangohud` wrapper right in front of it, so the overlay stays inside
-/// Gamescope and `MangoHud`'s own setting still finds its word.
+/// Gamescope and `MangoHud`'s own setting still finds its word, and before a
+/// `prime-run` there, so render offload reaches the game and not Gamescope.
 #[must_use]
 pub fn launch_options(current: &str, previous: Option<&str>, wanted: Option<&str>) -> String {
     let mut words: Vec<String> = current.split_whitespace().map(str::to_owned).collect();
@@ -69,7 +70,12 @@ pub fn launch_options(current: &str, previous: Option<&str>, wanted: Option<&str
         words.insert(0, COMMAND.to_owned());
     }
     let mut at = words.iter().position(|w| w == COMMAND).unwrap_or(0);
-    if at > 0 && words[at - 1] == "mangohud" {
+    // `prime-run` too, which the hybrid health check suggests: in front of
+    // Gamescope it hands Gamescope the offload variables, and Gamescope then
+    // composites on the discrete GPU; on the GTX 1050 Ti laptop that
+    // segfaulted 5 times in 5 with FSR upscaling. Inside, only the game gets
+    // them.
+    while at > 0 && matches!(words[at - 1].as_str(), "mangohud" | "prime-run") {
         at -= 1;
     }
     for (k, w) in wanted.split_whitespace().enumerate() {
@@ -354,6 +360,27 @@ mod tests {
         assert_eq!(
             crate::mangohud::launch_options(&both, crate::mangohud::Mode::Off),
             format!("{SEG} %command%")
+        );
+    }
+
+    #[test]
+    fn prime_run_stays_inside_gamescope() {
+        // The health check's advice for a hybrid laptop, then a Gamescope
+        // choice: the offload reaches the game, not Gamescope.
+        assert_eq!(
+            launch_options("prime-run %command% -dx12", None, Some(SEG)),
+            format!("{SEG} prime-run %command% -dx12")
+        );
+        assert_eq!(
+            launch_options("prime-run mangohud %command%", None, Some(SEG)),
+            format!("{SEG} prime-run mangohud %command%")
+        );
+        // Taken out again, the user's own words are as they were.
+        let written = launch_options("MANGOHUD=1 prime-run %command%", None, Some(SEG));
+        assert_eq!(written, format!("MANGOHUD=1 {SEG} prime-run %command%"));
+        assert_eq!(
+            launch_options(&written, Some(SEG), None),
+            "MANGOHUD=1 prime-run %command%"
         );
     }
 

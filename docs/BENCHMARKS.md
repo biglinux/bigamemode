@@ -2,7 +2,11 @@
 
 BiGame-mode claims a setting helps only when a measurement says so. This page
 describes how measurements are made and what they found on the reference
-machine. The raw data of every result is in `bigame-engine/benchmarks/`.
+machine. Each session in `bigame-engine/benchmarks/` keeps what its result
+rests on: the report, the metrics and verdicts, the machine and its state, and
+the game's own summary of every run. The per-frame captures, GPU samples and
+screenshots behind them are in the history, at the tag `benchmarks-raw-data`
+(`git checkout benchmarks-raw-data -- bigame-engine/benchmarks`).
 
 ## Method
 
@@ -53,10 +57,11 @@ machine. The raw data of every result is in `bigame-engine/benchmarks/`.
 | `cargo run -p bigame-core --example turbo_preset -- <id\|off>` and `--example launch_plan -- <executable>` | put a Turbo preset in force as Turbo does, and print the command BiGame-mode's launcher would run with it |
 | *Measure the difference* (a game card's menu) | the same A/B method for any game that starts directly, driven by the application |
 
-The session scripts behind the results below (built-in benchmarks with the
-`[R]` rerun, SuperTuxKart sessions, a non-forking GPU sampler, the root side of
-scheduler sessions) are no longer in the repository; the data they produced
-is.
+The sessions are driven by the scripts in `bigame-engine/scripts/`:
+`bench-game.sh` (a game's built-in benchmark with its `[R]` rerun),
+`bench-lab.sh` (SuperTuxKart A/B sessions), `gpu-telemetry.sh` (a GPU
+sampler that forks nothing) and `scx-switch.sh` (the root side of scheduler
+sessions, one Polkit approval per session).
 
 Each session directory holds `system.json` (the machine, with no host name,
 user, home or address), the runs of every arm, and the report.

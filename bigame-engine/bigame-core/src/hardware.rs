@@ -29,12 +29,6 @@ pub enum CpuVendor {
 /// AMD 3D V-Cache control device, when the platform driver bound one.
 #[derive(Debug, Clone)]
 pub struct VCacheDevice {
-    /// The `amd_x3d_mode` attribute to read and write.
-    ///
-    /// Discovered by globbing the driver directory — the ACPI instance id in
-    /// the path (`AMDI0101:00`, `AMDI0015:00`, …) is board-specific and must
-    /// never be hardcoded.
-    pub mode_path: PathBuf,
     /// Current mode as reported by the driver (`frequency` / `cache`).
     pub current_mode: Option<String>,
 }
@@ -396,13 +390,13 @@ fn detect_hybrid() -> bool {
 /// Locate the AMD 3D V-Cache control attribute by globbing the driver dir.
 pub(crate) fn detect_vcache() -> Option<VCacheDevice> {
     const DRIVER_DIR: &str = "/sys/bus/platform/drivers/amd_x3d_vcache";
+    // The ACPI instance id in the path (`AMDI0101:00`, `AMDI0015:00`, …) is
+    // board-specific: the attribute is found by listing the driver directory.
     for entry in std::fs::read_dir(DRIVER_DIR).ok()?.flatten() {
         let path = entry.path().join("amd_x3d_mode");
         if path.exists() {
-            let current_mode = read_trim(&path);
             return Some(VCacheDevice {
-                mode_path: path,
-                current_mode,
+                current_mode: read_trim(&path),
             });
         }
     }

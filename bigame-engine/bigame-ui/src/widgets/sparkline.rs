@@ -105,7 +105,6 @@ pub fn build() -> SparkHandle {
         cr.close_path();
         let _ = cr.fill();
 
-        // Line on top
         cr.set_source_rgba(r, g, b, 0.9);
         cr.set_line_width(1.5);
         for (i, &v) in vals.iter().enumerate() {

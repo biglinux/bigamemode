@@ -56,7 +56,14 @@ ReadOnlyPaths=-/sys/block -/sys/bus -/sys/class -/sys/dev -/sys/firmware -/sys/f
 # A path that does not exist makes systemd refuse to start the service at all
 # (226/NAMESPACE), so paths that depend on hardware or on falcond being
 # installed carry the "-" prefix: ignored when absent.
-ReadWritePaths=-/etc/falcond -/usr/share/falcond/profiles
+ReadWritePaths=-/usr/share/falcond/profiles
+#
+# falcond's global configuration. Its package ships no /etc/falcond, and an
+# absent path is ignored above, which left / read-only and every save of the
+# general configuration failing with EROFS; systemd creates it here and makes
+# it writable.
+ConfigurationDirectory=falcond
+ConfigurationDirectoryMode=0755
 
 # The record of how falcond was configured before BiGame-mode first took
 # charge of it, so it can be handed back exactly. Created by systemd and

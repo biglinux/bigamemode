@@ -87,6 +87,8 @@ while :; do
     # Elapsed time in shell arithmetic: microseconds, so no floating point and
     # no call out to awk.
     elapsed=$(( ${now/./} - ${START/./} ))
+    # Assigned by peek, through printf -v.
+    # shellcheck disable=SC2154
     printf '%d.%06d,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         $(( elapsed / 1000000 )) $(( elapsed % 1000000 )) \
         "$sclk" "$mclk" "$power" "$temp" "$busy" "$vram" "$cpu_pct" "$cpu_khz" >&3

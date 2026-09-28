@@ -66,6 +66,7 @@ pub fn run() -> adw::glib::ExitCode {
     // The name notifications and the desktop show; left unset, GLib uses the
     // program name and notifications are signed "bigame-ui".
     adw::glib::set_application_name("BiGame-mode");
+    replace_outdated_instance();
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|app| {
@@ -177,6 +178,82 @@ pub fn run() -> adw::glib::ExitCode {
     });
 
     app.run_with_args(&args)
+}
+
+/// Ask a running instance whose program was replaced on disk to quit, and
+/// wait for it to go.
+///
+/// `GApplication` is single-instance: opening BiGame-mode activates the one
+/// already running. After a package upgrade that is the tray instance the
+/// login started, still the old version, and it would stay what the user
+/// sees until the next login. Its executable then reads as `… (deleted)` in
+/// `/proc`; a build started from elsewhere next to an installed instance
+/// does not, and leaves it alone. It is asked through its own exported
+/// `quit` action, so it shuts down as from the tray (paused programs are
+/// resumed), and this process becomes the instance.
+fn replace_outdated_instance() {
+    use adw::gio;
+    use adw::glib::variant::ToVariant as _;
+
+    let Ok(bus) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else {
+        return;
+    };
+    let owner_pid = || {
+        bus.call_sync(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetConnectionUnixProcessID",
+            Some(&(APP_ID,).to_variant()),
+            Some(glib::VariantTy::new("(u)").expect("valid type string")),
+            gio::DBusCallFlags::NONE,
+            2000,
+            gio::Cancellable::NONE,
+        )
+        .ok()
+        .and_then(|v| v.get::<(u32,)>())
+        .map(|(pid,)| pid)
+    };
+    let Some(pid) = owner_pid() else {
+        return;
+    };
+    let replaced = std::fs::read_link(format!("/proc/{pid}/exe"))
+        .is_ok_and(|p| p.to_string_lossy().ends_with(" (deleted)"));
+    if pid == std::process::id() || !replaced {
+        return;
+    }
+    tracing::info!(
+        pid,
+        "an instance of an earlier version is running; asking it to quit"
+    );
+    let object_path = format!("/{}", APP_ID.replace('.', "/"));
+    let platform_data = std::collections::HashMap::<String, glib::Variant>::new();
+    if let Err(e) = bus.call_sync(
+        Some(APP_ID),
+        &object_path,
+        "org.gtk.Actions",
+        "Activate",
+        Some(&("quit", Vec::<glib::Variant>::new(), platform_data).to_variant()),
+        None,
+        gio::DBusCallFlags::NONE,
+        2000,
+        gio::Cancellable::NONE,
+    ) {
+        tracing::warn!(pid, error = %e, "the earlier instance did not take the request to quit");
+        return;
+    }
+    // Its shutdown resumes paused programs and releases the name; five
+    // seconds is far more than that takes.
+    for _ in 0..50 {
+        if owner_pid() != Some(pid) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    tracing::warn!(
+        pid,
+        "the earlier instance is still running; opening it instead"
+    );
 }
 
 /// Keep the tray and the error indicator in step with the real state.

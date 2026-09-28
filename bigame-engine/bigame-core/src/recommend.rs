@@ -216,7 +216,6 @@ mod tests {
             PowerSource::Ac
         };
         hw.cpu.vcache = vcache.then(|| crate::hardware::VCacheDevice {
-            mode_path: "/sys/x".into(),
             current_mode: Some("frequency".into()),
         });
         (hw, Capabilities::detect())

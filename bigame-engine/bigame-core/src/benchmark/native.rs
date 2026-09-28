@@ -60,27 +60,7 @@ pub struct NativeRun {
     pub files: Vec<PathBuf>,
 }
 
-impl NativeRun {
-    /// A one-line account of the run, for a report or a log.
-    #[must_use]
-    pub fn describe(&self) -> String {
-        let mut parts = vec![format!("{} frames", self.capture.frametimes_ms.len())];
-        if self.transitions > 0 {
-            parts.push(format!(
-                "{} scene transition{} excluded",
-                self.transitions,
-                if self.transitions == 1 { "" } else { "s" }
-            ));
-        }
-        if let Some(fps) = self.reported_avg_fps {
-            parts.push(format!("game reported {fps:.1} fps average"));
-        }
-        if self.frame_generation {
-            parts.push("frame generation ON: presented, not rendered, frames".into());
-        }
-        parts.join("; ")
-    }
-}
+impl NativeRun {}
 
 // ── Crystal Dynamics / Eidos ─────────────────────────────────────────────────
 

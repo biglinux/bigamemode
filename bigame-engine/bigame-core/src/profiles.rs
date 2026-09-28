@@ -220,31 +220,6 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<&'static str> {
     errors
 }
 
-/// List all profile names from system + user directories.
-///
-/// User profiles override system ones (same filename = same profile).
-#[must_use]
-pub fn list_names() -> Vec<String> {
-    let mut names = Vec::new();
-    for dir in [Path::new(USER_PROFILES_DIR), Path::new(SYSTEM_PROFILES_DIR)] {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().is_some_and(|e| e == "conf") {
-                    if let Some(stem) = path.file_stem() {
-                        let name = stem.to_string_lossy().into_owned();
-                        if !names.contains(&name) {
-                            names.push(name);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    names.sort();
-    names
-}
-
 /// One profile on disk, as the library sees it.
 ///
 /// falcond matches a process against the profile's `name` field, and the
@@ -783,7 +758,6 @@ some_future_falcond_key = 42
         let tmp = crate::tests::tempdir("export_import");
         let src = tmp.join("test_profile.conf");
 
-        // Create a profile file manually
         let profile = GameProfile {
             name: "export_test".into(),
             performance_mode: true,
@@ -801,11 +775,9 @@ some_future_falcond_key = 42
         let toml_str = toml::to_string_pretty(&profile).unwrap();
         std::fs::write(&src, &toml_str).unwrap();
 
-        // Export path
         let export_dst = tmp.join("exported.toml");
         std::fs::write(&export_dst, &toml_str).unwrap();
 
-        // Import back
         let content = std::fs::read_to_string(&export_dst).unwrap();
         let imported: GameProfile = toml::from_str(&content).unwrap();
         assert_eq!(imported.name, "export_test");
@@ -871,7 +843,6 @@ some_future_falcond_key = 42
     fn list_profiles_in_temp_dir() {
         let tmp = crate::tests::tempdir("list_profiles");
 
-        // Create 3 profile files
         for name in &["alpha", "beta", "gamma"] {
             let p = GameProfile {
                 name: (*name).to_string(),

@@ -257,7 +257,6 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     group.add(&filters);
     group.add(&stack);
 
-    // Action buttons
     let wizard_btn = gtk4::Button::builder()
         .label(i18n("Create with Wizard"))
         .tooltip_text(i18n(
@@ -396,7 +395,6 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         });
     }
 
-    // Import profile from file
     {
         let view = Rc::clone(&view);
         import_btn.connect_clicked(move |btn| {
@@ -1286,13 +1284,15 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
                 }
                 let stem = stem.clone();
                 let anchor = anchor_inner.clone();
+                // Off the main thread: the helper waits on a password prompt.
                 glib::spawn_future_local(async move {
-                    match bigame_core::profiles::delete(&stem) {
-                        Ok(()) => toast::show(&anchor, &i18n("Profile deleted")),
-                        Err(e) => toast::show(
+                    match gio::spawn_blocking(move || bigame_core::profiles::delete(&stem)).await {
+                        Ok(Ok(())) => toast::show(&anchor, &i18n("Profile deleted")),
+                        Ok(Err(e)) => toast::show(
                             &anchor,
                             &i18n("Could not delete profile: %s").replace("%s", &error_text(&e)),
                         ),
+                        Err(_) => toast::show(&anchor, &i18n("Could not delete profile")),
                     }
                 });
             });

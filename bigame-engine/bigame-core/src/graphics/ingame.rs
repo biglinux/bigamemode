@@ -221,8 +221,7 @@ pub fn switched_off_again(changes: &[SettingChange]) -> Vec<SettingChange> {
         .filter(|c| c.set != 0)
         .filter(|c| {
             std::fs::read_to_string(&c.file)
-                .ok()
-                .is_some_and(|t| reg::get(&t, &c.key, &c.value) == Some(0))
+                .is_ok_and(|t| reg::get(&t, &c.key, &c.value) == Some(0))
         })
         .cloned()
         .collect()

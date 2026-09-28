@@ -34,3 +34,6 @@
 - `native_xess`: 15.9, 15.7, 15.5
 - `native_xess_2`: 16.6, 16.8
 - `optiscaler_fsr`: 18.2, 18.3, 18.3
+
+The per-frame captures, GPU samples and screenshots named here are kept at the
+tag `benchmarks-raw-data`.
