@@ -96,30 +96,10 @@ pub fn restart_in_session() -> anyhow::Result<()> {
     }
 }
 
-/// A unit name no other start can have taken: two starts in the same second
-/// asked for the same name, and systemd refused the second.
-fn unit_name() -> String {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_nanos());
-    format!("app-steam-bigame-{}-{nanos}", std::process::id())
-}
-
-/// Start the Steam client as a unit of the user's systemd manager.
+/// Start the Steam client as a unit of the user's systemd manager, under a
+/// name no other start can have taken ([`crate::launchers`]).
 fn start_in_session() -> anyhow::Result<()> {
-    use anyhow::Context;
-    let status = std::process::Command::new("systemd-run")
-        .args(["--user", "--collect", "--quiet"])
-        .arg(format!("--unit={}", unit_name()))
-        .arg("steam")
-        .stdin(std::process::Stdio::null())
-        .status()
-        .context("start Steam")?;
-    anyhow::ensure!(
-        status.success(),
-        "systemd-run could not start Steam ({status})"
-    );
-    Ok(())
+    crate::launchers::start_in_session("steam", &["steam".to_owned()])
 }
 
 /// Run `f` with the Steam client closed — it keeps its configuration in
