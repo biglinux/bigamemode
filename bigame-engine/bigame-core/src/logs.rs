@@ -137,10 +137,15 @@ pub struct Entry {
 // ── The journal ─────────────────────────────────────────────────────────────
 
 /// Kernel lines worth showing: graphics drivers and the scheduler.
+///
+/// `NVRM` is how the proprietary NVIDIA driver signs its lines, and its GPU
+/// errors (`NVRM: Xid (PCI:0000:01:00): 32, pid=…, name=SOTTR.exe`) carry
+/// none of the other words.
 const KERNEL_KEYWORDS: &[&str] = &[
     "amdgpu",
     "radeon",
     "nvidia",
+    "nvrm",
     "nouveau",
     "i915",
     " xe ",
@@ -302,6 +307,11 @@ pub fn classify(priority: Option<u8>, message: &str) -> Level {
     let has = |words: &[&str]| words.iter().any(|w| lower.contains(w));
     if priority.is_none_or(|p| p > 3) && has(NOISE) {
         return Level::Debug;
+    }
+    // An Xid is the NVIDIA driver reporting a GPU error (a channel fault, a
+    // lost context, a hung engine); the kernel logs it at warning priority.
+    if lower.contains("nvrm: xid") {
+        return Level::Error;
     }
     if priority.is_some_and(|p| p <= 3)
         || has(&[
@@ -1201,6 +1211,19 @@ mod tests {
         }
         // The client's own chatter belongs to none of them.
         assert_eq!(component_of("Manifest download: send request"), None);
+    }
+
+    #[test]
+    fn an_nvidia_xid_is_shown_as_an_error() {
+        // As the lab laptop's kernel logged them, both at warning priority.
+        let journal = r#"{"__CURSOR":"s=1","__REALTIME_TIMESTAMP":"1790200000000000","_TRANSPORT":"kernel","PRIORITY":"4","MESSAGE":"NVRM: GPU at PCI:0000:01:00: GPU-dbe116b8-a325-0daf-c382-c87c94a4bf0b"}
+{"__CURSOR":"s=2","__REALTIME_TIMESTAMP":"1790200000000001","_TRANSPORT":"kernel","PRIORITY":"4","MESSAGE":"NVRM: Xid (PCI:0000:01:00): 32, pid=177594, name=SOTTR.exe, channel 0x00000023 intr 00040000"}
+"#;
+        let (entries, _) = parse_journal(journal);
+        assert_eq!(entries.len(), 2, "{entries:#?}");
+        assert!(entries.iter().all(|e| e.source == Source::Kernel));
+        assert_eq!(entries[0].level, Level::Warning);
+        assert_eq!(entries[1].level, Level::Error);
     }
 
     #[test]
