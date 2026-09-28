@@ -1977,7 +1977,7 @@ fn wire_choice(page: &Rc<Page>) {
             .add_action(&i18n("Switch it back on"), true, move |_| {
                 let page = Rc::clone(&page);
                 glib::spawn_future_local(async move {
-                    if refuse_while_running(&page, &page.overlay) {
+                    if refuse_while_running(&page, &page.overlay).await {
                         return;
                     }
                     busy(&page, Some(&i18n("Writing the game's settings…")));
@@ -2243,7 +2243,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
 fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler::Release>) {
     let page = page.clone();
     glib::spawn_future_local(async move {
-        if refuse_while_running(&page, &page.overlay) {
+        if refuse_while_running(&page, &page.overlay).await {
             return;
         }
         busy(&page, Some(&i18n("Downloading, checking and installing…")));
@@ -2333,8 +2333,14 @@ fn report_fsr4_upgrade(
 /// Files cannot change while the game runs (its DLLs are loaded, and a
 /// change takes effect only at the next start). Checked here, in the UI's
 /// language, before core's own check would refuse in English.
-fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool {
-    if graphics::is_running(&page.target) {
+async fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool {
+    // A /proc walk, and the first time the game's executable is read: off the
+    // main thread. A check that could not run refuses, as a running game does.
+    let target = page.target.clone();
+    let running = gio::spawn_blocking(move || graphics::is_running(&target))
+        .await
+        .unwrap_or(true);
+    if running {
         overlay.add_toast(adw::Toast::new(&i18n(
             "Close the game first: its files are in use, and a change takes effect at the next start",
         )));
@@ -2608,7 +2614,7 @@ fn open_with(
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
-                if refuse_while_running(&page, &overlay) {
+                if refuse_while_running(&page, &overlay).await {
                     return;
                 }
                 let native_only = page
@@ -2709,7 +2715,7 @@ fn open_with(
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
-                if refuse_while_running(&page, &overlay) {
+                if refuse_while_running(&page, &overlay).await {
                     return;
                 }
                 busy(&page, Some(&i18n("Checking files…")));
@@ -2734,7 +2740,7 @@ fn open_with(
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
-                if refuse_while_running(&page, &overlay) {
+                if refuse_while_running(&page, &overlay).await {
                     return;
                 }
                 let installed = page
@@ -2853,13 +2859,19 @@ fn open_with(
     refresh(&page);
     // The game starting or closing changes what the page says (Current,
     // the status, Diagnose): read it again while the page is open. The
-    // listener holds the page weakly and goes once the page is gone, and it
-    // skips the call subscribe makes at once (refreshed just above).
+    // listener goes when the dialog closes (the page's own widgets hold it,
+    // so a weak reference alone would never let go), and it skips the call
+    // subscribe makes at once (refreshed just above).
     {
+        let closed = Rc::new(std::cell::Cell::new(false));
+        dialog.connect_closed({
+            let closed = Rc::clone(&closed);
+            move |_| closed.set(true)
+        });
         let weak = Rc::downgrade(&page);
         let first = std::cell::Cell::new(true);
         crate::game_watch::subscribe(move |_| {
-            let Some(page) = weak.upgrade() else {
+            let Some(page) = weak.upgrade().filter(|_| !closed.get()) else {
                 return glib::ControlFlow::Break;
             };
             if !first.replace(false) && page.verdict.is_mapped() {

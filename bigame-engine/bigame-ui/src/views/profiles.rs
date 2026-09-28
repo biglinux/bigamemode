@@ -1286,13 +1286,15 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
                 }
                 let stem = stem.clone();
                 let anchor = anchor_inner.clone();
+                // Off the main thread: the helper waits on a password prompt.
                 glib::spawn_future_local(async move {
-                    match bigame_core::profiles::delete(&stem) {
-                        Ok(()) => toast::show(&anchor, &i18n("Profile deleted")),
-                        Err(e) => toast::show(
+                    match gio::spawn_blocking(move || bigame_core::profiles::delete(&stem)).await {
+                        Ok(Ok(())) => toast::show(&anchor, &i18n("Profile deleted")),
+                        Ok(Err(e)) => toast::show(
                             &anchor,
                             &i18n("Could not delete profile: %s").replace("%s", &error_text(&e)),
                         ),
+                        Err(_) => toast::show(&anchor, &i18n("Could not delete profile")),
                     }
                 });
             });
