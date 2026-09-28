@@ -125,11 +125,10 @@ wait_for_stop() {
 
 # ── machine state ────────────────────────────────────────────────────────────
 
-CARD=${CARD:-$(for c in /sys/class/drm/card[0-9]*; do
-    [ -r "$c/device/mem_info_vram_total" ] && [ -e "$c/device/power_dpm_force_performance_level" ] \
-        && printf '%s %s\n' "$(cat "$c/device/mem_info_vram_total")" "$(basename "$c")"
-done | sort -n | tail -1 | cut -d' ' -f2)}
-[ -n "$CARD" ] || die "no GPU with a DPM control was found"
+# shellcheck source=render-card.sh
+. "$HERE/render-card.sh"
+CARD=${CARD:-$(render_card)}
+[ -n "$CARD" ] || die "no GPU was found"
 
 # Quoted with %q: the state is put back with eval, and a value is never code.
 read_state() {
@@ -142,7 +141,7 @@ ORIGINAL=$(read_state)
 
 set_governor() { [ -n "$1" ] && "${BUS[@]}" SetCpuGovernor s "$1" >/dev/null 2>&1; }
 set_epp()      { [ -n "$1" ] && "${BUS[@]}" SetCpuEpp s "$1" >/dev/null 2>&1; }
-set_dpm()      { [ -n "$1" ] && "${BUS[@]}" SetGpuDpmLevel ss "$CARD" "$1" >/dev/null 2>&1; }
+set_dpm()      { [ -n "$1" ] && has_dpm "$CARD" && "${BUS[@]}" SetGpuDpmLevel ss "$CARD" "$1" >/dev/null 2>&1; }
 set_profile()  { [ -n "$1" ] && powerprofilesctl set "$1" >/dev/null 2>&1; }
 
 restore() {
@@ -173,7 +172,10 @@ arm_baseline()  { set_profile balanced; set_governor powersave; set_epp balance_
 # Booster's plan.
 arm_rest()      { set_profile performance; set_governor performance; set_epp performance; set_dpm auto; }
 # The same, with the GPU pinned to its highest fixed DPM state.
-arm_gpu_dpm_level() { arm_rest; set_dpm high; }
+arm_gpu_dpm_level() {
+    has_dpm "$CARD" || die "$CARD has no DPM level to force (its driver is not amdgpu)"
+    arm_rest; set_dpm high
+}
 # The distribution default with only the CPU governor and EPP raised -- the
 # CPU knob isolated, for a workload where the CPU is what limits the frame rate.
 arm_cpu_governor() { arm_baseline; set_governor performance; set_epp performance; }

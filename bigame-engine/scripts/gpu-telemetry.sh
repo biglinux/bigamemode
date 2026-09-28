@@ -74,6 +74,40 @@ cpu_util   # prime the difference; the first reading is otherwise since boot
 exec 3>"$OUT"
 printf 'elapsed_s,sclk_hz,mclk_hz,power_uw,temp_mc,busy_pct,vram_used_bytes,cpu_pct,cpu_khz\n' >&3
 
+# The proprietary NVIDIA driver publishes none of these attributes in sysfs.
+# One nvidia-smi in its own loop mode (-lms) is one process for the whole run,
+# not one per sample, and each line it prints becomes one row in the same
+# units as above. A reading the board does not report ("[N/A]": the GTX 1050
+# Ti Mobile has no power sensor) stays an empty field.
+if [ "$(basename "$(readlink -f "$D/driver" 2>/dev/null)")" = nvidia ]; then
+    BUS_ID=$(basename "$(readlink -f "$D")")
+    ms=$(awk -v i="$INTERVAL" 'BEGIN { printf "%d", i * 1000 }')
+    # Anything but a number ("[N/A]", "[Not Supported]") becomes empty, in
+    # place: a $(...) here would fork once per field per sample.
+    numbers() {
+        local __v
+        for __v in "$@"; do
+            [[ ${!__v} =~ ^[0-9]+([.][0-9]+)?$ ]] || printf -v "$__v" '%s' ''
+        done
+    }
+    while IFS=', ' read -r gr mem pw tc util used; do
+        now=${EPOCHREALTIME/,/.}
+        peek cpu_khz "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+        cpu_util
+        elapsed=$(( ${now/./} - ${START/./} ))
+        numbers gr mem pw tc util used
+        # cpu_khz is assigned by peek, through printf -v.
+        # shellcheck disable=SC2154
+        printf '%d.%06d,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+            $(( elapsed / 1000000 )) $(( elapsed % 1000000 )) \
+            "${gr:+${gr}000000}" "${mem:+${mem}000000}" \
+            "${pw:+$(( ${pw%.*} * 1000000 ))}" "${tc:+${tc}000}" \
+            "$util" "${used:+$(( used * 1048576 ))}" "$cpu_pct" "$cpu_khz" >&3
+    done < <(nvidia-smi -i "$BUS_ID" -lms "$ms" --format=csv,noheader,nounits \
+        --query-gpu=clocks.gr,clocks.mem,power.draw,temperature.gpu,utilization.gpu,memory.used)
+    exit 0
+fi
+
 while :; do
     now=${EPOCHREALTIME/,/.}
     peek sclk  "$HW/freq1_input"
