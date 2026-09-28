@@ -295,6 +295,9 @@ impl LaunchPlan {
             let gs_override = (gs_override.is_some() || gs.mangoapp || capped).then_some(&gs);
             let (program, mut args) =
                 build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
+            if let Some(offload) = &host.offload {
+                keep_offload_in_the_game(&mut args, &mut env, offload);
+            }
             keep_vkbasalt_in_the_game(&mut args, &mut env);
             let mut plan = Self {
                 program,
@@ -631,6 +634,40 @@ fn keep_vkbasalt_in_the_game(args: &mut Vec<String>, env: &mut HashMap<String, S
     }
 }
 
+/// Give the render-offload variables to the game inside Gamescope, not to
+/// Gamescope.
+///
+/// Gamescope composites where the display is. Given the offload variables it
+/// picks the discrete GPU for itself: on the GTX 1050 Ti laptop (NVIDIA 580,
+/// the HD 630 driving the panel) it then fails `vkImportSemaphoreFdKHR` and
+/// segfaults within seconds, before the game shows a frame. With them only
+/// on the game, `env K=V … <game>` after `--`, Gamescope composites on the
+/// HD 630 and the game still renders on the GTX. Variables the user set
+/// themselves are not in the plan's environment and are left alone.
+fn keep_offload_in_the_game(
+    args: &mut Vec<String>,
+    env: &mut HashMap<String, String>,
+    offload: &crate::hardware::Offload,
+) {
+    let Some(sep) = args.iter().position(|a| a == "--") else {
+        return;
+    };
+    let assignments: Vec<String> = offload
+        .env()
+        .into_iter()
+        .filter_map(|(k, _)| env.remove(k).map(|v| format!("{k}={v}")))
+        .collect();
+    if assignments.is_empty() {
+        return;
+    }
+    for (i, a) in std::iter::once("env".to_owned())
+        .chain(assignments)
+        .enumerate()
+    {
+        args.insert(sep + 1 + i, a);
+    }
+}
+
 /// Build `("gamescope", argv)` from the global upscaling settings merged with a
 /// per-game override.
 ///
@@ -814,10 +851,51 @@ mod tests {
         assert_eq!(plan.program, "gamescope");
         // Composited on the discrete GPU, nested Gamescope showed no window.
         assert!(!plan.args.iter().any(|a| a == "--prefer-vk-device"));
-        // The game still receives the offload variables through Gamescope.
-        assert!(
-            plan.env.contains_key("__VK_LAYER_NV_optimus")
-                || std::env::var_os("__VK_LAYER_NV_optimus").is_some()
+        // Gamescope itself does not get the offload variables: given them it
+        // composited on the GTX and segfaulted. The game, after `--`, does.
+        for k in [
+            "__NV_PRIME_RENDER_OFFLOAD",
+            "__GLX_VENDOR_LIBRARY_NAME",
+            "__VK_LAYER_NV_optimus",
+        ] {
+            assert!(!plan.env.contains_key(k), "{k} reaches Gamescope");
+        }
+        if std::env::var_os("__NV_PRIME_RENDER_OFFLOAD").is_none() {
+            let sep = plan.args.iter().position(|a| a == "--").unwrap();
+            assert_eq!(plan.args[sep + 1], "env");
+            let game = plan.args.iter().rposition(|a| a == "game").unwrap();
+            assert!(plan.args[sep + 1..game].contains(&"__NV_PRIME_RENDER_OFFLOAD=1".to_owned()));
+            assert!(
+                plan.args[sep + 1..game].contains(&"__VK_LAYER_NV_optimus=NVIDIA_only".to_owned())
+            );
+        }
+    }
+
+    #[test]
+    fn offload_goes_after_vkbasalt_and_before_the_game_inside_gamescope() {
+        let mut env: HashMap<String, String> = [
+            ("DRI_PRIME".to_owned(), "pci-0000_03_00_0".to_owned()),
+            ("ENABLE_VKBASALT".to_owned(), "1".to_owned()),
+        ]
+        .into();
+        let mut args: Vec<String> = ["-f", "--", "game"].map(str::to_owned).to_vec();
+        let offload = crate::hardware::Offload::DriPrime("pci-0000_03_00_0".into());
+        keep_offload_in_the_game(&mut args, &mut env, &offload);
+        keep_vkbasalt_in_the_game(&mut args, &mut env);
+        assert!(!env.contains_key("DRI_PRIME"));
+        assert_eq!(
+            args,
+            [
+                "-f",
+                "--",
+                "env",
+                "-u",
+                "DISABLE_VKBASALT",
+                "ENABLE_VKBASALT=1",
+                "env",
+                "DRI_PRIME=pci-0000_03_00_0",
+                "game"
+            ]
         );
     }
 
