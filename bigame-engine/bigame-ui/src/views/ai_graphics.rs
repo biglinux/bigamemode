@@ -211,6 +211,7 @@ fn step_row(step: &Step) -> adw::ActionRow {
         Step::Disable(t) => ("action-unavailable-symbolic", t),
         Step::Keep(t) => ("object-select-symbolic", t),
         Step::Note(t) => ("dialog-information-symbolic", t),
+        Step::Instead(t) => ("emblem-default-symbolic", t),
     };
     let r = adw::ActionRow::builder()
         .title(sentence(&tr(text)))
