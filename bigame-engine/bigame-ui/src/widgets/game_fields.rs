@@ -121,6 +121,9 @@ struct Live {
     mode: Cell<Mode>,
     /// Set while the page itself moves the rows.
     quiet: Cell<bool>,
+    /// Set while the user is asked which of two upscalers to keep: the
+    /// values hold both until then, and that is a question, not a state.
+    asking: Cell<bool>,
     /// Checks a change the user made, given the values before it.
     check: RefCell<Option<Check>>,
     /// Put each row back to the values above.
@@ -141,11 +144,13 @@ impl Live {
         }
         let before = self.snapshot();
         f(&mut self.launch.borrow_mut(), &self.mode);
-        self.refresh();
+        // The check first: it says whether a question is open, which the
+        // notices read.
         let check = self.check.borrow().clone();
         if let Some(check) = check {
             check(before, anchor);
         }
+        self.refresh();
     }
 
     /// A change the page makes: the rows follow it.
@@ -565,17 +570,6 @@ impl GamescopeFields {
             ),
         );
         group.add(collide.widget());
-        if steam {
-            let note = Notice::new(
-                Kind::Info,
-                &i18n("The Steam client starts this game"),
-                &i18n(
-                    "Always, or this game's own settings, go into its Steam launch options when you save, with Steam closed; your own options there are kept.",
-                ),
-            );
-            group.add(note.widget());
-        }
-
         // Each row writes its value; the page's own moves are quiet.
         {
             let (live, row) = (Rc::clone(live), mode.row.clone());
@@ -661,15 +655,18 @@ impl GamescopeFields {
                 // Tuning's Gamescope values apply where Gamescope is on
                 // there, or where the game says Always.
                 let applies = mode == Mode::Enabled || general.gamescope_enabled;
-                let off_there = i18n("none, Gamescope is off in Tuning");
+                let off_there = i18n("nothing, Gamescope is off there");
                 let or_off = |v: String| if applies { v } else { off_there.clone() };
                 mode_row.set_subtitle(&if steam {
-                    follow_subtitle(
-                        &i18n("Written into this game's Steam launch options"),
-                        (mode == Mode::Auto)
-                            .then(|| i18n("only when this game's own values below need Gamescope"))
-                            .as_deref(),
-                    )
+                    let what = i18n("Written into this game's Steam launch options");
+                    if mode == Mode::Auto {
+                        format!(
+                            "{what}\n{}",
+                            i18n("General configuration: only when this game's own values below need Gamescope")
+                        )
+                    } else {
+                        what
+                    }
                 } else {
                     follow_subtitle(
                         &i18n("Wraps this game when BiGame-mode starts it"),
@@ -960,7 +957,7 @@ impl ImageQualityFields {
                         ));
                     }
                     let (up, wine_on) = upscalers(&general, &game, (own, mode));
-                    if up && wine_on {
+                    if up && wine_on && !live.asking.get() {
                         conflicted.set(true);
                         legacy.set_visible(true);
                     } else if conflicted.get() {
@@ -1150,7 +1147,7 @@ impl FrameGenFields {
                     note.set(
                         Kind::Warning,
                         &i18n("lsfg-vk needs your Lossless.dll"),
-                        &i18n("Set its path below: one file for every game, saved at once."),
+                        &i18n("Set its path in the row above: one file for every game, saved at once."),
                     );
                     note.set_visible(true);
                 } else if active && optiscaler_fg {
@@ -1388,36 +1385,42 @@ impl GameFields {
                 group
             })
         };
-        let steam = game.reach == Reach::Steam;
         let performance_group = section(
             "Performance",
             i18n(
                 "Applied by falcond while this game runs, whichever launcher starts it. Saved through the privileged helper when you save.",
             ),
         );
+        // Where the game's own Gamescope, Wine FSR and vkBasalt go.
+        let reaches = match game.reach {
+            Reach::Steam => i18n(
+                "Written into this game's Steam launch options when you save, with Steam closed; your own options there are kept.",
+            ),
+            Reach::Launch => {
+                i18n("For this game when BiGame-mode starts it (Profiles → Launch (Turbo)).")
+            }
+            Reach::Unknown => i18n(
+                "For this game when BiGame-mode starts it, and in its Steam launch options when Steam starts it (written when you save, with Steam closed).",
+            ),
+            Reach::Nothing => i18n(
+                "Started through its own launcher, this game gets Tuning's settings from the session environment.",
+            ),
+        };
         let display_group = section(
             "Display",
-            if steam {
-                i18n(
-                    "Written into this game's Steam launch options when you save, with Steam closed. What is left on “General configuration” follows Tuning → Display.",
-                )
-            } else {
-                i18n(
-                    "For this game when BiGame-mode starts it (Profiles → Launch). What is left on “General configuration” follows Tuning → Display.",
-                )
-            },
+            format!(
+                "{reaches} {}",
+                i18n("What is left on “General configuration” follows Tuning → Display.")
+            ),
         );
         let image_group = section(
             "Image quality",
-            if steam {
+            format!(
+                "{reaches} {}",
                 i18n(
-                    "Written into this game's Steam launch options when you save, with Steam closed. What is left on “General configuration” comes from the session environment, as Tuning sets it.",
+                    "What is left on “General configuration” comes from the session environment, as Tuning sets it."
                 )
-            } else {
-                i18n(
-                    "For this game when BiGame-mode starts it. Started from its own launcher, it gets Tuning's, from the session environment.",
-                )
-            },
+            ),
         );
         let frame_group = section(
             "Frame generation",
@@ -1484,8 +1487,10 @@ impl GameFields {
                     return;
                 };
                 let (l, anchor2) = (Rc::downgrade(&live), anchor.clone());
+                live.asking.set(true);
                 notice::ask_conflict(anchor, &c, move |use_requested| {
                     let Some(live) = l.upgrade() else { return };
+                    live.asking.set(false);
                     if !use_requested {
                         live.restore(before);
                     } else if requested == Feature::WineFsr {
