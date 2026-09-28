@@ -96,7 +96,7 @@ fn should_offer(game: &GameIdentity) -> bool {
     let mode = bigame_core::config::read()
         .map(|c| c.profile_mode)
         .unwrap_or_default();
-    bigame_core::running::matching_profile(&game.process_name, &mode).is_none()
+    bigame_core::overview::running_profile(game, &mode).is_none()
 }
 
 /// Register the actions and start listening for games.
