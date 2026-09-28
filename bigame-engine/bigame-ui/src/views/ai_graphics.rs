@@ -2040,13 +2040,25 @@ fn wire_choice(page: &Rc<Page>) {
 }
 
 /// Whether Wine FSR would run next to `OptiScaler` in this Steam game: on in
-/// Tuning or in its own launch options, and not switched off for it by
-/// BiGame-mode. Blocking (it reads Steam's configuration).
+/// Tuning, in a Turbo preset, or in its own launch options, and not switched
+/// off for it by BiGame-mode. Blocking (it reads Steam's configuration).
 fn wine_fsr_second(target: &Target) -> bool {
     target.app_id.is_some()
         && !bigame_core::game_settings::load(&target.process).is_ok_and(|s| s.steam_wine_fsr_off)
         && (bigame_core::video_config::load().upscaling.wine_fsr_enabled
+            || preset_turns_wine_fsr_on()
             || bigame_core::steam_gamescope::wine_fsr_in_options(&target.process))
+}
+
+/// A Turbo preset that switches Wine FSR on reaches every game the Steam
+/// client starts, through the session's environment: More FPS did, in Shadow
+/// of the Tomb Raider with `OptiScaler` installed. The preset in force and the
+/// one chosen for the next Turbo both count, since Turbo can be switched on
+/// after `OptiScaler` is installed without this page being opened again.
+fn preset_turns_wine_fsr_on() -> bool {
+    use bigame_core::turbo_preset as preset;
+    preset::active_levers().wine_fsr == Some(true)
+        || preset::levers(preset::chosen(), preset::Machine::detect()).wine_fsr == Some(true)
 }
 
 /// Switch `OptiScaler`'s frame generation on or off in the choice. It is
