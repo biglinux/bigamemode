@@ -72,22 +72,37 @@ case "$GAME" in
 esac
 [ -n "${PFX:-}" ] && [ -d "$RESULT_DIR" ] || die "$TITLE's Proton prefix was not found"
 
+# The game's window and its focus: xdotool on X11; kdotool under KDE's
+# Wayland session, where xdotool sees only XWayland windows and cannot tell
+# which window has focus, with the key sent by a virtual keyboard
+# (press-key.py) that the compositor delivers to the focused window.
 export DISPLAY=${DISPLAY:-:0}
-WINDOW=$(xdotool search --name "$WINDOW_NAME" 2>/dev/null | head -1)
+if command -v xdotool >/dev/null && xdotool search --name "$WINDOW_NAME" >/dev/null 2>&1; then
+    WINDOWS=xdotool
+elif command -v kdotool >/dev/null && [ -w /dev/uinput ]; then
+    WINDOWS=kdotool
+else
+    die "neither xdotool (X11) nor kdotool with a writable /dev/uinput (KDE Wayland) is available"
+fi
+WINDOW=$("$WINDOWS" search --name "$WINDOW_NAME" 2>/dev/null | head -1)
 [ -n "$WINDOW" ] || die "$TITLE is not running"
 
 # Held rather than tapped: the game samples key state once per frame, and an
-# instantaneous press/release from XTEST falls between two samples.
+# instantaneous press/release falls between two samples.
 press_rerun() {
     local waited=0
-    until [ "$(xdotool getactivewindow 2>/dev/null)" = "$WINDOW" ]; do
+    until [ "$("$WINDOWS" getactivewindow 2>/dev/null)" = "$WINDOW" ]; do
         # A game that has exited will never take focus again.
-        xdotool getwindowname "$WINDOW" >/dev/null 2>&1 || { log "the game exited"; return 1; }
+        "$WINDOWS" getwindowname "$WINDOW" >/dev/null 2>&1 || { log "the game exited"; return 1; }
         [ $waited -eq 0 ] && log "waiting for $TITLE to regain keyboard focus"
         sleep 2; waited=$((waited + 2))
         [ $waited -ge "$TIMEOUT_S" ] && return 1
     done
-    xdotool keydown "$RERUN_KEY"; sleep 0.25; xdotool keyup "$RERUN_KEY"
+    if [ "$WINDOWS" = xdotool ]; then
+        xdotool keydown "$RERUN_KEY"; sleep 0.25; xdotool keyup "$RERUN_KEY"
+    else
+        python3 "$HERE/press-key.py" "$RERUN_KEY" 0.25
+    fi
 }
 
 count() { local n; n=$(grep -c "\[Benchmark\] Benchmark $1" "$GAME_LOG" 2>/dev/null); echo "${n:-0}"; }
@@ -158,6 +173,10 @@ restore() {
         set_epp "$epp"
         set_dpm "$dpm"
     }
+    if [ -n "${TURBO_TOUCHED:-}" ]; then
+        "$TURBO_BIN" "$([ "$TURBO_WAS" = active ] && echo on || echo off)" >/dev/null 2>&1 \
+            && log "Turbo put back ${TURBO_WAS}"
+    fi
     read_state | sed 's/^/  /' >&2
 }
 trap restore EXIT INT TERM
@@ -236,11 +255,32 @@ arm_fg_off() { arm_rest; fg_set off "${FG_PROCESS:?set FG_PROCESS to the process
 arm_fg_x2()  { arm_rest; fg_set set "${FG_PROCESS:?set FG_PROCESS to the process name of the game}" 2; }
 arm_fg_x3()  { arm_rest; fg_set set "${FG_PROCESS:?set FG_PROCESS to the process name of the game}" 3; }
 
+# Turbo as the Home button switches it: the turbo example, through the helper
+# and Polkit. falcond applies the running game's profile when it starts and
+# puts the machine back when it stops, so these arms alternate within one
+# launch; the state Turbo was found in comes back at the end.
+TURBO_BIN=${TURBO_BIN:-$HERE/../target/release/examples/turbo}
+TURBO_WAS=$(systemctl is-active falcond 2>/dev/null)
+turbo_set() {
+    [ -x "$TURBO_BIN" ] || die "build it first: cargo build --release -p bigame-core --example turbo"
+    TURBO_TOUCHED=1
+    "$TURBO_BIN" "$1" >/dev/null 2>&1 || die "Turbo $1 failed"
+}
+arm_turbo_off() { turbo_set off; }
+# falcond looks at running processes again every 9 s.
+arm_turbo_on()  { turbo_set on; sleep 12; }
+
 arm_scx_none()    { arm_rest; scx_set none default; }
 arm_scx_lavd()    { arm_rest; scx_set lavd gaming; }
 arm_scx_bpfland() { arm_rest; scx_set bpfland gaming; }
 
 # ── session ──────────────────────────────────────────────────────────────────
+
+# More arms, for a matrix of its own: a file of arm_<name> functions.
+if [ -n "${ARMS_FILE:-}" ]; then
+    # shellcheck source=/dev/null
+    . "$ARMS_FILE" || die "could not read $ARMS_FILE"
+fi
 
 ARMS=("$@")
 [ ${#ARMS[@]} -gt 0 ] || ARMS=(rest gpu_dpm_level)
