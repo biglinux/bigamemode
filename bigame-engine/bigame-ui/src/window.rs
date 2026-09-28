@@ -317,6 +317,7 @@ pub fn build(
         let overlay = toast_overlay.clone();
         let win = window.clone();
         let th = Rc::clone(&tuning_holder);
+        let sidebar = sidebar_list.clone();
         restore_action.connect_activate(move |_, _| {
             let dialog = adw::AlertDialog::new(
                 Some(&i18n("Restore Defaults")),
@@ -330,6 +331,7 @@ pub fn build(
             let stack2 = stack.clone();
             let overlay2 = overlay.clone();
             let th2 = Rc::clone(&th);
+            let sidebar2 = sidebar.clone();
             dialog.connect_response(None, move |_, response| {
                 if response != "restore" { return; }
                 // Tuning's launch settings (Gamescope, Wine FSR, vkBasalt,
@@ -337,7 +339,8 @@ pub fn build(
                 // file), then falcond's through the helper -- off the main
                 // thread, since it may wait on a password prompt -- and say
                 // what actually happened.
-                let (overlay3, stack3, th3) = (overlay2.clone(), stack2.clone(), Rc::clone(&th2));
+                let (overlay3, stack3, th3, sidebar3) =
+                    (overlay2.clone(), stack2.clone(), Rc::clone(&th2), sidebar2.clone());
                 glib::spawn_future_local(async move {
                     let restored = gtk4::gio::spawn_blocking(|| {
                         let video = bigame_core::video_config::VideoConfig::default();
@@ -364,7 +367,17 @@ pub fn build(
                     let new_tuning = views::tuning::build();
                     stack3.add_named(&new_tuning, Some("tuning"));
                     *th3.borrow_mut() = new_tuning;
-                    stack3.set_visible_child_name("tuning");
+                    // Through the sidebar, so its selection and the window
+                    // title follow the page.
+                    let mut i = 0;
+                    while let Some(row) = sidebar3.row_at_index(i) {
+                        if row.widget_name() == "tuning" {
+                            sidebar3.unselect_all();
+                            sidebar3.select_row(Some(&row));
+                            break;
+                        }
+                        i += 1;
+                    }
                 });
             });
             dialog.present(Some(&win));
