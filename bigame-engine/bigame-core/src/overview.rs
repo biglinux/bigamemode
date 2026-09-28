@@ -414,6 +414,37 @@ fn profile_not_applied(
     })
 }
 
+/// The falcond profile for a running game: under its own process name, or,
+/// for a game started by a launcher stub (Unreal's bootstrap) that runs as
+/// another executable, under the name the library gives the game — the
+/// stub's, which falcond sees running for as long as the game does.
+#[must_use]
+pub fn running_profile(game: &GameIdentity, mode: &str) -> Option<crate::running::ProfileMatch> {
+    crate::running::matching_profile(&game.process_name, mode).or_else(|| {
+        library_key(game)
+            .filter(|key| !key.eq_ignore_ascii_case(&game.process_name))
+            .and_then(|key| crate::running::matching_profile(&key, mode))
+    })
+}
+
+/// The profile key the library gives the running game, read once per game
+/// process: finding it walks every launcher's records, and a snapshot is
+/// taken every few seconds.
+fn library_key(game: &GameIdentity) -> Option<String> {
+    static CACHE: std::sync::Mutex<Option<(u32, Option<String>)>> = std::sync::Mutex::new(None);
+    let mut cache = CACHE.lock().ok()?;
+    if let Some((pid, key)) = cache.as_ref() {
+        if *pid == game.pid {
+            return key.clone();
+        }
+    }
+    let key =
+        crate::games::installed_game_for_process(&game.process_name, game.install_path.as_deref())
+            .map(|g| g.profile_key().to_owned());
+    *cache = Some((game.pid, key.clone()));
+    key
+}
+
 fn steam_launch_facts(game: Option<&GameIdentity>) -> (Option<bool>, bool) {
     let Some(g) = game else {
         return (None, false);
@@ -454,12 +485,8 @@ impl Snapshot {
         let video = crate::video_config::load();
 
         let in_game = game.as_ref().map(crate::running::in_game);
-        let matched = game.as_ref().and_then(|g| {
-            crate::running::matching_profile(
-                &g.process_name,
-                falcond.as_ref().map_or("", |s| s.profile_mode.as_str()),
-            )
-        });
+        let mode = falcond.as_ref().map_or("", |s| s.profile_mode.as_str());
+        let matched = game.as_ref().and_then(|g| running_profile(g, mode));
         let active = falcond.as_ref().and_then(|s| s.active_profile.as_deref());
         let profile = applied_profile(active, matched.as_ref());
         let profile_not_applied = profile_not_applied(game.as_ref(), matched.as_ref(), &profile);

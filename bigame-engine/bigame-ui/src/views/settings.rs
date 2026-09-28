@@ -87,6 +87,218 @@ fn appearance_group() -> adw::PreferencesGroup {
     group
 }
 
+/// A Unix time as the user's locale writes a date and time.
+fn local_time(t: u64) -> String {
+    glib::DateTime::from_unix_local(i64::try_from(t).unwrap_or(0))
+        .and_then(|d| d.format("%x %X"))
+        .map(|s| s.to_string())
+        .unwrap_or_default()
+}
+
+/// Who is in charge of falcond, and the one action that makes sense now:
+/// hand it back while BiGame-mode manages it, take it back while it does not.
+///
+/// Read again whenever the row is shown, because switching Turbo on the Home
+/// page takes charge too.
+#[allow(clippy::too_many_lines)]
+fn falcond_row() -> adw::ActionRow {
+    use bigame_core::turbo::Control;
+
+    let row = adw::ActionRow::builder()
+        .title(i18n("Control of falcond"))
+        .subtitle(i18n("Checking…"))
+        .build();
+    let release = gtk4::Button::builder()
+        .label(i18n("Hand back"))
+        .valign(gtk4::Align::Center)
+        .visible(false)
+        .build();
+    let take = gtk4::Button::builder()
+        .label(i18n("Take back control"))
+        .valign(gtk4::Align::Center)
+        .visible(false)
+        .build();
+    row.add_suffix(&release);
+    row.add_suffix(&take);
+    row.add_suffix(&info::button(
+        &i18n("Control of falcond"),
+        &i18n(
+            "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back.",
+        ),
+    ));
+
+    // Show what was read. `None`: systemd could not be asked.
+    let show = {
+        let row = row.clone();
+        let release = release.clone();
+        let take = take.clone();
+        move |control: Option<Control>| {
+            let subtitle = match control {
+                None => i18n("Could not read falcond's service"),
+                Some(Control::NotInstalled) => i18n("falcond is not installed"),
+                Some(Control::Managed { since }) => {
+                    i18n("Managed by BiGame-mode since %s").replace("%s", &local_time(since))
+                }
+                Some(Control::HandedBack { at }) => {
+                    i18n("Handed back on %s: falcond is as it was before BiGame-mode")
+                        .replace("%s", &local_time(at))
+                }
+                Some(Control::NeverManaged) => {
+                    i18n("Not managed: BiGame-mode has not changed falcond's service")
+                }
+            };
+            row.set_subtitle(&subtitle);
+            release.set_visible(matches!(control, Some(Control::Managed { .. })));
+            release.set_sensitive(true);
+            take.set_visible(control.is_some_and(Control::can_take));
+            take.set_label(&if matches!(control, Some(Control::NeverManaged)) {
+                i18n("Take control")
+            } else {
+                i18n("Take back control")
+            });
+            take.set_sensitive(true);
+        }
+    };
+    let refresh = {
+        let show = show.clone();
+        move || {
+            let show = show.clone();
+            glib::spawn_future_local(async move {
+                let control = gio::spawn_blocking(bigame_core::turbo::control_blocking)
+                    .await
+                    .ok()
+                    .and_then(Result::ok);
+                show(control);
+            });
+        }
+    };
+    {
+        let refresh = refresh.clone();
+        row.connect_map(move |_| refresh());
+    }
+
+    {
+        let refresh = refresh.clone();
+        release.connect_clicked(move |b| {
+            let b = b.clone();
+            let refresh = refresh.clone();
+            glib::spawn_future_local(async move {
+                b.set_sensitive(false);
+                let result = gio::spawn_blocking(|| {
+                    bigame_core::dbus_client::daemon_proxy_blocking()
+                        .and_then(|p| Ok(p.release_game_backend()?))
+                })
+                .await;
+                let text = match result {
+                    Ok(Ok(true)) => i18n("falcond is back as it was before BiGame-mode"),
+                    Ok(Ok(false)) => i18n("There was nothing to hand back"),
+                    Ok(Err(e)) => {
+                        format!("{}: {}", i18n("Could not hand it back"), error_text(&e))
+                    }
+                    Err(_) => i18n("Could not hand it back"),
+                };
+                crate::widgets::toast::show(&b, &text);
+                refresh();
+            });
+        });
+    }
+    take.connect_clicked(move |b| {
+        let b = b.clone();
+        let refresh = refresh.clone();
+        glib::spawn_future_local(async move {
+            b.set_sensitive(false);
+            let result = gio::spawn_blocking(bigame_core::turbo::take_back_blocking).await;
+            let text = match result {
+                Ok(Ok(_)) => i18n("BiGame-mode manages falcond again"),
+                Ok(Err(e)) => format!(
+                    "{}: {}",
+                    i18n("Could not take control back"),
+                    error_text(&e)
+                ),
+                Err(_) => i18n("Could not take control back"),
+            };
+            crate::widgets::toast::show(&b, &text);
+            refresh();
+        });
+    });
+    row
+}
+
+/// The ping target: one of the resolvers the DNS comparison in Details
+/// measures — the system's own and the public ones — or an address typed in.
+///
+/// A loopback address is left out: it is a local cache (systemd-resolved's
+/// stub, for one), and its round trip says nothing about the network.
+fn ping_rows(current: &str) -> [adw::PreferencesRow; 2] {
+    let choices: Vec<(String, String)> = crate::views::details::extras::candidates()
+        .into_iter()
+        .filter(|r| !r.address.is_loopback())
+        .map(|r| (r.address.to_string(), format!("{} · {}", r.name, r.address)))
+        .collect();
+    let mut labels: Vec<String> = choices.iter().map(|(_, l)| l.clone()).collect();
+    labels.push(i18n("Other address"));
+    let other = u32::try_from(choices.len()).unwrap_or(u32::MAX);
+    let selected = choices
+        .iter()
+        .position(|(a, _)| a == current)
+        .and_then(|i| u32::try_from(i).ok())
+        .unwrap_or(other);
+
+    let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+    let combo = adw::ComboRow::builder()
+        .title(i18n("Ping Target"))
+        .subtitle(i18n("The resolvers the DNS comparison in Details measures"))
+        .model(&gtk4::StringList::new(&labels))
+        .selected(selected)
+        .build();
+    combo.add_suffix(&info::button(
+        &i18n("Ping Target"),
+        &i18n(
+            "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in.",
+        ),
+    ));
+
+    let entry = adw::EntryRow::builder()
+        .title(i18n("Address to ping"))
+        .text(if selected == other { current } else { "" })
+        .visible(selected == other)
+        .build();
+
+    {
+        let entry = entry.clone();
+        combo.connect_selected_notify(move |row| {
+            let chosen = row.selected();
+            let is_other = chosen == other;
+            entry.set_visible(is_other);
+            let target = if is_other {
+                entry.text().trim().to_owned()
+            } else {
+                usize::try_from(chosen)
+                    .ok()
+                    .and_then(|i| choices.get(i))
+                    .map(|(a, _)| a.clone())
+                    .unwrap_or_default()
+            };
+            save_ping_target(target);
+        });
+    }
+    entry.connect_changed(|row| save_ping_target(row.text().trim().to_owned()));
+    [combo.upcast(), entry.upcast()]
+}
+
+/// Keep `target` as the ping target, unless it is empty or would be read as
+/// an option by ping.
+fn save_ping_target(target: String) {
+    if target.is_empty() || target.starts_with('-') {
+        return;
+    }
+    let mut s = settings::load();
+    if s.ping_target != target {
+        s.ping_target = target;
+        settings::save(&s);
+    }
+}
+
 /// Build the Settings page.
 #[must_use]
 #[allow(clippy::too_many_lines)]
@@ -115,50 +327,7 @@ pub fn build() -> adw::PreferencesPage {
     });
     turbo.add(&login);
 
-    let owner = adw::ActionRow::builder()
-        .title(i18n("Hand falcond back"))
-        .subtitle(match bigame_core::turbo::owned_since() {
-            Some(t) => i18n("BiGame-mode has managed falcond since %s").replace(
-                "%s",
-                &glib::DateTime::from_unix_local(i64::try_from(t).unwrap_or(0))
-                    .and_then(|d| d.format("%x %X"))
-                    .map(|s| s.to_string())
-                    .unwrap_or_default(),
-            ),
-            None => i18n("BiGame-mode has not changed falcond's service"),
-        })
-        .build();
-    let release = gtk4::Button::builder()
-        .label(i18n("Hand back"))
-        .valign(gtk4::Align::Center)
-        .sensitive(bigame_core::turbo::owned_since().is_some())
-        .build();
-    owner.add_suffix(&release);
-    owner.add_suffix(&info::button(
-        &i18n("Hand falcond back"),
-        &i18n(
-            "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and stops Turbo from managing it until you turn Turbo on again.",
-        ),
-    ));
-    release.connect_clicked(|b| {
-        let b = b.clone();
-        glib::spawn_future_local(async move {
-            b.set_sensitive(false);
-            let result = gio::spawn_blocking(|| {
-                bigame_core::dbus_client::daemon_proxy_blocking()
-                    .and_then(|p| Ok(p.release_game_backend()?))
-            })
-            .await;
-            let text = match result {
-                Ok(Ok(true)) => i18n("falcond is back as it was before BiGame-mode"),
-                Ok(Ok(false)) => i18n("There was nothing to hand back"),
-                Ok(Err(e)) => format!("{}: {}", i18n("Could not hand it back"), error_text(&e)),
-                Err(_) => i18n("Could not hand it back"),
-            };
-            crate::widgets::toast::show(&b, &text);
-        });
-    });
-    turbo.add(&owner);
+    turbo.add(&falcond_row());
     page.add(&turbo);
 
     // ── Game profiles ───────────────────────────────────────────────────
@@ -294,23 +463,9 @@ pub fn build() -> adw::PreferencesPage {
     // ── Monitoring ──────────────────────────────────────────────────────
     let monitoring = adw::PreferencesGroup::new();
     monitoring.set_title(&i18n("Monitoring"));
-    let ping_row = adw::EntryRow::builder()
-        .title(i18n("Ping Target"))
-        .text(&current.ping_target)
-        .build();
-    ping_row.add_suffix(&info::button(
-        &i18n("Ping Target"),
-        &i18n("The address the Details page pings for its latency graph. It is only contacted while that page is on screen."),
-    ));
-    ping_row.connect_changed(|row| {
-        let text = row.text().to_string();
-        if !text.is_empty() {
-            let mut s = settings::load();
-            s.ping_target = text;
-            settings::save(&s);
-        }
-    });
-    monitoring.add(&ping_row);
+    for row in ping_rows(&current.ping_target) {
+        monitoring.add(&row);
+    }
     page.add(&monitoring);
 
     page

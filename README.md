@@ -8,7 +8,7 @@
 Turbo com um clique e um preset, perfis por jogo, Gráficos com IA e uma página
 que mostra, com evidência, o que está mesmo em vigor.
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.1.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.2.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -45,7 +45,34 @@ sempre com backup e desfazer completos.
 > Uma regra atravessa o projeto: **nada é oferecido que a máquina não possa
 > fazer, e nada é chamado de melhoria sem medição.**
 
-## 🚀 Novidades da 2.1.0
+## 🚀 Novidades da 2.2.0
+
+- **Boas-vindas, Sobre e Ajuda refeitos.** Uma tela de boas-vindas com os
+  recursos, o Sobre com a descrição, créditos e informações de depuração
+  completas, e uma Ajuda passo a passo para cada página.
+- **Ajustes mais claros.** O Gamescope fica sempre à vista, com os tamanhos
+  escolhidos entre as resoluções padrão e a da tela principal detectada; cada
+  opção técnica tem um ⓘ. O vkBasalt ganhou visuais: CAS ou o estilo
+  **Nara Linux** (do Narayan), com os shaders do ReShade baixados só quando
+  escolhido e conferidos pelo SHA-256.
+- **Perfil do jogo igual aos Ajustes**, com as mesmas seções e linhas. Os
+  valores próprios do jogo chegam a ele pelo **Iniciar (Turbo)**, pelas opções
+  de inicialização da Steam ou pelas configurações do jogo no **Heroic**.
+- **Iniciar (Turbo) em todos os lançadores** (Steam, Heroic, Lutris,
+  Flatpak), e **Reabrir** para o lançador que estava aberto antes do preset,
+  recusado enquanto um jogo dele roda.
+- **Gráficos com IA redesenhados**: veredito primeiro, o porquê, o que fazer
+  no jogo, opções legíveis com ⓘ, **Verificar de novo** e **Salvar escolha**.
+  A análise segue o inicializador até o jogo real e reconhece upscalers
+  embutidos no executável.
+- **Detalhes**: fechar ou pausar programas em segundo plano (nunca os do
+  sistema, da área de trabalho ou do jogo), aplicar um DNS medido como o
+  principal, com backup e restauração, e escolher o alvo do ping entre os
+  servidores medidos. **Registros** cobre todas as fontes de que o app
+  depende. O controle do falcond pode ser devolvido e retomado.
+
+<details>
+<summary><b>Novidades da 2.1.0</b></summary>
 
 - **Presets do Turbo.** Antes de ligar, escolha o que os jogos priorizam:
   **Padrão**, **Mais FPS**, **FPS cravado em 60** ou **Gráficos aprimorados**.
@@ -69,6 +96,8 @@ sempre com backup e desfazer completos.
   Cyberpunk 2077; a correção veio no falcond 2.0.3).
 - A revisão do perfil oferecido mostra a recomendação dos Gráficos com IA para
   a placa de vídeo, e o MangoHud ganhou estilos inspirados no Steam Deck.
+
+</details>
 
 ## ✨ Recursos
 
@@ -115,11 +144,14 @@ explica cada opção.
 
 ### 🤖 Gráficos com IA
 
-Analisa o jogo: a API gráfica, o DLSS/XeSS/FSR que ele já traz, as DLLs de
-proxy, o anti-cheat e a GPU em que ele renderiza. Depois recomenda um plano.
-Só ao clicar em **Aplicar** ele instala o OptiScaler com backup verificado ou
-eleva o FSR 3.1 ao FSR 4 pelo Proton. Também oferece **Reparar**,
-**Restaurar** e **Diagnosticar**.
+Analisa o jogo que realmente roda (seguindo o inicializador do Unreal até o
+executável do jogo): a API gráfica, o DLSS/XeSS/FSR que ele traz em DLL ou
+embutido no executável, as DLLs de proxy, o anti-cheat e a GPU em que ele
+renderiza. Mostra primeiro o veredito e o porquê, com um ⓘ em cada item, e o
+que fazer no menu do próprio jogo. Só ao clicar em **Aplicar** ele instala o
+OptiScaler com backup verificado ou eleva o FSR 3.1 ao FSR 4 pelo Proton.
+Também oferece **Verificar de novo**, **Reparar**, **Restaurar** e
+**Diagnosticar**.
 
 </td>
 <td valign="top">
@@ -139,8 +171,10 @@ classificados, com comandos para copiar.
 
 ### 🎛️ Ajustes honestos
 
-Desempenho do sistema, exibição e Gamescope, upscaling e nitidez (Wine FSR e
-vkBasalt), geração de quadros (lsfg-vk), overlay e opções avançadas. O que a
+Desempenho do sistema, exibição e Gamescope (tamanhos escolhidos entre as
+resoluções padrão, com a da tela principal detectada), upscaling e nitidez
+(Wine FSR e vkBasalt, com os visuais CAS e Nara Linux), geração de quadros
+(lsfg-vk), overlay e opções avançadas, cada opção técnica com um ⓘ. O que a
 máquina não pode fazer aparece como **não suportado** ou **dependência
 ausente**, com o comando que resolve. Nunca aparece um controle quebrado.
 
@@ -162,12 +196,12 @@ supera a variação.
 
 | Página | O que faz |
 |---|---|
-| **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. |
-| **Perfis** | A biblioteca de jogos com capas, busca e filtros. Cada perfil mostra as mesmas seções dos Ajustes, só para aquele jogo, e o que fica em "Configuração geral" segue os Ajustes. Cada perfil define o modo de desempenho, o escalonador sched-ext, o modo do 3D V-Cache, a inibição de repouso, o Gamescope, o MangoHud (desligado, ligado ou forçado) e o lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
+| **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo (capa e nome vindos da biblioteca, de qualquer lançador) com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. Um lançador que já estava aberto antes do preset (Steam, Heroic, Lutris) e não o recebeu aparece com **Reabrir**, recusado enquanto um jogo dele roda. |
+| **Perfis** | A biblioteca de jogos com capas (Steam, Lutris, Heroic, Flatpak e menu), busca e filtros. Cada perfil tem as mesmas seções e linhas dos Ajustes, só para aquele jogo; cada opção começa em "Configuração geral", que segue os Ajustes (o Perfil global). Os valores próprios do jogo (tamanhos e filtro do Gamescope, limite de FPS, Wine FSR, vkBasalt) chegam a ele onde podem chegar: pelo **Iniciar (Turbo)**, nas opções de inicialização da Steam ou nas configurações do jogo no Heroic, gravadas com o lançador fechado e sem tocar no que é seu. No menu ⋮ de cada jogo: **Iniciar (Turbo)** (direto ou pelo próprio lançador), **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
-| **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede, a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
-| **Registros** | O que importa numa sessão de jogo, vindo do journal: falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope e os drivers de GPU. |
-| **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações e **Devolver**, que entrega o falcond exatamente como estava antes. |
+| **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
+| **Registros** | O que importa numa sessão de jogo: falcond, BiGame-mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
+| **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
 
 Fechar a janela deixa o aplicativo na **bandeja**. A cor do ícone indica o
 estado: azul quando ocioso, verde com um jogo otimizado e amarelo quando há
@@ -230,7 +264,11 @@ um aviso.
   systemd do usuário), nunca no `environment.d`, para saírem por completo
   quando o Turbo desliga.
 - **Os Gráficos com IA detectam o que o jogo realmente usa** pela tabela de
-  importação do executável, não pelo nome das DLLs. Eles nunca tocam jogos com
+  importação do executável, não pelo nome das DLLs, e reconhecem um upscaler
+  compilado dentro do executável. Um jogo testado em que uma combinação trava
+  fica registrado na lista de jogos (por exemplo, The Outer Worlds: Spacer's
+  Choice Edition mantém o próprio FSR 2: o OptiScaler assume o FSR 2 dele,
+  mas o FSR 3.1/FSR 4 trava o jogo sob o VKD3D-Proton). Eles nunca tocam jogos com
   anti-cheat e baixam o [OptiScaler](https://github.com/optiscaler/OptiScaler)
   da release oficial, por HTTPS e com SHA-256 fixado.
 - **Cada instalação é uma transação**: backup verificado, diário, troca atômica
@@ -328,7 +366,9 @@ Depois, abra **BiGame-mode** no menu de aplicativos.
 
 **Opcional:** `nvidia-utils` fornece a telemetria em placas NVIDIA, pela
 biblioteca NVML. Só serve a placas NVIDIA e conflita com os pacotes dos
-drivers NVIDIA antigos.
+drivers NVIDIA antigos. `networkmanager` permite trocar o DNS da conexão a
+partir da comparação de DNS; sem ele a opção aparece indisponível, com o
+motivo.
 
 Os lançadores **não** são dependências: o BiGame-mode encontra os jogos do
 Steam, do Lutris e do Heroic que estiverem instalados, nativos ou em Flatpak.
@@ -498,7 +538,12 @@ licenças:
   power-profiles-daemon, systemd, D-Bus e Polkit.
 - **Jogos e gráficos:** [OptiScaler](https://github.com/optiscaler/OptiScaler),
   Gamescope e Proton (Valve), DXVK, VKD3D-Proton,
-  [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk), MangoHud e vkBasalt. DLSS,
+  [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk), MangoHud e vkBasalt. O
+  visual **Nara Linux** do vkBasalt é do Narayan, do canal
+  [Nara Linux](https://www.youtube.com/watch?v=GGBC-qMB_0Y), e usa shaders do
+  [ReShade](https://github.com/crosire/reshade-shaders) e do
+  [SweetFX](https://github.com/CeeJayDK/SweetFX), baixados só quando esse
+  visual é escolhido, em versões fixas conferidas pelo SHA-256. DLSS,
   XeSS e FSR pertencem a NVIDIA, Intel e AMD e seguem as licenças delas.
 - **Aplicativo:** Rust, GTK e libadwaita (GNOME), gtk4-rs, zbus, Tokio, Serde,
   ksni e gettext.

@@ -38,9 +38,20 @@ use crate::i18n::i18n;
 /// Poster size, in logical pixels: 2:3, matching Steam's `library_600x900`
 /// artwork. Wide enough for the actions row in any language the interface
 /// ships, narrow enough for three columns in the default window.
-pub const POSTER_WIDTH: i32 = 176;
+pub const POSTER_WIDTH: i32 = 160;
 /// See [`POSTER_WIDTH`].
-pub const POSTER_HEIGHT: i32 = 264;
+pub const POSTER_HEIGHT: i32 = 240;
+
+/// How a card's game is started.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Launch {
+    /// By BiGame-mode, with its launch settings: the program and its
+    /// arguments.
+    Direct(String, Vec<String>),
+    /// By the game's launcher (`steam -applaunch`, a `heroic://` link,
+    /// `lutris:rungame/…`, `flatpak run`).
+    Through(bigame_core::launchers::Start),
+}
 
 /// What a card shows.
 // Independent facts about one game; grouping them to please the lint would
@@ -78,25 +89,27 @@ pub struct Entry {
     /// Where AI Graphics would work on this game: its install folder and
     /// Steam id. `None` when the launcher records no install folder.
     pub target: Option<bigame_core::graphics::Target>,
-    /// How BiGame-mode starts this game: a Steam title through the client
-    /// (`steam -applaunch <id>`), another with its launcher's command.
-    /// `None` when there is neither, rather than a guessed program name.
-    pub launch: Option<(String, Vec<String>)>,
+    /// How BiGame-mode starts this game. `None` when there is no way,
+    /// rather than a guessed program name.
+    pub launch: Option<Launch>,
+    /// Heroic lists it: `Some(true)` for Heroic's Flatpak. Its launch
+    /// settings go into its settings there.
+    pub heroic: Option<bool>,
     /// BiGame-mode has placed AI Graphics files in this game.
     pub ai_installed: bool,
 }
 
 impl Entry {
-    /// Status line under the title.
+    /// Status line under the title: whether the game has a profile. The
+    /// launcher is on the cover's badge.
     #[must_use]
     pub fn status(&self) -> String {
         if !self.has_profile {
-            return self.source.clone();
-        }
-        if self.system_profile {
-            format!("{} · {}", self.source, i18n("Built-in profile"))
+            i18n("Without a profile")
+        } else if self.system_profile {
+            i18n("Built-in profile")
         } else {
-            format!("{} · {}", self.source, i18n("Custom profile"))
+            i18n("With a profile")
         }
     }
 
@@ -202,7 +215,7 @@ where
     card.set_can_focus(true);
     card.update_property(&[
         gtk4::accessible::Property::Label(&entry.title),
-        gtk4::accessible::Property::Description(&entry.status()),
+        gtk4::accessible::Property::Description(&format!("{} · {}", entry.source, entry.status())),
     ]);
 
     let reveal = {
@@ -464,15 +477,16 @@ mod tests {
             key_is_verified: true,
             target: None,
             launch: None,
+            heroic: None,
             ai_installed: false,
         }
     }
 
     #[test]
     fn status_distinguishes_no_profile_from_the_two_kinds_of_profile() {
-        assert_eq!(entry(false, false).status(), "Steam");
-        assert_eq!(entry(true, false).status(), "Steam · Custom profile");
-        assert_eq!(entry(true, true).status(), "Steam · Built-in profile");
+        assert_eq!(entry(false, false).status(), "Without a profile");
+        assert_eq!(entry(true, false).status(), "With a profile");
+        assert_eq!(entry(true, true).status(), "Built-in profile");
     }
 
     #[test]

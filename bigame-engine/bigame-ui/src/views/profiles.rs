@@ -26,6 +26,7 @@ use bigame_core::optimization::GameOptimization;
 
 use crate::i18n::{error_text, i18n, ni18n};
 use crate::widgets::game_card;
+use crate::widgets::game_fields::GameFields;
 use crate::widgets::optimization as ui;
 use crate::widgets::toast;
 
@@ -481,38 +482,10 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         page.add_controller(drop_target);
     }
 
-    // AdwPreferencesPage clamps its content to form width, which is right for
-    // settings and wrong for a poster grid — it holds the library to three
-    // columns on a 1250 px window. The page keeps its structure and margins,
-    // but the clamp is widened so the grid can use the space it has.
-    if let Some(clamp) = find_clamp(page.upcast_ref::<gtk4::Widget>()) {
-        clamp.set_maximum_size(1500);
-        clamp.set_tightening_threshold(1200);
-    }
-
     adw::NavigationPage::builder()
         .title(i18n("Game Library"))
         .child(&page)
         .build()
-}
-
-/// Locate the `AdwClamp` that `AdwPreferencesPage` builds internally.
-///
-/// There is no public API for this, so the widget tree is walked. Returning
-/// `None` simply leaves the default clamp in place, which is a narrower grid
-/// rather than a broken one.
-fn find_clamp(widget: &gtk4::Widget) -> Option<adw::Clamp> {
-    if let Ok(clamp) = widget.clone().downcast::<adw::Clamp>() {
-        return Some(clamp);
-    }
-    let mut child = widget.first_child();
-    while let Some(c) = child {
-        if let Some(found) = find_clamp(&c) {
-            return Some(found);
-        }
-        child = c.next_sibling();
-    }
-    None
 }
 
 /// The editor for the profile in file `stem`, each part read from its owner
@@ -529,8 +502,8 @@ fn build_new_page(process: &str, card: Option<&game_card::Entry>) -> adw::Naviga
 
 /// A game's profile: the same sections as Tuning, for this game only.
 ///
-/// The rows are `widgets::optimization`'s, the same the wizard shows one
-/// per step, over the same `GameOptimization`; Save writes each part to its
+/// The rows are `widgets::game_fields`', the same the wizard shows one per
+/// step, over the same `GameOptimization`; Save writes each part to its
 /// owner and says which part did not take.
 #[allow(clippy::too_many_lines)]
 fn build_editor(
@@ -543,41 +516,54 @@ fn build_editor(
     let title = card.map_or_else(|| g.profile.name.clone(), |c| c.title.clone());
     let target = card.and_then(|c| c.target.clone());
     let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
-    game.steam = card.is_some_and(|c| c.source == "Steam");
+    // What reaches the game: its Steam launch options, BiGame-mode's own
+    // launch, its settings in Heroic, or — started through another
+    // launcher (Lutris, Flatpak) — nothing of the game's own.
+    let steam = source_label(bigame_core::games::Source::Steam);
+    game.reach = match card {
+        Some(c) if c.source == steam => ui::Reach::Steam,
+        Some(c) if matches!(c.launch, Some(game_card::Launch::Direct(..))) => ui::Reach::Launch,
+        Some(game_card::Entry {
+            heroic: Some(flatpak),
+            ..
+        }) => ui::Reach::Heroic { flatpak: *flatpak },
+        Some(_) => ui::Reach::Nothing,
+        None => ui::Reach::Unknown,
+    };
 
     page.add(&ui::scope_banner(ui::Scope::Game(&game.title)));
 
-    // The process name: first for a new profile, which needs one; last for
-    // one that exists, where it is rarely changed and should not take the
-    // focus (typing would replace it).
-    let identity = adw::PreferencesGroup::new();
-    if !is_new {
-        identity.set_title(&i18n("Advanced"));
-    }
+    // The process name: first for a new profile, which needs one; in
+    // Advanced for one that exists, where it is rarely changed and should
+    // not take the focus (typing would replace it).
     let name_row = adw::EntryRow::builder()
         .title(i18n("Process Name"))
         .text(&g.profile.name)
         .build();
+    name_row.add_prefix(&gtk4::Image::from_icon_name(
+        "application-x-executable-symbolic",
+    ));
     name_row.add_suffix(&crate::widgets::info::button(
         &i18n("Process Name"),
         &i18n("falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."),
     ));
-    identity.add(&name_row);
     if is_new {
+        let identity = adw::PreferencesGroup::new();
+        identity.add(&name_row);
         page.add(&identity);
     }
 
-    let fields = Rc::new(ui::GameFields::build(&g, &m, &game, true));
+    let fields = Rc::new(GameFields::build(&g, &m, &game, true));
     page.add(&fields.performance.group);
-    page.add(&fields.scheduler.group);
-    page.add(&fields.vcache.group);
     page.add(&fields.gamescope.group);
-    page.add(&image_quality_group(&m, &game));
+    page.add(&fields.image_quality.group);
     page.add(&fields.frame_generation.group);
     page.add(&fields.mangohud.group);
-    if !is_new {
-        page.add(&identity);
-    }
+    page.add(&advanced_group(
+        &g.profile.name,
+        (!is_new).then_some(&name_row),
+        game.reach,
+    ));
 
     // Save sits in a bar that stays on screen, not at the end of the page.
     let save_btn = gtk4::Button::builder()
@@ -675,58 +661,102 @@ fn build_editor(
         .build()
 }
 
-/// Image quality for one game: AI Graphics is per game; Wine FSR is
-/// general, and the page says what it does for this game.
-fn image_quality_group(m: &ui::Machine, game: &ui::Game) -> adw::PreferencesGroup {
-    use bigame_core::overview::State;
-    let group = ui::section(&i18n("Image quality"));
-    let installed = !game.optiscaler.is_empty();
-    let ai = adw::ActionRow::builder()
-        .title(i18n("AI Graphics"))
-        .subtitle(if game.target.is_none() {
-            i18n("Needs the game's install folder, which its launcher does not record")
-        } else if installed {
-            i18n("OptiScaler installed by BiGame-mode for this game")
-        } else {
-            i18n("Upscaling and frame generation inside the game, with backup and undo")
-        })
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    let chip = crate::widgets::status::Chip::new(State::Off);
-    if installed {
-        chip.set(State::Configured, Some(&i18n("Installed")));
-    } else {
-        chip.set(State::Off, Some(&i18n("Not set up")));
+/// Advanced, last as in Tuning: the process name (for a profile that
+/// exists) and where this game's settings are kept, each with its ⓘ.
+fn advanced_group(
+    process: &str,
+    name_row: Option<&adw::EntryRow>,
+    reach: ui::Reach,
+) -> adw::PreferencesGroup {
+    use crate::widgets::launch::icon;
+    let group = ui::section(&i18n("Advanced"));
+    group.set_description(Some(&i18n(
+        "Where this game's settings are kept. Nothing here needs changing to play.",
+    )));
+    if let Some(row) = name_row {
+        group.add(row);
     }
-    ai.add_suffix(chip.widget());
-    if let Some(target) = game.target.clone() {
-        let open = gtk4::Button::builder()
-            .label(i18n("Open"))
-            .valign(gtk4::Align::Center)
+    let file = |title: &str, path: String, icon_name: &str, about: &str| {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(path)
+            .subtitle_lines(2)
+            .use_markup(false)
             .build();
-        open.connect_clicked(move |b| {
-            crate::views::ai_graphics::open(b, target.clone(), None);
+        row.set_subtitle_selectable(true);
+        icon(&row, icon_name);
+        row.add_suffix(&crate::widgets::info::button(title, about));
+        row
+    };
+    let stem = if process.is_empty() { "…" } else { process };
+    group.add(&file(
+        &i18n("Profile file"),
+        format!("{}/{stem}.conf", bigame_core::profiles::USER_PROFILES_DIR),
+        "text-x-generic-symbolic",
+        &i18n(
+            "falcond's profile for this game: performance mode, the scheduler, 3D V-Cache and whether Gamescope wraps it. It is root's file, so BiGame-mode writes it through its privileged helper, which may ask for your password, and falcond reloads it.",
+        ),
+    ));
+    group.add(&file(
+        &i18n("This game's settings"),
+        bigame_core::game_settings::dir()
+            .join(format!("{stem}.toml"))
+            .to_string_lossy()
+            .into_owned(),
+        "folder-symbolic",
+        &i18n(
+            "BiGame-mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What BiGame-mode wrote into Steam's launch options or Heroic's settings is recorded there, so it changes or removes exactly that.",
+        ),
+    ));
+    if reach == ui::Reach::Steam && !process.is_empty() {
+        let row = file(
+            &i18n("Steam launch options"),
+            i18n("Reading…"),
+            "utilities-terminal-symbolic",
+            &i18n(
+                "What Steam gives this game when it starts it. When you save, BiGame-mode puts its Gamescope wrapper and its variables here (with Steam closed) and takes out only what it put there; the rest is yours.",
+            ),
+        );
+        group.add(&row);
+        let process = process.to_owned();
+        glib::spawn_future_local(async move {
+            let options = gio::spawn_blocking(move || {
+                bigame_core::steam_gamescope::current_options(&process)
+            })
+            .await
+            .ok()
+            .flatten();
+            row.set_subtitle(&options.unwrap_or_else(|| i18n("none")));
         });
-        ai.add_suffix(&open);
     }
-    group.add(&ai);
-
-    let wine_on = m.video.upscaling.wine_fsr_enabled;
-    let wine = adw::ActionRow::builder()
-        .title("Wine FSR")
-        .subtitle(if installed && wine_on {
-            i18n("On in Tuning, with nothing to scale here: OptiScaler upscales inside the game, which runs at the display's resolution")
-        } else if wine_on {
-            i18n("On in Tuning, for every game")
-        } else {
-            i18n("Off in Tuning, for every game")
-        })
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    wine.add_suffix(ui::on_off_chip(wine_on && !installed).widget());
-    group.add(&wine);
+    if matches!(reach, ui::Reach::Heroic { .. }) && !process.is_empty() {
+        let row = file(
+            &i18n("Heroic's settings for this game"),
+            i18n("Reading…"),
+            "text-x-generic-symbolic",
+            &i18n(
+                "The file Heroic keeps this game's settings in. When you save, BiGame-mode writes the game's own Gamescope, Wine FSR and vkBasalt there (with Heroic closed, after keeping a copy of your file) and later takes out only what it wrote; the rest is yours.",
+            ),
+        );
+        group.add(&row);
+        let process = process.to_owned();
+        glib::spawn_future_local(async move {
+            let files = gio::spawn_blocking(move || {
+                bigame_core::heroic_launch::targets(&process)
+                    .iter()
+                    .map(|t| t.file().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .await
+            .unwrap_or_default();
+            row.set_subtitle(&if files.is_empty() {
+                i18n("none")
+            } else {
+                files
+            });
+        });
+    }
     group
 }
 
@@ -942,37 +972,54 @@ fn card_entry(
                 install_root: root,
             }),
         launch: launch_command(game),
+        heroic: match &game.launcher {
+            Some(r @ bigame_core::games::LauncherRef::Heroic { .. }) => {
+                Some(r.flatpak_id().is_some())
+            }
+            _ => None,
+        },
         ai_installed: ai_installed.contains(&key.to_lowercase()),
         key,
     }
 }
 
-/// How a game is started from here: Steam titles through the client
-/// (`steam -applaunch <id>`), others with the command their launcher entry
-/// gives. `None` when there is neither, rather than guessing a program name
+/// How a game is started from here: one with a native executable by
+/// BiGame-mode itself, with its launch settings; a Steam title, and any other
+/// game its launcher records, by that launcher (`steam -applaunch <id>`,
+/// Heroic's `heroic://launch` link, `lutris:rungame/<slug>`, `flatpak run
+/// <id>`). `None` when there is neither, rather than guessing a program name
 /// and running whatever the PATH resolves it to.
-fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<(String, Vec<String>)> {
-    if game.source == bigame_core::games::Source::Steam {
-        let id = game.app_id.clone()?;
-        return Some(("steam".to_owned(), vec!["-applaunch".to_owned(), id]));
+fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<game_card::Launch> {
+    if game.source != bigame_core::games::Source::Steam {
+        if let Some((program, args)) = game.launch_command.as_ref().and_then(|c| c.split_first()) {
+            return Some(game_card::Launch::Direct(program.clone(), args.to_vec()));
+        }
     }
-    let (program, args) = game.launch_command.as_ref()?.split_first()?;
-    Some((program.clone(), args.to_vec()))
+    bigame_core::launchers::Start::for_game(game).map(game_card::Launch::Through)
 }
 
-/// Start `entry`'s game with BiGame-mode's launch settings (Gamescope, Wine
-/// FSR, vkBasalt, frame generation) on top of its profile.
-///
-/// A Steam game is started by the Steam client, in its own process tree:
-/// its falcond profile applies, but nothing wraps it, so the toast says so
-/// rather than promising the launch settings.
+/// Start `entry`'s game: with BiGame-mode's launch settings (Gamescope, Wine
+/// FSR, vkBasalt, frame generation) on top of its profile when BiGame-mode
+/// starts it, or through its launcher.
 fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
-    let Some((program, args)) = entry.launch.clone() else {
-        return;
-    };
+    match entry.launch.clone() {
+        Some(game_card::Launch::Direct(program, args)) => {
+            launch_directly(entry, program, args, anchor);
+        }
+        Some(game_card::Launch::Through(start)) => launch_through(entry, start, anchor),
+        None => {}
+    }
+}
+
+/// Start a game BiGame-mode runs itself, its launch settings around it.
+fn launch_directly(
+    entry: &game_card::Entry,
+    program: String,
+    args: Vec<String>,
+    anchor: &gtk4::Widget,
+) {
     let exe = entry.key.clone();
     let title = entry.title.clone();
-    let through_steam = program == "steam";
     let anchor = anchor.clone();
     glib::spawn_future_local(async move {
         let exe_for_launch = exe.clone();
@@ -1015,33 +1062,73 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
                 tracing::info!(game = %title, "launch succeeded");
                 toast::show(
                     &anchor,
-                    &if through_steam {
-                        i18n("Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options.").replace("%s", &title)
-                    } else {
-                        i18n("%s started with BiGame-mode's launch settings").replace("%s", &title)
-                    },
+                    &i18n("%s started with BiGame-mode's launch settings").replace("%s", &title),
                 );
             }
-            Ok(Err(e)) => {
-                tracing::error!(game = %title, error = %format!("{e:#}"), "launch failed");
-                toast::show(
-                    &anchor,
-                    &i18n("Could not start %t: %e")
-                        .replace("%t", &title)
-                        .replace("%e", &error_text(&e)),
-                );
-            }
-            Err(_) => {
-                tracing::error!(game = %title, "launch task failed");
-                toast::show(
-                    &anchor,
-                    &i18n("Could not start %t: %e")
-                        .replace("%t", &title)
-                        .replace("%e", ""),
-                );
-            }
+            Ok(Err(e)) => launch_failed(&anchor, &title, &error_text(&e)),
+            Err(_) => launch_failed(&anchor, &title, ""),
         }
     });
+}
+
+/// Ask a game's launcher to start it. The launcher starts the game in its
+/// own process tree: falcond's profile reaches the game — while Turbo is on
+/// — but nothing BiGame-mode wraps a game with does, and the toast says both
+/// rather than promising the launch settings.
+fn launch_through(
+    entry: &game_card::Entry,
+    start: bigame_core::launchers::Start,
+    anchor: &gtk4::Widget,
+) {
+    let title = entry.title.clone();
+    let anchor = anchor.clone();
+    glib::spawn_future_local(async move {
+        let by = start.by;
+        tracing::info!(game = %title, launcher = by, argv = ?start.argv, "launch through the launcher requested from Profiles");
+        let result = gio::spawn_blocking(move || {
+            let turbo_on = bigame_core::systemd::Reader::shared()
+                .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+                .is_some_and(|u| u.is_active());
+            start.spawn().map(|()| turbo_on)
+        })
+        .await;
+        match result {
+            Ok(Ok(turbo_on)) => {
+                tracing::info!(game = %title, launcher = by, turbo_on, "launcher asked to start the game");
+                let text = if !turbo_on {
+                    i18n(
+                        "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home.",
+                    )
+                } else if by == "Steam" {
+                    i18n(
+                        "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options.",
+                    )
+                } else if by == "Heroic" {
+                    i18n(
+                        "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved.",
+                    )
+                } else {
+                    i18n(
+                        "Asked %l to start %s. Its profile applies; BiGame-mode's launch settings do not reach a game its launcher starts.",
+                    )
+                };
+                toast::show(&anchor, &text.replace("%l", by).replace("%s", &title));
+            }
+            Ok(Err(e)) => launch_failed(&anchor, &title, &error_text(&e)),
+            Err(_) => launch_failed(&anchor, &title, ""),
+        }
+    });
+}
+
+/// Say a launch failed, and why.
+fn launch_failed(anchor: &gtk4::Widget, title: &str, why: &str) {
+    tracing::error!(game = %title, error = %why, "launch failed");
+    toast::show(
+        anchor,
+        &i18n("Could not start %t: %e")
+            .replace("%t", title)
+            .replace("%e", why),
+    );
 }
 
 /// Open a card's profile: the existing file for editing, or a new profile

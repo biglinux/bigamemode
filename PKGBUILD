@@ -2,7 +2,7 @@
 # Contributor: BigLinux Team <dev@biglinux.com.br>
 
 pkgname=bigame-mode
-pkgver=2.1.0
+pkgver=2.2.0
 pkgrel=1
 pkgdesc="Gaming mode for BigLinux: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets, in a GTK4/libadwaita app"
 arch=('x86_64')
@@ -71,6 +71,9 @@ optdepends=(
     # Only for NVIDIA cards, and it conflicts with the legacy NVIDIA driver
     # packages (nvidia-470xx-utils and the like), so it cannot be required.
     'nvidia-utils: GPU telemetry on NVIDIA cards (its NVML library)'
+    # nmcli, as the user: the DNS comparison can make a resolver the
+    # connection's DNS server. Without it the option says it is unavailable.
+    'networkmanager: set the DNS server of the connection from the DNS comparison'
 )
 install="${pkgname}.install"
 source=("${pkgname}::git+${url}.git")

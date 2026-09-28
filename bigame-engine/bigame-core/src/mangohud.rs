@@ -177,6 +177,7 @@ fn apply_to_launcher(
         LauncherRef::Heroic {
             app_name,
             config_dir,
+            ..
         } => {
             if launcher_running("heroic") {
                 return Ok(Applied::LauncherRunning("Heroic"));
@@ -221,11 +222,23 @@ fn launcher_running(name: &str) -> bool {
 /// once, the first time BiGame-mode changes the file, under
 /// `$XDG_STATE_HOME/bigame-mode/launcher-backups/` — never beside it, where
 /// the launcher might read a stray file.
-fn write_keeping_backup(file: &std::path::Path, text: &str) -> Result<()> {
+pub(crate) fn write_keeping_backup(file: &std::path::Path, text: &str) -> Result<()> {
+    write_keeping_backup_in(
+        file,
+        text,
+        &crate::paths::state_home().join("bigame-mode/launcher-backups"),
+    )
+}
+
+/// [`write_keeping_backup`], keeping the launcher's version in `dir`.
+pub(crate) fn write_keeping_backup_in(
+    file: &std::path::Path,
+    text: &str,
+    dir: &std::path::Path,
+) -> Result<()> {
     use anyhow::Context;
     if file.exists() {
-        let dir = crate::paths::state_home().join("bigame-mode/launcher-backups");
-        std::fs::create_dir_all(&dir)?;
+        std::fs::create_dir_all(dir)?;
         let name = file
             .to_string_lossy()
             .trim_start_matches('/')
@@ -340,6 +353,15 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
 /// the app is not a Flatpak this machine has.
 #[must_use]
 pub fn missing_flatpak_extension(app_id: &str) -> Option<String> {
+    missing_flatpak_layer(app_id, "org.freedesktop.Platform.VulkanLayer.MangoHud")
+}
+
+/// The command that installs Flatpak extension `ext` (one of the runtime's
+/// `org.freedesktop.Platform.VulkanLayer.*`) for the runtime of Flatpak app
+/// `app_id`, when it is missing; `None` when it is there, or the app is not
+/// a Flatpak this machine has.
+#[must_use]
+pub fn missing_flatpak_layer(app_id: &str, ext: &str) -> Option<String> {
     let home = crate::paths::home_dir();
     let installs = [
         std::path::PathBuf::from("/var/lib/flatpak"),
@@ -354,7 +376,6 @@ pub fn missing_flatpak_extension(app_id: &str) -> Option<String> {
         .ok()?;
         flatpak_runtime_branch(&meta)
     })?;
-    let ext = "org.freedesktop.Platform.VulkanLayer.MangoHud";
     let present = installs.iter().any(|base| {
         base.join("runtime")
             .join(ext)

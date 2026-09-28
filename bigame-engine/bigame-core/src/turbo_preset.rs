@@ -17,8 +17,10 @@
 //!   exclusive fullscreen below the display's resolution;
 //! - vkBasalt (`ENABLE_VKBASALT`): the sharpening filter (CAS) in its
 //!   configuration;
-//! - `FSR4_UPGRADE=1`: Proton hands a game's FSR 3.1 to AMD's FSR 4, on a GPU
-//!   that runs FSR 4 ([`crate::graphics::fsr4_upgrade`]).
+//! - `FSR4_UPGRADE=1` (Valve's Proton) and `PROTON_FSR4_UPGRADE=1` (GE-Proton,
+//!   which Heroic games often run; it also fetches AMD's provider): Proton
+//!   hands a game's FSR 3.1 to AMD's FSR 4, on a GPU that runs FSR 4
+//!   ([`crate::graphics::fsr4_upgrade`]).
 //!
 //! The variables go to the running `systemd --user` manager only, not to
 //! `environment.d`: what that file holds is set by systemd's generator at
@@ -168,7 +170,12 @@ pub fn levers(preset: Preset, machine: Machine) -> Levers {
 }
 
 /// The variables only a preset sets; they are never in `environment.d`.
-pub const PRESET_KEYS: &[&str] = &["DXVK_CONFIG", "VKD3D_FRAME_RATE", "FSR4_UPGRADE"];
+pub const PRESET_KEYS: &[&str] = &[
+    "DXVK_CONFIG",
+    "VKD3D_FRAME_RATE",
+    "FSR4_UPGRADE",
+    "PROTON_FSR4_UPGRADE",
+];
 
 /// The variables only a preset sets ([`PRESET_KEYS`]) for `levers`.
 #[must_use]
@@ -183,6 +190,8 @@ pub fn preset_env(levers: Levers) -> HashMap<String, String> {
     }
     if levers.fsr4_upgrade {
         env.insert("FSR4_UPGRADE".into(), "1".into());
+        // GE-Proton reads only its own name, and then fetches the provider.
+        env.insert("PROTON_FSR4_UPGRADE".into(), "1".into());
     }
     env
 }
@@ -428,6 +437,7 @@ mod tests {
         );
         assert_eq!(env["ENABLE_VKBASALT"], "1");
         assert_eq!(env["FSR4_UPGRADE"], "1");
+        assert_eq!(env["PROTON_FSR4_UPGRADE"], "1", "GE-Proton's name");
         // Without vkBasalt or an FSR 4 GPU those are not asked for.
         let bare = Machine::default();
         let mut env = tuning();

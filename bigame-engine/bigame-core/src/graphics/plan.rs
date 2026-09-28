@@ -60,6 +60,8 @@ pub enum Step {
     Keep(Text),
     /// Information.
     Note(Text),
+    /// Something the player can use instead, outside AI Graphics.
+    Instead(Text),
 }
 
 impl Step {
@@ -71,7 +73,8 @@ impl Step {
             | Self::Install(t)
             | Self::Disable(t)
             | Self::Keep(t)
-            | Self::Note(t) => t,
+            | Self::Note(t)
+            | Self::Instead(t) => t,
         }
     }
 }
@@ -141,6 +144,9 @@ pub struct Context {
     pub lsfg: bool,
     /// `MangoHud` is on.
     pub mangohud: bool,
+    /// Heroic starts the game: its FSR 4 upgrade goes into the game's
+    /// settings in Heroic, not into Steam's launch options.
+    pub heroic: bool,
     /// The `OptiScaler` version the profile's policy resolves to; `None` for
     /// the recommended release.
     pub optiscaler_version: Option<String>,
@@ -167,7 +173,12 @@ fn nothing(standing: Standing, summary: Text, steps: Vec<Step>) -> Plan {
 fn native_choice(r: &Report, vendor: GpuVendor, dlss_runs: bool) -> Option<(&'static str, Tech)> {
     let n = &r.native;
     let dlss = n.dlss.as_ref().map(|_| ("DLSS", Tech::NativeDlss));
-    let fsr = n.fsr.as_ref().map(|_| ("FSR", Tech::NativeFsr));
+    // FSR built into the executable is the game's own as much as a DLL is.
+    let fsr = if n.fsr.is_some() {
+        Some(("FSR", Tech::NativeFsr))
+    } else {
+        n.built_in_fsr().map(|b| (b.label(), Tech::NativeFsr))
+    };
     let xess = n.xess.as_ref().map(|_| ("XeSS", Tech::NativeXess));
     match vendor {
         GpuVendor::Nvidia if dlss_runs => dlss.or(xess).or(fsr),
@@ -176,6 +187,20 @@ fn native_choice(r: &Report, vendor: GpuVendor, dlss_runs: bool) -> Option<(&'st
         // higher cost than FSR; FSR runs on everything.
         _ => fsr.or(xess),
     }
+}
+
+/// What works without the game's help, for a game AI Graphics cannot
+/// upscale: scaling the finished image from outside it, and frame
+/// generation outside it. Neither is AI Graphics' to switch on here.
+fn outside_the_game() -> Vec<Step> {
+    vec![
+        Step::Instead(Text::plain(N_(
+            "Gamescope's or Wine's FSR 1 upscales the finished image from outside the game: spatial, less sharp than a temporal upscaler, but it needs nothing from the game",
+        ))),
+        Step::Instead(Text::plain(N_(
+            "frame generation with lsfg-vk, in the game's profile, works in any game, with added latency",
+        ))),
+    ]
 }
 
 /// Build the plan for a game.
@@ -234,10 +259,19 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             None => nothing(
                 Standing::NotRecommended,
                 Text::plain(N_("no upscaler available")),
-                vec![
-                    Step::Note(Text::plain(N_("the game ships no DLSS, FSR or XeSS"))),
+                [
+                    // Rise of the Tomb Raider on an AMD card: DLSS is there,
+                    // and it is not an upscaler this GPU runs.
+                    Step::Note(Text::plain(if r.native.dlss.is_some() {
+                        N_("the game's only upscaler is DLSS, which runs only on NVIDIA RTX cards")
+                    } else {
+                        N_("the game ships no DLSS, FSR or XeSS")
+                    })),
                     Step::Note(why),
-                ],
+                ]
+                .into_iter()
+                .chain(outside_the_game())
+                .collect(),
             ),
         };
         p.frame_generation = fg;
@@ -355,13 +389,23 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     // API, and Proton ships AMD's provider into its prefix) has nothing to
     // gain from OptiScaler's FSR 4: fewest changes wins.
     let native_fsr4 = r.native_fsr4_path();
-    let optiscaler_worth_it = match (cfg.mode, vendor) {
-        (Mode::Advanced, _) => {
+    let recommended_worth_it = match vendor {
+        GpuVendor::Amd => (fsr4 && !native_fsr4) || listed_optiscaler,
+        _ => listed_optiscaler,
+    };
+    // Advanced with the upscaler left on "Recommended" (the page's choice
+    // once OptiScaler's frame generation is picked) decides the upscaler as
+    // Recommended does; OptiScaler's frame generation needs OptiScaler.
+    let optiscaler_worth_it = match cfg.mode {
+        Mode::Advanced => {
             cfg.layer == Layer::OptiScaler
                 || !matches!(cfg.upscaler, Upscaler::Auto | Upscaler::Off)
+                || cfg.optiscaler_frame_generation()
+                || cfg.layer == Layer::Auto
+                    && cfg.upscaler == Upscaler::Auto
+                    && recommended_worth_it
         }
-        (_, GpuVendor::Amd) => (fsr4 && !native_fsr4) || listed_optiscaler,
-        _ => listed_optiscaler,
+        _ => recommended_worth_it,
     };
     if want_output == Output::Dlss && dlss_runs && n.dlss.is_some() {
         return keep_native(Text::plain(N_(
@@ -385,9 +429,15 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 p.summary = Text::plain(N_("the game's own FSR — FSR 4 expected through Proton"));
                 p.steps.insert(
                     1,
-                    Step::Keep(Text::plain(N_(
-                        "the launch option FSR4_UPGRADE=1 is set: Proton hands the game's FSR to AMD's FSR 4 provider",
-                    ))),
+                    Step::Keep(Text::plain(if ctx.heroic {
+                        N_(
+                            "Heroic's settings for this game carry PROTON_FSR4_UPGRADE=1 and FSR4_UPGRADE=1: Proton hands the game's FSR to AMD's FSR 4 provider",
+                        )
+                    } else {
+                        N_(
+                            "the launch option FSR4_UPGRADE=1 is set: Proton hands the game's FSR to AMD's FSR 4 provider",
+                        )
+                    })),
                 );
             } else {
                 p.summary = Text::plain(N_(
@@ -396,9 +446,15 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 p.native_action = Some(NativeAction::Fsr4Upgrade);
                 p.steps.insert(
                     1,
-                    Step::Install(Text::plain(N_(
-                        "the launch option FSR4_UPGRADE=1 in Steam for this game (Steam closed; backed up and read back): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
-                    ))),
+                    Step::Install(Text::plain(if ctx.heroic {
+                        N_(
+                            "the variables PROTON_FSR4_UPGRADE=1 (GE-Proton, which also fetches the provider) and FSR4_UPGRADE=1 (Valve's Proton) in Heroic's settings for this game (Heroic closed; backed up): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
+                        )
+                    } else {
+                        N_(
+                            "the launch option FSR4_UPGRADE=1 in Steam for this game (Steam closed; backed up and read back): Proton then hands the game's FSR to AMD's FSR 4 provider. No file in the game changes",
+                        )
+                    })),
                 );
             }
             p.steps.push(Step::Note(Text::plain(N_(
@@ -432,6 +488,21 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 "OptiScaler takes over the game's FSR — documented upstream, not yet verified by BiGame-mode",
             ),
         )
+    } else if let Some(b) = n.built_in_fsr() {
+        // OptiScaler's own documentation: FSR 2 and FSR 3 "support custom
+        // interfaces, game support will depend on the developers'
+        // implementation" — its compatibility list has games with a
+        // compiled-in FSR 2 that work (The Outer Worlds: Spacer's Choice
+        // Edition, as dxgi.dll with spoofing off), and it does not promise
+        // it for every game.
+        (
+            Input::Fsr,
+            b.label(),
+            Standing::Experimental,
+            N_(
+                "the game's FSR is built into its executable, not shipped as a DLL: OptiScaler takes over a built-in FSR in some games and not in others, depending on how the game built it — its compatibility list is the place to check. If nothing changes in the game, Restore Game Graphics puts every file back",
+            ),
+        )
     } else if n.dlss.is_some() && vendor == GpuVendor::Nvidia {
         (
             Input::Dlss,
@@ -451,12 +522,24 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             ),
         )
     } else {
+        let mut steps = vec![Step::Note(Text::plain(N_(
+            "OptiScaler replaces an upscaler the game already has (DLSS, FSR 2 or newer, XeSS); this game has none",
+        )))];
+        // DLSS and XeSS always run from their DLL: code that calls them
+        // without the DLL in the game's folder is nothing to take over.
+        for b in n.built_in.iter().filter(|b| !b.runs_without_a_dll()) {
+            steps.push(Step::Note(Text::with(
+                N_(
+                    "the executable has code for %s, but the DLL it runs from is not in the game's folder, so the game cannot offer it",
+                ),
+                [b.label()],
+            )));
+        }
+        steps.extend(outside_the_game());
         return nothing(
             Standing::NotRecommended,
             Text::plain(N_("no upscaler for OptiScaler to take over")),
-            vec![Step::Note(Text::plain(N_(
-                "OptiScaler replaces an upscaler the game already has; this game ships none",
-            )))],
+            steps,
         );
     };
     let api = r.api.api.unwrap_or(Api::Dx12);
@@ -552,6 +635,21 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "every file that is replaced is backed up first, and Restore puts it back",
         ))),
     ];
+    // OptiScaler's wiki ("Unreal Engine Tweaks") for a crash with the FSR
+    // input of Unreal's own plugin. Said, not done: Engine.ini is the
+    // player's.
+    if let (Some(b), Some(super::scan::Engine::Unreal)) = (n.built_in_fsr(), r.engine) {
+        let cvar = match b {
+            super::scan::BuiltIn::Fsr3 => "r.FidelityFX.FSR3.UseNativeDX12=1",
+            _ => "r.FidelityFX.FSR2.UseNativeDX12=1",
+        };
+        steps.push(Step::Note(Text::with(
+            N_(
+                "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini",
+            ),
+            [cvar],
+        )));
+    }
     if let Some(v) = r.listed.as_ref().and_then(|e| e.tested_optiscaler.clone()) {
         steps.push(Step::Note(Text::with(
             N_("the game list records this game as tested with OptiScaler %s"),
@@ -653,6 +751,8 @@ mod tests {
             app_id: Some("1".into()),
             install_root: "/g".into(),
             executable: Some("Game.exe".into()),
+            launcher_stub: None,
+            engine: None,
             machine: Some(Machine::X64),
             runtime: None,
             api: ApiEvidence {
@@ -923,6 +1023,83 @@ mod tests {
         );
     }
 
+    /// The Outer Worlds: Spacer's Choice Edition: FSR 2 compiled into its
+    /// Unreal executable, no upscaler DLL anywhere.
+    fn tow() -> Native {
+        Native {
+            built_in: vec![crate::graphics::scan::BuiltIn::Fsr2],
+            ..Native::default()
+        }
+    }
+
+    #[test]
+    fn a_built_in_fsr2_is_the_games_own_and_an_experimental_input_on_rdna4() {
+        let mut r = report(tow(), gpu(GpuVendor::Amd, Some(4)));
+        r.engine = Some(crate::graphics::scan::Engine::Unreal);
+        let p = plan(&r, &recommended(), &Context::default());
+        assert_eq!(p.standing, Standing::Experimental);
+        assert_eq!(
+            p.summary.english(),
+            "FSR 4 through OptiScaler, from the game's FSR 2"
+        );
+        let o = p.optiscaler.as_ref().unwrap();
+        assert_eq!((o.input, o.output), (Input::Fsr, Output::Fsr));
+        // What is known is said: built in, may or may not be taken over,
+        // and the wiki's Unreal tweak for a crash.
+        let text: Vec<String> = p.steps.iter().map(|s| s.text().english()).collect();
+        assert!(
+            text.iter().any(|t| t.contains("built into its executable")),
+            "{text:#?}"
+        );
+        assert!(
+            text.iter()
+                .any(|t| t.contains("r.FidelityFX.FSR2.UseNativeDX12=1"))
+        );
+        assert!(
+            text.iter()
+                .any(|t| t.starts_with("choose FSR 2 in the game's graphics menu"))
+        );
+
+        // Below RDNA 4 the game's own FSR 2 is the answer: its menu.
+        let p = plan(
+            &report(tow(), gpu(GpuVendor::Amd, Some(3))),
+            &recommended(),
+            &Context::default(),
+        );
+        assert_eq!(p.standing, Standing::Recommended);
+        assert_eq!(p.summary.english(), "the game's own FSR 2");
+        assert!(p.optiscaler.is_none());
+        assert!(p.steps.iter().any(|s| matches!(s, Step::InGame(t)
+            if t.english() == "choose FSR 2 (Quality) in the game's graphics menu")));
+    }
+
+    #[test]
+    fn a_game_with_no_upscaler_is_told_why_and_what_works_instead() {
+        let n = Native {
+            // DLSS code without its DLL is nothing to take over.
+            built_in: vec![crate::graphics::scan::BuiltIn::Dlss],
+            ..Native::default()
+        };
+        let p = plan(
+            &report(n, gpu(GpuVendor::Amd, Some(4))),
+            &recommended(),
+            &Context::default(),
+        );
+        assert_eq!(p.standing, Standing::NotRecommended);
+        assert!(p.optiscaler.is_none());
+        assert!(p.steps.iter().any(|s| matches!(s, Step::Note(t)
+            if t.english().starts_with("the executable has code for DLSS"))));
+        assert!(
+            p.steps
+                .iter()
+                .filter(|s| matches!(s, Step::Instead(_)))
+                .count()
+                == 2,
+            "{:#?}",
+            p.steps
+        );
+    }
+
     #[test]
     fn dlss_only_needs_spoofing_and_is_experimental() {
         let n = Native {
@@ -1075,6 +1252,34 @@ mod tests {
             &ctx,
         );
         assert_eq!(p.optiscaler.unwrap().frame_gen, FrameGen::Off);
+    }
+
+    #[test]
+    fn frame_generation_with_the_recommended_upscaler_keeps_the_recommendation() {
+        // The page's choice once OptiScaler's frame generation is picked:
+        // Advanced, the upscaler left on Recommended. On RDNA 4 that is
+        // still OptiScaler's FSR 4, now with its frame generation — not the
+        // game's own FSR with a note that the card is not RDNA 4.
+        let cfg = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            frame_generation: FrameGeneration::OptiScaler,
+            experimental: true,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(
+            &report(tow(), gpu(GpuVendor::Amd, Some(4))),
+            &cfg,
+            &Context::default(),
+        );
+        let o = p.optiscaler.expect("OptiScaler");
+        assert_eq!((o.output, o.frame_gen), (Output::Fsr, FrameGen::OptiFgFsr));
+        // Frame generation alone asks for OptiScaler below RDNA 4 too.
+        let p = plan(
+            &report(tow(), gpu(GpuVendor::Amd, Some(3))),
+            &cfg,
+            &Context::default(),
+        );
+        assert_eq!(p.optiscaler.map(|o| o.frame_gen), Some(FrameGen::OptiFgFsr));
     }
 
     #[test]

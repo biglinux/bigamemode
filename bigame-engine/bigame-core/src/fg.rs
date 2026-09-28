@@ -533,6 +533,18 @@ pub fn layer_installed() -> bool {
         || LIBRARY.iter().any(|p| Path::new(p).is_file())
 }
 
+/// Lossless Scaling's Steam app id.
+pub const LOSSLESS_SCALING_APP: u32 = 993_090;
+
+/// `Lossless.dll` where Steam installs Lossless Scaling, in any library.
+#[must_use]
+pub fn find_steam_dll() -> Option<std::path::PathBuf> {
+    crate::games::steam_libraries(&crate::paths::home_dir())
+        .into_iter()
+        .map(|root| root.join("steamapps/common/Lossless Scaling/Lossless.dll"))
+        .find(|p| p.is_file())
+}
+
 /// Whether a `Lossless.dll` is configured and exists.
 #[must_use]
 pub fn is_lossless_dll_ready() -> bool {

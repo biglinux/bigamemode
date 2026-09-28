@@ -25,14 +25,16 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use bigame_core::models::{FrameGenBackend, GamescopeFilter, WineFsrMode};
+use bigame_core::models::{FrameGenBackend, GamescopeFilter};
 use bigame_core::optimization::{self as opt, Feature, PROFILE_SETS, VCACHE_MODES};
 use bigame_core::overview::State;
 use bigame_core::video_config::{self, VideoConfig};
 
 use crate::i18n::{error_text, i18n, tr};
+use crate::widgets::launch::{self, icon};
 use crate::widgets::notice::{self, Kind, Notice};
 use crate::widgets::optimization::{self as ui, Machine, Picker, Scope};
+use crate::widgets::resolution::SizePicker;
 use crate::widgets::status::Chip;
 
 /// falcond's configuration as the page last saved it.
@@ -127,12 +129,79 @@ fn schedule_steam_gamescope(anchor: &gtk4::Widget) {
             return;
         }
         glib::spawn_future_local(async move {
+            // Heroic games too: what a game leaves to Tuning is written
+            // into its settings there.
+            let heroic = gio::spawn_blocking(bigame_core::optimization::refresh_heroic)
+                .await
+                .unwrap_or_default();
+            report_heroic(&anchor, &heroic);
             let results = gio::spawn_blocking(bigame_core::optimization::refresh_steam_gamescope)
                 .await
                 .unwrap_or_default();
             report_steam_gamescope(&anchor, &results);
         });
     });
+}
+
+/// Say what bringing the Heroic games' settings in line with Tuning did; a
+/// Heroic that is open and runs no game is offered to be closed for it.
+fn report_heroic(
+    anchor: &gtk4::Widget,
+    results: &[(String, anyhow::Result<bigame_core::heroic_launch::Applied>)],
+) {
+    use bigame_core::heroic_launch::Applied;
+    let written: Vec<&str> = results
+        .iter()
+        .filter(|(_, r)| matches!(r, Ok(Applied::Written)))
+        .map(|(n, _)| n.as_str())
+        .collect();
+    if let Some((name, Err(e))) = results.iter().find(|(_, r)| r.is_err()) {
+        crate::widgets::toast::error(
+            anchor,
+            &i18n("Could not update Heroic's settings for a game"),
+            &format!("{name}: {}", error_text(e)),
+        );
+    }
+    if !written.is_empty() {
+        crate::widgets::toast::show(
+            anchor,
+            &i18n("Launch settings updated in Heroic's settings: %s")
+                .replace("%s", &written.join(", ")),
+        );
+    }
+    let open = results.iter().find_map(|(_, r)| match r {
+        Ok(Applied::HeroicRunning {
+            launcher,
+            game_running,
+        }) => Some((*launcher, *game_running)),
+        _ => None,
+    });
+    match open {
+        Some((_, true)) => crate::widgets::toast::show(
+            anchor,
+            &i18n(
+                "Heroic is running a game: its games keep their old launch settings until Heroic is closed and Tuning is saved again",
+            ),
+        ),
+        Some((launcher, false)) => crate::widgets::optimization::offer_close_heroic(
+            anchor,
+            launcher,
+            &i18n(
+                "Heroic is open: its games with launch settings of their own keep the old ones until it is closed",
+            ),
+            || {
+                let results = bigame_core::optimization::refresh_heroic();
+                match results
+                    .into_iter()
+                    .find_map(|(name, r)| r.err().map(|e| (name, e)))
+                {
+                    Some((name, e)) => Err(e.context(name)),
+                    None => Ok(()),
+                }
+            },
+        ),
+        None => {}
+    }
 }
 
 /// Say what bringing the Steam games' Gamescope wrappers in line did.
@@ -328,12 +397,12 @@ fn build_performance(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGrou
 
 // ── Display (Gamescope) ─────────────────────────────────────────────────────
 
-/// Gamescope: on or off, and when on, the filter, sharpness and sizes.
+/// Gamescope: on or off, the filter, sharpness and sizes — all in view.
 struct Display {
     group: adw::PreferencesGroup,
     /// The Gamescope switch and the render size, for the conflict check;
     /// `None` without Gamescope.
-    rows: Option<(adw::ExpanderRow, gtk4::SpinButton, gtk4::SpinButton)>,
+    rows: Option<(adw::SwitchRow, Rc<SizePicker>)>,
     /// Set while the page itself changes a control, so a handler does not
     /// ask about a change the user did not make.
     quiet: Rc<Cell<bool>>,
@@ -344,7 +413,7 @@ impl Display {
     fn build(video: &SharedVideo, m: &Machine) -> Self {
         let group = ui::section(&i18n("Display"));
         group.set_description(Some(&i18n(
-            "For games started from BiGame-mode (Profiles → Launch). A game's profile can force Gamescope on or off.",
+            "For games started from BiGame-mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
         )));
         let quiet = Rc::new(Cell::new(false));
         if !m.gamescope {
@@ -360,45 +429,32 @@ impl Display {
             };
         }
         let cfg = video.borrow().clone();
-        let expander = adw::ExpanderRow::builder()
+        let switch = adw::SwitchRow::builder()
             .title("Gamescope")
             .subtitle(i18n("Wraps games started from BiGame-mode"))
-            .show_enable_switch(true)
-            .enable_expansion(cfg.upscaling.gamescope_enabled)
+            .active(cfg.upscaling.gamescope_enabled)
             .build();
+        switch.add_prefix(&gtk4::Image::from_icon_name("video-display-symbolic"));
         // The version comes from `gamescope --help`, probed off the main thread.
         {
-            let expander = expander.clone();
+            let switch = switch.clone();
             glib::spawn_future_local(async move {
                 let caps = gio::spawn_blocking(bigame_core::capabilities::gamescope_cached)
                     .await
                     .ok()
                     .flatten();
                 if let Some(v) = caps.and_then(|c| c.version) {
-                    expander.set_subtitle(
+                    switch.set_subtitle(
                         &i18n("Version %v · wraps games started from BiGame-mode")
                             .replace("%v", &v.to_string()),
                     );
                 }
             });
         }
+        group.add(&switch);
 
-        let filters = gtk4::StringList::new(&[
-            "FSR 1.0 (FidelityFX)",
-            "NIS (NVIDIA Image Scaling)",
-            &i18n("Integer scaling"),
-        ]);
-        let filter_row = adw::ComboRow::builder()
-            .title(i18n("Upscaling filter"))
-            .subtitle(i18n("Used when the render size is below the output size"))
-            .model(&filters)
-            .selected(match cfg.upscaling.gamescope_filter {
-                GamescopeFilter::Fsr => 0,
-                GamescopeFilter::Nis => 1,
-                GamescopeFilter::Integer => 2,
-            })
-            .build();
-        expander.add_row(&filter_row);
+        let filter = launch::filter_picker(false, Some(cfg.upscaling.gamescope_filter));
+        group.add(&filter.row);
 
         let sharpness_row = adw::SpinRow::new(
             Some(&gtk4::Adjustment::new(
@@ -415,38 +471,34 @@ impl Display {
         sharpness_row.set_title(&i18n("FSR sharpness"));
         sharpness_row.set_subtitle(&i18n("0 = sharpest · 20 = softest"));
         sharpness_row.set_sensitive(cfg.upscaling.gamescope_filter == GamescopeFilter::Fsr);
-        expander.add_row(&sharpness_row);
+        group.add(&sharpness_row);
 
-        let render_width = res_spin(cfg.upscaling.base_width, 7680);
-        let render_height = res_spin(cfg.upscaling.base_height, 4320);
-        expander.add_row(&res_row(
+        let render = SizePicker::new(
             &i18n("Render size"),
-            &i18n("The game draws at this size; 0 = the game's own"),
-            &render_width,
-            &render_height,
-        ));
-        let output_width = res_spin(cfg.upscaling.target_width, 7680);
-        let output_height = res_spin(cfg.upscaling.target_height, 4320);
-        expander.add_row(&res_row(
+            &i18n("The game draws at this size"),
+            &i18n("The game's own size"),
+            (cfg.upscaling.base_width, cfg.upscaling.base_height),
+        );
+        render.with_main_screen(false);
+        group.add(&render.row);
+        let output = SizePicker::new(
             &i18n("Output size"),
-            &i18n("Upscaled to this size; 0 = the same as the render size"),
-            &output_width,
-            &output_height,
-        ));
+            &i18n("Upscaled to this size, usually the screen's"),
+            &i18n("The same as the render size"),
+            (cfg.upscaling.target_width, cfg.upscaling.target_height),
+        );
+        output.with_main_screen(true);
+        group.add(&output.row);
 
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let size = |s: &gtk4::SpinButton| s.value() as u32;
         {
             let video = Rc::clone(video);
             let sharpness_row = sharpness_row.clone();
-            filter_row.connect_selected_notify(move |row| {
-                sharpness_row.set_sensitive(row.selected() == 0);
-                video.borrow_mut().upscaling.gamescope_filter = match row.selected() {
-                    1 => GamescopeFilter::Nis,
-                    2 => GamescopeFilter::Integer,
-                    _ => GamescopeFilter::Fsr,
-                };
-                save_video(&video, row);
+            let row = filter.row.clone();
+            filter.connect_changed(move |id| {
+                let f = launch::filter_of(id).unwrap_or_default();
+                sharpness_row.set_sensitive(f == GamescopeFilter::Fsr);
+                video.borrow_mut().upscaling.gamescope_filter = f;
+                save_video(&video, &row);
             });
         }
         {
@@ -460,66 +512,22 @@ impl Display {
         }
         {
             let video = Rc::clone(video);
-            output_width.connect_value_changed(move |s| {
-                video.borrow_mut().upscaling.target_width = size(s);
-                save_video(&video, s);
+            let row = output.row.clone();
+            output.connect_changed(move |(w, h)| {
+                {
+                    let mut v = video.borrow_mut();
+                    v.upscaling.target_width = w;
+                    v.upscaling.target_height = h;
+                }
+                save_video(&video, &row);
             });
         }
-        {
-            let video = Rc::clone(video);
-            output_height.connect_value_changed(move |s| {
-                video.borrow_mut().upscaling.target_height = size(s);
-                save_video(&video, s);
-            });
-        }
-        group.add(&expander);
         Self {
             group,
-            rows: Some((expander, render_width, render_height)),
+            rows: Some((switch, render)),
             quiet,
         }
     }
-}
-
-/// A `SpinButton` clamped to [0, `max_val`] for resolution inputs; 0 = auto.
-fn res_spin(current: u32, max_val: u32) -> gtk4::SpinButton {
-    let adj = gtk4::Adjustment::new(f64::from(current), 0.0, f64::from(max_val), 1.0, 10.0, 0.0);
-    let spin = gtk4::SpinButton::new(Some(&adj), 1.0, 0);
-    spin.set_valign(gtk4::Align::Center);
-    spin.set_width_chars(6);
-    spin
-}
-
-/// Two `SpinButton`s (width × height) in an `AdwActionRow`.
-fn res_row(
-    title: &str,
-    subtitle: &str,
-    w: &gtk4::SpinButton,
-    h: &gtk4::SpinButton,
-) -> adw::ActionRow {
-    let separator = gtk4::Label::builder()
-        .label("×")
-        .margin_start(4)
-        .margin_end(4)
-        .valign(gtk4::Align::Center)
-        .css_classes(["dim-label"])
-        .build();
-    let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(subtitle)
-        .build();
-    w.update_property(&[gtk4::accessible::Property::Label(&format!(
-        "{title} — {}",
-        i18n("width")
-    ))]);
-    h.update_property(&[gtk4::accessible::Property::Label(&format!(
-        "{title} — {}",
-        i18n("height")
-    ))]);
-    row.add_suffix(w);
-    row.add_suffix(&separator);
-    row.add_suffix(h);
-    row
 }
 
 // ── Image quality ───────────────────────────────────────────────────────────
@@ -553,34 +561,18 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
         .active(cfg.upscaling.wine_fsr_enabled)
         .build();
     group.add(&wine);
-    let quality_items = gtk4::StringList::new(&[
-        &i18n("Performance"),
-        &i18n("Balanced"),
-        &i18n("Quality"),
-        &i18n("Ultra"),
-    ]);
-    let quality = adw::ComboRow::builder()
-        .title(i18n("Wine FSR quality"))
-        .model(&quality_items)
-        .selected(match cfg.upscaling.wine_fsr_mode {
-            WineFsrMode::Performance => 0,
-            WineFsrMode::Balanced => 1,
-            WineFsrMode::Quality => 2,
-            WineFsrMode::Ultra => 3,
-        })
-        .sensitive(cfg.upscaling.wine_fsr_enabled)
-        .build();
+    wine.add_prefix(&gtk4::Image::from_icon_name("zoom-in-symbolic"));
+    let quality_picker = launch::wine_fsr_mode_picker(false, Some(cfg.upscaling.wine_fsr_mode));
+    let quality = quality_picker.row.clone();
+    quality.set_sensitive(cfg.upscaling.wine_fsr_enabled);
     group.add(&quality);
     {
         let video = Rc::clone(video);
-        quality.connect_selected_notify(move |row| {
-            video.borrow_mut().upscaling.wine_fsr_mode = match row.selected() {
-                0 => WineFsrMode::Performance,
-                1 => WineFsrMode::Balanced,
-                3 => WineFsrMode::Ultra,
-                _ => WineFsrMode::Quality,
-            };
-            save_video(&video, row);
+        let row = quality.clone();
+        quality_picker.connect_changed(move |id| {
+            video.borrow_mut().upscaling.wine_fsr_mode =
+                launch::wine_fsr_mode_of(id).unwrap_or_default();
+            save_video(&video, &row);
         });
     }
 
@@ -619,9 +611,8 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
             match f {
                 Feature::WineFsr => wine.set_active(false),
                 Feature::GamescopeUpscaling => {
-                    if let Some((_, w, h)) = &rows {
-                        w.set_value(0.0);
-                        h.set_value(0.0);
+                    if let Some((_, render)) = &rows {
+                        render.set((0, 0));
                     }
                 }
                 _ => {}
@@ -693,54 +684,44 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
 
     // Gamescope's upscaling switched on (the switch, or a render size) while
     // Wine FSR is on: ask. Keeping Wine FSR puts the render size back.
-    if let Some((expander, render_w, render_h)) = display.rows.clone() {
+    if let Some((switch, render)) = display.rows.clone() {
         let ask = {
             let (video, wine, quiet) = (Rc::clone(video), wine.clone(), Rc::clone(&quiet));
             let turn_off = Rc::clone(&turn_off);
             let refresh = Rc::clone(&refresh_legacy);
-            let (expander, render_w, render_h) =
-                (expander.clone(), render_w.clone(), render_h.clone());
-            Rc::new(move |before: (bool, u32, u32)| {
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let after = (
-                    expander.enables_expansion(),
-                    render_w.value() as u32,
-                    render_h.value() as u32,
-                );
+            let (switch, render) = (switch.clone(), Rc::clone(&render));
+            Rc::new(move |before: (bool, (u32, u32))| {
+                let after = (switch.is_active(), render.value());
                 {
                     let mut v = video.borrow_mut();
                     v.upscaling.gamescope_enabled = after.0;
-                    v.upscaling.base_width = after.1;
-                    v.upscaling.base_height = after.2;
+                    (v.upscaling.base_width, v.upscaling.base_height) = after.1;
                 }
-                let was = before.0 && before.1 > 0 && before.2 > 0;
+                let was = before.0 && before.1.0 > 0 && before.1.1 > 0;
                 let now = opt::gamescope_upscales(&video.borrow().upscaling);
                 if !quiet.get() && now && !was && wine.is_active() {
                     if let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr) {
                         let (turn_off, video2, quiet2) =
                             (Rc::clone(&turn_off), Rc::clone(&video), Rc::clone(&quiet));
-                        let (expander2, w2, h2) =
-                            (expander.clone(), render_w.clone(), render_h.clone());
-                        notice::ask_conflict(&expander, &c, move |use_gamescope| {
+                        let (switch2, render2) = (switch.clone(), Rc::clone(&render));
+                        notice::ask_conflict(&switch, &c, move |use_gamescope| {
                             if use_gamescope {
                                 turn_off(Feature::WineFsr);
                                 crate::widgets::toast::show(
-                                    &expander2,
+                                    &switch2,
                                     &i18n("Gamescope upscaling is on; Wine FSR was turned off"),
                                 );
                             } else {
                                 quiet2.set(true);
-                                expander2.set_enable_expansion(before.0);
-                                w2.set_value(f64::from(before.1));
-                                h2.set_value(f64::from(before.2));
+                                switch2.set_active(before.0);
+                                render2.set(before.1);
                                 quiet2.set(false);
                                 {
                                     let mut v = video2.borrow_mut();
                                     v.upscaling.gamescope_enabled = before.0;
-                                    v.upscaling.base_width = before.1;
-                                    v.upscaling.base_height = before.2;
+                                    (v.upscaling.base_width, v.upscaling.base_height) = before.1;
                                 }
-                                save_video(&video2, &expander2);
+                                save_video(&video2, &switch2);
                             }
                         });
                         // Nothing is saved until one is chosen: the file never
@@ -748,77 +729,33 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
                         return;
                     }
                 }
-                save_video(&video, &expander);
+                save_video(&video, &switch);
                 refresh();
             })
         };
         let last = Rc::new(Cell::new((
             cfg.upscaling.gamescope_enabled,
-            cfg.upscaling.base_width,
-            cfg.upscaling.base_height,
+            (cfg.upscaling.base_width, cfg.upscaling.base_height),
         )));
         let track = {
-            let (last, expander, render_w, render_h) = (
-                Rc::clone(&last),
-                expander.clone(),
-                render_w.clone(),
-                render_h.clone(),
-            );
+            let (last, switch, render) = (Rc::clone(&last), switch.clone(), Rc::clone(&render));
             let ask = Rc::clone(&ask);
             Rc::new(move || {
                 let before = last.get();
                 ask(before);
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                last.set((
-                    expander.enables_expansion(),
-                    render_w.value() as u32,
-                    render_h.value() as u32,
-                ));
+                last.set((switch.is_active(), render.value()));
             })
         };
         {
             let track = Rc::clone(&track);
-            expander.connect_enable_expansion_notify(move |_| track());
+            switch.connect_active_notify(move |_| track());
         }
-        {
-            let track = Rc::clone(&track);
-            render_w.connect_value_changed(move |_| track());
-        }
-        render_h.connect_value_changed(move |_| track());
+        render.connect_changed(move |_| track());
     }
 
     // vkBasalt: a look, not a speed-up; only where its layer is installed.
     if bigame_core::capabilities::vkbasalt_installed() {
-        let vkb = adw::ExpanderRow::builder()
-            .title("vkBasalt")
-            .subtitle(i18n(
-                "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time.",
-            ))
-            .show_enable_switch(true)
-            .enable_expansion(cfg.upscaling.vkbasalt_enabled)
-            .build();
-        let conf = adw::EntryRow::builder()
-            .title(i18n("Configuration file"))
-            .text(cfg.upscaling.vkbasalt_config_path.as_deref().unwrap_or(""))
-            .build();
-        vkb.add_row(&conf);
-        {
-            let video = Rc::clone(video);
-            vkb.connect_enable_expansion_notify(move |e| {
-                video.borrow_mut().upscaling.vkbasalt_enabled = e.enables_expansion();
-                save_video(&video, e);
-            });
-        }
-        {
-            let video = Rc::clone(video);
-            conf.connect_changed(move |row| {
-                let text = row.text().to_string();
-                video.borrow_mut().upscaling.vkbasalt_config_path =
-                    (!text.is_empty()).then_some(text);
-                save_video(&video, row);
-            });
-        }
-        group.add(&vkb);
+        build_vkbasalt(video, &group);
     } else {
         group.add(&ui::missing_row(
             "vkBasalt",
@@ -838,6 +775,190 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
     );
     group.add(ai.widget());
     group
+}
+
+/// vkBasalt's switch, its look and its file.
+#[allow(clippy::too_many_lines)]
+fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
+    use bigame_core::vkbasalt::{self as vkb, Style, StyleState};
+    let cfg = video.borrow().clone();
+    let switch = adw::SwitchRow::builder()
+        .title("vkBasalt")
+        .subtitle(i18n(
+            "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, Home turns it on and off.",
+        ))
+        .active(cfg.upscaling.vkbasalt_enabled)
+        .build();
+    switch.add_prefix(&gtk4::Image::from_icon_name("image-x-generic-symbolic"));
+    group.add(&switch);
+    {
+        let video = Rc::clone(video);
+        switch.connect_active_notify(move |row| {
+            video.borrow_mut().upscaling.vkbasalt_enabled = row.is_active();
+            save_video(&video, row);
+        });
+    }
+
+    let own_label = match vkb::current_style() {
+        StyleState::Defaults => i18n("vkBasalt's default"),
+        _ => i18n("My own file"),
+    };
+    let look = Picker::new(
+        &i18n("Look"),
+        &i18n(
+            "Written to ~/.config/vkBasalt/vkBasalt.conf; your own file is kept and comes back with “My own file”.",
+        ),
+        &[
+            ("own".to_owned(), own_label),
+            ("cas".to_owned(), i18n("CAS sharpening")),
+            ("nara".to_owned(), i18n("Nara Linux (ReShade)")),
+        ],
+        match vkb::current_style() {
+            StyleState::Style(Style::Cas) => "cas",
+            StyleState::Style(Style::NaraLinux) => "nara",
+            _ => "own",
+        },
+    );
+    look.row.set_subtitle_lines(3);
+    look.row.add_suffix(&launch::vkbasalt_looks_button());
+    group.add(&look.row);
+
+    let shown = cfg
+        .upscaling
+        .vkbasalt_config_path
+        .clone()
+        .unwrap_or_else(|| {
+            vkb::default_config().map_or_else(String::new, |p| p.to_string_lossy().into_owned())
+        });
+    let conf = adw::EntryRow::builder()
+        .title(i18n("Configuration file"))
+        .text(&shown)
+        .build();
+    conf.add_prefix(&gtk4::Image::from_icon_name("text-x-generic-symbolic"));
+    group.add(&conf);
+    let missing = Notice::new(
+        Kind::Warning,
+        &i18n("This file does not exist"),
+        &i18n("vkBasalt then uses its own defaults."),
+    );
+    missing.set_visible(!shown.is_empty() && !std::path::Path::new(&shown).exists());
+    group.add(missing.widget());
+    let quiet = Rc::new(Cell::new(false));
+    {
+        let (video, missing, quiet) = (Rc::clone(video), missing.clone(), Rc::clone(&quiet));
+        conf.connect_changed(move |row| {
+            let text = row.text().to_string();
+            missing.set_visible(!text.is_empty() && !std::path::Path::new(&text).exists());
+            if quiet.get() {
+                return;
+            }
+            video.borrow_mut().upscaling.vkbasalt_config_path = (!text.is_empty()).then_some(text);
+            save_video(&video, row);
+        });
+    }
+
+    // A look is written to vkBasalt's own file, so that is the file used.
+    let point_at_user_file = {
+        let (video, conf, quiet) = (Rc::clone(video), conf.clone(), Rc::clone(&quiet));
+        Rc::new(move || {
+            let file = vkb::user_config();
+            let path = file.exists().then(|| file.to_string_lossy().into_owned());
+            quiet.set(true);
+            conf.set_text(&path.clone().unwrap_or_else(|| {
+                vkb::default_config().map_or_else(String::new, |p| p.to_string_lossy().into_owned())
+            }));
+            quiet.set(false);
+            video.borrow_mut().upscaling.vkbasalt_config_path = path;
+            save_video(&video, &conf);
+        })
+    };
+    let previous = Rc::new(RefCell::new(look.value()));
+    let picker = look.clone();
+    // Set while a cancelled choice is put back: not a choice of its own.
+    let reverting = Rc::new(Cell::new(false));
+    let revert = {
+        let (picker, previous, reverting) =
+            (picker.clone(), Rc::clone(&previous), Rc::clone(&reverting));
+        Rc::new(move || {
+            reverting.set(true);
+            picker.set(&previous.borrow());
+            reverting.set(false);
+        })
+    };
+    let apply = {
+        let (row, previous) = (look.row.clone(), Rc::clone(&previous));
+        let (point, revert) = (Rc::clone(&point_at_user_file), Rc::clone(&revert));
+        Rc::new(move |style: Style, id: &str| match vkb::set_style(style) {
+            Ok(()) => {
+                id.clone_into(&mut previous.borrow_mut());
+                point();
+                crate::widgets::toast::show(
+                    &row,
+                    &i18n("Saved. It applies the next time a game starts."),
+                );
+            }
+            Err(e) => {
+                crate::widgets::toast::error(
+                    &row,
+                    &i18n("Could not change vkBasalt's file"),
+                    &error_text(&e),
+                );
+                revert();
+            }
+        })
+    };
+    look.connect_changed(move |value| {
+        if reverting.get() {
+            return;
+        }
+        let style = match value {
+            "cas" => Style::Cas,
+            "nara" => Style::NaraLinux,
+            _ => Style::Own,
+        };
+        if style != Style::NaraLinux || vkb::shaders_ready() {
+            apply(style, value);
+            return;
+        }
+        // The shaders first, and only when asked.
+        let dialog = adw::AlertDialog::builder()
+            .heading(i18n("Download the Nara Linux style's shaders?"))
+            .body(i18n(
+                "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 from ReShade's shaders, FakeHDR from SweetFX, and the headers they include. Each is a fixed version, checked against its SHA-256 before it is used, and goes into ~/.local/share/reshade. Without them vkBasalt would stop the game, so the style is written only after they are in place.",
+            ))
+            .build();
+        dialog.add_response("cancel", &i18n("Cancel"));
+        dialog.add_response("download", &i18n("Download and use"));
+        dialog.set_response_appearance("download", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("download"));
+        dialog.set_close_response("cancel");
+        let (apply, row, revert) = (Rc::clone(&apply), picker.row.clone(), Rc::clone(&revert));
+        dialog.connect_response(None, move |_, response| {
+            if response != "download" {
+                revert();
+                return;
+            }
+            let (apply, row, revert) = (Rc::clone(&apply), row.clone(), Rc::clone(&revert));
+            row.set_sensitive(false);
+            glib::spawn_future_local(async move {
+                let done = gio::spawn_blocking(|| vkb::fetch_shaders(&vkb::shader_dir())).await;
+                row.set_sensitive(true);
+                match done {
+                    Ok(Ok(())) => apply(Style::NaraLinux, "nara"),
+                    Ok(Err(e)) => {
+                        crate::widgets::toast::error(
+                            &row,
+                            &i18n("Could not download the shaders"),
+                            &error_text(&e),
+                        );
+                        revert();
+                    }
+                    Err(_) => revert(),
+                }
+            });
+        });
+        dialog.present(Some(&picker.row));
+    });
 }
 
 // ── Frame generation ────────────────────────────────────────────────────────
@@ -964,10 +1085,7 @@ fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
         },
     );
     style.row.set_subtitle_lines(3);
-    style.row.add_suffix(&crate::widgets::info::button(
-        &i18n("Overlay style"),
-        &i18n("Basic is one line across the top, like the Steam Deck's level 2: frame rate, frame times, CPU and GPU load and power, memory and video memory. Full is a column, like its level 3: the GPU and the CPU each with load, temperature, clock and power, then memory, frame rate and frame times. Battery appears only on a laptop. A per-game MangoHud file (wine-<game>.conf) takes precedence, and a Flatpak launcher reads its own copy."),
-    ));
+    style.row.add_suffix(&launch::mangohud_style_button());
     group.add(&style.row);
     let row = style.row.clone();
     style.connect_changed(move |value| {
@@ -994,17 +1112,14 @@ fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
 // ── Advanced ────────────────────────────────────────────────────────────────
 
 /// falcond's own settings and the facts for the person who knows what a
-/// scheduler flag is: collapsed, last.
+/// scheduler flag is: last, each with its ⓘ.
 #[allow(clippy::too_many_lines)]
 fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
     let group = ui::section(&i18n("Advanced"));
+    group.set_description(Some(&i18n(
+        "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play.",
+    )));
 
-    let falcond = adw::ExpanderRow::builder()
-        .title(i18n("falcond's settings"))
-        .subtitle(i18n(
-            "How it looks for games, and which profile set it uses",
-        ))
-        .build();
     let poll_row = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
             f64::from(shared.borrow().poll_interval_ms),
@@ -1021,7 +1136,14 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
     poll_row.set_subtitle(&i18n(
         "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000.",
     ));
-    falcond.add_row(&poll_row);
+    icon(&poll_row, "view-refresh-symbolic");
+    poll_row.add_suffix(&crate::widgets::info::button(
+        &i18n("Scan interval"),
+        &i18n(
+            "falcond sees a game start at once, from the kernel's process events. The scan is its safety net: every so many milliseconds, once no process has started for that long, it reads the process list again, which catches a game whose name changes after it starts. 9000 ms (9 s) is falcond's default; lower costs a little CPU for nothing on most machines.",
+        ),
+    ));
+    group.add(&poll_row);
     {
         let cfg = Rc::clone(shared);
         poll_row.connect_changed(move |row| {
@@ -1042,8 +1164,10 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
         &shared.borrow().profile_mode,
     );
     set.row
+        .add_prefix(&gtk4::Image::from_icon_name("view-list-symbolic"));
+    set.row
         .add_suffix(&crate::widgets::info::profile_sets_button());
-    falcond.add_row(&set.row);
+    group.add(&set.row);
     {
         let cfg = Rc::clone(shared);
         let row = set.row.clone();
@@ -1058,7 +1182,14 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
         .subtitle(i18n("Reading…"))
         .use_markup(false)
         .build();
-    falcond.add_row(&gov_row);
+    icon(&gov_row, "speedometer-symbolic");
+    gov_row.add_suffix(&crate::widgets::info::button(
+        &i18n("CPU governor"),
+        &i18n(
+            "The kernel's rule for the CPU's clock. BiGame-mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards.",
+        ),
+    ));
+    group.add(&gov_row);
     {
         let row = gov_row.clone();
         glib::spawn_future_local(async move {
@@ -1081,15 +1212,7 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
             });
         });
     }
-    group.add(&falcond);
 
-    let facts = adw::ExpanderRow::builder()
-        .title(i18n("Show advanced options"))
-        .subtitle(i18n(
-            "sched-ext availability, Gamescope's accepted options, the environment file",
-        ))
-        .build();
-    group.add(&facts);
     let scx_status = adw::ActionRow::builder()
         .title(i18n("sched-ext availability"))
         .subtitle(match m.sched.describe_text() {
@@ -1103,18 +1226,24 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
     } else {
         "dialog-warning-symbolic"
     }));
-    facts.add_row(&scx_status);
-    facts.add_row(
-        &adw::ActionRow::builder()
-            .title(i18n("Installed"))
-            .subtitle(if m.sched_installed.is_empty() {
-                i18n("none")
-            } else {
-                m.sched_installed.join(", ")
-            })
-            .use_markup(false)
-            .build(),
-    );
+    scx_status.add_suffix(&crate::widgets::info::button(
+        &i18n("sched-ext"),
+        &i18n(
+            "sched-ext lets a CPU scheduler run as a program the kernel loads (scx_lavd, scx_bpfland…), instead of the kernel's own. It needs a kernel built with it (6.12 or later) and the scx-scheds package. The scheduler chosen in Performance is loaded while Turbo is on.",
+        ),
+    ));
+    group.add(&scx_status);
+    let installed = adw::ActionRow::builder()
+        .title(i18n("Installed"))
+        .subtitle(if m.sched_installed.is_empty() {
+            i18n("none")
+        } else {
+            m.sched_installed.join(", ")
+        })
+        .use_markup(false)
+        .build();
+    icon(&installed, "application-x-addon-symbolic");
+    group.add(&installed);
     let env_row = adw::ActionRow::builder()
         .title(i18n("Environment file"))
         .subtitle(i18n(
@@ -1123,7 +1252,14 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
         .subtitle_lines(4)
         .use_markup(false)
         .build();
-    facts.add_row(&env_row);
+    icon(&env_row, "text-x-generic-symbolic");
+    env_row.add_suffix(&crate::widgets::info::button(
+        &i18n("Environment file"),
+        &i18n(
+            "A game reads switches such as WINE_FULLSCREEN_FSR and ENABLE_VKBASALT from its environment, which it gets from whatever starts it. The file is read at login; the systemd user manager is updated at once, so a launcher opened afterwards passes them on. A launcher already open (Steam) keeps its old environment until it is reopened. A Turbo preset adds its own switches only while it is in force.",
+        ),
+    ));
+    group.add(&env_row);
 
     // Gamescope's options come from `gamescope --help`, off the main thread.
     let gamescope_row = adw::ActionRow::builder()
@@ -1135,9 +1271,10 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
         })
         .use_markup(false)
         .build();
-    facts.add_row(&gamescope_row);
+    icon(&gamescope_row, "video-display-symbolic");
+    group.add(&gamescope_row);
     if m.gamescope {
-        let facts = facts.clone();
+        let group = group.clone();
         glib::spawn_future_local(async move {
             let Some(gs) = gio::spawn_blocking(bigame_core::capabilities::gamescope_cached)
                 .await
@@ -1172,7 +1309,8 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
                 .build();
             preview.set_subtitle(&format!("gamescope {} -- <game>", built.args.join(" ")));
             preview.set_subtitle_selectable(true);
-            facts.add_row(&preview);
+            preview.add_prefix(&gtk4::Image::from_icon_name("utilities-terminal-symbolic"));
+            group.add(&preview);
             for unsupported in &built.unsupported {
                 let row = adw::ActionRow::builder()
                     .title(i18n("Not supported by this Gamescope"))
@@ -1184,7 +1322,7 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
                     .use_markup(false)
                     .build();
                 row.add_prefix(&gtk4::Image::from_icon_name("dialog-warning-symbolic"));
-                facts.add_row(&row);
+                group.add(&row);
             }
         });
     }
