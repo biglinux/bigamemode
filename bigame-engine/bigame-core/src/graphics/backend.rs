@@ -62,17 +62,6 @@ impl Backend {
         }
     }
 
-    /// The backend an id names; unknown ids are `None`.
-    #[must_use]
-    pub fn from_id(id: &str) -> Option<Self> {
-        match id {
-            "native" => Some(Self::Native),
-            "optiscaler" => Some(Self::OptiScaler),
-            "amd_neural_external" => Some(Self::AmdNeuralExternal),
-            _ => None,
-        }
-    }
-
     /// Every backend, in the order pages list them.
     pub const ALL: [Self; 3] = [Self::Native, Self::OptiScaler, Self::AmdNeuralExternal];
 
@@ -140,8 +129,6 @@ impl Backend {
 pub enum Maturity {
     /// Ran, rendered, was measured on a BiGame-mode test machine.
     VerifiedHere,
-    /// Documented upstream; not verified by BiGame-mode.
-    Documented,
     /// Reported to work, or not established at all.
     Experimental,
 }
@@ -438,12 +425,12 @@ mod tests {
     }
 
     #[test]
-    fn ids_round_trip_and_only_optiscaler_is_managed() {
+    fn ids_are_distinct_and_only_optiscaler_is_managed() {
+        let ids: std::collections::BTreeSet<_> = Backend::ALL.iter().map(|b| b.id()).collect();
+        assert_eq!(ids.len(), Backend::ALL.len());
         for b in Backend::ALL {
-            assert_eq!(Backend::from_id(b.id()), Some(b));
             assert_eq!(b.capabilities().managed, b == Backend::OptiScaler);
         }
-        assert_eq!(Backend::from_id("dlss5"), None);
         assert!(Backend::AmdNeuralExternal.capabilities().neural_rendering);
         assert!(!Backend::OptiScaler.capabilities().neural_rendering);
     }

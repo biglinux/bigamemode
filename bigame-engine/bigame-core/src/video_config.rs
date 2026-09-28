@@ -98,7 +98,7 @@ pub const SESSION_KEYS: &[&str] = &[
     "WINE_FULLSCREEN_FSR_MODE",
     "ENABLE_VKBASALT",
     "VKBASALT_CONFIG_FILE",
-    // A Turbo preset's own ([`crate::turbo_preset::PRESET_KEYS`]).
+    // A Turbo preset's own, never in environment.d.
     "DXVK_CONFIG",
     "VKD3D_FRAME_RATE",
     "FSR4_UPGRADE",

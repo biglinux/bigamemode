@@ -308,7 +308,7 @@ of it needs root.
     is shown; only a driver without fdinfo falls back to "the non-boot card".
     With two GPUs the plan says which one it is for until the game runs.
   - DLSS is offered only on a card known to be RTX (from its PCI database
-    name; frame generation from Ada on); an unknown model is unknown, not
+    name); an unknown model is unknown, not
     "yes". On an NVIDIA card without DLSS the ini sets `[DLSS] Enabled=false`:
     OptiScaler otherwise enables its DLSS path on any NVIDIA GPU, and on a GTX
     the game exited at start.
