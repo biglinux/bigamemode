@@ -177,6 +177,7 @@ fn apply_to_launcher(
         LauncherRef::Heroic {
             app_name,
             config_dir,
+            ..
         } => {
             if launcher_running("heroic") {
                 return Ok(Applied::LauncherRunning("Heroic"));

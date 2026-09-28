@@ -42,6 +42,17 @@ pub const POSTER_WIDTH: i32 = 160;
 /// See [`POSTER_WIDTH`].
 pub const POSTER_HEIGHT: i32 = 240;
 
+/// How a card's game is started.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Launch {
+    /// By BiGame-mode, with its launch settings: the program and its
+    /// arguments.
+    Direct(String, Vec<String>),
+    /// By the game's launcher (`steam -applaunch`, a `heroic://` link,
+    /// `lutris:rungame/…`, `flatpak run`).
+    Through(bigame_core::launchers::Start),
+}
+
 /// What a card shows.
 // Independent facts about one game; grouping them to please the lint would
 // only add indirection.
@@ -78,10 +89,9 @@ pub struct Entry {
     /// Where AI Graphics would work on this game: its install folder and
     /// Steam id. `None` when the launcher records no install folder.
     pub target: Option<bigame_core::graphics::Target>,
-    /// How BiGame-mode starts this game: a Steam title through the client
-    /// (`steam -applaunch <id>`), another with its launcher's command.
-    /// `None` when there is neither, rather than a guessed program name.
-    pub launch: Option<(String, Vec<String>)>,
+    /// How BiGame-mode starts this game. `None` when there is no way,
+    /// rather than a guessed program name.
+    pub launch: Option<Launch>,
     /// BiGame-mode has placed AI Graphics files in this game.
     pub ai_installed: bool,
 }
