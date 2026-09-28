@@ -108,6 +108,10 @@ pub enum LauncherRef {
         app_name: String,
         /// Heroic's configuration directory (native or Flatpak).
         config_dir: PathBuf,
+        /// The store backend that lists it (`legendary`, `gog`, `nile`,
+        /// `sideload`): what a `heroic://launch` link names as its runner.
+        /// `None` for a store Heroic's links cannot start.
+        runner: Option<&'static str>,
     },
     /// Lutris: the game's YAML configuration.
     Lutris {
@@ -1314,6 +1318,8 @@ pub struct HeroicEntry {
     /// Its artwork's addresses (`art_square`, then `art_cover`): Heroic keeps
     /// what it downloaded under `images-cache/`, named by their SHA-256.
     pub art: Vec<String>,
+    /// The store backend whose file listed it ([`LauncherRef::Heroic`]).
+    pub runner: Option<&'static str>,
 }
 
 /// The installed games among a Heroic store library (`store_cache/*_library.json`,
@@ -1346,6 +1352,7 @@ pub fn heroic_library_entries(json: &str) -> Vec<HeroicEntry> {
                 executable: string(install, "executable").map(PathBuf::from),
                 app_name: string(g, "app_name"),
                 art: heroic_art(g),
+                runner: None,
             })
         })
         .collect()
@@ -1392,6 +1399,7 @@ pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
                     .or_else(|| string("appName"))
                     .or_else(|| string("id")),
                 art: heroic_art(r),
+                runner: None,
             })
         })
         .collect()
@@ -1431,17 +1439,23 @@ pub fn heroic_library_art(json: &str) -> HashMap<String, Vec<String>> {
 /// Files Heroic writes about installed games, relative to its configuration
 /// directory. The store libraries carry titles and the installed flag; the
 /// backends' own lists are the record of what was actually installed.
-const HEROIC_LIBRARIES: &[&str] = &[
-    "store_cache/legendary_library.json",
-    "store_cache/gog_library.json",
-    "store_cache/nile_library.json",
-    "store_cache/zoom-library.json",
-    "sideload_apps/library.json",
+///
+/// Each with the runner a `heroic://launch` link names for its games; Heroic
+/// 2.22 knows `legendary`, `gog`, `nile` and `sideload`, not Zoom.
+const HEROIC_LIBRARIES: &[(&str, Option<&str>)] = &[
+    ("store_cache/legendary_library.json", Some("legendary")),
+    ("store_cache/gog_library.json", Some("gog")),
+    ("store_cache/nile_library.json", Some("nile")),
+    ("store_cache/zoom-library.json", None),
+    ("sideload_apps/library.json", Some("sideload")),
 ];
-const HEROIC_INSTALLED: &[&str] = &[
-    "legendaryConfig/legendary/installed.json",
-    "gog_store/installed.json",
-    "nile_config/nile/installed.json",
+const HEROIC_INSTALLED: &[(&str, Option<&str>)] = &[
+    (
+        "legendaryConfig/legendary/installed.json",
+        Some("legendary"),
+    ),
+    ("gog_store/installed.json", Some("gog")),
+    ("nile_config/nile/installed.json", Some("nile")),
 ];
 
 /// The installed games of every Heroic in `configs`.
@@ -1451,15 +1465,18 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
     for base in configs {
         let mut entries = Vec::new();
         let mut art = HashMap::new();
-        for file in HEROIC_LIBRARIES {
+        let with_runner = |list: Vec<HeroicEntry>, runner: Option<&'static str>| {
+            list.into_iter().map(move |e| HeroicEntry { runner, ..e })
+        };
+        for (file, runner) in HEROIC_LIBRARIES {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
-                entries.extend(heroic_library_entries(&json));
+                entries.extend(with_runner(heroic_library_entries(&json), *runner));
                 art.extend(heroic_library_art(&json));
             }
         }
-        for file in HEROIC_INSTALLED {
+        for (file, runner) in HEROIC_INSTALLED {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
-                entries.extend(heroic_installed_entries(&json));
+                entries.extend(with_runner(heroic_installed_entries(&json), *runner));
             }
         }
         for mut entry in entries {
@@ -1506,6 +1523,7 @@ fn heroic_game(base: &Path, entry: HeroicEntry) -> Option<DetectedGame> {
         launcher: entry.app_name.map(|app_name| LauncherRef::Heroic {
             app_name,
             config_dir: base.to_path_buf(),
+            runner: entry.runner,
         }),
     })
 }
@@ -2201,6 +2219,14 @@ mod tests {
         let games = dedup(heroic_games(&[config]));
         assert_eq!(games.len(), 1, "{games:?}");
         assert_eq!(games[0].cover.as_deref(), Some(expected.as_path()));
+        // legendary's file lists it, so a `heroic://launch` link names that runner.
+        assert!(matches!(
+            games[0].launcher,
+            Some(LauncherRef::Heroic {
+                runner: Some("legendary"),
+                ..
+            })
+        ));
     }
 
     #[test]

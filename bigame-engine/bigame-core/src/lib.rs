@@ -22,6 +22,7 @@ pub mod hardware;
 pub mod health;
 pub mod inventory;
 pub mod launcher;
+pub mod launchers;
 pub mod library;
 pub mod logs;
 pub mod mangohud;
