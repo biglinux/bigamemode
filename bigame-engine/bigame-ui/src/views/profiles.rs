@@ -26,6 +26,7 @@ use bigame_core::optimization::GameOptimization;
 
 use crate::i18n::{error_text, i18n, ni18n};
 use crate::widgets::game_card;
+use crate::widgets::game_fields::GameFields;
 use crate::widgets::optimization as ui;
 use crate::widgets::toast;
 
@@ -501,8 +502,8 @@ fn build_new_page(process: &str, card: Option<&game_card::Entry>) -> adw::Naviga
 
 /// A game's profile: the same sections as Tuning, for this game only.
 ///
-/// The rows are `widgets::optimization`'s, the same the wizard shows one
-/// per step, over the same `GameOptimization`; Save writes each part to its
+/// The rows are `widgets::game_fields`', the same the wizard shows one per
+/// step, over the same `GameOptimization`; Save writes each part to its
 /// owner and says which part did not take.
 #[allow(clippy::too_many_lines)]
 fn build_editor(
@@ -515,41 +516,50 @@ fn build_editor(
     let title = card.map_or_else(|| g.profile.name.clone(), |c| c.title.clone());
     let target = card.and_then(|c| c.target.clone());
     let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
-    game.steam = card.is_some_and(|c| c.source == "Steam");
+    // What reaches the game: its Steam launch options, BiGame-mode's own
+    // launch, or — started through its own launcher — nothing of the
+    // game's own.
+    let steam = source_label(bigame_core::games::Source::Steam);
+    game.reach = match card {
+        Some(c) if c.source == steam => ui::Reach::Steam,
+        Some(c) if matches!(c.launch, Some(game_card::Launch::Direct(..))) => ui::Reach::Launch,
+        Some(_) => ui::Reach::Nothing,
+        None => ui::Reach::Unknown,
+    };
 
     page.add(&ui::scope_banner(ui::Scope::Game(&game.title)));
 
-    // The process name: first for a new profile, which needs one; last for
-    // one that exists, where it is rarely changed and should not take the
-    // focus (typing would replace it).
-    let identity = adw::PreferencesGroup::new();
-    if !is_new {
-        identity.set_title(&i18n("Advanced"));
-    }
+    // The process name: first for a new profile, which needs one; in
+    // Advanced for one that exists, where it is rarely changed and should
+    // not take the focus (typing would replace it).
     let name_row = adw::EntryRow::builder()
         .title(i18n("Process Name"))
         .text(&g.profile.name)
         .build();
+    name_row.add_prefix(&gtk4::Image::from_icon_name(
+        "application-x-executable-symbolic",
+    ));
     name_row.add_suffix(&crate::widgets::info::button(
         &i18n("Process Name"),
         &i18n("falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."),
     ));
-    identity.add(&name_row);
     if is_new {
+        let identity = adw::PreferencesGroup::new();
+        identity.add(&name_row);
         page.add(&identity);
     }
 
-    let fields = Rc::new(ui::GameFields::build(&g, &m, &game, true));
+    let fields = Rc::new(GameFields::build(&g, &m, &game, true));
     page.add(&fields.performance.group);
-    page.add(&fields.scheduler.group);
-    page.add(&fields.vcache.group);
     page.add(&fields.gamescope.group);
-    page.add(&image_quality_group(&m, &game));
+    page.add(&fields.image_quality.group);
     page.add(&fields.frame_generation.group);
     page.add(&fields.mangohud.group);
-    if !is_new {
-        page.add(&identity);
-    }
+    page.add(&advanced_group(
+        &g.profile.name,
+        (!is_new).then_some(&name_row),
+        game.reach,
+    ));
 
     // Save sits in a bar that stays on screen, not at the end of the page.
     let save_btn = gtk4::Button::builder()
@@ -647,58 +657,74 @@ fn build_editor(
         .build()
 }
 
-/// Image quality for one game: AI Graphics is per game; Wine FSR is
-/// general, and the page says what it does for this game.
-fn image_quality_group(m: &ui::Machine, game: &ui::Game) -> adw::PreferencesGroup {
-    use bigame_core::overview::State;
-    let group = ui::section(&i18n("Image quality"));
-    let installed = !game.optiscaler.is_empty();
-    let ai = adw::ActionRow::builder()
-        .title(i18n("AI Graphics"))
-        .subtitle(if game.target.is_none() {
-            i18n("Needs the game's install folder, which its launcher does not record")
-        } else if installed {
-            i18n("OptiScaler installed by BiGame-mode for this game")
-        } else {
-            i18n("Upscaling and frame generation inside the game, with backup and undo")
-        })
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    let chip = crate::widgets::status::Chip::new(State::Off);
-    if installed {
-        chip.set(State::Configured, Some(&i18n("Installed")));
-    } else {
-        chip.set(State::Off, Some(&i18n("Not set up")));
+/// Advanced, last as in Tuning: the process name (for a profile that
+/// exists) and where this game's settings are kept, each with its ⓘ.
+fn advanced_group(
+    process: &str,
+    name_row: Option<&adw::EntryRow>,
+    reach: ui::Reach,
+) -> adw::PreferencesGroup {
+    use crate::widgets::launch::icon;
+    let group = ui::section(&i18n("Advanced"));
+    group.set_description(Some(&i18n(
+        "Where this game's settings are kept. Nothing here needs changing to play.",
+    )));
+    if let Some(row) = name_row {
+        group.add(row);
     }
-    ai.add_suffix(chip.widget());
-    if let Some(target) = game.target.clone() {
-        let open = gtk4::Button::builder()
-            .label(i18n("Open"))
-            .valign(gtk4::Align::Center)
+    let file = |title: &str, path: String, icon_name: &str, about: &str| {
+        let row = adw::ActionRow::builder()
+            .title(title)
+            .subtitle(path)
+            .subtitle_lines(2)
+            .use_markup(false)
             .build();
-        open.connect_clicked(move |b| {
-            crate::views::ai_graphics::open(b, target.clone(), None);
+        row.set_subtitle_selectable(true);
+        icon(&row, icon_name);
+        row.add_suffix(&crate::widgets::info::button(title, about));
+        row
+    };
+    let stem = if process.is_empty() { "…" } else { process };
+    group.add(&file(
+        &i18n("Profile file"),
+        format!("{}/{stem}.conf", bigame_core::profiles::USER_PROFILES_DIR),
+        "text-x-generic-symbolic",
+        &i18n(
+            "falcond's profile for this game: performance mode, the scheduler, 3D V-Cache and whether Gamescope wraps it. It is root's file, so BiGame-mode writes it through its privileged helper, which may ask for your password, and falcond reloads it.",
+        ),
+    ));
+    group.add(&file(
+        &i18n("This game's settings"),
+        bigame_core::game_settings::dir()
+            .join(format!("{stem}.toml"))
+            .to_string_lossy()
+            .into_owned(),
+        "folder-symbolic",
+        &i18n(
+            "BiGame-mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What BiGame-mode wrote into Steam's launch options is recorded there, so it changes or removes exactly that.",
+        ),
+    ));
+    if reach == ui::Reach::Steam && !process.is_empty() {
+        let row = file(
+            &i18n("Steam launch options"),
+            i18n("Reading…"),
+            "utilities-terminal-symbolic",
+            &i18n(
+                "What Steam gives this game when it starts it. When you save, BiGame-mode puts its Gamescope wrapper and its variables here (with Steam closed) and takes out only what it put there; the rest is yours.",
+            ),
+        );
+        group.add(&row);
+        let process = process.to_owned();
+        glib::spawn_future_local(async move {
+            let options = gio::spawn_blocking(move || {
+                bigame_core::steam_gamescope::current_options(&process)
+            })
+            .await
+            .ok()
+            .flatten();
+            row.set_subtitle(&options.unwrap_or_else(|| i18n("none")));
         });
-        ai.add_suffix(&open);
     }
-    group.add(&ai);
-
-    let wine_on = m.video.upscaling.wine_fsr_enabled;
-    let wine = adw::ActionRow::builder()
-        .title("Wine FSR")
-        .subtitle(if installed && wine_on {
-            i18n("On in Tuning, with nothing to scale here: OptiScaler upscales inside the game, which runs at the display's resolution")
-        } else if wine_on {
-            i18n("On in Tuning, for every game")
-        } else {
-            i18n("Off in Tuning, for every game")
-        })
-        .subtitle_lines(3)
-        .use_markup(false)
-        .build();
-    wine.add_suffix(ui::on_off_chip(wine_on && !installed).widget());
-    group.add(&wine);
     group
 }
 

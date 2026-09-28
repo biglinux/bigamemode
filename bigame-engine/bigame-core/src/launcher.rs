@@ -1,22 +1,26 @@
 //! Game launch orchestration: gamescope wrapping and env var injection, with
 //! the Harmony Policy keeping technologies that do the same job from stacking.
 //!
-//! Merges per-game `gamescope::Config` (profile) with global `VideoConfig` (video settings)
-//! into a single `LaunchPlan` ready to `spawn()`.
+//! Merges a game's own launch settings (`crate::game_launch`) with the
+//! global `VideoConfig` (Tuning) into a single `LaunchPlan` ready to
+//! `spawn()`.
 //!
 //! Priority, highest first:
 //!
-//! 1. The globally selected upscaling filter.
-//! 2. The per-game `gamescope::Config`: resolution, frame limit, overlay.
-//! 3. `VideoConfig.upscaling` base/target resolution, used when the profile
-//!    specifies none of its own.
+//! 1. What the game's profile sets itself: its sizes, filter, sharpness,
+//!    Wine FSR and vkBasalt take the place of Tuning's.
+//! 2. The Turbo preset in force (Wine FSR, vkBasalt, a frame cap).
+//! 3. Tuning's settings, for everything the game leaves to them.
+//!
+//! A profile's older `[gamescope]` table stands in for the game's own
+//! Gamescope values when it has none.
 
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 
 use crate::gamescope;
-use crate::models::{FrameGenBackend, GamescopeFilter, UpscalingSettings, WineFsrMode};
+use crate::models::{FrameGenBackend, GamescopeFilter, UpscalingSettings};
 use crate::video_config::VideoConfig;
 
 // ── LaunchPlan ────────────────────────────────────────────────────────────────
@@ -68,7 +72,11 @@ impl LaunchPlan {
     /// evaluated against `logical_game` (the process name the game's profile
     /// is keyed on, which differs from `executable` for `steam -applaunch`),
     /// and the game's own Gamescope choice: Always or Never decide for this
-    /// game; Automatic follows the global switch.
+    /// game; Automatic follows the global switch. The game's own launch
+    /// settings (its profile's Display and Image quality,
+    /// `crate::game_launch`) are read here and take the place of Tuning's;
+    /// `gs_override` is a profile's older `[gamescope]` table, used only
+    /// when the game has none of them.
     #[must_use]
     pub fn build_for_game(
         executable: &str,
@@ -78,6 +86,9 @@ impl LaunchPlan {
         gs_override: Option<&gamescope::Config>,
         gamescope_mode: gamescope::Mode,
     ) -> Self {
+        let own = crate::game_settings::load(logical_game)
+            .map(|s| s.launch)
+            .unwrap_or_default();
         Self::build_on_with_mode(
             &Host::detect(),
             executable,
@@ -86,6 +97,7 @@ impl LaunchPlan {
             video,
             gs_override,
             Some(gamescope_mode),
+            &own,
             crate::turbo_preset::active_levers(),
         )
     }
@@ -109,6 +121,7 @@ impl LaunchPlan {
             video,
             gs_override,
             None,
+            &crate::game_launch::GameLaunch::default(),
             crate::turbo_preset::Levers::default(),
         )
     }
@@ -122,6 +135,7 @@ impl LaunchPlan {
         video: &VideoConfig,
         gs_override: Option<&gamescope::Config>,
         game_mode: Option<gamescope::Mode>,
+        own: &crate::game_launch::GameLaunch,
         preset: crate::turbo_preset::Levers,
     ) -> Self {
         // Presentation-layer settings (Gamescope, Wine FSR, vkBasalt, frame
@@ -138,6 +152,14 @@ impl LaunchPlan {
         if let Some(on) = preset.vkbasalt {
             effective_video.upscaling.vkbasalt_enabled = on;
         }
+        // The game's own values over both: set for this one game, they are
+        // the most specific choice there is.
+        effective_video.upscaling = own.over(
+            &effective_video.upscaling,
+            game_mode.unwrap_or(gamescope::Mode::Auto),
+        );
+        let own_gs = own.gamescope_override(&effective_video.upscaling);
+        let gs_override = own_gs.as_ref().or(gs_override);
         // A game BiGame-mode installed OptiScaler into already upscales;
         // Gamescope and Wine FSR would be second upscalers.
         let disables = crate::graphics::launch_disables(
@@ -539,27 +561,18 @@ impl LaunchPlan {
         gs_override: Option<&gamescope::Config>,
     ) -> gamescope::Config {
         let base = gs_override.cloned().unwrap_or_default();
+        // Tuning's sizes are Gamescope's settings like its filter: with its
+        // switch off they are not applied (a game's own sizes come in
+        // `gs_override`). Read regardless, they wrapped every game in an
+        // upscaling Gamescope that Tuning called off — beside a Wine FSR it
+        // had let on, two upscalers in series.
+        let on = upscaling.gamescope_enabled;
+        let pick = |general: u32, own: u32| if on && general > 0 { general } else { own };
         gamescope::Config {
-            render_width: if upscaling.base_width > 0 {
-                upscaling.base_width
-            } else {
-                base.render_width
-            },
-            render_height: if upscaling.base_height > 0 {
-                upscaling.base_height
-            } else {
-                base.render_height
-            },
-            output_width: if upscaling.target_width > 0 {
-                upscaling.target_width
-            } else {
-                base.output_width
-            },
-            output_height: if upscaling.target_height > 0 {
-                upscaling.target_height
-            } else {
-                base.output_height
-            },
+            render_width: pick(upscaling.base_width, base.render_width),
+            render_height: pick(upscaling.base_height, base.render_height),
+            output_width: pick(upscaling.target_width, base.output_width),
+            output_height: pick(upscaling.target_height, base.output_height),
             // `UpscalingSettings::gamescope_filter` defaults to `Fsr` rather
             // than to "none", so it says nothing about whether the user wants
             // upscaling — only which filter they would use if they did. Read
@@ -674,12 +687,7 @@ pub fn build_persistent_env(video: &crate::video_config::VideoConfig) -> HashMap
 fn collect_upscaling_env(upscaling: &UpscalingSettings, env: &mut HashMap<String, String>) {
     if upscaling.wine_fsr_enabled {
         env.insert("WINE_FULLSCREEN_FSR".into(), "1".into());
-        let mode = match upscaling.wine_fsr_mode {
-            WineFsrMode::Performance => "performance",
-            WineFsrMode::Balanced => "balanced",
-            WineFsrMode::Quality => "quality",
-            WineFsrMode::Ultra => "ultra",
-        };
+        let mode = crate::game_launch::wine_fsr_mode_word(upscaling.wine_fsr_mode);
         env.insert("WINE_FULLSCREEN_FSR_MODE".into(), mode.into());
     }
 
@@ -864,6 +872,7 @@ mod tests {
             &video,
             None,
             Some(gamescope::Mode::Disabled),
+            &crate::game_launch::GameLaunch::default(),
             crate::turbo_preset::Levers::default(),
         );
         assert_eq!(never.program, "game");
@@ -875,6 +884,7 @@ mod tests {
             &video,
             None,
             Some(gamescope::Mode::Auto),
+            &crate::game_launch::GameLaunch::default(),
             crate::turbo_preset::Levers::default(),
         );
         assert_eq!(
@@ -890,6 +900,7 @@ mod tests {
             &video,
             None,
             Some(gamescope::Mode::Enabled),
+            &crate::game_launch::GameLaunch::default(),
             crate::turbo_preset::Levers::default(),
         );
         assert_eq!(always.program, "gamescope");
@@ -996,6 +1007,7 @@ mod tests {
                 video,
                 None,
                 None,
+                &crate::game_launch::GameLaunch::default(),
                 levers(preset, desktop_fsr4),
             )
         };
@@ -1032,6 +1044,7 @@ mod tests {
             &VideoConfig::default(),
             None,
             None,
+            &crate::game_launch::GameLaunch::default(),
             levers(Preset::Locked60, desktop_fsr4),
         );
         assert_eq!(plan.program, "game.exe");
@@ -1095,6 +1108,152 @@ mod tests {
             plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
             Some("1")
         );
+    }
+
+    fn build_own(
+        video: &VideoConfig,
+        own: &crate::game_launch::GameLaunch,
+        mode: gamescope::Mode,
+    ) -> LaunchPlan {
+        // A Gamescope that declares the options, so the test sees them.
+        let host = Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: ["F", "S", "r", "f", "fsr-sharpness"]
+                    .map(str::to_owned)
+                    .to_vec(),
+            }),
+            ..desktop()
+        };
+        LaunchPlan::build_on_with_mode(
+            &host,
+            "game.exe",
+            &[],
+            "game.exe",
+            video,
+            None,
+            Some(mode),
+            own,
+            crate::turbo_preset::Levers::default(),
+        )
+    }
+
+    fn arg_after<'a>(plan: &'a LaunchPlan, flag: &str) -> Option<&'a str> {
+        let at = plan.args.iter().position(|a| a == flag)?;
+        plan.args.get(at + 1).map(String::as_str)
+    }
+
+    #[test]
+    fn a_games_own_launch_settings_take_the_place_of_tunings() {
+        use crate::game_launch::GameLaunch;
+        use gamescope::Mode;
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        video.upscaling.base_width = 1280;
+        video.upscaling.base_height = 720;
+        video.upscaling.target_width = 2560;
+        video.upscaling.target_height = 1440;
+        video.upscaling.wine_fsr_enabled = true;
+
+        // Nothing of its own: Tuning's sizes, and Wine FSR off beside them.
+        let plan = build_own(&video, &GameLaunch::default(), Mode::Auto);
+        assert_eq!(arg_after(&plan, "-w"), Some("1280"));
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+
+        // Its own size, and "the game's own size", replace Tuning's.
+        let own = GameLaunch {
+            render: Some((1920, 1080)),
+            ..GameLaunch::default()
+        };
+        let plan = build_own(&video, &own, Mode::Auto);
+        assert_eq!(arg_after(&plan, "-w"), Some("1920"));
+        assert_eq!(arg_after(&plan, "-W"), Some("2560"), "the output follows");
+        let native = GameLaunch {
+            render: Some((0, 0)),
+            ..GameLaunch::default()
+        };
+        let plan = build_own(&video, &native, Mode::Auto);
+        assert_eq!(plan.program, "gamescope");
+        assert_eq!(arg_after(&plan, "-w"), None);
+        // Nothing upscales it now: Tuning's Wine FSR reaches it again.
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("1")
+        );
+
+        // Its own Wine FSR and vkBasalt over the session's.
+        let mut session = VideoConfig::default();
+        session.upscaling.wine_fsr_enabled = true;
+        let own = GameLaunch {
+            wine_fsr: Some(false),
+            vkbasalt: Some(true),
+            ..GameLaunch::default()
+        };
+        let plan = build_own(&session, &own, Mode::Auto);
+        assert_eq!(plan.program, "game.exe");
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(
+            plan.env.get("ENABLE_VKBASALT").map(String::as_str),
+            Some("1")
+        );
+    }
+
+    #[test]
+    fn tunings_sizes_do_not_wrap_a_game_while_its_switch_is_off() {
+        use crate::game_launch::GameLaunch;
+        let mut video = VideoConfig::default();
+        video.upscaling.base_width = 1280;
+        video.upscaling.base_height = 720;
+        video.upscaling.target_width = 2560;
+        video.upscaling.target_height = 1440;
+        video.upscaling.wine_fsr_enabled = true;
+        let plan = build_own(&video, &GameLaunch::default(), gamescope::Mode::Auto);
+        assert_eq!(plan.program, "game.exe");
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("1")
+        );
+        // A game set to Always gets them, and Wine FSR goes beside them.
+        let plan = build_own(&video, &GameLaunch::default(), gamescope::Mode::Enabled);
+        assert_eq!(arg_after(&plan, "-w"), Some("1280"));
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+    }
+
+    #[test]
+    fn a_game_set_to_always_gets_tunings_filter_and_its_own_frame_limit() {
+        use crate::game_launch::GameLaunch;
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_filter = GamescopeFilter::Nis;
+        // Gamescope is off in Tuning; the game says Always.
+        let own = GameLaunch {
+            frame_limit: 60,
+            ..GameLaunch::default()
+        };
+        let plan = build_own(&video, &own, gamescope::Mode::Enabled);
+        assert_eq!(plan.program, "gamescope");
+        assert_eq!(arg_after(&plan, "-F"), Some("nis"));
+        assert_eq!(arg_after(&plan, "-r"), Some("60"));
+        // Its own filter where Automatic runs Gamescope for its own size.
+        video.upscaling.target_width = 2560;
+        video.upscaling.target_height = 1440;
+        let own = GameLaunch {
+            render: Some((1280, 720)),
+            filter: Some(GamescopeFilter::Fsr),
+            ..GameLaunch::default()
+        };
+        let plan = build_own(&video, &own, gamescope::Mode::Auto);
+        assert_eq!(plan.program, "gamescope");
+        assert_eq!(arg_after(&plan, "-F"), Some("fsr"));
+        assert_eq!(arg_after(&plan, "-w"), Some("1280"));
     }
 
     #[test]

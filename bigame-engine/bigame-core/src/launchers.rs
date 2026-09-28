@@ -676,6 +676,22 @@ pub fn reopen(launcher: Launcher) -> Result<()> {
     start(launcher, exe.as_deref())
 }
 
+/// Refuse while `launcher` is open and runs a game — before anything closes
+/// it for a moment (Steam, to write launch options).
+///
+/// # Errors
+/// Returns the reason when a game from it is running.
+pub fn ensure_launcher_idle(launcher: Launcher) -> Result<()> {
+    let procs = snapshot();
+    match find_open(&procs)
+        .into_iter()
+        .find(|o| o.launcher == launcher)
+    {
+        Some(open) => ensure_idle(&open, &procs),
+        None => Ok(()),
+    }
+}
+
 /// Refuse while `open` runs a game.
 fn ensure_idle(open: &Open, procs: &[Proc]) -> Result<()> {
     let name = open.launcher.name();
