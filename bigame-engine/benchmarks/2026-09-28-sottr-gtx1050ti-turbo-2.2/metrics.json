@@ -1,0 +1,119 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "turbo_off",
+          "runs": [
+            24.064322258031456,
+            24.148056135411363,
+            24.134990850699147
+          ],
+          "mean": 24.11578974804732,
+          "median": 24.134990850699147,
+          "min": 24.064322258031456,
+          "max": 24.148056135411363,
+          "stddev": 0.04504833307185435,
+          "cov": 0.001868001568370862
+        },
+        "candidate": {
+          "arm": "turbo_on",
+          "runs": [
+            24.09753998949645,
+            24.02730496690141,
+            24.253347805978144
+          ],
+          "mean": 24.12606425412534,
+          "median": 24.09753998949645,
+          "min": 24.02730496690141,
+          "max": 24.253347805978144,
+          "stddev": 0.11568952644440833,
+          "cov": 0.004795209248629372
+        },
+        "delta_pct": 0.04260489158913538,
+        "verdict": "within_noise",
+        "rationale": "the 0.0% difference is within the 0.5% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "turbo_off",
+          "runs": [
+            16.762403516928707,
+            17.02097201970417,
+            17.24513786603358
+          ],
+          "mean": 17.009504467555484,
+          "median": 17.02097201970417,
+          "min": 16.762403516928707,
+          "max": 17.24513786603358,
+          "stddev": 0.24157140045054717,
+          "cov": 0.014202142155953385
+        },
+        "candidate": {
+          "arm": "turbo_on",
+          "runs": [
+            17.350195897409204,
+            16.965815667305716,
+            17.647122704516576
+          ],
+          "mean": 17.321044756410497,
+          "median": 17.350195897409204,
+          "min": 16.965815667305716,
+          "max": 17.647122704516576,
+          "stddev": 0.3415877068988359,
+          "cov": 0.019720964393467932
+        },
+        "delta_pct": 1.8315659309726295,
+        "verdict": "within_noise",
+        "rationale": "the 1.8% difference is within the 2.0% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "turbo_off",
+          "runs": [
+            10.41851161143119,
+            9.726845851378659,
+            10.262515137209826
+          ],
+          "mean": 10.13595753333989,
+          "median": 10.262515137209826,
+          "min": 9.726845851378659,
+          "max": 10.41851161143119,
+          "stddev": 0.36278506202741584,
+          "cov": 0.03579188851513221
+        },
+        "candidate": {
+          "arm": "turbo_on",
+          "runs": [
+            10.304020113447262,
+            10.429404663508297,
+            10.605775374980444
+          ],
+          "mean": 10.446400050645336,
+          "median": 10.429404663508297,
+          "min": 10.304020113447262,
+          "max": 10.605775374980444,
+          "stddev": 0.151593838442376,
+          "cov": 0.01451158654727292
+        },
+        "delta_pct": 3.0627843130194248,
+        "verdict": "within_noise",
+        "rationale": "the 3.1% difference is within the 3.6% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  }
+]
