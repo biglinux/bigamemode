@@ -19,7 +19,8 @@ use bigame_core::optimization::GameOptimization;
 use bigame_core::profiles::GameProfile;
 
 use crate::i18n::{error_text, i18n};
-use crate::widgets::optimization::{self as ui, GameFields, Machine};
+use crate::widgets::game_fields::GameFields;
+use crate::widgets::optimization::{self as ui, Machine};
 
 /// Open the wizard dialog attached to `parent`.
 pub fn open(parent: &impl IsA<gtk4::Widget>, on_saved: impl Fn(GameProfile) + 'static) {

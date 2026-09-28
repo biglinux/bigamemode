@@ -53,7 +53,10 @@ pub struct GameProfile {
     /// Is this profile active?
     #[serde(default = "default_enabled")]
     pub enabled: bool,
-    /// Per-game Gamescope configuration (None = use global defaults).
+    /// An older version's per-game Gamescope table, read from a TOML
+    /// profile or an import and never written to falcond's file: a game's
+    /// own Gamescope values are in its settings now (`crate::game_launch`),
+    /// and `optimization::GameOptimization::load` moves this there.
     #[serde(default)]
     pub gamescope: Option<crate::gamescope::Config>,
     /// Whether Gamescope wraps this game: automatically, always, or never.

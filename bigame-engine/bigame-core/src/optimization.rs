@@ -325,16 +325,6 @@ pub fn gamescope_upscales(u: &UpscalingSettings) -> bool {
     u.gamescope_enabled && u.base_width > 0 && u.base_height > 0
 }
 
-/// Whether a game's own Gamescope settings upscale.
-#[must_use]
-pub fn game_gamescope_upscales(profile: &GameProfile) -> bool {
-    profile.gamescope_mode != crate::gamescope::Mode::Disabled
-        && profile
-            .gamescope
-            .as_ref()
-            .is_some_and(|g| g.render_width > 0 && g.render_height > 0)
-}
-
 /// The general features switched on in `video`.
 #[must_use]
 pub fn general_features(video: &VideoConfig) -> Vec<Feature> {
@@ -437,12 +427,17 @@ impl FrameGeneration {
 }
 
 /// One game's settings, whichever page made them: the falcond profile (with
-/// BiGame-mode's Gamescope choice), lsfg-vk's entry and `MangoHud`.
+/// BiGame-mode's Gamescope choice), the game's own launch settings, lsfg-vk's
+/// entry and `MangoHud`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameOptimization {
     /// The falcond profile. Its `fg_*` fields are a copy of
-    /// [`Self::frame_generation`], kept for exports.
+    /// [`Self::frame_generation`], kept for exports. Its `gamescope` table is
+    /// an older version's, read into [`Self::launch`] and never written.
     pub profile: GameProfile,
+    /// The game's own Gamescope, Wine FSR and vkBasalt values over Tuning's,
+    /// kept in the game's settings (`crate::game_settings`).
+    pub launch: crate::game_launch::GameLaunch,
     /// lsfg-vk, as its own file holds it.
     pub frame_generation: FrameGeneration,
     /// `MangoHud`.
@@ -457,10 +452,13 @@ pub struct GameOptimization {
 pub struct SaveReport {
     /// lsfg-vk's entry could not be written.
     pub frame_generation: Option<anyhow::Error>,
+    /// The game's own launch settings could not be written.
+    pub launch: Option<anyhow::Error>,
     /// `MangoHud` was written (or refused, or failed); `None` when it did
     /// not change.
     pub mangohud: Option<Result<crate::mangohud::Applied>>,
-    /// Gamescope in a Steam game's launch options; `None` without Gamescope.
+    /// Gamescope and the game's own variables in a Steam game's launch
+    /// options.
     pub gamescope: Option<Result<crate::steam_gamescope::Applied>>,
 }
 
@@ -494,13 +492,35 @@ impl GameOptimization {
         };
         me.mangohud = crate::mangohud::mode_for(&me.profile.name);
         me.saved_mangohud = me.mangohud;
+        me.launch = crate::game_settings::load(&me.profile.name)
+            .map(|s| s.launch)
+            .unwrap_or_default();
+        me.take_legacy_gamescope();
         me.sync_copy();
         me
+    }
+
+    /// A profile's `[gamescope]` table, from an older version, becomes the
+    /// game's own values when it has none yet; the table itself goes, so
+    /// there is one place they live.
+    fn take_legacy_gamescope(&mut self) {
+        if let Some(old) = self.profile.gamescope.take() {
+            if !self.launch.sets_gamescope() {
+                let moved = crate::game_launch::GameLaunch::from_legacy(&old);
+                self.launch = crate::game_launch::GameLaunch {
+                    wine_fsr: self.launch.wine_fsr,
+                    wine_fsr_mode: self.launch.wine_fsr_mode,
+                    vkbasalt: self.launch.vkbasalt,
+                    ..moved
+                };
+            }
+        }
     }
 
     fn from_profile(profile: GameProfile) -> Self {
         let mut me = Self {
             profile,
+            launch: crate::game_launch::GameLaunch::default(),
             frame_generation: FrameGeneration::default(),
             mangohud: crate::mangohud::Mode::Off,
             saved_mangohud: crate::mangohud::Mode::Off,
@@ -571,12 +591,11 @@ impl GameOptimization {
             Ok(())
         };
         report.frame_generation = lsfg.err();
-        if crate::capabilities::which("gamescope").is_some() {
-            report.gamescope = Some(crate::steam_gamescope::apply(
-                &self.profile.name,
-                self.steam_gamescope_segment(),
-            ));
-        }
+        report.launch = self.save_launch().err();
+        report.gamescope = Some(crate::steam_gamescope::apply(
+            &self.profile.name,
+            self.steam_wanted(),
+        ));
         if self.mangohud != self.saved_mangohud {
             let applied = crate::mangohud::apply(&self.profile.name, self.mangohud);
             if matches!(
@@ -591,18 +610,26 @@ impl GameOptimization {
         }
         Ok(report)
     }
+
+    /// Write the game's own launch settings into its settings file, keeping
+    /// everything else there.
+    fn save_launch(&self) -> Result<()> {
+        let mut settings = crate::game_settings::load(&self.profile.name).unwrap_or_default();
+        if settings.launch == self.launch {
+            return Ok(());
+        }
+        settings.launch = self.launch;
+        crate::game_settings::save(&self.profile.name, &settings)
+    }
 }
 
-/// Bring every Steam game that has a Gamescope wrapper from BiGame-mode in
-/// line with Tuning: a game whose profile says Always takes Tuning's sizes
-/// and filter, so changing them there must reach its launch options too
-/// (before, only saving the game's profile did). Games with no wrapper are
+/// Bring every Steam game that has a Gamescope wrapper or variables from
+/// BiGame-mode, or launch settings of its own, in line with Tuning: what a
+/// game leaves to Tuning (the sizes and filter of Always, Wine FSR's mode)
+/// must follow a change there into its launch options too. Other games are
 /// left alone. Each result says what happened for that game.
 #[must_use]
 pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gamescope::Applied>)> {
-    if crate::capabilities::which("gamescope").is_none() {
-        return Vec::new();
-    }
     let Ok(dir) = std::fs::read_dir(crate::game_settings::dir()) else {
         return Vec::new();
     };
@@ -617,44 +644,78 @@ pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gam
         })
         .collect();
     names.sort();
+    // Read once: a game with launch settings of its own and nothing written
+    // yet is looked at only if Steam starts it.
+    let mut steam_games: Option<std::collections::HashSet<String>> = None;
     for name in names {
-        let recorded = crate::game_settings::load(&name)
-            .ok()
-            .and_then(|s| s.steam_gamescope);
-        if recorded.is_none() {
+        let Ok(settings) = crate::game_settings::load(&name) else {
             continue;
+        };
+        let written = settings.steam_gamescope.is_some() || settings.steam_env.is_some();
+        if !written {
+            if settings.launch.is_empty() {
+                continue;
+            }
+            let steam = steam_games.get_or_insert_with(|| {
+                crate::games::detect_all()
+                    .into_iter()
+                    .filter(|g| g.source == crate::games::Source::Steam)
+                    .map(|g| g.profile_key().to_owned())
+                    .collect()
+            });
+            if !steam.contains(&name) {
+                continue;
+            }
         }
         let game = GameOptimization::load(&name);
-        let wanted = game.steam_gamescope_segment();
+        let wanted = game.steam_wanted();
         out.push((name.clone(), crate::steam_gamescope::apply(&name, wanted)));
     }
     out
 }
 
 impl GameOptimization {
-    /// The Gamescope wrapper a Steam game's launch options get. Only what
-    /// the game's own profile asks for: Always (with the sizes from Tuning
-    /// unless the game has its own), or Automatic with the game's own
-    /// settings when they need Gamescope. The general switch is for games
-    /// BiGame-mode starts itself and does not wrap every Steam game. Where
-    /// `OptiScaler` already upscales, no render size.
-    fn steam_gamescope_segment(&self) -> Option<String> {
-        use crate::gamescope::Mode;
+    /// What a Steam game's launch options get from BiGame-mode: the
+    /// Gamescope wrapper and the variables for its own launch settings.
+    fn steam_wanted(&self) -> crate::steam_gamescope::Wanted {
         let video = crate::video_config::load();
-        let mut cfg = match self.profile.gamescope_mode {
-            Mode::Disabled => return None,
-            Mode::Enabled => crate::launcher::LaunchPlan::merge_gamescope_config(
-                &video.upscaling,
-                self.profile.gamescope.as_ref(),
-            ),
-            Mode::Auto => self.profile.gamescope.clone()?,
-        };
-        if optiscaler_features(&self.profile.name).contains(&Feature::OptiScalerUpscaling) {
+        let optiscaler =
+            optiscaler_features(&self.profile.name).contains(&Feature::OptiScalerUpscaling);
+        let gamescope = self.steam_gamescope_segment(&video, optiscaler);
+        let upscales = !optiscaler
+            && gamescope.is_some()
+            && self
+                .launch
+                .upscales(&video.upscaling, self.profile.gamescope_mode, false);
+        let env = self
+            .launch
+            .steam_env(&video.upscaling, upscales, optiscaler)
+            .join(" ");
+        crate::steam_gamescope::Wanted {
+            gamescope,
+            env: (!env.is_empty()).then_some(env),
+        }
+    }
+
+    /// The Gamescope wrapper a Steam game's launch options get. Only what
+    /// the game's own profile asks for: Always (with Tuning's settings for
+    /// whatever the game leaves to them), or Automatic when the game's own
+    /// values need Gamescope. The general switch is for games BiGame-mode
+    /// starts itself and does not wrap every Steam game. Where `OptiScaler`
+    /// already upscales, no render size.
+    fn steam_gamescope_segment(&self, video: &VideoConfig, optiscaler: bool) -> Option<String> {
+        use crate::gamescope::Mode;
+        let mode = self.profile.gamescope_mode;
+        if mode == Mode::Disabled || (mode == Mode::Auto && !self.launch.sets_gamescope()) {
+            return None;
+        }
+        let mut cfg = self.launch.config(&video.upscaling, mode);
+        if optiscaler {
             cfg.render_width = 0;
             cfg.render_height = 0;
         }
         crate::steam_gamescope::segment(
-            self.profile.gamescope_mode,
+            mode,
             &cfg,
             crate::capabilities::gamescope_cached().as_ref(),
             crate::hardware::detect_session(),
@@ -805,17 +866,30 @@ mod tests {
     }
 
     #[test]
-    fn a_games_gamescope_upscales_only_with_a_render_size_and_not_never() {
-        let mut p = GameProfile::default();
-        assert!(!game_gamescope_upscales(&p));
-        p.gamescope = Some(crate::gamescope::Config {
-            render_width: 1280,
-            render_height: 720,
-            ..crate::gamescope::Config::default()
+    fn an_older_profiles_gamescope_table_becomes_the_games_own_values() {
+        let mut g = GameOptimization::from_profile(GameProfile {
+            name: "x".into(),
+            gamescope: Some(crate::gamescope::Config {
+                render_width: 1280,
+                render_height: 720,
+                ..crate::gamescope::Config::default()
+            }),
+            ..GameProfile::default()
         });
-        assert!(game_gamescope_upscales(&p));
-        p.gamescope_mode = crate::gamescope::Mode::Disabled;
-        assert!(!game_gamescope_upscales(&p));
+        g.launch.vkbasalt = Some(true);
+        g.take_legacy_gamescope();
+        assert_eq!(g.launch.render, Some((1280, 720)));
+        assert_eq!(g.launch.vkbasalt, Some(true), "its other values stay");
+        assert!(g.profile.gamescope.is_none(), "one place for them");
+        // A game that already has its own values keeps them.
+        let mut g = GameOptimization::from_profile(GameProfile {
+            name: "x".into(),
+            gamescope: Some(crate::gamescope::Config::default()),
+            ..GameProfile::default()
+        });
+        g.launch.render = Some((1920, 1080));
+        g.take_legacy_gamescope();
+        assert_eq!(g.launch.render, Some((1920, 1080)));
     }
 
     #[test]
