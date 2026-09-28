@@ -950,12 +950,23 @@ impl JournalSink {
     }
 }
 
-/// Whether standard output already goes to the journal: systemd sets
-/// `JOURNAL_STREAM` to the device and inode of the stream it connected, and
-/// the variable is inherited, so the descriptor is compared, not just the
-/// variable read.
+/// Whether standard output already goes to the journal.
+///
+/// systemd sets `JOURNAL_STREAM` to the device and inode of the stream it
+/// connected, and the variable is inherited, so the descriptor is compared,
+/// not just the variable read. The variable can also be wrong: KDE Plasma
+/// starts an application as `app-…@….service` with the launcher's own
+/// environment in `Environment=`, which overrides the one systemd sets, so
+/// the application gets Plasma's `JOURNAL_STREAM` while its standard output
+/// is a stream of its own, and every record was written twice. A descriptor
+/// connected to journald's stdout socket is therefore the journal whatever the
+/// variable says.
 #[must_use]
 pub fn stdout_is_journal() -> bool {
+    connected_to_journal(libc::STDOUT_FILENO) || matches_journal_stream(libc::STDOUT_FILENO)
+}
+
+fn matches_journal_stream(fd: libc::c_int) -> bool {
     let Ok(stream) = std::env::var("JOURNAL_STREAM") else {
         return false;
     };
@@ -968,10 +979,37 @@ pub fn stdout_is_journal() -> bool {
     // SAFETY: an all-zero `stat` is a valid value for fstat to overwrite.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     // SAFETY: fstat on a descriptor number writes only into `st`.
-    if unsafe { libc::fstat(libc::STDOUT_FILENO, &raw mut st) } != 0 {
+    if unsafe { libc::fstat(fd, &raw mut st) } != 0 {
         return false;
     }
     st.st_dev == dev && st.st_ino == ino
+}
+
+/// Whether `fd` is a Unix stream connected to journald's stdout socket.
+fn connected_to_journal(fd: libc::c_int) -> bool {
+    const STDOUT_SOCKET: &[u8] = b"/run/systemd/journal/stdout";
+    // SAFETY: an all-zero `sockaddr_un` is a valid value for getpeername to
+    // overwrite.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    let Ok(mut len) = libc::socklen_t::try_from(std::mem::size_of::<libc::sockaddr_un>()) else {
+        return false;
+    };
+    // SAFETY: getpeername writes at most `len` bytes into `addr` and stores
+    // the length it wrote in `len`; a descriptor that is not a connected
+    // socket makes it fail without writing.
+    if unsafe { libc::getpeername(fd, (&raw mut addr).cast(), &raw mut len) } != 0 {
+        return false;
+    }
+    if libc::c_int::from(addr.sun_family) != libc::AF_UNIX {
+        return false;
+    }
+    let path: Vec<u8> = addr
+        .sun_path
+        .iter()
+        .take_while(|c| **c != 0)
+        .map(|c| c.to_ne_bytes()[0])
+        .collect();
+    path == STDOUT_SOCKET
 }
 
 /// Mask personal data in text meant to leave the machine.
@@ -996,6 +1034,20 @@ pub fn redact(text: &str, home: &str, user: &str, host: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_connected_to_journald_is_the_journal_whatever_the_variable() {
+        use std::os::fd::AsRawFd as _;
+        // A descriptor that is not connected to journald is not.
+        let (a, _b) = std::os::unix::net::UnixStream::pair().unwrap();
+        assert!(!connected_to_journal(a.as_raw_fd()));
+        // One that is, is: what an application started by KDE Plasma has on
+        // standard output while its JOURNAL_STREAM names Plasma's stream.
+        // Only where journald runs (not in a build chroot).
+        if let Ok(stream) = std::os::unix::net::UnixStream::connect("/run/systemd/journal/stdout") {
+            assert!(connected_to_journal(stream.as_raw_fd()));
+        }
+    }
 
     #[test]
     fn a_tracing_line_keeps_its_own_level() {
