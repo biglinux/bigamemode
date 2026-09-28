@@ -1,0 +1,119 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "dx12",
+          "runs": [
+            25.47849075581678,
+            25.174814035487614,
+            24.80728526791336
+          ],
+          "mean": 25.15353001973925,
+          "median": 25.174814035487614,
+          "min": 24.80728526791336,
+          "max": 25.47849075581678,
+          "stddev": 0.3361085520225552,
+          "cov": 0.013362281626427533
+        },
+        "candidate": {
+          "arm": "dx11",
+          "runs": [
+            39.88258100811945,
+            38.616677982123356,
+            38.67690459903859
+          ],
+          "mean": 39.058721196427136,
+          "median": 38.67690459903859,
+          "min": 38.616677982123356,
+          "max": 39.88258100811945,
+          "stddev": 0.7141187249593306,
+          "cov": 0.018283208028445488
+        },
+        "delta_pct": 55.281271319674715,
+        "verdict": "improvement",
+        "rationale": "55.3% faster, above the 1.8% run-to-run spread and significant at 95% (Welch's t = 30.52 against a 4.30 threshold)"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "dx12",
+          "runs": [
+            17.20396177867145,
+            17.970267294248302,
+            15.09678359251365
+          ],
+          "mean": 16.757004221811133,
+          "median": 17.20396177867145,
+          "min": 15.09678359251365,
+          "max": 17.970267294248302,
+          "stddev": 1.4879702413891127,
+          "cov": 0.08879691272335848
+        },
+        "candidate": {
+          "arm": "dx11",
+          "runs": [
+            17.466236793930836,
+            16.449049339327978,
+            17.312360968970005
+          ],
+          "mean": 17.07588236740961,
+          "median": 17.312360968970005,
+          "min": 16.449049339327978,
+          "max": 17.466236793930836,
+          "stddev": 0.5482783747306944,
+          "cov": 0.03210834807442326
+        },
+        "delta_pct": 1.902954378822793,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 8.9% and 3.2%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "dx12",
+          "runs": [
+            12.078724293455023,
+            14.358996449738129,
+            8.21043340825354
+          ],
+          "mean": 11.549384717148897,
+          "median": 12.078724293455023,
+          "min": 8.21043340825354,
+          "max": 14.358996449738129,
+          "stddev": 3.1082723753011927,
+          "cov": 0.2691288281951445
+        },
+        "candidate": {
+          "arm": "dx11",
+          "runs": [
+            14.783932821809259,
+            11.159646717469629,
+            14.744881946155902
+          ],
+          "mean": 13.562820495144928,
+          "median": 14.744881946155902,
+          "min": 11.159646717469629,
+          "max": 14.783932821809259,
+          "stddev": 2.081301130783807,
+          "cov": 0.15345636488581774
+        },
+        "delta_pct": 17.43327309035275,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 26.9% and 15.3%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  }
+]
