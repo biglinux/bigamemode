@@ -460,3 +460,37 @@ flowbox.game-library > flowboxchild:active {
 .editor-save-bar {
     min-height: 40px;
 }
+
+/* ── Welcome screen and page help (widgets/welcome.rs, tutorial.rs) ──
+ *
+ * Both list features the same way: an accent icon, a bold name, a dimmed
+ * sentence. The help adds numbered steps and a tip. */
+.feature-row .feature-icon,
+.help-page-icon,
+.help-tip image {
+    color: @accent_color;
+}
+
+.welcome-subtitle {
+    font-size: 1.15em;
+}
+
+.help-heading {
+    margin-top: 6px;
+}
+
+.help-step-number {
+    min-width: 24px;
+    min-height: 24px;
+    border-radius: 999px;
+    font-size: 0.9em;
+    font-weight: 700;
+    background-color: alpha(@accent_bg_color, 0.16);
+    color: @accent_color;
+}
+
+.help-tip {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: alpha(@accent_bg_color, 0.10);
+}

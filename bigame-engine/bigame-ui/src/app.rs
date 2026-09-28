@@ -48,7 +48,7 @@ pub fn drain_tray_actions() {
 }
 
 /// Reverse-domain application identifier.
-const APP_ID: &str = "com.biglinux.BiGameMode";
+pub(crate) const APP_ID: &str = "com.biglinux.BiGameMode";
 
 /// Create, configure, and run the BiGame-mode application.
 ///
@@ -111,6 +111,14 @@ pub fn run() -> adw::glib::ExitCode {
             Err(e) => tracing::warn!(target: "turbo", error = %e, "could not check for left-over Booster changes"),
         });
 
+        // Programs a previous run paused from Details and could not resume
+        // (it was killed, or crashed) are resumed before anything else: a
+        // program must never stay frozen because BiGame-mode went away.
+        match bigame_core::processes::resume_all() {
+            0 => {}
+            n => tracing::info!(target: "processes", resumed = n, "programs left paused by an earlier run resumed"),
+        }
+
         let quit = adw::gio::ActionEntry::builder("quit")
             .activate(|app: &adw::Application, _, _| app.quit())
             .build();
@@ -158,6 +166,14 @@ pub fn run() -> adw::glib::ExitCode {
 
             start_status_loop(tray_handle, error_indicator);
         }
+    });
+
+    // Quitting (the tray's Quit, Ctrl+Q) resumes what Details paused: the
+    // Resume button goes away with the window, so the programs must not
+    // stay behind frozen.
+    app.connect_shutdown(|_| match bigame_core::processes::resume_all() {
+        0 => {}
+        n => tracing::info!(target: "processes", resumed = n, "paused programs resumed on quit"),
     });
 
     app.run_with_args(&args)
@@ -347,17 +363,30 @@ fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> 
     None
 }
 
-/// Present the About dialog with system information.
+/// Where the project lives: the About dialog's website, and the base of its
+/// issue tracker.
+const WEBSITE: &str = "https://github.com/ruscher/bigamemode";
+
+/// Present the About dialog.
 fn show_about_dialog(app: &adw::Application) {
     let dialog = adw::AboutDialog::builder()
         .application_name("BiGame-mode")
         .application_icon(APP_ID)
         .version(env!("CARGO_PKG_VERSION"))
         .developer_name("Rafael Ruscher")
-        .website("https://github.com/ruscher/bigamemode")
-        .issue_url("https://github.com/ruscher/bigamemode/issues")
+        .website(WEBSITE)
+        .issue_url(format!("{WEBSITE}/issues"))
         .license_type(gtk4::License::Gpl30)
-        .comments(i18n("Performance tuning for Linux gaming"))
+        .comments(format!(
+            "{}\n\n{}",
+            i18n(
+                "BiGame-mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo.",
+            ),
+            i18n(
+                "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement.",
+            ),
+        ))
+        .debug_info(i18n("Gathering system information…"))
         .debug_info_filename("bigame-mode-debug.txt")
         .build();
     // Translators put their names here; untranslated, the msgid comes back
@@ -367,26 +396,52 @@ fn show_about_dialog(app: &adw::Application) {
         dialog.set_translator_credits(&translators);
     }
 
+    // libadwaita links "Name <address>" to the address and "Name https://…"
+    // to the page; a social-media handle is neither, so it stays text.
     dialog.add_credit_section(
-        Some(&i18n("Developers")),
-        &["Rafael Ruscher <rruscher@gmail.com>"],
+        Some(&i18n("Lead Developer")),
+        &["Rafael Ruscher · rruscher@gmail.com <rruscher@gmail.com>"],
     );
     dialog.add_credit_section(
         Some(&i18n("Special Thanks")),
         &[
-            "Barnabé di Kartola",
-            "Alessandro (System Infotech)",
-            "Pacheco (System Infotech)",
+            "Bruno Gonçalves · bigbruno@gmail.com <bigbruno@gmail.com>",
+            "Barnabé di Kartola · barnabedikartola@gmail.com <barnabedikartola@gmail.com>",
+            "Alexasandro Pacheco Feliciano (Pacheco) @pachecogameroficial",
+            "Alessandro e Silva Xavier (Alessandro) @alessandro741",
+        ],
+    );
+    dialog.add_acknowledgement_section(
+        Some(&i18n("vkBasalt configuration")),
+        &["Narayan (Nara Linux) https://www.youtube.com/watch?v=GGBC-qMB_0Y"],
+    );
+    // What BiGame-mode drives rather than reimplements (README, "Projetos
+    // utilizados").
+    dialog.add_acknowledgement_section(
+        Some(&i18n("Built on")),
+        &[
+            "falcond https://git.pika-os.com/general-packages/falcond",
+            "sched-ext https://github.com/sched-ext/scx",
+            "Gamescope https://github.com/ValveSoftware/gamescope",
+            "MangoHud https://github.com/flightlessmango/MangoHud",
+            "vkBasalt https://github.com/DadSchoorse/vkBasalt",
+            "lsfg-vk https://github.com/PancakeTAS/lsfg-vk",
+            "OptiScaler https://github.com/optiscaler/OptiScaler",
         ],
     );
 
-    // The system information runs lspci and asks D-Bus: gathered on a
-    // worker and filled in when it arrives, so the dialog opens at once.
+    // The support report Details copies and `bigame-ui --diagnostics`
+    // prints: one report, so what support reads here is what it reads
+    // everywhere, with the same redaction. It asks systemd and D-Bus and
+    // reads the package database, so it is gathered on a worker and filled
+    // in when it arrives; the dialog opens at once.
     glib::spawn_future_local(glib::clone!(
         #[weak]
         dialog,
         async move {
-            if let Ok(info) = gtk4::gio::spawn_blocking(collect_system_info).await {
+            if let Ok(info) =
+                gtk4::gio::spawn_blocking(|| bigame_core::diagnostics::report(false)).await
+            {
                 dialog.set_debug_info(&info);
             }
         }
@@ -395,55 +450,4 @@ fn show_about_dialog(app: &adw::Application) {
     if let Some(win) = app.active_window() {
         dialog.present(Some(&win));
     }
-}
-
-/// Collect system information for the About dialog debug section.
-fn collect_system_info() -> String {
-    let mut lines = Vec::new();
-
-    lines.push(format!("BiGame-mode {}", env!("CARGO_PKG_VERSION")));
-    lines.push(String::new());
-
-    // Kernel
-    if let Ok(kernel) = std::fs::read_to_string("/proc/version") {
-        if let Some(first) = kernel.lines().next() {
-            lines.push(format!("Kernel: {first}"));
-        }
-    }
-
-    // CPU model
-    if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") {
-        for line in cpuinfo.lines() {
-            if let Some(model) = line.strip_prefix("model name") {
-                if let Some(val) = model.split_once(':').map(|(_, v)| v.trim()) {
-                    lines.push(format!("CPU: {val}"));
-                    break;
-                }
-            }
-        }
-    }
-
-    // Every GPU: a hybrid machine's discrete card is not the first listed.
-    if let Ok(output) = std::process::Command::new("lspci").output() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines() {
-            if line.contains("VGA")
-                || line.contains("3D controller")
-                || line.contains("Display controller")
-            {
-                lines.push(format!("GPU: {line}"));
-            }
-        }
-    }
-
-    // Installed sched-ext schedulers
-    let scheds = bigame_core::sched::detect_installed();
-    lines.push(format!("Schedulers: {}", scheds.join(", ")));
-
-    // Power profile
-    if let Some(pp) = bigame_core::dbus::power_profile_get() {
-        lines.push(format!("Power profile: {pp}"));
-    }
-
-    lines.join("\n")
 }

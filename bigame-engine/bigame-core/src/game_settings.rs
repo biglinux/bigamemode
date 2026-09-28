@@ -35,6 +35,26 @@ pub struct GameSettings {
     /// upscaler (`crate::steam_gamescope::set_wine_fsr_off`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub steam_wine_fsr_off: bool,
+    /// The variables BiGame-mode put in front of the game's Steam launch
+    /// options for its own launch settings, so it can replace or remove
+    /// exactly those (`crate::steam_gamescope`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub steam_env: Option<String>,
+    /// The game's own launch settings (Gamescope, Wine FSR, vkBasalt), over
+    /// Tuning's; what it leaves unset follows Tuning.
+    #[serde(skip_serializing_if = "crate::game_launch::GameLaunch::is_empty")]
+    pub launch: crate::game_launch::GameLaunch,
+    /// Proton's FSR 4 upgrade for a game Heroic starts, from AI Graphics:
+    /// its variables go into the game's settings in Heroic
+    /// (`crate::heroic_launch`), as a Steam game's go into its launch
+    /// options.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub heroic_fsr4_upgrade: bool,
+    /// What BiGame-mode wrote into the game's settings in Heroic, one entry
+    /// per settings file, so it can replace or remove exactly that
+    /// (`crate::heroic_launch`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub heroic: Vec<crate::heroic_launch::Written>,
 }
 
 /// The folder the per-game files are in.
@@ -152,5 +172,30 @@ mod tests {
             load_from(d, "bad").is_err(),
             "a broken file is reported, not replaced"
         );
+    }
+
+    #[test]
+    fn a_file_from_before_a_games_own_launch_settings_still_loads() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path();
+        std::fs::write(
+            d.join("SOTTR.exe.toml"),
+            "mangohud = \"on\"\nsteam_gamescope = \"gamescope -f --\"\n\n[ai_graphics]\nmode = \"recommended\"\n",
+        )
+        .unwrap();
+        let s = load_from(d, "SOTTR.exe").unwrap();
+        assert_eq!(s.mangohud, crate::mangohud::Mode::On);
+        assert_eq!(s.steam_gamescope.as_deref(), Some("gamescope -f --"));
+        assert!(s.launch.is_empty() && s.steam_env.is_none());
+
+        // Its own values round-trip, and none are written when there are none.
+        let mut s = s;
+        s.launch.render = Some((1280, 720));
+        s.launch.vkbasalt = Some(true);
+        save_to(d, "SOTTR.exe", &s).unwrap();
+        assert_eq!(load_from(d, "SOTTR.exe").unwrap(), s);
+        save_to(d, "plain", &GameSettings::default()).unwrap();
+        let text = std::fs::read_to_string(d.join("plain.toml")).unwrap();
+        assert!(!text.contains("launch"), "{text}");
     }
 }

@@ -356,6 +356,8 @@ mod tests {
             app_id: None,
             install_root: "/g".into(),
             executable: Some("G.exe".into()),
+            launcher_stub: None,
+            engine: None,
             machine: Some(super::super::pe::Machine::X64),
             runtime: None,
             api: ApiEvidence {

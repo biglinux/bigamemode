@@ -94,10 +94,11 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         });
     }
 
-    // Steam keeps the environment it started with: a preset switched on
-    // while it is open reaches its games only once it is opened again. One
-    // compact row, so the page still fits its window while it is shown.
-    let steam_notice = SteamRow::new();
+    // A launcher keeps the environment it started with: a preset switched
+    // on while it is open reaches its games only once it is opened again.
+    // One compact row per launcher that lacks it, so the page still fits
+    // its window while they are shown.
+    let launcher_rows = LauncherRows::new();
 
     let column = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     column.set_halign(gtk4::Align::Center);
@@ -111,7 +112,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     column.append(button.widget());
     column.append(button.caption());
     column.append(presets.widget());
-    column.append(steam_notice.widget());
+    column.append(launcher_rows.widget());
     column.append(card.widget());
 
     let scroll = gtk4::ScrolledWindow::builder()
@@ -190,7 +191,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let show = Rc::clone(&show_report);
         let turbo_on = Rc::clone(&turbo_on);
         let card = card.clone();
-        let steam_notice = steam_notice.clone();
+        let launcher_rows = launcher_rows.clone();
         button.clone().connect_activated(move || {
             let turning_off = button.state().is_on();
             let working = if turning_off {
@@ -212,7 +213,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
             let show = Rc::clone(&show);
             let turbo_on = Rc::clone(&turbo_on);
             let card = card.clone();
-            let steam_notice = steam_notice.clone();
+            let launcher_rows = launcher_rows.clone();
             glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
                 loop {
                     let event = match rx.try_recv() {
@@ -241,10 +242,9 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                         Event::Done(report) => {
                             let report = *report;
                             let (state, on) = finished_state(&report);
-                            steam_notice.set_visible(
+                            launcher_rows.refresh(
                                 on && bigame_core::turbo_preset::active()
-                                    != bigame_core::turbo_preset::Preset::Standard
-                                    && bigame_core::steam::is_running(),
+                                    != bigame_core::turbo_preset::Preset::Standard,
                             );
                             turbo_on.set(on);
                             button.set_state(&state);
@@ -287,18 +287,20 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let turbo_on = Rc::clone(&turbo_on);
         let last = Rc::clone(&last_report);
         let card = card.clone();
+        let launcher_rows = launcher_rows.clone();
         let root = scroll.clone();
         let busy = Rc::new(Cell::new(false));
         glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
             if !root.is_mapped() || !button.state().is_interactive() || busy.replace(true) {
                 return glib::ControlFlow::Continue;
             }
-            let (button, turbo_on, last, card, busy) = (
+            let (button, turbo_on, last, card, busy, launcher_rows) = (
                 Rc::clone(&button),
                 Rc::clone(&turbo_on),
                 Rc::clone(&last),
                 card.clone(),
                 Rc::clone(&busy),
+                launcher_rows.clone(),
             );
             glib::spawn_future_local(async move {
                 let reading = gio::spawn_blocking(|| {
@@ -318,6 +320,11 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                 } else {
                     turbo_on.get()
                 };
+                // A launcher opened again, or closed, by hand leaves its row;
+                // Turbo switched off elsewhere takes them all away.
+                if launcher_rows.widget().is_visible() {
+                    launcher_rows.refresh(on);
+                }
                 if on != turbo_on.get()
                     || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
                 {
@@ -572,84 +579,136 @@ fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
     }
 }
 
-// ── Steam, open before the preset ────────────────────────────────────────────
+// ── Launchers open before the preset ─────────────────────────────────────────
 
-/// One row: Steam was open before the preset, and a button to open it again
-/// in the session as it is now.
+/// The launchers that were open before the preset and do not have it: one
+/// compact row each, with a button to open that launcher again in the
+/// session as it is now.
 #[derive(Clone)]
-struct SteamRow {
+struct LauncherRows {
     root: gtk4::Box,
+    /// A launcher is being opened again: the rows stay as they are until
+    /// it is done, so its button cannot come back and be pressed twice.
+    reopening: Rc<Cell<bool>>,
 }
 
-impl SteamRow {
+impl LauncherRows {
     fn new() -> Self {
-        let icon = gtk4::Image::from_icon_name("dialog-information-symbolic");
-        icon.add_css_class("accent");
-        let title = gtk4::Label::new(Some(&i18n("Steam was already open")));
-        title.add_css_class("heading");
-        title.set_xalign(0.0);
-        let body = i18n(
-            "It keeps the environment it started with, so its games get the preset once Steam is opened again. Opening it again closes it the way it closes itself.",
-        );
-        let text = gtk4::Label::new(Some(&body));
-        text.add_css_class("caption");
-        text.add_css_class("dim-label");
-        text.set_xalign(0.0);
-        text.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        text.set_tooltip_text(Some(&body));
-        let lines = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
-        lines.set_hexpand(true);
-        lines.set_valign(gtk4::Align::Center);
-        lines.append(&title);
-        lines.append(&text);
-        let button = gtk4::Button::builder()
-            .label(i18n("Reopen Steam"))
-            .css_classes(["suggested-action", "pill"])
-            .valign(gtk4::Align::Center)
-            .build();
-        let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
-        root.add_css_class("card");
-        root.add_css_class("home-steam");
+        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
         root.set_visible(false);
-        root.append(&icon);
-        root.append(&lines);
-        root.append(&button);
-        let me = Self { root };
-        {
-            let me = me.clone();
-            button.connect_clicked(move |b| {
-                b.set_sensitive(false);
-                let (me, b) = (me.clone(), b.clone());
-                glib::spawn_future_local(async move {
-                    let done = gio::spawn_blocking(bigame_core::steam::restart_in_session).await;
-                    b.set_sensitive(true);
-                    match done {
-                        Ok(Ok(())) => {
-                            me.set_visible(false);
-                            crate::widgets::toast::show(
-                                &me.root,
-                                &i18n("Steam opened again: its games get the preset"),
-                            );
-                        }
-                        Ok(Err(e)) => crate::widgets::toast::error(
-                            &me.root,
-                            &i18n("Steam could not be opened again"),
-                            &format!("{e:#}"),
-                        ),
-                        Err(_) => {}
-                    }
-                });
-            });
+        Self {
+            root,
+            reopening: Rc::new(Cell::new(false)),
         }
-        me
     }
 
     fn widget(&self) -> &gtk4::Box {
         &self.root
     }
 
-    fn set_visible(&self, visible: bool) {
-        self.root.set_visible(visible);
+    /// Read which launchers are behind the session, off the main thread,
+    /// and show a row for each; none when `wanted` is false.
+    fn refresh(&self, wanted: bool) {
+        if self.reopening.get() {
+            return;
+        }
+        if !wanted {
+            self.show(&[]);
+            return;
+        }
+        let me = self.clone();
+        glib::spawn_future_local(async move {
+            if let Ok(behind) =
+                gio::spawn_blocking(bigame_core::launchers::behind_the_session).await
+            {
+                if !me.reopening.get() {
+                    me.show(&behind);
+                }
+            }
+        });
+    }
+
+    fn show(&self, launchers: &[bigame_core::launchers::Launcher]) {
+        while let Some(child) = self.root.first_child() {
+            self.root.remove(&child);
+        }
+        // What opening one again means is said once, on the first row; the
+        // others keep it in their tooltip, so three launchers still fit.
+        for (i, launcher) in launchers.iter().enumerate() {
+            self.root.append(&self.row(*launcher, i == 0));
+        }
+        self.root.set_visible(!launchers.is_empty());
+    }
+
+    fn row(&self, launcher: bigame_core::launchers::Launcher, explained: bool) -> gtk4::Box {
+        let name = launcher.name();
+        let icon = gtk4::Image::from_icon_name("dialog-information-symbolic");
+        icon.add_css_class("accent");
+        let title = gtk4::Label::new(Some(&i18n("%s was already open").replace("%s", name)));
+        title.add_css_class("heading");
+        title.set_xalign(0.0);
+        title.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        let body = i18n(
+            "It keeps the environment it started with, so its games get the preset once it is opened again. Opening it again closes it the way it closes itself, never while it runs a game.",
+        );
+        let lines = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
+        lines.set_hexpand(true);
+        lines.set_valign(gtk4::Align::Center);
+        lines.append(&title);
+        if explained {
+            let text = gtk4::Label::new(Some(&body));
+            text.add_css_class("caption");
+            text.add_css_class("dim-label");
+            text.set_xalign(0.0);
+            text.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+            lines.append(&text);
+        }
+        lines.set_tooltip_text(Some(&body));
+        let button = gtk4::Button::builder()
+            .label(i18n("Reopen %s").replace("%s", name))
+            .css_classes(["suggested-action", "pill"])
+            .valign(gtk4::Align::Center)
+            .build();
+        let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+        row.add_css_class("card");
+        row.add_css_class("home-launcher");
+        row.append(&icon);
+        row.append(&lines);
+        row.append(&button);
+        {
+            let (me, row) = (self.clone(), row.clone());
+            button.connect_clicked(move |b| {
+                if me.reopening.replace(true) {
+                    return;
+                }
+                b.set_sensitive(false);
+                let (me, row, b) = (me.clone(), row.clone(), b.clone());
+                glib::spawn_future_local(async move {
+                    let done =
+                        gio::spawn_blocking(move || bigame_core::launchers::reopen(launcher)).await;
+                    me.reopening.set(false);
+                    b.set_sensitive(true);
+                    match done {
+                        Ok(Ok(())) => {
+                            crate::widgets::toast::show(
+                                &me.root,
+                                &i18n("%s opened again: its games get the preset")
+                                    .replace("%s", name),
+                            );
+                            me.root.remove(&row);
+                            me.root.set_visible(me.root.first_child().is_some());
+                        }
+                        Ok(Err(e)) => crate::widgets::toast::error(
+                            &me.root,
+                            &i18n("%s could not be opened again").replace("%s", name),
+                            &error_text(&e),
+                        ),
+                        Err(_) => {}
+                    }
+                });
+            });
+        }
+        row
     }
 }
 
@@ -851,30 +910,62 @@ impl InfoCard {
         self.root.set_visible(true);
         self.icon.set_visible(false);
         self.name.set_label(&g.display_name);
-        let cover = g.steam_app_id.as_ref().and_then(|id| {
-            let home = std::env::var_os("HOME")?;
-            bigame_core::games::steam_cover(std::path::Path::new(&home), id)
-        });
-        self.cover.set_visible(cover.is_some());
-        if let Some(path) = cover {
-            // Decoded off the main thread at the size shown; dropped if
-            // another game took the card meanwhile.
+        // Steam's cover by its id; any other launcher's from the library.
+        // Found and decoded off the main thread at the size shown; dropped
+        // if another game took the card meanwhile.
+        self.cover.set_visible(false);
+        {
             let image = self.cover.clone();
             let shown = Rc::clone(&self.game);
             let pid = g.pid;
             let size = image.pixel_size() * image.scale_factor().max(1);
+            let (app_id, process, folder) = (
+                g.steam_app_id.clone(),
+                g.process_name.clone(),
+                g.install_path.clone(),
+            );
+            let name = self.name.clone();
+            let bare_name = g.display_name == g.process_name;
             glib::spawn_future_local(async move {
-                let texture = gio::spawn_blocking(move || {
-                    gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, size, size, true)
-                        .ok()
-                        .map(|p| gtk4::gdk::Texture::for_pixbuf(&p))
+                let found = gio::spawn_blocking(move || {
+                    let steam = app_id.as_ref().and_then(|id| {
+                        let home = std::env::var_os("HOME")?;
+                        bigame_core::games::steam_cover(std::path::Path::new(&home), id)
+                    });
+                    // Only a process name: the library knows the title.
+                    let installed = (steam.is_none() || bare_name)
+                        .then(|| {
+                            bigame_core::games::installed_game_for_process(
+                                &process,
+                                folder.as_deref(),
+                            )
+                        })
+                        .flatten();
+                    let title = installed.as_ref().map(|g| g.name.clone());
+                    let texture =
+                        steam
+                            .or_else(|| installed.and_then(|g| g.cover))
+                            .and_then(|path| {
+                                gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(
+                                    &path, size, size, true,
+                                )
+                                .ok()
+                                .map(|p| gtk4::gdk::Texture::for_pixbuf(&p))
+                            });
+                    (title, texture)
                 })
                 .await
-                .ok()
-                .flatten();
+                .ok();
                 let still_shown = shown.borrow().as_ref().is_some_and(|g| g.pid == pid);
-                if let Some(texture) = texture.filter(|_| still_shown) {
+                let Some((title, texture)) = found.filter(|_| still_shown) else {
+                    return;
+                };
+                if let Some(title) = title.filter(|_| bare_name) {
+                    name.set_label(&title);
+                }
+                if let Some(texture) = texture {
                     image.set_paintable(Some(&texture));
+                    image.set_visible(true);
                 }
             });
         }

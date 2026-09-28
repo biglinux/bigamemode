@@ -181,6 +181,7 @@ pub fn build(
         .css_classes(["title"])
         .build();
     sidebar_header.set_title_widget(Some(&app_label));
+    show_app_icon(&sidebar_header);
 
     let sidebar_view = adw::ToolbarView::new();
     sidebar_view.add_top_bar(&sidebar_header);
@@ -363,14 +364,41 @@ pub fn build(
     }
     window.add_action(&restore_action);
 
+    // ── Welcome screen (win.welcome) ──────────────────────────────────
+    let welcome_action = gio::SimpleAction::new("welcome", None);
+    {
+        let win = window.clone();
+        welcome_action.connect_activate(move |_, _| widgets::welcome::show(&win));
+    }
+    window.add_action(&welcome_action);
+    // Once per run, the first time the window is on screen: a start hidden
+    // in the tray shows it when the window is first opened from there.
+    {
+        let offered = std::cell::Cell::new(false);
+        window.connect_map(move |win| {
+            if offered.replace(true) || !settings::load().show_welcome {
+                return;
+            }
+            // After the window has its size, so the dialog is laid out over
+            // it rather than over a window still being mapped.
+            let win = win.clone();
+            glib::idle_add_local_once(move || widgets::welcome::show(&win));
+        });
+    }
+
     // ── Main menu button (content header, end) ────────────────────────
     let menu = adw::gio::Menu::new();
-    menu.append(
+    let tools = adw::gio::Menu::new();
+    tools.append(
         Some(&i18n("Restore Defaults")),
         Some("win.restore-defaults"),
     );
-    menu.append(Some(&i18n("About BiGame-mode")), Some("app.about"));
-    menu.append(Some(&i18n("Quit")), Some("app.quit"));
+    menu.append_section(None, &tools);
+    let app_items = adw::gio::Menu::new();
+    app_items.append(Some(&i18n("Welcome")), Some("win.welcome"));
+    app_items.append(Some(&i18n("About")), Some("app.about"));
+    app_items.append(Some(&i18n("Quit")), Some("app.quit"));
+    menu.append_section(None, &app_items);
 
     let menu_btn = gtk4::MenuButton::builder()
         .icon_name("open-menu-symbolic")
@@ -402,9 +430,91 @@ pub fn build(
     (window, error_indicator)
 }
 
+/// Size of the application icon at the head of the sidebar.
+const APP_ICON_SIZE: i32 = 24;
+
+/// Show the application icon at the start of the sidebar's header bar, at
+/// [`APP_ICON_SIZE`], where the desktop's title-bar layout asks for one.
+///
+/// The window controls draw the layout's `icon` at 16 px from a texture of
+/// that size, so enlarging it with CSS only blurs it. The header bar is
+/// given the layout without it, and an image of its own takes its place —
+/// kept in step when the desktop's layout changes.
+fn show_app_icon(header: &adw::HeaderBar) {
+    let image = gtk4::Image::from_icon_name(crate::app::APP_ID);
+    image.set_pixel_size(APP_ICON_SIZE);
+    image.add_css_class("sidebar-app-icon");
+    header.pack_start(&image);
+
+    let Some(settings) = gtk4::Settings::default() else {
+        return;
+    };
+    let apply = {
+        let header = header.clone();
+        let image = image.clone();
+        move |settings: &gtk4::Settings| {
+            let layout = settings.gtk_decoration_layout().unwrap_or_default();
+            if layout.is_empty() {
+                // No layout to adjust: GTK's own default, which has no icon.
+                header.set_decoration_layout(None);
+                image.set_visible(false);
+                return;
+            }
+            let (layout, had_icon) = layout_without_icon(&layout);
+            header.set_decoration_layout(Some(&layout));
+            image.set_visible(had_icon);
+        }
+    };
+    apply(&settings);
+    settings.connect_gtk_decoration_layout_notify(apply);
+}
+
+/// A title-bar layout (`icon:minimize,maximize,close`) without the window
+/// icon, and whether the icon was on its start side, before the colon.
+fn layout_without_icon(layout: &str) -> (String, bool) {
+    let strip = |side: &str| {
+        side.split(',')
+            .filter(|item| item.trim() != "icon")
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    match layout.split_once(':') {
+        Some((start, end)) => (
+            format!("{}:{}", strip(start), strip(end)),
+            start.split(',').any(|item| item.trim() == "icon"),
+        ),
+        None => (
+            strip(layout),
+            layout.split(',').any(|item| item.trim() == "icon"),
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_window_icon_leaves_the_layout_and_says_where_it_was() {
+        assert_eq!(
+            layout_without_icon("icon:minimize,maximize,close"),
+            (":minimize,maximize,close".to_owned(), true)
+        );
+        assert_eq!(
+            layout_without_icon("appmenu:close"),
+            ("appmenu:close".to_owned(), false)
+        );
+        // On the end side it is removed too, but no icon goes at the start.
+        assert_eq!(
+            layout_without_icon("close:minimize,icon"),
+            ("close:minimize".to_owned(), false)
+        );
+        assert_eq!(
+            layout_without_icon("menu,icon:close"),
+            ("menu:close".to_owned(), true)
+        );
+        assert_eq!(layout_without_icon(""), (String::new(), false));
+    }
 
     #[test]
     fn the_pages_of_removed_categories_lead_to_where_their_content_went() {

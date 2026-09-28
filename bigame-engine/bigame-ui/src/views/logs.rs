@@ -1,7 +1,8 @@
 //! Logs: everything involved in a game session, in one colour-coded list.
 //!
-//! Read from the journal in one call ([`bigame_core::logs`]), incrementally
-//! by cursor, and only while this page is on screen.
+//! Read from the journal in one call, and from the few log files that are
+//! not in it ([`bigame_core::logs::Reader`]), each from where the last read
+//! stopped, and only while this page is on screen.
 //!
 //! Only the severity label is coloured, so an error stands out without the
 //! whole line shouting; the message itself stays in the normal text colour.
@@ -15,12 +16,16 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use bigame_core::logs::{Entry, Level, Source};
+use bigame_core::logs::{Entry, LABEL_WIDTH, Level, Reader, Source};
 
 use crate::i18n::{i18n, ni18n};
 
 /// Entries kept in memory; older ones scroll away.
 const KEEP: usize = 3000;
+/// Journal records read when the page first opens, and on each refresh
+/// after. The first read fills the page; later ones only catch up.
+const FIRST_READ: u32 = 2000;
+const LATER_READ: u32 = 600;
 
 /// What the filter shows.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -47,6 +52,13 @@ impl Filter {
             (Self::Only(Source::Gamescope), "Gamescope".into()),
             (Self::Only(Source::Scheduler), "sched-ext".into()),
             (Self::Only(Source::PowerProfiles), i18n("Power profiles")),
+            (Self::Only(Source::Polkit), "Polkit".into()),
+            (Self::Only(Source::Steam), "Steam".into()),
+            (Self::Only(Source::Wine), "Proton / Wine".into()),
+            (Self::Only(Source::MangoHud), "MangoHud".into()),
+            (Self::Only(Source::VkBasalt), "vkBasalt".into()),
+            (Self::Only(Source::Lsfg), "lsfg-vk".into()),
+            (Self::Only(Source::OptiScaler), "OptiScaler".into()),
         ]
     }
 
@@ -64,7 +76,9 @@ impl Filter {
 
 struct State {
     entries: Vec<Entry>,
-    cursor: Option<String>,
+    /// Where each source was last read up to; away on a worker while a read
+    /// runs.
+    reader: Option<Reader>,
     filter: Filter,
     search: String,
     loading: bool,
@@ -78,7 +92,7 @@ pub fn build() -> adw::PreferencesPage {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Logs"));
     group.set_description(Some(&i18n(
-        "falcond, BiGame-mode, the kernel's graphics drivers, Gamescope, sched-ext and power profiles, from the system journal.",
+        "falcond, BiGame-mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files.",
     )));
 
     // ── Controls ────────────────────────────────────────────────────────
@@ -164,7 +178,7 @@ pub fn build() -> adw::PreferencesPage {
 
     let state = Rc::new(RefCell::new(State {
         entries: Vec::new(),
-        cursor: None,
+        reader: Some(Reader::default()),
         filter: Filter::All,
         search: String::new(),
         loading: false,
@@ -185,27 +199,41 @@ pub fn build() -> adw::PreferencesPage {
             if state.borrow().loading {
                 return;
             }
+            let Some(mut sources) = state.borrow_mut().reader.take() else {
+                return;
+            };
             state.borrow_mut().loading = true;
-            let cursor = state.borrow().cursor.clone();
+            let lines = if state.borrow().entries.is_empty() {
+                FIRST_READ
+            } else {
+                LATER_READ
+            };
             let state = Rc::clone(&state);
             let render = Rc::clone(&render);
             let view = view.clone();
             glib::spawn_future_local(async move {
-                let result =
-                    gio::spawn_blocking(move || bigame_core::logs::read(600, cursor.as_deref()))
-                        .await;
+                let result = gio::spawn_blocking(move || {
+                    let new = sources.read(lines);
+                    (sources, new)
+                })
+                .await;
                 let mut s = state.borrow_mut();
                 s.loading = false;
-                let Ok(Ok((new, cursor))) = result else {
+                let Ok((sources, new)) = result else {
+                    // The worker panicked; start over rather than never read again.
+                    s.reader = Some(Reader::default());
                     return;
                 };
-                if cursor.is_some() {
-                    s.cursor = cursor;
-                }
+                s.reader = Some(sources);
+                let Ok(new) = new else {
+                    return;
+                };
                 if new.is_empty() && !s.entries.is_empty() {
                     return;
                 }
                 s.entries.extend(new);
+                // A log file's lines can be older than the journal's last.
+                s.entries.sort_by_key(|e| e.time_us);
                 let excess = s.entries.len().saturating_sub(KEEP);
                 s.entries.drain(..excess);
                 drop(s);
@@ -348,7 +376,11 @@ fn render(state: &State, view: &gtk4::TextView, counts: &gtk4::Label) {
         }
         buffer.insert_with_tags_by_name(
             &mut end,
-            &format!("  {:<9}", entry.source.label()),
+            &format!(
+                "  {:<width$}",
+                entry.source.label(),
+                width = LABEL_WIDTH + 1
+            ),
             &["dim"],
         );
         buffer.insert(&mut end, &entry.message);
@@ -388,11 +420,12 @@ fn export_to_file(anchor: &gtk4::Button, state: &State) {
     for e in visible(state) {
         let _ = writeln!(
             text,
-            "{}  {}  {:<9}{}",
+            "{}  {}  {:<width$}{}",
             time_label(e.time_us),
             e.level.label(),
             e.source.label(),
-            e.message
+            e.message,
+            width = LABEL_WIDTH + 1,
         );
     }
     let text = bigame_core::logs::redact(&text, &home, &user, &host);

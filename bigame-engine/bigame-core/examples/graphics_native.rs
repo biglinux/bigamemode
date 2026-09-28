@@ -1,6 +1,7 @@
 //! The Native backend's one action, as the page's Apply does it: switch the
-//! FSR 4 upgrade through Proton on or off for a Steam game, by its launch
-//! options (Steam closed; backed up; read back).
+//! FSR 4 upgrade through Proton on or off for a Steam game by its launch
+//! options (Steam closed; backed up; read back), or for a Heroic game in its
+//! settings there (Heroic closed; backed up).
 //!
 //! Usage: `graphics_native <process-name> fsr4 on|off` · `graphics_native <process-name>`
 use bigame_core::graphics::{self, fsr4_upgrade};
@@ -14,12 +15,15 @@ fn main() -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("no installed game runs as {process}"))?;
     if args.get(1).map(String::as_str) == Some("fsr4") {
         let on = args.get(2).map(String::as_str) == Some("on");
-        println!("{:?}", fsr4_upgrade::apply(target.app_id.as_deref(), on)?);
+        println!(
+            "{:?}",
+            fsr4_upgrade::apply(&target.process, target.app_id.as_deref(), on)?
+        );
     }
     println!(
-        "{}: FSR4_UPGRADE in Steam launch options: {}",
+        "{}: FSR 4 upgrade in its launch options (Steam) or settings (Heroic): {}",
         target.name,
-        fsr4_upgrade::is_enabled(target.app_id.as_deref())
+        fsr4_upgrade::is_enabled(&target.process, target.app_id.as_deref())
     );
     Ok(())
 }

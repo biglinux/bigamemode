@@ -27,7 +27,7 @@
 //! on disk, it is used, and if it does not, the fallback chain degrades to an
 //! icon rather than to an empty box.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// Where a game came from.
@@ -108,6 +108,10 @@ pub enum LauncherRef {
         app_name: String,
         /// Heroic's configuration directory (native or Flatpak).
         config_dir: PathBuf,
+        /// The store backend that lists it (`legendary`, `gog`, `nile`,
+        /// `sideload`): what a `heroic://launch` link names as its runner.
+        /// `None` for a store Heroic's links cannot start.
+        runner: Option<&'static str>,
     },
     /// Lutris: the game's YAML configuration.
     Lutris {
@@ -853,6 +857,39 @@ pub fn acf_value(content: &str, key: &str) -> Option<String> {
 
 /// Cover art Steam has already downloaded for `app_id`.
 ///
+/// The installed game a running process belongs to, from any launcher: the
+/// game whose install folder holds the process, else the one that lists its
+/// executable. What names it and shows its cover when the process alone
+/// says neither.
+#[must_use]
+pub fn installed_game_for_process(
+    process_name: &str,
+    install_path: Option<&Path>,
+) -> Option<DetectedGame> {
+    game_among(&detect_all(), process_name, install_path).cloned()
+}
+
+fn game_among<'a>(
+    games: &'a [DetectedGame],
+    process_name: &str,
+    install_path: Option<&Path>,
+) -> Option<&'a DetectedGame> {
+    let by_folder = install_path.and_then(|dir| {
+        games.iter().find(|g| {
+            g.install_path
+                .as_deref()
+                .is_some_and(|root| dir.starts_with(root) || root.starts_with(dir))
+        })
+    });
+    by_folder.or_else(|| {
+        games.iter().find(|g| {
+            g.executables
+                .iter()
+                .any(|e| e.eq_ignore_ascii_case(process_name))
+        })
+    })
+}
+
 /// Steam keeps covers under a per-app directory in a further hash-named
 /// subdirectory, so the search recurses rather than building a fixed path. The
 /// filename preference degrades gracefully: not every title has
@@ -1278,6 +1315,11 @@ pub struct HeroicEntry {
     pub executable: Option<PathBuf>,
     /// The game's id in Heroic (`app_name`), which names its settings file.
     pub app_name: Option<String>,
+    /// Its artwork's addresses (`art_square`, then `art_cover`): Heroic keeps
+    /// what it downloaded under `images-cache/`, named by their SHA-256.
+    pub art: Vec<String>,
+    /// The store backend whose file listed it ([`LauncherRef::Heroic`]).
+    pub runner: Option<&'static str>,
 }
 
 /// The installed games among a Heroic store library (`store_cache/*_library.json`,
@@ -1309,6 +1351,8 @@ pub fn heroic_library_entries(json: &str) -> Vec<HeroicEntry> {
                 install_path: string(install, "install_path").map(PathBuf::from),
                 executable: string(install, "executable").map(PathBuf::from),
                 app_name: string(g, "app_name"),
+                art: heroic_art(g),
+                runner: None,
             })
         })
         .collect()
@@ -1354,7 +1398,40 @@ pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
                 app_name: string("app_name")
                     .or_else(|| string("appName"))
                     .or_else(|| string("id")),
+                art: heroic_art(r),
+                runner: None,
             })
+        })
+        .collect()
+}
+
+/// A Heroic record's artwork addresses, portrait first.
+fn heroic_art(record: &serde_json::Value) -> Vec<String> {
+    ["art_square", "art_cover"]
+        .iter()
+        .filter_map(|k| record.get(*k).and_then(serde_json::Value::as_str))
+        .filter(|u| u.starts_with("https://") || u.starts_with("http://"))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The artwork of every game a Heroic store library lists, installed or
+/// not, by `app_name`: a backend's `installed.json` names no artwork.
+#[must_use]
+pub fn heroic_library_art(json: &str) -> HashMap<String, Vec<String>> {
+    let Ok(root) = serde_json::from_str::<serde_json::Value>(json) else {
+        return HashMap::new();
+    };
+    root.get("library")
+        .or_else(|| root.get("games"))
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|g| {
+            let name = g.get("app_name")?.as_str()?.to_owned();
+            let art = heroic_art(g);
+            (!art.is_empty()).then_some((name, art))
         })
         .collect()
 }
@@ -1362,17 +1439,23 @@ pub fn heroic_installed_entries(json: &str) -> Vec<HeroicEntry> {
 /// Files Heroic writes about installed games, relative to its configuration
 /// directory. The store libraries carry titles and the installed flag; the
 /// backends' own lists are the record of what was actually installed.
-const HEROIC_LIBRARIES: &[&str] = &[
-    "store_cache/legendary_library.json",
-    "store_cache/gog_library.json",
-    "store_cache/nile_library.json",
-    "store_cache/zoom-library.json",
-    "sideload_apps/library.json",
+///
+/// Each with the runner a `heroic://launch` link names for its games; Heroic
+/// 2.22 knows `legendary`, `gog`, `nile` and `sideload`, not Zoom.
+const HEROIC_LIBRARIES: &[(&str, Option<&str>)] = &[
+    ("store_cache/legendary_library.json", Some("legendary")),
+    ("store_cache/gog_library.json", Some("gog")),
+    ("store_cache/nile_library.json", Some("nile")),
+    ("store_cache/zoom-library.json", None),
+    ("sideload_apps/library.json", Some("sideload")),
 ];
-const HEROIC_INSTALLED: &[&str] = &[
-    "legendaryConfig/legendary/installed.json",
-    "gog_store/installed.json",
-    "nile_config/nile/installed.json",
+const HEROIC_INSTALLED: &[(&str, Option<&str>)] = &[
+    (
+        "legendaryConfig/legendary/installed.json",
+        Some("legendary"),
+    ),
+    ("gog_store/installed.json", Some("gog")),
+    ("nile_config/nile/installed.json", Some("nile")),
 ];
 
 /// The installed games of every Heroic in `configs`.
@@ -1381,17 +1464,27 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
     let mut games = Vec::new();
     for base in configs {
         let mut entries = Vec::new();
-        for file in HEROIC_LIBRARIES {
+        let mut art = HashMap::new();
+        let with_runner = |list: Vec<HeroicEntry>, runner: Option<&'static str>| {
+            list.into_iter().map(move |e| HeroicEntry { runner, ..e })
+        };
+        for (file, runner) in HEROIC_LIBRARIES {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
-                entries.extend(heroic_library_entries(&json));
+                entries.extend(with_runner(heroic_library_entries(&json), *runner));
+                art.extend(heroic_library_art(&json));
             }
         }
-        for file in HEROIC_INSTALLED {
+        for (file, runner) in HEROIC_INSTALLED {
             if let Ok(json) = std::fs::read_to_string(base.join(file)) {
-                entries.extend(heroic_installed_entries(&json));
+                entries.extend(with_runner(heroic_installed_entries(&json), *runner));
             }
         }
-        for entry in entries {
+        for mut entry in entries {
+            if entry.art.is_empty() {
+                if let Some(found) = entry.app_name.as_ref().and_then(|a| art.get(a)) {
+                    entry.art.clone_from(found);
+                }
+            }
             let Some(game) = heroic_game(base, entry) else {
                 continue;
             };
@@ -1418,7 +1511,7 @@ fn heroic_game(base: &Path, entry: HeroicEntry) -> Option<DetectedGame> {
         .filter(|exe| runs_natively(exe))
         .map(|exe| vec![exe.to_string_lossy().into_owned()]);
     Some(DetectedGame {
-        cover: heroic_cover(base, &entry.title),
+        cover: heroic_cover(base, &entry.art),
         executables: executables_of(launch_file.as_deref(), install_path.as_deref()),
         name: entry.title,
         source: Source::Heroic,
@@ -1430,23 +1523,19 @@ fn heroic_game(base: &Path, entry: HeroicEntry) -> Option<DetectedGame> {
         launcher: entry.app_name.map(|app_name| LauncherRef::Heroic {
             app_name,
             config_dir: base.to_path_buf(),
+            runner: entry.runner,
         }),
     })
 }
 
-fn heroic_cover(base: &Path, title: &str) -> Option<PathBuf> {
-    let slug: String = title
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect();
+/// The first of `art` Heroic has downloaded: `images-cache/<SHA-256 of the
+/// address>`, without an extension.
+fn heroic_cover(base: &Path, art: &[String]) -> Option<PathBuf> {
     let dir = base.join("images-cache");
-    for ext in ["jpg", "png", "webp"] {
-        let path = dir.join(format!("{slug}.{ext}"));
-        if path.is_file() {
-            return Some(path);
-        }
-    }
-    None
+    art.iter().find_map(|url| {
+        let path = dir.join(crate::graphics::manifest::sha256_bytes(url.as_bytes()));
+        path.is_file().then_some(path)
+    })
 }
 
 #[cfg(test)]
@@ -2074,6 +2163,70 @@ mod tests {
             Some(Path::new("/g/Amazon"))
         );
         assert!(heroic_installed_entries("{}").is_empty());
+    }
+
+    #[test]
+    fn a_running_game_is_found_in_the_library_by_folder_or_executable() {
+        let mut heroic = game(Source::Heroic, "Worlds");
+        heroic.install_path = Some(PathBuf::from("/g/Worlds"));
+        heroic.executables = vec!["Worlds.exe".into(), "Indiana-Win64-Shipping.exe".into()];
+        heroic.cover = Some(PathBuf::from("/c/worlds"));
+        let mut other = game(Source::Lutris, "Kart");
+        other.executables = vec!["kart".into()];
+        other.cover = Some(PathBuf::from("/c/kart"));
+        let games = vec![heroic, other];
+        let name = |p: &str, dir: Option<&str>| {
+            game_among(&games, p, dir.map(Path::new)).map(|g| g.name.clone())
+        };
+        // The real game is deeper in the install folder than the launcher.
+        assert_eq!(
+            name("x.exe", Some("/g/Worlds/Indiana/Binaries/Win64")).as_deref(),
+            Some("Worlds")
+        );
+        assert_eq!(
+            name("indiana-win64-shipping.exe", None).as_deref(),
+            Some("Worlds")
+        );
+        assert_eq!(name("kart", None).as_deref(), Some("Kart"));
+        assert_eq!(name("nothing", None), None);
+    }
+
+    #[test]
+    fn a_heroic_cover_is_found_by_the_hash_of_its_address() {
+        let root = tempdir("heroic_cover");
+        let config = root.join("config/heroic");
+        let game = root.join("Games/Worlds");
+        write(&game.join("Worlds.exe"), &vec![0u8; 300 * 1024]);
+        let url = "https://cdn1.epicgames.com/item/x/Worlds_1200x1600-abc";
+        // Only the library knows the artwork; installed.json names none.
+        write(
+            &config.join("store_cache/legendary_library.json"),
+            format!(r#"{{"library": [{{"app_name": "w", "title": "Worlds", "is_installed": false, "art_square": "{url}"}}]}}"#).as_bytes(),
+        );
+        write(
+            &config.join("legendaryConfig/legendary/installed.json"),
+            format!(
+                r#"{{"w": {{"app_name": "w", "title": "Worlds", "install_path": "{}", "executable": "Worlds.exe"}}}}"#,
+                game.display()
+            )
+            .as_bytes(),
+        );
+        // Named by the SHA-256 of the address, with no extension.
+        let expected = config
+            .join("images-cache")
+            .join(crate::graphics::manifest::sha256_bytes(url.as_bytes()));
+        write(&expected, b"\xff\xd8\xff");
+        let games = dedup(heroic_games(&[config]));
+        assert_eq!(games.len(), 1, "{games:?}");
+        assert_eq!(games[0].cover.as_deref(), Some(expected.as_path()));
+        // legendary's file lists it, so a `heroic://launch` link names that runner.
+        assert!(matches!(
+            games[0].launcher,
+            Some(LauncherRef::Heroic {
+                runner: Some("legendary"),
+                ..
+            })
+        ));
     }
 
     #[test]

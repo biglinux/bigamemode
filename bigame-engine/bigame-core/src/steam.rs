@@ -87,28 +87,19 @@ pub fn is_running() -> bool {
 /// Returns an error when Steam does not close within a minute or cannot be
 /// started again.
 pub fn restart_in_session() -> anyhow::Result<()> {
-    while_closed(|| ())?;
-    if !is_running() {
-        start_in_session()?;
+    // `while_closed` opens it again itself when it was open; asking a second
+    // time, before the new client is up, started a second unit.
+    if is_running() {
+        while_closed(|| ())
+    } else {
+        start_in_session()
     }
-    Ok(())
 }
 
-/// Start the Steam client as a unit of the user's systemd manager.
+/// Start the Steam client as a unit of the user's systemd manager, under a
+/// name no other start can have taken ([`crate::launchers`]).
 fn start_in_session() -> anyhow::Result<()> {
-    use anyhow::Context;
-    let status = std::process::Command::new("systemd-run")
-        .args(["--user", "--collect", "--quiet"])
-        .arg(format!("--unit=app-steam-bigame-{}", crate::unix_now()))
-        .arg("steam")
-        .stdin(std::process::Stdio::null())
-        .status()
-        .context("start Steam")?;
-    anyhow::ensure!(
-        status.success(),
-        "systemd-run could not start Steam ({status})"
-    );
-    Ok(())
+    crate::launchers::start_in_session("steam", &["steam".to_owned()])
 }
 
 /// Run `f` with the Steam client closed — it keeps its configuration in
@@ -121,12 +112,15 @@ fn start_in_session() -> anyhow::Result<()> {
 /// inherits the manager's environment rather than BiGame-mode's own.
 ///
 /// # Errors
-/// Returns an error when Steam does not close within a minute or cannot be
-/// started again; `f` has not run in the first case.
+/// Returns an error when a Steam game is running, when Steam does not close
+/// within a minute or cannot be started again; `f` has not run in the first
+/// two cases.
 pub fn while_closed<T>(f: impl FnOnce() -> T) -> anyhow::Result<T> {
     use anyhow::Context;
     let was_open = is_running();
     if was_open {
+        // Closing the client would close a game it runs.
+        crate::launchers::ensure_launcher_idle(crate::launchers::Launcher::Steam)?;
         std::process::Command::new("steam")
             .arg("-shutdown")
             .stdin(std::process::Stdio::null())
