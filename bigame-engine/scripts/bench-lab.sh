@@ -82,7 +82,10 @@ restore() {
     read_state | sed 's/^/  /' >&2
     restore_workload_config
 }
-trap restore EXIT INT TERM
+trap restore EXIT
+# A trap that returns lets the session carry on: an interrupt ends it, and
+# the EXIT trap puts the machine back once.
+trap 'exit 130' INT TERM
 
 # ── arms ─────────────────────────────────────────────────────────────────────
 #

@@ -96,7 +96,9 @@ OUT="$OUT_ROOT/$(date +%Y-%m-%d)-sottr${LABEL:+-$LABEL}"
 mkdir -p "$OUT"
 log "arms: ${ARMS[*]}    runs: $RUNS    output: $OUT"
 MEASURE=$(mktemp -d)
-trap 'close_game; rm -rf "$MEASURE"' EXIT INT TERM
+trap 'close_game; rm -rf "$MEASURE"' EXIT
+# A trap that returns lets the loop carry on: an interrupt ends the session.
+trap 'exit 130' INT TERM
 printf 'arm_measure() { :; }\n' > "$MEASURE/arms.sh"
 
 for i in $(seq 1 "$RUNS"); do
