@@ -115,11 +115,14 @@ explica cada opção.
 
 ### 🤖 Gráficos com IA
 
-Analisa o jogo: a API gráfica, o DLSS/XeSS/FSR que ele já traz, as DLLs de
-proxy, o anti-cheat e a GPU em que ele renderiza. Depois recomenda um plano.
-Só ao clicar em **Aplicar** ele instala o OptiScaler com backup verificado ou
-eleva o FSR 3.1 ao FSR 4 pelo Proton. Também oferece **Reparar**,
-**Restaurar** e **Diagnosticar**.
+Analisa o jogo que realmente roda (seguindo o inicializador do Unreal até o
+executável do jogo): a API gráfica, o DLSS/XeSS/FSR que ele traz em DLL ou
+embutido no executável, as DLLs de proxy, o anti-cheat e a GPU em que ele
+renderiza. Mostra primeiro o veredito e o porquê, com um ⓘ em cada item, e o
+que fazer no menu do próprio jogo. Só ao clicar em **Aplicar** ele instala o
+OptiScaler com backup verificado ou eleva o FSR 3.1 ao FSR 4 pelo Proton.
+Também oferece **Verificar de novo**, **Reparar**, **Restaurar** e
+**Diagnosticar**.
 
 </td>
 <td valign="top">
@@ -164,8 +167,8 @@ supera a variação.
 
 | Página | O que faz |
 |---|---|
-| **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. |
-| **Perfis** | A biblioteca de jogos com capas, busca e filtros. Cada perfil mostra as mesmas seções dos Ajustes, só para aquele jogo, e o que fica em "Configuração geral" segue os Ajustes. Cada perfil define o modo de desempenho, o escalonador sched-ext, o modo do 3D V-Cache, a inibição de repouso, o Gamescope, o MangoHud (desligado, ligado ou forçado) e o lsfg-vk. No menu ⋮ de cada jogo: **Iniciar (Turbo)**, **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
+| **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo (capa e nome vindos da biblioteca, de qualquer lançador) com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. Um lançador que já estava aberto antes do preset (Steam, Heroic, Lutris) e não o recebeu aparece com **Reabrir**, recusado enquanto um jogo dele roda. |
+| **Perfis** | A biblioteca de jogos com capas (Steam, Lutris, Heroic, Flatpak e menu), busca e filtros. Cada perfil tem as mesmas seções e linhas dos Ajustes, só para aquele jogo; cada opção começa em "Configuração geral", que segue os Ajustes (o Perfil global). Os valores próprios do jogo (tamanhos e filtro do Gamescope, limite de FPS, Wine FSR, vkBasalt) chegam a ele onde podem chegar: pelo **Iniciar (Turbo)**, nas opções de inicialização da Steam ou nas configurações do jogo no Heroic, gravadas com o lançador fechado e sem tocar no que é seu. No menu ⋮ de cada jogo: **Iniciar (Turbo)** (direto ou pelo próprio lançador), **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
 | **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
 | **Registros** | O que importa numa sessão de jogo: falcond, BiGame-mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
@@ -232,7 +235,11 @@ um aviso.
   systemd do usuário), nunca no `environment.d`, para saírem por completo
   quando o Turbo desliga.
 - **Os Gráficos com IA detectam o que o jogo realmente usa** pela tabela de
-  importação do executável, não pelo nome das DLLs. Eles nunca tocam jogos com
+  importação do executável, não pelo nome das DLLs, e reconhecem um upscaler
+  compilado dentro do executável. Um jogo testado em que uma combinação trava
+  fica registrado na lista de jogos (por exemplo, The Outer Worlds: Spacer's
+  Choice Edition mantém o próprio FSR 2: o OptiScaler assume o FSR 2 dele,
+  mas o FSR 3.1/FSR 4 trava o jogo sob o VKD3D-Proton). Eles nunca tocam jogos com
   anti-cheat e baixam o [OptiScaler](https://github.com/optiscaler/OptiScaler)
   da release oficial, por HTTPS e com SHA-256 fixado.
 - **Cada instalação é uma transação**: backup verificado, diário, troca atômica
