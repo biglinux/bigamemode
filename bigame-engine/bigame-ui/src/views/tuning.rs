@@ -25,14 +25,15 @@ use adw::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita as adw;
 
-use bigame_core::models::{FrameGenBackend, GamescopeFilter, WineFsrMode};
+use bigame_core::models::{FrameGenBackend, GamescopeFilter};
 use bigame_core::optimization::{self as opt, Feature, PROFILE_SETS, VCACHE_MODES};
 use bigame_core::overview::State;
 use bigame_core::video_config::{self, VideoConfig};
 
 use crate::i18n::{error_text, i18n, tr};
+use crate::widgets::launch::{self, icon};
 use crate::widgets::notice::{self, Kind, Notice};
-use crate::widgets::optimization::{self as ui, Machine, Picker, Scope, keep_value_width};
+use crate::widgets::optimization::{self as ui, Machine, Picker, Scope};
 use crate::widgets::resolution::SizePicker;
 use crate::widgets::status::Chip;
 
@@ -340,31 +341,6 @@ struct Display {
     quiet: Rc<Cell<bool>>,
 }
 
-/// What each Gamescope filter does, for its ⓘ.
-fn filter_entries() -> Vec<crate::widgets::info::Entry> {
-    use crate::widgets::info::Entry;
-    vec![
-        Entry {
-            title: "FSR 1.0 (FidelityFX Super Resolution)".to_owned(),
-            body: i18n(
-                "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it.",
-            ),
-        },
-        Entry {
-            title: "NIS (NVIDIA Image Scaling)".to_owned(),
-            body: i18n(
-                "NVIDIA's upscaler, with its own sharpening. It also works on AMD and Intel GPUs. The look is a little different from FSR's: try it when FSR seems too sharp or too soft in a game.",
-            ),
-        },
-        Entry {
-            title: i18n("Integer scaling"),
-            body: i18n(
-                "Each pixel becomes an exact block of 2 × 2, 3 × 3… pixels: no blur and no filter. Made for pixel art and old games. It looks right when the output size is an exact multiple of the render size, such as 1280 × 720 on a 2560 × 1440 screen.",
-            ),
-        },
-    ]
-}
-
 impl Display {
     #[allow(clippy::too_many_lines)]
     fn build(video: &SharedVideo, m: &Machine) -> Self {
@@ -410,35 +386,8 @@ impl Display {
         }
         group.add(&switch);
 
-        let filters = gtk4::StringList::new(&[
-            "FSR 1.0 (FidelityFX)",
-            "NIS (NVIDIA Image Scaling)",
-            &i18n("Integer scaling"),
-        ]);
-        let filter_row = adw::ComboRow::builder()
-            .title(i18n("Upscaling filter"))
-            .subtitle(i18n("Used when the render size is below the output size"))
-            .model(&filters)
-            .selected(match cfg.upscaling.gamescope_filter {
-                GamescopeFilter::Fsr => 0,
-                GamescopeFilter::Nis => 1,
-                GamescopeFilter::Integer => 2,
-            })
-            .build();
-        filter_row.add_suffix(&crate::widgets::info::dialog_button(
-            &i18n("About the upscaling filters"),
-            || {
-                (
-                    i18n("Upscaling filters"),
-                    i18n(
-                        "Gamescope enlarges the image only when the render size is smaller than the output size; then the filter decides how the enlarged image looks.",
-                    ),
-                    filter_entries(),
-                )
-            },
-        ));
-        keep_value_width(&filter_row);
-        group.add(&filter_row);
+        let filter = launch::filter_picker(false, Some(cfg.upscaling.gamescope_filter));
+        group.add(&filter.row);
 
         let sharpness_row = adw::SpinRow::new(
             Some(&gtk4::Adjustment::new(
@@ -477,14 +426,12 @@ impl Display {
         {
             let video = Rc::clone(video);
             let sharpness_row = sharpness_row.clone();
-            filter_row.connect_selected_notify(move |row| {
-                sharpness_row.set_sensitive(row.selected() == 0);
-                video.borrow_mut().upscaling.gamescope_filter = match row.selected() {
-                    1 => GamescopeFilter::Nis,
-                    2 => GamescopeFilter::Integer,
-                    _ => GamescopeFilter::Fsr,
-                };
-                save_video(&video, row);
+            let row = filter.row.clone();
+            filter.connect_changed(move |id| {
+                let f = launch::filter_of(id).unwrap_or_default();
+                sharpness_row.set_sensitive(f == GamescopeFilter::Fsr);
+                video.borrow_mut().upscaling.gamescope_filter = f;
+                save_video(&video, &row);
             });
         }
         {
@@ -547,52 +494,18 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
         .active(cfg.upscaling.wine_fsr_enabled)
         .build();
     group.add(&wine);
-    let quality_items = gtk4::StringList::new(&[
-        &i18n("Performance"),
-        &i18n("Balanced"),
-        &i18n("Quality"),
-        &i18n("Ultra"),
-    ]);
-    let quality = adw::ComboRow::builder()
-        .title(i18n("Wine FSR quality"))
-        .model(&quality_items)
-        .selected(match cfg.upscaling.wine_fsr_mode {
-            WineFsrMode::Performance => 0,
-            WineFsrMode::Balanced => 1,
-            WineFsrMode::Quality => 2,
-            WineFsrMode::Ultra => 3,
-        })
-        .sensitive(cfg.upscaling.wine_fsr_enabled)
-        .build();
-    // The sizes for this screen, once it is read.
-    let main_screen: Rc<Cell<Option<(u32, u32)>>> = Rc::new(Cell::new(None));
-    {
-        let main_screen = Rc::clone(&main_screen);
-        glib::spawn_future_local(async move {
-            let size = gio::spawn_blocking(bigame_core::screen::primary_size)
-                .await
-                .ok()
-                .flatten();
-            main_screen.set(size);
-        });
-    }
     wine.add_prefix(&gtk4::Image::from_icon_name("zoom-in-symbolic"));
-    quality.add_suffix(&crate::widgets::info::dialog_button(
-        &i18n("About Wine FSR's quality modes"),
-        move || wine_fsr_info(main_screen.get()),
-    ));
-    keep_value_width(&quality);
+    let quality_picker = launch::wine_fsr_mode_picker(false, Some(cfg.upscaling.wine_fsr_mode));
+    let quality = quality_picker.row.clone();
+    quality.set_sensitive(cfg.upscaling.wine_fsr_enabled);
     group.add(&quality);
     {
         let video = Rc::clone(video);
-        quality.connect_selected_notify(move |row| {
-            video.borrow_mut().upscaling.wine_fsr_mode = match row.selected() {
-                0 => WineFsrMode::Performance,
-                1 => WineFsrMode::Balanced,
-                3 => WineFsrMode::Ultra,
-                _ => WineFsrMode::Quality,
-            };
-            save_video(&video, row);
+        let row = quality.clone();
+        quality_picker.connect_changed(move |id| {
+            video.borrow_mut().upscaling.wine_fsr_mode =
+                launch::wine_fsr_mode_of(id).unwrap_or_default();
+            save_video(&video, &row);
         });
     }
 
@@ -797,68 +710,6 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
     group
 }
 
-/// What each Wine FSR mode does, with the sizes for `main` (the main
-/// screen) when it is known.
-fn wine_fsr_info(main: Option<(u32, u32)>) -> (String, String, Vec<crate::widgets::info::Entry>) {
-    use crate::widgets::info::Entry;
-    // FSR 1's scale factors.
-    let modes = [
-        (
-            i18n("Ultra"),
-            1.3,
-            i18n("The sharpest image, and the smallest gain."),
-        ),
-        (
-            i18n("Quality"),
-            1.5,
-            i18n("Close to the full image, with a clear gain."),
-        ),
-        (i18n("Balanced"), 1.7, i18n("Softer, with more frames.")),
-        (
-            i18n("Performance"),
-            2.0,
-            i18n("The most frames; the image is visibly softer."),
-        ),
-    ];
-    let entries = modes
-        .into_iter()
-        .map(|(name, factor, what)| {
-            let size = main.map(|(w, h)| {
-                #[allow(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    clippy::cast_precision_loss
-                )]
-                let scaled = |n: u32| (f64::from(n) / factor).round() as u32;
-                i18n("On your main screen: about %s.")
-                    .replace("%s", &format!("{} × {}", scaled(w), scaled(h)))
-            });
-            Entry {
-                title: format!("{name} (÷{factor})"),
-                body: match size {
-                    Some(size) => format!(
-                        "{} {what} {size}",
-                        i18n("The game renders at the screen's size divided by %s.")
-                            .replace("%s", &factor.to_string())
-                    ),
-                    None => format!(
-                        "{} {what}",
-                        i18n("The game renders at the screen's size divided by %s.")
-                            .replace("%s", &factor.to_string())
-                    ),
-                },
-            }
-        })
-        .collect();
-    (
-        i18n("Wine FSR quality modes"),
-        i18n(
-            "Wine FSR enlarges a game that runs in exclusive fullscreen at a size below the screen's, with AMD FSR 1. The mode says how much smaller the game renders: the game's list of resolutions gains that size, and choosing it in the game's own video settings turns the upscaling on. It exists only in Proton builds that carry Wine's fullscreen patch, such as GE-Proton and Proton-tkg; Valve's current Proton ignores it.",
-        ),
-        entries,
-    )
-}
-
 /// vkBasalt's switch, its look and its file.
 #[allow(clippy::too_many_lines)]
 fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
@@ -902,30 +753,7 @@ fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
         },
     );
     look.row.set_subtitle_lines(3);
-    look.row.add_suffix(&crate::widgets::info::dialog_button(
-        &i18n("About vkBasalt's looks"),
-        || {
-            use crate::widgets::info::Entry;
-            (
-                i18n("vkBasalt's looks"),
-                i18n("vkBasalt draws its effects over the finished image of every Vulkan game (and Proton games, through DXVK and VKD3D). It reads the file below."),
-                vec![
-                    Entry {
-                        title: i18n("My own file"),
-                        body: i18n("The file as you left it, or vkBasalt's example when there is none. Choosing it after a look puts your file back."),
-                    },
-                    Entry {
-                        title: i18n("CAS sharpening"),
-                        body: i18n("AMD's Contrast Adaptive Sharpening, built into vkBasalt: a crisper image, especially with TAA or upscaling, at almost no cost. Nothing is downloaded."),
-                    },
-                    Entry {
-                        title: i18n("Nara Linux (ReShade)"),
-                        body: i18n("Richer colour (Colourfulness), more contrast in light and shade (FakeHDR) and a fine film grain (FilmGrain2). Made by Narayan, of the Nara Linux channel on YouTube: %s. It uses three ReShade shaders, downloaded once from GitHub (ReShade and SweetFX, fixed versions, each checked against its SHA-256) into ~/.local/share/reshade.").replace("%s", vkb::NARA_VIDEO),
-                    },
-                ],
-            )
-        },
-    ));
+    look.row.add_suffix(&launch::vkbasalt_looks_button());
     group.add(&look.row);
 
     let shown = cfg
@@ -1190,10 +1018,7 @@ fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
         },
     );
     style.row.set_subtitle_lines(3);
-    style.row.add_suffix(&crate::widgets::info::button(
-        &i18n("Overlay style"),
-        &i18n("Basic is one line across the top, like the Steam Deck's level 2: frame rate, frame times, CPU and GPU load and power, memory and video memory. Full is a column, like its level 3: the GPU and the CPU each with load, temperature, clock and power, then memory, frame rate and frame times. Battery appears only on a laptop. A per-game MangoHud file (wine-<game>.conf) takes precedence, and a Flatpak launcher reads its own copy."),
-    ));
+    style.row.add_suffix(&launch::mangohud_style_button());
     group.add(&style.row);
     let row = style.row.clone();
     style.connect_changed(move |value| {
@@ -1218,14 +1043,6 @@ fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
 }
 
 // ── Advanced ────────────────────────────────────────────────────────────────
-
-/// A row's icon, before its title.
-fn icon(row: &impl IsA<adw::PreferencesRow>, name: &str) {
-    let image = gtk4::Image::from_icon_name(name);
-    if let Some(r) = row.dynamic_cast_ref::<adw::ActionRow>() {
-        r.add_prefix(&image);
-    }
-}
 
 /// falcond's own settings and the facts for the person who knows what a
 /// scheduler flag is: last, each with its ⓘ.

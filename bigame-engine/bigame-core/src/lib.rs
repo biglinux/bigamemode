@@ -13,6 +13,7 @@ pub mod diagnostics;
 pub mod dns_config;
 pub mod error;
 pub mod fg;
+pub mod game_launch;
 pub mod game_settings;
 pub mod games;
 pub mod gamescope;
