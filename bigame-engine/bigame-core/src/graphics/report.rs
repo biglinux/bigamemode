@@ -12,7 +12,7 @@ use serde::Serialize;
 use super::manifest::Manifest;
 use super::optiscaler::Api;
 use super::pe::Machine;
-use super::scan::{AntiCheat, ComponentKind, GameScan, Proxy};
+use super::scan::{AntiCheat, BuiltIn, ComponentKind, Engine, GameScan, Proxy};
 use super::text::{N_, Text};
 use crate::hardware::{GpuVendor, Hardware};
 use crate::running::{GameIdentity, Graphics, Runtime};
@@ -304,6 +304,10 @@ pub struct Native {
     /// the FSR 3.1+ path a provider upgrades to FSR 4.
     #[serde(default)]
     pub ffx_api: Option<String>,
+    /// Upscalers compiled into the executable, with no DLL of their own in
+    /// the game's folder ([`BuiltIn`]).
+    #[serde(default)]
+    pub built_in: Vec<BuiltIn>,
 }
 
 impl Native {
@@ -311,6 +315,24 @@ impl Native {
     #[must_use]
     pub fn frame_gen(&self) -> bool {
         self.dlss_fg.is_some() || self.xess_fg.is_some() || self.fsr_fg
+    }
+
+    /// The FSR compiled into the executable, when the game has no FSR DLL.
+    #[must_use]
+    pub fn built_in_fsr(&self) -> Option<BuiltIn> {
+        if self.fsr.is_some() {
+            return None;
+        }
+        self.built_in
+            .iter()
+            .copied()
+            .find(|b| b.runs_without_a_dll())
+    }
+
+    /// Any FSR the game can run, from a DLL or built in.
+    #[must_use]
+    pub fn has_fsr(&self) -> bool {
+        self.fsr.is_some() || self.built_in_fsr().is_some()
     }
 }
 
@@ -342,8 +364,15 @@ pub struct Report {
     pub app_id: Option<String>,
     /// Install folder.
     pub install_root: PathBuf,
-    /// Executable, relative to the install folder.
+    /// Executable, relative to the install folder: the one that runs.
     pub executable: Option<PathBuf>,
+    /// The bootstrap the launcher starts, when the executable was reached
+    /// through one (Unreal Engine's `Game.exe`).
+    #[serde(default)]
+    pub launcher_stub: Option<PathBuf>,
+    /// The engine, when the files say.
+    #[serde(default)]
+    pub engine: Option<Engine>,
     /// 32/64-bit.
     pub machine: Option<Machine>,
     /// How it runs (`Proton - Experimental`, native, Wine), when running.
@@ -496,6 +525,19 @@ pub fn api_evidence(scan: &GameScan, running: Option<Graphics>) -> ApiEvidence {
             } else {
                 Confidence::Detected
             },
+            evidence,
+            translation,
+        };
+    }
+    // VKD3D-Proton left its pipeline cache: the game ran with Direct3D 12
+    // here before (a game with a DX11 renderer too may have switched since).
+    if scan.vkd3d_cache {
+        evidence.push(Text::plain(N_(
+            "VKD3D-Proton's cache (vkd3d-proton.cache) is in the game's folder: it has run with Direct3D 12 here",
+        )));
+        return ApiEvidence {
+            api: Some(Api::Dx12),
+            confidence: Confidence::Detected,
             evidence,
             translation,
         };
@@ -759,6 +801,7 @@ pub fn build(
                 n.contains("frameinterpolation") || n.contains("framegeneration")
             }
         }),
+        built_in: scan.built_in_only(),
     };
     let (gpus, render_gpu) = gpu_infos(hw, running.and_then(|r| r.render_card.as_deref()));
     Report {
@@ -766,6 +809,8 @@ pub fn build(
         app_id: app_id.map(str::to_owned),
         install_root: scan.root.clone(),
         executable: scan.executable.clone(),
+        launcher_stub: scan.launcher_stub.clone(),
+        engine: scan.engine,
         machine: scan.executable_pe.as_ref().and_then(|p| p.machine),
         runtime: running.map(|r| match &r.runtime {
             Runtime::Native => "native".to_owned(),
@@ -987,6 +1032,8 @@ mod tests {
             app_id: Some("750920".into()),
             install_root: "/g".into(),
             executable: None,
+            launcher_stub: None,
+            engine: None,
             machine: None,
             runtime: None,
             api: ApiEvidence {
@@ -1075,6 +1122,41 @@ mod tests {
             [ComponentKind::Xess, ComponentKind::DlssSuperResolution]
         );
         assert_eq!(kinds(&without_added(&scan, None)).len(), 3);
+
+        // A built-in FSR 2 stays the game's own after OptiScaler brought
+        // AMD's DLLs: they are BiGame-mode's, not the game's.
+        let tow = GameScan {
+            executable: Some("Game.exe".into()),
+            components: vec![comp(ComponentKind::FfxApi, "amd_fidelityfx_dx12.dll")],
+            built_in: vec![super::BuiltIn::Fsr2],
+            ..GameScan::default()
+        };
+        assert_eq!(tow.built_in_only(), [], "with the DLLs counted");
+        assert_eq!(
+            without_added(&tow, Some(&m)).built_in_only(),
+            [super::BuiltIn::Fsr2]
+        );
+        let n = Native {
+            built_in: vec![super::BuiltIn::Fsr2],
+            ..Native::default()
+        };
+        assert_eq!(n.built_in_fsr(), Some(super::BuiltIn::Fsr2));
+        assert!(n.has_fsr() && n.fsr.is_none());
+    }
+
+    #[test]
+    fn vkd3d_protons_cache_says_the_game_ran_with_dx12() {
+        let mut s = scan_with(&[], &[]);
+        s.vkd3d_cache = true;
+        let e = api_evidence(&s, None);
+        assert_eq!(
+            (e.api, e.confidence),
+            (Some(Api::Dx12), Confidence::Detected)
+        );
+        // What the executable links is stronger.
+        let mut s = scan_with(&["d3d11.dll"], &[]);
+        s.vkd3d_cache = true;
+        assert_eq!(api_evidence(&s, None).api, Some(Api::Dx11));
     }
 
     #[test]
