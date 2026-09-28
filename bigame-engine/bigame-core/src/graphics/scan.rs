@@ -221,8 +221,9 @@ pub struct GameScan {
     /// through one (Unreal Engine's `Game.exe`), relative to `root`.
     #[serde(default)]
     pub launcher_stub: Option<PathBuf>,
-    /// Upscalers whose code the executable carries. Which of them are
-    /// really built in — no DLL of their own in the game's folder — is
+    /// Upscalers whose code the executable carries, once
+    /// [`GameScan::read_built_in`] has looked. Which of them are really
+    /// built in — no DLL of their own in the game's folder — is
     /// [`GameScan::built_in_only`]'s to say: a game that calls FSR 2 from
     /// `ffx_fsr2_api_x64.dll` names the same functions.
     #[serde(default)]
@@ -263,6 +264,29 @@ impl GameScan {
     #[must_use]
     pub fn has(&self, kind: ComponentKind) -> bool {
         self.components.iter().any(|c| c.kind == kind)
+    }
+
+    /// Look inside the executable for upscalers compiled into it
+    /// ([`Self::built_in`]) — only when the game ships no DLL for one of
+    /// them, since the answer changes nothing otherwise. A game executable
+    /// can be hundreds of megabytes (Black Myth: Wukong's is 700), so this
+    /// is not part of [`scan`], which runs whenever a profile is made; the
+    /// AI Graphics analysis asks for it, and the answer is kept for as long
+    /// as the file is unchanged.
+    pub fn read_built_in(&mut self) {
+        let every_dll = self.has(ComponentKind::DlssSuperResolution)
+            && self.has(ComponentKind::Xess)
+            && (self.has(ComponentKind::Fsr) || self.has(ComponentKind::FfxApi));
+        if every_dll {
+            return;
+        }
+        if let Some(found) = self
+            .executable
+            .as_ref()
+            .and_then(|e| built_in_in_file(&self.root.join(e)))
+        {
+            self.built_in = found;
+        }
     }
 
     /// The upscalers in [`Self::built_in`] with no DLL of their own among
@@ -659,14 +683,21 @@ fn follow_bootstrap(root: &Path, exe: &Path) -> Option<PathBuf> {
             return None;
         }
         let bytes = pe::read_prefix(&full, BOOTSTRAP_MAX).ok()?;
+        let bootstrap = pe::contains_marker(&bytes, "BootstrapPackagedGame");
+        // Hogwarts Legacy's bootstrap starts
+        // `Phoenix\Binaries\Win64\HogwartsLegacy.exe`: without the
+        // bootstrap's own name in the file, only a `-Shipping.exe` is taken.
         let named = wide_strings_with(&bytes, "\\Binaries\\")
             .into_iter()
-            .filter(|s| s.to_ascii_lowercase().ends_with("-shipping.exe"))
+            .filter(|s| {
+                let s = s.to_ascii_lowercase();
+                s.ends_with("-shipping.exe") || bootstrap && has_ext(&s, "exe")
+            })
             .find_map(|s| resolve_ci(&base, &s));
         if let Some(rel) = named {
             return Some(exe_dir.join(rel));
         }
-        if !pe::contains_marker(&bytes, "BootstrapPackagedGame") {
+        if !bootstrap {
             return None;
         }
         let mut found = Vec::new();
@@ -746,8 +777,9 @@ pub fn built_in_markers(bytes: &[u8]) -> Vec<BuiltIn> {
 }
 
 /// [`built_in_markers`] for a file on disk, read in pieces (an executable
-/// can be larger than is worth holding in memory), once per version.
-fn built_in_in_file(path: &Path) -> Vec<BuiltIn> {
+/// can be larger than is worth holding in memory), once per version;
+/// `None` when there is no such file.
+fn built_in_in_file(path: &Path) -> Option<Vec<BuiltIn>> {
     use std::io::Read as _;
     static CACHE: Mutex<Option<HashMap<FileKey, Vec<BuiltIn>>>> = Mutex::new(None);
     cached(&CACHE, path, |_| {
@@ -781,7 +813,6 @@ fn built_in_in_file(path: &Path) -> Vec<BuiltIn> {
         found.dedup();
         found
     })
-    .unwrap_or_default()
 }
 
 /// Whether VKD3D-Proton left its cache where it keeps it: the game's
@@ -878,9 +909,11 @@ pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
             });
         }
     }
-    if executable
-        .as_ref()
-        .is_some_and(|e| lower_name(e).ends_with("-win64-shipping.exe"))
+    // Only Unreal hands over from a bootstrap.
+    if launcher_stub.is_some()
+        || executable
+            .as_ref()
+            .is_some_and(|e| lower_name(e).ends_with("-win64-shipping.exe"))
     {
         engine = Some(Engine::Unreal);
     }
@@ -897,16 +930,11 @@ pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
     }
     components.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.path.cmp(&b.path)));
     proxies.sort_by(|a, b| a.slot.cmp(&b.slot));
-    let built_in = executable
-        .as_ref()
-        .map(|e| built_in_in_file(&root.join(e)))
-        .unwrap_or_default();
-
     GameScan {
         root: root.to_path_buf(),
         executable,
         launcher_stub,
-        built_in,
+        built_in: Vec::new(),
         executable_pe,
         components,
         proxies,
@@ -1138,7 +1166,9 @@ mod tests {
             &exe(&[], 0),
         );
         // The launcher records the bootstrap; the scan goes to the game.
-        let s = scan(r, Some("TheOuterWorldsSpacersChoiceEdition.exe"));
+        let mut s = scan(r, Some("TheOuterWorldsSpacersChoiceEdition.exe"));
+        assert!(s.built_in.is_empty(), "not read by the scan itself");
+        s.read_built_in();
         assert_eq!(s.executable.as_deref(), Some(Path::new(real)));
         assert_eq!(
             s.launcher_stub.as_deref(),
@@ -1155,6 +1185,37 @@ mod tests {
                 "IndianaEpicGameStore-Win64-Shipping.exe"
             ]
         );
+    }
+
+    #[test]
+    fn a_bootstrap_may_start_a_game_not_named_shipping() {
+        // Hogwarts Legacy: `HogwartsLegacy.exe` (290 KB) starts
+        // `Phoenix\Binaries\Win64\HogwartsLegacy.exe`.
+        let dir = tempfile::tempdir().unwrap();
+        let r = dir.path();
+        let real = "Phoenix/Binaries/Win64/HogwartsLegacy.exe";
+        put(
+            r,
+            "HogwartsLegacy.exe",
+            &bootstrap(r"Phoenix\Binaries\Win64\HogwartsLegacy.exe"),
+        );
+        put(r, real, &exe(&["d3d12.dll"], 0));
+        let s = scan(r, Some("HogwartsLegacy.exe"));
+        assert_eq!(s.executable.as_deref(), Some(Path::new(real)));
+        assert_eq!(s.engine, Some(Engine::Unreal));
+        // Without the bootstrap's name, a path that is not a Shipping
+        // binary is only a string in some program.
+        let other = tempfile::tempdir().unwrap();
+        let mut extra = utf16(r"Phoenix\Binaries\Win64\HogwartsLegacy.exe");
+        extra.extend([0, 0]);
+        put(
+            other.path(),
+            "Launcher2.exe",
+            &fixture::pe(0x8664, true, &[], &[], &extra),
+        );
+        put(other.path(), real, &exe(&[], 0));
+        let s = scan(other.path(), Some("Launcher2.exe"));
+        assert_eq!(s.executable.as_deref(), Some(Path::new("Launcher2.exe")));
     }
 
     #[test]
@@ -1247,9 +1308,16 @@ mod tests {
         // DLSS code with no DLSS runtime: built in (and the game cannot run
         // it); FSR 2 with its DLL: the DLL's.
         put(r, "ffx_fsr2_api_x64.dll", b"MZ");
-        let s = scan(r, None);
+        let mut s = scan(r, None);
+        s.read_built_in();
         assert_eq!(s.built_in, [BuiltIn::Fsr2, BuiltIn::Dlss]);
         assert_eq!(s.built_in_only(), [BuiltIn::Dlss]);
+        // A game with every DLL has nothing built in worth reading for.
+        put(r, "nvngx_dlss.dll", b"MZ");
+        put(r, "libxess.dll", b"MZ");
+        let mut s = scan(r, None);
+        s.read_built_in();
+        assert!(s.built_in.is_empty());
         assert!(!BuiltIn::Dlss.runs_without_a_dll() && BuiltIn::Fsr2.runs_without_a_dll());
     }
 
@@ -1261,7 +1329,8 @@ mod tests {
         bytes.extend_from_slice(b"ffxFsr2ContextCreate");
         bytes.resize(bytes.len() + 4096, 0);
         std::fs::write(&path, &bytes).unwrap();
-        assert_eq!(built_in_in_file(&path), [BuiltIn::Fsr2]);
+        assert_eq!(built_in_in_file(&path), Some(vec![BuiltIn::Fsr2]));
+        assert_eq!(built_in_in_file(&dir.path().join("none.exe")), None);
     }
 
     #[test]

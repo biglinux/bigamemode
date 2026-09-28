@@ -773,7 +773,11 @@ pub fn build(
     installed: Option<Manifest>,
     proton: Option<ProtonInfo>,
 ) -> Report {
-    let scan = &without_added(scan, installed.as_ref());
+    let mut scan = without_added(scan, installed.as_ref());
+    // Only now, without BiGame-mode's own files: FSR DLLs an OptiScaler
+    // install brought do not make the game's built-in FSR 2 go away.
+    scan.read_built_in();
+    let scan = &scan;
     let version = |k: ComponentKind| {
         scan.component(k)
             .map(|c| c.version.clone().unwrap_or_else(|| PRESENT.into()))
