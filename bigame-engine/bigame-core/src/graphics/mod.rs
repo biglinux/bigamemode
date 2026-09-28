@@ -347,11 +347,13 @@ fn launch_context(target: &Target, cfg: &config::AiGraphicsConfig) -> plan::Cont
     let video = crate::video_config::load();
     let cache = optiscaler::cache_dir();
     plan::Context {
-        fsr4_upgrade: fsr4_upgrade::is_enabled(target.app_id.as_deref()),
+        fsr4_upgrade: fsr4_upgrade::is_enabled(&target.process, target.app_id.as_deref()),
         gamescope_upscaling: video.upscaling.gamescope_enabled && video.upscaling.base_width > 0,
         wine_fsr: video.upscaling.wine_fsr_enabled,
         lsfg: crate::fg::is_active_for_game(&target.process),
         mangohud: false,
+        heroic: target.app_id.is_none()
+            && !crate::heroic_launch::targets(&target.process).is_empty(),
         // From what is known, no network: a plan is a dry run.
         optiscaler_version: versions::resolve(&cache, &cfg.version, &versions::load(&cache))
             .ok()

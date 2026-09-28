@@ -2273,6 +2273,63 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
     });
 }
 
+/// Say what switching the FSR 4 upgrade `on` or off for the game whose
+/// process is `process` did; a Heroic that is open and runs no game is
+/// offered to be closed for it.
+fn report_fsr4_upgrade(
+    overlay: &adw::ToastOverlay,
+    process: &str,
+    on: bool,
+    result: Result<anyhow::Result<graphics::fsr4_upgrade::Applied>, Box<dyn std::any::Any + Send>>,
+) {
+    use graphics::fsr4_upgrade::Applied;
+    let text = match result {
+        Ok(Ok(Applied::SteamLaunchOptions(o))) if on => {
+            format!(
+                "{}: {o}",
+                i18n("Steam's launch options for this game now read")
+            )
+        }
+        Ok(Ok(Applied::SteamLaunchOptions(_))) => {
+            i18n("The launch option was removed; the game's own FSR runs as it did")
+        }
+        Ok(Ok(Applied::SteamRunning)) => {
+            i18n("Close Steam first: it would discard the launch option")
+        }
+        Ok(Ok(Applied::Heroic)) if on => i18n(
+            "Written into Heroic's settings for this game: PROTON_FSR4_UPGRADE=1 (GE-Proton) and FSR4_UPGRADE=1 (Valve's Proton)",
+        ),
+        Ok(Ok(Applied::Heroic)) => {
+            i18n("Taken out of Heroic's settings for this game; the game's own FSR runs as it did")
+        }
+        Ok(Ok(Applied::HeroicRunning {
+            game_running: true, ..
+        })) => i18n(
+            "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change.",
+        ),
+        Ok(Ok(Applied::HeroicRunning { launcher, .. })) => {
+            let process = process.to_owned();
+            crate::widgets::optimization::offer_close_heroic(
+                overlay,
+                launcher,
+                &i18n(
+                    "Heroic is open: it keeps this game's settings in memory and would discard the change",
+                ),
+                move || {
+                    bigame_core::optimization::set_heroic_fsr4_upgrade(&process, on).map(|_| ())
+                },
+            );
+            return;
+        }
+        Ok(Ok(Applied::LaunchPlan)) => {
+            i18n("Not a Steam game: the variable goes into BiGame-mode's own launch")
+        }
+        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
+        Err(_) => i18n("Nothing was changed"),
+    };
+    overlay.add_toast(adw::Toast::new(&text));
+}
+
 /// Files cannot change while the game runs (its DLLs are loaded, and a
 /// change takes effect only at the next start). Checked here, in the UI's
 /// language, before core's own check would refuse in English.
@@ -2561,8 +2618,10 @@ fn open_with(
                     .is_some_and(|a| a.plan.optiscaler.is_none() && a.plan.native_action.is_some());
                 if native_only {
                     // The Native backend's one action: a Steam launch option,
-                    // written with Steam closed and read back. No game file.
-                    if bigame_core::steam::is_running() {
+                    // written with Steam closed and read back, or the
+                    // variables in a Heroic game's settings, written with
+                    // Heroic closed. No game file.
+                    if page.target.app_id.is_some() && bigame_core::steam::is_running() {
                         overlay.add_toast(adw::Toast::new(&i18n(
                             "Close Steam first: it keeps its configuration in memory and would discard the launch option",
                         )));
@@ -2571,25 +2630,13 @@ fn open_with(
                     busy(&page, Some(&i18n("Writing the launch option…")));
                     save_settings(&page);
                     let app = page.target.app_id.clone();
+                    let process = page.target.process.clone();
                     let result = gio::spawn_blocking(move || {
-                        bigame_core::graphics::fsr4_upgrade::apply(app.as_deref(), true)
+                        bigame_core::graphics::fsr4_upgrade::apply(&process, app.as_deref(), true)
                     })
                     .await;
                     busy(&page, None);
-                    let text = match result {
-                        Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::SteamLaunchOptions(o))) => {
-                            format!("{}: {o}", i18n("Steam's launch options for this game now read"))
-                        }
-                        Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::SteamRunning)) => {
-                            i18n("Close Steam first: it would discard the launch option")
-                        }
-                        Ok(Ok(bigame_core::graphics::fsr4_upgrade::Applied::LaunchPlan)) => {
-                            i18n("Not a Steam game: the variable goes into BiGame-mode's own launch")
-                        }
-                        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
-                        Err(_) => i18n("Nothing was changed"),
-                    };
-                    overlay.add_toast(adw::Toast::new(&text));
+                    report_fsr4_upgrade(&overlay, &page.target.process, true, result);
                     refresh(&page);
                     return;
                 }
@@ -2696,7 +2743,7 @@ fn open_with(
                     .as_ref()
                     .is_some_and(|a| a.report.installed.is_some());
                 if !installed {
-                    if bigame_core::steam::is_running() {
+                    if page.target.app_id.is_some() && bigame_core::steam::is_running() {
                         overlay.add_toast(adw::Toast::new(&i18n(
                             "Close Steam first: it keeps its configuration in memory and would discard the change",
                         )));
@@ -2704,17 +2751,13 @@ fn open_with(
                     }
                     busy(&page, Some(&i18n("Removing the launch option…")));
                     let app = page.target.app_id.clone();
+                    let process = page.target.process.clone();
                     let result = gio::spawn_blocking(move || {
-                        bigame_core::graphics::fsr4_upgrade::apply(app.as_deref(), false)
+                        bigame_core::graphics::fsr4_upgrade::apply(&process, app.as_deref(), false)
                     })
                     .await;
                     busy(&page, None);
-                    let text = match result {
-                        Ok(Ok(_)) => i18n("The launch option was removed; the game's own FSR runs as it did"),
-                        Ok(Err(e)) => format!("{}: {}", i18n("Could not remove it"), error_text(&e)),
-                        Err(_) => i18n("Could not remove it"),
-                    };
-                    overlay.add_toast(adw::Toast::new(&text));
+                    report_fsr4_upgrade(&overlay, &page.target.process, false, result);
                     refresh(&page);
                     return;
                 }

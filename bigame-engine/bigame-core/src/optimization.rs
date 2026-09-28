@@ -450,6 +450,8 @@ pub struct GameOptimization {
 /// failure is the save's error.
 #[derive(Debug, Default)]
 pub struct SaveReport {
+    /// The game's process name, which the profile is saved under.
+    pub process: String,
     /// lsfg-vk's entry could not be written.
     pub frame_generation: Option<anyhow::Error>,
     /// The game's own launch settings could not be written.
@@ -460,6 +462,9 @@ pub struct SaveReport {
     /// Gamescope and the game's own variables in a Steam game's launch
     /// options.
     pub gamescope: Option<Result<crate::steam_gamescope::Applied>>,
+    /// Gamescope, Wine FSR and the game's own variables in a Heroic game's
+    /// settings in Heroic.
+    pub heroic: Option<Result<crate::heroic_launch::Applied>>,
 }
 
 impl GameOptimization {
@@ -574,7 +579,10 @@ impl GameOptimization {
     pub fn save(&mut self) -> Result<SaveReport> {
         self.sync_copy();
         crate::profiles::save_file(&self.profile)?;
-        let mut report = SaveReport::default();
+        let mut report = SaveReport {
+            process: self.profile.name.clone(),
+            ..SaveReport::default()
+        };
         let f = self.frame_generation;
         let global_on = crate::fg::global_state_allows_lsfg(&crate::video_config::load().frame_gen);
         let lsfg = if f.on() || crate::fg::layer_installed() {
@@ -596,6 +604,7 @@ impl GameOptimization {
             &self.profile.name,
             self.steam_wanted(),
         ));
+        report.heroic = Some(self.apply_heroic());
         if self.mangohud != self.saved_mangohud {
             let applied = crate::mangohud::apply(&self.profile.name, self.mangohud);
             if matches!(
@@ -721,6 +730,177 @@ impl GameOptimization {
             crate::hardware::detect_session(),
         )
     }
+}
+
+// ── Heroic ──────────────────────────────────────────────────────────────────
+
+/// Proton's FSR 4 upgrade, for both flavours a Heroic game may run: GE-Proton
+/// reads the first (and then fetches AMD's provider itself), Valve's Proton
+/// the second (`crate::graphics::fsr4_upgrade`).
+const HEROIC_FSR4: [(&str, &str); 2] = [("PROTON_FSR4_UPGRADE", "1"), ("FSR4_UPGRADE", "1")];
+
+impl GameOptimization {
+    /// Write this game's own launch settings into its settings in Heroic
+    /// (`crate::heroic_launch`), taking out what BiGame-mode wrote there
+    /// before. A game Heroic does not start is left alone.
+    ///
+    /// # Errors
+    /// Returns an error when a settings file cannot be read, is not JSON,
+    /// or cannot be written.
+    pub fn apply_heroic(&self) -> Result<crate::heroic_launch::Applied> {
+        let video = crate::video_config::load();
+        let optiscaler =
+            optiscaler_features(&self.profile.name).contains(&Feature::OptiScalerUpscaling);
+        let fsr4 =
+            crate::game_settings::load(&self.profile.name).is_ok_and(|s| s.heroic_fsr4_upgrade);
+        crate::heroic_launch::apply(&self.profile.name, |target| {
+            self.heroic_wanted(&video, optiscaler, fsr4, target)
+        })
+    }
+
+    /// What a Heroic game's settings get from BiGame-mode. Gamescope only
+    /// as a Steam game gets it — Always, or Automatic with values of the
+    /// game's own — and only where that Heroic can run it: its Flatpak
+    /// needs Flathub's Gamescope extension, a native one `gamescope`.
+    fn heroic_wanted(
+        &self,
+        video: &VideoConfig,
+        optiscaler: bool,
+        fsr4: bool,
+        target: &crate::heroic_launch::Target,
+    ) -> crate::heroic_launch::Wanted {
+        use crate::gamescope::Mode;
+        let mode = self.profile.gamescope_mode;
+        let caps = if target.flatpak() {
+            crate::heroic_launch::flatpak_gamescope_missing()
+                .is_none()
+                .then(crate::capabilities::GamescopeCaps::default)
+        } else {
+            crate::capabilities::gamescope_cached()
+        };
+        let asks = mode == Mode::Enabled || (mode == Mode::Auto && self.launch.sets_gamescope());
+        let gamescope = asks
+            .then(|| {
+                let mut cfg = self.launch.config(&video.upscaling, mode);
+                if optiscaler {
+                    cfg.render_width = 0;
+                    cfg.render_height = 0;
+                }
+                cfg
+            })
+            .filter(|cfg| {
+                crate::gamescope::decide(
+                    mode,
+                    cfg,
+                    caps.as_ref(),
+                    crate::hardware::detect_session(),
+                )
+                .use_gamescope
+            });
+        let upscales = !optiscaler
+            && gamescope.is_some()
+            && self.launch.upscales(&video.upscaling, mode, false);
+        // Heroic's Flatpak does not see the user's configuration folder.
+        let vkbasalt_config = (!target.flatpak())
+            .then_some(video.upscaling.vkbasalt_config_path.as_deref())
+            .flatten();
+        let (wine_fsr, mut env) =
+            self.launch
+                .heroic_env(&video.upscaling, upscales, optiscaler, vkbasalt_config);
+        if fsr4 {
+            env.extend(HEROIC_FSR4.map(|(k, v)| (k.to_owned(), v.to_owned())));
+        }
+        crate::heroic_launch::Wanted {
+            gamescope: gamescope
+                .as_ref()
+                .map(crate::heroic_launch::Gamescope::from_config),
+            wine_fsr,
+            wine_fsr_off_where_on: upscales || optiscaler,
+            env,
+        }
+    }
+}
+
+/// Write the game whose process is `process` into its settings in Heroic,
+/// from what is saved for it now.
+///
+/// # Errors
+/// As [`GameOptimization::apply_heroic`].
+pub fn apply_heroic(process: &str) -> Result<crate::heroic_launch::Applied> {
+    GameOptimization::load(process).apply_heroic()
+}
+
+/// Proton's FSR 4 upgrade (AI Graphics' Native action) on or off for the
+/// Heroic game whose process is `process`, written into its settings in
+/// Heroic. The choice is kept only when it was written.
+///
+/// # Errors
+/// Returns an error when the game's settings or Heroic's cannot be read
+/// or written.
+pub fn set_heroic_fsr4_upgrade(process: &str, on: bool) -> Result<crate::heroic_launch::Applied> {
+    let mut settings = crate::game_settings::load(process)?;
+    let before = settings.heroic_fsr4_upgrade;
+    settings.heroic_fsr4_upgrade = on;
+    crate::game_settings::save(process, &settings)?;
+    let applied = apply_heroic(process);
+    if !matches!(
+        applied,
+        Ok(crate::heroic_launch::Applied::Written | crate::heroic_launch::Applied::Unchanged)
+    ) {
+        // Not in effect: the saved choice goes back to what it was. The
+        // record `apply_heroic` may have saved is reloaded, not overwritten.
+        let mut settings = crate::game_settings::load(process)?;
+        settings.heroic_fsr4_upgrade = before;
+        crate::game_settings::save(process, &settings)?;
+    }
+    applied
+}
+
+/// Bring every Heroic game that has settings from BiGame-mode, or launch
+/// settings of its own, in line with Tuning, as
+/// [`refresh_steam_gamescope`] does for Steam games. Each result says what
+/// happened for that game.
+#[must_use]
+pub fn refresh_heroic() -> Vec<(String, anyhow::Result<crate::heroic_launch::Applied>)> {
+    let Ok(dir) = std::fs::read_dir(crate::game_settings::dir()) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = dir
+        .flatten()
+        .filter_map(|e| {
+            e.file_name()
+                .to_str()
+                .and_then(|n| n.strip_suffix(".toml"))
+                .map(str::to_owned)
+        })
+        .collect();
+    names.sort();
+    let mut heroic_games: Option<std::collections::HashSet<String>> = None;
+    let mut out = Vec::new();
+    for name in names {
+        let Ok(settings) = crate::game_settings::load(&name) else {
+            continue;
+        };
+        if settings.heroic.is_empty() {
+            if settings.launch.is_empty() && !settings.heroic_fsr4_upgrade {
+                continue;
+            }
+            let heroic = heroic_games.get_or_insert_with(|| {
+                crate::games::detect_all()
+                    .into_iter()
+                    .filter(|g| {
+                        matches!(g.launcher, Some(crate::games::LauncherRef::Heroic { .. }))
+                    })
+                    .map(|g| g.profile_key().to_owned())
+                    .collect()
+            });
+            if !heroic.contains(&name) {
+                continue;
+            }
+        }
+        out.push((name.clone(), apply_heroic(&name)));
+    }
+    out
 }
 
 /// Whether the general frame-generation switch is on.
