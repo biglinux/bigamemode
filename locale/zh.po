@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-28 00:10-0300\n"
+"POT-Creation-Date: 2026-09-28 00:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:28\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Chinese <zh@li.org>\n"
@@ -286,7 +286,7 @@ msgstr "%s 启动 %s"
 msgid "%s switched on in the game's settings"
 msgstr "已在游戏设置中开启 %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:620
+#: bigame-engine/bigame-core/src/graphics/plan.rs:635
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "如果游戏设置中 %s 处于关闭状态则将其开启，“恢复”时还原 — OptiScaler 会以 %s 取而代之；画质仍由你在游戏菜单中调整"
 
@@ -298,7 +298,7 @@ msgstr "已移除“%s”：游戏重新采用“调优”中的设置"
 msgid "%s through %s (%s)"
 msgstr "%s 通过 %s（%s）"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:716
+#: bigame-engine/bigame-core/src/graphics/plan.rs:731
 msgid "%s through OptiScaler, from the game's %s"
 msgstr "%s 通过 OptiScaler，基于游戏的 %s"
 
@@ -2185,7 +2185,7 @@ msgstr "已更新 Steam 启动选项中的 Gamescope：%s"
 msgid "Gamescope upscaling"
 msgstr "Gamescope 超分辨率"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:668
+#: bigame-engine/bigame-core/src/graphics/plan.rs:683
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "此游戏使用 Gamescope 超分辨率：两个超分辨率工具串联"
 
@@ -3545,7 +3545,7 @@ msgstr "打开官方页面"
 msgid "OptiScaler"
 msgstr "OptiScaler"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:603
+#: bigame-engine/bigame-core/src/graphics/plan.rs:618
 msgid "OptiScaler %s as %s beside the game, with %s configured as the output"
 msgstr "OptiScaler %s 以 %s 放在游戏旁边，并将 %s 配置为输出"
 
@@ -3605,7 +3605,7 @@ msgstr "OptiScaler 已加载，但未创建超分辨率：它所接管的游戏�
 msgid "OptiScaler needs dxgi.dll; remove this file, or load it through OptiScaler's own plugin loading, before AI Graphics can install"
 msgstr "OptiScaler 需要 dxgi.dll；请移除此文件，或通过 OptiScaler 自身的插件加载功能加载它，之后 AI 图形才能安装"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:525
+#: bigame-engine/bigame-core/src/graphics/plan.rs:540
 msgid "OptiScaler replaces an upscaler the game already has (DLSS, FSR 2 or newer, XeSS); this game has none"
 msgstr "OptiScaler 替换游戏已有的超分辨率（DLSS、FSR 2 或更新版本、XeSS）；此游戏没有"
 
@@ -3616,6 +3616,10 @@ msgstr "OptiScaler 以 FSR、XeSS 或 DLSS 取代游戏已有的超分辨率，�
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1636
 msgid "OptiScaler runs Intel XeSS in place of the game's upscaler. Fastest on Intel Arc; other GPUs run it through a slower general path. The game must have an upscaler for OptiScaler to take over."
 msgstr "OptiScaler 以 Intel XeSS 取代游戏的超分辨率。在 Intel Arc 上最快；其他 GPU 通过较慢的通用路径运行它。游戏必须有可供 OptiScaler 接管的超分辨率。"
+
+#: bigame-engine/bigame-core/src/graphics/plan.rs:499
+msgid "OptiScaler takes over an FSR 2 built into the game, but under VKD3D-Proton FSR 3.1 or FSR 4 in its place crashed the game at once — tested with The Outer Worlds: Spacer's Choice Edition and The Callisto Protocol on an RDNA 4 card (OptiScaler 0.9.4). The game's own FSR stays"
+msgstr "OptiScaler 会接管游戏内置的 FSR 2，但在 VKD3D-Proton 下以 FSR 3.1 或 FSR 4 取而代之会让游戏立即崩溃 — 已在 RDNA 4 显卡上用 The Outer Worlds: Spacer's Choice Edition 和 The Callisto Protocol 测试（OptiScaler 0.9.4）。保留游戏自带的 FSR"
 
 #: bigame-engine/bigame-core/src/graphics/rules.rs:234
 msgid "OptiScaler takes over the game's DLSS: choose DLSS in the game's menu; on AMD and Intel this needs GPU spoofing"
@@ -5589,7 +5593,7 @@ msgstr "Wine FSR 使用 AMD FSR 1 放大以低于屏幕尺寸的独占全屏方�
 msgid "Wine FSR for Proton games in exclusive fullscreen, and vkBasalt's filters."
 msgstr "用于独占全屏 Proton 游戏的 Wine FSR，以及 vkBasalt 的滤镜。"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:674
+#: bigame-engine/bigame-core/src/graphics/plan.rs:689
 msgid "Wine FSR for this game: two upscalers in series"
 msgstr "此游戏使用 Wine FSR：两个超分辨率工具串联"
 
@@ -5861,7 +5865,7 @@ msgstr "在游戏的图形菜单中选择 %s（质量）"
 msgid "choose %s in the game's graphics menu"
 msgstr "在游戏的图形菜单中选择 %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:627
+#: bigame-engine/bigame-core/src/graphics/plan.rs:642
 msgid "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place"
 msgstr "在游戏的图形菜单中选择 %s，画质随你设定 — OptiScaler 会以 %s 取而代之"
 
@@ -5921,7 +5925,7 @@ msgstr "不能运行 DLSS"
 msgid "download does not match %s: SHA-256 %s"
 msgstr "下载内容与 %s 不匹配：SHA-256 %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:560
+#: bigame-engine/bigame-core/src/graphics/plan.rs:575
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "游戏旁边的 dxgi.dll 属于 %s；不会覆盖它。请移除它，或通过 OptiScaler 加载它，之后 AI 图形才能安装 OptiScaler"
 
@@ -5929,7 +5933,7 @@ msgstr "游戏旁边的 dxgi.dll 属于 %s；不会覆盖它。请移除它，�
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "每个游戏的配置文件会在游戏运行时设置 V-Cache 模式"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:634
+#: bigame-engine/bigame-core/src/graphics/plan.rs:649
 msgid "every file that is replaced is backed up first, and Restore puts it back"
 msgstr "每个被替换的文件都会先备份，“恢复”会将其放回"
 
@@ -6145,7 +6149,7 @@ msgstr "已找到"
 msgid "frame generation"
 msgstr "帧生成"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:682
+#: bigame-engine/bigame-core/src/graphics/plan.rs:697
 msgid "frame generation raises the presented frame rate, not the rendered one, and adds latency"
 msgstr "帧生成提高的是显示帧率而非渲染帧率，并且会增加延迟"
 
@@ -6189,7 +6193,7 @@ msgstr "硬件降频"
 msgid "held off while the game runs"
 msgstr "游戏运行期间暂缓"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:647
+#: bigame-engine/bigame-core/src/graphics/plan.rs:662
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "如果游戏因此崩溃，OptiScaler 的 wiki 建议在游戏 Engine.ini 的 [SystemSettings] 下添加 %s"
 
@@ -6293,7 +6297,7 @@ msgstr "以 DLL 形式加载到游戏中：绝不用于带反作弊的游戏"
 msgid "lsfg-vk for every game with an entry"
 msgstr "为每个有条目的游戏启用 lsfg-vk"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:687
+#: bigame-engine/bigame-core/src/graphics/plan.rs:702
 msgid "lsfg-vk for this game: two frame generators in series"
 msgstr "此游戏使用 lsfg-vk：两个帧生成器串联"
 
@@ -6441,7 +6445,7 @@ msgstr "开机以来没有过热降频"
 msgid "no upscaler available"
 msgstr "没有可用的超分辨率"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:541
+#: bigame-engine/bigame-core/src/graphics/plan.rs:556
 msgid "no upscaler for OptiScaler to take over"
 msgstr "没有可供 OptiScaler 接管的超分辨率"
 
@@ -6757,7 +6761,7 @@ msgstr "开机以来 CPU 已 %s 次达到温度上限（共降速 %s 秒）：�
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "开机以来 CPU 已一次达到温度上限（共降速 %s 秒）：散热限制了它的速度，而 performance 电源配置会增加发热"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:558
+#: bigame-engine/bigame-core/src/graphics/plan.rs:573
 msgid "the DLL slot OptiScaler needs is taken"
 msgstr "OptiScaler 所需的 DLL 槽位已被占用"
 
@@ -6781,7 +6785,7 @@ msgstr "该组件通过 AMD 的 Windows HIP 运行时 (amdhip64_7.dll) 运行其
 msgid "the configuration was written but reads back unchanged"
 msgstr "配置已写入，但读回时未发生变化"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:532
+#: bigame-engine/bigame-core/src/graphics/plan.rs:547
 msgid "the executable has code for %s, but the DLL it runs from is not in the game's folder, so the game cannot offer it"
 msgstr "可执行文件中有 %s 的代码，但它所依赖的 DLL 不在游戏文件夹中，因此游戏无法提供它"
 
@@ -6797,11 +6801,11 @@ msgstr "可执行文件链接了 %s"
 msgid "the game has just started; OptiScaler has not reported yet"
 msgstr "游戏刚刚启动；OptiScaler 尚未报告"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:511
+#: bigame-engine/bigame-core/src/graphics/plan.rs:526
 msgid "the game has only DLSS, which does not run on this GeForce: whether the game offers it anyway for OptiScaler to take over depends on the game and is not established"
 msgstr "游戏只有 DLSS，而它无法在这张 GeForce 上运行：游戏是否仍会提供该选项供 OptiScaler 接管取决于具体游戏，尚未确认"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:520
+#: bigame-engine/bigame-core/src/graphics/plan.rs:535
 msgid "the game has only DLSS, which it hides on this GPU: OptiScaler has to report an NVIDIA GPU (spoofing), which can send the game down NVIDIA-only code paths"
 msgstr "游戏只有 DLSS，而它在此 GPU 上会被隐藏：OptiScaler 必须伪装成 NVIDIA GPU，这可能让游戏走上仅适用于 NVIDIA 的代码路径"
 
@@ -6817,7 +6821,7 @@ msgstr "游戏运行时其环境中没有 FSR4_UPGRADE=1，因此 Proton 没有�
 msgid "the game list blocks graphics injection for this game: %s"
 msgstr "游戏列表阻止对此游戏进行图形注入：%s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:655
+#: bigame-engine/bigame-core/src/graphics/plan.rs:670
 msgid "the game list records this game as tested with OptiScaler %s"
 msgstr "游戏列表记录此游戏已用 OptiScaler %s 测试"
 
@@ -6853,7 +6857,7 @@ msgstr "游戏的 DLSS"
 msgid "the game's FSR"
 msgstr "游戏的 FSR"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:502
+#: bigame-engine/bigame-core/src/graphics/plan.rs:517
 msgid "the game's FSR is built into its executable, not shipped as a DLL: OptiScaler takes over a built-in FSR in some games and not in others, depending on how the game built it — its compatibility list is the place to check. If nothing changes in the game, Restore Game Graphics puts every file back"
 msgstr "游戏的 FSR 内置于其可执行文件中，而不是以 DLL 形式提供：OptiScaler 能在某些游戏中接管内置的 FSR，在另一些游戏中则不能，取决于游戏的构建方式 — 请查看 OptiScaler 的兼容性列表。如果游戏中没有任何变化，“恢复游戏图形”会将所有文件还原"
 
@@ -6873,7 +6877,7 @@ msgstr "未找到游戏的可执行文件"
 msgid "the game's frame generation"
 msgstr "游戏的帧生成"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:660
+#: bigame-engine/bigame-core/src/graphics/plan.rs:675
 msgid "the game's graphics API is not certain yet; it is confirmed the first time the game runs"
 msgstr "游戏的图形 API 尚不确定；将在游戏首次运行时确认"
 
@@ -7065,7 +7069,7 @@ msgstr "可用的运行次数太少，无法比较"
 msgid "translator-credits"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:692
+#: bigame-engine/bigame-core/src/graphics/plan.rs:707
 msgid "turn the game's own frame generation off"
 msgstr "关闭游戏自带的帧生成"
 

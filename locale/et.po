@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-28 00:10-0300\n"
+"POT-Creation-Date: 2026-09-28 00:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:18\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Estonian <et@li.org>\n"
@@ -303,7 +303,7 @@ msgstr "%s käivitab faili %s"
 msgid "%s switched on in the game's settings"
 msgstr "%s lülitati mängu seadetes sisse"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:620
+#: bigame-engine/bigame-core/src/graphics/plan.rs:635
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s lülitatakse mängu seadetes sisse, kui see on väljas, ja Taastamine paneb selle tagasi — OptiScaler käitab selle asemel %s; kvaliteeti saate endiselt ise mängu menüüs muuta"
 
@@ -315,7 +315,7 @@ msgstr "%s eemaldatud: mängud saavad taas jaotise Häälestus seaded"
 msgid "%s through %s (%s)"
 msgstr "%s komponendi %s kaudu (%s)"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:716
+#: bigame-engine/bigame-core/src/graphics/plan.rs:731
 msgid "%s through OptiScaler, from the game's %s"
 msgstr "%s OptiScaleri kaudu, mängu %s põhjal"
 
@@ -2203,7 +2203,7 @@ msgstr "Gamescope uuendati Steami käivitusvalikutes: %s"
 msgid "Gamescope upscaling"
 msgstr "Gamescope'i ülesskaleerimine"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:668
+#: bigame-engine/bigame-core/src/graphics/plan.rs:683
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "Gamescope'i ülesskaleerimine sellele mängule: kaks ülesskaleerijat järjestikku"
 
@@ -3563,7 +3563,7 @@ msgstr "Ava ametlik leht"
 msgid "OptiScaler"
 msgstr "OptiScaler"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:603
+#: bigame-engine/bigame-core/src/graphics/plan.rs:618
 msgid "OptiScaler %s as %s beside the game, with %s configured as the output"
 msgstr "OptiScaler %s failina %s mängu kõrval, väljundiks seadistatud %s"
 
@@ -3623,7 +3623,7 @@ msgstr "OptiScaler laaditi, kuid ei loonud ülesskaleerijat: mängu enda ülessk
 msgid "OptiScaler needs dxgi.dll; remove this file, or load it through OptiScaler's own plugin loading, before AI Graphics can install"
 msgstr "OptiScaler vajab faili dxgi.dll; enne kui AI-graafika saab paigaldada, eemaldage see fail või laadige see OptiScaleri enda pluginalaadimise kaudu"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:525
+#: bigame-engine/bigame-core/src/graphics/plan.rs:540
 msgid "OptiScaler replaces an upscaler the game already has (DLSS, FSR 2 or newer, XeSS); this game has none"
 msgstr "OptiScaler asendab ülesskaleerija, mis mängul juba on (DLSS, FSR 2 või uuem, XeSS); sellel mängul pole ühtegi"
 
@@ -3634,6 +3634,10 @@ msgstr "OptiScaler käitab FSR-i, XeSS-i või DLSS-i mängu olemasoleva ülesska
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1636
 msgid "OptiScaler runs Intel XeSS in place of the game's upscaler. Fastest on Intel Arc; other GPUs run it through a slower general path. The game must have an upscaler for OptiScaler to take over."
 msgstr "OptiScaler käitab mängu ülesskaleerija asemel Intel XeSS-i. Kiireim Intel Arcil; teised GPU-d käitavad seda aeglasema üldise tee kaudu. Mängul peab olema ülesskaleerija, et OptiScaler saaks selle üle võtta."
+
+#: bigame-engine/bigame-core/src/graphics/plan.rs:499
+msgid "OptiScaler takes over an FSR 2 built into the game, but under VKD3D-Proton FSR 3.1 or FSR 4 in its place crashed the game at once — tested with The Outer Worlds: Spacer's Choice Edition and The Callisto Protocol on an RDNA 4 card (OptiScaler 0.9.4). The game's own FSR stays"
+msgstr "OptiScaler võtab üle mängu sisseehitatud FSR 2, kuid VKD3D-Protoni all jooksutas selle asemel FSR 3.1 või FSR 4 mängu kohe kokku — testitud mängudega The Outer Worlds: Spacer's Choice Edition ja The Callisto Protocol RDNA 4 kaardil (OptiScaler 0.9.4). Mängu enda FSR jääb alles"
 
 #: bigame-engine/bigame-core/src/graphics/rules.rs:234
 msgid "OptiScaler takes over the game's DLSS: choose DLSS in the game's menu; on AMD and Intel this needs GPU spoofing"
@@ -5607,7 +5611,7 @@ msgstr "Wine FSR suurendab AMD FSR 1-ga mängu, mis töötab eksklusiivses täis
 msgid "Wine FSR for Proton games in exclusive fullscreen, and vkBasalt's filters."
 msgstr "Wine FSR Protoni mängudele eksklusiivses täisekraanis ja vkBasalti filtrid."
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:674
+#: bigame-engine/bigame-core/src/graphics/plan.rs:689
 msgid "Wine FSR for this game: two upscalers in series"
 msgstr "Wine FSR sellele mängule: kaks ülesskaleerijat järjestikku"
 
@@ -5879,7 +5883,7 @@ msgstr "valige mängu graafikamenüüs %s (Quality)"
 msgid "choose %s in the game's graphics menu"
 msgstr "valige mängu graafikamenüüs %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:627
+#: bigame-engine/bigame-core/src/graphics/plan.rs:642
 msgid "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place"
 msgstr "valige mängu graafikamenüüs %s soovitud kvaliteediga — OptiScaler käitab selle asemel %s"
 
@@ -5939,7 +5943,7 @@ msgstr "ei käita DLSS-i"
 msgid "download does not match %s: SHA-256 %s"
 msgstr "allalaaditu ei vasta väljalaskele %s: SHA-256 %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:560
+#: bigame-engine/bigame-core/src/graphics/plan.rs:575
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "dxgi.dll mängu kõrval kuulub komponendile %s; seda ei kirjutata üle. Enne kui AI-graafika saab OptiScaleri paigaldada, eemaldage see või laadige see OptiScaleri kaudu"
 
@@ -5947,7 +5951,7 @@ msgstr "dxgi.dll mängu kõrval kuulub komponendile %s; seda ei kirjutata üle. 
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "iga mängu profiil seab mängu ajaks V-Cache režiimi"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:634
+#: bigame-engine/bigame-core/src/graphics/plan.rs:649
 msgid "every file that is replaced is backed up first, and Restore puts it back"
 msgstr "iga asendatav fail varundatakse esmalt ja Taastamine paneb selle tagasi"
 
@@ -6163,7 +6167,7 @@ msgstr "leitud"
 msgid "frame generation"
 msgstr "kaadrite genereerimine"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:682
+#: bigame-engine/bigame-core/src/graphics/plan.rs:697
 msgid "frame generation raises the presented frame rate, not the rendered one, and adds latency"
 msgstr "kaadrite genereerimine tõstab kuvatavat kaadrisagedust, mitte renderdatavat, ja lisab latentsust"
 
@@ -6207,7 +6211,7 @@ msgstr "riistvaraline aeglustus"
 msgid "held off while the game runs"
 msgstr "mängu ajaks peatatud"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:647
+#: bigame-engine/bigame-core/src/graphics/plan.rs:662
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "kui mäng sellega kokku jookseb, soovitab OptiScaleri viki mängu Engine.ini failis jaotise [SystemSettings] alla lisada %s"
 
@@ -6311,7 +6315,7 @@ msgstr "laaditakse mängu DLL-ina: mitte kunagi petmisvastase kaitsega mängude 
 msgid "lsfg-vk for every game with an entry"
 msgstr "lsfg-vk igale kirjega mängule"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:687
+#: bigame-engine/bigame-core/src/graphics/plan.rs:702
 msgid "lsfg-vk for this game: two frame generators in series"
 msgstr "lsfg-vk sellele mängule: kaks kaadrigeneraatorit järjestikku"
 
@@ -6459,7 +6463,7 @@ msgstr "pärast käivitamist pole termilist piiramist olnud"
 msgid "no upscaler available"
 msgstr "ülesskaleerijat pole saadaval"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:541
+#: bigame-engine/bigame-core/src/graphics/plan.rs:556
 msgid "no upscaler for OptiScaler to take over"
 msgstr "pole ülesskaleerijat, mida OptiScaler saaks üle võtta"
 
@@ -6775,7 +6779,7 @@ msgstr "protsessor jõudis pärast käivitamist oma temperatuuripiirini %s korda
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "protsessor jõudis pärast käivitamist oma temperatuuripiirini üks kord (kokku %s s aeglustatud): selle jahutus piirab kiirust ja jõudluse toiteprofiil lisab soojust"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:558
+#: bigame-engine/bigame-core/src/graphics/plan.rs:573
 msgid "the DLL slot OptiScaler needs is taken"
 msgstr "DLL-pesa, mida OptiScaler vajab, on hõivatud"
 
@@ -6799,7 +6803,7 @@ msgstr "komponent käitab oma arvutuskerneleid AMD Windowsi HIP käituskeskkonna
 msgid "the configuration was written but reads back unchanged"
 msgstr "seadistus kirjutati, kuid tagasi lugedes on see muutmata"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:532
+#: bigame-engine/bigame-core/src/graphics/plan.rs:547
 msgid "the executable has code for %s, but the DLL it runs from is not in the game's folder, so the game cannot offer it"
 msgstr "käivitatavas failis on kood %s jaoks, kuid DLL-i, millest see töötab, pole mängu kaustas, seega ei saa mäng seda pakkuda"
 
@@ -6815,11 +6819,11 @@ msgstr "käivitatav fail lingib %s"
 msgid "the game has just started; OptiScaler has not reported yet"
 msgstr "mäng just käivitus; OptiScaler pole veel teatanud"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:511
+#: bigame-engine/bigame-core/src/graphics/plan.rs:526
 msgid "the game has only DLSS, which does not run on this GeForce: whether the game offers it anyway for OptiScaler to take over depends on the game and is not established"
 msgstr "mängul on ainult DLSS, mis sellel GeForce'il ei tööta: kas mäng pakub seda ikkagi OptiScaleri ülevõtmiseks, sõltub mängust ja pole kinnitatud"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:520
+#: bigame-engine/bigame-core/src/graphics/plan.rs:535
 msgid "the game has only DLSS, which it hides on this GPU: OptiScaler has to report an NVIDIA GPU (spoofing), which can send the game down NVIDIA-only code paths"
 msgstr "mängul on ainult DLSS, mille see sellel GPU-l peidab: OptiScaler peab teatama NVIDIA GPU-st (võltsimine), mis võib suunata mängu ainult NVIDIA-le mõeldud koodiradadele"
 
@@ -6835,7 +6839,7 @@ msgstr "mäng töötab ilma FSR4_UPGRADE=1-ta oma keskkonnas, seega ei andnud Pr
 msgid "the game list blocks graphics injection for this game: %s"
 msgstr "mänguloend blokeerib selle mängu jaoks graafikasüsti: %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:655
+#: bigame-engine/bigame-core/src/graphics/plan.rs:670
 msgid "the game list records this game as tested with OptiScaler %s"
 msgstr "mänguloendi järgi on see mäng testitud OptiScaleri versiooniga %s"
 
@@ -6871,7 +6875,7 @@ msgstr "mängu DLSS"
 msgid "the game's FSR"
 msgstr "mängu FSR"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:502
+#: bigame-engine/bigame-core/src/graphics/plan.rs:517
 msgid "the game's FSR is built into its executable, not shipped as a DLL: OptiScaler takes over a built-in FSR in some games and not in others, depending on how the game built it — its compatibility list is the place to check. If nothing changes in the game, Restore Game Graphics puts every file back"
 msgstr "mängu FSR on sisse ehitatud selle käivitatavasse faili, mitte tarnitud DLL-ina: OptiScaler võtab sisseehitatud FSR-i üle mõnes mängus ja teistes mitte, olenevalt sellest, kuidas mäng selle ehitas — seda saab kontrollida selle ühilduvusloendist. Kui mängus midagi ei muutu, paneb Taasta mängu graafika iga faili tagasi"
 
@@ -6891,7 +6895,7 @@ msgstr "mängu käivitatavat faili ei leitud"
 msgid "the game's frame generation"
 msgstr "mängu kaadrite genereerimine"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:660
+#: bigame-engine/bigame-core/src/graphics/plan.rs:675
 msgid "the game's graphics API is not certain yet; it is confirmed the first time the game runs"
 msgstr "mängu graafika-API pole veel kindel; see kinnitub mängu esimesel käivitamisel"
 
@@ -7083,7 +7087,7 @@ msgstr "võrdlemiseks on liiga vähe kasutatavaid käivitusi"
 msgid "translator-credits"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:692
+#: bigame-engine/bigame-core/src/graphics/plan.rs:707
 msgid "turn the game's own frame generation off"
 msgstr "lülitage mängu enda kaadrite genereerimine välja"
 

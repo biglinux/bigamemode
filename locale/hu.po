@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-28 00:10-0300\n"
+"POT-Creation-Date: 2026-09-28 00:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:21\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hungarian <hu@li.org>\n"
@@ -303,7 +303,7 @@ msgstr "%s indítja a következőt: %s"
 msgid "%s switched on in the game's settings"
 msgstr "%s bekapcsolva a játék beállításaiban"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:620
+#: bigame-engine/bigame-core/src/graphics/plan.rs:635
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s bekapcsolva a játék beállításaiban, ha ki van kapcsolva, és a Visszaállítás visszaállítja — helyette az OptiScaler ezt futtatja: %s; a minőséget továbbra is te állítod a játék menüjében"
 
@@ -315,7 +315,7 @@ msgstr "%s eltávolítva: a játékok ismét a Hangolás beállításait kapják
 msgid "%s through %s (%s)"
 msgstr "%s ezen keresztül: %s (%s)"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:716
+#: bigame-engine/bigame-core/src/graphics/plan.rs:731
 msgid "%s through OptiScaler, from the game's %s"
 msgstr "%s az OptiScaler révén (a játék saját megoldása: %s)"
 
@@ -2203,7 +2203,7 @@ msgstr "Gamescope frissítve a Steam indítási opciókban: %s"
 msgid "Gamescope upscaling"
 msgstr "Gamescope felskálázás"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:668
+#: bigame-engine/bigame-core/src/graphics/plan.rs:683
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "Gamescope felskálázás ennél a játéknál: két felskálázó sorban"
 
@@ -3563,7 +3563,7 @@ msgstr "Hivatalos oldal megnyitása"
 msgid "OptiScaler"
 msgstr "OptiScaler"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:603
+#: bigame-engine/bigame-core/src/graphics/plan.rs:618
 msgid "OptiScaler %s as %s beside the game, with %s configured as the output"
 msgstr "OptiScaler %s a játék mellett, ezen a néven: %s, kimenetként beállítva: %s"
 
@@ -3623,7 +3623,7 @@ msgstr "Az OptiScaler betöltődött, de nem hozott létre felskálázót: a já
 msgid "OptiScaler needs dxgi.dll; remove this file, or load it through OptiScaler's own plugin loading, before AI Graphics can install"
 msgstr "Az OptiScalernek szüksége van a dxgi.dll-re; távolítsd el ezt a fájlt, vagy töltsd be az OptiScaler saját bővítménybetöltésével, mielőtt az MI-grafika telepíthetne"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:525
+#: bigame-engine/bigame-core/src/graphics/plan.rs:540
 msgid "OptiScaler replaces an upscaler the game already has (DLSS, FSR 2 or newer, XeSS); this game has none"
 msgstr "Az OptiScaler a játékban már meglévő felskálázót cseréli le (DLSS, FSR 2 vagy újabb, XeSS); ennek a játéknak nincs ilyenje"
 
@@ -3634,6 +3634,10 @@ msgstr "Az OptiScaler FSR-t, XeSS-t vagy DLSS-t futtat a játékban már meglév
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1636
 msgid "OptiScaler runs Intel XeSS in place of the game's upscaler. Fastest on Intel Arc; other GPUs run it through a slower general path. The game must have an upscaler for OptiScaler to take over."
 msgstr "Az OptiScaler az Intel XeSS-t futtatja a játék felskálázója helyett. Intel Arc kártyán a leggyorsabb; más GPU-k egy lassabb általános úton futtatják. A játéknak rendelkeznie kell egy felskálázóval, amelyet az OptiScaler átvehet."
+
+#: bigame-engine/bigame-core/src/graphics/plan.rs:499
+msgid "OptiScaler takes over an FSR 2 built into the game, but under VKD3D-Proton FSR 3.1 or FSR 4 in its place crashed the game at once — tested with The Outer Worlds: Spacer's Choice Edition and The Callisto Protocol on an RDNA 4 card (OptiScaler 0.9.4). The game's own FSR stays"
+msgstr "Az OptiScaler átveszi a játékba beépített FSR 2-t, de VKD3D-Proton alatt a helyette futó FSR 3.1 vagy FSR 4 azonnal összeomlasztotta a játékot — tesztelve a The Outer Worlds: Spacer's Choice Edition és a The Callisto Protocol játékkal egy RDNA 4-es kártyán (OptiScaler 0.9.4). A játék saját FSR-je marad"
 
 #: bigame-engine/bigame-core/src/graphics/rules.rs:234
 msgid "OptiScaler takes over the game's DLSS: choose DLSS in the game's menu; on AMD and Intel this needs GPU spoofing"
@@ -5607,7 +5611,7 @@ msgstr "A Wine FSR az AMD FSR 1 segítségével felnagyítja azt a játékot, am
 msgid "Wine FSR for Proton games in exclusive fullscreen, and vkBasalt's filters."
 msgstr "Wine FSR a kizárólagos teljes képernyőn futó Proton-játékokhoz, és a vkBasalt szűrői."
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:674
+#: bigame-engine/bigame-core/src/graphics/plan.rs:689
 msgid "Wine FSR for this game: two upscalers in series"
 msgstr "Wine FSR ennél a játéknál: két felskálázó sorban"
 
@@ -5879,7 +5883,7 @@ msgstr "válaszd ki a játék grafikai menüjében ezt: %s (Minőség)"
 msgid "choose %s in the game's graphics menu"
 msgstr "válaszd ki a játék grafikai menüjében ezt: %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:627
+#: bigame-engine/bigame-core/src/graphics/plan.rs:642
 msgid "choose %s in the game's graphics menu, at the quality you want — OptiScaler runs %s in its place"
 msgstr "válaszd ki a játék grafikai menüjében ezt: %s, a kívánt minőségen — az OptiScaler a helyén ezt futtatja: %s"
 
@@ -5939,7 +5943,7 @@ msgstr "nem futtat DLSS-t"
 msgid "download does not match %s: SHA-256 %s"
 msgstr "a letöltés nem egyezik a(z) %s kiadással: SHA-256 %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:560
+#: bigame-engine/bigame-core/src/graphics/plan.rs:575
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "a játék melletti dxgi.dll ehhez tartozik: %s; nem kerül felülírásra. Távolítsd el, vagy töltsd be az OptiScaleren keresztül, mielőtt az MI-grafika telepíthetné az OptiScalert"
 
@@ -5947,7 +5951,7 @@ msgstr "a játék melletti dxgi.dll ehhez tartozik: %s; nem kerül felülírásr
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "minden játék profilja beállítja a V-Cache módot, amíg a játék fut"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:634
+#: bigame-engine/bigame-core/src/graphics/plan.rs:649
 msgid "every file that is replaced is backed up first, and Restore puts it back"
 msgstr "minden lecserélt fájlról előbb biztonsági mentés készül, és a Visszaállítás visszateszi"
 
@@ -6163,7 +6167,7 @@ msgstr "megtalálva"
 msgid "frame generation"
 msgstr "képkocka-generálás"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:682
+#: bigame-engine/bigame-core/src/graphics/plan.rs:697
 msgid "frame generation raises the presented frame rate, not the rendered one, and adds latency"
 msgstr "a képkocka-generálás a megjelenített képkocka-sebességet növeli, nem a rendereltet, és késleltetést ad hozzá"
 
@@ -6207,7 +6211,7 @@ msgstr "hardveres lassítás"
 msgid "held off while the game runs"
 msgstr "visszatartva, amíg a játék fut"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:647
+#: bigame-engine/bigame-core/src/graphics/plan.rs:662
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "ha a játék összeomlik vele, az OptiScaler wikije ezt javasolja a játék Engine.ini fájljában, a [SystemSettings] alatt: %s"
 
@@ -6311,7 +6315,7 @@ msgstr "DLL-ként töltődik be a játékba: csalásgátlót használó játéko
 msgid "lsfg-vk for every game with an entry"
 msgstr "lsfg-vk minden bejegyzéssel rendelkező játékhoz"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:687
+#: bigame-engine/bigame-core/src/graphics/plan.rs:702
 msgid "lsfg-vk for this game: two frame generators in series"
 msgstr "lsfg-vk ennél a játéknál: két képkocka-generátor sorban"
 
@@ -6459,7 +6463,7 @@ msgstr "nem volt hőmérsékleti visszafojtás a rendszerindítás óta"
 msgid "no upscaler available"
 msgstr "nincs elérhető felskálázó"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:541
+#: bigame-engine/bigame-core/src/graphics/plan.rs:556
 msgid "no upscaler for OptiScaler to take over"
 msgstr "nincs felskálázó, amelyet az OptiScaler átvehetne"
 
@@ -6775,7 +6779,7 @@ msgstr "a processzor a rendszerindítás óta %s alkalommal érte el a hőmérs�
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "a processzor a rendszerindítás óta egyszer érte el a hőmérsékleti korlátját (összesen %s s lassulás): a hűtése korlátozza a sebességét, és a performance energiaprofil több hőt termel"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:558
+#: bigame-engine/bigame-core/src/graphics/plan.rs:573
 msgid "the DLL slot OptiScaler needs is taken"
 msgstr "az OptiScaler által igényelt DLL-hely foglalt"
 
@@ -6799,7 +6803,7 @@ msgstr "a komponens az AMD Windowsos HIP-futtatókörnyezetén (amdhip64_7.dll) 
 msgid "the configuration was written but reads back unchanged"
 msgstr "a konfiguráció beírásra került, de visszaolvasva változatlan"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:532
+#: bigame-engine/bigame-core/src/graphics/plan.rs:547
 msgid "the executable has code for %s, but the DLL it runs from is not in the game's folder, so the game cannot offer it"
 msgstr "a futtatható fájlban van kód a(z) %s számára, de a DLL, amelyből fut, nincs a játék mappájában, így a játék nem tudja felkínálni"
 
@@ -6815,11 +6819,11 @@ msgstr "a futtatható fájl ezt linkeli: %s"
 msgid "the game has just started; OptiScaler has not reported yet"
 msgstr "a játék épp most indult; az OptiScaler még nem jelzett vissza"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:511
+#: bigame-engine/bigame-core/src/graphics/plan.rs:526
 msgid "the game has only DLSS, which does not run on this GeForce: whether the game offers it anyway for OptiScaler to take over depends on the game and is not established"
 msgstr "a játékban csak DLSS van, amely nem fut ezen a GeForce-on: hogy a játék ennek ellenére felkínálja-e, hogy az OptiScaler átvegye, a játéktól függ, és nem igazolt"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:520
+#: bigame-engine/bigame-core/src/graphics/plan.rs:535
 msgid "the game has only DLSS, which it hides on this GPU: OptiScaler has to report an NVIDIA GPU (spoofing), which can send the game down NVIDIA-only code paths"
 msgstr "a játékban csak DLSS van, amelyet ezen a GPU-n elrejt: az OptiScalernek NVIDIA GPU-t kell jelentenie (hamisítás), ami a játékot csak NVIDIA-ra szánt kódutakra terelheti"
 
@@ -6835,7 +6839,7 @@ msgstr "a játék FSR4_UPGRADE=1 nélkül fut a környezetében, így a Proton n
 msgid "the game list blocks graphics injection for this game: %s"
 msgstr "a játéklista letiltja a grafikai injektálást ennél a játéknál: %s"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:655
+#: bigame-engine/bigame-core/src/graphics/plan.rs:670
 msgid "the game list records this game as tested with OptiScaler %s"
 msgstr "a játéklista szerint ez a játék az OptiScaler %s verziójával lett tesztelve"
 
@@ -6871,7 +6875,7 @@ msgstr "a játék DLSS-e"
 msgid "the game's FSR"
 msgstr "a játék FSR-je"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:502
+#: bigame-engine/bigame-core/src/graphics/plan.rs:517
 msgid "the game's FSR is built into its executable, not shipped as a DLL: OptiScaler takes over a built-in FSR in some games and not in others, depending on how the game built it — its compatibility list is the place to check. If nothing changes in the game, Restore Game Graphics puts every file back"
 msgstr "a játék FSR-je a futtatható fájljába van beépítve, nem DLL-ként szállítják: az OptiScaler egyes játékokban átveszi a beépített FSR-t, másokban nem, attól függően, hogyan építette be a játék — ezt a kompatibilitási listájában lehet ellenőrizni. Ha a játékban semmi sem változik, a Játékgrafika visszaállítása minden fájlt visszatesz"
 
@@ -6891,7 +6895,7 @@ msgstr "a játék futtatható fájlja nem található"
 msgid "the game's frame generation"
 msgstr "a játék képkocka-generálása"
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:660
+#: bigame-engine/bigame-core/src/graphics/plan.rs:675
 msgid "the game's graphics API is not certain yet; it is confirmed the first time the game runs"
 msgstr "a játék grafikus API-ja még nem biztos; a játék első futásakor igazolódik"
 
@@ -7083,7 +7087,7 @@ msgstr "túl kevés használható futás az összehasonlításhoz"
 msgid "translator-credits"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/graphics/plan.rs:692
+#: bigame-engine/bigame-core/src/graphics/plan.rs:707
 msgid "turn the game's own frame generation off"
 msgstr "kapcsold ki a játék saját képkocka-generálását"
 
