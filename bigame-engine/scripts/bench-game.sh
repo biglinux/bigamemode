@@ -131,11 +131,12 @@ CARD=${CARD:-$(for c in /sys/class/drm/card[0-9]*; do
 done | sort -n | tail -1 | cut -d' ' -f2)}
 [ -n "$CARD" ] || die "no GPU with a DPM control was found"
 
+# Quoted with %q: the state is put back with eval, and a value is never code.
 read_state() {
-    printf 'governor=%s\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)"
-    printf 'epp=%s\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null)"
-    printf 'dpm=%s\n' "$(cat "/sys/class/drm/$CARD/device/power_dpm_force_performance_level" 2>/dev/null)"
-    printf 'profile=%s\n' "$(powerprofilesctl get 2>/dev/null)"
+    printf 'governor=%q\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)"
+    printf 'epp=%q\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null)"
+    printf 'dpm=%q\n' "$(cat "/sys/class/drm/$CARD/device/power_dpm_force_performance_level" 2>/dev/null)"
+    printf 'profile=%q\n' "$(powerprofilesctl get 2>/dev/null)"
 }
 ORIGINAL=$(read_state)
 
@@ -150,7 +151,14 @@ restore() {
     [ -n "${UI_PID:-}" ] && kill -CONT "$UI_PID" 2>/dev/null
     log "restoring the machine to how it was found"
     eval "$ORIGINAL"
-    set_profile "$profile"; set_governor "$governor"; set_epp "$epp"; set_dpm "$dpm"
+    # Assigned by the eval above, from read_state.
+    # shellcheck disable=SC2154
+    {
+        set_profile "$profile"
+        set_governor "$governor"
+        set_epp "$epp"
+        set_dpm "$dpm"
+    }
     read_state | sed 's/^/  /' >&2
 }
 trap restore EXIT INT TERM

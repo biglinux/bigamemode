@@ -56,11 +56,12 @@ render_card() {
 CARD=$(render_card)
 [ -n "$CARD" ] || die "no GPU with a DPM control was found"
 
+# Quoted with %q: the state is put back with eval, and a value is never code.
 read_state() {
-    printf 'governor=%s\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo '')"
-    printf 'epp=%s\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo '')"
-    printf 'dpm=%s\n' "$(cat "/sys/class/drm/$CARD/device/power_dpm_force_performance_level" 2>/dev/null || echo '')"
-    printf 'profile=%s\n' "$(powerprofilesctl get 2>/dev/null || echo '')"
+    printf 'governor=%q\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo '')"
+    printf 'epp=%q\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo '')"
+    printf 'dpm=%q\n' "$(cat "/sys/class/drm/$CARD/device/power_dpm_force_performance_level" 2>/dev/null || echo '')"
+    printf 'profile=%q\n' "$(powerprofilesctl get 2>/dev/null || echo '')"
 }
 
 ORIGINAL=$(read_state)
@@ -91,7 +92,14 @@ set_profile()  { [ -n "$1" ] && powerprofilesctl set "$1" >/dev/null 2>&1; }
 restore() {
     log "restoring the machine to how it was found"
     eval "$ORIGINAL"
-    set_governor "$governor"; set_epp "$epp"; set_dpm "$dpm"; set_profile "$profile"
+    # Assigned by the eval above, from read_state.
+    # shellcheck disable=SC2154
+    {
+        set_governor "$governor"
+        set_epp "$epp"
+        set_dpm "$dpm"
+        set_profile "$profile"
+    }
     read_state | sed 's/^/  /' >&2
     restore_workload_config
 }
