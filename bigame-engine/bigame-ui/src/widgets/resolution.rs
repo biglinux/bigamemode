@@ -48,8 +48,10 @@ fn label(size: (u32, u32), main: Option<(u32, u32)>) -> String {
 }
 
 /// Items as plain labels: the row's own caps a label at about 20
-/// characters, which cuts "3440 × 1440 — main screen".
-fn whole_label_factory() -> gtk4::SignalListItemFactory {
+/// characters, which cuts "3440 × 1440 — main screen" (and AI Graphics'
+/// "Recommended for this game" in Portuguese).
+#[must_use]
+pub fn whole_label_factory() -> gtk4::SignalListItemFactory {
     let factory = gtk4::SignalListItemFactory::new();
     factory.connect_setup(|_, item| {
         if let Some(item) = item.downcast_ref::<gtk4::ListItem>() {
