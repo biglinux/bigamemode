@@ -943,32 +943,43 @@ fn card_entry(
     }
 }
 
-/// How a game is started from here: Steam titles through the client
-/// (`steam -applaunch <id>`), others with the command their launcher entry
-/// gives. `None` when there is neither, rather than guessing a program name
+/// How a game is started from here: one with a native executable by
+/// BiGame-mode itself, with its launch settings; a Steam title, and any other
+/// game its launcher records, by that launcher (`steam -applaunch <id>`,
+/// Heroic's `heroic://launch` link, `lutris:rungame/<slug>`, `flatpak run
+/// <id>`). `None` when there is neither, rather than guessing a program name
 /// and running whatever the PATH resolves it to.
-fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<(String, Vec<String>)> {
-    if game.source == bigame_core::games::Source::Steam {
-        let id = game.app_id.clone()?;
-        return Some(("steam".to_owned(), vec!["-applaunch".to_owned(), id]));
+fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<game_card::Launch> {
+    if game.source != bigame_core::games::Source::Steam {
+        if let Some((program, args)) = game.launch_command.as_ref().and_then(|c| c.split_first()) {
+            return Some(game_card::Launch::Direct(program.clone(), args.to_vec()));
+        }
     }
-    let (program, args) = game.launch_command.as_ref()?.split_first()?;
-    Some((program.clone(), args.to_vec()))
+    bigame_core::launchers::Start::for_game(game).map(game_card::Launch::Through)
 }
 
-/// Start `entry`'s game with BiGame-mode's launch settings (Gamescope, Wine
-/// FSR, vkBasalt, frame generation) on top of its profile.
-///
-/// A Steam game is started by the Steam client, in its own process tree:
-/// its falcond profile applies, but nothing wraps it, so the toast says so
-/// rather than promising the launch settings.
+/// Start `entry`'s game: with BiGame-mode's launch settings (Gamescope, Wine
+/// FSR, vkBasalt, frame generation) on top of its profile when BiGame-mode
+/// starts it, or through its launcher.
 fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
-    let Some((program, args)) = entry.launch.clone() else {
-        return;
-    };
+    match entry.launch.clone() {
+        Some(game_card::Launch::Direct(program, args)) => {
+            launch_directly(entry, program, args, anchor);
+        }
+        Some(game_card::Launch::Through(start)) => launch_through(entry, start, anchor),
+        None => {}
+    }
+}
+
+/// Start a game BiGame-mode runs itself, its launch settings around it.
+fn launch_directly(
+    entry: &game_card::Entry,
+    program: String,
+    args: Vec<String>,
+    anchor: &gtk4::Widget,
+) {
     let exe = entry.key.clone();
     let title = entry.title.clone();
-    let through_steam = program == "steam";
     let anchor = anchor.clone();
     glib::spawn_future_local(async move {
         let exe_for_launch = exe.clone();
@@ -1011,33 +1022,69 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
                 tracing::info!(game = %title, "launch succeeded");
                 toast::show(
                     &anchor,
-                    &if through_steam {
-                        i18n("Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options.").replace("%s", &title)
-                    } else {
-                        i18n("%s started with BiGame-mode's launch settings").replace("%s", &title)
-                    },
+                    &i18n("%s started with BiGame-mode's launch settings").replace("%s", &title),
                 );
             }
-            Ok(Err(e)) => {
-                tracing::error!(game = %title, error = %format!("{e:#}"), "launch failed");
-                toast::show(
-                    &anchor,
-                    &i18n("Could not start %t: %e")
-                        .replace("%t", &title)
-                        .replace("%e", &error_text(&e)),
-                );
-            }
-            Err(_) => {
-                tracing::error!(game = %title, "launch task failed");
-                toast::show(
-                    &anchor,
-                    &i18n("Could not start %t: %e")
-                        .replace("%t", &title)
-                        .replace("%e", ""),
-                );
-            }
+            Ok(Err(e)) => launch_failed(&anchor, &title, &error_text(&e)),
+            Err(_) => launch_failed(&anchor, &title, ""),
         }
     });
+}
+
+/// Ask a game's launcher to start it. The launcher starts the game in its
+/// own process tree: falcond's profile reaches the game — while Turbo is on
+/// — but nothing BiGame-mode wraps a game with does, and the toast says both
+/// rather than promising the launch settings.
+fn launch_through(
+    entry: &game_card::Entry,
+    start: bigame_core::launchers::Start,
+    anchor: &gtk4::Widget,
+) {
+    let title = entry.title.clone();
+    let anchor = anchor.clone();
+    glib::spawn_future_local(async move {
+        let by = start.by;
+        tracing::info!(game = %title, launcher = by, argv = ?start.argv, "launch through the launcher requested from Profiles");
+        let result = gio::spawn_blocking(move || {
+            let turbo_on = bigame_core::systemd::Reader::shared()
+                .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+                .is_some_and(|u| u.is_active());
+            start.spawn().map(|()| turbo_on)
+        })
+        .await;
+        match result {
+            Ok(Ok(turbo_on)) => {
+                tracing::info!(game = %title, launcher = by, turbo_on, "launcher asked to start the game");
+                let text = if !turbo_on {
+                    i18n(
+                        "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home.",
+                    )
+                } else if by == "Steam" {
+                    i18n(
+                        "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options.",
+                    )
+                } else {
+                    i18n(
+                        "Asked %l to start %s. Its profile applies; BiGame-mode's launch settings do not reach a game its launcher starts.",
+                    )
+                };
+                toast::show(&anchor, &text.replace("%l", by).replace("%s", &title));
+            }
+            Ok(Err(e)) => launch_failed(&anchor, &title, &error_text(&e)),
+            Err(_) => launch_failed(&anchor, &title, ""),
+        }
+    });
+}
+
+/// Say a launch failed, and why.
+fn launch_failed(anchor: &gtk4::Widget, title: &str, why: &str) {
+    tracing::error!(game = %title, error = %why, "launch failed");
+    toast::show(
+        anchor,
+        &i18n("Could not start %t: %e")
+            .replace("%t", title)
+            .replace("%e", why),
+    );
 }
 
 /// Open a card's profile: the existing file for editing, or a new profile
