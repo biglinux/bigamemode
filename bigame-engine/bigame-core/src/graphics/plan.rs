@@ -488,6 +488,21 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                 "OptiScaler takes over the game's FSR — documented upstream, not yet verified by BiGame-mode",
             ),
         )
+    } else if let Some(b) = n.built_in_fsr().filter(|_| built_in_fsr_crashes(r)) {
+        // Tested on BiGame-mode's RDNA 4 machine (GE-Proton10-20, OptiScaler
+        // 0.9.4), The Outer Worlds: Spacer's Choice Edition and The Callisto
+        // Protocol both: OptiScaler takes the compiled-in FSR 2 over, and
+        // the game crashes the moment FSR 3.1 or FSR 4 runs in its place —
+        // the same access violation in amd_fidelityfx_upscaler_dx12.dll
+        // over VKD3D-Proton's d3d12core, with and without the FSR 4
+        // provider. Only OptiScaler's own FSR 2.1 ran, which is no gain.
+        let crash = N_(
+            "OptiScaler takes over an FSR 2 built into the game, but under VKD3D-Proton FSR 3.1 or FSR 4 in its place crashed the game at once — tested with The Outer Worlds: Spacer's Choice Edition and The Callisto Protocol on an RDNA 4 card (OptiScaler 0.9.4). The game's own FSR stays",
+        );
+        if cfg.mode == Mode::Recommended {
+            return keep_native(Text::plain(crash));
+        }
+        (Input::Fsr, b.label(), Standing::NotRecommended, crash)
     } else if let Some(b) = n.built_in_fsr() {
         // OptiScaler's own documentation: FSR 2 and FSR 3 "support custom
         // interfaces, game support will depend on the developers'
@@ -722,6 +737,13 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         disable,
         problems,
     }
+}
+
+/// Whether taking over the game's compiled-in FSR crashes it here: a DX12
+/// game, which runs over VKD3D-Proton (the API is DX12 until the game is
+/// seen running otherwise).
+fn built_in_fsr_crashes(r: &Report) -> bool {
+    r.api.api.unwrap_or(Api::Dx12) == Api::Dx12
 }
 
 #[cfg(test)]
@@ -1033,9 +1055,25 @@ mod tests {
     }
 
     #[test]
-    fn a_built_in_fsr2_is_the_games_own_and_an_experimental_input_on_rdna4() {
+    fn a_built_in_fsr2_under_vkd3d_stays_the_games_own_and_elsewhere_is_experimental() {
+        // DX12 over VKD3D-Proton: taking it over crashed two games, so
+        // Recommended keeps the game's FSR 2 and says why.
         let mut r = report(tow(), gpu(GpuVendor::Amd, Some(4)));
         r.engine = Some(crate::graphics::scan::Engine::Unreal);
+        let p = plan(&r, &recommended(), &Context::default());
+        assert_eq!(p.standing, Standing::Recommended);
+        assert_eq!(p.summary.english(), "the game's own FSR 2");
+        assert!(p.optiscaler.is_none());
+        let text: Vec<String> = p.steps.iter().map(|s| s.text().english()).collect();
+        assert!(
+            text.iter().any(|t| t.contains("crashed the game at once")),
+            "{text:#?}"
+        );
+
+        // A DX11 game (DXVK) was not tested: still Experimental, and what
+        // is known is said — built in, may or may not be taken over, and
+        // the wiki's Unreal tweak for a crash.
+        r.api.api = Some(Api::Dx11);
         let p = plan(&r, &recommended(), &Context::default());
         assert_eq!(p.standing, Standing::Experimental);
         assert_eq!(
@@ -1044,16 +1082,10 @@ mod tests {
         );
         let o = p.optiscaler.as_ref().unwrap();
         assert_eq!((o.input, o.output), (Input::Fsr, Output::Fsr));
-        // What is known is said: built in, may or may not be taken over,
-        // and the wiki's Unreal tweak for a crash.
         let text: Vec<String> = p.steps.iter().map(|s| s.text().english()).collect();
         assert!(
             text.iter().any(|t| t.contains("built into its executable")),
             "{text:#?}"
-        );
-        assert!(
-            text.iter()
-                .any(|t| t.contains("r.FidelityFX.FSR2.UseNativeDX12=1"))
         );
         assert!(
             text.iter()
