@@ -16,6 +16,14 @@ every NVIDIA arm is started with the command BiGame-mode's launcher builds
 | `dgpu_gamescope` | the same inside nested Gamescope (offload given to the game, not to Gamescope) | GTX 1050 Ti |
 | `dgpu_mangohud` | the same with MangoHud Forced (its wrapper, for OpenGL) | GTX 1050 Ti |
 
+> **Correction.** The `dgpu_gamescope` and `dgpu_mangohud` arms of this
+> session ran the game without Gamescope and without MangoHud: the harness
+> passed each arm's configuration as a relative `XDG_CONFIG_HOME`, which is
+> not one, so BiGame-mode read the user's own settings (neither on). Those
+> two rows measured the `dgpu` arm again, and say nothing about Gamescope or
+> MangoHud; see `2026-09-28-supertuxkart-gtx1050ti-gamescope-mangohud`. The
+> `igpu` and `dgpu` arms are unaffected: offload comes from the machine.
+
 ## Results
 
 Verdicts from `bench_report` against `dgpu` (report.md):
@@ -37,9 +45,6 @@ arm; 1 % low is 1000 / the mean of the slowest 1 % of frames.
 - Without offload the game renders on the integrated GPU; the command
   BiGame-mode's launcher builds puts it on the NVIDIA card, 4.7 times faster
   here.
-- Gamescope (no upscaling) and MangoHud's overlay cost nothing measurable.
-  Gamescope ran all five times with the offload variables given to the game;
-  before 2026-09-28 the launcher gave them to Gamescope, which segfaulted.
 - The NVIDIA arms are not held at the panel's 60 Hz: the same effects at
   1280×720 ran at 80.3 FPS and 720p with effects off at 144.4 FPS (single
   runs), so about 61 FPS at 1080p is the GPU's pace. The GPU reported 58 %
