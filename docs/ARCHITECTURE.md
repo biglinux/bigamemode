@@ -584,7 +584,7 @@ directory.
 | `$XDG_CONFIG_HOME/bigame-mode/vkbasalt-cas.conf` | the CAS-only vkBasalt file the Enhanced graphics preset points `VKBASALT_CONFIG_FILE` at |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
-| `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/<version>/` | the downloaded, verified OptiScaler releases |
+| `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/<version>/` | the downloaded, verified OptiScaler releases with their archive (Repair unpacks from it); after Apply, Update, Reinstall, Restore and removal only the releases a manifest names (installed, or kept for Go back) and those fetched in the last day stay |
 | `$XDG_CACHE_HOME/bigame-mode/graphics/optiscaler/releases.json` | the stable releases GitHub lists with a checksum, refreshed at most daily |
 | `$XDG_CACHE_HOME/bigame-mode/benchmark/` | MangoHud captures of *Measure the difference* |
 

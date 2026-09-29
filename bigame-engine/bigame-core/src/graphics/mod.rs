@@ -961,15 +961,18 @@ pub fn install(
     plan: &plan::Plan,
     version: &config::VersionPolicy,
 ) -> anyhow::Result<Installed> {
-    install_in(
-        &state_dir(),
-        &optiscaler::cache_dir(),
+    let (state, cache) = (state_dir(), optiscaler::cache_dir());
+    let done = install_in(
+        &state,
+        &cache,
         &gamedb::GameDb::load(),
         target,
         plan,
         version,
         &[],
-    )
+    );
+    tidy_cache(&state, &cache);
+    done
 }
 
 fn install_in(
@@ -1139,14 +1142,19 @@ pub fn reinstall(
     plan: &plan::Plan,
     version: &config::VersionPolicy,
 ) -> anyhow::Result<Installed> {
-    reinstall_in(
-        &state_dir(),
-        &optiscaler::cache_dir(),
+    let (state, cache) = (state_dir(), optiscaler::cache_dir());
+    // Once at the end: between its restore and its install no game names
+    // the release it is about to install again.
+    let done = reinstall_in(
+        &state,
+        &cache,
         &gamedb::GameDb::load(),
         target,
         plan,
         version,
-    )
+    );
+    tidy_cache(&state, &cache);
+    done
 }
 
 fn reinstall_in(
@@ -1213,14 +1221,10 @@ pub fn update(
     plan: &plan::Plan,
     to: &optiscaler::Release,
 ) -> anyhow::Result<manifest::Manifest> {
-    update_in(
-        &state_dir(),
-        &optiscaler::cache_dir(),
-        &gamedb::GameDb::load(),
-        target,
-        plan,
-        to,
-    )
+    let (state, cache) = (state_dir(), optiscaler::cache_dir());
+    let done = update_in(&state, &cache, &gamedb::GameDb::load(), target, plan, to);
+    tidy_cache(&state, &cache);
+    done
 }
 
 fn update_in(
@@ -1360,16 +1364,50 @@ pub struct Restoration {
 }
 
 /// Remove everything BiGame-mode placed in `target`, restoring originals —
-/// files, and the game's own settings Apply switched on. The files are put
-/// back even when the settings cannot be (the prefix stays in use): that is
-/// said apart, and the settings stay recorded for the next Restore. A
-/// prefix that is gone has no settings to put back.
+/// files, and the game's own settings Apply switched on — then the cached
+/// releases no game uses any more. The files are put back even when the
+/// settings cannot be (the prefix stays in use): that is said apart, and the
+/// settings stay recorded for the next Restore. A prefix that is gone has no
+/// settings to put back.
 ///
 /// # Errors
 /// Returns an error if the game is running, nothing is installed, the record
 /// is not this game's folder's, or a file cannot be restored.
 pub fn restore(target: &Target) -> anyhow::Result<Restoration> {
-    restore_in(&state_dir(), target)
+    let state = state_dir();
+    let done = restore_in(&state, target);
+    tidy_cache(&state, &optiscaler::cache_dir());
+    done
+}
+
+/// The `OptiScaler` versions some game needs from the cache: the one installed
+/// and the one Go back returns to, from every manifest, finished or not.
+fn versions_in_use(state: &Path) -> Vec<String> {
+    let Ok(dir) = std::fs::read_dir(state) else {
+        return Vec::new();
+    };
+    dir.flatten()
+        .filter_map(|d| manifest::Manifest::load(state, &d.file_name().to_string_lossy()).ok()?)
+        .flat_map(|m| [Some(m.source), m.previous])
+        .flatten()
+        .filter(|s| s.component == optiscaler::COMPONENT)
+        .map(|s| s.version)
+        .collect()
+}
+
+/// Drop from the download cache what no game needs (see
+/// [`optiscaler::prune_cache`]). Run after every change to what is
+/// installed; a release fetched in the last day stays for the next Apply.
+fn tidy_cache(state: &Path, cache: &Path) {
+    let freed = optiscaler::prune_cache(
+        cache,
+        &versions_in_use(state),
+        std::time::Duration::from_secs(24 * 3600),
+    );
+    if freed > 0 {
+        tracing::info!(target: "graphics", freed_bytes = freed,
+            "OptiScaler releases no game uses removed from the cache");
+    }
 }
 
 fn restore_in(state: &Path, target: &Target) -> anyhow::Result<Restoration> {
@@ -1404,7 +1442,10 @@ fn restore_in(state: &Path, target: &Target) -> anyhow::Result<Restoration> {
 /// # Errors
 /// As [`restore`], and when the game's own settings could not be put back.
 pub fn remove(target: &Target) -> anyhow::Result<Vec<transaction::FileOutcome>> {
-    remove_in(&state_dir(), target)
+    let state = state_dir();
+    let done = remove_in(&state, target);
+    tidy_cache(&state, &optiscaler::cache_dir());
+    done
 }
 
 fn remove_in(state: &Path, target: &Target) -> anyhow::Result<Vec<transaction::FileOutcome>> {
