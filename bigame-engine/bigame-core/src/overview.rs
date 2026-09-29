@@ -1104,6 +1104,7 @@ mod tests {
             version: None,
             fsr4: None,
             fsr_generation: None,
+            frame_generation: None,
         };
         let mut s = Snapshot {
             ai_graphics: Some(active.clone()),
