@@ -273,6 +273,7 @@ of it needs root.
   |---|---|
   | OptiScaler loaded, active or failed | `/proc/<pid>/maps` and an `OptiScaler.log` written since the process started |
   | FSR 3.1 through OptiScaler | its log (`Fsr4Update: false`, or the provider missing) |
+  | OptiScaler's frame generation running | its log's `FSRFG_Dx12`/`XeFG_Dx12` lines; `Can't init FG Feature` means it did not start, whatever the ini asks |
   | FSR 4 through Proton, the game's own FSR | `FSR4_UPGRADE=1` in the running game's environment **and** `amdxcffx64.dll` mapped |
   | DLSS-NR-on-AMD active | its proxy mapped and its log's "loaded into" banner since the process started |
   | The GPU the game renders on | DRM fdinfo of the render node it submitted work to |
@@ -510,13 +511,21 @@ directory.
   discrete GPU that drives no output (`--prefer-vk-device`), nested Gamescope
   shows no window; without it, it composites on the display's GPU while the
   game inside still renders on the discrete one. BiGame-mode does not pass it.
+  The offload variables go to the game after `--`, not to Gamescope. With no
+  output size nested Gamescope offers the game 1280×720, so BiGame-mode
+  passes the main screen's size when nothing else sets one. On the lab
+  laptop Gamescope raised an offloaded SuperTuxKart from 63 to 90 FPS (the
+  GTX 64 → 91 % busy: without it each frame waits on Xwayland and KWin to
+  reach the HD 630) with worse pacing, and its Wayland backend ended at
+  Shadow of the Tomb Raider's hand-over from its launcher to the game (xdg
+  protocol error under KWin), 2 of 2.
 - **NVIDIA.** Any Vulkan program opens every GPU just to enumerate them, so a
   card a process only enumerated is filtered out with NVML's list of
   processes holding a graphics context. A runtime-suspended discrete GPU is
   reported asleep and never queried, so the panel cannot keep it awake. The
   GTX 1050 Ti Mobile reports no board power. On it, OptiScaler's frame
-  generation in Shadow of the Tomb Raider raised Xid 69 and 31; FSR 3.1
-  upscaling alone did not.
+  generation in Shadow of the Tomb Raider raised Xid 69 and 31, and Xid 32
+  with Wine FSR on as well; FSR 3.1 upscaling alone did not.
 - **Power.** On BigLinux, `power-profiles-daemon-biglinux-cpufreq` maps
   performance → `performance`, balanced → `schedutil`, power-saver →
   `conservative` on every profile change, which is why the Booster leaves
