@@ -133,7 +133,10 @@ WORKLOAD_PLAN=()
 # settings in <config-dir>/bigame-mode/video.toml -- render offload on a hybrid
 # laptop, Gamescope, vkBasalt -- printed by the launch_plan example.
 use_launch_plan() {
-    local dir=$1 plan line
+    local dir plan line
+    # Absolute: a relative XDG_CONFIG_HOME is not one (the XDG rules), so
+    # BiGame-mode would read the user's own settings instead of the arm's.
+    dir=$(cd "$1" 2>/dev/null && pwd) || die "no configuration directory $1"
     plan="$(dirname "$0")/../target/release/examples/launch_plan"
     [ -x "$plan" ] || die "build the launch plan tool first: cargo build --release -p bigame-core --examples"
     [ -z "$STK_ROOT" ] || die "a launch plan needs the installed supertuxkart, not a build under $STK_ROOT"
@@ -145,6 +148,7 @@ use_launch_plan() {
         esac
     done < <(XDG_CONFIG_HOME=$dir "$plan" "$(command -v supertuxkart)" --benchmark)
     [ ${#WORKLOAD_PLAN[@]} -gt 0 ] || die "the launch plan printed no command"
+    log "  starts as: ${WORKLOAD_PLAN[*]}"
 }
 
 start_workload() {

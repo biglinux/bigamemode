@@ -2,7 +2,7 @@
 # Arms for SuperTuxKart on a hybrid laptop, read by bench-lab.sh (ARMS_FILE).
 # Each directory beside this file is a BiGame-mode configuration
 # (bigame-mode/video.toml, games/supertuxkart.toml) the launcher reads.
-ARMS_DIR=$(dirname "${BASH_SOURCE[0]}")
+ARMS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # The installed game started as is: no offload, so it renders on the GPU that
 # drives the panel (the integrated one on a hybrid laptop).
