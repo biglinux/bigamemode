@@ -24,3 +24,24 @@ toml = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
+
+# Debug builds: full debug info for this workspace's own crates, kept once in
+# their object files (split-debuginfo) instead of copied into every program,
+# and none for dependencies (GTK, zbus, tokio…). Before, each debug program
+# weighed 100–250 MiB and one build, test and clippy pass left 5.9 GiB in
+# target/; now 2.6 GiB. Backtraces keep file and line, and gdb still shows
+# BiGame-mode's functions, arguments and source.
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+debug = false
+
+# The packaged binaries: one optimisation unit across all crates. Measured on
+# the lab laptop, stripped: bigame-ui 14 → 9.6 MiB, bigame-daemon 3.9 → 2.6
+# MiB, the PKGBUILD's build and check 243 → 467 s, every test passing. Panics
+# still unwind (a failing D-Bus call must not take the daemon down), and
+# makepkg strips the binaries, so neither `panic` nor `strip` is set here.
+[profile.release]
+lto = true
+codegen-units = 1
