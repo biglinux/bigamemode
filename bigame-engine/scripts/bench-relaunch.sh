@@ -35,7 +35,7 @@ key() { python3 "$HERE/press-key.py" "$1" "${2:-0.15}"; }
 ARMS=("$@")
 [ ${#ARMS[@]} -gt 0 ] || die "name the arms"
 for arm in "${ARMS[@]}"; do declare -F "arm_$arm" >/dev/null || die "unknown arm '$arm'"; done
-command -v steam >/dev/null && command -v kdotool >/dev/null || die "needs steam and kdotool"
+{ command -v steam && command -v kdotool; } >/dev/null || die "needs steam and kdotool"
 
 starts() { local n; n=$(grep -c '\[Benchmark\] Benchmark started' "$GAME_LOG" 2>/dev/null); echo "${n:-0}"; }
 
