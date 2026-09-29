@@ -16,7 +16,8 @@ fn main() -> anyhow::Result<()> {
         .then(|| {
             bigame_core::steam_gamescope::segment(
                 bigame_core::gamescope::Mode::Enabled,
-                &bigame_core::gamescope::Config::default(),
+                &bigame_core::gamescope::Config::default()
+                    .with_screen_output(bigame_core::screen::primary_size()),
                 bigame_core::capabilities::gamescope_cached().as_ref(),
                 bigame_core::hardware::detect_session(),
             )

@@ -708,7 +708,10 @@ impl GameOptimization {
         if mode == Mode::Disabled || (mode == Mode::Auto && !self.launch.sets_gamescope()) {
             return None;
         }
-        let mut cfg = self.launch.config(&video.upscaling, mode);
+        let mut cfg = self
+            .launch
+            .config(&video.upscaling, mode)
+            .with_screen_output(crate::screen::primary_size());
         if optiscaler {
             cfg.render_width = 0;
             cfg.render_height = 0;
@@ -786,7 +789,10 @@ impl GameOptimization {
                     crate::hardware::detect_session(),
                 )
                 .use_gamescope
-            });
+            })
+            // After the decision: the screen's size is what Gamescope shows,
+            // not a reason to wrap the game.
+            .map(|cfg| cfg.with_screen_output(crate::screen::primary_size()));
         let upscales = !optiscaler
             && gamescope.is_some()
             && self.launch.upscales(&video.upscaling, mode, false);

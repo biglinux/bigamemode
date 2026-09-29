@@ -37,6 +37,8 @@ struct Host {
     session: crate::hardware::Session,
     /// How to reach the games' GPU when another GPU drives the display.
     offload: Option<crate::hardware::Offload>,
+    /// The main screen's size, Gamescope's output when nothing sets one.
+    screen: Option<(u32, u32)>,
 }
 
 impl Host {
@@ -47,6 +49,7 @@ impl Host {
             gamescope: crate::capabilities::Capabilities::detect().gamescope,
             offload: render.and_then(|i| crate::hardware::offload_for(&hw.gpus, i)),
             session: hw.session,
+            screen: crate::screen::primary_size(),
         }
     }
 }
@@ -689,7 +692,8 @@ fn build_gamescope_argv(
     gs_override: Option<&gamescope::Config>,
 ) -> (String, Vec<String>) {
     let caps = host.gamescope.clone().unwrap_or_default();
-    let cfg = LaunchPlan::merge_gamescope_config(upscaling, gs_override);
+    let cfg =
+        LaunchPlan::merge_gamescope_config(upscaling, gs_override).with_screen_output(host.screen);
 
     // Gamescope is left to composite on the GPU that drives the display. Told
     // to use the discrete GPU of a hybrid laptop (`--prefer-vk-device`), nested
@@ -755,6 +759,7 @@ mod tests {
             }),
             session: crate::hardware::Session::Wayland,
             offload: None,
+            screen: None,
         }
     }
 
@@ -773,6 +778,7 @@ mod tests {
             }),
             session: crate::hardware::Session::Wayland,
             offload: Some(crate::hardware::Offload::Nvidia),
+            screen: None,
         }
     }
 
@@ -898,6 +904,35 @@ mod tests {
                 "game"
             ]
         );
+    }
+
+    #[test]
+    fn gamescope_shows_the_game_the_screen_size_when_nothing_sets_one() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let host = Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: ["w", "h", "W", "H", "f"].map(str::to_owned).to_vec(),
+            }),
+            screen: Some((1920, 1080)),
+            ..desktop()
+        };
+        let plan = LaunchPlan::build_on(&host, "game", &[], "game", &video, None);
+        assert_eq!(plan.program, "gamescope");
+        let at = |flag: &str| {
+            plan.args
+                .iter()
+                .position(|a| a == flag)
+                .map(|i| plan.args[i + 1].as_str())
+        };
+        assert_eq!(
+            (at("-W"), at("-H")),
+            (Some("1920"), Some("1080")),
+            "{:?}",
+            plan.args
+        );
+        assert_eq!(at("-w"), None, "the game's size follows the output");
     }
 
     fn build(exe: &str, video: &VideoConfig, gs: Option<&gamescope::Config>) -> LaunchPlan {
@@ -1076,6 +1111,7 @@ mod tests {
             }),
             session: crate::hardware::Session::Wayland,
             offload: None,
+            screen: None,
         };
         let plan_with = |video: &VideoConfig, preset| {
             LaunchPlan::build_on_with_mode(
