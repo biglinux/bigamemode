@@ -1,0 +1,36 @@
+[
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "turbo_off",
+      "runs": [
+        24.064322258031456,
+        24.148056135411363,
+        24.134990850699147
+      ],
+      "mean": 24.11578974804732,
+      "median": 24.134990850699147,
+      "min": 24.064322258031456,
+      "max": 24.148056135411363,
+      "stddev": 0.04504833307185435,
+      "cov": 0.001868001568370862
+    },
+    "candidate": {
+      "arm": "turbo_on",
+      "runs": [
+        24.09753998949645,
+        24.02730496690141,
+        24.253347805978144
+      ],
+      "mean": 24.12606425412534,
+      "median": 24.09753998949645,
+      "min": 24.02730496690141,
+      "max": 24.253347805978144,
+      "stddev": 0.11568952644440833,
+      "cov": 0.004795209248629372
+    },
+    "delta_pct": 0.04260489158913538,
+    "verdict": "within_noise",
+    "rationale": "the 0.0% difference is within the 0.5% spread of the runs themselves, so it cannot be attributed to the change"
+  }
+]

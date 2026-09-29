@@ -137,10 +137,15 @@ pub struct Entry {
 // ── The journal ─────────────────────────────────────────────────────────────
 
 /// Kernel lines worth showing: graphics drivers and the scheduler.
+///
+/// `NVRM` is how the proprietary NVIDIA driver signs its lines, and its GPU
+/// errors (`NVRM: Xid (PCI:0000:01:00): 32, pid=…, name=SOTTR.exe`) carry
+/// none of the other words.
 const KERNEL_KEYWORDS: &[&str] = &[
     "amdgpu",
     "radeon",
     "nvidia",
+    "nvrm",
     "nouveau",
     "i915",
     " xe ",
@@ -302,6 +307,11 @@ pub fn classify(priority: Option<u8>, message: &str) -> Level {
     let has = |words: &[&str]| words.iter().any(|w| lower.contains(w));
     if priority.is_none_or(|p| p > 3) && has(NOISE) {
         return Level::Debug;
+    }
+    // An Xid is the NVIDIA driver reporting a GPU error (a channel fault, a
+    // lost context, a hung engine); the kernel logs it at warning priority.
+    if lower.contains("nvrm: xid") {
+        return Level::Error;
     }
     if priority.is_some_and(|p| p <= 3)
         || has(&[
@@ -950,12 +960,23 @@ impl JournalSink {
     }
 }
 
-/// Whether standard output already goes to the journal: systemd sets
-/// `JOURNAL_STREAM` to the device and inode of the stream it connected, and
-/// the variable is inherited, so the descriptor is compared, not just the
-/// variable read.
+/// Whether standard output already goes to the journal.
+///
+/// systemd sets `JOURNAL_STREAM` to the device and inode of the stream it
+/// connected, and the variable is inherited, so the descriptor is compared,
+/// not just the variable read. The variable can also be wrong: KDE Plasma
+/// starts an application as `app-…@….service` with the launcher's own
+/// environment in `Environment=`, which overrides the one systemd sets, so
+/// the application gets Plasma's `JOURNAL_STREAM` while its standard output
+/// is a stream of its own, and every record was written twice. A descriptor
+/// connected to journald's stdout socket is therefore the journal whatever the
+/// variable says.
 #[must_use]
 pub fn stdout_is_journal() -> bool {
+    connected_to_journal(libc::STDOUT_FILENO) || matches_journal_stream(libc::STDOUT_FILENO)
+}
+
+fn matches_journal_stream(fd: libc::c_int) -> bool {
     let Ok(stream) = std::env::var("JOURNAL_STREAM") else {
         return false;
     };
@@ -968,10 +989,37 @@ pub fn stdout_is_journal() -> bool {
     // SAFETY: an all-zero `stat` is a valid value for fstat to overwrite.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     // SAFETY: fstat on a descriptor number writes only into `st`.
-    if unsafe { libc::fstat(libc::STDOUT_FILENO, &raw mut st) } != 0 {
+    if unsafe { libc::fstat(fd, &raw mut st) } != 0 {
         return false;
     }
     st.st_dev == dev && st.st_ino == ino
+}
+
+/// Whether `fd` is a Unix stream connected to journald's stdout socket.
+fn connected_to_journal(fd: libc::c_int) -> bool {
+    const STDOUT_SOCKET: &[u8] = b"/run/systemd/journal/stdout";
+    // SAFETY: an all-zero `sockaddr_un` is a valid value for getpeername to
+    // overwrite.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    let Ok(mut len) = libc::socklen_t::try_from(std::mem::size_of::<libc::sockaddr_un>()) else {
+        return false;
+    };
+    // SAFETY: getpeername writes at most `len` bytes into `addr` and stores
+    // the length it wrote in `len`; a descriptor that is not a connected
+    // socket makes it fail without writing.
+    if unsafe { libc::getpeername(fd, (&raw mut addr).cast(), &raw mut len) } != 0 {
+        return false;
+    }
+    if libc::c_int::from(addr.sun_family) != libc::AF_UNIX {
+        return false;
+    }
+    let path: Vec<u8> = addr
+        .sun_path
+        .iter()
+        .take_while(|c| **c != 0)
+        .map(|c| c.to_ne_bytes()[0])
+        .collect();
+    path == STDOUT_SOCKET
 }
 
 /// Mask personal data in text meant to leave the machine.
@@ -996,6 +1044,20 @@ pub fn redact(text: &str, home: &str, user: &str, host: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_connected_to_journald_is_the_journal_whatever_the_variable() {
+        use std::os::fd::AsRawFd as _;
+        // A descriptor that is not connected to journald is not.
+        let (a, _b) = std::os::unix::net::UnixStream::pair().unwrap();
+        assert!(!connected_to_journal(a.as_raw_fd()));
+        // One that is, is: what an application started by KDE Plasma has on
+        // standard output while its JOURNAL_STREAM names Plasma's stream.
+        // Only where journald runs (not in a build chroot).
+        if let Ok(stream) = std::os::unix::net::UnixStream::connect("/run/systemd/journal/stdout") {
+            assert!(connected_to_journal(stream.as_raw_fd()));
+        }
+    }
 
     #[test]
     fn a_tracing_line_keeps_its_own_level() {
@@ -1149,6 +1211,19 @@ mod tests {
         }
         // The client's own chatter belongs to none of them.
         assert_eq!(component_of("Manifest download: send request"), None);
+    }
+
+    #[test]
+    fn an_nvidia_xid_is_shown_as_an_error() {
+        // As the lab laptop's kernel logged them, both at warning priority.
+        let journal = r#"{"__CURSOR":"s=1","__REALTIME_TIMESTAMP":"1790200000000000","_TRANSPORT":"kernel","PRIORITY":"4","MESSAGE":"NVRM: GPU at PCI:0000:01:00: GPU-dbe116b8-a325-0daf-c382-c87c94a4bf0b"}
+{"__CURSOR":"s=2","__REALTIME_TIMESTAMP":"1790200000000001","_TRANSPORT":"kernel","PRIORITY":"4","MESSAGE":"NVRM: Xid (PCI:0000:01:00): 32, pid=177594, name=SOTTR.exe, channel 0x00000023 intr 00040000"}
+"#;
+        let (entries, _) = parse_journal(journal);
+        assert_eq!(entries.len(), 2, "{entries:#?}");
+        assert!(entries.iter().all(|e| e.source == Source::Kernel));
+        assert_eq!(entries[0].level, Level::Warning);
+        assert_eq!(entries[1].level, Level::Error);
     }
 
     #[test]

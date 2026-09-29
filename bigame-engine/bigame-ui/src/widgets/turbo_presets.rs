@@ -21,6 +21,9 @@ pub struct PresetPicker {
     machine: Machine,
     /// Games that generate frames, read once off the main thread.
     generating: std::cell::RefCell<Vec<String>>,
+    /// Set while the preset in force is being shown: a button toggled by
+    /// the page rather than by the user changes nothing that was chosen.
+    showing: std::cell::Cell<bool>,
 }
 
 /// The icon a preset is shown with, here and in its help.
@@ -150,6 +153,7 @@ impl PresetPicker {
             note,
             machine,
             generating: std::cell::RefCell::new(Vec::new()),
+            showing: std::cell::Cell::new(false),
         });
         {
             let weak = Rc::downgrade(&me);
@@ -163,21 +167,29 @@ impl PresetPicker {
                 }
             });
         }
-        for (preset, button) in &me.buttons {
-            let (preset, weak) = (*preset, Rc::downgrade(&me));
+        me.connect_choice();
+        me
+    }
+
+    /// A button the user toggles is the preset chosen for the next Turbo.
+    fn connect_choice(self: &Rc<Self>) {
+        for (preset, button) in &self.buttons {
+            let (preset, weak) = (*preset, Rc::downgrade(self));
             button.connect_toggled(move |b| {
                 if !b.is_active() {
                     return;
                 }
-                if let Err(e) = turbo_preset::set_chosen(preset) {
-                    tracing::warn!(error = %format!("{e:#}"), "could not keep the Turbo preset");
+                let me = weak.upgrade();
+                if !me.as_ref().is_some_and(|me| me.showing.get()) {
+                    if let Err(e) = turbo_preset::set_chosen(preset) {
+                        tracing::warn!(error = %format!("{e:#}"), "could not keep the Turbo preset");
+                    }
                 }
-                if let Some(me) = weak.upgrade() {
+                if let Some(me) = me {
                     me.refresh();
                 }
             });
         }
-        me
     }
 
     /// Describe the preset shown now again.
@@ -208,9 +220,15 @@ impl PresetPicker {
         if locked && in_force {
             let active = turbo_preset::active();
             // The one in force is the one shown, even if another was chosen
-            // from elsewhere meanwhile.
+            // from elsewhere meanwhile. Shown, not chosen: toggling the
+            // button used to write it as the choice, so a page that still
+            // thought Turbo was on (hidden in the tray while Turbo was
+            // switched off elsewhere) replaced the user's choice with the
+            // default when a game started.
             if let Some((_, b)) = self.buttons.iter().find(|(p, _)| *p == active) {
+                self.showing.set(true);
                 b.set_active(true);
+                self.showing.set(false);
             }
         }
         self.note

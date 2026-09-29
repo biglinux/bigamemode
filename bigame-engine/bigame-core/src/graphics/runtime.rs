@@ -51,6 +51,9 @@ pub enum Status {
         /// `Some(3)` when the log proves an FSR backend runs FSR 3.1 (it
         /// never proves FSR 4 — see [`LogFindings::fsr_generation`]).
         fsr_generation: Option<u8>,
+        /// Whether its frame generation runs, when the log says
+        /// ([`LogFindings::frame_generation`]).
+        frame_generation: Option<bool>,
     },
     /// The game has been running for a while and the DLL is not in it.
     NotDetected,
@@ -172,6 +175,7 @@ pub fn status(
                 version: f.version.clone(),
                 fsr4: f.fsr4.clone(),
                 fsr_generation: f.fsr_generation(),
+                frame_generation: f.frame_generation,
             };
         }
     }

@@ -751,6 +751,13 @@ pub struct LogFindings {
     pub amdxcffx64: Option<bool>,
     /// Lines that say something failed.
     pub errors: Vec<String>,
+    /// Whether its frame generation runs, from the latest line that says:
+    /// `Some(true)` when a frame generator worked on the game's frames
+    /// (`FSRFG_Dx12::…`, `XeFG_Dx12::…`), `Some(false)` when it could not
+    /// start one (`Can't init FG Feature`: on the lab laptop the user's ini
+    /// asked for FSR-FG with its runtime DLL not in the game folder), `None`
+    /// when the log says neither.
+    pub frame_generation: Option<bool>,
 }
 
 impl LogFindings {
@@ -819,6 +826,11 @@ pub fn read_log(text: &str) -> LogFindings {
         }
         if line.contains("amdxcffx64 loaded") {
             f.amdxcffx64 = Some(true);
+        }
+        if line.contains("FSRFG_Dx12::") || line.contains("XeFG_Dx12::") {
+            f.frame_generation = Some(true);
+        } else if line.contains("Can't init FG Feature") {
+            f.frame_generation = Some(false);
         }
         // A warning, not a failure: OptiScaler goes on with FSR 3.1. Under
         // Proton this is the usual case — the DLL comes with AMD's Windows
@@ -1036,6 +1048,28 @@ mod tests {
             "[09:11:09.465212] [E] UpdateFfxApiProviderEx for: SwapchainDX12, result: 0X80004002\n";
         assert!(read_log(swap).errors.is_empty());
         assert_eq!(read_log("[1] [E] f something broke\n").errors.len(), 1);
+    }
+
+    #[test]
+    fn the_log_says_whether_frame_generation_runs() {
+        assert_eq!(
+            read_log("[1] [I] f Creating new fsr31 upscaler\n").frame_generation,
+            None
+        );
+        // The lab laptop: the ini asked for FSR-FG, its DLL was not there.
+        let refused = "\
+[21:39:21.735502] [I] FfxApiProxy::InitFfxDx12_FG LoadResult: false
+[21:39:30.835071] [W] CheckForFGStatus FGOutput is not set to FSR-FG or XeFG
+[21:39:30.835124] [W] FGHooks::CreateSwapChainForHwnd Can't init FG Feature or invalid FGOutput setting!
+";
+        let f = read_log(refused);
+        assert_eq!(f.frame_generation, Some(false));
+        assert!(f.errors.is_empty(), "{:?}", f.errors);
+        // The reference desktop, generating.
+        let running = format!(
+            "{refused}[16:02:38.230586] [W] FSRFG_Dx12::DispatchCallback Dispatched with the same frame id! frameID: 23976\n"
+        );
+        assert_eq!(read_log(&running).frame_generation, Some(true));
     }
 
     #[test]

@@ -595,9 +595,11 @@ fn detect_displays() -> Vec<Display> {
 ///
 /// Each driver stack has its own switch, and the wrong one half-works: on the
 /// NVIDIA proprietary driver `DRI_PRIME=1` gives OpenGL through zink on top of
-/// NVIDIA's Vulkan rather than NVIDIA's own OpenGL. Vulkan and DXVK/VKD3D
-/// games pick the discrete GPU by themselves; OpenGL games render on the GPU
-/// that drives the display unless told otherwise.
+/// NVIDIA's Vulkan rather than NVIDIA's own OpenGL. DXVK and VKD3D-Proton
+/// pick the discrete GPU by themselves; a native game renders on the GPU that
+/// drives the display unless told otherwise, OpenGL and Vulkan alike: on the
+/// GTX 1050 Ti laptop `SuperTuxKart`'s Vulkan renderer took the HD 630, listed
+/// first, until the Optimus layer filter put the GTX first.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Offload {
     /// NVIDIA proprietary driver: libglvnd's vendor selection plus the

@@ -477,7 +477,8 @@ O código é um workspace Rust em `bigame-engine/`:
   Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), quem controla o
   falcond (`falcond_control`), o comando que o lançador monta (`launch_plan`),
   um jogo iniciado pelo próprio lançador (`launch_through`), os ajustes de um
-  jogo gravados no Heroic (`heroic_apply`), o estilo do vkBasalt
+  jogo gravados no Heroic (`heroic_apply`), o Gamescope de um jogo nas opções
+  de lançamento da Steam (`steam_gamescope`), o estilo do vkBasalt
   (`vkbasalt_style`), lsfg-vk (`lsfg`) e relatórios de benchmark
   (`bench_report`, `bench_native_report`). Rode com
   `cargo run -p bigame-core --example <nome>`.

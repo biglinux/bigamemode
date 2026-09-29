@@ -1,0 +1,74 @@
+[
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "dgpu",
+      "runs": [
+        63.0491,
+        63.2609,
+        63.0491,
+        62.1296
+      ],
+      "mean": 62.872175000000006,
+      "median": 63.0491,
+      "min": 62.1296,
+      "max": 63.2609,
+      "stddev": 0.5050180417569246,
+      "cov": 0.00803245699320764
+    },
+    "candidate": {
+      "arm": "dgpu_gamescope",
+      "runs": [
+        95.0733,
+        87.1093,
+        92.3847,
+        87.2119
+      ],
+      "mean": 90.4448,
+      "median": 89.7983,
+      "min": 87.1093,
+      "max": 95.0733,
+      "stddev": 3.948139938418258,
+      "cov": 0.043652481274968354
+    },
+    "delta_pct": 43.855051936727165,
+    "verdict": "improvement",
+    "rationale": "43.9% faster, above the 4.4% run-to-run spread and significant at 95% (Welch's t = 13.85 against a 3.18 threshold)"
+  },
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "dgpu",
+      "runs": [
+        63.0491,
+        63.2609,
+        63.0491,
+        62.1296
+      ],
+      "mean": 62.872175000000006,
+      "median": 63.0491,
+      "min": 62.1296,
+      "max": 63.2609,
+      "stddev": 0.5050180417569246,
+      "cov": 0.00803245699320764
+    },
+    "candidate": {
+      "arm": "dgpu_mangohud",
+      "runs": [
+        63.0312,
+        62.9312,
+        62.336,
+        62.1836
+      ],
+      "mean": 62.62050000000001,
+      "median": 62.6336,
+      "min": 62.1836,
+      "max": 63.0312,
+      "stddev": 0.42309606474180267,
+      "cov": 0.006756510483656352
+    },
+    "delta_pct": -0.40029631550045586,
+    "verdict": "within_noise",
+    "rationale": "the 0.4% difference is within the 0.8% spread of the runs themselves, so it cannot be attributed to the change"
+  }
+]
