@@ -19,7 +19,8 @@ que mostra, com evidência, o que está mesmo em vigor.
 [Instalação](#-instalação) ·
 [Benchmarks](#-benchmarks) ·
 [Segurança](#%EF%B8%8F-segurança) ·
-[Desenvolvimento](#%EF%B8%8F-desenvolvimento)
+[Desenvolvimento](#%EF%B8%8F-desenvolvimento) ·
+[Créditos](#-créditos)
 
 <br>
 
@@ -135,6 +136,28 @@ supera a variação.
 
 </td>
 </tr>
+<tr>
+<td valign="top">
+
+### 🧭 Bandeja e lançadores
+
+Fechar a janela deixa o Big Game Mode na **bandeja**, que funciona como um
+controle remoto: abre a janela, liga e desliga o Turbo e troca o preset. Um
+lançador (Steam, Heroic, Lutris) aberto antes de uma mudança do Turbo recebe
+um aviso para **Reabrir**, na janela ou numa notificação, e nunca é fechado
+com um jogo rodando.
+
+</td>
+<td valign="top">
+
+### 💡 Ajuda em cada página
+
+Uma tela de boas-vindas apresenta os recursos, o botão ⓘ no topo explica
+passo a passo a página aberta, e o **Sobre** traz as informações de
+depuração completas para anexar a um relato de problema.
+
+</td>
+</tr>
 </table>
 
 <details>
@@ -143,14 +166,13 @@ supera a variação.
 | Página | O que faz |
 |---|---|
 | **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo (capa e nome vindos da biblioteca, de qualquer lançador) com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. Um lançador que já estava aberto antes do preset (Steam, Heroic, Lutris) e não o recebeu aparece com **Reabrir**, recusado enquanto um jogo dele roda. |
-| **Perfis** | A biblioteca de jogos com capas (Steam, Lutris, Heroic, Flatpak e menu), busca e filtros. Cada perfil tem as mesmas seções e linhas dos Ajustes, só para aquele jogo; cada opção começa em "Configuração geral", que segue os Ajustes (o Perfil global). Os valores próprios do jogo (tamanhos e filtro do Gamescope, limite de FPS, Wine FSR, vkBasalt) chegam a ele onde podem chegar: pelo **Iniciar (Turbo)**, nas opções de inicialização da Steam ou nas configurações do jogo no Heroic, gravadas com o lançador fechado e sem tocar no que é seu. No menu ⋮ de cada jogo: **Iniciar (Turbo)** (direto ou pelo próprio lançador), **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
+| **Perfis** | A biblioteca de jogos com capas (Steam, Lutris, Heroic, Flatpak e menu), busca e filtros. Cada perfil tem as mesmas seções e linhas dos Ajustes, só para aquele jogo; cada opção começa em "Configuração geral", que segue os Ajustes (o Perfil global). Os valores próprios do jogo (tamanhos e filtro do Gamescope, limite de FPS, Wine FSR, vkBasalt) chegam a ele onde podem chegar: pelo **Iniciar (Turbo)**, nas opções de inicialização da Steam ou nas configurações do jogo no Heroic, gravadas com o lançador fechado e sem tocar no que é seu. Cada capa tem **Otimizar**, que cria o perfil do jogo (ou **Editar**, quando ele já existe), e o menu ⋮: **Iniciar (Turbo)** (direto ou pelo próprio lançador), **Criar com Assistente**, **Criar perfil**, **Gráficos com IA**, **Medir a diferença**, **Restaurar os gráficos do jogo** e **Excluir perfil**; só aparece o que vale para aquele jogo. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
 | **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
 | **Registros** | O que importa numa sessão de jogo: falcond, Big Game Mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
 | **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
 
-Fechar a janela deixa o aplicativo na **bandeja**, que funciona como um
-controle remoto: abre a janela, liga e desliga o Turbo, troca o preset e
+A **bandeja** abre a janela, liga e desliga o Turbo, troca o preset e
 encerra o aplicativo. O ícone é simbólico e segue as cores do painel.
 
 </details>
@@ -159,26 +181,34 @@ encerra o aplicativo. O ícone é simbólico e segue as cores do painel.
 
 <table>
 <tr>
-<td colspan="2"><img src="docs/screenshots/home-game.png" alt="Início com Shadow of the Tomb Raider em execução no Gamescope"></td>
+<td colspan="2"><img src="docs/screenshots/home-game.png" alt="Início com Shadow of the Tomb Raider em execução"></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><b>Início</b> com um jogo aberto: cada recurso numa flag colorida, com o que está ativo e o que não está</td>
+<td colspan="2" align="center"><b>Início</b> com um jogo aberto: o que ele recebeu de verdade, uma flag por recurso</td>
 </tr>
 <tr>
 <td width="50%"><img src="docs/screenshots/profiles.png" alt="Perfis: biblioteca de jogos com capas"></td>
-<td width="50%"><img src="docs/screenshots/details.png" alt="Detalhes: visão geral, telemetria e GPUs"></td>
+<td width="50%"><img src="docs/screenshots/ai-graphics.png" alt="Gráficos com IA de Shadow of the Tomb Raider"></td>
 </tr>
 <tr>
-<td align="center"><b>Perfis</b>: a biblioteca de jogos instalados, cada um com seu perfil</td>
+<td align="center"><b>Perfis</b>: os jogos instalados de todos os lançadores</td>
+<td align="center"><b>Gráficos com IA</b>: o que o jogo tem, o que foi instalado e como desfazer</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/details.png" alt="Detalhes: visão geral, telemetria e placas de vídeo"></td>
+<td><img src="docs/screenshots/tuning.png" alt="Ajustes: desempenho, escalonador e exibição"></td>
+</tr>
+<tr>
 <td align="center"><b>Detalhes</b>: o que está em vigor, com a evidência</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/tuning.png" alt="Ajustes: desempenho do sistema, Gamescope e upscaling"></td>
-<td><img src="docs/screenshots/settings.png" alt="Configurações: tema, Turbo, perfis e notificações"></td>
-</tr>
-<tr>
 <td align="center"><b>Ajustes</b>: o que a máquina não suporta aparece como tal</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/settings.png" alt="Configurações: aparência, Turbo, perfis e notificações"></td>
+<td><img src="docs/screenshots/welcome.png" alt="Tela de boas-vindas"></td>
+</tr>
+<tr>
 <td align="center"><b>Configurações</b>: temas Padrão e Gamer, claro ou escuro</td>
+<td align="center"><b>Boas-vindas</b>: os recursos numa tela só</td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/details-gamer-light.png" alt="Detalhes no tema Gamer claro"></td>
@@ -323,6 +353,15 @@ O pacote instala o `bigame-ui` (o aplicativo, que roda como usuário comum) e o
 `bigame-daemon` (o auxiliar root), com sua unit do systemd, os arquivos de
 D-Bus e a política do Polkit. Instala também o `.desktop`, o metainfo, os
 ícones e as traduções.
+
+### Linha de comando
+
+| Comando | O que faz |
+|---|---|
+| `bigame-ui` | abre o aplicativo (ou traz para frente a janela já aberta) |
+| `bigame-ui --background` | inicia só na bandeja; é o que o login usa quando *Iniciar em segundo plano ao entrar* está ligado |
+| `bigame-ui --diagnostics` | imprime o relatório de suporte no terminal e sai, sem mudar nada no sistema |
+| `bigame-ui --diagnostics --network` | o mesmo, com a medição de rede e DNS (leva alguns segundos) |
 
 ## 💻 Compatibilidade
 
@@ -471,12 +510,22 @@ máximo do hardware, trazendo os últimos recursos tecnológicos para alcançar 
 FPS máximo. Com a integração do `lsfg-vk` (Lossless Scaling) e o `falcond`,
 criamos uma solução completa de GameMode para o ecossistema BigLinux.
 
-**Agradecimentos:** Bruno Gonçalves, Barnabé di Kartola, Alessandro e Pacheco
-(System Infotech) e a comunidade BigLinux.
-
 </td>
 </tr>
 </table>
+
+## 🏆 Créditos
+
+| | |
+|---|---|
+| **Autor e desenvolvedor** | **Rafael Ruscher** · <rruscher@gmail.com> |
+| **Agradecimentos especiais** | **Bruno Gonçalves** (BigLinux) · <bigbruno@gmail.com><br>**Barnabé di Kartola** · <barnabedikartola@gmail.com><br>**Alexasandro Pacheco Feliciano** (Pacheco, System Infotech) · @pachecogameroficial<br>**Alessandro e Silva Xavier** (Alessandro, System Infotech) · @alessandro741<br>**Narayan Silva** (Nara Linux) · <narayancloud@gmail.com> |
+| **Visual Nara Linux do vkBasalt** | configuração do Narayan, apresentada no canal [Nara Linux](https://www.youtube.com/watch?v=GGBC-qMB_0Y) |
+| **Comunidade** | a comunidade BigLinux, que testa, relata problemas e traduz |
+
+Os mesmos créditos estão em **Sobre** (menu ☰ → Sobre), junto com os
+projetos em que o Big Game Mode se apoia. Encontrou um problema ou quer
+ajudar? Abra uma [issue](https://github.com/biglinux/bigamemode/issues).
 
 ## 🙏 Projetos utilizados
 
