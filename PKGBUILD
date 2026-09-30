@@ -35,9 +35,8 @@ depends=(
     'curl'
     'libarchive'
 
-    # Graphics card names: the PCI database (hwdata) and lspci (pciutils).
+    # Graphics card names, read from the PCI database.
     'hwdata'
-    'pciutils'
 
     # Network, on the Details page: latency (ping) and the interface's queue
     # discipline (tc).
