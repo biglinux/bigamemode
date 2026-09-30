@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-30 12:18-0300\n"
+"POT-Creation-Date: 2026-09-30 12:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:20\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hebrew <he@li.org>\n"
@@ -171,7 +171,7 @@ msgstr "%s + %s: %s"
 msgid "%s GPU"
 msgstr "GPU של %s"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:392
+#: bigame-engine/bigame-core/src/booster/plan.rs:390
 msgid "%s accepts only %s"
 msgstr "%s מקבל רק %s"
 
@@ -2067,7 +2067,7 @@ msgstr "GPU"
 msgid "GPU Temp"
 msgstr "טמפ' GPU"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:442
+#: bigame-engine/bigame-core/src/booster/plan.rs:440
 msgid "GPU power level"
 msgstr "רמת הספק GPU"
 
@@ -6007,7 +6007,7 @@ msgstr "ההורדה אינה תואמת ל-%s: ‏SHA-256 %s"
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "dxgi.dll שלצד המשחק שייך ל-%s; הוא לא יידרס. הסר אותו, או טען אותו דרך OptiScaler, לפני שגרפיקת AI תוכל להתקין את OptiScaler"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:488
+#: bigame-engine/bigame-core/src/booster/plan.rs:486
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "הפרופיל של כל משחק קובע את מצב ה-V-Cache בזמן שהמשחק רץ"
 
@@ -6083,7 +6083,7 @@ msgstr "falcond במצב %s, ולא %s כפי שהיה"
 msgid "falcond is back as it was before Big Game Mode"
 msgstr "falcond חזר למצבו שלפני Big Game Mode"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:169
+#: bigame-engine/bigame-core/src/booster/plan.rs:167
 msgid "falcond is managing it for '%s'; when the game exits it puts back the profile that was in use when falcond started"
 msgstr "falcond מנהל זאת עבור '%s'; כשהמשחק נסגר הוא מחזיר את הפרופיל שהיה בשימוש כש-falcond התחיל"
 
@@ -6115,7 +6115,7 @@ msgstr "falcond מופסק כל עוד Turbo כבוי. זה צפוי."
 msgid "falcond matched no profile to this process. It applies nothing for a game it does not know; create a profile in Profiles."
 msgstr "falcond לא התאים אף פרופיל לתהליך זה. הוא אינו מחיל דבר על משחק שאינו מכיר; צור פרופיל בפרופילים."
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:533
+#: bigame-engine/bigame-core/src/booster/plan.rs:531
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "falcond אחראי על המתזמן; Booster אינו כותב אותו כדי ששני בקרים לא יתחרו על אותו מצב"
 
@@ -6139,7 +6139,7 @@ msgstr "הפעלות מחדש של falcond"
 msgid "falcond sees a game start at once, from the kernel's process events. The scan is its safety net: every so many milliseconds, once no process has started for that long, it reads the process list again, which catches a game whose name changes after it starts. 9000 ms (9 s) is falcond's default; lower costs a little CPU for nothing on most machines."
 msgstr "falcond מבחין מיד בהתחלת משחק, מאירועי התהליכים של הקרנל. הסריקה היא רשת הביטחון שלו: בכל מספר מסוים של אלפיות שנייה, אם לא התחיל שום תהליך במשך זמן זה, הוא קורא שוב את רשימת התהליכים, וכך תופס משחק שהשם שלו משתנה אחרי שהוא מתחיל. ‏9000 ms (‏9 שניות) היא ברירת המחדל של falcond; ערך נמוך יותר עולה מעט CPU לשווא ברוב המחשבים."
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:266
+#: bigame-engine/bigame-core/src/booster/plan.rs:264
 msgid "falcond sets it for each game from the game's profile; when the game exits it puts back the profile that was in use when falcond started, not one chosen later"
 msgstr "falcond מגדיר זאת לכל משחק לפי פרופיל המשחק; כשהמשחק נסגר הוא מחזיר את הפרופיל שהיה בשימוש כש-falcond התחיל, לא פרופיל שנבחר מאוחר יותר"
 
@@ -6351,7 +6351,7 @@ msgstr "לקרנל אין תמיכה ב-sched_ext"
 msgid "launch options may not contain quotes, backslashes or newlines"
 msgstr "אפשרויות ההפעלה אינן יכולות להכיל מירכאות, לוכסנים הפוכים או מעברי שורה"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:462
+#: bigame-engine/bigame-core/src/booster/plan.rs:460
 msgid "left to the driver: forcing 'high' pins the highest fixed power state and gives up boost clocks above it, and it has only ever been measured slower (8.3% in Shadow of the Tomb Raider on a Radeon RX 9060 XT)."
 msgstr "מושאר למנהל ההתקן: כפיית 'high' מקבעת את מצב ההספק הקבוע הגבוה ביותר ומוותרת על תדרי ה-boost שמעליו, ובכל המדידות זה נמצא איטי יותר (8.3% ב-Shadow of the Tomb Raider על Radeon RX 9060 XT)."
 
@@ -6507,7 +6507,7 @@ msgstr "אין סביבה גרפית ש-Gamescope יוכל לרוץ בתוכה"
 msgid "no profile yet"
 msgstr "אין עדיין פרופיל"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:443 bigame-engine/bigame-core/src/health.rs:473
+#: bigame-engine/bigame-core/src/booster/plan.rs:441 bigame-engine/bigame-core/src/health.rs:473
 msgid "no render GPU was identified"
 msgstr "לא זוהה GPU לרינדור"
 
@@ -6655,7 +6655,7 @@ msgstr "מגבלת הספק"
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:290 bigame-engine/bigame-ui/src/views/details/performance.rs:250
+#: bigame-engine/bigame-core/src/booster/plan.rs:288 bigame-engine/bigame-ui/src/views/details/performance.rs:250
 msgid "power-profiles-daemon is not reachable"
 msgstr "power-profiles-daemon אינו נגיש"
 
@@ -6723,11 +6723,11 @@ msgstr "מריץ %s%s"
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "פועל (systemd מדווח שהוא פעיל; falcond עדיין לא פרסם את מצבו)"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:417
+#: bigame-engine/bigame-core/src/booster/plan.rs:415
 msgid "running on battery"
 msgstr "פועל על סוללה"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:321
+#: bigame-engine/bigame-core/src/booster/plan.rs:319
 msgid "running on battery — sustained performance mode usually costs more in throttling than it gains"
 msgstr "פועל על סוללה — מצב ביצועים מתמשך בדרך כלל עולה יותר בהאטה ממה שהוא מרוויח"
 
@@ -6771,7 +6771,7 @@ msgstr "sched-ext מאפשר למתזמן שנטען בזמן ריצה להחל�
 msgid "sched-ext replaces the kernel's CPU scheduler with one loaded at run time. Game-oriented ones (lavd, bpfland) favour the interactive task — the game — over background work."
 msgstr "sched-ext מחליף את מתזמן ה-CPU של הקרנל במתזמן שנטען בזמן ריצה. מתזמנים מוכווני משחקים (lavd,‏ bpfland) מעדיפים את המשימה האינטראקטיבית — המשחק — על פני עבודה ברקע."
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:163 bigame-engine/bigame-ui/src/views/report.rs:73
+#: bigame-engine/bigame-core/src/booster/plan.rs:161 bigame-engine/bigame-ui/src/views/report.rs:73
 msgid "sched-ext scheduler"
 msgstr "מתזמן sched-ext"
 
@@ -6827,7 +6827,7 @@ msgstr "תופס משבצת DLL לצד המשחק ועלול להתנגש עם O
 msgid "temperature limit"
 msgstr "מגבלת טמפרטורה"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:454
+#: bigame-engine/bigame-core/src/booster/plan.rs:452
 msgid "the %s driver exposes no DPM level control"
 msgstr "מנהל ההתקן %s אינו חושף שליטה ברמות DPM"
 
@@ -7027,11 +7027,11 @@ msgstr "ה-GPU היחיד"
 msgid "the overlay showed normally with OptiScaler loaded"
 msgstr "השכבה העליונה הוצגה כרגיל כש-OptiScaler טעון"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:364
+#: bigame-engine/bigame-core/src/booster/plan.rs:362
 msgid "the power profile sets the CPU's energy preference; forcing the performance governor would override it, and measured no faster"
 msgstr "פרופיל צריכת החשמל קובע את העדפת האנרגיה של ה-CPU; כפיית ה-governor ‏performance הייתה גוברת עליו, ולא נמדדה כמהירה יותר"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:369
+#: bigame-engine/bigame-core/src/booster/plan.rs:367
 msgid "the power profile sets the CPU's frequency policy, and falcond switches it to performance for each game"
 msgstr "פרופיל צריכת החשמל קובע את מדיניות התדר של ה-CPU, ו-falcond מחליף אותו ל-performance לכל משחק"
 
@@ -7083,7 +7083,7 @@ msgstr "עומס העבודה הפיק מעט מדי פריימים למדידה
 msgid "there is no earlier version to go back to"
 msgstr "אין גרסה קודמת לחזור אליה"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:480 bigame-engine/bigame-core/src/recommend.rs:173
+#: bigame-engine/bigame-core/src/booster/plan.rs:478 bigame-engine/bigame-core/src/recommend.rs:173
 msgid "this CPU has no 3D V-Cache"
 msgstr "ל-CPU זה אין 3D V-Cache"
 
@@ -7095,7 +7095,7 @@ msgstr "ל-CPU זה אין"
 msgid "this computer has more than one GPU: the plan is for %s, the one DXVK and VKD3D-Proton pick for Windows games; it is confirmed when the game runs"
 msgstr "במחשב זה יש יותר מ-GPU אחד: התוכנית מיועדת ל-%s, זה ש-DXVK ו-VKD3D-Proton בוחרים למשחקי Windows; הדבר יאומת כשהמשחק ירוץ"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:387
+#: bigame-engine/bigame-core/src/booster/plan.rs:385
 msgid "this cpufreq driver"
 msgstr "מנהל התקן cpufreq זה"
 
@@ -7123,7 +7123,7 @@ msgstr "זהו משחק Linux מקורי: OptiScaler עובד עם משחקי Wi
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "משגר זה רץ כ-Flatpak ואינו רואה את MangoHud של המערכת: משחקים שהוא מפעיל אינם מקבלים שכבה עליונה (Heroic מסרב להפעיל משחק כשמתג ה-MangoHud שלו מופעל) עד שתותקן הרחבת ה-Flatpak של MangoHud עבור סביבת הריצה שלו"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:380
+#: bigame-engine/bigame-core/src/booster/plan.rs:378
 msgid "this machine exposes no CPU frequency control"
 msgstr "מחשב זה אינו חושף שליטה בתדר ה-CPU"
 
@@ -7131,7 +7131,7 @@ msgstr "מחשב זה אינו חושף שליטה בתדר ה-CPU"
 msgid "this plan installs nothing"
 msgstr "תוכנית זו אינה מתקינה דבר"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:301
+#: bigame-engine/bigame-core/src/booster/plan.rs:299
 msgid "this platform offers no performance profile"
 msgstr "פלטפורמה זו אינה מציעה פרופיל performance"
 

@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-30 12:18-0300\n"
+"POT-Creation-Date: 2026-09-30 12:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:28\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Chinese <zh@li.org>\n"
@@ -154,7 +154,7 @@ msgstr "%s + %s：%s"
 msgid "%s GPU"
 msgstr "%s GPU"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:392
+#: bigame-engine/bigame-core/src/booster/plan.rs:390
 msgid "%s accepts only %s"
 msgstr "%s 只接受 %s"
 
@@ -2049,7 +2049,7 @@ msgstr "GPU"
 msgid "GPU Temp"
 msgstr "GPU 温度"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:442
+#: bigame-engine/bigame-core/src/booster/plan.rs:440
 msgid "GPU power level"
 msgstr "GPU 功耗等级"
 
@@ -5989,7 +5989,7 @@ msgstr "下载内容与 %s 不匹配：SHA-256 %s"
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "游戏旁边的 dxgi.dll 属于 %s；不会覆盖它。请移除它，或通过 OptiScaler 加载它，之后 AI 图形才能安装 OptiScaler"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:488
+#: bigame-engine/bigame-core/src/booster/plan.rs:486
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "每个游戏的配置文件会在游戏运行时设置 V-Cache 模式"
 
@@ -6065,7 +6065,7 @@ msgstr "falcond 现在是 %s，而不是原来的 %s"
 msgid "falcond is back as it was before Big Game Mode"
 msgstr "falcond 已恢复到使用 Big Game Mode 之前的状态"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:169
+#: bigame-engine/bigame-core/src/booster/plan.rs:167
 msgid "falcond is managing it for '%s'; when the game exits it puts back the profile that was in use when falcond started"
 msgstr "falcond 正在为 '%s' 管理它；游戏退出时会还原 falcond 启动时正在使用的配置"
 
@@ -6097,7 +6097,7 @@ msgstr "Turbo 关闭时 falcond 处于停止状态。这是预期行为。"
 msgid "falcond matched no profile to this process. It applies nothing for a game it does not know; create a profile in Profiles."
 msgstr "falcond 没有为此进程匹配到任何配置文件。对于它不认识的游戏，它不会应用任何内容；请在“配置文件”中创建配置文件。"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:533
+#: bigame-engine/bigame-core/src/booster/plan.rs:531
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "调度器由 falcond 负责；Booster 不会写入它，以避免两个控制者争夺同一状态"
 
@@ -6121,7 +6121,7 @@ msgstr "falcond 重启次数"
 msgid "falcond sees a game start at once, from the kernel's process events. The scan is its safety net: every so many milliseconds, once no process has started for that long, it reads the process list again, which catches a game whose name changes after it starts. 9000 ms (9 s) is falcond's default; lower costs a little CPU for nothing on most machines."
 msgstr "falcond 会通过内核的进程事件立即察觉游戏启动。扫描是它的安全网：每隔一定毫秒数，如果这段时间内没有进程启动，它会重新读取进程列表，从而捕获启动后更改名称的游戏。9000 毫秒（9 秒）是 falcond 的默认值；在大多数机器上，调低只会白白多花一点 CPU。"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:266
+#: bigame-engine/bigame-core/src/booster/plan.rs:264
 msgid "falcond sets it for each game from the game's profile; when the game exits it puts back the profile that was in use when falcond started, not one chosen later"
 msgstr "falcond 根据每个游戏的配置文件为其设置；游戏退出时会还原 falcond 启动时正在使用的配置，而不是之后选择的配置"
 
@@ -6333,7 +6333,7 @@ msgstr "内核不支持 sched_ext"
 msgid "launch options may not contain quotes, backslashes or newlines"
 msgstr "启动选项不能包含引号、反斜杠或换行符"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:462
+#: bigame-engine/bigame-core/src/booster/plan.rs:460
 msgid "left to the driver: forcing 'high' pins the highest fixed power state and gives up boost clocks above it, and it has only ever been measured slower (8.3% in Shadow of the Tomb Raider on a Radeon RX 9060 XT)."
 msgstr "交由驱动决定：强制设为 'high' 会锁定在最高的固定功耗状态，放弃高于它的加速频率，而且实测一直更慢（在 Radeon RX 9060 XT 上运行《古墓丽影：暗影》慢 8.3%）。"
 
@@ -6489,7 +6489,7 @@ msgstr "没有可供 Gamescope 嵌套运行的图形会话"
 msgid "no profile yet"
 msgstr "尚无配置文件"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:443 bigame-engine/bigame-core/src/health.rs:473
+#: bigame-engine/bigame-core/src/booster/plan.rs:441 bigame-engine/bigame-core/src/health.rs:473
 msgid "no render GPU was identified"
 msgstr "未能识别渲染 GPU"
 
@@ -6637,7 +6637,7 @@ msgstr "功耗限制"
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:290 bigame-engine/bigame-ui/src/views/details/performance.rs:250
+#: bigame-engine/bigame-core/src/booster/plan.rs:288 bigame-engine/bigame-ui/src/views/details/performance.rs:250
 msgid "power-profiles-daemon is not reachable"
 msgstr "无法访问 power-profiles-daemon"
 
@@ -6705,11 +6705,11 @@ msgstr "正在运行 %s%s"
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "运行中（systemd 报告其处于活动状态；falcond 尚未发布其状态）"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:417
+#: bigame-engine/bigame-core/src/booster/plan.rs:415
 msgid "running on battery"
 msgstr "正在使用电池"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:321
+#: bigame-engine/bigame-core/src/booster/plan.rs:319
 msgid "running on battery — sustained performance mode usually costs more in throttling than it gains"
 msgstr "正在使用电池 — 持续的性能模式通常因降频而得不偿失"
 
@@ -6753,7 +6753,7 @@ msgstr "sched-ext 允许用运行时加载的调度器替换内核的 CPU 调度
 msgid "sched-ext replaces the kernel's CPU scheduler with one loaded at run time. Game-oriented ones (lavd, bpfland) favour the interactive task — the game — over background work."
 msgstr "sched-ext 用运行时加载的调度器替换内核的 CPU 调度器。面向游戏的调度器（lavd、bpfland）会优先照顾交互式任务 — 也就是游戏 — 而非后台工作。"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:163 bigame-engine/bigame-ui/src/views/report.rs:73
+#: bigame-engine/bigame-core/src/booster/plan.rs:161 bigame-engine/bigame-ui/src/views/report.rs:73
 msgid "sched-ext scheduler"
 msgstr "sched-ext 调度器"
 
@@ -6809,7 +6809,7 @@ msgstr "占用游戏旁边的一个 DLL 槽位，可能与 OptiScaler 冲突"
 msgid "temperature limit"
 msgstr "温度限制"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:454
+#: bigame-engine/bigame-core/src/booster/plan.rs:452
 msgid "the %s driver exposes no DPM level control"
 msgstr "%s 驱动未提供 DPM 等级控制"
 
@@ -7009,11 +7009,11 @@ msgstr "唯一的 GPU"
 msgid "the overlay showed normally with OptiScaler loaded"
 msgstr "加载 OptiScaler 时覆盖层显示正常"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:364
+#: bigame-engine/bigame-core/src/booster/plan.rs:362
 msgid "the power profile sets the CPU's energy preference; forcing the performance governor would override it, and measured no faster"
 msgstr "电源配置会设置 CPU 的能耗偏好；强制使用 performance 调速器会覆盖它，而且实测并不更快"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:369
+#: bigame-engine/bigame-core/src/booster/plan.rs:367
 msgid "the power profile sets the CPU's frequency policy, and falcond switches it to performance for each game"
 msgstr "电源配置会设置 CPU 的频率策略，falcond 会为每个游戏将其切换到 performance"
 
@@ -7065,7 +7065,7 @@ msgstr "工作负载产生的帧太少，无法测量；请检查它是否在持
 msgid "there is no earlier version to go back to"
 msgstr "没有可回退的早期版本"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:480 bigame-engine/bigame-core/src/recommend.rs:173
+#: bigame-engine/bigame-core/src/booster/plan.rs:478 bigame-engine/bigame-core/src/recommend.rs:173
 msgid "this CPU has no 3D V-Cache"
 msgstr "此 CPU 没有 3D V-Cache"
 
@@ -7077,7 +7077,7 @@ msgstr "此 CPU 没有"
 msgid "this computer has more than one GPU: the plan is for %s, the one DXVK and VKD3D-Proton pick for Windows games; it is confirmed when the game runs"
 msgstr "此计算机有多个 GPU：方案针对的是 %s，即 DXVK 和 VKD3D-Proton 为 Windows 游戏选择的那个；游戏运行时确认"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:387
+#: bigame-engine/bigame-core/src/booster/plan.rs:385
 msgid "this cpufreq driver"
 msgstr "此 cpufreq 驱动"
 
@@ -7105,7 +7105,7 @@ msgstr "这是原生 Linux 游戏：OptiScaler 适用于在 Proton 或 Wine 下�
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "此启动器以 Flatpak 形式运行，无法看到系统的 MangoHud：在为其运行时安装 MangoHud 的 Flatpak 扩展之前，它启动的游戏不会有覆盖层（开启 MangoHud 开关时 Heroic 会拒绝启动游戏）"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:380
+#: bigame-engine/bigame-core/src/booster/plan.rs:378
 msgid "this machine exposes no CPU frequency control"
 msgstr "本机未提供 CPU 频率控制"
 
@@ -7113,7 +7113,7 @@ msgstr "本机未提供 CPU 频率控制"
 msgid "this plan installs nothing"
 msgstr "此计划不安装任何内容"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:301
+#: bigame-engine/bigame-core/src/booster/plan.rs:299
 msgid "this platform offers no performance profile"
 msgstr "此平台不提供 performance 配置"
 

@@ -1,6 +1,6 @@
 //! The one way every page says how something stands.
 //!
-//! A [`State`](bigame_core::overview::State) has a label, an icon and a
+//! A [`State`] has a label, an icon and a
 //! colour class; the label and the icon carry the meaning, the colour only
 //! repeats it. The widgets here are the chip (a badge with the label), the
 //! fact list (label / value rows inside an expander) and the status row (an

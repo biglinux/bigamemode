@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-30 12:18-0300\n"
+"POT-Creation-Date: 2026-09-30 12:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:23\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Korean <ko@li.org>\n"
@@ -154,7 +154,7 @@ msgstr "%s + %s: %s"
 msgid "%s GPU"
 msgstr "%s GPU"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:392
+#: bigame-engine/bigame-core/src/booster/plan.rs:390
 msgid "%s accepts only %s"
 msgstr "%s은(는) %s만 허용합니다"
 
@@ -2049,7 +2049,7 @@ msgstr "GPU"
 msgid "GPU Temp"
 msgstr "GPU 온도"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:442
+#: bigame-engine/bigame-core/src/booster/plan.rs:440
 msgid "GPU power level"
 msgstr "GPU 전력 수준"
 
@@ -5989,7 +5989,7 @@ msgstr "다운로드한 파일이 %s과(와) 일치하지 않습니다: SHA-256 
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "게임 옆의 dxgi.dll은 %s에 속하며 덮어쓰지 않습니다. AI 그래픽이 OptiScaler를 설치하려면 이 파일을 제거하거나 OptiScaler를 통해 로드하세요"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:488
+#: bigame-engine/bigame-core/src/booster/plan.rs:486
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "각 게임 프로필이 게임이 실행되는 동안 V-Cache 모드를 설정합니다"
 
@@ -6065,7 +6065,7 @@ msgstr "falcond가 %s 상태입니다. 원래 상태인 %s이(가) 아닙니다"
 msgid "falcond is back as it was before Big Game Mode"
 msgstr "falcond가 Big Game Mode 이전 상태로 돌아왔습니다"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:169
+#: bigame-engine/bigame-core/src/booster/plan.rs:167
 msgid "falcond is managing it for '%s'; when the game exits it puts back the profile that was in use when falcond started"
 msgstr "falcond가 '%s'에 대해 관리 중입니다. 게임이 종료되면 falcond가 시작될 때 사용 중이던 프로필을 되돌립니다"
 
@@ -6097,7 +6097,7 @@ msgstr "Turbo가 꺼져 있는 동안 falcond는 중지됩니다. 예상된 동�
 msgid "falcond matched no profile to this process. It applies nothing for a game it does not know; create a profile in Profiles."
 msgstr "falcond가 이 프로세스에 일치하는 프로필을 찾지 못했습니다. 알지 못하는 게임에는 아무것도 적용하지 않습니다. 프로필에서 프로필을 만드세요."
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:533
+#: bigame-engine/bigame-core/src/booster/plan.rs:531
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "스케줄러는 falcond가 담당합니다. 두 제어 도구가 같은 상태를 두고 다투지 않도록 부스터는 이를 기록하지 않습니다"
 
@@ -6121,7 +6121,7 @@ msgstr "falcond 재시작 횟수"
 msgid "falcond sees a game start at once, from the kernel's process events. The scan is its safety net: every so many milliseconds, once no process has started for that long, it reads the process list again, which catches a game whose name changes after it starts. 9000 ms (9 s) is falcond's default; lower costs a little CPU for nothing on most machines."
 msgstr "falcond는 커널의 프로세스 이벤트를 통해 게임 시작을 즉시 알아챕니다. 검색은 안전망입니다: 일정한 밀리초마다, 그 시간 동안 시작된 프로세스가 없으면 프로세스 목록을 다시 읽어 시작 후 이름이 바뀌는 게임을 잡아냅니다. 9000 ms(9초)가 falcond의 기본값이며, 더 낮추면 대부분의 컴퓨터에서 아무 이득 없이 CPU를 조금 더 씁니다."
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:266
+#: bigame-engine/bigame-core/src/booster/plan.rs:264
 msgid "falcond sets it for each game from the game's profile; when the game exits it puts back the profile that was in use when falcond started, not one chosen later"
 msgstr "falcond는 게임 프로필에 따라 게임마다 설정합니다. 게임이 종료되면 나중에 선택된 프로필이 아니라 falcond가 시작될 때 사용 중이던 프로필을 되돌립니다"
 
@@ -6333,7 +6333,7 @@ msgstr "커널에 sched_ext 지원이 없습니다"
 msgid "launch options may not contain quotes, backslashes or newlines"
 msgstr "실행 옵션에는 따옴표, 백슬래시, 줄바꿈을 넣을 수 없습니다"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:462
+#: bigame-engine/bigame-core/src/booster/plan.rs:460
 msgid "left to the driver: forcing 'high' pins the highest fixed power state and gives up boost clocks above it, and it has only ever been measured slower (8.3% in Shadow of the Tomb Raider on a Radeon RX 9060 XT)."
 msgstr "드라이버에 맡김: 'high'를 강제하면 가장 높은 고정 전력 상태에 묶여 그 이상의 부스트 클럭을 포기하게 되며, 측정 결과 항상 더 느렸습니다(Radeon RX 9060 XT의 Shadow of the Tomb Raider에서 8.3% 느림)."
 
@@ -6489,7 +6489,7 @@ msgstr "Gamescope가 중첩될 그래픽 세션이 없습니다"
 msgid "no profile yet"
 msgstr "아직 프로필 없음"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:443 bigame-engine/bigame-core/src/health.rs:473
+#: bigame-engine/bigame-core/src/booster/plan.rs:441 bigame-engine/bigame-core/src/health.rs:473
 msgid "no render GPU was identified"
 msgstr "식별된 렌더링 GPU가 없습니다"
 
@@ -6637,7 +6637,7 @@ msgstr "전력 제한"
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:290 bigame-engine/bigame-ui/src/views/details/performance.rs:250
+#: bigame-engine/bigame-core/src/booster/plan.rs:288 bigame-engine/bigame-ui/src/views/details/performance.rs:250
 msgid "power-profiles-daemon is not reachable"
 msgstr "power-profiles-daemon에 연결할 수 없습니다"
 
@@ -6705,11 +6705,11 @@ msgstr "%s%s 실행 중"
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "실행 중 (systemd는 활성으로 보고하지만 falcond가 아직 상태를 게시하지 않음)"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:417
+#: bigame-engine/bigame-core/src/booster/plan.rs:415
 msgid "running on battery"
 msgstr "배터리로 실행 중"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:321
+#: bigame-engine/bigame-core/src/booster/plan.rs:319
 msgid "running on battery — sustained performance mode usually costs more in throttling than it gains"
 msgstr "배터리로 실행 중 — 지속적인 성능 모드는 보통 얻는 것보다 스로틀링 비용이 더 큽니다"
 
@@ -6753,7 +6753,7 @@ msgstr "sched-ext는 런타임에 로드한 스케줄러가 커널의 CPU 스케
 msgid "sched-ext replaces the kernel's CPU scheduler with one loaded at run time. Game-oriented ones (lavd, bpfland) favour the interactive task — the game — over background work."
 msgstr "sched-ext는 커널의 CPU 스케줄러를 런타임에 로드한 스케줄러로 대체합니다. 게임 지향 스케줄러(lavd, bpfland)는 백그라운드 작업보다 대화형 작업, 즉 게임을 우선합니다."
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:163 bigame-engine/bigame-ui/src/views/report.rs:73
+#: bigame-engine/bigame-core/src/booster/plan.rs:161 bigame-engine/bigame-ui/src/views/report.rs:73
 msgid "sched-ext scheduler"
 msgstr "sched-ext 스케줄러"
 
@@ -6809,7 +6809,7 @@ msgstr "게임 옆의 DLL 슬롯을 차지하며 OptiScaler와 충돌할 수 있
 msgid "temperature limit"
 msgstr "온도 제한"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:454
+#: bigame-engine/bigame-core/src/booster/plan.rs:452
 msgid "the %s driver exposes no DPM level control"
 msgstr "%s 드라이버는 DPM 수준 제어를 제공하지 않습니다"
 
@@ -7009,11 +7009,11 @@ msgstr "유일한 GPU"
 msgid "the overlay showed normally with OptiScaler loaded"
 msgstr "OptiScaler가 로드된 상태에서 오버레이가 정상적으로 표시됨"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:364
+#: bigame-engine/bigame-core/src/booster/plan.rs:362
 msgid "the power profile sets the CPU's energy preference; forcing the performance governor would override it, and measured no faster"
 msgstr "전원 프로필이 CPU 에너지 선호도를 설정합니다. performance 거버너를 강제하면 이를 무시하게 되며, 측정 결과 더 빠르지 않았습니다"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:369
+#: bigame-engine/bigame-core/src/booster/plan.rs:367
 msgid "the power profile sets the CPU's frequency policy, and falcond switches it to performance for each game"
 msgstr "전원 프로필이 CPU 주파수 정책을 설정하며, falcond가 각 게임마다 performance로 전환합니다"
 
@@ -7065,7 +7065,7 @@ msgstr "작업 부하가 생성한 프레임이 너무 적어 측정할 수 없�
 msgid "there is no earlier version to go back to"
 msgstr "되돌아갈 이전 버전이 없습니다"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:480 bigame-engine/bigame-core/src/recommend.rs:173
+#: bigame-engine/bigame-core/src/booster/plan.rs:478 bigame-engine/bigame-core/src/recommend.rs:173
 msgid "this CPU has no 3D V-Cache"
 msgstr "이 CPU에는 3D V-Cache가 없습니다"
 
@@ -7077,7 +7077,7 @@ msgstr "이 CPU에는 없음"
 msgid "this computer has more than one GPU: the plan is for %s, the one DXVK and VKD3D-Proton pick for Windows games; it is confirmed when the game runs"
 msgstr "이 컴퓨터에는 GPU가 여러 개 있습니다: 계획은 DXVK와 VKD3D-Proton이 Windows 게임용으로 선택하는 %s을(를) 기준으로 합니다. 게임이 실행될 때 확인됩니다"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:387
+#: bigame-engine/bigame-core/src/booster/plan.rs:385
 msgid "this cpufreq driver"
 msgstr "이 cpufreq 드라이버"
 
@@ -7105,7 +7105,7 @@ msgstr "네이티브 Linux 게임입니다: OptiScaler는 Proton 또는 Wine에�
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "이 런처는 Flatpak으로 실행되어 시스템의 MangoHud를 볼 수 없습니다: 런처 런타임용 MangoHud Flatpak 확장이 설치될 때까지 런처가 시작하는 게임에는 오버레이가 없습니다(Heroic은 MangoHud 스위치가 켜져 있으면 게임 시작을 거부합니다)"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:380
+#: bigame-engine/bigame-core/src/booster/plan.rs:378
 msgid "this machine exposes no CPU frequency control"
 msgstr "이 컴퓨터는 CPU 주파수 제어를 제공하지 않습니다"
 
@@ -7113,7 +7113,7 @@ msgstr "이 컴퓨터는 CPU 주파수 제어를 제공하지 않습니다"
 msgid "this plan installs nothing"
 msgstr "이 계획은 아무것도 설치하지 않습니다"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:301
+#: bigame-engine/bigame-core/src/booster/plan.rs:299
 msgid "this platform offers no performance profile"
 msgstr "이 플랫폼은 performance 프로필을 제공하지 않습니다"
 
