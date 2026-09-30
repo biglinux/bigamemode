@@ -8,7 +8,7 @@
 //! installed — its proxy DLL, configuration, weights and log beside the
 //! game — checks the requirements upstream states, and tells the user what
 //! is missing, with the official page to get it from. It also needs NVIDIA's
-//! own neural-rendering model (`nvngx_dlssnr.dll`), which BiGame-mode never
+//! own neural-rendering model (`nvngx_dlssnr.dll`), which Big Game Mode never
 //! downloads or points at: the user has it or does not.
 //!
 //! Every state here is read from files or the running game. Nothing is

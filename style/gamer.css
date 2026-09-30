@@ -24,10 +24,7 @@
 :root {
     /* Accents, the same in light and dark. */
     --gm-violet: #835dff;
-    --gm-violet-strong: #6f4aff;
-    --gm-magenta: #d946ef;
     --gm-cyan: #22d3ee;
-    --gm-blue: #4f6bff;
 
     --gm-gradient-primary: linear-gradient(135deg, #7657ff, #5468ff);
     --gm-gradient-primary-hover: linear-gradient(135deg, #8468ff, #6378ff);
@@ -43,15 +40,11 @@
 
     --gm-duration-fast: 120ms;
     --gm-duration-normal: 180ms;
-    --gm-duration-slow: 240ms;
     --gm-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     /* Light. */
-    --gm-bg-primary: #f3f4fb;
-    --gm-bg-secondary: #eceef8;
     --gm-surface-primary: #ffffff;
     --gm-surface-secondary: #f7f8fe;
-    --gm-surface-elevated: #e7eaf6;
     --gm-surface-hover: rgba(111, 74, 255, 0.06);
     --gm-surface-selected: rgba(111, 74, 255, 0.12);
     --gm-text-primary: #171a2f;
@@ -71,11 +64,8 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --gm-bg-primary: #151a35;
-        --gm-bg-secondary: #11152d;
         --gm-surface-primary: #232846;
         --gm-surface-secondary: #2a2f50;
-        --gm-surface-elevated: #303657;
         --gm-surface-hover: rgba(131, 93, 255, 0.09);
         --gm-surface-selected: rgba(131, 93, 255, 0.18);
         --gm-text-primary: #eceeff;
@@ -408,7 +398,6 @@ toast {
 
 /* The disc is drawn; the design restyles what sits round it. */
 .home-mini,
-.home-steam,
 .home-card {
     background-color: var(--gm-surface-primary);
     box-shadow: 0 0 0 1px var(--gm-border-subtle);
@@ -422,10 +411,9 @@ toast {
     color: var(--gm-cyan);
 }
 
-
 .turbo-preset {
     background-color: var(--gm-surface-primary);
-    border: 1px solid var(--gm-border-subtle, rgba(139, 110, 255, 0.18));
+    border: 1px solid var(--gm-border-subtle);
 }
 
 .turbo-preset:hover {
@@ -518,14 +506,6 @@ toast {
     background-color: transparent;
     background-image: var(--gm-gradient-progress);
     border-color: transparent;
-}
-
-/* ── Badges ────────────────────────────────────────────────────────── */
-
-.success-badge,
-.warning-badge,
-.error-badge {
-    border-radius: var(--gm-radius-xs);
 }
 
 @media (prefers-reduced-motion: reduce) {

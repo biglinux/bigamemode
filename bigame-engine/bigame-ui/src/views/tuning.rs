@@ -9,7 +9,7 @@
 //!
 //! Two kinds of settings live here, and each says which it is: falcond's
 //! (written through the privileged helper, which reloads falcond) and the
-//! launch settings in `video.toml` (read when BiGame-mode starts a game;
+//! launch settings in `video.toml` (read when Big Game Mode starts a game;
 //! Wine FSR and vkBasalt also go into the session environment). Every
 //! change is saved at once; a save that fails is said, with its reason.
 //!
@@ -107,6 +107,20 @@ fn save_video(video: &SharedVideo, anchor: &impl IsA<gtk4::Widget>) {
         return;
     }
     schedule_steam_gamescope(anchor.upcast_ref());
+}
+
+/// Put Tuning's launch settings back to their defaults (Gamescope, Wine FSR,
+/// vkBasalt, lsfg-vk's general switch) and bring the Steam and Heroic games
+/// that follow Tuning in line.
+///
+/// # Errors
+/// Returns an error if `video.toml` or lsfg-vk's file cannot be written.
+pub fn restore_launch_defaults(anchor: &gtk4::Widget) -> anyhow::Result<()> {
+    let video = VideoConfig::default();
+    video_config::save(&video)?;
+    bigame_core::fg::sync_global_enablement(&video.frame_gen)?;
+    schedule_steam_gamescope(anchor);
+    Ok(())
 }
 
 thread_local! {

@@ -566,7 +566,7 @@ fn build_editor(
     let title = card.map_or_else(|| g.profile.name.clone(), |c| c.title.clone());
     let target = card.and_then(|c| c.target.clone());
     let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
-    // What reaches the game: its Steam launch options, BiGame-mode's own
+    // What reaches the game: its Steam launch options, Big Game Mode's own
     // launch, its settings in Heroic, or — started through another
     // launcher (Lutris, Flatpak) — nothing of the game's own.
     let steam = source_label(bigame_core::games::Source::Steam);
@@ -1242,7 +1242,7 @@ fn card_entry(
 }
 
 /// How a game is started from here: one with a native executable by
-/// BiGame-mode itself, with its launch settings; a Steam title, and any other
+/// Big Game Mode itself, with its launch settings; a Steam title, and any other
 /// game its launcher records, by that launcher (`steam -applaunch <id>`,
 /// Heroic's `heroic://launch` link, `lutris:rungame/<slug>`, `flatpak run
 /// <id>`). `None` when there is neither, rather than guessing a program name
@@ -1256,8 +1256,8 @@ fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<game_card::
     bigame_core::launchers::Start::for_game(game).map(game_card::Launch::Through)
 }
 
-/// Start `entry`'s game: with BiGame-mode's launch settings (Gamescope, Wine
-/// FSR, vkBasalt, frame generation) on top of its profile when BiGame-mode
+/// Start `entry`'s game: with Big Game Mode's launch settings (Gamescope, Wine
+/// FSR, vkBasalt, frame generation) on top of its profile when Big Game Mode
 /// starts it, or through its launcher.
 fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
     match entry.launch.clone() {
@@ -1269,7 +1269,7 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
     }
 }
 
-/// Start a game BiGame-mode runs itself, its launch settings around it.
+/// Start a game Big Game Mode runs itself, its launch settings around it.
 fn launch_directly(
     entry: &game_card::Entry,
     program: String,
@@ -1331,7 +1331,7 @@ fn launch_directly(
 
 /// Ask a game's launcher to start it. The launcher starts the game in its
 /// own process tree: falcond's profile reaches the game — while Turbo is on
-/// — but nothing BiGame-mode wraps a game with does, and the toast says both
+/// — but nothing Big Game Mode wraps a game with does, and the toast says both
 /// rather than promising the launch settings.
 fn launch_through(
     entry: &game_card::Entry,

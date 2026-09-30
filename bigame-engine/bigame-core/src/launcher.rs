@@ -51,7 +51,7 @@ impl Host {
     }
 }
 
-/// Fully resolved plan to launch a game with all BiGame-mode video settings applied.
+/// Fully resolved plan to launch a game with all Big Game Mode video settings applied.
 #[derive(Debug, Clone)]
 pub struct LaunchPlan {
     /// Top-level executable (`"gamescope"` or game path).
@@ -160,7 +160,7 @@ impl LaunchPlan {
         );
         let own_gs = own.gamescope_override(&effective_video.upscaling);
         let gs_override = own_gs.as_ref().or(gs_override);
-        // A game BiGame-mode installed OptiScaler into already upscales;
+        // A game Big Game Mode installed OptiScaler into already upscales;
         // Gamescope and Wine FSR would be second upscalers.
         let disables = crate::graphics::launch_disables(
             &crate::graphics::state_dir(),
@@ -472,7 +472,7 @@ impl LaunchPlan {
     }
 }
 
-/// Whether BiGame-mode starts a native Linux program rather than a Windows
+/// Whether Big Game Mode starts a native Linux program rather than a Windows
 /// one through Wine or Proton.
 fn is_native(executable: &str, args: &[String]) -> bool {
     let exe = |s: &str| s.to_ascii_lowercase().ends_with(".exe");

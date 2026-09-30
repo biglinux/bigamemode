@@ -33,7 +33,7 @@ use crate::hardware::GpuVendor;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Standing {
-    /// The game's own feature, or verified to work on BiGame-mode's test
+    /// The game's own feature, or verified to work on Big Game Mode's test
     /// machines.
     Recommended,
     /// Documented upstream; not verified.
@@ -52,9 +52,9 @@ pub enum Standing {
 pub enum Step {
     /// Something to select in the game's own menu.
     InGame(Text),
-    /// Something BiGame-mode would install.
+    /// Something Big Game Mode would install.
     Install(Text),
-    /// Something BiGame-mode would turn off for this game.
+    /// Something Big Game Mode would turn off for this game.
     Disable(Text),
     /// Something left as it is, on purpose.
     Keep(Text),
@@ -489,7 +489,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             ),
         )
     } else if let Some(b) = n.built_in_fsr().filter(|_| built_in_fsr_crashes(r)) {
-        // Tested on BiGame-mode's RDNA 4 machine (GE-Proton10-20, OptiScaler
+        // Tested on Big Game Mode's RDNA 4 machine (GE-Proton10-20, OptiScaler
         // 0.9.4), The Outer Worlds: Spacer's Choice Edition and The Callisto
         // Protocol both: OptiScaler takes the compiled-in FSR 2 over, and
         // the game crashes the moment FSR 3.1 or FSR 4 runs in its place —

@@ -45,60 +45,6 @@ sempre com backup e desfazer completos.
 > Uma regra atravessa o projeto: **nada é oferecido que a máquina não possa
 > fazer, e nada é chamado de melhoria sem medição.**
 
-## 🚀 Novidades da 2.2.0
-
-- **Boas-vindas, Sobre e Ajuda refeitos.** Uma tela de boas-vindas com os
-  recursos, o Sobre com a descrição, créditos e informações de depuração
-  completas, e uma Ajuda passo a passo para cada página.
-- **Ajustes mais claros.** O Gamescope fica sempre à vista, com os tamanhos
-  escolhidos entre as resoluções padrão e a da tela principal detectada; cada
-  opção técnica tem um ⓘ. O vkBasalt ganhou visuais: CAS ou o estilo
-  **Nara Linux** (do Narayan), com os shaders do ReShade baixados só quando
-  escolhido e conferidos pelo SHA-256.
-- **Perfil do jogo igual aos Ajustes**, com as mesmas seções e linhas. Os
-  valores próprios do jogo chegam a ele pelo **Iniciar (Turbo)**, pelas opções
-  de inicialização da Steam ou pelas configurações do jogo no **Heroic**.
-- **Iniciar (Turbo) em todos os lançadores** (Steam, Heroic, Lutris,
-  Flatpak), e **Reabrir** para o lançador que estava aberto antes do preset,
-  recusado enquanto um jogo dele roda.
-- **Gráficos com IA redesenhados**: veredito primeiro, o porquê, o que fazer
-  no jogo, opções legíveis com ⓘ, **Verificar de novo** e **Salvar escolha**.
-  A análise segue o inicializador até o jogo real e reconhece upscalers
-  embutidos no executável.
-- **Detalhes**: fechar ou pausar programas em segundo plano (nunca os do
-  sistema, da área de trabalho ou do jogo), aplicar um DNS medido como o
-  principal, com backup e restauração, e escolher o alvo do ping entre os
-  servidores medidos. **Registros** cobre todas as fontes de que o app
-  depende. O controle do falcond pode ser devolvido e retomado.
-
-<details>
-<summary><b>Novidades da 2.1.0</b></summary>
-
-- **Presets do Turbo.** Antes de ligar, escolha o que os jogos priorizam:
-  **Padrão**, **Mais FPS**, **60 FPS Fixo** ou **Gráficos aprimorados**.
-  Cada preset usa só o que os jogos leem de verdade e sai junto com o Turbo.
-- **Nova Início.** Um botão power que se enche como um líquido nas cores do
-  tema a cada etapa real do Turbo, CPU, GPU e rede ao vivo, e um card do jogo
-  em execução com uma flag colorida por recurso. Tudo cabe na janela.
-- **Ajustes, perfil do jogo e Assistente num só modelo**, com as mesmas seções
-  e o que fica em "Configuração geral" seguindo os Ajustes. Toda colisão entre
-  tecnologias (Wine FSR, upscaling do Gamescope, OptiScaler, lsfg-vk) é
-  perguntada, nunca resolvida em silêncio.
-- **Jogos da Steam recebem o Gamescope e o Wine FSR** pelas opções de
-  inicialização, gravadas com a Steam fechada. Mudar os tamanhos do Gamescope
-  nos Ajustes atualiza os jogos que o usam, e a Steam aberta ganha um botão
-  para fechar, gravar e reabrir.
-- **Detecção do jogo mais certeira.** O lançador de um jogo (a página do
-  REDlauncher, atualizadores) não é mais tomado pelo jogo. O Gamescope e o
-  vkBasalt são vistos também quando a Steam os coloca em volta do jogo.
-- **Detalhes diz quando o falcond não aplica o perfil de um jogo, e por quê**
-  (o falcond 2.0.2 não enxerga jogos que renomeiam a thread principal, como o
-  Cyberpunk 2077; a correção veio no falcond 2.0.3).
-- A revisão do perfil oferecido mostra a recomendação dos Gráficos com IA para
-  a placa de vídeo, e o MangoHud ganhou estilos inspirados no Steam Deck.
-
-</details>
-
 ## ✨ Recursos
 
 <table>
@@ -203,9 +149,9 @@ supera a variação.
 | **Registros** | O que importa numa sessão de jogo: falcond, Big Game Mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
 | **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
 
-Fechar a janela deixa o aplicativo na **bandeja**. A cor do ícone indica o
-estado: azul quando ocioso, verde com um jogo otimizado e amarelo quando há
-um aviso.
+Fechar a janela deixa o aplicativo na **bandeja**, que funciona como um
+controle remoto: abre a janela, liga e desliga o Turbo, troca o preset e
+encerra o aplicativo. O ícone é simbólico e segue as cores do painel.
 
 </details>
 
@@ -361,7 +307,7 @@ Depois, abra **Big Game Mode** no menu de aplicativos.
 | `gamescope`, `mangohud`, `vkbasalt` | o que os ajustes por jogo e de lançamento ligam; o MangoHud também captura os frametimes das medições |
 | `lsfg-vk` | geração de quadros (Lossless Scaling) por jogo; só gera quadros com o seu próprio `Lossless.dll`, que nunca vem no pacote |
 | `curl`, `libarchive` | baixar e extrair o OptiScaler |
-| `hwdata`, `pciutils` | identificar a placa de vídeo |
+| `hwdata` | identificar a placa de vídeo |
 | `iputils`, `iproute2` | latência e fila de rede |
 
 **Opcional:** `nvidia-utils` fornece a telemetria em placas NVIDIA, pela
@@ -406,7 +352,6 @@ nos jogos nativos, o limite é o do MangoHud.
 
 **Resultados anteriores:**
 
-
 Medido com o benchmark do próprio **Shadow of the Tomb Raider** (3440×1440, três
 execuções alternadas por configuração, diferença exigida acima da variação e
 no teste t de Welch a 95 %):
@@ -428,7 +373,7 @@ no teste t de Welch a 95 %):
   (88,9 → 51,8) e 55 % em x3, por isso nunca é ligado sozinho.
 
 Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Os
-dados brutos de cada sessão ficam em `bigame-engine/benchmarks/`.
+dados brutos de cada sessão ficam no [histórico do repositório](https://github.com/biglinux/bigamemode/tree/fbd0d56/bigame-engine/benchmarks).
 
 ## 🌍 Idiomas
 
@@ -472,11 +417,14 @@ O código é um workspace Rust em `bigame-engine/`:
 - `bigame-core/examples/` traz ferramentas de linha de comando: detecção
   (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
   `graphics_plan`, `graphics_apply`, `graphics_status`,
-  `graphics_capabilities`, `graphics_diagnose`, `graphics_native`), Turbo e
-  Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), o comando que o
-  lançador monta (`launch_plan`), lsfg-vk (`lsfg`) e relatórios de benchmark
-  (`bench_report`, `bench_native_report`). Rode com
+  `graphics_capabilities`, `graphics_diagnose`, `graphics_native`), Turbo,
+  falcond e Booster (`turbo`, `turbo_preset`, `falcond_control`,
+  `booster_run`, `measure`), lançamento (`launch_plan`, `launch_through`,
+  `heroic_apply`), lsfg-vk (`lsfg`), vkBasalt (`vkbasalt_style`) e relatórios
+  de benchmark (`bench_report`, `bench_native_report`). Rode com
   `cargo run -p bigame-core --example <nome>`.
+- `bigame-engine/scripts/` guarda os scripts das sessões de benchmark,
+  rodados à mão; o método está em [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 <details>
 <summary><b>Traduções</b></summary>
@@ -487,7 +435,9 @@ Todo texto visível passa por `i18n`/`ni18n` na interface e por `N_` no
 ```bash
 python3 locale/extract-strings.py        # atualiza locale/bigame-mode.pot
 for po in locale/*.po; do
-    msgmerge -U --no-wrap --no-fuzzy-matching "$po" locale/bigame-mode.pot
+    msgmerge -q -U --width=100000 --no-fuzzy-matching --backup=none \
+        "$po" locale/bigame-mode.pot
+    msgattrib --width=100000 --no-obsolete -o "$po" "$po"
 done
 ```
 

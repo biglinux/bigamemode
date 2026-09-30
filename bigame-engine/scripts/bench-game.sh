@@ -170,7 +170,7 @@ arm_gpu_dpm_level() { arm_rest; set_dpm high; }
 # CPU knob isolated, for a workload where the CPU is what limits the frame rate.
 arm_cpu_governor() { arm_baseline; set_governor performance; set_epp performance; }
 # The product's own overhead: the same machine state, with the running
-# BiGame-mode UI either polling as usual or frozen with SIGSTOP. Frozen rather
+# Big Game Mode UI either polling as usual or frozen with SIGSTOP. Frozen rather
 # than closed, so nothing it owns is restored or torn down; SIGCONT resumes it
 # exactly where it was, and restore() always sends it.
 UI_PID=$(pgrep -x bigame-ui | head -1)
@@ -213,7 +213,7 @@ scx_stop() {
     [ -n "$SCX_READY" ] || kill "$pid" 2>/dev/null
     wait "$pid" 2>/dev/null
 }
-# Frame generation arms: the game's lsfg-vk entry, written by BiGame-mode's own
+# Frame generation arms: the game's lsfg-vk entry, written by Big Game Mode's own
 # code (bigame-core's lsfg example), which lsfg-vk reloads while the game runs.
 # Whether generation really took is in the data: with MANGOHUD_CSV_DIR set,
 # presented frames (MangoHud) against rendered frames (the game's own count).

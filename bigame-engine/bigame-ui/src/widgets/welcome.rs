@@ -1,4 +1,4 @@
-//! The welcome screen: what BiGame-mode does, on one page.
+//! The welcome screen: what Big Game Mode does, on one page.
 //!
 //! Shown the first time the window is on screen in a run — never while the
 //! application starts hidden in the tray — until the switch at its foot is
@@ -109,7 +109,7 @@ fn features() -> [(&'static str, String, String); 8] {
     ]
 }
 
-/// The icon, the greeting and what BiGame-mode is, in a line.
+/// The icon, the greeting and what Big Game Mode is, in a line.
 fn greeting() -> gtk4::Box {
     let header = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
     header.set_halign(gtk4::Align::Center);

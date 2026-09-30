@@ -220,31 +220,6 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<&'static str> {
     errors
 }
 
-/// List all profile names from system + user directories.
-///
-/// User profiles override system ones (same filename = same profile).
-#[must_use]
-pub fn list_names() -> Vec<String> {
-    let mut names = Vec::new();
-    for dir in [Path::new(USER_PROFILES_DIR), Path::new(SYSTEM_PROFILES_DIR)] {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().is_some_and(|e| e == "conf") {
-                    if let Some(stem) = path.file_stem() {
-                        let name = stem.to_string_lossy().into_owned();
-                        if !names.contains(&name) {
-                            names.push(name);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    names.sort();
-    names
-}
-
 /// One profile on disk, as the library sees it.
 ///
 /// falcond matches a process against the profile's `name` field, and the
@@ -383,7 +358,7 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
 
 /// Serialize a game profile to `otter_conf` format (bare identifiers for enums).
 ///
-/// Emits falcond's fields, then BiGame-mode's own (`fg_*`, `gamescope_mode`),
+/// Emits falcond's fields, then Big Game Mode's own (`fg_*`, `gamescope_mode`),
 /// which `otter_conf` skips as unknown keys.
 fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let mut out = String::new();
@@ -407,7 +382,7 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
             let _ = writeln!(out, "stop_script = \"{s}\"");
         }
     }
-    // BiGame-mode's own per-game settings (otter_conf skips unknown keys).
+    // Big Game Mode's own per-game settings (otter_conf skips unknown keys).
     // `cpu_governor`, `scx_custom_flags` and `enabled` are not written: nothing
     // applies them, and their presence is how migration recognises a file an
     // older version wrote.

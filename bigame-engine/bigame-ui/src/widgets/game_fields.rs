@@ -10,7 +10,7 @@
 //! A row is offered only where it reaches the game ([`Reach`]): falcond's
 //! and lsfg-vk's settings reach it however it is started, `MangoHud` goes
 //! where its launcher reads it, and Gamescope, Wine FSR and vkBasalt reach
-//! it when BiGame-mode starts it, through its Steam launch options, or
+//! it when Big Game Mode starts it, through its Steam launch options, or
 //! through its settings in Heroic.
 //!
 //! Display and Image quality edit one set of values ([`Live`]), so turning

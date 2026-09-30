@@ -85,7 +85,16 @@ pub fn check() {
             if !changed {
                 return;
             }
-            if let Some(g) = &found { tracing::info!(game = %g.display_name, process = %g.process_name, pid = g.pid, "game detected") } else { tracing::info!("game no longer running") }
+            if let Some(g) = &found {
+                tracing::info!(
+                    game = %g.display_name,
+                    process = %g.process_name,
+                    pid = g.pid,
+                    "game detected"
+                );
+            } else {
+                tracing::info!("game no longer running");
+            }
             *watch.current.borrow_mut() = found;
             let current = watch.current.borrow();
             watch

@@ -23,7 +23,7 @@ depends=(
     'polkit'
     'systemd'
 
-    # System performance is falcond's. BiGame-mode writes its per-game
+    # System performance is falcond's. Big Game Mode writes its per-game
     # profiles and reads the status it publishes; the power profile it asks
     # for goes through power-profiles-daemon.
     'falcond'
@@ -35,9 +35,8 @@ depends=(
     'curl'
     'libarchive'
 
-    # Graphics card names: the PCI database (hwdata) and lspci (pciutils).
+    # Graphics card names, read from the PCI database.
     'hwdata'
-    'pciutils'
 
     # Network, on the Details page: latency (ping) and the interface's queue
     # discipline (tc).

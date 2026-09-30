@@ -386,7 +386,7 @@ fn graphics_line(process: &str) -> Option<String> {
     })
 }
 
-/// A decision as the rest of BiGame-mode names it: the field's title and
+/// A decision as the rest of Big Game Mode names it: the field's title and
 /// its value, a scheduler left to Tuning shown with what Tuning runs.
 fn decision_row(
     d: &recommend::Decision,

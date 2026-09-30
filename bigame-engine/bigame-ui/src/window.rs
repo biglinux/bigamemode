@@ -340,25 +340,24 @@ pub fn build(
             let th2 = Rc::clone(&th);
             dialog.connect_response(None, move |_, response| {
                 if response != "restore" { return; }
-                // Write default gamescope config (user-space), then falcond's
-                // through the helper -- off the main thread, since it may wait
-                // on a password prompt -- and say what actually happened.
-                let gamescope = bigame_core::gamescope::save_global(&bigame_core::gamescope::Config::default());
+                // The launch settings are the user's own files; falcond's go
+                // through the helper, off the main thread, since it may wait
+                // on a password prompt. Then say what actually happened.
+                let launch = views::tuning::restore_launch_defaults(overlay2.upcast_ref());
                 let overlay3 = overlay2.clone();
                 glib::spawn_future_local(async move {
                     let falcond = gtk4::gio::spawn_blocking(|| {
                         bigame_core::config::write_blocking(&bigame_core::config::FalcondConfig::default())
                     })
                     .await;
-                    let message = match (falcond, gamescope) {
+                    let message = match (falcond, launch) {
                         (Ok(Ok(())), Ok(())) => i18n("Default settings restored"),
                         (Ok(Err(e)), _) => format!("{}: {}", i18n("Could not restore falcond's settings"), error_text(&e)),
                         (Err(_), _) => i18n("Could not restore falcond's settings"),
-                        (_, Err(e)) => format!("{}: {}", i18n("Could not restore Gamescope's settings"), error_text(&e)),
+                        (_, Err(e)) => format!("{}: {}", i18n("Could not save the launch settings"), error_text(&e)),
                     };
                     overlay3.add_toast(adw::Toast::new(&message));
                 });
-                // Swap tuning page in the view stack
                 let old = th2.borrow().clone();
                 stack2.remove(&old);
                 let new_tuning = views::tuning::build();

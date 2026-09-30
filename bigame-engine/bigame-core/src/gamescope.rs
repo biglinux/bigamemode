@@ -10,7 +10,6 @@
 //! so a distribution patch, an old build or a future removal degrades to "that
 //! option is not applied" instead of "nothing launches".
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::capabilities::GamescopeCaps;
@@ -384,37 +383,6 @@ impl Config {
         argv.extend(command_args.iter().cloned());
         (argv, built.unsupported)
     }
-}
-
-/// Global default Gamescope config path.
-fn global_config_path() -> std::path::PathBuf {
-    crate::paths::config_home()
-        .join("bigame-mode")
-        .join("gamescope.toml")
-}
-
-/// Load the global default Gamescope config, falling back to defaults.
-#[must_use]
-pub fn load_global() -> Config {
-    std::fs::read_to_string(global_config_path())
-        .ok()
-        .and_then(|s| toml::from_str(&s).ok())
-        .unwrap_or_default()
-}
-
-/// Persist the global default Gamescope config.
-///
-/// # Errors
-/// Returns an error if the config directory or file cannot be written.
-pub fn save_global(config: &Config) -> Result<()> {
-    let path = global_config_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("create config dir: {}", parent.display()))?;
-    }
-    let content = toml::to_string_pretty(config).context("serialize gamescope config")?;
-    std::fs::write(&path, content)
-        .with_context(|| format!("write gamescope config: {}", path.display()))
 }
 
 #[cfg(test)]

@@ -89,7 +89,7 @@ pub(crate) fn env_file_path() -> PathBuf {
         .join("bigame-mode.conf")
 }
 
-/// Every variable BiGame-mode puts in the session environment. One that is
+/// Every variable Big Game Mode puts in the session environment. One that is
 /// not wanted any more is removed from the running session, not only from
 /// the file: otherwise turning Wine FSR or vkBasalt off left it in force for
 /// every game until the next login.
@@ -98,7 +98,7 @@ pub const SESSION_KEYS: &[&str] = &[
     "WINE_FULLSCREEN_FSR_MODE",
     "ENABLE_VKBASALT",
     "VKBASALT_CONFIG_FILE",
-    // A Turbo preset's own ([`crate::turbo_preset::PRESET_KEYS`]).
+    // A Turbo preset's own ([`crate::turbo_preset::preset_env`]).
     "DXVK_CONFIG",
     "VKD3D_FRAME_RATE",
     "FSR4_UPGRADE",
@@ -170,7 +170,7 @@ pub fn session_env(cfg: &VideoConfig) -> HashMap<String, String> {
     env
 }
 
-/// What of BiGame-mode's variables ([`SESSION_KEYS`]) an environment really
+/// What of Big Game Mode's variables ([`SESSION_KEYS`]) an environment really
 /// puts in force, `get` reading one variable: a switch counts only at `1`
 /// (`0` and absent are both off), and a switch's detail only while its
 /// switch is on. Two environments that give games the same thing compare

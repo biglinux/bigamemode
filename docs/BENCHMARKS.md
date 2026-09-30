@@ -2,7 +2,10 @@
 
 Big Game Mode claims a setting helps only when a measurement says so. This page
 describes how measurements are made and what they found on the reference
-machine. The raw data of every result is in `bigame-engine/benchmarks/`.
+machine. The raw data of every result (frame times, GPU telemetry, the
+games' result screens) is not shipped with the source; it is kept in the
+repository's history, [at commit `fbd0d56`](https://github.com/biglinux/bigamemode/tree/fbd0d56/bigame-engine/benchmarks), under the session
+names of the *Data* column below.
 
 ## Method
 
@@ -48,18 +51,22 @@ machine. The raw data of every result is in `bigame-engine/benchmarks/`.
 
 | Tool | Use |
 |---|---|
-| `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a session of a game's built-in benchmark, in the layout of `bigame-engine/benchmarks/` |
+| `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a session of a game's built-in benchmark, in the layout the scripts write |
 | `cargo run -p bigame-core --example bench_report -- <session> <baseline>` | verdicts for a SuperTuxKart A/B session |
 | `cargo run -p bigame-core --example turbo_preset -- <id\|off>` and `--example launch_plan -- <executable>` | put a Turbo preset in force as Turbo does, and print the command Big Game Mode's launcher would run with it |
 | *Measure the difference* (a game card's menu) | the same A/B method for any game that starts directly, driven by the application |
+| `bigame-engine/scripts/bench-game.sh` | a session of a game's built-in benchmark, alternating the arms through the helper and pressing the game's `[R]` rerun key only while the game has focus |
+| `bigame-engine/scripts/bench-lab.sh` | an A/B session of SuperTuxKart's own `--benchmark`, its configuration backed up and put back |
+| `bigame-engine/scripts/gpu-telemetry.sh` | the GPU's clock, power, temperature and load beside a run, sampled with shell builtins only so that it does not perturb the run |
+| `bigame-engine/scripts/scx-switch.sh` | the root side of a scheduler session: one Polkit prompt, each scheduler applied through the game's falcond profile, the profile put back at the end |
 
-The session scripts behind the results below (built-in benchmarks with the
-`[R]` rerun, SuperTuxKart sessions, a non-forking GPU sampler, the root side of
-scheduler sessions) are no longer in the repository; the data they produced
-is.
+The scripts are run by hand, never by the application or the package; each
+explains its arguments at the top.
 
 Each session directory holds `system.json` (the machine, with no host name,
-user, home or address), the runs of every arm, and the report.
+user, home or address), the runs of every arm, and the report. Sessions are
+written under `benchmarks/`, which git ignores: raw data stays on the
+machine that measured it, and the results come here.
 
 ## Reference machine
 
@@ -115,9 +122,9 @@ What follows for the code:
 - AI Graphics is the first setting Big Game Mode applies that measurably moves the
   frame rate. This holds for OptiScaler 0.9.4, the tested release. The gain
   is larger where the game's XeSS runs on the slower DP4a path (the GTX).
-- On the lab laptop the planner, reading that session from the local
-  measurements, reports the gain but keeps the game's own XeSS as
-  Recommended: the 1 % low could not be shown to be no worse.
+- The game list records Shadow of the Tomb Raider as faster with OptiScaler
+  on both machines (`prefer = "optiscaler"`), so it is Recommended there;
+  on the lab laptop the 1 % low could not be shown to be no worse.
 - The session also found that OptiScaler's default configuration made the
   game exit at start on a GTX (its DLSS path on a card without DLSS); the
   configuration Big Game Mode writes turns that path off there.

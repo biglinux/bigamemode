@@ -111,10 +111,12 @@ that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
 - No command passes through a shell. External programs are run with
   argument vectors, as the user: `curl` and `bsdtar` (AI Graphics),
   `journalctl` (Logs), `ping` (to the target set in Settings, a leading `-`
-  refused) and `tc` (Details), `lspci` (About), `systemctl is-active`,
-  `gamescope --help` and the version flags of `glxinfo`, `vulkaninfo`,
-  `mangohud` and `gamemoded` (capabilities and the support report), and the
-  game itself. NVIDIA GPU readings come from the driver's NVML library,
+  refused), `tc`, `resolvectl` and `nmcli` (Details → network),
+  `kscreen-doctor` or `xrandr` (the main screen's size for Gamescope),
+  `systemctl is-active`, `gamescope --help` and the version flags of
+  `glxinfo`, `vulkaninfo`, `mangohud` and `gamemoded` (capabilities and the
+  support report), `steam -shutdown`, `flatpak kill` and `systemd-run` (to
+  close and reopen a launcher), and the game itself. NVIDIA GPU readings come from the driver's NVML library,
   loaded in the unprivileged UI process; no NVIDIA program is run.
 - One action runs something as root outside the helper: when Gamescope or
   vkBasalt is enabled but not installed, *Install Missing Packages* runs

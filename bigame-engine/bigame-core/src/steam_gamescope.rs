@@ -1,8 +1,8 @@
 //! Gamescope for a game the Steam client starts.
 //!
-//! BiGame-mode's own launch wraps a game in Gamescope itself, but a Steam
+//! Big Game Mode's own launch wraps a game in Gamescope itself, but a Steam
 //! game is started by the Steam client in its own process tree, which
-//! BiGame-mode cannot reach. What reaches it is the game's launch options, so
+//! Big Game Mode cannot reach. What reaches it is the game's launch options, so
 //! a profile's Gamescope choice is written there as a wrapper in front of
 //! `%command%` — the same way `MangoHud` is (`crate::mangohud`): only while
 //! Steam is closed (it keeps its configuration in memory), in every Steam
@@ -13,7 +13,7 @@
 //! variable after another wrapper (`gamemoderun VAR=1 %command%`) would be
 //! taken for the program to run.
 //!
-//! BiGame-mode owns only the segment and the variables it wrote (kept in the
+//! Big Game Mode owns only the segment and the variables it wrote (kept in the
 //! game's settings); the user's own options and a Gamescope they typed
 //! themselves are left alone.
 
@@ -25,7 +25,7 @@ use crate::gamescope::{Config, Mode};
 const COMMAND: &str = "%command%";
 
 /// `gamescope <args> --`, the wrapper for `cfg`, or `None` when Gamescope
-/// should not run for this game (the same decision BiGame-mode's own launch
+/// should not run for this game (the same decision Big Game Mode's own launch
 /// makes).
 #[must_use]
 pub fn segment(
@@ -42,7 +42,7 @@ pub fn segment(
     Some(format!("gamescope {} --", args.join(" ")).replace("  ", " "))
 }
 
-/// `current` launch options with the segment BiGame-mode wrote before
+/// `current` launch options with the segment Big Game Mode wrote before
 /// (`previous`) taken out and `wanted` put in front of `%command%` — before a
 /// `mangohud` wrapper right in front of it, so the overlay stays inside
 /// Gamescope and `MangoHud`'s own setting still finds its word.
@@ -81,7 +81,7 @@ pub fn launch_options(current: &str, previous: Option<&str>, wanted: Option<&str
 /// What writing the wrapper did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Applied {
-    /// Not a Steam game: BiGame-mode's own launch wraps it.
+    /// Not a Steam game: Big Game Mode's own launch wraps it.
     NotSteam,
     /// Nothing to change.
     Unchanged,
@@ -91,7 +91,7 @@ pub enum Applied {
     Written(String),
 }
 
-/// `current` launch options with the variables BiGame-mode wrote before
+/// `current` launch options with the variables Big Game Mode wrote before
 /// (`previous`) taken out and `wanted` put in front of everything. Each
 /// variable is taken out once, wherever it is, so one that something else
 /// moved or removed does not keep the others in.
@@ -119,7 +119,7 @@ pub fn env_options(current: &str, previous: Option<&str>, wanted: Option<&str>) 
         .join(" ")
 }
 
-/// What a game's launch options should hold from BiGame-mode: its
+/// What a game's launch options should hold from Big Game Mode: its
 /// Gamescope wrapper and its variables, each `None` for nothing.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Wanted {
@@ -130,7 +130,7 @@ pub struct Wanted {
 }
 
 /// Put the Gamescope wrapper and the variables for the game whose process
-/// is `process` into its Steam launch options, or take BiGame-mode's out
+/// is `process` into its Steam launch options, or take Big Game Mode's out
 /// (`None`).
 ///
 /// # Errors
@@ -183,7 +183,7 @@ pub fn apply(process: &str, wanted: Wanted) -> Result<Applied> {
 /// environment says.
 const WINE_FSR_OFF: &str = "WINE_FULLSCREEN_FSR=0";
 
-/// `current` with Wine FSR turned off (`off`) or BiGame-mode's switch taken
+/// `current` with Wine FSR turned off (`off`) or Big Game Mode's switch taken
 /// out again. Off also replaces a `WINE_FULLSCREEN_FSR=1` already there (the
 /// user asked, with the button that says so); taking it out leaves Wine FSR
 /// to the session, as Tuning sets it.
@@ -237,7 +237,7 @@ fn steam_apps(process: &str) -> Vec<String> {
 }
 
 /// Turn Wine FSR off for the game whose process is `process` in its Steam
-/// launch options (`off`), or take BiGame-mode's switch out again.
+/// launch options (`off`), or take Big Game Mode's switch out again.
 ///
 /// # Errors
 /// Returns an error when Steam's configuration cannot be written or the

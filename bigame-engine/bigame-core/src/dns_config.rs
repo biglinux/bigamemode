@@ -9,7 +9,7 @@
 //! * **Backup first.** Before the first change to a connection its DNS
 //!   settings are saved to `$XDG_STATE_HOME/bigame-mode/network/<uuid>.json`.
 //!   A second change keeps that backup — the settings from before
-//!   BiGame-mode — so restoring always goes back to where the user started.
+//!   Big Game Mode — so restoring always goes back to where the user started.
 //! * **Only what changes.** Just the properties of the chosen server's address
 //!   family are written (`ipv4.*` for an IPv4 server, `ipv6.*` for IPv6):
 //!   `dns` with the server first and any addresses set by hand after it, and
@@ -59,7 +59,7 @@ pub struct DnsSettings {
     pub ipv6_ignore_auto_dns: bool,
 }
 
-/// What was there before BiGame-mode changed a connection's DNS.
+/// What was there before Big Game Mode changed a connection's DNS.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Backup {
     /// The connection's UUID.
@@ -279,7 +279,7 @@ fn entry_address(entry: &str) -> Option<IpAddr> {
 // ── The change itself ────────────────────────────────────────────────────────
 
 /// The settings that make `server` the connection's first DNS server:
-/// `original` — the settings before BiGame-mode — with `server` first in its
+/// `original` — the settings before Big Game Mode — with `server` first in its
 /// family's list, the addresses set by hand after it, and that family's
 /// automatic DNS ignored. The other family is left as it is in `current`.
 #[must_use]
@@ -378,7 +378,7 @@ fn load_backup_in(dir: &Path, uuid: &str) -> Result<Option<Backup>> {
 ///
 /// # Errors
 /// Returns an error if the backup exists and cannot be read: a damaged
-/// backup is not "no backup", or the next apply would take BiGame-mode's own
+/// backup is not "no backup", or the next apply would take Big Game Mode's own
 /// values as the ones to restore.
 pub fn load_backup(uuid: &str) -> Result<Option<Backup>> {
     load_backup_in(&backup_dir(), uuid)
@@ -466,7 +466,7 @@ fn apply_in(
 ) -> Result<Outcome> {
     anyhow::ensure!(valid_uuid(&connection.uuid), "not a connection UUID");
     let current = read_settings(nm, &connection.uuid)?;
-    // The backup is of the settings before BiGame-mode, taken once: a
+    // The backup is of the settings before Big Game Mode, taken once: a
     // backup already there is kept, with only the server applied updated.
     let backup = Backup {
         applied: server.to_string(),
@@ -675,7 +675,7 @@ fn resolvectl_dns(device: &str) -> Option<Vec<String>> {
 }
 
 /// Make `server` the first DNS server of `connection`, keeping a backup of
-/// its settings from before BiGame-mode, and read everything back.
+/// its settings from before Big Game Mode, and read everything back.
 ///
 /// # Errors
 /// Returns an error if the backup cannot be written (nothing is changed
@@ -979,7 +979,7 @@ mod tests {
         assert_eq!(backup.previous, original);
 
         // A second server replaces the first; the backup still holds the
-        // settings from before BiGame-mode, not the first apply's.
+        // settings from before Big Game Mode, not the first apply's.
         let quad9: IpAddr = "9.9.9.9".parse().unwrap();
         apply_in(&nm, &dir, &wired(), quad9, Duration::ZERO).unwrap();
         assert_eq!(

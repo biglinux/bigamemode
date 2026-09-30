@@ -1,9 +1,9 @@
-//! Moving profiles written by older BiGame-mode versions onto the new model.
+//! Moving profiles written by older Big Game Mode versions onto the new model.
 //!
 //! The profiles that ship with falcond (`profiles/`, `profiles/handheld/`,
 //! `profiles/htpc/`) belong to the `falcond-profiles` package and are never
 //! touched. Only `profiles/user/` is considered, and within it only files an
-//! older BiGame-mode demonstrably wrote — recognisable by fields falcond does
+//! older Big Game Mode demonstrably wrote — recognisable by fields falcond does
 //! not define (`fg_multiplier`, `cpu_governor`, `enabled`, …), which that
 //! version emitted and nothing else does.
 //!
@@ -40,11 +40,11 @@ pub const FALCOND_FIELDS: &[&str] = &[
     "idle_inhibit",
 ];
 
-/// Fields only an older BiGame-mode wrote, which nothing applies: their
+/// Fields only an older Big Game Mode wrote, which nothing applies: their
 /// presence identifies a file to migrate. (`gamescope` was a table.)
 const DEAD_FIELDS: &[&str] = &["cpu_governor", "scx_custom_flags", "enabled", "gamescope"];
 
-/// BiGame-mode's own per-game settings that the current version still writes
+/// Big Game Mode's own per-game settings that the current version still writes
 /// and reads; a migration keeps them. A file whose only extra fields are
 /// these is a current file, not an old one.
 const CURRENT_FIELDS: &[&str] = &[
@@ -82,14 +82,14 @@ pub enum Action {
         /// The profile as it will be written.
         content: String,
     },
-    /// Not written by BiGame-mode, or already clean: left alone.
+    /// Not written by Big Game Mode, or already clean: left alone.
     Keep {
         /// The file.
         file: PathBuf,
         /// Why.
         reason: String,
     },
-    /// Written by BiGame-mode, but no installed game matches its name.
+    /// Written by Big Game Mode, but no installed game matches its name.
     /// Reported, not deleted: the game may be on a disk that is not mounted.
     Unresolved {
         /// The file.
@@ -297,7 +297,7 @@ mod tests {
         }
     }
 
-    /// A profile as older BiGame-mode versions wrote it.
+    /// A profile as older Big Game Mode versions wrote it.
     const ARC: &str = "name = \"Arc Raiders\"\nperformance_mode = true\nscx_sched = none\nscx_sched_props = default\nvcache_mode = none\nidle_inhibit = false\ncpu_governor = \"\"\nscx_custom_flags = \"\"\nenabled = true\nfg_multiplier = 1\nfg_flow_scale = 100\nfg_perf_mode = false\n";
 
     #[test]
@@ -315,7 +315,7 @@ mod tests {
                 "{dropped} is applied by nothing"
             );
         }
-        // The per-game frame generation settings are still BiGame-mode's.
+        // The per-game frame generation settings are still Big Game Mode's.
         assert!(content.contains("fg_multiplier = 1"), "{content}");
         assert!(
             content.contains("vcache_mode = none"),

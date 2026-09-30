@@ -6,12 +6,12 @@
 //! - **Native**: the game's own upscaler, frame generation and, on RDNA 4
 //!   under Proton, FSR 4 through the provider Proton itself ships. Nothing is
 //!   placed in the game.
-//! - **`OptiScaler`**: placed by BiGame-mode as a proxy DLL beside the game,
+//! - **`OptiScaler`**: placed by Big Game Mode as a proxy DLL beside the game,
 //!   as a transaction that is backed up and can be undone
-//!   ([`super::transaction`]). The only backend BiGame-mode manages files for.
+//!   ([`super::transaction`]). The only backend Big Game Mode manages files for.
 //! - **AMD neural rendering, external**: DLSS-NR-on-AMD, a project whose
 //!   license allows neither redistribution nor automated installation
-//!   (see `docs/SECURITY.md`, Licensing). BiGame-mode detects it,
+//!   (see `docs/SECURITY.md`, Licensing). Big Game Mode detects it,
 //!   explains it, links to it and reports on it; it never downloads, places
 //!   or removes its files.
 //!
@@ -44,10 +44,10 @@ const AMD_NEURAL_RISKS: &[&str] = &[
 pub enum Backend {
     /// The game's own features; no files placed.
     Native,
-    /// `OptiScaler`, placed by BiGame-mode.
+    /// `OptiScaler`, placed by Big Game Mode.
     #[serde(rename = "optiscaler")]
     OptiScaler,
-    /// DLSS-NR-on-AMD, installed by the user, never by BiGame-mode.
+    /// DLSS-NR-on-AMD, installed by the user, never by Big Game Mode.
     AmdNeuralExternal,
 }
 
@@ -114,7 +114,7 @@ impl Backend {
                 risks: OPTISCALER_RISKS,
             },
             // Upstream states Windows, RX 7000/9000, a DirectX 12 game with an
-            // FSR path. Linux/Proton is not stated; BiGame-mode treats the
+            // FSR path. Linux/Proton is not stated; Big Game Mode treats the
             // pair as unverified until a run here says otherwise.
             Self::AmdNeuralExternal => Capabilities {
                 backend: self,
@@ -134,14 +134,12 @@ impl Backend {
     }
 }
 
-/// How far a backend has been taken on BiGame-mode's own machines.
+/// How far a backend has been taken on Big Game Mode's own machines.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Maturity {
-    /// Ran, rendered, was measured on a BiGame-mode test machine.
+    /// Ran, rendered, was measured on a Big Game Mode test machine.
     VerifiedHere,
-    /// Documented upstream; not verified by BiGame-mode.
-    Documented,
     /// Reported to work, or not established at all.
     Experimental,
 }
@@ -171,7 +169,7 @@ pub struct Capabilities {
     pub neural_rendering: bool,
     /// Provides frame generation.
     pub frame_generation: bool,
-    /// BiGame-mode places and removes its files (through a transaction).
+    /// Big Game Mode places and removes its files (through a transaction).
     pub managed: bool,
     /// How established it is.
     pub maturity: Maturity,

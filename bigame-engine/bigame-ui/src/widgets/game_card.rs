@@ -45,7 +45,7 @@ pub const POSTER_HEIGHT: i32 = 240;
 /// How a card's game is started.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Launch {
-    /// By BiGame-mode, with its launch settings: the program and its
+    /// By Big Game Mode, with its launch settings: the program and its
     /// arguments.
     Direct(String, Vec<String>),
     /// By the game's launcher (`steam -applaunch`, a `heroic://` link,
@@ -89,13 +89,13 @@ pub struct Entry {
     /// Where AI Graphics would work on this game: its install folder and
     /// Steam id. `None` when the launcher records no install folder.
     pub target: Option<bigame_core::graphics::Target>,
-    /// How BiGame-mode starts this game. `None` when there is no way,
+    /// How Big Game Mode starts this game. `None` when there is no way,
     /// rather than a guessed program name.
     pub launch: Option<Launch>,
     /// Heroic lists it: `Some(true)` for Heroic's Flatpak. Its launch
     /// settings go into its settings there.
     pub heroic: Option<bool>,
-    /// BiGame-mode has placed AI Graphics files in this game.
+    /// Big Game Mode has placed AI Graphics files in this game.
     pub ai_installed: bool,
 }
 

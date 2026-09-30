@@ -1,8 +1,8 @@
 //! Turbo Mode: the master switch.
 //!
 //! ```text
-//! Turbo OFF = BiGame-mode does not intervene in games.
-//! Turbo ON  = BiGame-mode may detect games and apply optimizations.
+//! Turbo OFF = Big Game Mode does not intervene in games.
+//! Turbo ON  = Big Game Mode may detect games and apply optimizations.
 //! ```
 //!
 //! falcond is a separate service that applies a profile to every game it
@@ -44,7 +44,7 @@ pub const BACKEND_UNIT: &str = "falcond.service";
 /// Where the pre-ownership record is published by the helper.
 pub const OWNERSHIP_RECORD: &str = "/var/lib/bigame-mode/game-backend.json";
 
-/// Where the helper notes a hand-back, until BiGame-mode takes charge again.
+/// Where the helper notes a hand-back, until Big Game Mode takes charge again.
 pub const RELEASE_RECORD: &str = "/var/lib/bigame-mode/game-backend.released.json";
 
 /// Whether Turbo is on.
@@ -117,7 +117,7 @@ pub fn reconcile_blocking() -> Result<usize> {
         .block_on(reconcile())
 }
 
-/// Whether BiGame-mode has taken charge of falcond, and since when.
+/// Whether Big Game Mode has taken charge of falcond, and since when.
 #[must_use]
 pub fn owned_since() -> Option<u64> {
     let text = std::fs::read_to_string(OWNERSHIP_RECORD).ok()?;
@@ -130,10 +130,10 @@ pub fn owned_since() -> Option<u64> {
 pub enum Control {
     /// falcond is not installed: there is nothing to manage.
     NotInstalled,
-    /// BiGame-mode switches it with Turbo, since this Unix time; handing it
+    /// Big Game Mode switches it with Turbo, since this Unix time; handing it
     /// back restores the state recorded then.
     Managed {
-        /// When the state before BiGame-mode was recorded.
+        /// When the state before Big Game Mode was recorded.
         since: u64,
     },
     /// It was handed back at this Unix time, and has been left alone since.
@@ -141,12 +141,12 @@ pub enum Control {
         /// When it was handed back.
         at: u64,
     },
-    /// BiGame-mode has never changed it.
+    /// Big Game Mode has never changed it.
     NeverManaged,
 }
 
 impl Control {
-    /// Whether taking control makes sense: falcond is there and BiGame-mode
+    /// Whether taking control makes sense: falcond is there and Big Game Mode
     /// is not managing it.
     #[must_use]
     pub fn can_take(self) -> bool {
@@ -157,7 +157,7 @@ impl Control {
 /// Who is in charge, from whether falcond is installed and the two records
 /// the helper keeps. The ownership record wins: the helper removes the
 /// release note whenever it records ownership again, and a note left over by
-/// a failed removal must not hide that BiGame-mode manages falcond.
+/// a failed removal must not hide that Big Game Mode manages falcond.
 #[must_use]
 pub fn control_from(installed: bool, owned: Option<u64>, released: Option<u64>) -> Control {
     match (installed, owned, released) {
@@ -168,7 +168,7 @@ pub fn control_from(installed: bool, owned: Option<u64>, released: Option<u64>) 
     }
 }
 
-/// When falcond was handed back, while BiGame-mode has not taken it again.
+/// When falcond was handed back, while Big Game Mode has not taken it again.
 #[must_use]
 pub fn released_at() -> Option<u64> {
     let text = std::fs::read_to_string(RELEASE_RECORD).ok()?;
@@ -192,7 +192,7 @@ pub fn control_blocking() -> Result<Control> {
 }
 
 /// Take charge of falcond again after it was handed back (or before
-/// BiGame-mode ever changed it).
+/// Big Game Mode ever changed it).
 ///
 /// Exactly what the first Turbo switch did: the helper records falcond's
 /// state as it is now — so a later hand-back restores *this* — and the

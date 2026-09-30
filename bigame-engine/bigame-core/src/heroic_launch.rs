@@ -1,6 +1,6 @@
 //! A game's own launch settings for a game Heroic starts.
 //!
-//! Heroic starts a game in its own process tree, which BiGame-mode cannot
+//! Heroic starts a game in its own process tree, which Big Game Mode cannot
 //! wrap, so the game's own Gamescope, Wine FSR and vkBasalt
 //! (`crate::game_launch::GameLaunch`) go where Heroic reads them: the
 //! game's `GamesConfig/<app>.json`, an object keyed by the game's app name.
@@ -32,7 +32,7 @@
 //! from Heroic's defaults (`config.json`), not from nothing: the game keeps
 //! the defaults' other values. Everything else in the file stays as it is
 //! (key order included), the file is backed up once before the first
-//! change, and what BiGame-mode wrote is recorded in the game's settings
+//! change, and what Big Game Mode wrote is recorded in the game's settings
 //! (`crate::game_settings`), so a value put back on "General configuration"
 //! takes out exactly that — and a value the user has changed since in
 //! Heroic is theirs and stays. Heroic keeps a game's settings in memory and
@@ -83,7 +83,7 @@ pub struct Gamescope {
 }
 
 impl Gamescope {
-    /// The Gamescope BiGame-mode's own launch would run, in Heroic's terms.
+    /// The Gamescope Big Game Mode's own launch would run, in Heroic's terms.
     #[must_use]
     pub fn from_config(cfg: &crate::gamescope::Config) -> Self {
         use crate::gamescope::{Filter, FrameLimit};
@@ -141,7 +141,7 @@ impl Gamescope {
     }
 }
 
-/// What a game's Heroic settings should hold from BiGame-mode.
+/// What a game's Heroic settings should hold from Big Game Mode.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Wanted {
     /// Its Gamescope; `None` leaves Heroic's alone.
@@ -168,9 +168,9 @@ impl Wanted {
     }
 }
 
-// ── What BiGame-mode wrote ──────────────────────────────────────────────────
+// ── What Big Game Mode wrote ──────────────────────────────────────────────────
 
-/// One value BiGame-mode set: what was there before (`None`: nothing) and
+/// One value Big Game Mode set: what was there before (`None`: nothing) and
 /// what it wrote. JSON text, except a variable's, which is its value.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Owned {
@@ -179,11 +179,11 @@ pub struct Owned {
     /// What was there before.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before: Option<String>,
-    /// What BiGame-mode wrote.
+    /// What Big Game Mode wrote.
     pub written: String,
 }
 
-/// What BiGame-mode wrote into one Heroic settings file, to change or take
+/// What Big Game Mode wrote into one Heroic settings file, to change or take
 /// out exactly that.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -209,7 +209,7 @@ pub struct Written {
 }
 
 impl Written {
-    /// Whether BiGame-mode wrote nothing there.
+    /// Whether Big Game Mode wrote nothing there.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
@@ -325,7 +325,7 @@ fn set(map: &mut Map<String, Value>, key: &str, value: Value, owned: &mut Vec<Ow
     map.insert(key.to_owned(), value);
 }
 
-/// `options` with `words` (added by BiGame-mode) taken out once.
+/// `options` with `words` (added by Big Game Mode) taken out once.
 fn without_words(options: &str, words: &str) -> String {
     if options == words {
         return String::new();
@@ -353,7 +353,7 @@ fn without_words(options: &str, words: &str) -> String {
     options.to_owned()
 }
 
-/// Take out of `game` what BiGame-mode wrote there before (`previous`),
+/// Take out of `game` what Big Game Mode wrote there before (`previous`),
 /// where it still holds what was written.
 fn undo(game: &mut Map<String, Value>, previous: &Written) {
     if let Some(env) = game.get_mut(ENV).and_then(Value::as_array_mut) {
@@ -463,7 +463,7 @@ fn redo(game: &mut Map<String, Value>, wanted: &Wanted, defaults: &Defaults, nex
 }
 
 /// Heroic's per-game settings `current` for `app_name`, with what
-/// BiGame-mode wrote before (`previous`) taken out and `wanted` put in,
+/// Big Game Mode wrote before (`previous`) taken out and `wanted` put in,
 /// and the record of what it wrote now.
 ///
 /// # Errors
@@ -506,7 +506,7 @@ pub fn transform(
             UserError::with(N_("Heroic's settings for %s are not an object"), [app_name])
         })?;
 
-    // What BiGame-mode wrote before comes out first, then what is wanted
+    // What Big Game Mode wrote before comes out first, then what is wanted
     // now goes in.
     undo(game, previous);
     let mut next = Written {
@@ -633,7 +633,7 @@ struct Plan<'a> {
 }
 
 /// Write what `wanted` gives each Heroic game whose process is `process`
-/// into its settings, taking out what BiGame-mode wrote there before.
+/// into its settings, taking out what Big Game Mode wrote there before.
 ///
 /// # Errors
 /// Returns an error, and writes nothing, when a settings file cannot be
@@ -719,7 +719,7 @@ mod tests {
 
     /// The Outer Worlds' file as Heroic 2.22 writes it after a setting
     /// changed on the game's page: the user's own variable, and keys
-    /// BiGame-mode never touches.
+    /// Big Game Mode never touches.
     const FILE: &str = r#"{
   "cb3bf": {
     "wineVersion": {
@@ -992,7 +992,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(json(&back)["g"]["enviromentOptions"][0]["value"], "1");
-        // The same value as the user's is not BiGame-mode's to take out.
+        // The same value as the user's is not Big Game Mode's to take out.
         let on = Wanted {
             env: vec![("ENABLE_VKBASALT".into(), "1".into())],
             ..Wanted::default()

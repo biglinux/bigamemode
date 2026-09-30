@@ -1,6 +1,6 @@
 //! Report a session measured with a game's own built-in benchmark.
 //!
-//! Usage: `bench_native_report <session-dir> [baseline-arm]`
+//! Usage: `bench_native_report <session-dir> [baseline-arm] [--vary=KEY,...]`
 //!
 //! Reads `<session-dir>/<arm>/run-NN/` as written by `scripts/bench-game.sh`:
 //! the game's `*_frametimes_*.txt` and summary, and the `gpu.csv` sampled

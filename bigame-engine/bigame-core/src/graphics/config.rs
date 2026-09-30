@@ -17,7 +17,7 @@ pub enum Mode {
     /// Nothing is changed. The default: AI Graphics is opt-in per game.
     #[default]
     Off,
-    /// BiGame-mode picks the smallest combination that works for this game
+    /// Big Game Mode picks the smallest combination that works for this game
     /// and machine.
     Recommended,
     /// The user's own choices below.
@@ -42,30 +42,6 @@ pub enum Upscaler {
     /// None: the game's own anti-aliasing.
     Off,
 }
-
-/// Render resolution preset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Quality {
-    /// Whatever preset is selected in the game's menu. `OptiScaler` takes the
-    /// game's preset along with its input, so this is the default.
-    #[default]
-    Game,
-    /// Native resolution, anti-aliasing only.
-    NativeAa,
-    /// ~1.3× upscale.
-    UltraQuality,
-    /// ~1.5× upscale.
-    Quality,
-    /// ~1.7× upscale.
-    Balanced,
-    /// 2× upscale.
-    Performance,
-    /// 3× upscale.
-    UltraPerformance,
-}
-
-impl Quality {}
 
 /// How the upscaler reaches the game.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -117,7 +93,7 @@ pub enum Hdr {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "policy", content = "version")]
 pub enum VersionPolicy {
-    /// The release BiGame-mode was tested with.
+    /// The release Big Game Mode was tested with.
     #[default]
     Recommended,
     /// The newest stable release (never older than the tested one).
@@ -135,8 +111,6 @@ pub struct AiGraphicsConfig {
     pub mode: Mode,
     /// Upscaler (Advanced).
     pub upscaler: Upscaler,
-    /// Preset (Advanced).
-    pub quality: Quality,
     /// Native or `OptiScaler` (Advanced).
     pub layer: Layer,
     /// Frame generation (Advanced).
@@ -187,7 +161,6 @@ mod tests {
         let c = AiGraphicsConfig {
             mode: Mode::Advanced,
             upscaler: Upscaler::Fsr,
-            quality: Quality::Quality,
             layer: Layer::OptiScaler,
             frame_generation: FrameGeneration::Off,
             hdr: Hdr::Off,

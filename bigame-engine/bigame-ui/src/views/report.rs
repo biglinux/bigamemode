@@ -114,7 +114,7 @@ fn item_detail(item: &Item) -> String {
 }
 
 /// The component named as the owner. Component names are shown as they are,
-/// except Booster, which names BiGame-mode's own planner.
+/// except Booster, which names Big Game Mode's own planner.
 fn owner_label(owner: &str) -> String {
     match owner {
         "Booster" => i18n("Booster"),

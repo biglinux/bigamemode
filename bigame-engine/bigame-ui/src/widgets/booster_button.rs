@@ -17,7 +17,7 @@ use crate::i18n::i18n;
 
 /// What the control is showing.
 ///
-/// Turbo is the master switch: off means BiGame-mode is not intervening in
+/// Turbo is the master switch: off means Big Game Mode is not intervening in
 /// games at all; on means it may detect games and optimize them. "On" is not
 /// a count of changes -- on a machine that is already well configured Turbo
 /// can be on with nothing global to change, because the work happens per game.

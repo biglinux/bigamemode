@@ -128,16 +128,6 @@ pub fn find(choices: &[Choice], id: &str) -> Option<Choice> {
     choices.iter().copied().find(|c| c.id == id)
 }
 
-/// Where `id` sits in `choices`; the first when it is not there.
-#[must_use]
-pub fn index_of(choices: &[Choice], id: &str) -> u32 {
-    choices
-        .iter()
-        .position(|c| c.id == id)
-        .and_then(|i| u32::try_from(i).ok())
-        .unwrap_or(0)
-}
-
 // ── Where a value comes from ────────────────────────────────────────────────
 
 /// Who decides an effective value.
@@ -369,7 +359,7 @@ pub fn turn_off_general(video: &mut VideoConfig, feature: Feature) {
     }
 }
 
-/// What `OptiScaler` does in a game BiGame-mode installed it into: the
+/// What `OptiScaler` does in a game Big Game Mode installed it into: the
 /// upscaler, and whether it generates frames (chosen on its page, or later
 /// from its own overlay).
 #[must_use]
@@ -427,7 +417,7 @@ impl FrameGeneration {
 }
 
 /// One game's settings, whichever page made them: the falcond profile (with
-/// BiGame-mode's Gamescope choice), the game's own launch settings, lsfg-vk's
+/// Big Game Mode's Gamescope choice), the game's own launch settings, lsfg-vk's
 /// entry and `MangoHud`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameOptimization {
@@ -633,7 +623,7 @@ impl GameOptimization {
 }
 
 /// Bring every Steam game that has a Gamescope wrapper or variables from
-/// BiGame-mode, or launch settings of its own, in line with Tuning: what a
+/// Big Game Mode, or launch settings of its own, in line with Tuning: what a
 /// game leaves to Tuning (the sizes and filter of Always, Wine FSR's mode)
 /// must follow a change there into its launch options too. Other games are
 /// left alone. Each result says what happened for that game.
@@ -684,7 +674,7 @@ pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gam
 }
 
 impl GameOptimization {
-    /// What a Steam game's launch options get from BiGame-mode: the
+    /// What a Steam game's launch options get from Big Game Mode: the
     /// Gamescope wrapper and the variables for its own launch settings.
     fn steam_wanted(&self) -> crate::steam_gamescope::Wanted {
         let video = crate::video_config::load();
@@ -709,7 +699,7 @@ impl GameOptimization {
     /// The Gamescope wrapper a Steam game's launch options get. Only what
     /// the game's own profile asks for: Always (with Tuning's settings for
     /// whatever the game leaves to them), or Automatic when the game's own
-    /// values need Gamescope. The general switch is for games BiGame-mode
+    /// values need Gamescope. The general switch is for games Big Game Mode
     /// starts itself and does not wrap every Steam game. Where `OptiScaler`
     /// already upscales, no render size.
     fn steam_gamescope_segment(&self, video: &VideoConfig, optiscaler: bool) -> Option<String> {
@@ -741,7 +731,7 @@ const HEROIC_FSR4: [(&str, &str); 2] = [("PROTON_FSR4_UPGRADE", "1"), ("FSR4_UPG
 
 impl GameOptimization {
     /// Write this game's own launch settings into its settings in Heroic
-    /// (`crate::heroic_launch`), taking out what BiGame-mode wrote there
+    /// (`crate::heroic_launch`), taking out what Big Game Mode wrote there
     /// before. A game Heroic does not start is left alone.
     ///
     /// # Errors
@@ -758,7 +748,7 @@ impl GameOptimization {
         })
     }
 
-    /// What a Heroic game's settings get from BiGame-mode. Gamescope only
+    /// What a Heroic game's settings get from Big Game Mode. Gamescope only
     /// as a Steam game gets it — Always, or Automatic with values of the
     /// game's own — and only where that Heroic can run it: its Flatpak
     /// needs Flathub's Gamescope extension, a native one `gamescope`.
@@ -856,7 +846,7 @@ pub fn set_heroic_fsr4_upgrade(process: &str, on: bool) -> Result<crate::heroic_
     applied
 }
 
-/// Bring every Heroic game that has settings from BiGame-mode, or launch
+/// Bring every Heroic game that has settings from Big Game Mode, or launch
 /// settings of its own, in line with Tuning, as
 /// [`refresh_steam_gamescope`] does for Steam games. Each result says what
 /// happened for that game.
@@ -1088,8 +1078,6 @@ mod tests {
         {
             assert!(!c.label.is_empty() && !c.help.is_empty(), "{}", c.id);
         }
-        assert_eq!(index_of(SCHEDULER_MODES, "latency"), 3);
-        assert_eq!(index_of(SCHEDULER_MODES, "bogus"), 0);
         assert_eq!(find(VCACHE_MODES, "freq").map(|c| c.id), Some("freq"));
     }
 

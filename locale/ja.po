@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-09-30 08:05-0300\n"
+"POT-Creation-Date: 2026-09-30 12:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:22\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Japanese <ja@li.org>\n"
@@ -37,7 +37,7 @@ msgstr "「Proton」は、専用のプロファイルを持たないProtonゲー
 msgid "%a was asked for, but %c is set"
 msgstr "%aが要求されましたが、%cが設定されています"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1209
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1223
 msgid "%c now, set by power-profiles-daemon through the power profile (available: %a)"
 msgstr "現在は%c（power-profiles-daemonが電源プロファイルを通じて設定。利用可能: %a）"
 
@@ -154,7 +154,7 @@ msgstr "%s + %s: %s"
 msgid "%s GPU"
 msgstr "%s GPU"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:392
+#: bigame-engine/bigame-core/src/booster/plan.rs:390
 msgid "%s accepts only %s"
 msgstr "%sは%sのみ受け付けます"
 
@@ -302,7 +302,7 @@ msgstr "%s（%s経由・%s）"
 msgid "%s through OptiScaler, from the game's %s"
 msgstr "%s（OptiScaler経由、ゲームの%sから）"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:174
+#: bigame-engine/bigame-core/src/gamescope.rs:173
 msgid "%s upscaling is selected"
 msgstr "%sアップスケーリングが選択されています"
 
@@ -432,7 +432,7 @@ msgstr ""
 "\n"
 "結果の判定方法: 2つの構成を交互に実行し、それぞれ最初の実行は破棄します（シェーダーキャッシュが空の状態は以降の実行とは異なるため）。差は、同じ構成を繰り返したときのばらつきより大きく、かつ95%水準で有意な場合にのみカウントされます。それより小さい差は、わずかな向上ではなく「変化なし」として報告されます。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:472 bigame-engine/bigame-ui/src/widgets/game_fields.rs:528 bigame-engine/bigame-ui/src/widgets/game_fields.rs:721
+#: bigame-engine/bigame-ui/src/views/tuning.rs:486 bigame-engine/bigame-ui/src/widgets/game_fields.rs:528 bigame-engine/bigame-ui/src/widgets/game_fields.rs:721
 msgid "0 = sharpest · 20 = softest"
 msgstr "0 = 最もシャープ · 20 = 最もソフト"
 
@@ -448,7 +448,7 @@ msgstr "32ビットVulkan"
 msgid "32-bit game"
 msgstr "32ビットゲーム"
 
-#: bigame-engine/bigame-core/src/health.rs:543 bigame-engine/bigame-core/src/health.rs:550 bigame-engine/bigame-ui/src/profile_offer.rs:409 bigame-engine/bigame-ui/src/profile_offer.rs:411 bigame-engine/bigame-ui/src/views/details/performance.rs:56 bigame-engine/bigame-ui/src/views/details/problems.rs:246 bigame-engine/bigame-ui/src/views/profile_wizard.rs:119 bigame-engine/bigame-ui/src/views/tuning.rs:377 bigame-engine/bigame-ui/src/widgets/game_fields.rs:391 bigame-engine/bigame-ui/src/widgets/info.rs:188 bigame-engine/bigame-ui/src/widgets/optimization.rs:305 bigame-engine/bigame-ui/src/widgets/optimization.rs:555
+#: bigame-engine/bigame-core/src/health.rs:543 bigame-engine/bigame-core/src/health.rs:550 bigame-engine/bigame-ui/src/profile_offer.rs:409 bigame-engine/bigame-ui/src/profile_offer.rs:411 bigame-engine/bigame-ui/src/views/details/performance.rs:56 bigame-engine/bigame-ui/src/views/details/problems.rs:246 bigame-engine/bigame-ui/src/views/profile_wizard.rs:119 bigame-engine/bigame-ui/src/views/tuning.rs:391 bigame-engine/bigame-ui/src/widgets/game_fields.rs:391 bigame-engine/bigame-ui/src/widgets/info.rs:188 bigame-engine/bigame-ui/src/widgets/optimization.rs:305 bigame-engine/bigame-ui/src/widgets/optimization.rs:555
 msgid "3D V-Cache"
 msgstr "3D V-Cache"
 
@@ -472,7 +472,7 @@ msgstr "ビルドまたはコンパイルです。そのままにしておけば
 msgid "A change applies to the games started from now on."
 msgstr "変更は、これから起動するゲームに適用されます。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1258
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1272
 msgid "A game reads switches such as WINE_FULLSCREEN_FSR and ENABLE_VKBASALT from its environment, which it gets from whatever starts it. The file is read at login; the systemd user manager is updated at once, so a launcher opened afterwards passes them on. A launcher already open (Steam) keeps its old environment until it is reopened. A Turbo preset adds its own switches only while it is in force."
 msgstr "ゲームはWINE_FULLSCREEN_FSRやENABLE_VKBASALTなどのスイッチを環境から読み取ります。環境は、ゲームを起動したものから受け継がれます。このファイルはログイン時に読み込まれます。systemdのユーザーマネージャーはすぐに更新されるため、その後に開いたランチャーはこれらを引き継ぎます。すでに開いているランチャー（Steam）は、開き直すまで古い環境のままです。Turboプリセットは、有効な間だけ独自のスイッチを追加します。"
 
@@ -568,7 +568,7 @@ msgstr "このゲームにはAIグラフィックスがインストールする�
 msgid "AI Graphics is off for this game"
 msgstr "このゲームではAIグラフィックスはオフです"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:771
+#: bigame-engine/bigame-ui/src/views/tuning.rs:785
 msgid "AI Graphics is per game"
 msgstr "AIグラフィックスはゲームごとに設定します"
 
@@ -600,7 +600,7 @@ msgstr "vkBasaltに組み込まれたAMDのContrast Adaptive Sharpening。特に
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "AMDのアップスケーラーです。画像を拡大し、ぼやけて見えないようにエッジをシャープにします。どのGPUでも動作します。一般的な使い方: ゲームを小さいサイズでレンダリングし、FSRで画面サイズまで拡大します。下のシャープネスはこれに適用されます。"
 
-#: bigame-engine/bigame-ui/src/window.rs:407
+#: bigame-engine/bigame-ui/src/window.rs:406
 msgid "About"
 msgstr "このアプリについて"
 
@@ -664,7 +664,7 @@ msgstr "pingを送るアドレス"
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "あなたのユーザーだけにログイン項目を追加します (~/.config/autostart)。Big Game Modeはトレイで動作し、新しいゲームが起動したときにプロファイルを提案できます。オフにすると項目が削除されます。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:930 bigame-engine/bigame-ui/src/views/tuning.rs:1118 bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
+#: bigame-engine/bigame-ui/src/views/profiles.rs:930 bigame-engine/bigame-ui/src/views/tuning.rs:1132 bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
 msgstr "高度な設定"
 
@@ -772,7 +772,7 @@ msgstr "適用済み・有効"
 msgid "Applied and verified"
 msgstr "適用・確認済み"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:274
+#: bigame-engine/bigame-ui/src/views/tuning.rs:288
 msgid "Applied by falcond while Turbo is on, and undone when it is turned off. Saved through the privileged helper."
 msgstr "Turboがオンの間はfalcondが適用し、オフにすると元に戻します。特権ヘルパーを通じて保存されます。"
 
@@ -876,7 +876,7 @@ msgstr "認証が拒否されたか、キャンセルされました"
 msgid "Available"
 msgstr "利用可能"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1220
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1234
 msgid "Available — falcond applies the scheduler you configure above"
 msgstr "利用可能 — 上で設定したスケジューラーをfalcondが適用します"
 
@@ -996,7 +996,7 @@ msgstr "Big Game Modeが%sを設定しました。以前の設定は保存され
 msgid "Big Game Mode would change nothing on this machine, so %t would be measured against itself. The game's profile is still applied by falcond whenever it runs."
 msgstr "Big Game Modeはこのマシンで何も変更しないため、%tは同じ条件同士で比較されることになります。ゲームのプロファイルは、実行時には引き続きfalcondによって適用されます。"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:434
+#: bigame-engine/bigame-core/src/graphics/report.rs:428
 msgid "Big Game Mode's game list names the API this game renders with by default"
 msgstr "Big Game Modeのゲームリストに、このゲームがデフォルトで使う描画APIが記載されています"
 
@@ -1036,7 +1036,7 @@ msgstr "使用技術"
 msgid "Built-in profile"
 msgstr "組み込みプロファイル"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:813 bigame-engine/bigame-ui/src/widgets/launch.rs:267 bigame-engine/bigame-ui/src/widgets/launch.rs:286
+#: bigame-engine/bigame-ui/src/views/tuning.rs:827 bigame-engine/bigame-ui/src/widgets/launch.rs:267 bigame-engine/bigame-ui/src/widgets/launch.rs:286
 msgid "CAS sharpening"
 msgstr "CASシャープ化"
 
@@ -1056,11 +1056,11 @@ msgstr "ホームが表示されている間に読み取るCPUクロック、GPU
 msgid "CPU energy preference"
 msgstr "CPUエネルギー設定"
 
-#: bigame-engine/bigame-core/src/booster/knob.rs:62 bigame-engine/bigame-ui/src/views/tuning.rs:1181 bigame-engine/bigame-ui/src/views/tuning.rs:1187
+#: bigame-engine/bigame-core/src/booster/knob.rs:62 bigame-engine/bigame-ui/src/views/tuning.rs:1195 bigame-engine/bigame-ui/src/views/tuning.rs:1201
 msgid "CPU governor"
 msgstr "CPUガバナー"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:401 bigame-engine/bigame-ui/src/profile_offer.rs:407 bigame-engine/bigame-ui/src/views/details/problems.rs:222 bigame-engine/bigame-ui/src/views/profile_wizard.rs:108 bigame-engine/bigame-ui/src/views/tuning.rs:298 bigame-engine/bigame-ui/src/widgets/game_fields.rs:279 bigame-engine/bigame-ui/src/widgets/optimization.rs:540
+#: bigame-engine/bigame-ui/src/profile_offer.rs:401 bigame-engine/bigame-ui/src/profile_offer.rs:407 bigame-engine/bigame-ui/src/views/details/problems.rs:222 bigame-engine/bigame-ui/src/views/profile_wizard.rs:108 bigame-engine/bigame-ui/src/views/tuning.rs:312 bigame-engine/bigame-ui/src/widgets/game_fields.rs:279 bigame-engine/bigame-ui/src/widgets/optimization.rs:540
 msgid "CPU scheduler"
 msgstr "CPUスケジューラー"
 
@@ -1080,7 +1080,7 @@ msgstr "キャッシュCCD"
 msgid "Calls '%p', which is not installed — launch options: %o"
 msgstr "インストールされていない「%p」を呼び出しています — 起動オプション: %o"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2827 bigame-engine/bigame-ui/src/views/details/dns.rs:234 bigame-engine/bigame-ui/src/views/details/extras.rs:348 bigame-engine/bigame-ui/src/views/measure_dialog.rs:105 bigame-engine/bigame-ui/src/views/profiles.rs:1065 bigame-engine/bigame-ui/src/views/profiles.rs:1533 bigame-engine/bigame-ui/src/views/profiles.rs:818 bigame-engine/bigame-ui/src/views/tuning.rs:930 bigame-engine/bigame-ui/src/window.rs:333
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2827 bigame-engine/bigame-ui/src/views/details/dns.rs:234 bigame-engine/bigame-ui/src/views/details/extras.rs:348 bigame-engine/bigame-ui/src/views/measure_dialog.rs:105 bigame-engine/bigame-ui/src/views/profiles.rs:1065 bigame-engine/bigame-ui/src/views/profiles.rs:1533 bigame-engine/bigame-ui/src/views/profiles.rs:818 bigame-engine/bigame-ui/src/views/tuning.rs:944 bigame-engine/bigame-ui/src/window.rs:333
 msgid "Cancel"
 msgstr "キャンセル"
 
@@ -1197,7 +1197,7 @@ msgstr "%sを閉じますか？"
 msgid "Close Heroic and apply"
 msgstr "Heroicを終了して適用"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:243
+#: bigame-engine/bigame-ui/src/views/tuning.rs:257
 msgid "Close Steam and apply"
 msgstr "Steamを終了して適用"
 
@@ -1257,7 +1257,7 @@ msgstr "コマンド"
 msgid "Compatible — not yet verified in practice"
 msgstr "互換性あり — 実際の動作は未確認"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:834
+#: bigame-engine/bigame-ui/src/views/tuning.rs:848
 msgid "Configuration file"
 msgstr "設定ファイル"
 
@@ -1377,7 +1377,7 @@ msgstr "表示内容をコピーするか、ユーザー名、ホームフォル
 msgid "Could not apply"
 msgstr "適用できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1104
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1118
 msgid "Could not change MangoHud's file"
 msgstr "MangoHudのファイルを変更できませんでした"
 
@@ -1393,7 +1393,7 @@ msgstr "変更できませんでした: %s"
 msgid "Could not change the DNS"
 msgstr "DNSを変更できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:903
+#: bigame-engine/bigame-ui/src/views/tuning.rs:917
 msgid "Could not change vkBasalt's file"
 msgstr "vkBasaltのファイルを変更できませんでした"
 
@@ -1409,7 +1409,7 @@ msgstr "プロファイルを削除できませんでした"
 msgid "Could not delete profile: %s"
 msgstr "プロファイルを削除できませんでした: %s"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:951
+#: bigame-engine/bigame-ui/src/views/tuning.rs:965
 msgid "Could not download the shaders"
 msgstr "シェーダーをダウンロードできませんでした"
 
@@ -1445,10 +1445,6 @@ msgstr "修復できませんでした"
 msgid "Could not restore"
 msgstr "元に戻せませんでした"
 
-#: bigame-engine/bigame-ui/src/window.rs:357
-msgid "Could not restore Gamescope's settings"
-msgstr "Gamescopeの設定を元に戻せませんでした"
-
 #: bigame-engine/bigame-ui/src/window.rs:355 bigame-engine/bigame-ui/src/window.rs:356
 msgid "Could not restore falcond's settings"
 msgstr "falcondの設定を元に戻せませんでした"
@@ -1469,7 +1465,7 @@ msgstr "falcondの設定を保存できませんでした"
 msgid "Could not save the Lossless.dll path"
 msgstr "Lossless.dllのパスを保存できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:104
+#: bigame-engine/bigame-ui/src/views/tuning.rs:104 bigame-engine/bigame-ui/src/window.rs:357
 msgid "Could not save the launch settings"
 msgstr "起動設定を保存できませんでした"
 
@@ -1489,15 +1485,15 @@ msgstr "制御を取り戻せませんでした"
 msgid "Could not turn lsfg-vk off"
 msgstr "lsfg-vkをオフにできませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:227
+#: bigame-engine/bigame-ui/src/views/tuning.rs:241
 msgid "Could not update Gamescope in Steam's launch options"
 msgstr "Steam起動オプションのGamescopeを更新できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:161
+#: bigame-engine/bigame-ui/src/views/tuning.rs:175
 msgid "Could not update Heroic's settings for a game"
 msgstr "ゲームのHeroic設定を更新できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1003
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1017
 msgid "Could not update lsfg-vk's file"
 msgstr "lsfg-vkのファイルを更新できませんでした"
 
@@ -1585,7 +1581,7 @@ msgstr "DNSリゾルバーの比較"
 msgid "Dark"
 msgstr "ダーク"
 
-#: bigame-engine/bigame-core/src/optimization.rs:50 bigame-engine/bigame-ui/src/views/settings.rs:55 bigame-engine/bigame-ui/src/views/tuning.rs:1068 bigame-engine/bigame-ui/src/widgets/launch.rs:307
+#: bigame-engine/bigame-core/src/optimization.rs:50 bigame-engine/bigame-ui/src/views/settings.rs:55 bigame-engine/bigame-ui/src/views/tuning.rs:1082 bigame-engine/bigame-ui/src/widgets/launch.rs:307
 msgid "Default"
 msgstr "デフォルト"
 
@@ -1633,7 +1629,7 @@ msgstr "不要なCPUの「ティック」（タイマーによる起床）をな
 msgid "Desktop"
 msgstr "デスクトップ"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1162
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1176
 msgid "Desktop (none) is the one for a PC at a desk"
 msgstr "「デスクトップ」（none）は机で使うPC向けです"
 
@@ -1677,7 +1673,7 @@ msgstr "破棄"
 msgid "Disk I/O"
 msgstr "ディスクI/O"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68 bigame-engine/bigame-ui/src/views/tuning.rs:414 bigame-engine/bigame-ui/src/widgets/tutorial.rs:285
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68 bigame-engine/bigame-ui/src/views/tuning.rs:428 bigame-engine/bigame-ui/src/widgets/tutorial.rs:285
 msgid "Display"
 msgstr "ディスプレイ"
 
@@ -1693,11 +1689,11 @@ msgstr "今後確認しない"
 msgid "Don't ask again for this game"
 msgstr "このゲームについて今後確認しない"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:931
+#: bigame-engine/bigame-ui/src/views/tuning.rs:945
 msgid "Download and use"
 msgstr "ダウンロードして使用"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:925
+#: bigame-engine/bigame-ui/src/views/tuning.rs:939
 msgid "Download the Nara Linux style's shaders?"
 msgstr "Nara Linuxスタイルのシェーダーをダウンロードしますか？"
 
@@ -1709,7 +1705,7 @@ msgstr "ダウンロード、確認、インストール中…"
 msgid "Dynamic gaming performance orchestration for BigLinux"
 msgstr "BigLinuxのための動的なゲームパフォーマンス制御"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1030
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1044
 msgid "Each game's frame generation is in its profile"
 msgstr "各ゲームのフレーム生成は、そのゲームのプロファイルで設定します"
 
@@ -1757,7 +1753,7 @@ msgstr ""
 "このプロファイルを適用する実行ファイルの正確な名前を入力してください。\n"
 "例: minecraft, dota2, steam"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1248 bigame-engine/bigame-ui/src/views/tuning.rs:1257
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1262 bigame-engine/bigame-ui/src/views/tuning.rs:1271
 msgid "Environment file"
 msgstr "環境ファイル"
 
@@ -1813,7 +1809,7 @@ msgstr "根拠: falcond自身のステータスファイル。数秒ごとに読
 msgid "Evidence: the parent processes of the game."
 msgstr "根拠: ゲームの親プロセス。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1307
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1321
 msgid "Example command line"
 msgstr "コマンドラインの例"
 
@@ -1893,11 +1889,11 @@ msgstr "FSR 4プロバイダー"
 msgid "FSR 4 provider loaded in the running game"
 msgstr "実行中のゲームにFSR 4プロバイダーが読み込まれています"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:289
+#: bigame-engine/bigame-core/src/graphics/backend.rs:287
 msgid "FSR path"
 msgstr "FSRの経路"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:471 bigame-engine/bigame-ui/src/widgets/game_fields.rs:527
+#: bigame-engine/bigame-ui/src/views/tuning.rs:485 bigame-engine/bigame-ui/src/widgets/game_fields.rs:527
 msgid "FSR sharpness"
 msgstr "FSRシャープネス"
 
@@ -1945,7 +1941,7 @@ msgstr "絞り込みと検索"
 msgid "Find the game: search by name, or filter by launcher and by whether it has a profile."
 msgstr "ゲームを探す: 名前で検索するか、ランチャーやプロファイルの有無で絞り込みます。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:926
+#: bigame-engine/bigame-ui/src/views/tuning.rs:940
 msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 from ReShade's shaders, FakeHDR from SweetFX, and the headers they include. Each is a fixed version, checked against its SHA-256 before it is used, and goes into ~/.local/share/reshade. Without them vkBasalt would stop the game, so the style is written only after they are in place."
 msgstr "GitHubから5つの小さなファイル（約30 KB）: ReShadeのシェーダーからColourfulnessとFilmGrain2、SweetFXからFakeHDR、そしてそれらがインクルードするヘッダー。それぞれ固定バージョンで、使用前にSHA-256で検証され、~/.local/share/reshadeに置かれます。これらがないとvkBasaltがゲームを停止させるため、スタイルはファイルがそろってから書き込まれます。"
 
@@ -1981,7 +1977,7 @@ msgstr "チューニングに従う: %s"
 msgid "For a Steam game the choice is written into Steam's launch options, with Steam closed; Steam started before the change keeps the old options."
 msgstr "Steamゲームの場合、選択内容はSteamを終了した状態でSteamの起動オプションに書き込まれます。変更前に起動したSteamは古いオプションのままです。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:415
+#: bigame-engine/bigame-ui/src/views/tuning.rs:429
 msgid "For games started from Big Game Mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself."
 msgstr "Big Game Modeから起動するゲーム向けです（「プロファイル → 起動 (Turbo)」）。ゲームのプロファイルでは、Gamescopeを強制的にオンまたはオフにしたり、これらの値を個別に設定したりできます。"
 
@@ -1997,7 +1993,7 @@ msgstr "Big Game Modeがこのゲームを起動するときに使われます�
 msgid "For this game when Big Game Mode starts it, and in its Steam launch options or its settings in Heroic when one of them starts it (written when you save, with that launcher closed)."
 msgstr "Big Game Modeが起動する場合はこのゲームに、SteamまたはHeroicが起動する場合はそのSteam起動オプションまたはHeroic内のゲーム設定に適用されます（保存時に、そのランチャーを終了した状態で書き込まれます）。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1119
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1133
 msgid "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play."
 msgstr "内部を詳しく見たい人向けです。デフォルトはほとんどの人に適しています。プレイするためにここを変更する必要はありません。"
 
@@ -2021,7 +2017,7 @@ msgstr "ゲームの隣で検出"
 msgid "Frame Generation"
 msgstr "フレーム生成"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1649 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1733 bigame-engine/bigame-ui/src/views/details/overview.rs:39 bigame-engine/bigame-ui/src/views/details/pipeline.rs:65 bigame-engine/bigame-ui/src/views/details/problems.rs:282 bigame-engine/bigame-ui/src/views/home.rs:1124 bigame-engine/bigame-ui/src/views/tuning.rs:969 bigame-engine/bigame-ui/src/widgets/optimization.rs:603 bigame-engine/bigame-ui/src/widgets/tutorial.rs:297
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1649 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1733 bigame-engine/bigame-ui/src/views/details/overview.rs:39 bigame-engine/bigame-ui/src/views/details/pipeline.rs:65 bigame-engine/bigame-ui/src/views/details/problems.rs:282 bigame-engine/bigame-ui/src/views/home.rs:1124 bigame-engine/bigame-ui/src/views/tuning.rs:983 bigame-engine/bigame-ui/src/widgets/optimization.rs:603 bigame-engine/bigame-ui/src/widgets/tutorial.rs:297
 msgid "Frame generation"
 msgstr "フレーム生成"
 
@@ -2045,7 +2041,7 @@ msgstr "レンダリング1フレームあたりの表示フレーム数"
 msgid "Frequency CCD"
 msgstr "周波数CCD"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:225 bigame-engine/bigame-core/src/graphics/backend.rs:231 bigame-engine/bigame-core/src/graphics/backend.rs:241 bigame-engine/bigame-core/src/graphics/backend.rs:252 bigame-engine/bigame-core/src/graphics/diagnose.rs:117 bigame-engine/bigame-core/src/graphics/diagnose.rs:136 bigame-engine/bigame-core/src/health.rs:471 bigame-engine/bigame-ui/src/views/details/overview.rs:36 bigame-engine/bigame-ui/src/views/details/telemetry.rs:60 bigame-engine/bigame-ui/src/views/home.rs:1162 bigame-engine/bigame-ui/src/views/home.rs:88
+#: bigame-engine/bigame-core/src/graphics/backend.rs:223 bigame-engine/bigame-core/src/graphics/backend.rs:229 bigame-engine/bigame-core/src/graphics/backend.rs:239 bigame-engine/bigame-core/src/graphics/backend.rs:250 bigame-engine/bigame-core/src/graphics/diagnose.rs:117 bigame-engine/bigame-core/src/graphics/diagnose.rs:136 bigame-engine/bigame-core/src/health.rs:471 bigame-engine/bigame-ui/src/views/details/overview.rs:36 bigame-engine/bigame-ui/src/views/details/telemetry.rs:60 bigame-engine/bigame-ui/src/views/home.rs:1162 bigame-engine/bigame-ui/src/views/home.rs:88
 msgid "GPU"
 msgstr "GPU"
 
@@ -2053,7 +2049,7 @@ msgstr "GPU"
 msgid "GPU Temp"
 msgstr "GPU温度"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:442
+#: bigame-engine/bigame-core/src/booster/plan.rs:440
 msgid "GPU power level"
 msgstr "GPU電力レベル"
 
@@ -2061,7 +2057,7 @@ msgstr "GPU電力レベル"
 msgid "GPU power level (%s)"
 msgstr "GPU電力レベル (%s)"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:264 bigame-engine/bigame-core/src/graphics/backend.rs:272 bigame-engine/bigame-ui/src/views/details/pipeline.rs:58
+#: bigame-engine/bigame-core/src/graphics/backend.rs:262 bigame-engine/bigame-core/src/graphics/backend.rs:270 bigame-engine/bigame-ui/src/views/details/pipeline.rs:58
 msgid "Game"
 msgstr "ゲーム"
 
@@ -2157,19 +2153,19 @@ msgstr "Gamescopeは、レンダリングサイズが出力サイズより小さ
 msgid "Gamescope for games started from Big Game Mode: filter, sharpness, render and output sizes. Changing the sizes updates the Steam games that use it."
 msgstr "Big Game Modeから起動したゲーム用のGamescope: フィルター、シャープネス、レンダリングサイズと出力サイズ。サイズを変更すると、これを使うSteamゲームも更新されます。"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:146 bigame-engine/bigame-ui/src/views/tuning.rs:1270 bigame-engine/bigame-ui/src/views/tuning.rs:1284
+#: bigame-engine/bigame-core/src/gamescope.rs:145 bigame-engine/bigame-ui/src/views/tuning.rs:1284 bigame-engine/bigame-ui/src/views/tuning.rs:1298
 msgid "Gamescope is not installed"
 msgstr "Gamescopeがインストールされていません"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:143
+#: bigame-engine/bigame-core/src/gamescope.rs:142
 msgid "Gamescope is turned off for this game"
 msgstr "このゲームではGamescopeがオフです"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:152
+#: bigame-engine/bigame-core/src/gamescope.rs:151
 msgid "Gamescope is turned on for this game"
 msgstr "このゲームではGamescopeがオンです"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1266
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1280
 msgid "Gamescope options this build accepts"
 msgstr "このビルドが受け付けるGamescopeオプション"
 
@@ -2193,11 +2189,11 @@ msgstr "Gamescopeが出力より低い解像度で描画し、OptiScalerもア�
 msgid "Gamescope resolution needs both width and height"
 msgstr "Gamescopeの解像度には幅と高さの両方が必要です"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:234
+#: bigame-engine/bigame-ui/src/views/tuning.rs:248
 msgid "Gamescope updated in Steam's launch options: %s"
 msgstr "Steam起動オプションのGamescopeを更新しました: %s"
 
-#: bigame-engine/bigame-core/src/graphics/rules.rs:61 bigame-engine/bigame-core/src/optimization.rs:281
+#: bigame-engine/bigame-core/src/graphics/rules.rs:61 bigame-engine/bigame-core/src/optimization.rs:271
 msgid "Gamescope upscaling"
 msgstr "Gamescopeアップスケーリング"
 
@@ -2205,7 +2201,7 @@ msgstr "Gamescopeアップスケーリング"
 msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "このゲームでのGamescopeアップスケーリング: 2つのアップスケーラーが直列"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:712 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1592
+#: bigame-engine/bigame-ui/src/views/tuning.rs:726 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1592
 msgid "Gamescope upscaling is on; Wine FSR was turned off"
 msgstr "Gamescopeアップスケーリングがオンです。Wine FSRはオフにしました"
 
@@ -2297,7 +2293,7 @@ msgstr "了解"
 msgid "Graphics"
 msgstr "グラフィックス"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:279 bigame-engine/bigame-core/src/graphics/diagnose.rs:100 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1378
+#: bigame-engine/bigame-core/src/graphics/backend.rs:277 bigame-engine/bigame-core/src/graphics/diagnose.rs:100 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1378
 msgid "Graphics API"
 msgstr "グラフィックスAPI"
 
@@ -2317,7 +2313,7 @@ msgstr "グラフィックカード"
 msgid "HDR Mode"
 msgstr "HDRモード"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:351
+#: bigame-engine/bigame-core/src/gamescope.rs:350
 msgid "HDR not requested"
 msgstr "HDRは要求されていません"
 
@@ -2325,7 +2321,7 @@ msgstr "HDRは要求されていません"
 msgid "HDR output"
 msgstr "HDR出力"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:182
+#: bigame-engine/bigame-core/src/gamescope.rs:181
 msgid "HDR output is requested"
 msgstr "HDR出力が要求されています"
 
@@ -2357,7 +2353,7 @@ msgstr "ハードウェア"
 msgid "Help"
 msgstr "ヘルプ"
 
-#: bigame-engine/bigame-ui/src/window.rs:420
+#: bigame-engine/bigame-ui/src/window.rs:419
 msgid "Help & Tutorial"
 msgstr "ヘルプとチュートリアル"
 
@@ -2373,7 +2369,7 @@ msgstr "Heroicにはシャープネスの設定がないため、このゲーム
 msgid "Heroic is open: it keeps this game's settings in memory and would discard the change"
 msgstr "Heroicが開いています: このゲームの設定をメモリに保持しているため、変更が破棄されてしまいます"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:189
+#: bigame-engine/bigame-ui/src/views/tuning.rs:203
 msgid "Heroic is open: its games with launch settings of their own keep the old ones until it is closed"
 msgstr "Heroicが開いています: 独自の起動設定を持つHeroicのゲームは、Heroicを終了するまで古い設定のままです"
 
@@ -2385,7 +2381,7 @@ msgstr "Heroicが開いています: このゲームの起動設定はHeroic内�
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "Heroicがゲームを実行中です: 先にゲームを終了してください。Heroicはこのゲームの設定をメモリに保持しているため、変更が破棄されてしまいます。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:182
+#: bigame-engine/bigame-ui/src/views/tuning.rs:196
 msgid "Heroic is running a game: its games keep their old launch settings until Heroic is closed and Tuning is saved again"
 msgstr "Heroicがゲームを実行中です: Heroicを終了してチューニングを再度保存するまで、Heroicのゲームは古い起動設定のままです"
 
@@ -2449,7 +2445,7 @@ msgstr "ファイルを安全に変更するしくみ"
 msgid "How it is known"
 msgstr "判断の根拠"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1136
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1150
 msgid "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000."
 msgstr "falcondが実行中のゲームを探す間隔です。小さくすると反応が速くなりますが負荷が増えます。デフォルトは9000です。"
 
@@ -2465,7 +2461,7 @@ msgstr "判定方法"
 msgid "Hybrid graphics"
 msgstr "ハイブリッドグラフィックス"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:539 bigame-engine/bigame-ui/src/widgets/tutorial.rs:292
+#: bigame-engine/bigame-ui/src/views/tuning.rs:553 bigame-engine/bigame-ui/src/widgets/tutorial.rs:292
 msgid "Image quality"
 msgstr "画質"
 
@@ -2553,7 +2549,7 @@ msgstr "不足しているパッケージをインストール"
 msgid "Install missing packages with your package manager"
 msgstr "パッケージマネージャーで不足しているパッケージをインストール"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:317 bigame-engine/bigame-ui/src/views/details/pipeline.rs:335 bigame-engine/bigame-ui/src/views/details/pipeline.rs:551 bigame-engine/bigame-ui/src/views/tuning.rs:1237 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1093
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:317 bigame-engine/bigame-ui/src/views/details/pipeline.rs:335 bigame-engine/bigame-ui/src/views/details/pipeline.rs:551 bigame-engine/bigame-ui/src/views/tuning.rs:1251 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1093
 msgid "Installed"
 msgstr "インストール済み"
 
@@ -2577,7 +2573,7 @@ msgstr "インストール済み — ゲーム起動時に反映されます"
 msgid "Installed, but the game did not load it"
 msgstr "インストール済みですが、ゲームが読み込みませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1055
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1069
 msgid "Installed. Shown per game, from its profile (Off, On, Forced); Details says whether it loaded in the running game."
 msgstr "インストール済み。ゲームごとにプロファイルに従って表示されます（オフ、オン、強制）。実行中のゲームで読み込まれたかどうかは「詳細」で確認できます。"
 
@@ -2641,7 +2637,7 @@ msgstr "ゲームの起動後に書き込まれたログによると、処理パ
 msgid "Its status file could not be read. See Problems below."
 msgstr "ステータスファイルを読み込めませんでした。下の「問題」を参照してください。"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1946 bigame-engine/bigame-ui/src/views/tuning.rs:629 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1245 bigame-engine/bigame-ui/src/widgets/game_fields.rs:858 bigame-engine/bigame-ui/src/widgets/notice.rs:199
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1946 bigame-engine/bigame-ui/src/views/tuning.rs:643 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1245 bigame-engine/bigame-ui/src/widgets/game_fields.rs:858 bigame-engine/bigame-ui/src/widgets/notice.rs:199
 msgid "Keep %s"
 msgstr "%sを維持"
 
@@ -2725,7 +2721,7 @@ msgstr "起動オプション: 先にSteamを終了してください: 起動オ
 msgid "Launch settings"
 msgstr "起動設定"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:168
+#: bigame-engine/bigame-ui/src/views/tuning.rs:182
 msgid "Launch settings updated in Heroic's settings: %s"
 msgstr "Heroicの設定で起動設定を更新しました: %s"
 
@@ -2813,7 +2809,7 @@ msgstr "ゲームに読み込まれています — パスはまだ報告され�
 msgid "Loaded now"
 msgstr "現在読み込み済み"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:299 bigame-engine/bigame-ui/src/views/tuning.rs:328
+#: bigame-engine/bigame-ui/src/views/tuning.rs:313 bigame-engine/bigame-ui/src/views/tuning.rs:342
 msgid "Loaded while Turbo is on. A game whose profile names another scheduler switches to it while it runs."
 msgstr "Turboがオンの間に読み込まれます。プロファイルで別のスケジューラーを指定しているゲームは、実行中はそのスケジューラーに切り替わります。"
 
@@ -2833,7 +2829,7 @@ msgstr "ログをエクスポートしました"
 msgid "Logs"
 msgstr "ログ"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:807 bigame-engine/bigame-ui/src/widgets/game_fields.rs:928
+#: bigame-engine/bigame-ui/src/views/tuning.rs:821 bigame-engine/bigame-ui/src/widgets/game_fields.rs:928
 msgid "Look"
 msgstr "見た目"
 
@@ -2865,7 +2861,7 @@ msgstr "Lutrisを開き直す必要があります"
 msgid "Mailbox"
 msgstr "Mailbox"
 
-#: bigame-engine/bigame-ui/src/window.rs:415
+#: bigame-engine/bigame-ui/src/window.rs:414
 msgid "Main Menu"
 msgstr "メインメニュー"
 
@@ -2973,7 +2969,7 @@ msgstr "不足しているパッケージ"
 msgid "Mode %s applied"
 msgstr "モード%sを適用しました"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:465 bigame-engine/bigame-ui/src/views/tuning.rs:1044 bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
+#: bigame-engine/bigame-ui/src/views/settings.rs:465 bigame-engine/bigame-ui/src/views/tuning.rs:1058 bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
 msgid "Monitoring"
 msgstr "モニタリング"
 
@@ -3009,7 +3005,7 @@ msgstr "倍率"
 msgid "Multiplier, flow scale, HDR and present mode"
 msgstr "倍率、フロースケール、HDR、表示モード"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1069 bigame-engine/bigame-ui/src/views/tuning.rs:804 bigame-engine/bigame-ui/src/widgets/launch.rs:263 bigame-engine/bigame-ui/src/widgets/launch.rs:285 bigame-engine/bigame-ui/src/widgets/launch.rs:310
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1083 bigame-engine/bigame-ui/src/views/tuning.rs:818 bigame-engine/bigame-ui/src/widgets/launch.rs:263 bigame-engine/bigame-ui/src/widgets/launch.rs:285 bigame-engine/bigame-ui/src/widgets/launch.rs:310
 msgid "My own file"
 msgstr "自分のファイル"
 
@@ -3025,7 +3021,7 @@ msgstr "NVIDIA PRIMEレンダーオフロード"
 msgid "NVIDIA's upscaler, with its own sharpening. It also works on AMD and Intel GPUs. The look is a little different from FSR's: try it when FSR seems too sharp or too soft in a game."
 msgstr "NVIDIAのアップスケーラーで、独自のシャープ化を備えています。AMDやIntelのGPUでも動作します。見た目はFSRと少し異なります。ゲームでFSRがシャープすぎる、または柔らかすぎると感じたら試してください。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:814 bigame-engine/bigame-ui/src/widgets/launch.rs:271 bigame-engine/bigame-ui/src/widgets/launch.rs:287
+#: bigame-engine/bigame-ui/src/views/tuning.rs:828 bigame-engine/bigame-ui/src/widgets/launch.rs:271 bigame-engine/bigame-ui/src/widgets/launch.rs:287
 msgid "Nara Linux (ReShade)"
 msgstr "Nara Linux (ReShade)"
 
@@ -3141,7 +3137,7 @@ msgstr "変更なし"
 msgid "No connection carries the default route: this computer is offline"
 msgstr "デフォルトルートを持つ接続がありません: このコンピューターはオフラインです"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1207
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1221
 msgid "No cpufreq driver reports a governor"
 msgstr "ガバナーを報告するcpufreqドライバーがありません"
 
@@ -3269,19 +3265,19 @@ msgstr "このゲームでは対象外"
 msgid "Not installed"
 msgstr "未インストール"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:973 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1145
+#: bigame-engine/bigame-ui/src/views/tuning.rs:987 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1145
 msgid "Not installed. Generates extra frames between rendered ones (Lossless Scaling's method, as a Vulkan layer). It needs your own Lossless.dll."
 msgstr "未インストール。レンダリングされたフレームの間に追加フレームを生成します（Lossless Scalingの手法をVulkanレイヤーとして実装）。ご自身のLossless.dllが必要です。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:422 bigame-engine/bigame-ui/src/widgets/game_fields.rs:476
+#: bigame-engine/bigame-ui/src/views/tuning.rs:436 bigame-engine/bigame-ui/src/widgets/game_fields.rs:476
 msgid "Not installed. It wraps the game in a micro-compositor: scaling, a frame limit, a stable fullscreen."
 msgstr "未インストール。ゲームをマイクロコンポジターで包みます: スケーリング、フレーム制限、安定したフルスクリーン。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1048 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1369
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1062 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1369
 msgid "Not installed. The performance overlay; it also captures the frametimes Measure the difference uses."
 msgstr "未インストール。パフォーマンスオーバーレイです。「違いを測定」で使うフレームタイムの記録も行います。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:762 bigame-engine/bigame-ui/src/widgets/game_fields.rs:947
+#: bigame-engine/bigame-ui/src/views/tuning.rs:776 bigame-engine/bigame-ui/src/widgets/game_fields.rs:947
 msgid "Not installed. Visual filters (sharpening, colour) for Vulkan and Proton games."
 msgstr "未インストール。VulkanゲームとProtonゲーム向けの映像フィルター（シャープ化、色調）です。"
 
@@ -3321,7 +3317,7 @@ msgstr "未設定"
 msgid "Not supported"
 msgstr "非対応"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1316
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1330
 msgid "Not supported by this Gamescope"
 msgstr "このGamescopeでは非対応"
 
@@ -3429,11 +3425,11 @@ msgstr "通知とpingの送信先"
 msgid "Notifications when a game starts or exits, and the address the Details page pings for its latency graph."
 msgstr "ゲームの起動時や終了時の通知と、詳細ページがレイテンシーグラフのためにpingするアドレス。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:323
+#: bigame-engine/bigame-ui/src/views/tuning.rs:337
 msgid "Now: %s"
 msgstr "現在: %s"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:324
+#: bigame-engine/bigame-ui/src/views/tuning.rs:338
 msgid "Now: the kernel's own scheduler"
 msgstr "現在: カーネル独自のスケジューラー"
 
@@ -3605,7 +3601,7 @@ msgstr "OptiScalerは64ビットゲーム専用で、このゲームは32ビッ�
 msgid "OptiScaler exists only for 64-bit games; the game's own options are all there is"
 msgstr "OptiScalerは64ビットゲーム専用です。使えるのはゲーム自体のオプションだけです"
 
-#: bigame-engine/bigame-core/src/graphics/rules.rs:60 bigame-engine/bigame-core/src/optimization.rs:283 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1661 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1731 bigame-engine/bigame-ui/src/views/ai_graphics.rs:763
+#: bigame-engine/bigame-core/src/graphics/rules.rs:60 bigame-engine/bigame-core/src/optimization.rs:273 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1661 bigame-engine/bigame-ui/src/views/ai_graphics.rs:1731 bigame-engine/bigame-ui/src/views/ai_graphics.rs:763
 msgid "OptiScaler frame generation"
 msgstr "OptiScalerフレーム生成"
 
@@ -3693,7 +3689,7 @@ msgstr "OptiScalerもこのゲームをアップスケールしています: 2�
 msgid "OptiScaler upscales this game too: two upscalers in series. Turn Wine FSR off in Tuning; Big Game Mode's own launches already leave it off for this game."
 msgstr "OptiScalerもこのゲームをアップスケールしています: 2つのアップスケーラーが直列です。チューニングでWine FSRをオフにしてください。Big Game Modeからの起動では、このゲームに対してすでにオフになっています。"
 
-#: bigame-engine/bigame-core/src/graphics/rules.rs:59 bigame-engine/bigame-core/src/optimization.rs:282
+#: bigame-engine/bigame-core/src/graphics/rules.rs:59 bigame-engine/bigame-core/src/optimization.rs:272
 msgid "OptiScaler upscaling"
 msgstr "OptiScalerアップスケーリング"
 
@@ -3753,11 +3749,11 @@ msgstr "その他のアドレス"
 msgid "Outcome"
 msgstr "結果"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:485 bigame-engine/bigame-ui/src/widgets/game_fields.rs:548
+#: bigame-engine/bigame-ui/src/views/tuning.rs:499 bigame-engine/bigame-ui/src/widgets/game_fields.rs:548
 msgid "Output size"
 msgstr "出力サイズ"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1072 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1401 bigame-engine/bigame-ui/src/widgets/launch.rs:295
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1086 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1401 bigame-engine/bigame-ui/src/widgets/launch.rs:295
 msgid "Overlay style"
 msgstr "オーバーレイのスタイル"
 
@@ -3797,7 +3793,7 @@ msgstr "%sを一時停止しますか？"
 msgid "Paused by Big Game Mode — frozen, using no CPU, until you resume it."
 msgstr "Big Game Modeが一時停止中 — 再開するまで停止し、CPUを使用しません。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1062
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1076
 msgid "Per game"
 msgstr "ゲームごと"
 
@@ -3813,7 +3809,7 @@ msgstr "ゲームごとの最適化 (falcond)"
 msgid "Per-game optimization could not be started"
 msgstr "ゲームごとの最適化を開始できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:31 bigame-engine/bigame-ui/src/views/profile_wizard.rs:98 bigame-engine/bigame-ui/src/views/tuning.rs:273 bigame-engine/bigame-ui/src/widgets/launch.rs:133 bigame-engine/bigame-ui/src/widgets/launch.rs:213 bigame-engine/bigame-ui/src/widgets/tutorial.rs:278
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:31 bigame-engine/bigame-ui/src/views/profile_wizard.rs:98 bigame-engine/bigame-ui/src/views/tuning.rs:287 bigame-engine/bigame-ui/src/widgets/launch.rs:133 bigame-engine/bigame-ui/src/widgets/launch.rs:213 bigame-engine/bigame-ui/src/widgets/tutorial.rs:278
 msgid "Performance"
 msgstr "パフォーマンス"
 
@@ -3825,7 +3821,7 @@ msgstr "パフォーマンスと映像パイプライン"
 msgid "Performance impact not measured"
 msgstr "パフォーマンスへの影響は未測定"
 
-#: bigame-engine/bigame-ui/src/profile_offer.rs:399 bigame-engine/bigame-ui/src/views/tuning.rs:279 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1181 bigame-engine/bigame-ui/src/widgets/game_fields.rs:221 bigame-engine/bigame-ui/src/widgets/optimization.rs:528
+#: bigame-engine/bigame-ui/src/profile_offer.rs:399 bigame-engine/bigame-ui/src/views/tuning.rs:293 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1181 bigame-engine/bigame-ui/src/widgets/game_fields.rs:221 bigame-engine/bigame-ui/src/widgets/optimization.rs:528
 msgid "Performance mode"
 msgstr "パフォーマンスモード"
 
@@ -3977,7 +3973,7 @@ msgstr "プロファイルを保存しましたが、一部が適用されませ
 msgid "Profile saved. Written into Heroic's settings for this game."
 msgstr "プロファイルが保存されました。このゲームのHeroic設定に書き込みました。"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:145 bigame-engine/bigame-ui/src/views/tuning.rs:1161 bigame-engine/bigame-ui/src/widgets/info.rs:202
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:145 bigame-engine/bigame-ui/src/views/tuning.rs:1175 bigame-engine/bigame-ui/src/widgets/info.rs:202
 msgid "Profile set"
 msgstr "プロファイルセット"
 
@@ -4009,7 +4005,7 @@ msgstr "インストール済みのどのゲームにも一致しないプロフ
 msgid "Profiles that can never match their game, and the fix."
 msgstr "ゲームに一致することのないプロファイルと、その修正方法。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1031
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1045
 msgid "Profiles → the game → Edit profile → Frame generation. A game whose AI Graphics has OptiScaler generating frames launches with lsfg-vk off."
 msgstr "「プロファイル → ゲーム → プロファイルを編集 → フレーム生成」。AIグラフィックスでOptiScalerがフレームを生成しているゲームは、lsfg-vkをオフにして起動します。"
 
@@ -4065,7 +4061,7 @@ msgstr "品質"
 msgid "Queue discipline"
 msgstr "キューイング方式"
 
-#: bigame-engine/bigame-ui/src/tray.rs:223 bigame-engine/bigame-ui/src/window.rs:408
+#: bigame-engine/bigame-ui/src/tray.rs:223 bigame-engine/bigame-ui/src/window.rs:407
 msgid "Quit"
 msgstr "終了"
 
@@ -4081,7 +4077,7 @@ msgstr "Rafael Ruscher"
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
 msgstr "表示されるフレームレートは上がりますが、レンダリングされるフレームレートは上がらず、遅延が増えます。根拠: ゲーム内にliblsfg-vkがマップされており、lsfg-vkにそのゲームのエントリーがあります。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:980
+#: bigame-engine/bigame-ui/src/views/tuning.rs:994
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Off sets every entry aside; on puts them back."
 msgstr "表示されるフレームレートは上がりますが、レンダリングされるフレームレートは上がらず、遅延が増えます。オフにするとすべてのエントリーが退避され、オンにすると戻されます。"
 
@@ -4125,7 +4121,7 @@ msgstr "ゲームを読み取っています…"
 msgid "Reading the system…"
 msgstr "システムを読み込み中…"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:972 bigame-engine/bigame-ui/src/views/profiles.rs:993 bigame-engine/bigame-ui/src/views/tuning.rs:1182 bigame-engine/bigame-ui/src/views/tuning.rs:1268
+#: bigame-engine/bigame-ui/src/views/profiles.rs:972 bigame-engine/bigame-ui/src/views/profiles.rs:993 bigame-engine/bigame-ui/src/views/tuning.rs:1196 bigame-engine/bigame-ui/src/views/tuning.rs:1282
 msgid "Reading…"
 msgstr "読み込み中…"
 
@@ -4189,7 +4185,7 @@ msgstr "起動オプションを削除"
 msgid "Removing the launch option…"
 msgstr "起動オプションを削除中…"
 
-#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:340 bigame-engine/bigame-ui/src/views/tuning.rs:477 bigame-engine/bigame-ui/src/widgets/game_fields.rs:538
+#: bigame-engine/bigame-ui/src/views/details/pipeline.rs:340 bigame-engine/bigame-ui/src/views/tuning.rs:491 bigame-engine/bigame-ui/src/widgets/game_fields.rs:538
 msgid "Render size"
 msgstr "レンダリングサイズ"
 
@@ -4253,7 +4249,7 @@ msgstr "チューニングとGamescopeのすべての設定を推奨デフォル
 msgid "Resizable BAR"
 msgstr "Resizable BAR"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:595 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1057
+#: bigame-engine/bigame-ui/src/views/tuning.rs:609 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1057
 msgid "Resolved: %s is the only upscaler"
 msgstr "解決済み: アップスケーラーは%sのみです"
 
@@ -4265,7 +4261,7 @@ msgstr "Big Game Modeを再起動"
 msgid "Restore"
 msgstr "元に戻す"
 
-#: bigame-engine/bigame-ui/src/window.rs:330 bigame-engine/bigame-ui/src/window.rs:401
+#: bigame-engine/bigame-ui/src/window.rs:330 bigame-engine/bigame-ui/src/window.rs:400
 msgid "Restore Defaults"
 msgstr "デフォルトに戻す"
 
@@ -4413,7 +4409,7 @@ msgstr "選択を保存しますか？"
 msgid "Save, then start the game with Launch (Turbo) or from its own launcher."
 msgstr "保存してから、「起動 (Turbo)」またはゲーム自身のランチャーからゲームを起動します。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1100 bigame-engine/bigame-ui/src/views/tuning.rs:897
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1114 bigame-engine/bigame-ui/src/views/tuning.rs:911
 msgid "Saved. It applies the next time a game starts."
 msgstr "保存しました。次にゲームを起動したときに適用されます。"
 
@@ -4421,11 +4417,11 @@ msgstr "保存しました。次にゲームを起動したときに適用され
 msgid "Saving…"
 msgstr "保存中…"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1141
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1155
 msgid "Scan interval"
 msgstr "スキャン間隔"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1135
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1149
 msgid "Scan interval (ms)"
 msgstr "スキャン間隔 (ms)"
 
@@ -4437,7 +4433,7 @@ msgstr "ゲーム（グラフィックAPI、同梱のアップスケーラー、
 msgid "Scheduler"
 msgstr "スケジューラー"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:338 bigame-engine/bigame-ui/src/widgets/game_fields.rs:293 bigame-engine/bigame-ui/src/widgets/info.rs:167
+#: bigame-engine/bigame-ui/src/views/tuning.rs:352 bigame-engine/bigame-ui/src/widgets/game_fields.rs:293 bigame-engine/bigame-ui/src/widgets/info.rs:167
 msgid "Scheduler mode"
 msgstr "スケジューラーモード"
 
@@ -4493,7 +4489,7 @@ msgstr "サービス"
 msgid "Service Issues Detected"
 msgstr "サービスの問題を検出しました"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:540
+#: bigame-engine/bigame-ui/src/views/tuning.rs:554
 msgid "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it."
 msgstr "以降に起動するすべてのゲームに向けて、セッション環境に設定されます。すでに実行中のランチャー（Steam）は古い環境のままなので、いったん終了してから開き直してください。"
 
@@ -4641,11 +4637,11 @@ msgstr "変更するまで1つのバージョン（インストール済みの�
 msgid "Steam"
 msgstr "Steam"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1078 bigame-engine/bigame-ui/src/widgets/launch.rs:308
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1092 bigame-engine/bigame-ui/src/widgets/launch.rs:308
 msgid "Steam Deck — basic"
 msgstr "Steam Deck — 基本"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1079 bigame-engine/bigame-ui/src/widgets/launch.rs:309
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1093 bigame-engine/bigame-ui/src/widgets/launch.rs:309
 msgid "Steam Deck — full"
 msgstr "Steam Deck — フル"
 
@@ -4653,11 +4649,11 @@ msgstr "Steam Deck — フル"
 msgid "Steam app %s"
 msgstr "Steamアプリ %s"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:257
+#: bigame-engine/bigame-ui/src/views/tuning.rs:271
 msgid "Steam could not be opened again"
 msgstr "Steamを開き直せませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:242
+#: bigame-engine/bigame-ui/src/views/tuning.rs:256
 msgid "Steam is open: its games with Gamescope keep the old sizes until it is closed"
 msgstr "Steamが開いています: Gamescopeを使うSteamのゲームは、Steamを終了するまで古いサイズのままです"
 
@@ -4845,7 +4841,7 @@ msgstr "ゲームカード"
 msgid "The game could not be read again"
 msgstr "ゲームを読み直せませんでした"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:478 bigame-engine/bigame-ui/src/widgets/game_fields.rs:539 bigame-engine/bigame-ui/src/widgets/game_fields.rs:744
+#: bigame-engine/bigame-ui/src/views/tuning.rs:492 bigame-engine/bigame-ui/src/widgets/game_fields.rs:539 bigame-engine/bigame-ui/src/widgets/game_fields.rs:744
 msgid "The game draws at this size"
 msgstr "ゲームはこのサイズで描画します"
 
@@ -4877,7 +4873,7 @@ msgstr "ゲーム自体の機能、またはBig Game Modeのテストマシン�
 msgid "The game's own only"
 msgstr "ゲーム自体のもののみ"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:479 bigame-engine/bigame-ui/src/widgets/game_fields.rs:541 bigame-engine/bigame-ui/src/widgets/game_fields.rs:750
+#: bigame-engine/bigame-ui/src/views/tuning.rs:493 bigame-engine/bigame-ui/src/widgets/game_fields.rs:541 bigame-engine/bigame-ui/src/widgets/game_fields.rs:750
 msgid "The game's own size"
 msgstr "ゲーム本来のサイズ"
 
@@ -4905,7 +4901,7 @@ msgstr "ヘルパーがfalcondの状態を記録しませんでした"
 msgid "The image would be scaled twice, which blurs it and costs time for nothing."
 msgstr "画像が二重にスケーリングされるため、ぼやけるうえに無駄に時間がかかります。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1188
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1202
 msgid "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards."
 msgstr "CPUのクロックに関するカーネルのルール。Big Game Modeは設定しません。power-profiles-daemonが電源プロファイルに基づいて設定します。パフォーマンスモード（上記）はゲーム実行中にパフォーマンスプロファイルを要求し、その後元に戻ります。"
 
@@ -4973,7 +4969,7 @@ msgstr "パフォーマンスオーバーレイ（「プロファイル」でゲ
 msgid "The performance overlay: frame rate, frame times, processor and graphics card. How it looks is chosen in Tuning → Monitoring."
 msgstr "パフォーマンスオーバーレイ: フレームレート、フレームタイム、プロセッサー、グラフィックカード。表示方法は「チューニング → モニタリング」で選びます。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:280
+#: bigame-engine/bigame-ui/src/views/tuning.rs:294
 msgid "The performance power profile while a game whose profile asks for it runs. Off, no game gets it."
 msgstr "プロファイルで要求しているゲームの実行中は、performance電源プロファイルを使用します。オフにすると、どのゲームにも適用されません。"
 
@@ -5033,7 +5029,7 @@ msgstr "実行中のカーネルはsched_extなしでビルドされています
 msgid "The runs produced no usable frametimes."
 msgstr "実行から有効なフレームタイムが得られませんでした。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:487 bigame-engine/bigame-ui/src/widgets/game_fields.rs:551 bigame-engine/bigame-ui/src/widgets/game_fields.rs:762
+#: bigame-engine/bigame-ui/src/views/tuning.rs:501 bigame-engine/bigame-ui/src/widgets/game_fields.rs:551 bigame-engine/bigame-ui/src/widgets/game_fields.rs:762
 msgid "The same as the render size"
 msgstr "レンダリングサイズと同じ"
 
@@ -5101,7 +5097,7 @@ msgstr "接続「%s」のシステムのネットワーク設定を変更しま�
 msgid "This computer's DNS"
 msgstr "このコンピューターのDNS"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:841
+#: bigame-engine/bigame-ui/src/views/tuning.rs:855
 msgid "This file does not exist"
 msgstr "このファイルは存在しません"
 
@@ -5269,7 +5265,7 @@ msgstr "2つが直列"
 msgid "Two upscalers in series"
 msgstr "2つのアップスケーラーが直列"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:549 bigame-engine/bigame-ui/src/widgets/game_fields.rs:850
+#: bigame-engine/bigame-ui/src/views/tuning.rs:563 bigame-engine/bigame-ui/src/widgets/game_fields.rs:850
 msgid "Two upscalers in series scale the image twice. Until one is chosen, Wine FSR is switched off at launch for games Gamescope upscales."
 msgstr "2つのアップスケーラーを直列に使うと、画像が二重にスケーリングされます。どちらかを選ぶまで、Gamescopeがアップスケーリングするゲームでは起動時にWine FSRがオフになります。"
 
@@ -5305,7 +5301,7 @@ msgstr "更新"
 msgid "Update available:"
 msgstr "更新があります:"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:486 bigame-engine/bigame-ui/src/widgets/game_fields.rs:549 bigame-engine/bigame-ui/src/widgets/game_fields.rs:756
+#: bigame-engine/bigame-ui/src/views/tuning.rs:500 bigame-engine/bigame-ui/src/widgets/game_fields.rs:549 bigame-engine/bigame-ui/src/widgets/game_fields.rs:756
 msgid "Upscaled to this size, usually the screen's"
 msgstr "このサイズに拡大されます。通常は画面のサイズです"
 
@@ -5337,7 +5333,7 @@ msgstr "アップスケーリングフィルター"
 msgid "Upscaling filters"
 msgstr "アップスケーリングフィルター"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:772
+#: bigame-engine/bigame-ui/src/views/tuning.rs:786
 msgid "Upscaling inside the game (FSR 4, XeSS, DLSS through OptiScaler) is set from the game's card in Profiles. A game with it launches without Wine FSR and without a Gamescope render size."
 msgstr "ゲーム内のアップスケーリング（OptiScaler経由のFSR 4、XeSS、DLSS）は、「プロファイル」でゲームのカードから設定します。これを使うゲームは、Wine FSRもGamescopeのレンダリングサイズも使わずに起動します。"
 
@@ -5345,7 +5341,7 @@ msgstr "ゲーム内のアップスケーリング（OptiScaler経由のFSR 4、
 msgid "Use"
 msgstr "使用"
 
-#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1967 bigame-engine/bigame-ui/src/views/tuning.rs:638 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1257 bigame-engine/bigame-ui/src/widgets/game_fields.rs:870 bigame-engine/bigame-ui/src/widgets/notice.rs:200
+#: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1967 bigame-engine/bigame-ui/src/views/tuning.rs:652 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1257 bigame-engine/bigame-ui/src/widgets/game_fields.rs:870 bigame-engine/bigame-ui/src/widgets/notice.rs:200
 msgid "Use %s"
 msgstr "%sを使用"
 
@@ -5385,7 +5381,7 @@ msgstr "V-Cache"
 msgid "VCache mode set but AMD 3D V-Cache not detected"
 msgstr "VCacheモードが設定されていますが、AMD 3D V-Cacheが検出されませんでした"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:539
+#: bigame-engine/bigame-core/src/graphics/report.rs:533
 msgid "VKD3D-Proton's cache (vkd3d-proton.cache) is in the game's folder: it has run with Direct3D 12 here"
 msgstr "ゲームのフォルダーにVKD3D-Protonのキャッシュ（vkd3d-proton.cache）があります: この環境でDirect3D 12で実行されたことがあります"
 
@@ -5393,7 +5389,7 @@ msgstr "ゲームのフォルダーにVKD3D-Protonのキャッシュ（vkd3d-pro
 msgid "VRAM"
 msgstr "VRAM"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:348
+#: bigame-engine/bigame-core/src/gamescope.rs:347
 msgid "VRR not requested"
 msgstr "VRRは要求されていません"
 
@@ -5405,11 +5401,11 @@ msgstr "VSync/FIFO (デフォルト)"
 msgid "Variable"
 msgstr "変数"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:448
+#: bigame-engine/bigame-ui/src/views/tuning.rs:462
 msgid "Version %v · wraps games started from Big Game Mode"
 msgstr "バージョン %v · Big Game Modeから起動したゲームを包みます"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1288
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1302
 msgid "Version %v — %n options detected from --help"
 msgstr "バージョン %v — --helpから%n個のオプションを検出"
 
@@ -5425,7 +5421,7 @@ msgstr "最適化の詳細を表示"
 msgid "Virtual"
 msgstr "仮想"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:787 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1023
+#: bigame-engine/bigame-ui/src/views/tuning.rs:801 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1023
 msgid "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, Home turns it on and off."
 msgstr "VulkanゲームとProtonゲーム向けの映像フィルター（シャープ化、色調）。見た目を変えるもので、高速化ではありません。GPU時間を少し消費します。ゲーム中はホームでオン・オフできます。"
 
@@ -5445,7 +5441,7 @@ msgstr "警告とエラー"
 msgid "Watching for games"
 msgstr "ゲームを監視中"
 
-#: bigame-engine/bigame-ui/src/window.rs:406
+#: bigame-engine/bigame-ui/src/window.rs:405
 msgid "Welcome"
 msgstr "ようこそ"
 
@@ -5597,7 +5593,7 @@ msgstr "独自のプロファイルがないゲームがTurboオンで起動し�
 msgid "Which CCD games prefer on an AMD X3D processor"
 msgstr "AMD X3Dプロセッサーでゲームが優先するCCD"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:378
+#: bigame-engine/bigame-ui/src/views/tuning.rs:392
 msgid "Which CCD games prefer while Turbo is on"
 msgstr "Turboがオンの間にゲームが優先するCCD"
 
@@ -5633,7 +5629,7 @@ msgstr "Wi-Fi"
 msgid "Wine FSR"
 msgstr "Wine FSR"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:548 bigame-engine/bigame-ui/src/widgets/game_fields.rs:849
+#: bigame-engine/bigame-ui/src/views/tuning.rs:562 bigame-engine/bigame-ui/src/widgets/game_fields.rs:849
 msgid "Wine FSR and Gamescope upscaling are both on"
 msgstr "Wine FSRとGamescopeアップスケーリングが両方ともオンです"
 
@@ -5645,7 +5641,7 @@ msgstr "Wine FSRとOptiScalerの両方がこのゲームをアップスケール
 msgid "Wine FSR and OptiScaler both upscale this game: two upscalers in series. WINE_FULLSCREEN_FSR=1 does not come from Big Game Mode: remove it from the game's launch options in Steam (Properties → Launch options)."
 msgstr "Wine FSRとOptiScalerの両方がこのゲームをアップスケールしています: 2つのアップスケーラーが直列です。WINE_FULLSCREEN_FSR=1はBig Game Modeによるものではありません: Steamのゲームの起動オプション（プロパティ → 起動オプション）から削除してください。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1249
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1263
 msgid "Wine FSR and vkBasalt are written to ~/.config/environment.d/bigame-mode.conf and pushed into the user systemd manager, so every game started afterwards inherits them."
 msgstr "Wine FSRとvkBasaltは~/.config/environment.d/bigame-mode.confに書き込まれ、ユーザーのsystemdマネージャーに反映されるため、以降に起動するすべてのゲームに引き継がれます。"
 
@@ -5665,7 +5661,7 @@ msgstr "このゲームでのWine FSR: 2つのアップスケーラーが直列"
 msgid "Wine FSR is also on for this game"
 msgstr "このゲームではWine FSRもオンになっています"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:666 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1586
+#: bigame-engine/bigame-ui/src/views/tuning.rs:680 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1586
 msgid "Wine FSR is on; Gamescope now renders at the game's own size"
 msgstr "Wine FSRがオンです。Gamescopeはゲーム本来のサイズでレンダリングするようになりました"
 
@@ -5685,7 +5681,7 @@ msgstr "WineのFSRは低いフルスクリーン解像度をアップスケー�
 msgid "Wine's own upscaling for Proton games in exclusive fullscreen"
 msgstr "排他的フルスクリーンのProtonゲーム向けのWine独自のアップスケーリング"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:558 bigame-engine/bigame-ui/src/widgets/game_fields.rs:979
+#: bigame-engine/bigame-ui/src/views/tuning.rs:572 bigame-engine/bigame-ui/src/widgets/game_fields.rs:979
 msgid "Wine's own upscaling for Proton games in exclusive fullscreen (WINE_FULLSCREEN_FSR=1)"
 msgstr "排他的フルスクリーンのProtonゲーム向けのWine独自のアップスケーリング (WINE_FULLSCREEN_FSR=1)"
 
@@ -5713,7 +5709,7 @@ msgstr "プロファイルなし"
 msgid "Without it"
 msgstr "なしの場合"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1019
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1033
 msgid "Without it lsfg-vk loads and generates nothing, so it is switched off at launch."
 msgstr "これがないとlsfg-vkは読み込まれても何も生成しないため、起動時にオフになります。"
 
@@ -5725,7 +5721,7 @@ msgstr "実行中のゲームで動作中"
 msgid "Working: %s"
 msgstr "動作中: %s"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:434
+#: bigame-engine/bigame-ui/src/views/tuning.rs:448
 msgid "Wraps games started from Big Game Mode"
 msgstr "Big Game Modeから起動したゲームを包みます"
 
@@ -5777,11 +5773,11 @@ msgstr "このゲームのSteam起動オプションに書き込まれます"
 msgid "Written into this game's Steam launch options when you save, with Steam closed; your own options there are kept."
 msgstr "保存時に、Steamを終了した状態でこのゲームのSteam起動オプションに書き込まれます。ユーザー自身のオプションはそのまま残ります。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1073
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1087
 msgid "Written to ~/.config/MangoHud/MangoHud.conf; your own file is kept and comes back with “My own file”."
 msgstr "~/.config/MangoHud/MangoHud.confに書き込みます。自分のファイルは保持され、「自分のファイル」で元に戻せます。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:808
+#: bigame-engine/bigame-ui/src/views/tuning.rs:822
 msgid "Written to ~/.config/vkBasalt/vkBasalt.conf; your own file is kept and comes back with “My own file”."
 msgstr "~/.config/vkBasalt/vkBasalt.confに書き込みます。自分のファイルは保持され、「自分のファイル」で元に戻せます。"
 
@@ -5837,15 +5833,15 @@ msgstr "お使いのプロセッサーは、CCDの1つに3D V-Cacheを搭載し�
 msgid "Your profile %s is applied by falcond"
 msgstr "あなたのプロファイル %s がfalcondによって適用されています"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:273
+#: bigame-engine/bigame-core/src/graphics/backend.rs:271
 msgid "a 64-bit game; this one is 32-bit"
 msgstr "64ビットゲーム向けですが、このゲームは32ビットです"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:265
+#: bigame-engine/bigame-core/src/graphics/backend.rs:263
 msgid "a Windows game under Proton or Wine; this is a native Linux game"
 msgstr "ProtonまたはWine上のWindowsゲーム向けですが、これはネイティブのLinuxゲームです"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:179
+#: bigame-engine/bigame-core/src/gamescope.rs:178
 msgid "a frame-rate target is set"
 msgstr "フレームレートの目標値が設定されています"
 
@@ -5949,7 +5945,7 @@ msgstr "確認済み"
 msgid "converted weights"
 msgstr "変換済みの重み"
 
-#: bigame-engine/bigame-core/src/vkbasalt.rs:261
+#: bigame-engine/bigame-core/src/vkbasalt.rs:262
 msgid "could not download %s: %s"
 msgstr "%sをダウンロードできませんでした: %s"
 
@@ -5985,7 +5981,7 @@ msgstr "負荷時の遅延を積極的には管理しません"
 msgid "does not run DLSS"
 msgstr "DLSSは動作しません"
 
-#: bigame-engine/bigame-core/src/graphics/optiscaler.rs:401 bigame-engine/bigame-core/src/vkbasalt.rs:272
+#: bigame-engine/bigame-core/src/graphics/optiscaler.rs:401 bigame-engine/bigame-core/src/vkbasalt.rs:273
 msgid "download does not match %s: SHA-256 %s"
 msgstr "ダウンロードが%sと一致しません: SHA-256 %s"
 
@@ -5993,7 +5989,7 @@ msgstr "ダウンロードが%sと一致しません: SHA-256 %s"
 msgid "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler"
 msgstr "ゲームの隣にあるdxgi.dllは%sのものなので、上書きしません。AIグラフィックスがOptiScalerをインストールする前に、削除するか、OptiScaler経由で読み込むようにしてください"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:488
+#: bigame-engine/bigame-core/src/booster/plan.rs:486
 msgid "each game's profile sets the V-Cache mode while the game runs"
 msgstr "各ゲームのプロファイルが、ゲーム実行中のV-Cacheモードを設定します"
 
@@ -6069,7 +6065,7 @@ msgstr "falcondは%sです。以前の%sではありません"
 msgid "falcond is back as it was before Big Game Mode"
 msgstr "falcondはBig Game Mode導入前の状態に戻りました"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:169
+#: bigame-engine/bigame-core/src/booster/plan.rs:167
 msgid "falcond is managing it for '%s'; when the game exits it puts back the profile that was in use when falcond started"
 msgstr "falcondが「%s」のために管理しています。ゲーム終了時に、falcondの起動時に使われていたプロファイルに戻します"
 
@@ -6101,7 +6097,7 @@ msgstr "Turboがオフの間、falcondは停止しています。これは想定
 msgid "falcond matched no profile to this process. It applies nothing for a game it does not know; create a profile in Profiles."
 msgstr "falcondはこのプロセスに一致するプロファイルを見つけられませんでした。認識できないゲームには何も適用しません。「プロファイル」でプロファイルを作成してください。"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:533
+#: bigame-engine/bigame-core/src/booster/plan.rs:531
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "スケジューラーはfalcondが管理しています。2つのコントローラーが同じ状態を奪い合わないよう、ブースターは書き込みません"
 
@@ -6121,11 +6117,11 @@ msgstr "falcondはゲームをタイトルではなく、プロセス名（シ�
 msgid "falcond restarts"
 msgstr "falcondの再起動"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1142
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1156
 msgid "falcond sees a game start at once, from the kernel's process events. The scan is its safety net: every so many milliseconds, once no process has started for that long, it reads the process list again, which catches a game whose name changes after it starts. 9000 ms (9 s) is falcond's default; lower costs a little CPU for nothing on most machines."
 msgstr "falcondはカーネルのプロセスイベントからゲームの起動をすぐに検知します。スキャンは安全策です: 一定のミリ秒ごとに、その間プロセスが起動していなければ、プロセスリストを読み直します。これで起動後に名前が変わるゲームも捉えられます。9000 ms（9秒）がfalcondのデフォルトです。短くしても、ほとんどのマシンでは少しCPUを使うだけで意味はありません。"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:266
+#: bigame-engine/bigame-core/src/booster/plan.rs:264
 msgid "falcond sets it for each game from the game's profile; when the game exits it puts back the profile that was in use when falcond started, not one chosen later"
 msgstr "falcondがゲームのプロファイルに従ってゲームごとに設定します。ゲーム終了時には、後から選ばれたものではなく、falcondの起動時に使われていたプロファイルに戻します"
 
@@ -6221,7 +6217,7 @@ msgstr "フレーム生成は表示されるフレームレートを上げます
 msgid "frame generation with lsfg-vk, in the game's profile, works in any game, with added latency"
 msgstr "ゲームのプロファイルでlsfg-vkによるフレーム生成を使えば、どのゲームでも動作しますが、遅延が増えます"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:340
+#: bigame-engine/bigame-core/src/gamescope.rs:339
 msgid "frame rate not limited"
 msgstr "フレームレート制限なし"
 
@@ -6261,7 +6257,7 @@ msgstr "ゲーム実行中は保留"
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "これでゲームがクラッシュする場合、OptiScalerのwikiでは、ゲームのEngine.iniの[SystemSettings]の下に%sを追加することを勧めています"
 
-#: bigame-engine/bigame-core/src/profiles.rs:604
+#: bigame-engine/bigame-core/src/profiles.rs:579
 msgid "imported profile has no name"
 msgstr "インポートしたプロファイルに名前がありません"
 
@@ -6301,7 +6297,7 @@ msgstr "インストール済み。以前のバージョンにここで戻せま
 msgid "integer"
 msgstr "整数"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:316
+#: bigame-engine/bigame-core/src/gamescope.rs:315
 msgid "integer scaling not applied"
 msgstr "整数スケーリングは適用されていません"
 
@@ -6337,7 +6333,7 @@ msgstr "カーネルがsched_extに対応していません"
 msgid "launch options may not contain quotes, backslashes or newlines"
 msgstr "起動オプションには引用符、バックスラッシュ、改行を含めることはできません"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:462
+#: bigame-engine/bigame-core/src/booster/plan.rs:460
 msgid "left to the driver: forcing 'high' pins the highest fixed power state and gives up boost clocks above it, and it has only ever been measured slower (8.3% in Shadow of the Tomb Raider on a Radeon RX 9060 XT)."
 msgstr "ドライバーに任せています: 'high'を強制すると最も高い固定電力状態に固定され、それを超えるブーストクロックが使えなくなります。測定ではいずれも遅くなっています（Radeon RX 9060 XTのShadow of the Tomb Raiderで8.3%低下）。"
 
@@ -6357,7 +6353,7 @@ msgstr "ゲーム内に読み込まれています (%s) が、アップスケー
 msgid "loaded into the game as a DLL: never for games with anti-cheat"
 msgstr "DLLとしてゲームに読み込まれます: アンチチートのあるゲームでは使用しません"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:979
+#: bigame-engine/bigame-ui/src/views/tuning.rs:993
 msgid "lsfg-vk for every game with an entry"
 msgstr "エントリーのあるすべてのゲームでlsfg-vk"
 
@@ -6389,7 +6385,7 @@ msgstr "チューニングでlsfg-vkがオフになっています"
 msgid "lsfg-vk loads and generates nothing, so Big Game Mode switches it off at launch."
 msgstr "lsfg-vkは読み込まれても何も生成しないため、Big Game Modeは起動時にオフにします。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1018 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1232
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1032 bigame-engine/bigame-ui/src/widgets/game_fields.rs:1232
 msgid "lsfg-vk needs your Lossless.dll"
 msgstr "lsfg-vkにはLossless.dllが必要です"
 
@@ -6441,19 +6437,19 @@ msgstr "モデル"
 msgid "native Linux game: nothing for AI Graphics to do"
 msgstr "ネイティブのLinuxゲーム: AIグラフィックスで行うことはありません"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:233
+#: bigame-engine/bigame-core/src/graphics/backend.rs:231
 msgid "needs %s; this game renders on %s"
 msgstr "%sが必要ですが、このゲームは%sで描画しています"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:281
+#: bigame-engine/bigame-core/src/graphics/backend.rs:279
 msgid "needs %s; this game renders with %s"
 msgstr "%sが必要ですが、このゲームは%sで描画しています"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:243
+#: bigame-engine/bigame-core/src/graphics/backend.rs:241
 msgid "needs an AMD RDNA %s card; %s is RDNA %s"
 msgstr "AMD RDNA %sカードが必要ですが、%sはRDNA %sです"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:254
+#: bigame-engine/bigame-core/src/graphics/backend.rs:252
 msgid "needs an AMD RDNA %s card; the generation of %s is not known"
 msgstr "AMD RDNA %sカードが必要ですが、%sの世代は不明です"
 
@@ -6465,7 +6461,7 @@ msgstr "HDRスワップチェーン（DXVK_HDR=1とHDR対応のディスプレ�
 msgid "no"
 msgstr "いいえ"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:226 bigame-engine/bigame-core/src/graphics/diagnose.rs:137
+#: bigame-engine/bigame-core/src/graphics/backend.rs:224 bigame-engine/bigame-core/src/graphics/diagnose.rs:137
 msgid "no GPU was identified for this game"
 msgstr "このゲームのGPUを特定できませんでした"
 
@@ -6485,7 +6481,7 @@ msgstr "エントリーなし (オフ)"
 msgid "no files are changed"
 msgstr "ファイルは変更されません"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:149
+#: bigame-engine/bigame-core/src/gamescope.rs:148
 msgid "no graphical session for Gamescope to nest in"
 msgstr "Gamescopeを入れ子にするグラフィカルセッションがありません"
 
@@ -6493,7 +6489,7 @@ msgstr "Gamescopeを入れ子にするグラフィカルセッションがあり
 msgid "no profile yet"
 msgstr "プロファイルはまだありません"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:443 bigame-engine/bigame-core/src/health.rs:473
+#: bigame-engine/bigame-core/src/booster/plan.rs:441 bigame-engine/bigame-core/src/health.rs:473
 msgid "no render GPU was identified"
 msgstr "描画に使うGPUを特定できませんでした"
 
@@ -6513,7 +6509,7 @@ msgstr "利用できるアップスケーラーがありません"
 msgid "no upscaler for OptiScaler to take over"
 msgstr "OptiScalerが引き継ぐアップスケーラーがありません"
 
-#: bigame-engine/bigame-ui/src/views/details/performance.rs:313 bigame-engine/bigame-ui/src/views/details/performance.rs:87 bigame-engine/bigame-ui/src/views/details/pipeline.rs:646 bigame-engine/bigame-ui/src/views/profiles.rs:1012 bigame-engine/bigame-ui/src/views/profiles.rs:987 bigame-engine/bigame-ui/src/views/tuning.rs:1239
+#: bigame-engine/bigame-ui/src/views/details/performance.rs:313 bigame-engine/bigame-ui/src/views/details/performance.rs:87 bigame-engine/bigame-ui/src/views/details/pipeline.rs:646 bigame-engine/bigame-ui/src/views/profiles.rs:1012 bigame-engine/bigame-ui/src/views/profiles.rs:987 bigame-engine/bigame-ui/src/views/tuning.rs:1253
 msgid "none"
 msgstr "なし"
 
@@ -6573,11 +6569,11 @@ msgstr "接続できません: Turboとプロファイルを変更できませ�
 msgid "not reachable: game profiles cannot switch the power profile"
 msgstr "接続できません: ゲームプロファイルで電源プロファイルを切り替えられません"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:590
+#: bigame-engine/bigame-core/src/graphics/report.rs:584
 msgid "nothing in the game's files names its API; DX12 is assumed until the game is seen running"
 msgstr "ゲームのファイルにAPIを示すものがありません。ゲームの実行が確認されるまではDX12と推定します"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:191
+#: bigame-engine/bigame-core/src/gamescope.rs:190
 msgid "nothing in this profile needs Gamescope, so the game runs directly"
 msgstr "このプロファイルにはGamescopeを必要とするものがないため、ゲームは直接実行されます"
 
@@ -6617,15 +6613,15 @@ msgstr "ゲーム自体のオプションのみが選択されました"
 msgid "optimized"
 msgstr "最適化後"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:308
+#: bigame-engine/bigame-core/src/graphics/backend.rs:306
 msgid "other"
 msgstr "その他"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:345
+#: bigame-engine/bigame-core/src/gamescope.rs:344
 msgid "overlay not shown"
 msgstr "オーバーレイ非表示"
 
-#: bigame-engine/bigame-core/src/profiles.rs:601
+#: bigame-engine/bigame-core/src/profiles.rs:576
 msgid "parse imported profile TOML"
 msgstr "インポートしたプロファイルのTOMLの解析"
 
@@ -6641,7 +6637,7 @@ msgstr "電力制限"
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:290 bigame-engine/bigame-ui/src/views/details/performance.rs:250
+#: bigame-engine/bigame-core/src/booster/plan.rs:288 bigame-engine/bigame-ui/src/views/details/performance.rs:250
 msgid "power-profiles-daemon is not reachable"
 msgstr "power-profiles-daemonに接続できません"
 
@@ -6665,7 +6661,7 @@ msgstr "あり。ゲームプロファイルでキャッシュCCDを優先でき
 msgid "press Apply"
 msgstr "「適用」を押してください"
 
-#: bigame-engine/bigame-core/src/profiles.rs:501
+#: bigame-engine/bigame-core/src/profiles.rs:476
 msgid "profile not found: %s"
 msgstr "プロファイルが見つかりません: %s"
 
@@ -6677,7 +6673,7 @@ msgstr "プロキシ"
 msgid "reachable"
 msgstr "接続可能"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:162
+#: bigame-engine/bigame-core/src/gamescope.rs:161
 msgid "rendering at %s×%s and presenting at %s×%s"
 msgstr "%s×%sでレンダリングし、%s×%sで表示"
 
@@ -6709,11 +6705,11 @@ msgstr "%s%sを実行中"
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "実行中（systemdは有効と報告していますが、falcondはまだステータスを公開していません）"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:417
+#: bigame-engine/bigame-core/src/booster/plan.rs:415
 msgid "running on battery"
 msgstr "バッテリー駆動中"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:321
+#: bigame-engine/bigame-core/src/booster/plan.rs:319
 msgid "running on battery — sustained performance mode usually costs more in throttling than it gains"
 msgstr "バッテリー駆動中 — パフォーマンスモードを維持すると、通常は得られる効果よりスロットリングによる損失の方が大きくなります"
 
@@ -6733,11 +6729,11 @@ msgstr "実行中、プロファイル%s個を読み込み済み（%sセット�
 msgid "runs DLSS"
 msgstr "DLSSが動作します"
 
-#: bigame-engine/bigame-core/src/health.rs:384 bigame-engine/bigame-core/src/health.rs:392 bigame-engine/bigame-core/src/health.rs:394 bigame-engine/bigame-core/src/health.rs:403 bigame-engine/bigame-core/src/health.rs:409 bigame-engine/bigame-ui/src/views/tuning.rs:1230
+#: bigame-engine/bigame-core/src/health.rs:384 bigame-engine/bigame-core/src/health.rs:392 bigame-engine/bigame-core/src/health.rs:394 bigame-engine/bigame-core/src/health.rs:403 bigame-engine/bigame-core/src/health.rs:409 bigame-engine/bigame-ui/src/views/tuning.rs:1244
 msgid "sched-ext"
 msgstr "sched-ext"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1217
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1231
 msgid "sched-ext availability"
 msgstr "sched-extの利用可否"
 
@@ -6745,7 +6741,7 @@ msgstr "sched-extの利用可否"
 msgid "sched-ext is available, but no scheduler has been measured faster for games in general; the game's profile can choose one"
 msgstr "sched-extは利用可能ですが、ゲーム全般でより高速と測定されたスケジューラーはありません。ゲームのプロファイルで選択できます"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:1231
+#: bigame-engine/bigame-ui/src/views/tuning.rs:1245
 msgid "sched-ext lets a CPU scheduler run as a program the kernel loads (scx_lavd, scx_bpfland…), instead of the kernel's own. It needs a kernel built with it (6.12 or later) and the scx-scheds package. The scheduler chosen in Performance is loaded while Turbo is on."
 msgstr "sched-extにより、カーネル独自のものの代わりに、カーネルが読み込むプログラム（scx_lavd、scx_bpfland…）としてCPUスケジューラーを実行できます。これに対応してビルドされたカーネル（6.12以降）とscx-schedsパッケージが必要です。パフォーマンスで選んだスケジューラーは、Turboがオンの間読み込まれます。"
 
@@ -6757,7 +6753,7 @@ msgstr "sched-extを使うと、実行時に読み込んだスケジューラー
 msgid "sched-ext replaces the kernel's CPU scheduler with one loaded at run time. Game-oriented ones (lavd, bpfland) favour the interactive task — the game — over background work."
 msgstr "sched-extは、カーネルのCPUスケジューラーを実行時に読み込んだものに置き換えます。ゲーム向けのもの（lavd、bpfland）は、バックグラウンドの処理よりインタラクティブなタスク、つまりゲームを優先します。"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:163 bigame-engine/bigame-ui/src/views/report.rs:73
+#: bigame-engine/bigame-core/src/booster/plan.rs:161 bigame-engine/bigame-ui/src/views/report.rs:73
 msgid "sched-ext scheduler"
 msgstr "sched-extスケジューラー"
 
@@ -6773,7 +6769,7 @@ msgstr "scx_loaderはインストールされていますが、サービスが�
 msgid "scx_loader is installed but its service is not running."
 msgstr "scx_loaderはインストールされていますが、サービスが実行されていません。"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:327
+#: bigame-engine/bigame-core/src/gamescope.rs:326
 msgid "sharpness left at default"
 msgstr "シャープネスはデフォルトのまま"
 
@@ -6813,7 +6809,7 @@ msgstr "ゲームの隣のDLLスロットを使用するため、OptiScalerと�
 msgid "temperature limit"
 msgstr "温度制限"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:454
+#: bigame-engine/bigame-core/src/booster/plan.rs:452
 msgid "the %s driver exposes no DPM level control"
 msgstr "%sドライバーはDPMレベルの制御を公開していません"
 
@@ -6829,11 +6825,11 @@ msgstr "起動後にCPUが温度上限に1回達しました（合計%s秒低速
 msgid "the DLL slot OptiScaler needs is taken"
 msgstr "OptiScalerが必要とするDLLスロットは使用中です"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:188
+#: bigame-engine/bigame-core/src/gamescope.rs:187
 msgid "the MangoHud overlay is enabled"
 msgstr "MangoHudオーバーレイが有効です"
 
-#: bigame-engine/bigame-core/src/vkbasalt.rs:312
+#: bigame-engine/bigame-core/src/vkbasalt.rs:313
 msgid "the Nara Linux style's shaders are not downloaded"
 msgstr "Nara Linuxスタイルのシェーダーがダウンロードされていません"
 
@@ -6853,11 +6849,11 @@ msgstr "設定は書き込まれましたが、読み戻すと変更されてい
 msgid "the executable has code for %s, but the DLL it runs from is not in the game's folder, so the game cannot offer it"
 msgstr "実行ファイルには%sのコードがありますが、実行に必要なDLLがゲームのフォルダーにないため、ゲームはこれを提供できません"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:580
+#: bigame-engine/bigame-core/src/graphics/report.rs:574
 msgid "the executable is 32-bit, and Direct3D 12 games are 64-bit: DX11 or older is assumed until the game is seen running"
 msgstr "実行ファイルは32ビットで、Direct3D 12のゲームは64ビットです。ゲームの実行が確認されるまではDX11以前と推定します"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:504 bigame-engine/bigame-core/src/graphics/report.rs:513 bigame-engine/bigame-core/src/graphics/report.rs:523
+#: bigame-engine/bigame-core/src/graphics/report.rs:498 bigame-engine/bigame-core/src/graphics/report.rs:507 bigame-engine/bigame-core/src/graphics/report.rs:517
 msgid "the executable links %s"
 msgstr "実行ファイルが%sをリンクしています"
 
@@ -6901,11 +6897,11 @@ msgstr "ゲームリストによると、ここではゲーム自体のアップ
 msgid "the game may load its DLLs from another folder than the executable's, or a launcher started a different executable; the support report shows what the game mapped"
 msgstr "ゲームが実行ファイルとは別のフォルダーからDLLを読み込んでいるか、ランチャーが別の実行ファイルを起動した可能性があります。ゲームがマップしたものはサポートレポートで確認できます"
 
-#: bigame-engine/bigame-core/src/graphics/backend.rs:290
+#: bigame-engine/bigame-core/src/graphics/backend.rs:288
 msgid "the game must ship AMD's FidelityFX API (FSR 3.1 or newer); it does not"
 msgstr "ゲームにAMDのFidelityFX API（FSR 3.1以降）が含まれている必要がありますが、含まれていません"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:558
+#: bigame-engine/bigame-core/src/graphics/report.rs:552
 msgid "the game ships Direct3D 12 libraries (%s); it may also have a DX11 renderer"
 msgstr "ゲームにはDirect3D 12ライブラリ (%s) が含まれています。DX11レンダラーもある可能性があります"
 
@@ -7013,11 +7009,11 @@ msgstr "唯一のGPU"
 msgid "the overlay showed normally with OptiScaler loaded"
 msgstr "OptiScalerを読み込んだ状態でオーバーレイは正常に表示されました"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:364
+#: bigame-engine/bigame-core/src/booster/plan.rs:362
 msgid "the power profile sets the CPU's energy preference; forcing the performance governor would override it, and measured no faster"
 msgstr "電源プロファイルがCPUのエネルギー設定を決めます。performanceガバナーを強制するとそれを上書きしてしまい、測定でも速くなりませんでした"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:369
+#: bigame-engine/bigame-core/src/booster/plan.rs:367
 msgid "the power profile sets the CPU's frequency policy, and falcond switches it to performance for each game"
 msgstr "電源プロファイルがCPUの周波数ポリシーを決め、falcondがゲームごとにperformanceに切り替えます"
 
@@ -7025,11 +7021,11 @@ msgstr "電源プロファイルがCPUの周波数ポリシーを決め、falcon
 msgid "the process falcond sees for this game; the profile applies whenever it runs"
 msgstr "このゲームに対してfalcondが認識するプロセスです。これが実行されるたびにプロファイルが適用されます"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:496
+#: bigame-engine/bigame-core/src/graphics/report.rs:490
 msgid "the running game has DXVK (Direct3D 11 or older) loaded"
 msgstr "実行中のゲームにDXVK（Direct3D 11以前）が読み込まれています"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:473
+#: bigame-engine/bigame-core/src/graphics/report.rs:467
 msgid "the running game has VKD3D-Proton (Direct3D 12) loaded"
 msgstr "実行中のゲームにVKD3D-Proton（Direct3D 12）が読み込まれています"
 
@@ -7037,7 +7033,7 @@ msgstr "実行中のゲームにVKD3D-Proton（Direct3D 12）が読み込まれ�
 msgid "the running game loaded Proton's FSR 4 provider: the game's FSR path runs FSR 4"
 msgstr "実行中のゲームがProtonのFSR 4プロバイダーを読み込みました: ゲームのFSRの経路でFSR 4が動作します"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:484
+#: bigame-engine/bigame-core/src/graphics/report.rs:478
 msgid "the running game renders with Vulkan directly"
 msgstr "実行中のゲームはVulkanで直接描画しています"
 
@@ -7069,7 +7065,7 @@ msgstr "ワークロードのフレーム数が少なすぎて測定できませ
 msgid "there is no earlier version to go back to"
 msgstr "戻せる以前のバージョンがありません"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:480 bigame-engine/bigame-core/src/recommend.rs:173
+#: bigame-engine/bigame-core/src/booster/plan.rs:478 bigame-engine/bigame-core/src/recommend.rs:173
 msgid "this CPU has no 3D V-Cache"
 msgstr "このCPUには3D V-Cacheがありません"
 
@@ -7081,7 +7077,7 @@ msgstr "このCPUにはありません"
 msgid "this computer has more than one GPU: the plan is for %s, the one DXVK and VKD3D-Proton pick for Windows games; it is confirmed when the game runs"
 msgstr "このコンピューターには複数のGPUがあります: プランは、DXVKとVKD3D-ProtonがWindowsゲーム用に選ぶ%sを対象にしています。ゲーム実行時に確認されます"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:387
+#: bigame-engine/bigame-core/src/booster/plan.rs:385
 msgid "this cpufreq driver"
 msgstr "このcpufreqドライバー"
 
@@ -7109,7 +7105,7 @@ msgstr "これはネイティブのLinuxゲームです: OptiScalerはProtonま�
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "このランチャーはFlatpakとして動作しているため、システムのMangoHudを参照できません: ランタイム用のMangoHud Flatpak拡張をインストールするまで、起動したゲームにオーバーレイは表示されません（HeroicはMangoHudスイッチがオンのままではゲームを起動しません）"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:380
+#: bigame-engine/bigame-core/src/booster/plan.rs:378
 msgid "this machine exposes no CPU frequency control"
 msgstr "このマシンはCPU周波数の制御を公開していません"
 
@@ -7117,7 +7113,7 @@ msgstr "このマシンはCPU周波数の制御を公開していません"
 msgid "this plan installs nothing"
 msgstr "このプランでは何もインストールされません"
 
-#: bigame-engine/bigame-core/src/booster/plan.rs:301
+#: bigame-engine/bigame-core/src/booster/plan.rs:299
 msgid "this platform offers no performance profile"
 msgstr "このプラットフォームにはperformanceプロファイルがありません"
 
@@ -7161,7 +7157,7 @@ msgstr "利用不可"
 msgid "unavailable: %s"
 msgstr "利用不可: %s"
 
-#: bigame-engine/bigame-core/src/graphics/diagnose.rs:90 bigame-engine/bigame-core/src/graphics/report.rs:153 bigame-engine/bigame-core/src/graphics/scan.rs:134 bigame-engine/bigame-ui/src/views/details/extras.rs:610 bigame-engine/bigame-ui/src/views/report.rs:177 bigame-engine/bigame-ui/src/views/tuning.rs:1292
+#: bigame-engine/bigame-core/src/graphics/diagnose.rs:90 bigame-engine/bigame-core/src/graphics/report.rs:153 bigame-engine/bigame-core/src/graphics/scan.rs:134 bigame-engine/bigame-ui/src/views/details/extras.rs:610 bigame-engine/bigame-ui/src/views/report.rs:177 bigame-engine/bigame-ui/src/views/tuning.rs:1306
 msgid "unknown"
 msgstr "不明"
 
@@ -7173,7 +7169,7 @@ msgstr "不明なビルド"
 msgid "unknown speed"
 msgstr "速度不明"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:320
+#: bigame-engine/bigame-core/src/gamescope.rs:319
 msgid "upscaling filter not applied"
 msgstr "アップスケーリングフィルターは適用されていません"
 
@@ -7181,7 +7177,7 @@ msgstr "アップスケーリングフィルターは適用されていません
 msgid "value could not be read back"
 msgstr "値を読み戻せませんでした"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:185
+#: bigame-engine/bigame-core/src/gamescope.rs:184
 msgid "variable refresh rate is requested"
 msgstr "可変リフレッシュレートが要求されています"
 
@@ -7201,11 +7197,11 @@ msgstr "vkBasaltはVulkanレイヤーです: Vulkan（およびProton）ゲー�
 msgid "vkBasalt is not installed, so there is no sharpening."
 msgstr "vkBasaltがインストールされていないため、シャープ化は行われません。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:842
+#: bigame-engine/bigame-ui/src/views/tuning.rs:856
 msgid "vkBasalt then uses its own defaults."
 msgstr "その場合、vkBasaltは独自のデフォルトを使用します。"
 
-#: bigame-engine/bigame-ui/src/views/tuning.rs:803 bigame-engine/bigame-ui/src/widgets/launch.rs:284
+#: bigame-engine/bigame-ui/src/views/tuning.rs:817 bigame-engine/bigame-ui/src/widgets/launch.rs:284
 msgid "vkBasalt's default"
 msgstr "vkBasaltのデフォルト"
 
@@ -7213,7 +7209,7 @@ msgstr "vkBasaltのデフォルト"
 msgid "vkBasalt's looks"
 msgstr "vkBasaltの見た目"
 
-#: bigame-engine/bigame-core/src/gamescope.rs:354
+#: bigame-engine/bigame-core/src/gamescope.rs:353
 msgid "window will not be fullscreen"
 msgstr "ウィンドウはフルスクリーンになりません"
 
@@ -7229,7 +7225,7 @@ msgstr "起動オプションを書き込みましたが、ファイルを読み
 msgid "yes"
 msgstr "はい"
 
-#: bigame-engine/bigame-core/src/graphics/report.rs:437
+#: bigame-engine/bigame-core/src/graphics/report.rs:431
 msgid "your game list names the API this game renders with"
 msgstr "あなたのゲームリストに、このゲームが使う描画APIが記載されています"
 

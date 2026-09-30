@@ -1,4 +1,4 @@
-//! systemd's D-Bus API, as far as BiGame-mode needs it.
+//! systemd's D-Bus API, as far as Big Game Mode needs it.
 //!
 //! Shared by the unprivileged UI, which only reads unit state (systemd allows
 //! any local user to), and the root helper, which also starts, stops, enables
