@@ -13,7 +13,7 @@
 //! - a frame cap: DXVK reads `DXVK_CONFIG` (`dxgi.maxFrameRate` for D3D10/11,
 //!   `d3d9.maxFrameRate`), VKD3D-Proton reads `VKD3D_FRAME_RATE` (D3D12) —
 //!   both in Proton Experimental's DLLs; Gamescope takes `-r` for games
-//!   BiGame-mode starts itself. A native Linux game reads none of these;
+//!   Big Game Mode starts itself. A native Linux game reads none of these;
 //! - Wine FSR (`WINE_FULLSCREEN_FSR`): Wine scales a game running in
 //!   exclusive fullscreen below the display's resolution;
 //! - vkBasalt (`ENABLE_VKBASALT`): the sharpening filter (CAS) in its
@@ -26,7 +26,7 @@
 //! The variables go to the running `systemd --user` manager only, not to
 //! `environment.d`: what that file holds is set by systemd's generator at
 //! login and cannot be unset later (systemd 261), and a preset must go away
-//! completely when Turbo does. BiGame-mode puts them back when it starts with
+//! completely when Turbo does. Big Game Mode puts them back when it starts with
 //! Turbo on ([`resync`]).
 
 use std::collections::HashMap;
@@ -387,7 +387,7 @@ pub fn switch(preset: Preset) -> Result<Vec<String>> {
     }
 }
 
-/// Bring the session in line when BiGame-mode starts: the preset's
+/// Bring the session in line when Big Game Mode starts: the preset's
 /// variables live only in the running session, so after a login they are
 /// set again while Turbo is on, and a preset left behind by a Turbo switched
 /// off elsewhere is dropped.

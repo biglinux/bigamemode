@@ -95,7 +95,7 @@ pub struct DetectedGame {
     /// features that require one are offered only where this is `Some`.
     pub launch_command: Option<Vec<String>>,
     /// Where the game's own launcher keeps its settings for it, when that
-    /// launcher has per-game settings BiGame-mode can write (`MangoHud`).
+    /// launcher has per-game settings Big Game Mode can write (`MangoHud`).
     pub launcher: Option<LauncherRef>,
 }
 
@@ -263,7 +263,7 @@ fn executable_file(path: &Path) -> bool {
 // ── The application menu ─────────────────────────────────────────────────────
 
 /// Programs listed as games that are not games here: launchers, stores,
-/// tools, game streaming (the game runs elsewhere) — and BiGame-mode itself,
+/// tools, game streaming (the game runs elsewhere) — and Big Game Mode itself,
 /// whose menu entry is in the Game category too.
 const NOT_GAMES: &[&str] = &[
     "bigame-ui",

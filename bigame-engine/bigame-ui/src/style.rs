@@ -1,4 +1,4 @@
-//! CSS theme loader + `GResource` registration for BiGame-mode.
+//! CSS theme loader + `GResource` registration for Big Game Mode.
 
 use gtk4::{gio, glib};
 

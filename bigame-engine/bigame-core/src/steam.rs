@@ -109,7 +109,7 @@ fn start_in_session() -> anyhow::Result<()> {
 /// Closed the way Steam closes itself (`steam -shutdown`), which lets it
 /// save its state; opened as a unit of the user's systemd manager, which is
 /// how the desktop's menu starts it (KDE Plasma: `app-…@.service`), so it
-/// inherits the manager's environment rather than BiGame-mode's own.
+/// inherits the manager's environment rather than Big Game Mode's own.
 ///
 /// # Errors
 /// Returns an error when a Steam game is running, when Steam does not close

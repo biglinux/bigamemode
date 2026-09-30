@@ -1,4 +1,4 @@
-//! Settings: the interface's look, what BiGame-mode does on its own, and how
+//! Settings: the interface's look, what Big Game Mode does on its own, and how
 //! to undo its control.
 //!
 //! About is not here: the application menu has it.
@@ -96,7 +96,7 @@ fn local_time(t: u64) -> String {
 }
 
 /// Who is in charge of falcond, and the one action that makes sense now:
-/// hand it back while BiGame-mode manages it, take it back while it does not.
+/// hand it back while Big Game Mode manages it, take it back while it does not.
 ///
 /// Read again whenever the row is shown, because switching Turbo on the Home
 /// page takes charge too.

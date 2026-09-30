@@ -22,7 +22,7 @@ const GRACE: Duration = Duration::from_secs(45);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "state")]
 pub enum Status {
-    /// BiGame-mode has placed nothing in this game.
+    /// Big Game Mode has placed nothing in this game.
     NotInstalled,
     /// Installed and intact; the game is not running.
     Configured,

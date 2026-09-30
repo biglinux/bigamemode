@@ -107,7 +107,7 @@ pub fn run() -> adw::glib::ExitCode {
             }
         });
 
-        // An lsfg-vk file in the layout an earlier BiGame-mode wrote makes
+        // An lsfg-vk file in the layout an earlier Big Game Mode wrote makes
         // lsfg-vk ignore it entirely; convert it before a game starts.
         std::thread::spawn(|| match bigame_core::fg::convert_legacy_file() {
             Ok(true) => tracing::info!(target: "fg", "lsfg-vk configuration converted to the 1.x layout"),
@@ -125,7 +125,7 @@ pub fn run() -> adw::glib::ExitCode {
 
         // Programs a previous run paused from Details and could not resume
         // (it was killed, or crashed) are resumed before anything else: a
-        // program must never stay frozen because BiGame-mode went away.
+        // program must never stay frozen because Big Game Mode went away.
         match bigame_core::processes::resume_all() {
             0 => {}
             n => tracing::info!(target: "processes", resumed = n, "programs left paused by an earlier run resumed"),

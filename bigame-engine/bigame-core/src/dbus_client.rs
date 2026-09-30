@@ -1,4 +1,4 @@
-//! Typed client for the privileged BiGame-mode helper.
+//! Typed client for the privileged Big Game Mode helper.
 //!
 //! Every method here crosses a privilege boundary. The helper authorizes each
 //! call through Polkit and validates every argument on its own side — nothing
@@ -55,7 +55,7 @@ pub trait BiGameDaemon {
     #[zbus(name = "SetGameBackend")]
     async fn set_game_backend(&self, enabled: bool) -> zbus::Result<String>;
 
-    /// Return falcond to its state before BiGame-mode first changed it.
+    /// Return falcond to its state before Big Game Mode first changed it.
     /// Returns whether there was anything to hand back.
     #[zbus(name = "ReleaseGameBackend")]
     async fn release_game_backend(&self) -> zbus::Result<bool>;

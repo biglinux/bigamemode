@@ -1,7 +1,7 @@
 //! The interface theme: a design (Default or Gamer) and a colour scheme.
 //!
 //! **Default** is libadwaita plus the application's own stylesheet, the look
-//! BiGame-mode always had. **Gamer** is a second stylesheet loaded on top of
+//! Big Game Mode always had. **Gamer** is a second stylesheet loaded on top of
 //! it, at a higher priority, and unloaded to go back: nothing in Default
 //! depends on it, so choosing Default again reproduces Default exactly.
 //!

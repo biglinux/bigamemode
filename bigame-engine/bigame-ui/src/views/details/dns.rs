@@ -2,7 +2,7 @@
 //!
 //! One row says which DNS servers the connection to the internet is set to,
 //! or why they cannot be changed from here, and offers to put back the
-//! settings from before BiGame-mode when it changed them. Each resolver the
+//! settings from before Big Game Mode when it changed them. Each resolver the
 //! comparison measured gets a button to make it the connection's first DNS
 //! server — after a confirmation that says what changes and how to undo it.
 //! The work is `bigame_core::dns_config`, through `NetworkManager` as the user.

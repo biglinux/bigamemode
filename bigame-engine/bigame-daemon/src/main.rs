@@ -1,4 +1,4 @@
-//! BiGame-mode privileged helper.
+//! Big Game Mode privileged helper.
 //!
 //! A small root service on the system bus that performs the handful of writes
 //! the unprivileged UI cannot. Any local process can reach it, so three rules
@@ -252,7 +252,7 @@ impl BiGameDaemon {
             .map_err(|e| failed(&format!("{e:#}")))
     }
 
-    /// Return falcond to the state it was in before BiGame-mode first changed
+    /// Return falcond to the state it was in before Big Game Mode first changed
     /// it, and stop managing it.
     #[zbus(name = "ReleaseGameBackend")]
     async fn release_game_backend(

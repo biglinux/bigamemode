@@ -1,4 +1,4 @@
-//! Internationalization (gettext) setup for BiGame-mode UI.
+//! Internationalization (gettext) setup for Big Game Mode UI.
 
 use gettextrs::{LocaleCategory, gettext, ngettext};
 

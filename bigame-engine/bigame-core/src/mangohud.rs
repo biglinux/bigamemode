@@ -8,9 +8,9 @@
 //! * **Forced** — the `mangohud` wrapper, which also preloads it into `OpenGL`
 //!   games, where the Vulkan layer never loads.
 //!
-//! A game BiGame-mode starts gets it through its launch plan (inside Gamescope,
+//! A game Big Game Mode starts gets it through its launch plan (inside Gamescope,
 //! as Gamescope's own `--mangoapp`). A game its own launcher starts runs in
-//! that launcher's process tree, which BiGame-mode cannot reach, so the setting
+//! that launcher's process tree, which Big Game Mode cannot reach, so the setting
 //! goes where that launcher reads it:
 //!
 //! * **Steam** — the game's launch options, edited with Steam closed, backed
@@ -41,7 +41,7 @@ use crate::text::N_;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
-    /// Not added by BiGame-mode (`MangoHud` may still come from elsewhere).
+    /// Not added by Big Game Mode (`MangoHud` may still come from elsewhere).
     #[default]
     Off,
     /// The Vulkan layer (`MANGOHUD=1`): Vulkan and Proton games.
@@ -109,7 +109,7 @@ pub enum Applied {
     /// Nothing changed: this launcher is running and keeps the game's
     /// settings in memory, so it would overwrite the change.
     LauncherRunning(&'static str),
-    /// In the launch plan of games BiGame-mode starts; the game is not a
+    /// In the launch plan of games Big Game Mode starts; the game is not a
     /// Steam game.
     LaunchPlan,
     /// In Steam's launch options, which now read as given (read back).
@@ -219,7 +219,7 @@ fn launcher_running(name: &str) -> bool {
 }
 
 /// Replace `file` with `text`, atomically. The launcher's own version is kept
-/// once, the first time BiGame-mode changes the file, under
+/// once, the first time Big Game Mode changes the file, under
 /// `$XDG_STATE_HOME/bigame-mode/launcher-backups/` — never beside it, where
 /// the launcher might read a stray file.
 pub(crate) fn write_keeping_backup(file: &std::path::Path, text: &str) -> Result<()> {
@@ -409,7 +409,7 @@ pub fn mode_for(process: &str) -> Mode {
 ///
 /// `MangoHud` reads `$XDG_CONFIG_HOME/MangoHud/MangoHud.conf` (a per-game file
 /// there, `wine-<game>.conf` or `<program>.conf`, takes precedence, and so
-/// do `MANGOHUD_CONFIG`/`MANGOHUD_CONFIGFILE`). BiGame-mode writes that file
+/// do `MANGOHUD_CONFIG`/`MANGOHUD_CONFIGFILE`). Big Game Mode writes that file
 /// only when a style is chosen, marks it as its own, and keeps the user's
 /// file to put back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -424,7 +424,8 @@ pub enum Style {
     Full,
 }
 
-/// The first line of a file BiGame-mode wrote.
+/// The first line of a file Big Game Mode wrote. Files already on users'
+/// machines carry this spelling of the name, so it stays.
 const STYLE_MARKER: &str = "# Managed by BiGame-mode";
 
 /// Options every style shares. Only options `MangoHud` 0.8.4 parses
@@ -520,7 +521,7 @@ pub fn style_config_for(style: Style, m: Metrics) -> Option<String> {
     };
     let mut out = format!(
         "{STYLE_MARKER}: style {name}.\n\
-         # Written by BiGame-mode (Tuning → Monitoring). Choose \"My own file\" there to\n\
+         # Written by Big Game Mode (Tuning → Monitoring). Choose \"My own file\" there to\n\
          # put back the file that was here. Shift_R+F12 shows or hides the overlay.\n"
     );
     for o in STYLE_COMMON.iter().chain(options) {
@@ -549,9 +550,9 @@ fn style_backup() -> std::path::PathBuf {
 pub enum StyleState {
     /// No file: `MangoHud`'s own defaults.
     Defaults,
-    /// A file BiGame-mode did not write.
+    /// A file Big Game Mode did not write.
     Own,
-    /// A style BiGame-mode wrote.
+    /// A style Big Game Mode wrote.
     Style(Style),
 }
 
@@ -574,8 +575,8 @@ fn style_state_of(text: Option<&str>) -> StyleState {
 }
 
 /// Put `style` in place. The first time, the user's own file (if any) is
-/// moved aside; [`Style::Own`] puts it back, or removes BiGame-mode's file
-/// when there was none. A file BiGame-mode did not write is never replaced
+/// moved aside; [`Style::Own`] puts it back, or removes Big Game Mode's file
+/// when there was none. A file Big Game Mode did not write is never replaced
 /// without being kept first.
 ///
 /// # Errors

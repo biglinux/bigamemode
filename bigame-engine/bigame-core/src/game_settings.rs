@@ -1,8 +1,8 @@
-//! BiGame-mode's own per-game settings, kept apart from falcond's profile.
+//! Big Game Mode's own per-game settings, kept apart from falcond's profile.
 //!
 //! A falcond profile (`/usr/share/falcond/profiles/user/<process>.conf`) is
 //! root-owned, written through the helper, and read by falcond, which uses
-//! eight fields and ignores the rest. BiGame-mode's own per-game choices —
+//! eight fields and ignores the rest. Big Game Mode's own per-game choices —
 //! AI Graphics among them — are none of falcond's business, need no root to
 //! change, and must not be mistaken for leftovers by the profile migration
 //! (which drops fields falcond does not read). They live here, one small TOML
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::graphics::config::AiGraphicsConfig;
 
-/// One game's BiGame-mode settings. Every field defaults, so a missing or
+/// One game's Big Game Mode settings. Every field defaults, so a missing or
 /// older file loads.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -25,17 +25,17 @@ pub struct GameSettings {
     pub ai_graphics: AiGraphicsConfig,
     /// `MangoHud` for this game: off, on (Vulkan layer) or forced (wrapper).
     pub mangohud: crate::mangohud::Mode,
-    /// The Gamescope wrapper BiGame-mode put into the game's Steam launch
+    /// The Gamescope wrapper Big Game Mode put into the game's Steam launch
     /// options, so it can replace or remove exactly that
     /// (`crate::steam_gamescope`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub steam_gamescope: Option<String>,
-    /// BiGame-mode put `WINE_FULLSCREEN_FSR=0` into the game's Steam launch
+    /// Big Game Mode put `WINE_FULLSCREEN_FSR=0` into the game's Steam launch
     /// options: `OptiScaler` upscales it, and Wine FSR would be a second
     /// upscaler (`crate::steam_gamescope::set_wine_fsr_off`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub steam_wine_fsr_off: bool,
-    /// The variables BiGame-mode put in front of the game's Steam launch
+    /// The variables Big Game Mode put in front of the game's Steam launch
     /// options for its own launch settings, so it can replace or remove
     /// exactly those (`crate::steam_gamescope`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -50,7 +50,7 @@ pub struct GameSettings {
     /// options.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub heroic_fsr4_upgrade: bool,
-    /// What BiGame-mode wrote into the game's settings in Heroic, one entry
+    /// What Big Game Mode wrote into the game's settings in Heroic, one entry
     /// per settings file, so it can replace or remove exactly that
     /// (`crate::heroic_launch`).
     #[serde(skip_serializing_if = "Vec::is_empty")]

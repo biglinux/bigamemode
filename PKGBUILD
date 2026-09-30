@@ -23,7 +23,7 @@ depends=(
     'polkit'
     'systemd'
 
-    # System performance is falcond's. BiGame-mode writes its per-game
+    # System performance is falcond's. Big Game Mode writes its per-game
     # profiles and reads the status it publishes; the power profile it asks
     # for goes through power-profiles-daemon.
     'falcond'

@@ -1,6 +1,6 @@
 //! Which `OptiScaler` release a game gets, and whether a newer one is offered.
 //!
-//! Three policies ([`VersionPolicy`]): the release BiGame-mode was tested
+//! Three policies ([`VersionPolicy`]): the release Big Game Mode was tested
 //! with (the default), the latest stable release, or one version pinned by
 //! the user. A version that works for a game is never replaced behind the
 //! user's back: a newer release is *offered* — Update, Skip, Keep this
@@ -168,7 +168,7 @@ pub fn resolve(cache: &Path, policy: &VersionPolicy, known: &Known) -> Result<Re
     match policy {
         VersionPolicy::Recommended => Ok(recommended),
         VersionPolicy::Latest => match known.latest() {
-            // Never older than what BiGame-mode was tested with.
+            // Never older than what Big Game Mode was tested with.
             Some(l) if compare_versions(&l.version, &recommended.version).is_gt() => Ok(l.clone()),
             Some(_) => Ok(recommended),
             None => {

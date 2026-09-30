@@ -8,10 +8,10 @@
 //! proxy DLL — normally `dxgi.dll`, which Proton already loads natively from
 //! the game folder — with its settings in `OptiScaler.ini` beside it.
 //!
-//! BiGame-mode never ships it. A release is downloaded from the project's own
+//! Big Game Mode never ships it. A release is downloaded from the project's own
 //! GitHub releases when the user asks for it, checked against a known SHA-256
 //! (or the digest GitHub publishes for a newer release), unpacked into
-//! BiGame-mode's cache once, and copied from there into each game through
+//! Big Game Mode's cache once, and copied from there into each game through
 //! [`super::transaction`], which backs up whatever it replaces.
 
 use std::path::{Path, PathBuf};
@@ -50,7 +50,7 @@ pub struct Release {
 }
 
 impl Release {
-    /// The release BiGame-mode was tested with — the version a profile gets
+    /// The release Big Game Mode was tested with — the version a profile gets
     /// unless the user picks another. Hash and size as published by GitHub
     /// for the asset (`sha256:` digest), checked against a download.
     #[must_use]
@@ -183,7 +183,7 @@ fn release_from_api(api: ApiRelease) -> Result<Release> {
     })
 }
 
-/// BiGame-mode's cache for `OptiScaler` releases, shared by every game.
+/// Big Game Mode's cache for `OptiScaler` releases, shared by every game.
 #[must_use]
 pub fn cache_dir() -> PathBuf {
     crate::paths::cache_home().join("bigame-mode/graphics/optiscaler")
@@ -594,10 +594,10 @@ pub struct Options {
 /// The ini settings for `o`, as `(section, key, value)`.
 ///
 /// Everything not listed stays at the release's `auto`. Two are always set:
-/// the log goes to a file at info level — that file is how BiGame-mode knows
+/// the log goes to a file at info level — that file is how Big Game Mode knows
 /// `OptiScaler` really loaded and what it runs — and `OptiScaler` does not
 /// check the internet for updates from inside the game: updates are
-/// BiGame-mode's, and the user's decision.
+/// Big Game Mode's, and the user's decision.
 #[must_use]
 pub fn ini_settings(o: &Options) -> Vec<(&'static str, &'static str, String)> {
     let mut s = vec![
@@ -768,7 +768,7 @@ impl LogFindings {
     /// the log proves. The reverse does not hold: the runtime loaded is not
     /// FSR 4 running (Proton's own `amdxcffx64.dll` has been reported to run
     /// the FSR 3 model on RDNA 4), and `OptiScaler` logs the model it picks only
-    /// at debug level. Only its on-screen watermark says, so BiGame-mode
+    /// at debug level. Only its on-screen watermark says, so Big Game Mode
     /// never claims FSR 4 from a log.
     #[must_use]
     pub fn fsr_generation(&self) -> Option<u8> {

@@ -20,7 +20,7 @@
 //! message for tools that log everything at one level (falcond writes
 //! `warning(dbus):` inside info-priority records).
 //!
-//! BiGame-mode's own output reaches the journal whichever way it was started
+//! Big Game Mode's own output reaches the journal whichever way it was started
 //! ([`JournalSink`]): launched from a menu as a systemd scope, from a
 //! terminal, or at login, its standard output may go anywhere or nowhere.
 
@@ -33,9 +33,9 @@ use serde::Serialize;
 /// Where an entry came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Source {
-    /// BiGame-mode's UI.
+    /// Big Game Mode's UI.
     BiGame,
-    /// BiGame-mode's privileged helper.
+    /// Big Game Mode's privileged helper.
     Helper,
     /// falcond.
     Falcond,
@@ -47,7 +47,7 @@ pub enum Source {
     Scheduler,
     /// power-profiles-daemon, or tuned in its place.
     PowerProfiles,
-    /// Polkit, and `pkexec` running the installs BiGame-mode offers.
+    /// Polkit, and `pkexec` running the installs Big Game Mode offers.
     Polkit,
     /// The Steam client: game launches and exits.
     Steam,
@@ -154,19 +154,19 @@ const KERNEL_KEYWORDS: &[&str] = &[
 /// in; `UNIT` is what systemd itself says about a unit (started, stopped,
 /// failed, restarted) — a crash of a dependency is often only there.
 ///
-/// Left out on purpose: `NetworkManager` and systemd-resolved (BiGame-mode
+/// Left out on purpose: `NetworkManager` and systemd-resolved (Big Game Mode
 /// never configures the network; the DNS comparison reads
 /// `/etc/resolv.conf` and sends queries), screensaver inhibition (falcond
 /// does it, and its calls log under falcond's unit), and Heroic or Lutris
-/// (BiGame-mode hands them a launch URL; they keep their own logs).
+/// (Big Game Mode hands them a launch URL; they keep their own logs).
 pub const JOURNAL_MATCHES: &[&str] = &[
     // falcond: profiles, Turbo, the scheduler and idle inhibition.
     "_SYSTEMD_UNIT=falcond.service",
     "UNIT=falcond.service",
-    // BiGame-mode's privileged helper.
+    // Big Game Mode's privileged helper.
     "_SYSTEMD_UNIT=bigame-daemon.service",
     "UNIT=bigame-daemon.service",
-    // BiGame-mode's UI: its own records, GTK's warnings, and the output of
+    // Big Game Mode's UI: its own records, GTK's warnings, and the output of
     // games it starts itself.
     "SYSLOG_IDENTIFIER=bigame-ui",
     // sched-ext: scx_loader and the schedulers it runs (scx_lavd, … log
@@ -189,7 +189,7 @@ pub const JOURNAL_MATCHES: &[&str] = &[
     // `component_of`); the client's own chatter runs to thousands a day.
     "SYSLOG_IDENTIFIER=steam",
     // Polkit deciding on the helper's actions, and pkexec running the
-    // package installs BiGame-mode offers.
+    // package installs Big Game Mode offers.
     "SYSLOG_IDENTIFIER=polkitd",
     "SYSLOG_IDENTIFIER=pkexec",
     // Crashes, recorded by systemd-coredump.
@@ -254,7 +254,7 @@ pub fn strip_ansi(text: &str) -> String {
     out
 }
 
-/// A line written by `tracing` — BiGame-mode's own — carries its level:
+/// A line written by `tracing` — Big Game Mode's own — carries its level:
 /// `  INFO target: message`, after an RFC 3339 timestamp in builds that wrote
 /// one. That level is the truth; the wording is not: `INFO turbo: turbo on
 /// verified=1 … failed=0` contains "failed" and is not an error.
@@ -283,7 +283,7 @@ pub fn tracing_level(message: &str) -> Option<(Level, &str)> {
     Some((level, after.trim_start()))
 }
 
-/// Lines that say nothing about BiGame-mode or the game, shown as debug.
+/// Lines that say nothing about Big Game Mode or the game, shown as debug.
 ///
 /// gvfs, inside the UI, reports each volume monitor the system has masked or
 /// not installed, every time GIO starts, with "failed" in the wording.
@@ -340,7 +340,7 @@ pub fn classify(priority: Option<u8>, message: &str) -> Level {
 /// The component a line of a game's output comes from, when it says.
 ///
 /// Games inherit the output of whatever started them — Steam, or
-/// BiGame-mode — so Gamescope, the Vulkan layers and Proton all write into
+/// Big Game Mode — so Gamescope, the Vulkan layers and Proton all write into
 /// that one stream, each with its own prefix (`[gamescope]`, `[MANGOHUD]`,
 /// `vkBasalt info:`, `wineserver:`, `pressure-vessel-wrap[…]`).
 #[must_use]
@@ -424,11 +424,11 @@ fn source_of(record: &serde_json::Value) -> Source {
 
 /// Where a record belongs once its message is known, or `None` to drop it.
 ///
-/// Polkit and pkexec records are kept only when they concern BiGame-mode;
+/// Polkit and pkexec records are kept only when they concern Big Game Mode;
 /// kernel records only when they concern graphics or the scheduler; Steam's
 /// stream only for the components that write into it. A line in the UI's
 /// stream that is not the UI's own (`tracing` wrote it) is attributed the
-/// same way, since a game BiGame-mode starts writes there.
+/// same way, since a game Big Game Mode starts writes there.
 fn keep(source: Source, message: &str) -> Option<Source> {
     let lower = message.to_ascii_lowercase();
     match source {
@@ -438,7 +438,7 @@ fn keep(source: Source, message: &str) -> Option<Source> {
             .then_some(source),
         Source::Polkit => (lower.contains("biglinux")
             || lower.contains("bigame")
-            // The install BiGame-mode offers (app.rs), run through pkexec.
+            // The install Big Game Mode offers (app.rs), run through pkexec.
             || lower.contains("pacman -s --needed --noconfirm"))
         .then_some(source),
         Source::Steam => component_of(message),
@@ -914,7 +914,7 @@ pub fn native_record(fields: &[(&str, &str)]) -> Vec<u8> {
 /// way most desktops start applications), from a file manager or at login
 /// on a desktop without systemd integration, it goes to whatever started it
 /// — often nowhere at all. Sent here, the Logs page and a support report see
-/// it however BiGame-mode was started.
+/// it however Big Game Mode was started.
 #[derive(Debug)]
 pub struct JournalSink {
     socket: std::os::unix::net::UnixDatagram,

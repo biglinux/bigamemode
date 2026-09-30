@@ -9,7 +9,7 @@
 //! entry for it, or did not parse, runs without frame generation until its
 //! next start. So on and off take effect at the next start (checked with
 //! Shadow of the Tomb Raider on the reference desktop: x2 → removed stayed
-//! at x2's cost, → x3 applied). BiGame-mode writes per-game entries there.
+//! at x2's cost, → x3 applied). Big Game Mode writes per-game entries there.
 //!
 //! The format is the one lsfg-vk 1.0.0 — the package `BigLinux` ships — reads,
 //! checked against the strings of its `liblsfg-vk.so`:
@@ -36,10 +36,10 @@
 //!   version of this module wrote; that layout did nothing with lsfg-vk 1.0
 //!   and made it ignore the whole file. It is converted when the application
 //!   starts ([`convert_legacy_file`]) and on every write.
-//! * Keys and entries BiGame-mode did not write are kept as they are: the file
+//! * Keys and entries Big Game Mode did not write are kept as they are: the file
 //!   is also the user's, and lsfg-vk-ui's.
 //!
-//! BiGame-mode stores `flow_scale` as percent (25–100); lsfg-vk as 0.25–1.0.
+//! Big Game Mode stores `flow_scale` as percent (25–100); lsfg-vk as 0.25–1.0.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -59,7 +59,7 @@ pub fn config_path() -> PathBuf {
     crate::paths::config_home().join("lsfg-vk/conf.toml")
 }
 
-/// Entries BiGame-mode wrote, and those set aside while frame generation is
+/// Entries Big Game Mode wrote, and those set aside while frame generation is
 /// turned off globally.
 fn state_path() -> PathBuf {
     crate::paths::state_home().join("bigame-mode/lsfg-vk.toml")
@@ -116,14 +116,14 @@ fn write_table(path: &Path, table: &Table) -> Result<()> {
     std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))
 }
 
-/// lsfg-vk's file, with anything an earlier BiGame-mode left there converted.
+/// lsfg-vk's file, with anything an earlier Big Game Mode left there converted.
 fn read_config() -> Result<Table> {
     let mut t = read_table(&config_path())?;
     migrate_legacy(&mut t);
     Ok(t)
 }
 
-/// Convert the file if it still has the layout an earlier BiGame-mode
+/// Convert the file if it still has the layout an earlier Big Game Mode
 /// wrote, keeping a copy of it beside it (`conf.toml.bigame-legacy`). While
 /// it is in that layout lsfg-vk ignores the whole file, so every game started
 /// meanwhile would run without frame generation. Returns whether it changed
@@ -154,7 +154,7 @@ fn write_config(t: &Table) -> Result<()> {
     write_table(&config_path(), &t)
 }
 
-/// The `[[profile]]` layout an earlier BiGame-mode wrote, as `[[game]]`
+/// The `[[profile]]` layout an earlier Big Game Mode wrote, as `[[game]]`
 /// entries; `allow_fp16`, which lsfg-vk 1.0 does not read, is dropped.
 fn migrate_legacy(t: &mut Table) {
     if let Some(Value::Array(old)) = t.remove("profile") {
@@ -223,7 +223,7 @@ fn take(t: &mut Table, exe: &str) -> Option<Value> {
     Some(games_mut(t).remove(i))
 }
 
-/// The game names BiGame-mode manages, and the entries set aside.
+/// The game names Big Game Mode manages, and the entries set aside.
 #[derive(Default)]
 struct State {
     managed: Vec<String>,
@@ -452,7 +452,7 @@ pub fn read_profile(name: &str) -> (u32, u32, bool, bool, u32) {
         .unwrap_or(OFF)
 }
 
-/// What BiGame-mode set for `name`, whether lsfg-vk reads it now or the
+/// What Big Game Mode set for `name`, whether lsfg-vk reads it now or the
 /// global switch has set it aside: the value a game's profile shows. The
 /// entry lsfg-vk reads comes first; a paused one is what the switch puts
 /// back when it is turned on again.
@@ -580,7 +580,7 @@ pub fn global_state_allows_lsfg(frame_gen: &FrameGenSettings) -> bool {
 }
 
 /// Bring lsfg-vk's file in line with the global switch: off sets
-/// BiGame-mode's entries aside, on puts them back. Returns whether anything
+/// Big Game Mode's entries aside, on puts them back. Returns whether anything
 /// changed.
 ///
 /// # Errors
@@ -599,7 +599,7 @@ pub fn is_active_for_game(name: &str) -> bool {
     is_lossless_dll_ready() && read_profile(name).0 > 1
 }
 
-/// Set aside every entry BiGame-mode wrote (the global switch turned off).
+/// Set aside every entry Big Game Mode wrote (the global switch turned off).
 /// They are kept, and [`sync_global_enablement`] puts them back.
 ///
 /// # Errors

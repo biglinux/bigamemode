@@ -24,7 +24,8 @@ pub const EXAMPLE: &str = "/usr/share/vkBasalt/vkBasalt.conf.example";
 /// The Nara Linux channel's video with the style.
 pub const NARA_VIDEO: &str = "https://www.youtube.com/watch?v=GGBC-qMB_0Y";
 
-/// The first line of a file BiGame-mode wrote.
+/// The first line of a file Big Game Mode wrote. Files already on users'
+/// machines carry this spelling of the name, so it stays.
 const MARKER: &str = "# Managed by BiGame-mode";
 
 /// Narayan's file, with `/home/USERNAME/.local/share/reshade` for the
@@ -50,9 +51,9 @@ pub enum Style {
 pub enum StyleState {
     /// No file.
     Defaults,
-    /// A file BiGame-mode did not write.
+    /// A file Big Game Mode did not write.
     Own,
-    /// A style BiGame-mode wrote.
+    /// A style Big Game Mode wrote.
     Style(Style),
 }
 
@@ -281,7 +282,7 @@ pub fn fetch_shaders(dir: &Path) -> Result<()> {
 }
 
 /// Put `style` in place. The first time, the user's own file (if any) is
-/// kept aside; [`Style::Own`] puts it back, or removes BiGame-mode's file
+/// kept aside; [`Style::Own`] puts it back, or removes Big Game Mode's file
 /// when there was none. The Nara Linux style needs its shaders
 /// ([`fetch_shaders`]) first.
 ///

@@ -285,7 +285,7 @@ const STEAM_RUNTIME_PREFIXES: &[&str] = &[
 /// (`/usr/share/falcond/system.conf`), read once.
 ///
 /// Using falcond's list as well as ours means the two can never disagree
-/// about what a game is: anything falcond would refuse to profile, BiGame-mode
+/// about what a game is: anything falcond would refuse to profile, Big Game Mode
 /// will not offer a profile for either.
 fn falcond_system_processes() -> &'static [String] {
     static LIST: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
@@ -949,7 +949,7 @@ const GAMESCOPE_NAMES: &[&str] = &["gamescope", "gamescope-wl", "gamescopereaper
 /// Whether the game runs inside Gamescope, from the process names around
 /// it (`names`: its tree and its ancestors) and its environment.
 ///
-/// Where Gamescope sits depends on who started the game: BiGame-mode's own
+/// Where Gamescope sits depends on who started the game: Big Game Mode's own
 /// launch puts it above the game; Steam's launch options put it above
 /// Steam's reaper, so it is an ancestor of the whole tree, never inside it
 /// (seen on the reference desktop: `steam → gamescope-wl → gamescopereaper
@@ -1635,7 +1635,7 @@ mod tests {
         let ancestors = ["gamescopereaper", "gamescope-wl", "steam", "bash"];
         assert!(!wrapped_by_gamescope(tree, b""));
         assert!(wrapped_by_gamescope(tree.into_iter().chain(ancestors), b""));
-        // BiGame-mode's own launch: Gamescope in the tree.
+        // Big Game Mode's own launch: Gamescope in the tree.
         assert!(wrapped_by_gamescope(["gamescope", "Game.exe"], b""));
         // Gamescope's own display in the game's environment settles it.
         assert!(wrapped_by_gamescope(

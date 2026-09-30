@@ -393,7 +393,7 @@ pub struct Report {
     pub gpus: Vec<GpuInfo>,
     /// Index into `gpus` of the one the game renders on (or will).
     pub render_gpu: Option<usize>,
-    /// What BiGame-mode has placed in this game, if anything.
+    /// What Big Game Mode has placed in this game, if anything.
     pub installed: Option<Manifest>,
     /// The folder scan stopped at its limit.
     pub scan_truncated: bool,
@@ -403,7 +403,7 @@ pub struct Report {
     #[serde(default)]
     pub proton: Option<ProtonInfo>,
     /// Every runtime and mod file the scan recognised, without the ones
-    /// BiGame-mode added (the report's own view of the game's files).
+    /// Big Game Mode added (the report's own view of the game's files).
     #[serde(default)]
     pub components: Vec<super::scan::Component>,
 }
@@ -815,9 +815,9 @@ pub fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Opt
     (gpus, render)
 }
 
-/// `scan` without the files BiGame-mode added to the game: an `OptiScaler`
+/// `scan` without the files Big Game Mode added to the game: an `OptiScaler`
 /// install brings AMD's FSR DLLs, and a game does not "ship FSR" because
-/// BiGame-mode put them there. A file BiGame-mode *replaced* stays — the
+/// Big Game Mode put them there. A file Big Game Mode *replaced* stays — the
 /// game had its own there.
 fn without_added(scan: &GameScan, installed: Option<&Manifest>) -> GameScan {
     let mut s = scan.clone();
@@ -849,7 +849,7 @@ pub fn build(
     proton: Option<ProtonInfo>,
 ) -> Report {
     let mut scan = without_added(scan, installed.as_ref());
-    // Only now, without BiGame-mode's own files: FSR DLLs an OptiScaler
+    // Only now, without Big Game Mode's own files: FSR DLLs an OptiScaler
     // install brought do not make the game's built-in FSR 2 go away.
     scan.read_built_in();
     let scan = &scan;
@@ -1258,7 +1258,7 @@ mod tests {
         assert_eq!(kinds(&without_added(&scan, None)).len(), 3);
 
         // A built-in FSR 2 stays the game's own after OptiScaler brought
-        // AMD's DLLs: they are BiGame-mode's, not the game's.
+        // AMD's DLLs: they are Big Game Mode's, not the game's.
         let tow = GameScan {
             executable: Some("Game.exe".into()),
             components: vec![comp(ComponentKind::FfxApi, "amd_fidelityfx_dx12.dll")],

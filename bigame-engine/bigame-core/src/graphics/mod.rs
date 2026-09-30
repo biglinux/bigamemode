@@ -4,7 +4,7 @@
 //! This is not a performance daemon. CPU, scheduler and power policy belong to
 //! falcond (see [`crate::turbo`]); this module owns what happens *inside the
 //! game*: which upscaler and frame generator it uses, and any DLL or config
-//! file BiGame-mode places in its folder to get there.
+//! file Big Game Mode places in its folder to get there.
 
 pub mod backend;
 pub mod config;
@@ -39,7 +39,7 @@ pub fn state_dir() -> PathBuf {
 }
 
 /// The installed manifest for the game that runs as `process`, if
-/// BiGame-mode placed anything in it.
+/// Big Game Mode placed anything in it.
 #[must_use]
 pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Manifest> {
     std::fs::read_dir(state).ok()?.flatten().find_map(|d| {
@@ -56,7 +56,7 @@ pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Man
     })
 }
 
-/// The process names, in lower case, of every game BiGame-mode has files
+/// The process names, in lower case, of every game Big Game Mode has files
 /// installed in: every manifest read once, for a whole library.
 #[must_use]
 pub fn installed_processes(state: &Path) -> std::collections::HashSet<String> {
@@ -115,7 +115,7 @@ fn optiscaler_frame_gen_on(m: &manifest::Manifest) -> bool {
         .is_some_and(|v| v.eq_ignore_ascii_case("true"))
 }
 
-/// Every game BiGame-mode has placed files in, as targets.
+/// Every game Big Game Mode has placed files in, as targets.
 #[must_use]
 pub fn installed() -> Vec<Target> {
     let state = state_dir();
@@ -200,7 +200,7 @@ pub struct Analysis {
     pub pending_changes: bool,
     /// `OptiScaler`'s frame generation is on in the game's own ini — what
     /// is installed, including a change made in its overlay. `None` when
-    /// BiGame-mode installed nothing.
+    /// Big Game Mode installed nothing.
     pub installed_frame_generation: Option<bool>,
     /// The Steam launch option `FSR4_UPGRADE=1` is set for this game.
     pub fsr4_upgrade_set: bool,
@@ -218,7 +218,7 @@ pub enum ChoiceState {
     NothingToApply,
     /// Chosen and not applied yet: Apply does it.
     Selected,
-    /// The choice needs nothing BiGame-mode installed here: Restore puts
+    /// The choice needs nothing Big Game Mode installed here: Restore puts
     /// the game's own files back.
     NeedsRestore,
     /// Applied; it takes effect when the game starts.
@@ -251,7 +251,7 @@ struct ChoiceFacts {
     provider_loaded: Option<bool>,
 }
 
-/// The runtime status of what BiGame-mode installed, in [`ChoiceState`]'s
+/// The runtime status of what Big Game Mode installed, in [`ChoiceState`]'s
 /// terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RuntimeStage {
@@ -528,7 +528,7 @@ pub fn status(target: &Target) -> runtime::Status {
 }
 
 /// The status for a game that is running, from its identity — no process
-/// scan. `None` when BiGame-mode has installed nothing in it.
+/// scan. `None` when Big Game Mode has installed nothing in it.
 #[must_use]
 pub fn status_running(game: &crate::running::GameIdentity) -> Option<runtime::Status> {
     let root = game.install_path.as_ref()?;
@@ -738,8 +738,8 @@ pub fn install(
 
 /// Whether what is installed in `target` differs from what `plan` would
 /// install: another file set (frame generation adds one), or another
-/// setting BiGame-mode writes in `OptiScaler.ini` (the output, the input,
-/// frame generation). The ini compared is BiGame-mode's own staged copy,
+/// setting Big Game Mode writes in `OptiScaler.ini` (the output, the input,
+/// frame generation). The ini compared is Big Game Mode's own staged copy,
 /// not the one in the game, which `OptiScaler` rewrites on every start and
 /// whose overlay changes are the user's.
 ///
@@ -940,7 +940,7 @@ pub fn go_back(target: &Target, plan: &plan::Plan) -> anyhow::Result<manifest::M
 /// The update offer for `target`: the version installed, a newer one if
 /// one is offered under `cfg`, and the version before the last update.
 /// Refreshes the release list when it is a day old — call it off the UI
-/// thread. `None` when BiGame-mode has installed nothing.
+/// thread. `None` when Big Game Mode has installed nothing.
 #[must_use]
 pub fn update_offer(target: &Target, cfg: &config::AiGraphicsConfig) -> Option<versions::Offer> {
     let m = manifest::Manifest::load(&state_dir(), &target.key()).ok()??;
@@ -961,7 +961,7 @@ pub fn update_offer(target: &Target, cfg: &config::AiGraphicsConfig) -> Option<v
     )
 }
 
-/// Remove everything BiGame-mode placed in `target`, restoring originals —
+/// Remove everything Big Game Mode placed in `target`, restoring originals —
 /// files, and the game's own settings Apply switched on.
 ///
 /// # Errors

@@ -13,7 +13,7 @@
 //! What the user may act on is decided here, by one pure rule
 //! ([`protection`]), and it is deliberately narrow: only a program of the
 //! user's own that is neither part of the system, the desktop session, the
-//! running game nor BiGame-mode. Everything else is shown without a button.
+//! running game nor Big Game Mode. Everything else is shown without a button.
 //! The rule is checked again at the moment of acting, against a process
 //! pinned by a pidfd, so a pid reused in between is never signalled.
 //!
@@ -21,11 +21,11 @@
 //! escalated:
 //!
 //! - **Close** sends `SIGTERM` — the request a window's close button or a
-//!   logout makes. A program may save, ask, or ignore it; BiGame-mode never
+//!   logout makes. A program may save, ask, or ignore it; Big Game Mode never
 //!   follows up with `SIGKILL`.
-//! - **Pause** sends `SIGSTOP`, **Resume** `SIGCONT`. What BiGame-mode paused
+//! - **Pause** sends `SIGSTOP`, **Resume** `SIGCONT`. What Big Game Mode paused
 //!   is remembered in `$XDG_STATE_HOME/bigame-mode/paused.json`, resumed
-//!   when BiGame-mode quits, and resumed at its next start if it was killed
+//!   when Big Game Mode quits, and resumed at its next start if it was killed
 //!   in between — a program is never left frozen by a crash.
 //!
 //! Only processes owned by the current user are considered. Another user's
@@ -67,7 +67,7 @@ pub enum Kind {
     Gaming,
     /// Part of the desktop session: compositor, shell, audio, portals.
     Desktop,
-    /// BiGame-mode itself.
+    /// Big Game Mode itself.
     ThisApp,
     /// Recognised as nothing in particular.
     Other,
@@ -270,7 +270,7 @@ const DESKTOP: &[&str] = &[
     "run0",
 ];
 
-/// BiGame-mode, what it drives while a game runs, and the shells that may be
+/// Big Game Mode, what it drives while a game runs, and the shells that may be
 /// hosting either. Never offered, whoever owns them.
 const ECOSYSTEM: &[&str] = &[
     "bigame*",
@@ -288,7 +288,7 @@ const ECOSYSTEM: &[&str] = &[
     "pressure-vessel*",
     "steam-runtime-*",
     // A busy shell is running a script whose parent may be a terminal the
-    // user is typing in, or BiGame-mode's own launch wrapper.
+    // user is typing in, or Big Game Mode's own launch wrapper.
     "bash",
     "sh",
     "zsh",
@@ -365,9 +365,9 @@ pub enum Protection {
     Kernel,
     /// Already exited.
     Exited,
-    /// BiGame-mode, a program it drives, or a shell.
+    /// Big Game Mode, a program it drives, or a shell.
     ThisApp,
-    /// Started BiGame-mode or was started by it, or belongs to the running
+    /// Started Big Game Mode or was started by it, or belongs to the running
     /// game: its tree, what launched it, what it launched.
     Related,
     /// A launcher or runtime a game depends on, while a game runs.
@@ -438,7 +438,7 @@ pub fn cgroup_place(path: &str) -> Place {
 }
 
 /// What must never be touched beyond what a process says about itself:
-/// BiGame-mode's own lineage and the running game's.
+/// Big Game Mode's own lineage and the running game's.
 #[derive(Debug, Clone, Default)]
 pub struct Guard {
     uid: u32,
@@ -448,7 +448,7 @@ pub struct Guard {
 }
 
 impl Guard {
-    /// The guard for this moment: BiGame-mode as it runs, and `game` if one
+    /// The guard for this moment: Big Game Mode as it runs, and `game` if one
     /// is running.
     #[must_use]
     pub fn new(game: Option<&GameIdentity>) -> Self {
@@ -520,11 +520,11 @@ impl Guard {
 ///
 /// Conservative by construction: every test that can refuse, refuses, and a
 /// process is offered only when it passes all of them — the user's own, a
-/// user program (not the kernel, the session, the system, BiGame-mode or
-/// anything it drives), unrelated to BiGame-mode and to the running game.
+/// user program (not the kernel, the session, the system, Big Game Mode or
+/// anything it drives), unrelated to Big Game Mode and to the running game.
 #[must_use]
 pub fn protection(p: &Facts, guard: &Guard) -> Option<Protection> {
-    // A BiGame-mode running as root could signal anything; that is exactly
+    // A Big Game Mode running as root could signal anything; that is exactly
     // what must not be possible, so it may signal nothing.
     if guard.uid == 0 || p.uids.is_empty() || p.uids.iter().any(|&u| u != guard.uid) {
         return Some(Protection::NotYours);
@@ -844,7 +844,7 @@ pub struct Target {
 /// Ask `target` to quit with `SIGTERM`, if [`protection`] still allows it.
 ///
 /// Only asks: a program may save, ask the user, or ignore the request, and
-/// nothing here follows up with `SIGKILL`. A program BiGame-mode had paused
+/// nothing here follows up with `SIGKILL`. A program Big Game Mode had paused
 /// is resumed after the request, since a stopped process cannot act on it.
 ///
 /// # Errors
@@ -894,7 +894,7 @@ pub fn resume(target: &Target) -> Result<()> {
     Ok(())
 }
 
-/// The processes BiGame-mode paused that are still paused. Those that exited
+/// The processes Big Game Mode paused that are still paused. Those that exited
 /// or were resumed from elsewhere are forgotten.
 #[must_use]
 pub fn paused() -> Vec<Target> {
@@ -907,7 +907,7 @@ pub fn paused() -> Vec<Target> {
     })
 }
 
-/// Resume everything BiGame-mode paused — when it quits, and at its next
+/// Resume everything Big Game Mode paused — when it quits, and at its next
 /// start if it was killed before it could. Returns how many were resumed.
 pub fn resume_all() -> usize {
     let list = with_paused(std::mem::take);
@@ -1013,7 +1013,7 @@ fn signal(target: &Target, sig: i32, check: impl Fn(&Facts) -> Result<()>) -> Re
     Ok(matches!(facts.state, 'T' | 't'))
 }
 
-// ── What BiGame-mode paused ─────────────────────────────────────────────────
+// ── What Big Game Mode paused ─────────────────────────────────────────────────
 
 /// Where the paused list is kept, so a crash cannot lose it.
 fn paused_file() -> PathBuf {
@@ -1068,7 +1068,7 @@ fn save_paused(path: &Path, list: &[Target]) -> Result<()> {
 }
 
 /// Whether process `pid` has the switch `key` on in its environment: set,
-/// and not empty or `0` (BiGame-mode turns a switch off in the session by
+/// and not empty or `0` (Big Game Mode turns a switch off in the session by
 /// setting it to `0`). No value is kept.
 #[must_use]
 pub fn env_switch_on(pid: u32, key: &str) -> bool {
@@ -1256,7 +1256,7 @@ mod tests {
         let mut unknown = app(3000, "firefox", APP_SCOPE);
         unknown.uids.clear();
         assert_eq!(protection(&unknown, &guard), Some(Protection::NotYours));
-        // A BiGame-mode running as root may signal nothing at all.
+        // A Big Game Mode running as root may signal nothing at all.
         let as_root = Guard::from_table(0, 4000, &HashMap::new(), &[]);
         let mut roots_own = app(3000, "firefox", APP_SCOPE);
         roots_own.uids = vec![0; 4];
@@ -1445,7 +1445,7 @@ mod tests {
     fn the_game_and_everything_around_it_are_never_offered() {
         // systemd --user (1000) → steam (2000) → reaper (2100) → game (2200)
         // → its child (2300); steamwebhelper (2010) beside the reaper; a
-        // browser (3000); BiGame-mode (4000) and a program it started (4100).
+        // browser (3000); Big Game Mode (4000) and a program it started (4100).
         let table = HashMap::from([
             (1000, 1),
             (2000, 1000),
@@ -1472,7 +1472,7 @@ mod tests {
             Some(Protection::GameMachinery)
         );
         assert_eq!(check(2400, "wineserver"), Some(Protection::GameMachinery));
-        // What BiGame-mode started.
+        // What Big Game Mode started.
         assert_eq!(check(4100, "journalctl"), Some(Protection::Related));
         // Unrelated to either.
         assert_eq!(check(3000, "firefox"), None);

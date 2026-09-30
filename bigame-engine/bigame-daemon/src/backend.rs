@@ -16,7 +16,7 @@
 //! Turbo left off stays off.
 //!
 //! **Ownership.** falcond may have been set up by someone else before
-//! BiGame-mode ever touched it. The first time this service changes it, the
+//! Big Game Mode ever touched it. The first time this service changes it, the
 //! state it found is recorded in [`OWNERSHIP_RECORD`], and
 //! [`release`] puts exactly that back. A release leaves [`RELEASE_RECORD`]
 //! behind, so the UI can tell "handed back" from "never taken"; the next
@@ -39,7 +39,7 @@ pub const UNIT: &str = "falcond.service";
 /// `StateDirectory`, world-readable so the UI can say who owns falcond.
 pub const OWNERSHIP_RECORD: &str = "/var/lib/bigame-mode/game-backend.json";
 
-/// Written when falcond is handed back, removed when BiGame-mode takes charge
+/// Written when falcond is handed back, removed when Big Game Mode takes charge
 /// again. World-readable, like the ownership record.
 pub const RELEASE_RECORD: &str = "/var/lib/bigame-mode/game-backend.released.json";
 
@@ -48,7 +48,7 @@ const SETTLE_TIMEOUT: Duration = Duration::from_secs(10);
 
 use bigame_core::systemd::ManagerProxy;
 
-/// The state falcond was in before BiGame-mode first changed it.
+/// The state falcond was in before Big Game Mode first changed it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ownership {
     /// Unix time the record was taken.
