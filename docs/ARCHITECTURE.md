@@ -18,7 +18,7 @@ error.
 
 | Component | Where | Responsibility |
 |---|---|---|
-| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Tuning, Details, Logs, Settings, and the Optimization Report over Home. `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
+| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Tuning, Details, Logs, Settings, and the Optimization Report over Home. The tray is a small remote over Home's actions (open, Turbo, preset, quit) with a symbolic icon the panel colours. `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
 | Core | `bigame-engine/bigame-core` (library, no UI) | Hardware and capability detection, Turbo (`turbo.rs`) and its presets (`turbo_preset.rs`: a layer of session variables over Tuning while Turbo is on — DXVK/VKD3D-Proton frame caps, Wine FSR, vkBasalt, `FSR4_UPGRADE`; native games launched by Big Game Mode are capped with MangoHud's limiter), the Booster engine (`booster/`), profiles and their migration, running-game detection (`running.rs`), recommendations (`recommend.rs`), the launch pipeline (`launcher.rs`, `gamescope.rs`), AI Graphics (`graphics/`), benchmarking (`benchmark/`), network measurement, logs, health and diagnostics. |
 | Helper | `bigame-engine/bigame-daemon` (root, system bus `com.biglinux.BiGameMode`, object `/com/biglinux/BiGameMode`) | The handful of writes the UI cannot do: `SaveProfile`, `DeleteProfile`, `ApplyFalcondConfig`, `SetVCacheMode`, `SetCpuGovernor`, `SetCpuEpp`, `SetGpuDpmLevel`, `SetGameBackend`, `ReleaseGameBackend`, plus the unauthenticated `Ping`. Started on demand by D-Bus through `bigame-daemon.service`. See [SECURITY.md](SECURITY.md). |
 | falcond | external system service | Matches game processes by name and applies their profile — performance power profile, sched-ext scheduler (through `scx_loader`), 3D V-Cache mode, idle inhibit — and restores everything when the game exits. |
@@ -229,7 +229,8 @@ of it needs root.
   game's version choice names, verify it, build the payload, apply it as a
   transaction) / Update (to a newer release, keeping the previous one to Go
   back to) / Repair (put back missing files of the installed release) /
-  Restore (remove what Big Game Mode placed and put every original back). Runtime status comes from the game's mapped libraries and an
+  Restore (remove what Big Game Mode placed and put every original back).
+  Runtime status comes from the game's mapped libraries and an
   `OptiScaler.log` written since the process started. The page tells
   *selected* (not applied), *configured* (applied, game not running),
   *loaded*, *active* and *failed* apart (`graphics::choice_state`); its
@@ -449,7 +450,7 @@ directory.
 | `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper) |
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before Big Game Mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
-| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
+| `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml` (Tuning's launch settings), `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
@@ -477,13 +478,15 @@ directory.
 - Activation applies the profile and deactivation puts the previous state
   back; SIGTERM deactivates before exit; SIGHUP reloads and re-reads
   `user/`, but applies the global scheduler and 3D V-Cache mode only at
-  start-up, so the helper restarts falcond when one of those changes. The **power profile it puts back is the one in use when the
-  service started**, not the one before the game: on the reference desktop,
+  start-up, so the helper restarts falcond when one of those changes. The
+  **power profile it puts back is the one in use when the service
+  started**, not the one before the game: on the reference desktop,
   falcond started in balanced, the profile was switched to power-saver, a
   profiled process ran and balanced came back; started in performance, every
   game ended in performance. Turbo off and on again makes falcond take the
-  current profile as its baseline. The helper reloads falcond with SIGHUP through systemd,
-  never with a restart, which would tear down a running game's profile.
+  current profile as its baseline. For profile changes the helper reloads
+  falcond with SIGHUP through systemd, never with a restart, which would
+  tear down a running game's profile.
 - If falcond is killed with SIGKILL while a profile is active, systemd restarts
   it and the new instance snapshots the boosted state. Big Game Mode does not
   paper over that with a second writer; Details → Problems warns when
