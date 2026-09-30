@@ -130,8 +130,6 @@ pub enum Skipped {
         #[serde(serialize_with = "as_english", deserialize_with = "text_or_english")]
         detail: Text,
     },
-    /// Measurement on this machine showed the knob makes things worse.
-    ///
     /// Another component is the single writer of this state, so Booster
     /// leaves it alone.
     ///
