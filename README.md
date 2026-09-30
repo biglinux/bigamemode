@@ -373,7 +373,7 @@ no teste t de Welch a 95 %):
   (88,9 → 51,8) e 55 % em x3, por isso nunca é ligado sozinho.
 
 Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Os
-dados brutos de cada sessão ficam em `bigame-engine/benchmarks/`.
+dados brutos de cada sessão ficam no [histórico do repositório](https://github.com/biglinux/bigamemode/tree/fbd0d56/bigame-engine/benchmarks).
 
 ## 🌍 Idiomas
 
