@@ -128,16 +128,6 @@ pub fn find(choices: &[Choice], id: &str) -> Option<Choice> {
     choices.iter().copied().find(|c| c.id == id)
 }
 
-/// Where `id` sits in `choices`; the first when it is not there.
-#[must_use]
-pub fn index_of(choices: &[Choice], id: &str) -> u32 {
-    choices
-        .iter()
-        .position(|c| c.id == id)
-        .and_then(|i| u32::try_from(i).ok())
-        .unwrap_or(0)
-}
-
 // ── Where a value comes from ────────────────────────────────────────────────
 
 /// Who decides an effective value.
@@ -1088,8 +1078,6 @@ mod tests {
         {
             assert!(!c.label.is_empty() && !c.help.is_empty(), "{}", c.id);
         }
-        assert_eq!(index_of(SCHEDULER_MODES, "latency"), 3);
-        assert_eq!(index_of(SCHEDULER_MODES, "bogus"), 0);
         assert_eq!(find(VCACHE_MODES, "freq").map(|c| c.id), Some("freq"));
     }
 

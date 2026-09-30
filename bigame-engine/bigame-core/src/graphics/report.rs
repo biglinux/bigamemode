@@ -332,12 +332,6 @@ impl Native {
             .copied()
             .find(|b| b.runs_without_a_dll())
     }
-
-    /// Any FSR the game can run, from a DLL or built in.
-    #[must_use]
-    pub fn has_fsr(&self) -> bool {
-        self.fsr.is_some() || self.built_in_fsr().is_some()
-    }
 }
 
 /// The Proton prefix a Windows game runs in, and what it holds.
@@ -1275,7 +1269,7 @@ mod tests {
             ..Native::default()
         };
         assert_eq!(n.built_in_fsr(), Some(super::BuiltIn::Fsr2));
-        assert!(n.has_fsr() && n.fsr.is_none());
+        assert!(n.fsr.is_none());
     }
 
     #[test]

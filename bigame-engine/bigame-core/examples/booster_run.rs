@@ -60,7 +60,6 @@ async fn main() -> anyhow::Result<()> {
                 report.verified_count(),
                 report.failed_count()
             );
-            println!("performance: {}", report.performance_claim());
         }
         "off" => {
             for o in BoosterEngine::deactivate().await? {

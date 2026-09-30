@@ -170,15 +170,8 @@ pub fn levers(preset: Preset, machine: Machine) -> Levers {
     }
 }
 
-/// The variables only a preset sets; they are never in `environment.d`.
-pub const PRESET_KEYS: &[&str] = &[
-    "DXVK_CONFIG",
-    "VKD3D_FRAME_RATE",
-    "FSR4_UPGRADE",
-    "PROTON_FSR4_UPGRADE",
-];
-
-/// The variables only a preset sets ([`PRESET_KEYS`]) for `levers`.
+/// The variables only a preset sets for `levers`; they are never in
+/// `environment.d`.
 #[must_use]
 pub fn preset_env(levers: Levers) -> HashMap<String, String> {
     let mut env = HashMap::new();

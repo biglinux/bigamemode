@@ -158,12 +158,6 @@ impl Outcome {
             ),
         }
     }
-
-    /// [`Self::describe_text`] in English.
-    #[must_use]
-    pub fn describe(&self) -> String {
-        self.describe_text().english()
-    }
 }
 
 /// The result of one Booster activation.
@@ -175,8 +169,6 @@ pub struct Report {
     pub applied: Vec<AppliedChange>,
     /// Candidates that were considered and rejected, with reasons.
     pub skipped: Vec<Skipped>,
-    /// Measured results. Empty means nothing was benchmarked.
-    pub measurements: Vec<Outcome>,
 }
 
 impl Report {
@@ -225,19 +217,6 @@ impl Report {
             ),
             ReportState::Failed => "No optimization could be applied".into(),
         }
-    }
-
-    /// The honest one-liner about performance.
-    #[must_use]
-    pub fn performance_claim(&self) -> String {
-        if self.measurements.is_empty() {
-            return Outcome::NotMeasured.describe();
-        }
-        self.measurements
-            .iter()
-            .map(Outcome::describe)
-            .collect::<Vec<_>>()
-            .join("\n")
     }
 }
 
@@ -316,40 +295,6 @@ mod tests {
     }
 
     #[test]
-    fn performance_is_never_claimed_without_a_measurement() {
-        let report = Report {
-            machine: "bench".into(),
-            applied: vec![ok_change(Knob::PowerProfile)],
-            skipped: Vec::new(),
-            measurements: Vec::new(),
-        };
-        assert_eq!(report.verified_count(), 1);
-        // One verified change, and still no performance claim.
-        assert_eq!(
-            report.performance_claim(),
-            "Performance impact not measured"
-        );
-        assert!(!report.performance_claim().contains('%'));
-    }
-
-    #[test]
-    fn measured_results_are_reported_with_their_units() {
-        let report = Report {
-            measurements: vec![Outcome::Improved {
-                metric: "P99 frametime".into(),
-                before: 18.4,
-                after: 15.6,
-                unit: "ms".into(),
-            }],
-            ..Report::default()
-        };
-        assert_eq!(
-            report.performance_claim(),
-            "P99 frametime: 18.4 ms → 15.6 ms"
-        );
-    }
-
-    #[test]
     fn a_regression_is_reported_as_a_regression() {
         let o = Outcome::Regressed {
             metric: "1% low".into(),
@@ -357,7 +302,7 @@ mod tests {
             after: 72.0,
             unit: "fps".into(),
         };
-        assert!(o.describe().contains("worse"));
+        assert!(o.describe_text().english().contains("worse"));
     }
 
     #[test]
@@ -366,7 +311,8 @@ mod tests {
             Outcome::NoChange {
                 metric: "Average FPS".into()
             }
-            .describe(),
+            .describe_text()
+            .english(),
             "Average FPS: no measurable change"
         );
     }

@@ -140,8 +140,6 @@ impl Backend {
 pub enum Maturity {
     /// Ran, rendered, was measured on a Big Game Mode test machine.
     VerifiedHere,
-    /// Documented upstream; not verified by Big Game Mode.
-    Documented,
     /// Reported to work, or not established at all.
     Experimental,
 }

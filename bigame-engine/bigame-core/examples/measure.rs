@@ -59,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("\n  measured noise floor: {:.1}%", m.noise_floor * 100.0);
     for o in &m.outcomes {
-        println!("  {}", o.describe());
+        println!("  {}", o.describe_text().english());
     }
     Ok(())
 }

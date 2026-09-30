@@ -220,31 +220,6 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<&'static str> {
     errors
 }
 
-/// List all profile names from system + user directories.
-///
-/// User profiles override system ones (same filename = same profile).
-#[must_use]
-pub fn list_names() -> Vec<String> {
-    let mut names = Vec::new();
-    for dir in [Path::new(USER_PROFILES_DIR), Path::new(SYSTEM_PROFILES_DIR)] {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().is_some_and(|e| e == "conf") {
-                    if let Some(stem) = path.file_stem() {
-                        let name = stem.to_string_lossy().into_owned();
-                        if !names.contains(&name) {
-                            names.push(name);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    names.sort();
-    names
-}
-
 /// One profile on disk, as the library sees it.
 ///
 /// falcond matches a process against the profile's `name` field, and the
