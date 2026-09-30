@@ -183,7 +183,7 @@ def build_pot() -> str:
         'msgid ""',
         'msgstr ""',
         '"Project-Id-Version: bigame-mode\\n"',
-        '"Report-Msgid-Bugs-To: https://github.com/ruscher/bigamemode/issues\\n"',
+        '"Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\\n"',
         f'"POT-Creation-Date: {date}\\n"',
         '"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n"',
         '"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n"',

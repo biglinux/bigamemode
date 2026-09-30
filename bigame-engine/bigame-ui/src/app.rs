@@ -427,7 +427,7 @@ fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> 
 
 /// Where the project lives: the About dialog's website, and the base of its
 /// issue tracker.
-const WEBSITE: &str = "https://github.com/ruscher/bigamemode";
+const WEBSITE: &str = "https://github.com/biglinux/bigamemode";
 
 /// Present the About dialog.
 fn show_about_dialog(app: &adw::Application) {

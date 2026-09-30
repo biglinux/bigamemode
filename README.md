@@ -8,7 +8,7 @@
 Turbo com um clique e um preset, perfis por jogo, Gráficos com IA e uma página
 que mostra, com evidência, o que está mesmo em vigor.
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.2.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.2.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -332,7 +332,7 @@ sudo pacman -Sy
 
 ```bash
 sudo pacman -S --needed base-devel git
-git clone https://github.com/ruscher/bigamemode.git
+git clone https://github.com/biglinux/bigamemode.git
 cd bigamemode
 makepkg -si
 ```

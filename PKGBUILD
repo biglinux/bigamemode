@@ -6,7 +6,7 @@ pkgver=2.2.0
 pkgrel=1
 pkgdesc="Gaming mode for BigLinux: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets, in a GTK4/libadwaita app"
 arch=('x86_64')
-url="https://github.com/ruscher/bigamemode"
+url="https://github.com/biglinux/bigamemode"
 license=('GPL-3.0-or-later')
 depends=(
     # Runtime libraries the two binaries link against.
