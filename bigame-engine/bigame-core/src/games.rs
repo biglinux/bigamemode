@@ -1648,7 +1648,7 @@ mod tests {
     #[test]
     fn launchers_tools_and_hidden_entries_are_not_games() {
         let steam_shortcut = "[Desktop Entry]\nType=Application\nName=Hades\nExec=steam steam://rungameid/1145360\nCategories=Game;\n";
-        let bigame = "[Desktop Entry]\nType=Application\nName=BiGame-mode\nExec=bigame-ui\nCategories=Game;System;Settings;\n";
+        let bigame = "[Desktop Entry]\nType=Application\nName=Big Game Mode\nExec=bigame-ui\nCategories=Game;System;Settings;\n";
         let hidden =
             "[Desktop Entry]\nType=Application\nName=X\nExec=x\nNoDisplay=true\nCategories=Game;\n";
         let editor = "[Desktop Entry]\nType=Application\nName=Kate\nExec=kate %U\nCategories=Qt;KDE;Utility;TextEditor;\n";

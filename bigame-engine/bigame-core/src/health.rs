@@ -198,7 +198,7 @@ pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
     };
     let values = [
         Arg::from(vendor),
-        Arg::from(&gpu.card),
+        Arg::from(gpu.node()),
         Arg::Text(offload.label()),
     ];
     Some(check(
@@ -207,14 +207,14 @@ pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
         if prime_run {
             Text::with(
                 N_(
-                    "games render on the %s GPU (%s); games BiGame-mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options",
+                    "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options",
                 ),
                 values,
             )
         } else {
             Text::with(
                 N_(
-                    "games render on the %s GPU (%s); games BiGame-mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options",
+                    "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options",
                 ),
                 values,
             )
@@ -435,7 +435,7 @@ pub fn collect() -> Vec<Check> {
         check(
             N_("Feral GameMode"),
             Status::Warning,
-            N_("installed alongside falcond; BiGame-mode does not use it, because two controllers would save and restore the same settings"),
+            N_("installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"),
             None,
         )
     } else {
@@ -563,9 +563,14 @@ pub fn collect() -> Vec<Check> {
         .ok()
         .and_then(|p| p.ping().ok());
     out.push(match helper {
-        Some(_) => check(N_("BiGame-mode helper"), Status::Ok, N_("reachable"), None),
+        Some(_) => check(
+            N_("Big Game Mode helper"),
+            Status::Ok,
+            N_("reachable"),
+            None,
+        ),
         None => check(
-            N_("BiGame-mode helper"),
+            N_("Big Game Mode helper"),
             Status::Error,
             N_("not reachable: Turbo and profile changes cannot be made"),
             cmd("sudo systemctl restart bigame-daemon"),
@@ -627,7 +632,7 @@ fn resizable_bar(bar: u64, vram: u64) -> Check {
                 [size(bar), size(vram)],
             ),
             advice(N_(
-                "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and BiGame-mode does not change firmware settings",
+                "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and Big Game Mode does not change firmware settings",
             )),
         )
     }

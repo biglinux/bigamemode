@@ -254,37 +254,50 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     filters.set_margin_bottom(12);
     filters.append(&top);
     filters.append(&status_filter);
+
+    // Creating a profile: the wizard is the way to recommend — every option
+    // explained, one step at a time — so it is the main button, with a
+    // second line that says so; a blank profile is the alternative beside it.
+    let wizard_btn = wizard_button();
+    let add_btn = gtk4::Button::builder()
+        .child(
+            &adw::ButtonContent::builder()
+                .icon_name("list-add-symbolic")
+                .label(i18n("New Profile"))
+                .build(),
+        )
+        .tooltip_text(i18n("A blank profile, every option set by hand"))
+        .css_classes(["flat", "pill"])
+        .valign(gtk4::Align::Center)
+        .build();
+    let create = adw::WrapBox::builder()
+        .child_spacing(8)
+        .line_spacing(8)
+        .margin_bottom(12)
+        .build();
+    create.append(&wizard_btn);
+    create.append(&add_btn);
+    group.add(&create);
     group.add(&filters);
     group.add(&stack);
 
-    // Action buttons
-    let wizard_btn = gtk4::Button::builder()
-        .label(i18n("Create with Wizard"))
-        .tooltip_text(i18n(
-            "A guided profile: every option explained, for a game you pick",
-        ))
-        .css_classes(["flat"])
-        .build();
-    let add_btn = gtk4::Button::builder()
-        .icon_name("list-add-symbolic")
-        .tooltip_text(i18n("New Profile"))
-        .css_classes(["circular", "flat"])
-        .build();
     let import_btn = gtk4::Button::builder()
         .icon_name("document-open-symbolic")
         .tooltip_text(i18n("Import Profile"))
         .css_classes(["circular", "flat"])
         .build();
+    import_btn.update_property(&[gtk4::accessible::Property::Label(&i18n("Import Profile"))]);
     let refresh_btn = gtk4::Button::builder()
         .icon_name("view-refresh-symbolic")
         .tooltip_text(i18n("Rescan game library"))
         .css_classes(["circular", "flat"])
         .build();
+    refresh_btn.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Rescan game library",
+    ))]);
     let hdr = gtk4::Box::builder().spacing(4).build();
-    hdr.append(&wizard_btn);
     hdr.append(&refresh_btn);
     hdr.append(&import_btn);
-    hdr.append(&add_btn);
     group.set_header_suffix(Some(&hdr));
     page.add(&group);
 
@@ -488,6 +501,43 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         .build()
 }
 
+/// The wizard's button: the recommended way to make a profile, said on it.
+fn wizard_button() -> gtk4::Button {
+    let icon = gtk4::Image::from_icon_name("bigame-wizard-symbolic");
+    icon.set_pixel_size(20);
+    icon.set_accessible_role(gtk4::AccessibleRole::Presentation);
+    let title = gtk4::Label::builder()
+        .label(i18n("Create with Wizard"))
+        .xalign(0.0)
+        .css_classes(["heading"])
+        .build();
+    let subtitle = gtk4::Label::builder()
+        .label(i18n("Recommended · every option explained"))
+        .xalign(0.0)
+        .wrap(true)
+        .css_classes(["caption"])
+        .build();
+    let lines = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    lines.set_valign(gtk4::Align::Center);
+    lines.append(&title);
+    lines.append(&subtitle);
+    let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+    content.append(&icon);
+    content.append(&lines);
+    let button = gtk4::Button::builder()
+        .child(&content)
+        .tooltip_text(i18n(
+            "A guided profile: every option explained, for a game you pick",
+        ))
+        .css_classes(["suggested-action", "wizard-button"])
+        .build();
+    button.update_property(&[
+        gtk4::accessible::Property::Label(&i18n("Create with Wizard")),
+        gtk4::accessible::Property::Description(&i18n("Recommended · every option explained")),
+    ]);
+    button
+}
+
 /// The editor for the profile in file `stem`, each part read from its owner
 /// (`GameOptimization::load`). `card` is the game's card, when the editor
 /// was opened from one: its title and install folder.
@@ -587,55 +637,51 @@ fn build_editor(
     bar.append(&save_btn);
 
     let shared = Rc::new(RefCell::new(g));
-    {
+    // The profile is on disk: it was opened, or has been saved since.
+    let exists = Rc::new(std::cell::Cell::new(!is_new));
+    // What the page shows now, as a profile, or why it cannot be saved.
+    let edited: Rc<dyn Fn() -> Result<GameOptimization, String>> = {
         let (shared, fields) = (Rc::clone(&shared), Rc::clone(&fields));
-        save_btn.connect_clicked(move |btn| {
+        Rc::new(move || {
             let mut g = shared.borrow().clone();
             name_row.text().trim().clone_into(&mut g.profile.name);
             fields.apply(&mut g);
-            let (errors, warnings) = g.problems();
-            if !errors.is_empty() {
-                let errors: Vec<String> = errors.iter().map(|e| i18n(e)).collect();
-                crate::widgets::toast::error(
-                    btn,
-                    &i18n("The profile was not saved"),
-                    &errors.join("\n"),
-                );
-                return;
+            let (errors, _) = g.problems();
+            if errors.is_empty() {
+                Ok(g)
+            } else {
+                Err(errors
+                    .iter()
+                    .map(|e| i18n(e))
+                    .collect::<Vec<_>>()
+                    .join("\n"))
             }
+        })
+    };
+    {
+        let (shared, edited, exists) = (Rc::clone(&shared), Rc::clone(&edited), Rc::clone(&exists));
+        save_btn.connect_clicked(move |btn| {
+            let g = match edited() {
+                Ok(g) => g,
+                Err(errors) => {
+                    crate::widgets::toast::error(btn, &i18n("The profile was not saved"), &errors);
+                    return;
+                }
+            };
+            let (_, warnings) = g.problems();
             if !warnings.is_empty() {
                 let soft: Vec<String> = warnings.iter().map(|w| i18n(w)).collect();
                 toast::show(btn, &format!("⚠ {}", soft.join("; ")));
             }
             btn.set_sensitive(false);
             btn.set_label(&i18n("Saving…"));
-            let (btn, shared) = (btn.clone(), Rc::clone(&shared));
-            glib::spawn_future_local(async move {
-                // Off the main thread: the call may wait on a Polkit password
-                // prompt, and the window must keep drawing meanwhile.
-                let result = gio::spawn_blocking(move || {
-                    let mut g = g;
-                    g.save().map(|report| (g, report))
-                })
-                .await;
-                match result {
-                    Ok(Ok((saved, report))) => {
-                        *shared.borrow_mut() = saved;
-                        crate::widgets::optimization::report_save(&btn, &report);
-                    }
-                    Ok(Err(e)) => crate::widgets::toast::error(
-                        &btn,
-                        &i18n("The profile was not saved"),
-                        &error_text(&e),
-                    ),
-                    Err(_) => crate::widgets::toast::error(
-                        &btn,
-                        &i18n("The profile was not saved"),
-                        &i18n("the worker thread stopped"),
-                    ),
+            let (b, exists) = (btn.clone(), Rc::clone(&exists));
+            save_profile(btn.upcast_ref(), &shared, g, move |saved| {
+                if saved {
+                    exists.set(true);
                 }
-                btn.set_sensitive(true);
-                btn.set_label(&i18n("Save Profile"));
+                b.set_sensitive(true);
+                b.set_label(&i18n("Save Profile"));
             });
         });
     }
@@ -644,6 +690,17 @@ fn build_editor(
     let detail_header = adw::HeaderBar::new();
     detail_header.set_show_end_title_buttons(false);
     detail_header.set_show_start_title_buttons(false);
+    // Start the game from here, with Turbo and this profile: the same launch
+    // as the card's "Launch (Turbo)".
+    if let Some(entry) = card.filter(|c| c.launch.is_some()) {
+        detail_header.pack_end(&launch_button(
+            entry.clone(),
+            &shared,
+            &edited,
+            &exists,
+            &save_btn,
+        ));
+    }
     if !is_new {
         add_header_actions(&detail_header, &shared.borrow().profile.name);
     }
@@ -659,6 +716,207 @@ fn build_editor(
         })
         .child(&toolbar)
         .build()
+}
+
+/// Save `g` off the main thread — the helper may wait on a Polkit password
+/// prompt, and the window must keep drawing meanwhile — keep it as the
+/// page's profile, and say what took. `done` is told whether it was saved.
+fn save_profile(
+    anchor: &gtk4::Widget,
+    shared: &Rc<RefCell<GameOptimization>>,
+    g: GameOptimization,
+    done: impl FnOnce(bool) + 'static,
+) {
+    let (anchor, shared) = (anchor.clone(), Rc::clone(shared));
+    glib::spawn_future_local(async move {
+        let result = gio::spawn_blocking(move || {
+            let mut g = g;
+            g.save().map(|report| (g, report))
+        })
+        .await;
+        let saved = match result {
+            Ok(Ok((saved, report))) => {
+                *shared.borrow_mut() = saved;
+                crate::widgets::optimization::report_save(&anchor, &report);
+                true
+            }
+            Ok(Err(e)) => {
+                crate::widgets::toast::error(
+                    &anchor,
+                    &i18n("The profile was not saved"),
+                    &error_text(&e),
+                );
+                false
+            }
+            Err(_) => {
+                crate::widgets::toast::error(
+                    &anchor,
+                    &i18n("The profile was not saved"),
+                    &i18n("the worker thread stopped"),
+                );
+                false
+            }
+        };
+        done(saved);
+    });
+}
+
+/// "Launch (Turbo)" at the head of a game's profile.
+///
+/// It checks the profile, offers to save what is not saved yet (a profile
+/// that is not saved does not apply), switches Turbo on through Home's
+/// `app.turbo` when it is off, and starts the game as its card does.
+fn launch_button(
+    entry: game_card::Entry,
+    shared: &Rc<RefCell<GameOptimization>>,
+    edited: &Rc<dyn Fn() -> Result<GameOptimization, String>>,
+    exists: &Rc<std::cell::Cell<bool>>,
+    save_btn: &gtk4::Button,
+) -> gtk4::Button {
+    let button = gtk4::Button::builder()
+        .child(
+            &adw::ButtonContent::builder()
+                .icon_name("media-playback-start-symbolic")
+                .label(i18n("Launch (Turbo)"))
+                .build(),
+        )
+        .tooltip_text(i18n("Start this game with Turbo on and this profile"))
+        .css_classes(["suggested-action"])
+        .build();
+    let (shared, edited, exists, save_btn) = (
+        Rc::clone(shared),
+        Rc::clone(edited),
+        Rc::clone(exists),
+        save_btn.clone(),
+    );
+    button.connect_clicked(move |btn| {
+        let g = match edited() {
+            Ok(g) => g,
+            Err(errors) => {
+                crate::widgets::toast::error(
+                    btn,
+                    &i18n("The game was not started: the profile has errors"),
+                    &errors,
+                );
+                return;
+            }
+        };
+        let anchor: gtk4::Widget = btn.clone().upcast();
+        let entry = entry.clone();
+        let is_saved = exists.get() && g == *shared.borrow();
+        if is_saved {
+            with_turbo(&anchor, entry);
+            return;
+        }
+        // Unsaved changes: saved first, or left behind on purpose.
+        let dialog = adw::AlertDialog::builder()
+            .heading(i18n("Save the profile first?"))
+            .body(i18n(
+                "The game gets this profile only once it is saved. Without saving, it starts with the profile as it was.",
+            ))
+            .build();
+        dialog.add_response("cancel", &i18n("Cancel"));
+        dialog.add_response("launch", &i18n("Launch without saving"));
+        dialog.add_response("save", &i18n("Save and launch"));
+        dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("save"));
+        dialog.set_close_response("cancel");
+        let (shared, exists, save_btn) = (Rc::clone(&shared), Rc::clone(&exists), save_btn.clone());
+        dialog.connect_response(None, move |_, response| match response {
+            "launch" => with_turbo(&anchor, entry.clone()),
+            "save" => {
+                save_btn.set_sensitive(false);
+                let (anchor, entry, save_btn, exists) =
+                    (anchor.clone(), entry.clone(), save_btn.clone(), Rc::clone(&exists));
+                save_profile(&anchor.clone(), &shared, g.clone(), move |saved| {
+                    save_btn.set_sensitive(true);
+                    if saved {
+                        exists.set(true);
+                        with_turbo(&anchor, entry);
+                    }
+                });
+            }
+            _ => {}
+        });
+        dialog.present(Some(btn));
+    });
+    button
+}
+
+/// Switch Turbo on when it is off — through Home's `app.turbo`, the one
+/// switch — and start `entry`'s game once it has settled. A Turbo that
+/// could not be switched on is said, and the game starts all the same.
+fn with_turbo(anchor: &gtk4::Widget, entry: game_card::Entry) {
+    let Some(app) = gio::Application::default() else {
+        launch_game(&entry, anchor);
+        return;
+    };
+    let turbo_on = || {
+        app.action_state("turbo")
+            .and_then(|v| v.get::<bool>())
+            .unwrap_or(false)
+    };
+    if turbo_on() {
+        launch_game(&entry, anchor);
+        return;
+    }
+    // Settled: the action takes requests again. Then on or not, the game
+    // starts, once.
+    let pending = Rc::new(RefCell::new(Some((entry, anchor.clone()))));
+    let handlers: Rc<RefCell<Vec<glib::SignalHandlerId>>> = Rc::new(RefCell::new(Vec::new()));
+    let settle = {
+        let (pending, handlers) = (Rc::clone(&pending), Rc::clone(&handlers));
+        Rc::new(move |app: &gio::Application| {
+            if !app.is_action_enabled("turbo") {
+                return;
+            }
+            let Some((entry, anchor)) = pending.borrow_mut().take() else {
+                return;
+            };
+            for id in handlers.borrow_mut().drain(..) {
+                app.disconnect(id);
+            }
+            let on = app
+                .action_state("turbo")
+                .and_then(|v| v.get::<bool>())
+                .unwrap_or(false);
+            if !on {
+                toast::show(
+                    &anchor,
+                    &i18n(
+                        "Turbo could not be switched on; the game starts without its profile. See Home.",
+                    ),
+                );
+            }
+            launch_game(&entry, &anchor);
+        })
+    };
+    {
+        let settle = Rc::clone(&settle);
+        handlers
+            .borrow_mut()
+            .push(
+                app.connect_action_enabled_changed(Some("turbo"), move |group, _, _| {
+                    if let Some(app) = group.downcast_ref::<gio::Application>() {
+                        settle(app);
+                    }
+                }),
+            );
+    }
+    toast::show(anchor, &i18n("Switching Turbo on…"));
+    app.change_action_state("turbo", &true.to_variant());
+    // Asked while Turbo was already switching: it settles on its own.
+    if !app.is_action_enabled("turbo") {
+        return;
+    }
+    // The request did not start a switch (it was refused): start anyway.
+    glib::idle_add_local_once(move || {
+        if let Some(app) = gio::Application::default() {
+            if app.is_action_enabled("turbo") && pending.borrow().is_some() {
+                settle(&app);
+            }
+        }
+    });
 }
 
 /// Advanced, last as in Tuning: the process name (for a profile that
@@ -694,7 +952,7 @@ fn advanced_group(
         format!("{}/{stem}.conf", bigame_core::profiles::USER_PROFILES_DIR),
         "text-x-generic-symbolic",
         &i18n(
-            "falcond's profile for this game: performance mode, the scheduler, 3D V-Cache and whether Gamescope wraps it. It is root's file, so BiGame-mode writes it through its privileged helper, which may ask for your password, and falcond reloads it.",
+            "falcond's profile for this game: performance mode, the scheduler, 3D V-Cache and whether Gamescope wraps it. It is root's file, so Big Game Mode writes it through its privileged helper, which may ask for your password, and falcond reloads it.",
         ),
     ));
     group.add(&file(
@@ -705,7 +963,7 @@ fn advanced_group(
             .into_owned(),
         "folder-symbolic",
         &i18n(
-            "BiGame-mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What BiGame-mode wrote into Steam's launch options or Heroic's settings is recorded there, so it changes or removes exactly that.",
+            "Big Game Mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What Big Game Mode wrote into Steam's launch options or Heroic's settings is recorded there, so it changes or removes exactly that.",
         ),
     ));
     if reach == ui::Reach::Steam && !process.is_empty() {
@@ -714,7 +972,7 @@ fn advanced_group(
             i18n("Reading…"),
             "utilities-terminal-symbolic",
             &i18n(
-                "What Steam gives this game when it starts it. When you save, BiGame-mode puts its Gamescope wrapper and its variables here (with Steam closed) and takes out only what it put there; the rest is yours.",
+                "What Steam gives this game when it starts it. When you save, Big Game Mode puts its Gamescope wrapper and its variables here (with Steam closed) and takes out only what it put there; the rest is yours.",
             ),
         );
         group.add(&row);
@@ -735,7 +993,7 @@ fn advanced_group(
             i18n("Reading…"),
             "text-x-generic-symbolic",
             &i18n(
-                "The file Heroic keeps this game's settings in. When you save, BiGame-mode writes the game's own Gamescope, Wine FSR and vkBasalt there (with Heroic closed, after keeping a copy of your file) and later takes out only what it wrote; the rest is yours.",
+                "The file Heroic keeps this game's settings in. When you save, Big Game Mode writes the game's own Gamescope, Wine FSR and vkBasalt there (with Heroic closed, after keeping a copy of your file) and later takes out only what it wrote; the rest is yours.",
             ),
         );
         group.add(&row);
@@ -1062,7 +1320,7 @@ fn launch_directly(
                 tracing::info!(game = %title, "launch succeeded");
                 toast::show(
                     &anchor,
-                    &i18n("%s started with BiGame-mode's launch settings").replace("%s", &title),
+                    &i18n("%s started with Big Game Mode's launch settings").replace("%s", &title),
                 );
             }
             Ok(Err(e)) => launch_failed(&anchor, &title, &error_text(&e)),
@@ -1109,7 +1367,7 @@ fn launch_through(
                     )
                 } else {
                     i18n(
-                        "Asked %l to start %s. Its profile applies; BiGame-mode's launch settings do not reach a game its launcher starts.",
+                        "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts.",
                     )
                 };
                 toast::show(&anchor, &text.replace("%l", by).replace("%s", &title));

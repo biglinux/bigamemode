@@ -41,6 +41,14 @@ pub fn drain_tray_actions() {
                         w.present();
                     }
                 }
+                // The same actions Home's button and picker answer to: the
+                // tray never switches anything beside them.
+                tray::TrayAction::SetTurbo(on) => {
+                    app.change_action_state("turbo", &on.to_variant());
+                }
+                tray::TrayAction::SetPreset(preset) => {
+                    app.change_action_state("turbo-preset", &preset.id().to_variant());
+                }
                 tray::TrayAction::Quit => app.quit(),
             }
         }
@@ -50,7 +58,11 @@ pub fn drain_tray_actions() {
 /// Reverse-domain application identifier.
 pub(crate) const APP_ID: &str = "com.biglinux.BiGameMode";
 
-/// Create, configure, and run the BiGame-mode application.
+/// The product's name, as people see it. Identifiers — the application id,
+/// the D-Bus names, the package, the paths — keep their technical names.
+pub(crate) const NAME: &str = "Big Game Mode";
+
+/// Create, configure, and run the Big Game Mode application.
 ///
 /// The app stays alive in the background after the window is closed.
 /// Re-activating (e.g. via desktop file) will re-present the window.
@@ -65,7 +77,7 @@ pub fn run() -> adw::glib::ExitCode {
 
     // The name notifications and the desktop show; left unset, GLib uses the
     // program name and notifications are signed "bigame-ui".
-    adw::glib::set_application_name("BiGame-mode");
+    adw::glib::set_application_name(NAME);
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|app| {
@@ -164,6 +176,8 @@ pub fn run() -> adw::glib::ExitCode {
             // Tray actions arrive when the tray thread wakes the main loop.
             TRAY.with(|t| *t.borrow_mut() = Some((tray_rx, app.downgrade())));
 
+            let tray_handle = std::rc::Rc::new(tray_handle);
+            follow_turbo(app, &tray_handle);
             start_status_loop(tray_handle, error_indicator);
         }
     });
@@ -179,9 +193,63 @@ pub fn run() -> adw::glib::ExitCode {
     app.run_with_args(&args)
 }
 
-/// Keep the tray and the error indicator in step with the real state.
+/// Keep the tray's Turbo and preset in step with Home's `app.turbo` and
+/// `app.turbo-preset`, as their state changes: no polling.
+fn follow_turbo(app: &adw::Application, tray_handle: &std::rc::Rc<tray::TrayHandle>) {
+    let show_turbo = {
+        let tray_handle = std::rc::Rc::clone(tray_handle);
+        move |app: &adw::Application| {
+            let on = app
+                .action_state("turbo")
+                .and_then(|v| v.get::<bool>())
+                .unwrap_or(false);
+            tray_handle.set_turbo(on, app.is_action_enabled("turbo"));
+        }
+    };
+    let show_preset = {
+        let tray_handle = std::rc::Rc::clone(tray_handle);
+        move |app: &adw::Application| {
+            let preset = app
+                .action_state("turbo-preset")
+                .and_then(|v| v.str().and_then(bigame_core::turbo_preset::Preset::from_id))
+                .unwrap_or_default();
+            tray_handle.set_preset(preset, app.is_action_enabled("turbo-preset"));
+        }
+    };
+    show_turbo(app);
+    show_preset(app);
+    {
+        let show = show_turbo.clone();
+        app.connect_action_state_changed(Some("turbo"), move |app, _, _| {
+            if let Some(app) = app.downcast_ref::<adw::Application>() {
+                show(app);
+            }
+        });
+    }
+    app.connect_action_enabled_changed(Some("turbo"), move |app, _, _| {
+        if let Some(app) = app.downcast_ref::<adw::Application>() {
+            show_turbo(app);
+        }
+    });
+    {
+        let show = show_preset.clone();
+        app.connect_action_state_changed(Some("turbo-preset"), move |app, _, _| {
+            if let Some(app) = app.downcast_ref::<adw::Application>() {
+                show(app);
+            }
+        });
+    }
+    app.connect_action_enabled_changed(Some("turbo-preset"), move |app, _, _| {
+        if let Some(app) = app.downcast_ref::<adw::Application>() {
+            show_preset(app);
+        }
+    });
+}
+
+/// Keep the tray's warning and the error indicator in step with the real
+/// state.
 fn start_status_loop(
-    tray_handle: tray::TrayHandle,
+    tray_handle: std::rc::Rc<tray::TrayHandle>,
     error_indicator: std::sync::Arc<crate::widgets::error_indicator::ErrorIndicator>,
 ) {
     // Tray and error indicator, from the systems that hold the state.
@@ -191,7 +259,6 @@ fn start_status_loop(
     // loop must not wait on systemd. A stopped falcond is not an error: it
     // is what Turbo off means. Only a unit systemd reports as failed is, and
     // nothing offered here deletes anything.
-    let tray_handle = std::rc::Rc::new(tray_handle);
     let busy = std::rc::Rc::new(std::cell::Cell::new(false));
     glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
         if busy.replace(true) {
@@ -230,15 +297,14 @@ fn show_status(
     tray_handle: &tray::TrayHandle,
     error_indicator: &crate::widgets::error_indicator::ErrorIndicator,
 ) {
-    let turbo_on = unit.is_some_and(bigame_core::systemd::UnitState::is_active);
     let backend_failed = unit.is_some_and(|u| u.active_state == "failed");
-    let status = if backend_failed {
+    let warning = if backend_failed {
         error_indicator.set_error(
             &i18n("falcond stopped unexpectedly"),
             &i18n("The per-game optimization service failed, so games are not being optimized."),
             &i18n("Open Logs to see why. Turning Turbo off and on again restarts it."),
         );
-        tray::Status::Warning
+        Some(i18n("falcond stopped unexpectedly"))
     } else if !missing_runtime.is_empty() {
         let missing_csv = missing_runtime.join(", ");
         let install_hint = install_missing_packages_hint(missing_runtime);
@@ -269,17 +335,13 @@ fn show_status(
                 &install_hint,
             );
         }
-        tray::Status::Warning
+        Some(i18n("Missing Runtime Dependencies"))
     } else {
         error_indicator.clear();
-        if turbo_on {
-            tray::Status::Active
-        } else {
-            tray::Status::Idle
-        }
+        None
     };
 
-    tray_handle.set_status(status);
+    tray_handle.set_warning(warning);
 }
 
 #[must_use]
@@ -305,7 +367,7 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
             "{}\n1) {}\n2) {}\n3) {}\n\n{}\n{}",
             i18n("Troubleshooting"),
             i18n("Install missing packages"),
-            i18n("Restart BiGame-mode"),
+            i18n("Restart Big Game Mode"),
             i18n("Open Details after starting a game to see what it really got"),
             i18n("Command"),
             cmd
@@ -316,7 +378,7 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
         "{}\n1) {}\n2) {}\n3) {}\n\n{}: {}",
         i18n("Troubleshooting"),
         i18n("Install missing packages with your package manager"),
-        i18n("Restart BiGame-mode"),
+        i18n("Restart Big Game Mode"),
         i18n("Open Details after starting a game to see what it really got"),
         i18n("Missing packages"),
         missing.join(", ")
@@ -370,17 +432,19 @@ const WEBSITE: &str = "https://github.com/ruscher/bigamemode";
 /// Present the About dialog.
 fn show_about_dialog(app: &adw::Application) {
     let dialog = adw::AboutDialog::builder()
-        .application_name("BiGame-mode")
+        .application_name(NAME)
         .application_icon(APP_ID)
         .version(env!("CARGO_PKG_VERSION"))
-        .developer_name("Rafael Ruscher")
+        // The line under the name: what the product is. The people who make
+        // it are in the credits.
+        .developer_name(i18n("BigLinux's game mode."))
         .website(WEBSITE)
         .issue_url(format!("{WEBSITE}/issues"))
         .license_type(gtk4::License::Gpl30)
         .comments(format!(
             "{}\n\n{}",
             i18n(
-                "BiGame-mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo.",
+                "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo.",
             ),
             i18n(
                 "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement.",
@@ -396,26 +460,29 @@ fn show_about_dialog(app: &adw::Application) {
         dialog.set_translator_credits(&translators);
     }
 
-    // libadwaita links "Name <address>" to the address and "Name https://…"
-    // to the page; a social-media handle is neither, so it stays text.
+    // libadwaita shows "Name <address>" as the name alone, with a button
+    // that writes to the address (mailto:), and "Name https://…" as a link
+    // to the page: the addresses are reachable without being printed. A
+    // social-media handle is neither, so it stays text.
     dialog.add_credit_section(
         Some(&i18n("Lead Developer")),
-        &["Rafael Ruscher · rruscher@gmail.com <rruscher@gmail.com>"],
+        &["Rafael Ruscher <rruscher@gmail.com>"],
     );
     dialog.add_credit_section(
         Some(&i18n("Special Thanks")),
         &[
-            "Bruno Gonçalves · bigbruno@gmail.com <bigbruno@gmail.com>",
-            "Barnabé di Kartola · barnabedikartola@gmail.com <barnabedikartola@gmail.com>",
+            "Bruno Gonçalves <bigbruno@gmail.com>",
+            "Barnabé di Kartola <barnabedikartola@gmail.com>",
             "Alexasandro Pacheco Feliciano (Pacheco) @pachecogameroficial",
             "Alessandro e Silva Xavier (Alessandro) @alessandro741",
+            "Narayan Silva (Nara Linux) <narayancloud@gmail.com>",
         ],
     );
     dialog.add_acknowledgement_section(
         Some(&i18n("vkBasalt configuration")),
         &["Narayan (Nara Linux) https://www.youtube.com/watch?v=GGBC-qMB_0Y"],
     );
-    // What BiGame-mode drives rather than reimplements (README, "Projetos
+    // What Big Game Mode drives rather than reimplements (README, "Projetos
     // utilizados").
     dialog.add_acknowledgement_section(
         Some(&i18n("Built on")),

@@ -47,7 +47,7 @@ pub fn dll_row(on_changed: impl Fn(bool) + 'static) -> adw::EntryRow {
         (
             i18n("Lossless Scaling is required"),
             i18n(
-                "lsfg-vk is free, but the frame generation it runs is Lossless Scaling's, a paid Windows program. lsfg-vk loads its Lossless.dll, which BiGame-mode cannot ship or download: you need your own copy, bought on Steam.",
+                "lsfg-vk is free, but the frame generation it runs is Lossless Scaling's, a paid Windows program. lsfg-vk loads its Lossless.dll, which Big Game Mode cannot ship or download: you need your own copy, bought on Steam.",
             ),
             vec![
                 Entry {
@@ -67,7 +67,7 @@ pub fn dll_row(on_changed: impl Fn(bool) + 'static) -> adw::EntryRow {
                 Entry {
                     title: i18n("Without it"),
                     body: i18n(
-                        "lsfg-vk loads and generates nothing, so BiGame-mode switches it off at launch.",
+                        "lsfg-vk loads and generates nothing, so Big Game Mode switches it off at launch.",
                     ),
                 },
             ],

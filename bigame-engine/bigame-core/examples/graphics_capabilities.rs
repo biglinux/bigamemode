@@ -33,7 +33,7 @@ fn main() {
     for b in Backend::ALL {
         let c = b.capabilities();
         println!(
-            "  {:<22} upscaling {} · neural {} · frame generation {} · managed by BiGame-mode {} · {:?}",
+            "  {:<22} upscaling {} · neural {} · frame generation {} · managed by Big Game Mode {} · {:?}",
             b.id(),
             yn(c.upscaling),
             yn(c.neural_rendering),

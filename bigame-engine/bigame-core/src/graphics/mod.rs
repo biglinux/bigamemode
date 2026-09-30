@@ -464,7 +464,7 @@ pub fn switch_game_setting_on_again(target: &Target) -> anyhow::Result<usize> {
     ensure_closed(target)?;
     let m = manifest::Manifest::load(&state_dir(), &target.key())?.ok_or_else(|| {
         UserError::with(
-            N_("BiGame-mode has installed nothing in %s"),
+            N_("Big Game Mode has installed nothing in %s"),
             [&target.name],
         )
     })?;
@@ -859,7 +859,7 @@ pub fn update(
     let cache = optiscaler::cache_dir();
     let old = manifest::Manifest::load(&state, &key)?.ok_or_else(|| {
         UserError::with(
-            N_("BiGame-mode has installed nothing in %s"),
+            N_("Big Game Mode has installed nothing in %s"),
             [&target.name],
         )
     })?;
@@ -926,7 +926,7 @@ pub fn go_back(target: &Target, plan: &plan::Plan) -> anyhow::Result<manifest::M
     let state = state_dir();
     let m = manifest::Manifest::load(&state, &target.key())?.ok_or_else(|| {
         UserError::with(
-            N_("BiGame-mode has installed nothing in %s"),
+            N_("Big Game Mode has installed nothing in %s"),
             [&target.name],
         )
     })?;
@@ -994,7 +994,7 @@ pub fn repair(target: &Target) -> anyhow::Result<Vec<PathBuf>> {
     let key = target.key();
     let m = manifest::Manifest::load(&state, &key)?.ok_or_else(|| {
         UserError::with(
-            N_("BiGame-mode has installed nothing in %s"),
+            N_("Big Game Mode has installed nothing in %s"),
             [&target.name],
         )
     })?;

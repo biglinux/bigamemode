@@ -206,7 +206,7 @@ fn notify_offer(app: &adw::Application, game: &GameIdentity) {
     let notification =
         gio::Notification::new(&i18n("%s is running").replace("%s", &game.display_name));
     notification.set_body(Some(&i18n(
-        "BiGame-mode has no profile for this game yet. Create one tuned for this machine?",
+        "Big Game Mode has no profile for this game yet. Create one tuned for this machine?",
     )));
     notification.set_default_action_and_target_value("app.profile-review", Some(&target));
     notification.add_button_with_target_value(
@@ -469,7 +469,7 @@ fn present_review(
     let dialog = adw::AlertDialog::builder()
         .heading(i18n("%s is running").replace("%s", &game.display_name))
         .body(i18n(
-            "BiGame-mode has no profile for this game yet. This is the profile it would create, and why each value was chosen.",
+            "Big Game Mode has no profile for this game yet. This is the profile it would create, and why each value was chosen.",
         ))
         .extra_child(&body)
         .build();

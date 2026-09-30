@@ -66,7 +66,7 @@ impl State {
     #[must_use]
     pub fn subtitle(&self) -> String {
         match self {
-            Self::Off => i18n("Off · BiGame-mode is not intervening in games"),
+            Self::Off => i18n("Off · Big Game Mode is not intervening in games"),
             Self::Working { step } => step.clone(),
             Self::On { detail } | Self::Partial { detail } | Self::Error { detail } => {
                 detail.clone()

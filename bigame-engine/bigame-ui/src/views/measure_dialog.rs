@@ -57,7 +57,7 @@ pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String])
                 Some(&i18n("Nothing to measure")),
                 Some(
                     &i18n(
-                        "BiGame-mode would change nothing on this machine, so %t would \
+                        "Big Game Mode would change nothing on this machine, so %t would \
                          be measured against itself. The game's profile is still \
                          applied by falcond whenever it runs.",
                     )

@@ -457,7 +457,7 @@ fn restore_or_remove(target: &Path, original: Option<&Backup>) -> Result<()> {
 /// Returns an error if there is no manifest, or a file cannot be restored.
 pub fn remove(state_dir: &Path, game_key: &str) -> Result<Vec<FileOutcome>> {
     let m = Manifest::load(state_dir, game_key)?.ok_or_else(|| {
-        UserError::with(N_("BiGame-mode has installed nothing in %s"), [game_key])
+        UserError::with(N_("Big Game Mode has installed nothing in %s"), [game_key])
     })?;
     rollback(state_dir, &m)
 }

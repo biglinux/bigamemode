@@ -86,7 +86,7 @@ fn ensure_format_supported() -> Result<()> {
     anyhow::ensure!(
         format_supported() != Some(false),
         UserError::plain(N_(
-            "the installed lsfg-vk uses a configuration format BiGame-mode does not write \
+            "the installed lsfg-vk uses a configuration format Big Game Mode does not write \
              (it writes lsfg-vk 1.x's); change it in lsfg-vk-ui instead"
         ))
     );

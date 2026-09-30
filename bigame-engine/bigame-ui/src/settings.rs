@@ -156,7 +156,7 @@ pub fn set_starts_at_login(enabled: bool) -> std::io::Result<()> {
     }
     std::fs::write(
         path,
-        "[Desktop Entry]\nType=Application\nName=BiGame-mode\nExec=bigame-ui --background\n\
+        "[Desktop Entry]\nType=Application\nName=Big Game Mode\nExec=bigame-ui --background\n\
          Icon=com.biglinux.BiGameMode\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
     )
 }

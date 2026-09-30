@@ -132,7 +132,7 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             Evidence::UpstreamDefault,
             N_(
                 "switches to the performance power profile while the game runs and back \
-             afterwards, as falcond's own profiles do; in BiGame-mode's measurements \
+             afterwards, as falcond's own profiles do; in Big Game Mode's measurements \
              it was no faster than balanced, so it is not a speed claim",
             ),
         )

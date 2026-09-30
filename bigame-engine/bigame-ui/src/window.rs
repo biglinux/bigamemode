@@ -103,7 +103,11 @@ pub fn build(
         back_button.connect_clicked(move |_| stack.set_visible_child_name("home"));
     }
 
-    let home = views::home::build(Rc::clone(&show_report));
+    // A launcher opened before a Turbo change is asked to reopen from the
+    // top of the window, whichever page is shown.
+    let launcher_notice = widgets::launcher_notice::LauncherNotice::new(app);
+
+    let home = views::home::build(app, Rc::clone(&show_report), Rc::clone(&launcher_notice));
     view_stack.add_named(&home, Some("home"));
 
     let profiles = views::profiles::build();
@@ -127,15 +131,19 @@ pub fn build(
     content_header.set_title_widget(Some(&page_title));
     content_header.pack_start(&back_button);
 
+    let pages = gtk4::Overlay::new();
+    pages.set_child(Some(&view_stack));
+    pages.add_overlay(launcher_notice.widget());
+
     let toast_overlay = adw::ToastOverlay::new();
-    toast_overlay.set_child(Some(&view_stack));
+    toast_overlay.set_child(Some(&pages));
 
     let content_view = adw::ToolbarView::new();
     content_view.add_top_bar(&content_header);
     content_view.set_content(Some(&toast_overlay));
 
     let content_page = adw::NavigationPage::builder()
-        .title("BiGame-mode")
+        .title(crate::app::NAME)
         .child(&content_view)
         .build();
 
@@ -177,7 +185,7 @@ pub fn build(
 
     let sidebar_header = adw::HeaderBar::new();
     let app_label = gtk4::Label::builder()
-        .label("BiGame-mode")
+        .label(crate::app::NAME)
         .css_classes(["title"])
         .build();
     sidebar_header.set_title_widget(Some(&app_label));
@@ -188,7 +196,7 @@ pub fn build(
     sidebar_view.set_content(Some(&sidebar_scroll));
 
     let sidebar_page = adw::NavigationPage::builder()
-        .title("BiGame-mode")
+        .title(crate::app::NAME)
         .child(&sidebar_view)
         .build();
 
@@ -204,7 +212,7 @@ pub fn build(
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("BiGame-mode")
+        .title(crate::app::NAME)
         .default_width(saved.window_width)
         .default_height(saved.window_height)
         .content(&nav_split)

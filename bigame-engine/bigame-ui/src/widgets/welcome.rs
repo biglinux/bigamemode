@@ -61,7 +61,7 @@ fn features() -> [(&'static str, String, String); 8] {
             "power-profile-performance-symbolic",
             i18n("Presets"),
             i18n(
-                "Standard, More FPS, Locked 60 FPS or Enhanced graphics: choose what games favour before you switch Turbo on.",
+                "Standard, More FPS, Locked 60 FPS or Enhanced graphics: choose what games favour, from Home or the tray.",
             ),
         ),
         (
@@ -103,7 +103,7 @@ fn features() -> [(&'static str, String, String); 8] {
             "utilities-terminal-symbolic",
             i18n("Always at hand"),
             i18n(
-                "Closing the window leaves BiGame-mode in the tray, still watching for games. Logs gathers what falcond, Gamescope and the GPU drivers say.",
+                "Closing the window leaves Big Game Mode in the tray, still watching for games. Logs gathers what falcond, Gamescope and the GPU drivers say.",
             ),
         ),
     ]
@@ -118,7 +118,7 @@ fn greeting() -> gtk4::Box {
     header.append(&icon);
     header.append(
         &gtk4::Label::builder()
-            .label(i18n("Welcome to BiGame-mode"))
+            .label(i18n("Welcome to Big Game Mode"))
             .wrap(true)
             .justify(gtk4::Justification::Center)
             .css_classes(["title-1"])
@@ -221,7 +221,7 @@ pub fn show(parent: &impl IsA<gtk4::Widget>) {
     handle.set_child(Some(&outer));
 
     let dialog = adw::Dialog::builder()
-        .title(i18n("Welcome to BiGame-mode"))
+        .title(i18n("Welcome to Big Game Mode"))
         .content_width(900)
         .content_height(650)
         .child(&handle)

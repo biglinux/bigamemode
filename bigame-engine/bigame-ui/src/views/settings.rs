@@ -137,14 +137,14 @@ fn falcond_row() -> adw::ActionRow {
                 None => i18n("Could not read falcond's service"),
                 Some(Control::NotInstalled) => i18n("falcond is not installed"),
                 Some(Control::Managed { since }) => {
-                    i18n("Managed by BiGame-mode since %s").replace("%s", &local_time(since))
+                    i18n("Managed by Big Game Mode since %s").replace("%s", &local_time(since))
                 }
                 Some(Control::HandedBack { at }) => {
-                    i18n("Handed back on %s: falcond is as it was before BiGame-mode")
+                    i18n("Handed back on %s: falcond is as it was before Big Game Mode")
                         .replace("%s", &local_time(at))
                 }
                 Some(Control::NeverManaged) => {
-                    i18n("Not managed: BiGame-mode has not changed falcond's service")
+                    i18n("Not managed: Big Game Mode has not changed falcond's service")
                 }
             };
             row.set_subtitle(&subtitle);
@@ -190,7 +190,7 @@ fn falcond_row() -> adw::ActionRow {
                 })
                 .await;
                 let text = match result {
-                    Ok(Ok(true)) => i18n("falcond is back as it was before BiGame-mode"),
+                    Ok(Ok(true)) => i18n("falcond is back as it was before Big Game Mode"),
                     Ok(Ok(false)) => i18n("There was nothing to hand back"),
                     Ok(Err(e)) => {
                         format!("{}: {}", i18n("Could not hand it back"), error_text(&e))
@@ -209,7 +209,7 @@ fn falcond_row() -> adw::ActionRow {
             b.set_sensitive(false);
             let result = gio::spawn_blocking(bigame_core::turbo::take_back_blocking).await;
             let text = match result {
-                Ok(Ok(_)) => i18n("BiGame-mode manages falcond again"),
+                Ok(Ok(_)) => i18n("Big Game Mode manages falcond again"),
                 Ok(Err(e)) => format!(
                     "{}: {}",
                     i18n("Could not take control back"),
@@ -317,7 +317,7 @@ pub fn build() -> adw::PreferencesPage {
         &i18n("So games you start from Steam are noticed even with this window closed"),
         settings::starts_at_login(),
         &i18n(
-            "Adds a login entry for your user only (~/.config/autostart). BiGame-mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry.",
+            "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry.",
         ),
     );
     login.connect_active_notify(|row| {
@@ -350,7 +350,7 @@ pub fn build() -> adw::PreferencesPage {
     profiles.add(&offer);
 
     let migrate = adw::ActionRow::builder()
-        .title(i18n("Profiles from an older BiGame-mode"))
+        .title(i18n("Profiles from an older Big Game Mode"))
         .subtitle(i18n("Checking…"))
         .use_markup(false)
         .build();
@@ -361,7 +361,7 @@ pub fn build() -> adw::PreferencesPage {
         .build();
     migrate.add_suffix(&migrate_button);
     migrate.add_suffix(&info::button(
-        &i18n("Profiles from an older BiGame-mode"),
+        &i18n("Profiles from an older Big Game Mode"),
         &i18n(
             "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched.",
         ),

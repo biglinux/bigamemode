@@ -200,7 +200,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
                     Arg::from(&p.slot),
                     Arg::Text(Text::plain(p.owner.label())),
                     if ours {
-                        Arg::Text(Text::plain(N_(" (placed by BiGame-mode)")))
+                        Arg::Text(Text::plain(N_(" (placed by Big Game Mode)")))
                     } else {
                         Arg::from("")
                     },
@@ -208,7 +208,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             ),
             match (&p.owner, ours, p.slot.as_str()) {
                 (ProxyOwner::OptiScaler, false, _) => Some(Text::plain(N_(
-                    "an OptiScaler BiGame-mode did not place: restore the game's files with the tool that put it there, or let BiGame-mode manage it after removing it",
+                    "an OptiScaler Big Game Mode did not place: restore the game's files with the tool that put it there, or let Big Game Mode manage it after removing it",
                 ))),
                 (ProxyOwner::Microsoft | ProxyOwner::DlssNrOnAmd, _, _) => None,
                 (_, false, "dxgi.dll") => Some(Text::plain(N_(
@@ -430,7 +430,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             N_("Neural rendering"),
             Text::with(N_("DLSS-NR-on-AMD failed: %s"), [errors.join(" · ")]),
             Some(Text::plain(N_(
-                "its log names what is missing; BiGame-mode does not change its files",
+                "its log names what is missing; Big Game Mode does not change its files",
             ))),
         )),
         external::Status::Blocked { anti_cheat } => out.push(f(

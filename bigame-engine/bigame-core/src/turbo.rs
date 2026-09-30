@@ -518,7 +518,7 @@ async fn enable_backend<F: FnMut(Step)>(
                     .push(
                         Kind::ProfileSet,
                         Section::Verified,
-                        "BiGame-mode",
+                        "Big Game Mode",
                         Text::with(
                             N_(
                                 "%s → %s: the handheld profiles run games in power-saving mode, \
@@ -530,13 +530,13 @@ async fn enable_backend<F: FnMut(Step)>(
                 Ok(()) => report.push(
                     Kind::ProfileSet,
                     Section::Failed,
-                    "BiGame-mode",
+                    "Big Game Mode",
                     Text::plain(N_("the configuration was written but reads back unchanged")),
                 ),
                 Err(e) => report.push(
                     Kind::ProfileSet,
                     Section::Failed,
-                    "BiGame-mode",
+                    "Big Game Mode",
                     crate::error::describe(&e),
                 ),
             }
@@ -616,7 +616,7 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
         Ok(_) if crate::steam::is_running() => report.push_knob(
             title,
             Section::Verified,
-            "BiGame-mode",
+            "Big Game Mode",
             Text::with(
                 N_(
                     "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset",
@@ -627,13 +627,13 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
         Ok(_) => report.push_knob(
             title,
             Section::Verified,
-            "BiGame-mode",
+            "Big Game Mode",
             Text::with(
                 N_("%s: in the session's environment for every game started from now on"),
                 [Arg::Text(name)],
             ),
         ),
-        Err(e) => report.push_knob(title, Section::Failed, "BiGame-mode", crate::error::describe(&e)),
+        Err(e) => report.push_knob(title, Section::Failed, "Big Game Mode", crate::error::describe(&e)),
     }
 }
 
@@ -652,7 +652,7 @@ async fn remove_preset(report: &mut Report) {
         Ok(_) => report.push_knob(
             title,
             Section::Restored,
-            "BiGame-mode",
+            "Big Game Mode",
             Text::with(
                 N_("%s taken away: games get Tuning's settings again"),
                 [Arg::Text(Text::plain(preset.label()))],
@@ -661,7 +661,7 @@ async fn remove_preset(report: &mut Report) {
         Err(e) => report.push_knob(
             title,
             Section::Failed,
-            "BiGame-mode",
+            "Big Game Mode",
             crate::error::describe(&e),
         ),
     }

@@ -182,7 +182,7 @@ fn content(tab: &str) -> Help {
                 "system-shutdown-symbolic",
                 i18n("Turbo"),
                 i18n(
-                    "Off, BiGame-mode does not intervene in games. On, falcond applies each game's profile as it starts and undoes it when the game closes.",
+                    "Off, Big Game Mode does not intervene in games. On, falcond applies each game's profile as it starts and undoes it when the game closes.",
                 ),
             ))
             // The presets in the words and icons the picker itself uses.
@@ -209,7 +209,7 @@ fn content(tab: &str) -> Help {
             ])
             .collect(),
             tip: i18n(
-                "A preset is chosen with Turbo off and ends when Turbo does. Steam opened before Turbo gets the preset when it is reopened, and Home offers to reopen it.",
+                "A preset can be changed at any time, here or from the tray; with Turbo on it reaches the games started from then on, and it ends when Turbo does. A launcher opened before the change (Steam, Heroic, Lutris) gets it once reopened, and a notice at the top of the window offers to reopen it.",
             ),
         },
         "profiles" => Help {
@@ -262,7 +262,7 @@ fn content(tab: &str) -> Help {
                 ),
             ],
             tip: i18n(
-                "falcond recognises a game by the name of its process, as the system monitor shows it, not by its title. When a game without a profile starts with Turbo on, BiGame-mode can offer to create one.",
+                "falcond recognises a game by the name of its process, as the system monitor shows it, not by its title. When a game without a profile starts with Turbo on, Big Game Mode can offer to create one.",
             ),
         },
         "tuning" => Help {
@@ -284,7 +284,7 @@ fn content(tab: &str) -> Help {
                     "video-display-symbolic",
                     i18n("Display"),
                     i18n(
-                        "Gamescope for games started from BiGame-mode: filter, sharpness, render and output sizes. Changing the sizes updates the Steam games that use it.",
+                        "Gamescope for games started from Big Game Mode: filter, sharpness, render and output sizes. Changing the sizes updates the Steam games that use it.",
                     ),
                 ),
                 (
@@ -333,7 +333,7 @@ fn content(tab: &str) -> Help {
         "dashboard" => Help {
             icon: "speedometer-symbolic",
             title: i18n("Details"),
-            lead: i18n("What is really in force for the game, and how BiGame-mode knows it."),
+            lead: i18n("What is really in force for the game, and how Big Game Mode knows it."),
             steps: Vec::new(),
             parts: vec![
                 (
@@ -393,7 +393,7 @@ fn content(tab: &str) -> Help {
                     "view-list-bullet-symbolic",
                     i18n("One view"),
                     i18n(
-                        "falcond, BiGame-mode, power-profiles-daemon, scx_loader, Gamescope and the kernel's GPU messages together.",
+                        "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope and the kernel's GPU messages together.",
                     ),
                 ),
                 (
@@ -421,7 +421,7 @@ fn content(tab: &str) -> Help {
         "settings" => Help {
             icon: "emblem-system-symbolic",
             title: i18n("Settings"),
-            lead: i18n("How BiGame-mode looks and behaves, and how to hand falcond back."),
+            lead: i18n("How Big Game Mode looks and behaves, and how to hand falcond back."),
             steps: Vec::new(),
             parts: vec![
                 (
@@ -450,14 +450,14 @@ fn content(tab: &str) -> Help {
                 ),
                 (
                     "emblem-synchronizing-symbolic",
-                    i18n("Profiles from an older BiGame-mode"),
+                    i18n("Profiles from an older Big Game Mode"),
                     i18n("Profiles that can never match their game, and the fix."),
                 ),
                 (
                     "edit-undo-symbolic",
                     i18n("Hand falcond back"),
                     i18n(
-                        "Return falcond to exactly the state it was in before BiGame-mode first changed it.",
+                        "Return falcond to exactly the state it was in before Big Game Mode first changed it.",
                     ),
                 ),
             ],

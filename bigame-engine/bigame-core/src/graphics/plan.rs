@@ -485,7 +485,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "FSR",
             Standing::Compatible,
             N_(
-                "OptiScaler takes over the game's FSR — documented upstream, not yet verified by BiGame-mode",
+                "OptiScaler takes over the game's FSR — documented upstream, not yet verified by Big Game Mode",
             ),
         )
     } else if let Some(b) = n.built_in_fsr().filter(|_| built_in_fsr_crashes(r)) {
@@ -758,6 +758,7 @@ mod tests {
             card: "card1".into(),
             vendor,
             name: "x".into(),
+            product: None,
             driver: "amdgpu".into(),
             userspace: None,
             vram: None,

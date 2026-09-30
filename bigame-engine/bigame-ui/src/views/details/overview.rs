@@ -140,7 +140,7 @@ impl Overview {
             Headline::TurboOff => (
                 "media-playback-stop-symbolic",
                 i18n("Turbo is off"),
-                i18n("Games run without BiGame-mode's optimizations. Turn Turbo on at Home."),
+                i18n("Games run without Big Game Mode's optimizations. Turn Turbo on at Home."),
             ),
             Headline::ReadyWaiting => (
                 "emblem-ok-symbolic",
