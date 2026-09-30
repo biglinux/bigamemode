@@ -509,19 +509,19 @@ fn descendants<'a>(
     out
 }
 
-/// Find the running games in a process list.
-///
-/// Steam games are found from their reaper, which names the app id; within
-/// that tree the game is the busiest process that is not machinery — a
-/// launcher can briefly be the only candidate, and it is excluded by name.
-/// Wine games outside Steam are found as busy `.exe` processes under Wine.
+/// [`identify_with`] knowing no native game, as most tests need.
 #[cfg(test)]
 #[must_use]
 pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
     identify_with(procs, &HashMap::new())
 }
 
-/// [`identify`], also recognising native games outside Steam.
+/// Find the running games in a process list.
+///
+/// Steam games are found from their reaper, which names the app id; within
+/// that tree the game is the busiest process that is not machinery — a
+/// launcher can briefly be the only candidate, and it is excluded by name.
+/// Wine games outside Steam are found as busy `.exe` processes under Wine.
 ///
 /// `native` maps the executable names of games this machine knows about
 /// ([`known_native_games`]) to their display names. Without it a native

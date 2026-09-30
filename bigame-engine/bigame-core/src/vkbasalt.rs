@@ -210,7 +210,7 @@ pub fn style_config(style: Style, dir: &Path) -> Option<String> {
 /// it is put in place. Files already there and unchanged are kept.
 ///
 /// `curl` gets an argument vector: HTTPS only, redirects only to HTTPS,
-/// failing on HTTP errors and on more than [`MAX_SHADER`] bytes.
+/// failing on HTTP errors and on more than `MAX_SHADER` bytes.
 ///
 /// # Errors
 /// Returns an error if a download fails or does not match its hash.

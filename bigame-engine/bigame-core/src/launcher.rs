@@ -13,7 +13,7 @@
 //! 2. The Turbo preset in force (Wine FSR, vkBasalt, a frame cap).
 //! 3. Tuning's settings, for everything the game leaves to them.
 //!
-//! A frame cap has one limiter per launch ([`Cap`]), and the plan is
+//! A frame cap has one limiter per launch (`Cap`), and the plan is
 //! authoritative for what it manages: the game inherits Big Game Mode's own
 //! environment, a snapshot of the session from when it started, and what a
 //! preset no longer in force left there is taken out.

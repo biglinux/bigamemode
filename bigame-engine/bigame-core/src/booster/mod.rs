@@ -120,7 +120,7 @@ impl BoosterEngine {
 
     /// How many changes are currently in force, if Booster is active.
     ///
-    /// Also reconciles a stale record ([`Self::current_journal`]).
+    /// Also reconciles a stale record (`Self::current_journal`).
     ///
     /// Returns `None` when Booster is not active.
     #[must_use]

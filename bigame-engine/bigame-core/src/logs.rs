@@ -496,7 +496,7 @@ fn keep(source: Source, message: &str) -> Option<Source> {
 
 /// Parse `journalctl -o json` output, one record per line.
 ///
-/// Returns the entries worth showing ([`keep`]) and the cursor of the last
+/// Returns the entries worth showing (`keep`) and the cursor of the last
 /// record read, for the next incremental read.
 #[must_use]
 pub fn parse_journal(output: &str) -> (Vec<Entry>, Option<String>) {

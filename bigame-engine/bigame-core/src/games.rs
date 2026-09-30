@@ -218,7 +218,7 @@ fn canonical(path: &Path) -> PathBuf {
 /// into the Lutris one.
 ///
 /// The result is kept and handed out again while nothing it was read from
-/// changed (see [`Sources::watched`]): a game starting asks for the library
+/// changed (see `Sources::watched`): a game starting asks for the library
 /// several times, and each full scan walks every install folder, often on
 /// the same disk the game is loading from.
 #[must_use]
@@ -495,7 +495,7 @@ const GENERIC_PROGRAMS: &[&str] = &[
 ];
 
 /// Whether a process name is a browser's, an interpreter's or a runtime's
-/// ([`GENERIC_PROGRAMS`], `python*`, `google-chrome*`, `electron*`).
+/// (`GENERIC_PROGRAMS`, `python*`, `google-chrome*`, `electron*`).
 #[must_use]
 pub fn is_generic_program(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
