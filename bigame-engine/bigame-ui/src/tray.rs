@@ -309,11 +309,24 @@ fn icon_theme_path() -> String {
     if installed {
         return String::new();
     }
+    source_tree_icons(&file)
+}
+
+/// The source tree's icon directory, for a development build run from it.
+/// A release build leaves the path out: a package would otherwise carry the
+/// directory it was built in.
+#[cfg(debug_assertions)]
+fn source_tree_icons(file: &str) -> String {
     let tree = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../usr/share/icons");
     match std::fs::canonicalize(&tree) {
-        Ok(dir) if dir.join(&file).is_file() => dir.to_string_lossy().into_owned(),
+        Ok(dir) if dir.join(file).is_file() => dir.to_string_lossy().into_owned(),
         _ => String::new(),
     }
+}
+
+#[cfg(not(debug_assertions))]
+fn source_tree_icons(_file: &str) -> String {
+    String::new()
 }
 
 /// Spawn the system tray on its own thread. Returns a handle to keep it in
