@@ -353,7 +353,7 @@ impl Pipeline {
         body = match gs {
             State::NotDetected => body
                 .note(&i18n("Expected: the game inside a gamescope process. Found: no Gamescope in its process tree."))
-                .note(&i18n("Likely reasons: the game was started from Steam or its launcher, not from BiGame-mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."))
+                .note(&i18n("Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."))
                 .note(&i18n("Start the game from Profiles → ⋮ → Launch (Turbo). A Steam game is started by Steam, in its own process tree: Gamescope reaches it only through Steam's launch options.")),
             State::Missing => body.command("sudo pacman -S gamescope"),
             _ => body,
@@ -404,17 +404,17 @@ impl Pipeline {
         match snap.upscaler_conflict() {
             Some(bigame_core::overview::UpscalerConflict::WineFsrFromElsewhere) => {
                 body = body.note(&i18n(
-                    "OptiScaler upscales this game too: two upscalers in series. The variable does not come from BiGame-mode — it is in the game's launch options in Steam, or in your environment. Remove it there.",
+                    "OptiScaler upscales this game too: two upscalers in series. The variable does not come from Big Game Mode — it is in the game's launch options in Steam, or in your environment. Remove it there.",
                 ));
             }
             Some(bigame_core::overview::UpscalerConflict::WineFsrFromTuning) => {
                 body = body.note(&i18n(
-                    "OptiScaler upscales this game too: two upscalers in series. Turn Wine FSR off in Tuning; BiGame-mode's own launches already leave it off for this game.",
+                    "OptiScaler upscales this game too: two upscalers in series. Turn Wine FSR off in Tuning; Big Game Mode's own launches already leave it off for this game.",
                 ));
             }
             _ if snap.ai_graphics.is_some() => {
                 body = body.note(&i18n(
-                    "This game has AI Graphics installed: Wine FSR is turned off for its launch from BiGame-mode, so two upscalers never run in series.",
+                    "This game has AI Graphics installed: Wine FSR is turned off for its launch from Big Game Mode, so two upscalers never run in series.",
                 ));
             }
             _ => {}
@@ -683,7 +683,7 @@ impl Pipeline {
 fn stage_line(state: State, evidence: &str) -> String {
     match state {
         State::Active => i18n("Working: %s").replace("%s", evidence),
-        State::Waiting => i18n("Configured; applies when a game starts from BiGame-mode"),
+        State::Waiting => i18n("Configured; applies when a game starts from Big Game Mode"),
         State::NotDetected => i18n("Configured, but not %s").replace("%s", evidence),
         State::Configured => i18n("Configured; whether it took cannot be read from outside"),
         State::Off => i18n("Not configured"),

@@ -6,7 +6,7 @@ pkgver=2.2.0
 pkgrel=1
 pkgdesc="Gaming mode for BigLinux: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets, in a GTK4/libadwaita app"
 arch=('x86_64')
-url="https://github.com/ruscher/bigamemode"
+url="https://github.com/biglinux/bigamemode"
 license=('GPL-3.0-or-later')
 depends=(
     # Runtime libraries the two binaries link against.
@@ -150,11 +150,11 @@ package() {
     install -Dm644 data/com.biglinux.BiGameMode.service \
         "${pkgdir}/usr/share/dbus-1/system-services/com.biglinux.BiGameMode.service"
 
-    # Icons: the application icon and the four tray states. The tray also
-    # carries them inside the binary; installing them lets tray hosts that
-    # draw by icon name find them in the theme.
+    # Icons: the application icon and the tray's. The tray gives its icon by
+    # name only, so the panel draws the symbolic icon in its own colours; it
+    # has to be in the theme for that.
     local icon
-    for icon in com.biglinux.BiGameMode input-gaming-symbolic-{blue,green,yellow}; do
+    for icon in com.biglinux.BiGameMode bigamemode-symbolic; do
         install -Dm644 "usr/share/icons/hicolor/scalable/apps/${icon}.svg" \
             "${pkgdir}/usr/share/icons/hicolor/scalable/apps/${icon}.svg"
     done

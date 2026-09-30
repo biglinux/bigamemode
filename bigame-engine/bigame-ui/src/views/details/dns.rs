@@ -173,7 +173,7 @@ impl ComputerDns {
                 match backup {
                     Ok(Some(b)) => {
                         lines.push(
-                            i18n("BiGame-mode set %s; the previous settings are kept")
+                            i18n("Big Game Mode set %s; the previous settings are kept")
                                 .replace("%s", &b.applied),
                         );
                         if let Some(note) = self.note.borrow().as_ref() {

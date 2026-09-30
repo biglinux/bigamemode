@@ -67,7 +67,7 @@ pub fn background_group() -> adw::PreferencesGroup {
     group.set_description(Some(&i18n(
         "Programs of yours using noticeable CPU. Closing or pausing them frees \
          it for a game — but only you know which ones you are actually using. \
-         Parts of the system, the desktop, the game and BiGame-mode have no \
+         Parts of the system, the desktop, the game and Big Game Mode have no \
          buttons.",
     )));
 
@@ -205,7 +205,7 @@ fn busy_row(
         let lock = gtk4::Image::from_icon_name("changes-prevent-symbolic");
         lock.add_css_class("dim-label");
         let why = i18n(
-            "Part of the system, your desktop, the running game or BiGame-mode: \
+            "Part of the system, your desktop, the running game or Big Game Mode: \
              it cannot be closed or paused from here.",
         );
         lock.set_tooltip_text(Some(&why));
@@ -227,8 +227,8 @@ fn busy_row(
                 "It freezes completely until you resume it: its windows stop \
                  responding, and any sound, download or call in it stops. A \
                  program that talks to a server may lose its connection. \
-                 Resume it here when you are done — BiGame-mode also resumes it \
-                 when BiGame-mode quits.",
+                 Resume it here when you are done — Big Game Mode also resumes it \
+                 when Big Game Mode quits.",
             );
             confirm(
                 button,
@@ -256,7 +256,7 @@ fn busy_row(
         let (anchor, after) = (anchor.clone(), Rc::clone(after));
         close.connect_clicked(move |button| {
             let body = i18n(
-                "BiGame-mode asks it to quit, as closing its window would \
+                "Big Game Mode asks it to quit, as closing its window would \
                  (SIGTERM). Anything you have not saved in it may be lost. A \
                  program that ignores the request keeps running: nothing \
                  forces it.",
@@ -289,7 +289,7 @@ fn paused_row(
     let row = adw::ActionRow::builder()
         .title(&target.name)
         .subtitle(i18n(
-            "Paused by BiGame-mode — frozen, using no CPU, until you resume it.",
+            "Paused by Big Game Mode — frozen, using no CPU, until you resume it.",
         ))
         .build();
     let icon = gtk4::Image::from_icon_name("media-playback-pause-symbolic");

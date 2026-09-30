@@ -1,9 +1,9 @@
 # Architecture
 
-BiGame-mode is a GTK4/libadwaita application for BigLinux that decides *who
+Big Game Mode is a GTK4/libadwaita application for BigLinux that decides *who
 tunes what* while a game runs, sets it up, shows what is really in effect and
 measures whether it helped. System performance during a game belongs to
-[falcond](https://git.pika-os.com/general-packages/falcond); BiGame-mode
+[falcond](https://git.pika-os.com/general-packages/falcond); Big Game Mode
 switches falcond on and off (Turbo), writes the per-game profiles it reads,
 and owns what happens *inside* the game: upscaling, frame generation and the
 files a game needs for them.
@@ -19,15 +19,15 @@ error.
 | Component | Where | Responsibility |
 |---|---|---|
 | UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Tuning, Details, Logs, Settings, and the Optimization Report over Home. `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
-| Core | `bigame-engine/bigame-core` (library, no UI) | Hardware and capability detection, Turbo (`turbo.rs`) and its presets (`turbo_preset.rs`: a layer of session variables over Tuning while Turbo is on — DXVK/VKD3D-Proton frame caps, Wine FSR, vkBasalt, `FSR4_UPGRADE`; native games launched by BiGame-mode are capped with MangoHud's limiter), the Booster engine (`booster/`), profiles and their migration, running-game detection (`running.rs`), recommendations (`recommend.rs`), the launch pipeline (`launcher.rs`, `gamescope.rs`), AI Graphics (`graphics/`), benchmarking (`benchmark/`), network measurement, logs, health and diagnostics. |
+| Core | `bigame-engine/bigame-core` (library, no UI) | Hardware and capability detection, Turbo (`turbo.rs`) and its presets (`turbo_preset.rs`: a layer of session variables over Tuning while Turbo is on — DXVK/VKD3D-Proton frame caps, Wine FSR, vkBasalt, `FSR4_UPGRADE`; native games launched by Big Game Mode are capped with MangoHud's limiter), the Booster engine (`booster/`), profiles and their migration, running-game detection (`running.rs`), recommendations (`recommend.rs`), the launch pipeline (`launcher.rs`, `gamescope.rs`), AI Graphics (`graphics/`), benchmarking (`benchmark/`), network measurement, logs, health and diagnostics. |
 | Helper | `bigame-engine/bigame-daemon` (root, system bus `com.biglinux.BiGameMode`, object `/com/biglinux/BiGameMode`) | The handful of writes the UI cannot do: `SaveProfile`, `DeleteProfile`, `ApplyFalcondConfig`, `SetVCacheMode`, `SetCpuGovernor`, `SetCpuEpp`, `SetGpuDpmLevel`, `SetGameBackend`, `ReleaseGameBackend`, plus the unauthenticated `Ping`. Started on demand by D-Bus through `bigame-daemon.service`. See [SECURITY.md](SECURITY.md). |
 | falcond | external system service | Matches game processes by name and applies their profile — performance power profile, sched-ext scheduler (through `scx_loader`), 3D V-Cache mode, idle inhibit — and restores everything when the game exits. |
 
 ## Turbo
 
-Turbo off means BiGame-mode does not intervene in games; on means falcond runs
+Turbo off means Big Game Mode does not intervene in games; on means falcond runs
 and applies per-game profiles. **Turbo's state is falcond's unit state as
-systemd reports it**, never a flag of BiGame-mode's own, so it cannot say
+systemd reports it**, never a flag of Big Game Mode's own, so it cannot say
 "off" while falcond runs.
 
 - **On:** conflicts are noted → falcond's profile set is corrected when clearly
@@ -41,7 +41,7 @@ systemd reports it**, never a flag of BiGame-mode's own, so it cannot say
 - The service is the switch because it is the only one that works with
   falcond 2.0.2: stopping it restores an active profile, while
   `enable_performance_mode = false` is honoured only at start-up.
-- The first time BiGame-mode changes falcond, the state it found (enabled or
+- The first time Big Game Mode changes falcond, the state it found (enabled or
   not, running or not) is recorded in `/var/lib/bigame-mode/game-backend.json`.
   *Settings → Hand back* and package removal restore exactly that.
 
@@ -53,7 +53,7 @@ the second to restore writes the first one's value back as the "baseline".
 | State | Owner |
 |---|---|
 | falcond on/off | Turbo, through the helper and systemd |
-| Per-game performance mode, scheduler, V-Cache, idle inhibit | falcond, from the profile BiGame-mode writes |
+| Per-game performance mode, scheduler, V-Cache, idle inhibit | falcond, from the profile Big Game Mode writes |
 | Power profile | falcond per game; the Booster never writes it while falcond is installed |
 | Governor and EPP, wherever power-profiles-daemon runs | power-profiles-daemon, through the profile (on BigLinux its companion `power-profiles-daemon-biglinux-cpufreq` maps the profile to a governor on passive drivers); falcond asks for `performance` per game |
 | Governor without power-profiles-daemon | Booster |
@@ -138,7 +138,7 @@ apply → verify → report → restore**.
 - The running game is identified from `/proc` without spawning processes: the
   Steam reaper tree (`AppId=`), Wine `.exe` processes, native menu games, and
   names falcond has a profile for. Launchers, stores, game streaming and
-  BiGame-mode itself are never taken for a game.
+  Big Game Mode itself are never taken for a game.
 - What a running game really got is read from it, never from settings:
   MangoHud, vkBasalt and lsfg-vk count only when mapped in the game process
   (frame generation only with lsfg-vk mapped *and* an entry for the game),
@@ -150,7 +150,7 @@ apply → verify → report → restore**.
   The recommendation writes only falcond's fields and says where each value
   comes from: `performance_mode` on AC power only, `scx_sched = none` unless a
   scheduler was measured faster, `vcache_mode` explicit, `idle_inhibit = true`.
-- Profiles written by older BiGame-mode versions are migrated: re-keyed to the
+- Profiles written by older Big Game Mode versions are migrated: re-keyed to the
   game's executable, cleaned of fields falcond ignores, backed up first and
   never deleted when unresolved.
 
@@ -163,7 +163,7 @@ apply → verify → report → restore**.
 - `LaunchPlan` takes the machine as a `Host`: real launches detect it, tests
   describe it, so tests pass the same in a desktop session, over ssh or in a
   build chroot.
-- Games started from BiGame-mode run in their own process group, so ending one
+- Games started from Big Game Mode run in their own process group, so ending one
   ends everything it started, including a wrapper script's game.
 - `steam -applaunch` is not wrapped: it starts the client, not the game. A game
   started through the Steam client gets falcond's profile (falcond matches its
@@ -187,7 +187,7 @@ apply → verify → report → restore**.
 - lsfg-vk re-reads its file for a game that started with an entry and then
   applies a new multiplier, but it neither starts nor stops generating for a
   running game; on and off take effect at the next start. The layout older
-  BiGame-mode versions wrote, which makes lsfg-vk ignore the whole file, is
+  Big Game Mode versions wrote, which makes lsfg-vk ignore the whole file, is
   converted when the application starts (a copy is kept as
   `conf.toml.bigame-legacy`).
 - MangoHud per game is written where the game's launcher reads it. On uses
@@ -206,7 +206,7 @@ apply → verify → report → restore**.
     refuses to start the game with its switch on) until
     `org.freedesktop.Platform.VulkanLayer.MangoHud` for its runtime is
     installed; the toast and a health check name the command.
-  - Any other game gets it when BiGame-mode starts it.
+  - Any other game gets it when Big Game Mode starts it.
 - A game's lsfg-vk values are read from lsfg-vk's own file (an entry the
   general switch set aside included), never from the copy in the falcond
   profile; saving a profile while the general switch is off sets the entry
@@ -214,7 +214,7 @@ apply → verify → report → restore**.
 - lsfg-vk 1.0 reads `version = 1`, `[global] dll` and `[[game]]` entries
   (`exe`, `multiplier` ≥ 2, `flow_scale` 0.25–1.0, `performance_mode`,
   `hdr_mode`, `experimental_present_mode`); one invalid value makes it ignore
-  the whole file, so off is *no entry*, never `multiplier = 1`. BiGame-mode
+  the whole file, so off is *no entry*, never `multiplier = 1`. Big Game Mode
   touches only the entries it wrote (recorded in its state directory) and
   replaces the file atomically for lsfg-vk's live reload. The layer is
   64-bit only, runs on the game's GPU, and `DISABLE_LSFG=1` switches it off.
@@ -222,14 +222,14 @@ apply → verify → report → restore**.
 ## AI Graphics
 
 `bigame-core/src/graphics/` runs when the user opens a game's AI Graphics page,
-and at launch only to answer "did BiGame-mode install something here?". No part
+and at launch only to answer "did Big Game Mode install something here?". No part
 of it needs root.
 
 - **Flow:** scan → report → plan → Apply (fetch the OptiScaler release the
   game's version choice names, verify it, build the payload, apply it as a
   transaction) / Update (to a newer release, keeping the previous one to Go
   back to) / Repair (put back missing files of the installed release) /
-  Restore (remove what BiGame-mode placed and put every original back). Runtime status comes from the game's mapped libraries and an
+  Restore (remove what Big Game Mode placed and put every original back). Runtime status comes from the game's mapped libraries and an
   `OptiScaler.log` written since the process started. The page tells
   *selected* (not applied), *configured* (applied, game not running),
   *loaded*, *active* and *failed* apart (`graphics::choice_state`); its
@@ -266,7 +266,7 @@ of it needs root.
   | Files placed | none (one Steam launch option at most) | `dxgi.dll`, `OptiScaler.ini`, FidelityFX / XeSS runtimes, backed up | none: `managed: false`, no manifest |
 
   A manifest records the backend that placed its files (older manifests
-  read as OptiScaler's); nothing removes files BiGame-mode does not manage.
+  read as OptiScaler's); nothing removes files Big Game Mode does not manage.
 - **Evidence** for every claim the page makes:
 
   | Claim | Evidence |
@@ -327,7 +327,7 @@ of it needs root.
     and neural rendering (the external component's status). Two owners of a
     job never run in series.
   - The AMD neural component (DLSS-NR-on-AMD) is `managed: false`: its
-    license forbids redistribution and modification, so BiGame-mode detects
+    license forbids redistribution and modification, so Big Game Mode detects
     it by content, lists what it is missing (on Linux today: AMD's Windows
     HIP runtime and the user's own model), links the official page and never
     downloads, places or removes it. Under Proton it is "not currently
@@ -351,7 +351,7 @@ of it needs root.
     `HKEY_CURRENT_USER` in the game's own Proton prefix, and only while no
     process runs in that prefix: Wine's server writes its in-memory copy of
     the registry back when it exits.
-  - Files BiGame-mode added are not counted as the game's own upscalers.
+  - Files Big Game Mode added are not counted as the game's own upscalers.
   - Only the Apply button changes a game's files, and not while the game runs.
   - An apply interrupted by a crash or power loss is rolled back when the
     application next starts.
@@ -447,7 +447,7 @@ directory.
 |---|---|
 | `/etc/falcond/config.conf` | falcond's global configuration (written by the helper) |
 | `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper) |
-| `/var/lib/bigame-mode/game-backend.json` | how falcond was before BiGame-mode took charge |
+| `/var/lib/bigame-mode/game-backend.json` | how falcond was before Big Game Mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups |
@@ -469,7 +469,7 @@ directory.
   `gamescope --help`, no `systemctl`).
 - The Logs page reads the journal with one `journalctl -o json` call,
   incrementally, only while it is on screen: falcond, the helper, the UI,
-  `scx_loader`, power-profiles-daemon, Gamescope, BiGame-mode's Polkit records
+  `scx_loader`, power-profiles-daemon, Gamescope, Big Game Mode's Polkit records
   and the kernel's GPU and sched-ext messages.
 
 ## falcond behaviours worth knowing (2.0.2)
@@ -485,7 +485,7 @@ directory.
   current profile as its baseline. The helper reloads falcond with SIGHUP through systemd,
   never with a restart, which would tear down a running game's profile.
 - If falcond is killed with SIGKILL while a profile is active, systemd restarts
-  it and the new instance snapshots the boosted state. BiGame-mode does not
+  it and the new instance snapshots the boosted state. Big Game Mode does not
   paper over that with a second writer; Details → Problems warns when
   systemd has restarted falcond.
 - A user profile with the same name as a shipped profile is not applied.
@@ -507,7 +507,7 @@ directory.
 - **Gamescope composites where the display is.** Told to composite on a
   discrete GPU that drives no output (`--prefer-vk-device`), nested Gamescope
   shows no window; without it, it composites on the display's GPU while the
-  game inside still renders on the discrete one. BiGame-mode does not pass it.
+  game inside still renders on the discrete one. Big Game Mode does not pass it.
 - **NVIDIA.** Any Vulkan program opens every GPU just to enumerate them, so a
   card a process only enumerated is filtered out with NVML's list of
   processes holding a graphics context. A runtime-suspended discrete GPU is

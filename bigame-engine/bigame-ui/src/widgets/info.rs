@@ -181,7 +181,7 @@ pub fn vcache_button() -> gtk4::Button {
         entries.push(Entry {
             title: i18n("When it does nothing"),
             body: i18n(
-                "On processors with a single CCD (such as the Ryzen 7 7800X3D or 9800X3D) every core already has the cache, and processors without 3D V-Cache have nothing to choose. There the driver is absent, and BiGame-mode shows the option as not supported instead of a control that would do nothing.",
+                "On processors with a single CCD (such as the Ryzen 7 7800X3D or 9800X3D) every core already has the cache, and processors without 3D V-Cache have nothing to choose. There the driver is absent, and Big Game Mode shows the option as not supported instead of a control that would do nothing.",
             ),
         });
         (

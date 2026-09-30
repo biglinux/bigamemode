@@ -249,7 +249,7 @@ impl Manifest {
             serde_json::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
         if m.schema > SCHEMA {
             bail!(UserError::with(
-                N_("%s was written by a newer BiGame-mode (format %s)"),
+                N_("%s was written by a newer Big Game Mode (format %s)"),
                 [path.display().to_string(), m.schema.to_string()]
             ));
         }

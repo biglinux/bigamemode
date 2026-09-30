@@ -98,7 +98,7 @@ fn kind_explanation(kind: &Kind) -> String {
             "sched-ext lets a scheduler loaded at runtime replace the kernel's CPU scheduler. falcond switches it per game when a profile asks for one, which needs the scx_loader service.",
         ),
         Kind::Knob(_) => i18n(
-            "A system-wide setting BiGame-mode's own planner considers. It is applied only if nothing else owns it and it is known to help.",
+            "A system-wide setting Big Game Mode's own planner considers. It is applied only if nothing else owns it and it is known to help.",
         ),
     }
 }

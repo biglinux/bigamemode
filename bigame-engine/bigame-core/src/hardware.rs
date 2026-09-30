@@ -111,7 +111,8 @@ pub enum GpuVendor {
 /// One DRM card.
 #[derive(Debug, Clone)]
 pub struct Gpu {
-    /// DRM node name, e.g. `card1`.
+    /// DRM node name, e.g. `card1`; empty for a display controller no DRM
+    /// card stands for (found on PCI).
     pub card: String,
     /// `/sys/class/drm/<card>/device`.
     pub device_path: PathBuf,
@@ -136,6 +137,17 @@ pub struct Gpu {
 }
 
 impl Gpu {
+    /// How the GPU is named in reports: its DRM card (`card1`), or its PCI
+    /// address when it has no DRM node.
+    #[must_use]
+    pub fn node(&self) -> &str {
+        if self.card.is_empty() {
+            &self.pci_slot
+        } else {
+            &self.card
+        }
+    }
+
     /// Read `power_dpm_force_performance_level`, if present.
     #[must_use]
     pub fn dpm_level(&self) -> Option<String> {
@@ -281,7 +293,7 @@ fn detect_cpu() -> Cpu {
     let cpuinfo = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
     Cpu {
         vendor: parse_cpu_vendor(&cpuinfo),
-        model: parse_cpuinfo_field(&cpuinfo, "model name").unwrap_or_else(|| UNKNOWN_CPU.into()),
+        model: cpu_model(&cpuinfo).unwrap_or_else(|| UNKNOWN_CPU.into()),
         physical_cores: count_physical_cores(&cpuinfo),
         logical_cpus: count_logical_cpus(&cpuinfo),
         smt: read_trim("/sys/devices/system/cpu/smt/active").as_deref() == Some("1"),
@@ -313,6 +325,55 @@ pub fn parse_cpu_vendor(cpuinfo: &str) -> CpuVendor {
         Some("AuthenticAMD") => CpuVendor::Amd,
         Some("GenuineIntel") => CpuVendor::Intel,
         _ => CpuVendor::Other,
+    }
+}
+
+/// The processor's name from `/proc/cpuinfo`: `model name` on x86, the
+/// keys other kernels use elsewhere. An empty value is no name — some
+/// hypervisors and early kernels for a new part leave it blank.
+#[must_use]
+pub fn cpu_model(cpuinfo: &str) -> Option<String> {
+    ["model name", "cpu model", "Model", "Processor", "Hardware"]
+        .into_iter()
+        .find_map(|key| parse_cpuinfo_field(cpuinfo, key).filter(|v| !v.is_empty()))
+}
+
+/// A processor's name as people read it: the model without trademark
+/// signs, the "CPU"/"Processor"/"N-Core" filler, the base clock and the
+/// integrated graphics (named on their own), with single spaces.
+///
+/// `Intel(R) Core(TM) i7-12700K CPU @ 3.60GHz` → `Intel Core i7-12700K`;
+/// `AMD Ryzen 7 7840HS w/ Radeon 780M Graphics` → `AMD Ryzen 7 7840HS`;
+/// `AMD Ryzen 9 7950X 16-Core Processor` → `AMD Ryzen 9 7950X`.
+/// A name that is only filler is kept as it was.
+#[must_use]
+pub fn cpu_display_name(model: &str) -> String {
+    let mut name = model.to_owned();
+    for mark in ["(R)", "(r)", "(TM)", "(tm)", "®", "™"] {
+        name = name.replace(mark, "");
+    }
+    // The base clock, and the graphics named after the processor.
+    for cut in [" @ ", " with Radeon", " w/ Radeon", " with AMD Radeon"] {
+        if let Some(i) = name.find(cut) {
+            name.truncate(i);
+        }
+    }
+    // "CPU" is filler in the makers' own strings, and a word elsewhere
+    // (`QEMU Virtual CPU version 2.5+`).
+    let maker = name.contains("Intel") || name.contains("AMD");
+    let words: Vec<&str> = name
+        .split_whitespace()
+        .filter(|w| {
+            let filler = w.eq_ignore_ascii_case("processor")
+                || w.to_ascii_lowercase().ends_with("-core")
+                || (maker && *w == "CPU");
+            !filler
+        })
+        .collect();
+    if words.is_empty() {
+        model.split_whitespace().collect::<Vec<_>>().join(" ")
+    } else {
+        words.join(" ")
     }
 }
 
@@ -450,7 +511,54 @@ fn detect_gpus() -> Vec<Gpu> {
         });
     }
     gpus.sort_by(|a, b| a.card.cmp(&b.card));
+    gpus.extend(pci_display_devices(&gpus));
     gpus
+}
+
+/// Display controllers on PCI that no DRM card stands for: an NVIDIA GPU
+/// whose driver runs without `nvidia-drm`, or a card no driver is bound to.
+/// They are still the machine's GPUs — named on Home and in the reports,
+/// and chosen for games when they are the discrete one — with no DRM node.
+fn pci_display_devices(known: &[Gpu]) -> Vec<Gpu> {
+    let Ok(entries) = std::fs::read_dir("/sys/bus/pci/devices") else {
+        return Vec::new();
+    };
+    let mut out: Vec<Gpu> = entries
+        .flatten()
+        .filter_map(|e| {
+            let slot = e.file_name().to_string_lossy().into_owned();
+            // PCI class 0x03: VGA, XGA, 3D (an Optimus GPU is a 3D controller).
+            let class = read_trim(e.path().join("class"))?;
+            if !class.starts_with("0x03") || known.iter().any(|g| g.pci_slot == slot) {
+                return None;
+            }
+            let id = |f: &str| {
+                read_trim(e.path().join(f)).map(|v| v.trim_start_matches("0x").to_ascii_uppercase())
+            };
+            let pci_id = format!("{}:{}", id("vendor")?, id("device")?);
+            let vendor = gpu_vendor_from_pci_id(&pci_id);
+            let driver = std::fs::read_link(e.path().join("driver"))
+                .ok()
+                .and_then(|l| l.file_name().map(|n| n.to_string_lossy().into_owned()))
+                .unwrap_or_default();
+            let device_path = e.path();
+            Some(Gpu {
+                card: String::new(),
+                discrete: looks_discrete(vendor, &slot, false, None),
+                vendor,
+                pci_id,
+                hwmon: find_hwmon(&device_path),
+                device_path,
+                pci_slot: slot,
+                driver,
+                connected_outputs: Vec::new(),
+                vram_total_bytes: None,
+                dpm_level_path: None,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.pci_slot.cmp(&b.pci_slot));
+    out
 }
 
 /// Whether a GPU is a discrete card rather than an integrated one.
@@ -770,6 +878,76 @@ core id\t\t: 1
             parse_cpuinfo_field(CPUINFO, "model name").as_deref(),
             Some("AMD Ryzen 7 5700G with Radeon Graphics")
         );
+    }
+
+    #[test]
+    fn a_blank_model_name_is_no_name() {
+        assert_eq!(
+            cpu_model(CPUINFO).as_deref(),
+            Some("AMD Ryzen 7 5700G with Radeon Graphics")
+        );
+        assert_eq!(cpu_model("processor\t: 0\nmodel name\t: \n"), None);
+        assert_eq!(
+            cpu_model("processor\t: 0\nmodel\t\t: 151\n").as_deref(),
+            None,
+            "x86's numeric `model` is not a name"
+        );
+        assert_eq!(
+            cpu_model("Processor\t: ARMv7 Processor rev 4 (v7l)\n").as_deref(),
+            Some("ARMv7 Processor rev 4 (v7l)")
+        );
+    }
+
+    #[test]
+    fn processor_names_lose_the_filler_and_keep_the_model() {
+        for (model, shown) in [
+            (
+                "AMD Ryzen 7 5700G with Radeon Graphics",
+                "AMD Ryzen 7 5700G",
+            ),
+            (
+                "Intel(R) Core(TM) i7-12700K CPU @ 3.60GHz",
+                "Intel Core i7-12700K",
+            ),
+            (
+                "13th Gen Intel(R) Core(TM) i7-13700H",
+                "13th Gen Intel Core i7-13700H",
+            ),
+            ("Intel(R) Core(TM) Ultra 7 155H", "Intel Core Ultra 7 155H"),
+            ("AMD Ryzen 9 7950X 16-Core Processor", "AMD Ryzen 9 7950X"),
+            (
+                "AMD Ryzen 7 7840HS w/ Radeon 780M Graphics",
+                "AMD Ryzen 7 7840HS",
+            ),
+            (
+                "AMD Ryzen 5 5600X 6-Core Processor             ",
+                "AMD Ryzen 5 5600X",
+            ),
+            ("AMD FX(tm)-8350 Eight-Core Processor", "AMD FX-8350"),
+            (
+                "Intel(R) Celeron(R) CPU N3350 @ 1.10GHz",
+                "Intel Celeron N3350",
+            ),
+            (
+                "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+                "Intel Xeon E5-2680 v4",
+            ),
+            (
+                "Intel(R) Core(TM)2 Duo CPU     E8400  @ 3.00GHz",
+                "Intel Core2 Duo E8400",
+            ),
+            (
+                "QEMU Virtual CPU version 2.5+",
+                "QEMU Virtual CPU version 2.5+",
+            ),
+            (
+                "AMD Athlon Silver 3050U with Radeon Graphics",
+                "AMD Athlon Silver 3050U",
+            ),
+        ] {
+            assert_eq!(cpu_display_name(model), shown, "{model}");
+        }
+        assert!(!cpu_display_name("Intel(R)  Core(TM)  i5").contains("  "));
     }
 
     #[test]

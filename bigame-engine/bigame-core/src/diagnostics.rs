@@ -80,7 +80,7 @@ pub fn report(include_network: bool) -> String {
     let caps = Capabilities::detect();
     let mut out = String::new();
 
-    let _ = writeln!(out, "BiGame-mode diagnostics");
+    let _ = writeln!(out, "Big Game Mode diagnostics");
     let _ = writeln!(out, "version        {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(out, "generated      {}", timestamp());
     let _ = writeln!(out);
@@ -134,7 +134,7 @@ fn date(when: libc::time_t) -> String {
 fn section_bigame(out: &mut String) {
     use crate::turbo::Section;
 
-    let _ = writeln!(out, "── BiGame-mode ──");
+    let _ = writeln!(out, "── Big Game Mode ──");
     let reader = crate::systemd::Reader::shared();
     let unit = reader.and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
     // As Home reads it (turbo::state): falcond's unit when it is installed,
@@ -332,7 +332,11 @@ fn section_gpu(out: &mut String, hw: &Hardware) {
         let _ = writeln!(
             out,
             "  {} {:?} {} driver {}{}",
-            gpu.card, gpu.vendor, gpu.pci_id, gpu.driver, role
+            gpu.node(),
+            gpu.vendor,
+            gpu.pci_id,
+            gpu.driver,
+            role
         );
         if let Some(info) = infos.get(i) {
             let _ = writeln!(
@@ -853,7 +857,7 @@ mod tests {
     fn the_report_answers_the_questions_support_asks() {
         let text = report(false);
         for heading in [
-            "── BiGame-mode ──",
+            "── Big Game Mode ──",
             "── System ──",
             "── CPU ──",
             "── GPU ──",
@@ -868,7 +872,7 @@ mod tests {
         ] {
             assert!(text.contains(heading), "missing section {heading}");
         }
-        assert!(text.contains("BiGame-mode diagnostics"));
+        assert!(text.contains("Big Game Mode diagnostics"));
     }
 
     #[test]

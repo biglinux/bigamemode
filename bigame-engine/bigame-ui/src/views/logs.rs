@@ -46,8 +46,8 @@ impl Filter {
             (Self::Warnings, i18n("Warnings and errors")),
             (Self::Success, i18n("Success")),
             (Self::Only(Source::Falcond), "falcond".into()),
-            (Self::Only(Source::BiGame), "BiGame-mode".into()),
-            (Self::Only(Source::Helper), i18n("BiGame-mode helper")),
+            (Self::Only(Source::BiGame), "Big Game Mode".into()),
+            (Self::Only(Source::Helper), i18n("Big Game Mode helper")),
             (Self::KernelGpu, i18n("Kernel and GPU")),
             (Self::Only(Source::Gamescope), "Gamescope".into()),
             (Self::Only(Source::Scheduler), "sched-ext".into()),
@@ -92,7 +92,7 @@ pub fn build() -> adw::PreferencesPage {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Logs"));
     group.set_description(Some(&i18n(
-        "falcond, BiGame-mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files.",
+        "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files.",
     )));
 
     // ── Controls ────────────────────────────────────────────────────────

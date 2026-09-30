@@ -413,7 +413,7 @@ impl Display {
     fn build(video: &SharedVideo, m: &Machine) -> Self {
         let group = ui::section(&i18n("Display"));
         group.set_description(Some(&i18n(
-            "For games started from BiGame-mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
+            "For games started from Big Game Mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
         )));
         let quiet = Rc::new(Cell::new(false));
         if !m.gamescope {
@@ -431,7 +431,7 @@ impl Display {
         let cfg = video.borrow().clone();
         let switch = adw::SwitchRow::builder()
             .title("Gamescope")
-            .subtitle(i18n("Wraps games started from BiGame-mode"))
+            .subtitle(i18n("Wraps games started from Big Game Mode"))
             .active(cfg.upscaling.gamescope_enabled)
             .build();
         switch.add_prefix(&gtk4::Image::from_icon_name("video-display-symbolic"));
@@ -445,7 +445,7 @@ impl Display {
                     .flatten();
                 if let Some(v) = caps.and_then(|c| c.version) {
                     switch.set_subtitle(
-                        &i18n("Version %v · wraps games started from BiGame-mode")
+                        &i18n("Version %v · wraps games started from Big Game Mode")
                             .replace("%v", &v.to_string()),
                     );
                 }
@@ -1186,7 +1186,7 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
     gov_row.add_suffix(&crate::widgets::info::button(
         &i18n("CPU governor"),
         &i18n(
-            "The kernel's rule for the CPU's clock. BiGame-mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards.",
+            "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards.",
         ),
     ));
     group.add(&gov_row);

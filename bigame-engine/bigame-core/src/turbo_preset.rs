@@ -1,5 +1,6 @@
-//! Turbo presets: one choice, made before Turbo is switched on, for what the
-//! games started while it is on should favour.
+//! Turbo presets: one choice for what the games started while Turbo is on
+//! should favour. It is made before Turbo is switched on (for when it is),
+//! or while it is on ([`switch`]), from Home or the tray alike.
 //!
 //! A preset is a layer on top of Tuning, never a second copy of it. While
 //! Turbo is on, the running session's environment carries the preset's
@@ -366,6 +367,24 @@ pub fn deactivate() -> Result<Vec<String>> {
         std::fs::remove_file(&path).with_context(|| format!("remove {}", path.display()))?;
     }
     crate::video_config::sync_session_env(&crate::video_config::load())
+}
+
+/// Change the preset while Turbo is on: chosen, put in force, and the
+/// session's environment brought to it. Games already running keep what
+/// they started with; games started from now on get `preset`. A launcher
+/// that is open keeps its own environment until it is opened again
+/// ([`crate::launchers::behind_the_session`]).
+///
+/// # Errors
+/// Returns an error when the choice or the state cannot be written, or the
+/// session's environment cannot be set.
+pub fn switch(preset: Preset) -> Result<Vec<String>> {
+    set_chosen(preset)?;
+    if preset == Preset::Standard {
+        deactivate()
+    } else {
+        activate(preset)
+    }
 }
 
 /// Bring the session in line when BiGame-mode starts: the preset's

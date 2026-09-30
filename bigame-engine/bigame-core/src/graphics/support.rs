@@ -64,9 +64,9 @@ impl Masks {
 fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String, String)>> {
     let mut files = Vec::new();
     let mut readme = String::new();
-    let _ = writeln!(readme, "BiGame-mode AI Graphics report");
+    let _ = writeln!(readme, "Big Game Mode AI Graphics report");
     let _ = writeln!(readme, "Game: {} ({})", target.name, target.process);
-    let _ = writeln!(readme, "BiGame-mode: {}", env!("CARGO_PKG_VERSION"));
+    let _ = writeln!(readme, "Big Game Mode: {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(readme, "Plan: {} [{:?}]", a.plan.summary, a.plan.standing);
     let _ = writeln!(readme, "Status: {:?}", a.status);
     let _ = writeln!(

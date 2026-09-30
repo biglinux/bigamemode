@@ -83,7 +83,7 @@ pub const VCACHE_MODES: &[Choice] = &[
     choice(
         "none",
         N_("Unchanged"),
-        N_("BiGame-mode and falcond leave the driver's current preference alone."),
+        N_("Big Game Mode and falcond leave the driver's current preference alone."),
     ),
     choice(
         "cache",

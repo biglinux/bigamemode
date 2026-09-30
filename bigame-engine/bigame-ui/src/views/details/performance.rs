@@ -68,7 +68,7 @@ impl Performance {
             power,
             scheduler,
             vcache,
-            cpu_model: crate::views::home::short_cpu(&hw.cpu.model),
+            cpu_model: crate::views::home::short_cpu(&hw.cpu),
         }
     }
 
@@ -93,7 +93,7 @@ impl Performance {
             None,
             &match turbo_state {
                 State::Active => i18n("On: falcond runs and applies each game's profile"),
-                State::Off => i18n("Off: BiGame-mode is not intervening in games"),
+                State::Off => i18n("Off: Big Game Mode is not intervening in games"),
                 State::Error => i18n("falcond's service failed"),
                 State::Missing => i18n("falcond is not installed"),
                 _ => String::new(),

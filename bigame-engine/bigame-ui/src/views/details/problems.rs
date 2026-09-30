@@ -315,7 +315,7 @@ impl Problems {
                 ),
                 UpscalerConflict::WineFsrFromElsewhere => (
                     i18n(
-                        "Wine FSR and OptiScaler both upscale this game: two upscalers in series. WINE_FULLSCREEN_FSR=1 does not come from BiGame-mode: remove it from the game's launch options in Steam (Properties → Launch options).",
+                        "Wine FSR and OptiScaler both upscale this game: two upscalers in series. WINE_FULLSCREEN_FSR=1 does not come from Big Game Mode: remove it from the game's launch options in Steam (Properties → Launch options).",
                     ),
                     None,
                 ),

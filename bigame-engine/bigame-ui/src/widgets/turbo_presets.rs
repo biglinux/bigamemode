@@ -1,8 +1,10 @@
 //! The Turbo preset picker, under the Turbo control on Home.
 //!
-//! A preset is chosen before Turbo is switched on and is in force until it
-//! is switched off ([`bigame_core::turbo_preset`]); while Turbo is on the
-//! picker is locked and says which preset is in force.
+//! With Turbo off it chooses the preset for when Turbo is switched on; with
+//! Turbo on it changes the preset in force, for the games started from then
+//! on ([`bigame_core::turbo_preset`]). A click here and a choice in the tray
+//! take the same path: [`PresetPicker::select`] then whoever
+//! [`PresetPicker::connect_picked`] asked, which is Home.
 
 use std::rc::Rc;
 
@@ -21,6 +23,24 @@ pub struct PresetPicker {
     machine: Machine,
     /// Games that generate frames, read once off the main thread.
     generating: std::cell::RefCell<Vec<String>>,
+    /// Told of every preset picked, by a click or by [`Self::select`].
+    picked: std::cell::RefCell<Vec<Picked>>,
+    /// Set while the buttons are moved to show a preset, not picked.
+    quiet: std::cell::Cell<bool>,
+}
+
+/// Something told of every preset picked.
+type Picked = Box<dyn Fn(Preset)>;
+
+/// What a pick does now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// Turbo is off: the pick is for when it is switched on.
+    Next,
+    /// Turbo is on: the pick changes the preset in force.
+    Live,
+    /// Turbo, or a preset, is switching: nothing can be picked.
+    Locked,
 }
 
 /// The icon a preset is shown with, here and in its help.
@@ -52,7 +72,7 @@ fn describe(preset: Preset, machine: Machine, generating: &[String]) -> String {
     if levers.frame_cap.is_some_and(|f| f > 0) {
         text.push(' ');
         text.push_str(&i18n(
-            "A native Linux game is capped only when BiGame-mode starts it (Profiles → Launch).",
+            "A native Linux game is capped only when Big Game Mode starts it (Profiles → Launch).",
         ));
         if !generating.is_empty() {
             text.push(' ');
@@ -150,6 +170,8 @@ impl PresetPicker {
             note,
             machine,
             generating: std::cell::RefCell::new(Vec::new()),
+            picked: std::cell::RefCell::new(Vec::new()),
+            quiet: std::cell::Cell::new(false),
         });
         {
             let weak = Rc::downgrade(&me);
@@ -163,31 +185,34 @@ impl PresetPicker {
                 }
             });
         }
-        for (preset, button) in &me.buttons {
-            let (preset, weak) = (*preset, Rc::downgrade(&me));
+        me.follow_clicks();
+        me
+    }
+
+    /// A click shows the preset's description and tells whoever asked.
+    fn follow_clicks(self: &Rc<Self>) {
+        for (preset, button) in &self.buttons {
+            let (preset, weak) = (*preset, Rc::downgrade(self));
             button.connect_toggled(move |b| {
                 if !b.is_active() {
                     return;
                 }
-                if let Err(e) = turbo_preset::set_chosen(preset) {
-                    tracing::warn!(error = %format!("{e:#}"), "could not keep the Turbo preset");
-                }
-                if let Some(me) = weak.upgrade() {
-                    me.refresh();
+                let Some(me) = weak.upgrade() else {
+                    return;
+                };
+                me.refresh();
+                if !me.quiet.get() {
+                    for f in me.picked.borrow().iter() {
+                        f(preset);
+                    }
                 }
             });
         }
-        me
     }
 
     /// Describe the preset shown now again.
     fn refresh(&self) {
-        let shown = self
-            .buttons
-            .iter()
-            .find(|(_, b)| b.is_active())
-            .map_or(Preset::Standard, |(p, _)| *p);
-        let text = describe(shown, self.machine, &self.generating.borrow());
+        let text = describe(self.shown(), self.machine, &self.generating.borrow());
         self.description.set_label(&text);
         self.description.set_tooltip_text(Some(&text));
     }
@@ -198,23 +223,51 @@ impl PresetPicker {
         &self.root
     }
 
-    /// Lock the choice while Turbo is on or switching; unlock it when Turbo
-    /// is off. With Turbo on (`in_force`), the preset shown is the one in
-    /// force; while it is still switching on, the choice it is reading stays.
-    pub fn set_locked(&self, locked: bool, in_force: bool) {
+    /// The preset shown.
+    #[must_use]
+    pub fn shown(&self) -> Preset {
+        self.buttons
+            .iter()
+            .find(|(_, b)| b.is_active())
+            .map_or(Preset::Standard, |(p, _)| *p)
+    }
+
+    /// Whether a preset can be picked now.
+    #[must_use]
+    pub fn is_open(&self) -> bool {
+        self.buttons.first().is_some_and(|(_, b)| b.is_sensitive())
+    }
+
+    /// Pick `preset` as a click on it would.
+    pub fn select(&self, preset: Preset) {
+        if let Some((_, b)) = self.buttons.iter().find(|(p, _)| *p == preset) {
+            b.set_active(true);
+        }
+    }
+
+    /// Show `preset` without picking it: what is in force, read back.
+    pub fn show(&self, preset: Preset) {
+        self.quiet.set(true);
+        self.select(preset);
+        self.quiet.set(false);
+    }
+
+    /// Call `f` with every preset picked from now on.
+    pub fn connect_picked(&self, f: impl Fn(Preset) + 'static) {
+        self.picked.borrow_mut().push(Box::new(f));
+    }
+
+    /// Say what a pick does now, and let one be made only when it can be.
+    pub fn set_mode(&self, mode: Mode) {
         for (_, b) in &self.buttons {
-            b.set_sensitive(!locked);
+            b.set_sensitive(mode != Mode::Locked);
         }
-        if locked && in_force {
-            let active = turbo_preset::active();
-            // The one in force is the one shown, even if another was chosen
-            // from elsewhere meanwhile.
-            if let Some((_, b)) = self.buttons.iter().find(|(p, _)| *p == active) {
-                b.set_active(true);
-            }
-        }
-        self.note
-            .set_label(&i18n("Turn Turbo off to choose another preset."));
-        self.note.set_visible(locked);
+        let note = match mode {
+            Mode::Next => Some(i18n("Used when Turbo is switched on.")),
+            Mode::Live => Some(i18n("A change applies to the games started from now on.")),
+            Mode::Locked => None,
+        };
+        self.note.set_label(note.as_deref().unwrap_or_default());
+        self.note.set_visible(note.is_some());
     }
 }

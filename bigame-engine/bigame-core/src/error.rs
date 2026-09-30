@@ -118,7 +118,7 @@ fn level_text(level: &(dyn std::error::Error + 'static)) -> Text {
 fn failure_text(failure: HelperFailure) -> Text {
     Text::plain(match failure {
         HelperFailure::Refused => N_("Authorization was refused or cancelled"),
-        HelperFailure::NotRunning => N_("The BiGame-mode helper is not running"),
+        HelperFailure::NotRunning => N_("The Big Game Mode helper is not running"),
     })
 }
 
@@ -190,7 +190,7 @@ mod tests {
         let gone = anyhow::Error::from(zbus::fdo::Error::ServiceUnknown("x".into()));
         assert_eq!(
             describe(&gone).english(),
-            "The BiGame-mode helper is not running"
+            "The Big Game Mode helper is not running"
         );
     }
 

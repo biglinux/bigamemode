@@ -165,7 +165,7 @@ fn open_internal(
         (
             i18n("Recommended"),
             i18n(
-                "BiGame-mode looks at the game and your graphics card and shows what it would do. Nothing changes until you press Apply.",
+                "Big Game Mode looks at the game and your graphics card and shows what it would do. Nothing changes until you press Apply.",
             ),
         ),
         (
