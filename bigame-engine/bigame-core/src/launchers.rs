@@ -788,7 +788,10 @@ fn quit_lutris() -> Result<()> {
         .name_has_owner(zbus::names::BusName::try_from(LUTRIS_FLATPAK)?)?;
     anyhow::ensure!(
         owned,
-        "Lutris does not hold {LUTRIS_FLATPAK} on the session bus"
+        UserError::with(
+            N_("Lutris is not answering on the session bus (%s)"),
+            [LUTRIS_FLATPAK]
+        )
     );
     let empty: Vec<zbus::zvariant::Value<'_>> = Vec::new();
     let platform: HashMap<&str, zbus::zvariant::Value<'_>> = HashMap::new();

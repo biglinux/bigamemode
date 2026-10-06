@@ -246,7 +246,7 @@ pub fn while_closed<T>(f: impl FnOnce() -> T) -> anyhow::Result<T> {
         while is_running() {
             anyhow::ensure!(
                 std::time::Instant::now() < deadline,
-                "Steam did not close within a minute"
+                UserError::plain(N_("Steam did not close within a minute"))
             );
             std::thread::sleep(std::time::Duration::from_millis(500));
         }

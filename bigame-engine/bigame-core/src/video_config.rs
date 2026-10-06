@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::error::UserError;
 use crate::models::{FrameGenSettings, UpscalingSettings};
+use crate::text::N_;
 
 /// Combined video configuration stored as a single TOML file.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -146,7 +148,9 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
             .with_context(|| format!("write env file: {}", path.display()))?;
     }
 
-    sync_session_env(cfg).context("update the running session's environment")?;
+    sync_session_env(cfg).context(UserError::plain(N_(
+        "could not update the running session's environment",
+    )))?;
     Ok(())
 }
 
@@ -322,9 +326,20 @@ fn sync_session(unset: &[String], set: &[String]) -> Result<()> {
         })
         .collect();
     if !missing.is_empty() || !left.is_empty() {
-        anyhow::bail!(
-            "session environment did not change: missing {missing:?}, still set {left:?}"
-        );
+        anyhow::bail!(UserError::with(
+            N_("the session environment did not change: missing %s, still set %s"),
+            [
+                missing
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                left.iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ]
+        ));
     }
     Ok(())
 }

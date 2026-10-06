@@ -1294,7 +1294,7 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
                 parts.push(i18n("converted weights"));
             }
             if let Some(m) = &found.model {
-                parts.push(format!("{} {m}", i18n("model")));
+                parts.push(i18n("model %s").replace("%s", m));
             }
             group.add(&row(&i18n("Found beside the game"), &parts.join(" · ")));
             if let external::Status::Failed { errors, .. } = &a.neural {
@@ -1570,7 +1570,7 @@ fn save_report(page: &Rc<Page>, button: &gtk4::Button, row: &adw::ActionRow) {
         button.set_sensitive(true);
         match result {
             Ok(Ok(path)) => {
-                let text = format!("{} {}", i18n("Report saved to"), path.display());
+                let text = i18n("Report saved to %s").replace("%s", &path.display().to_string());
                 row.set_subtitle(&text);
                 let toast = adw::Toast::builder()
                     .title(&text)
@@ -2206,7 +2206,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
     group.set_title("OptiScaler");
     let pinned = matches!(page.cfg.borrow().version, VersionPolicy::Pinned(_));
     group.add(&row(
-        &format!("{} {}", i18n("Installed version"), offer.installed),
+        &i18n("Installed version %s").replace("%s", &offer.installed),
         &if pinned {
             i18n("Kept at this version: newer releases are not offered")
         } else {
@@ -2215,7 +2215,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
     ));
     if let Some(new) = &offer.available {
         let r = adw::ActionRow::builder()
-            .title(format!("{} {}", i18n("Update available:"), new.version))
+            .title(i18n("Update available: %s").replace("%s", &new.version))
             .subtitle(i18n(
                 "The current version stays one click away. Updating while a version works is your choice.",
             ))
@@ -2254,7 +2254,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
     }
     if let Some(prev) = &offer.previous {
         let r = row(
-            &format!("{} {}", i18n("Before the last update:"), prev),
+            &i18n("Before the last update: %s").replace("%s", prev),
             &i18n("Go back if the new version does not work as well in this game"),
         );
         let back = gtk4::Button::with_label(&i18n("Go back"));

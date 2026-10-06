@@ -275,7 +275,10 @@ pub fn fetch_shaders(dir: &Path) -> Result<()> {
         }
         std::fs::rename(&part, &dest).with_context(|| format!("put {}", dest.display()))?;
     }
-    ensure!(shaders_ready_in(dir), "the shaders are not all in place");
+    ensure!(
+        shaders_ready_in(dir),
+        UserError::plain(N_("the vkBasalt shaders are not all in place"))
+    );
     tracing::info!(target: "vkbasalt", dir = %dir.display(), "Nara Linux shaders in place and verified");
     Ok(())
 }

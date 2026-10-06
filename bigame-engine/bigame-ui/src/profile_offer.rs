@@ -62,7 +62,9 @@ fn declined() -> HashSet<String> {
 fn decline_forever(process: &str) -> std::io::Result<()> {
     let mut set = declined();
     set.insert(process.to_owned());
-    let path = never_path().ok_or_else(|| std::io::Error::other("no HOME or XDG_STATE_HOME"))?;
+    let path = never_path().ok_or_else(|| {
+        std::io::Error::other(i18n("no home folder is set (HOME or XDG_STATE_HOME)"))
+    })?;
     let json = serde_json::to_vec_pretty(&set).map_err(std::io::Error::other)?;
     crate::settings::write_atomic(&path, &json)?;
     tracing::info!(process, "will not offer a profile for this game again");

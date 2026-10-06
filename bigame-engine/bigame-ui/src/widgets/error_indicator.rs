@@ -200,7 +200,12 @@ fn run_action(anchor: &gtk4::Button, cmd: Vec<String>, done: Option<Rc<dyn Fn()>
             gio::spawn_blocking(move || std::process::Command::new(prog).args(args).status()).await;
         let failure = match ended {
             Ok(Ok(status)) if status.success() => None,
-            Ok(Ok(status)) => Some(format!("{shown}: {status}")),
+            Ok(Ok(status)) => Some(match status.code() {
+                Some(code) => i18n("%s ended with exit code %d")
+                    .replace("%s", &shown)
+                    .replace("%d", &code.to_string()),
+                None => i18n("%s was stopped by a signal").replace("%s", &shown),
+            }),
             Ok(Err(e)) => Some(format!("{shown}: {e}")),
             Err(_) => Some(i18n("the worker thread stopped")),
         };

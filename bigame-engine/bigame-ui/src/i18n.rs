@@ -1,4 +1,4 @@
-//! Internationalization (gettext) setup for BiGame-mode UI.
+//! Internationalization (gettext) setup for the Big Game Mode UI.
 
 use gettextrs::{LocaleCategory, gettext, ngettext};
 
@@ -16,7 +16,10 @@ const LOCALE_DIR: &str = "/usr/share/locale";
 pub fn init() {
     let locale_dir = std::env::var("BIGAME_LOCALEDIR").unwrap_or_else(|_| LOCALE_DIR.to_owned());
     gettextrs::setlocale(LocaleCategory::LcAll, "");
+    // UTF-8 whatever the locale's own charset: gettext-rs refuses (panics on)
+    // a translation that is not valid UTF-8.
     if let Err(e) = gettextrs::bindtextdomain(GETTEXT_DOMAIN, &locale_dir)
+        .and_then(|_| gettextrs::bind_textdomain_codeset(GETTEXT_DOMAIN, "UTF-8"))
         .and_then(|_| gettextrs::textdomain(GETTEXT_DOMAIN).map(|_| ()))
     {
         tracing::warn!(error = %e, "translations unavailable; using English");

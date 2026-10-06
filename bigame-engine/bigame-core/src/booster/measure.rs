@@ -234,8 +234,9 @@ pub async fn run<F: FnMut(MeasureProgress)>(
     // or a kill minutes into the measurement still leaves the knobs to be
     // put back by the next start or Turbo off.
     let journal = crate::booster::journal::Journal::path();
-    let guard = guard(plan, snapshot, &journal)
-        .context("record the baseline before measuring; nothing was changed")?;
+    let guard = guard(plan, snapshot, &journal).context(UserError::plain(N_(
+        "could not record the machine's state before measuring; nothing was changed",
+    )))?;
 
     let mut baseline: Vec<FrameStats> = Vec::new();
     let mut optimized: Vec<FrameStats> = Vec::new();

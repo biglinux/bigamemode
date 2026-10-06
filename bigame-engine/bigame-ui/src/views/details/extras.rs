@@ -183,9 +183,8 @@ fn busy_row(
     let row = adw::ActionRow::builder()
         .title(&process.name)
         .subtitle(format!(
-            "{:.0}% {} · {} MiB · {}",
-            process.cpu_percent,
-            i18n("of one CPU"),
+            "{} · {} MiB · {}",
+            i18n("%s% of one CPU").replace("%s", &format!("{:.0}", process.cpu_percent)),
             process.memory_mib,
             i18n(process.kind.describe())
         ))

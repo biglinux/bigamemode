@@ -263,7 +263,10 @@ fn back_up_originals(
                         }
                     }
                     if sha256_file(&copy)? != orig_sha {
-                        bail!("backup of {} does not match the original", target.display());
+                        bail!(UserError::with(
+                            N_("the backup of %s does not match the original"),
+                            [target.display().to_string()]
+                        ));
                     }
                     Some(Backup {
                         path: copy,
@@ -337,7 +340,7 @@ pub fn apply(
         None => Vec::new(),
     };
     if files.is_empty() {
-        bail!("nothing to install");
+        bail!(UserError::plain(N_("nothing to install")));
     }
     let started_at = crate::unix_now();
     let backup_root = Manifest::backup_dir(state_dir, game_key).join(started_at.to_string());
@@ -414,7 +417,10 @@ pub fn apply(
         }
         for (e, (target, _)) in m.entries.iter().zip(&targets) {
             if sha256_file(target)? != e.sha256 {
-                bail!("{} does not match what was placed", target.display());
+                bail!(UserError::with(
+                    N_("%s does not match what was placed"),
+                    [target.display().to_string()]
+                ));
             }
         }
         Ok(())

@@ -1496,7 +1496,7 @@ impl GameFields {
             })
         };
         let performance_group = section(
-            "Performance",
+            crate::i18n::N_("Performance"),
             i18n(
                 "Applied by falcond while this game runs, whichever launcher starts it. Saved through the privileged helper when you save.",
             ),
@@ -1520,14 +1520,14 @@ impl GameFields {
             ),
         };
         let display_group = section(
-            "Display",
+            crate::i18n::N_("Display"),
             format!(
                 "{reaches} {}",
                 i18n("What is left on “General configuration” follows Tuning → Display.")
             ),
         );
         let image_group = section(
-            "Image quality",
+            crate::i18n::N_("Image quality"),
             format!(
                 "{reaches} {}",
                 i18n(
@@ -1536,13 +1536,13 @@ impl GameFields {
             ),
         );
         let frame_group = section(
-            "Frame generation",
+            crate::i18n::N_("Frame generation"),
             i18n(
                 "lsfg-vk reads this game's entry whichever launcher starts it; its Lossless.dll is one file for every game.",
             ),
         );
         let monitoring_group = section(
-            "Monitoring",
+            crate::i18n::N_("Monitoring"),
             i18n(
                 "Written when you save where this game's launcher reads it: Steam's launch options, its settings in Heroic or Lutris, or Big Game Mode's own launch.",
             ),

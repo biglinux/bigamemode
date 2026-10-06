@@ -121,9 +121,11 @@ impl Telemetry {
                 if let (Some(prev), Some(cur)) = (prev_disk, cur_disk) {
                     let read_kb = (cur.0.saturating_sub(prev.0) * 512) / 1024;
                     let write_kb = (cur.1.saturating_sub(prev.1) * 512) / 1024;
-                    this.disk
-                        .0
-                        .set_text(&format!("{read_kb}R {write_kb}W KB/s"));
+                    this.disk.0.set_text(
+                        &i18n("%r read · %w written KB/s")
+                            .replace("%r", &read_kb.to_string())
+                            .replace("%w", &write_kb.to_string()),
+                    );
                     this.disk.1.push(f64::from(
                         u32::try_from(read_kb + write_kb).unwrap_or(u32::MAX),
                     ));
