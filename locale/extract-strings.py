@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract translatable strings from the BiGame-mode sources into a .pot file.
+"""Extract translatable strings from the Big Game Mode sources into a .pot file.
 
 Why this exists rather than plain xgettext: xgettext has no Rust mode. Run
 against Rust with `--language=C` it reads lifetimes (`&'a str`) as unterminated
@@ -176,7 +176,7 @@ def build_pot() -> str:
 
     date = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M%z")
     out = [
-        "# Translation template for BiGame-mode.",
+        "# Translation template for Big Game Mode.",
         "# Copyright (C) Rafael Ruscher",
         "# This file is distributed under the same license as the bigame-mode package.",
         "#",
