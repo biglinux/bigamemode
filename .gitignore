@@ -6,23 +6,40 @@ target/
 /pkg/
 /pkgbuild/
 *.pkg.tar
-*.pkg.tar.zst
-*.pkg.tar.xz
+*.pkg.tar.*
+*.src.tar.gz
 
 # Compiled translations (built by the PKGBUILD)
 *.mo
 
-# Editors and local tools
+# Editors, local tools and leftovers
 *.swp
+*.swo
 *~
 *.bak
+*.backup
 *.orig
+*.rej
+*.tmp
+*.temp
+*.log
 .idea/
 .vscode/
 *.iml
 .serena/
 .DS_Store
 __pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Crash dumps and profiler output
+vgcore.*
+core.[0-9]*
+perf.data
+perf.data.old
+*.profraw
+*.profdata
 
 # A benchmark session keeps its report, metrics, verdicts, machine state and
 # the game's own summary of every run; the raw captures behind them (per-frame
@@ -40,6 +57,8 @@ bigame-engine/benchmarks/**/*_frametimes_*.txt
 bigame-engine/benchmarks/**/*.png
 bigame-engine/benchmarks/**/report.html
 bigame-engine/benchmarks/**/workload-config.original.xml
+# OptiScaler's own log is the evidence a session cites; it stays.
+!bigame-engine/benchmarks/**/OptiScaler.log
 
 # Proprietary third-party binaries (Lossless.dll, DLSS/XeSS/FSR runtimes,
 # OptiScaler) are never part of this repository.
