@@ -459,10 +459,12 @@ fn steam_launch_facts(game: Option<&GameIdentity>) -> (Option<bool>, bool) {
 }
 
 /// Turbo from falcond's unit: whether it is on, whether the unit failed,
-/// and whether systemd could not be asked at all.
+/// and whether systemd could not be asked at all. Without falcond, Turbo's
+/// own state (Booster only), as Home shows it.
 fn read_turbo() -> (bool, bool, bool) {
-    let unit =
-        crate::systemd::Reader::shared().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+    let unit = crate::systemd::Reader::shared()
+        .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT))
+        .filter(crate::systemd::UnitState::is_installed);
     if let Some(unit) = unit {
         return (unit.is_active(), unit.active_state == "failed", false);
     }

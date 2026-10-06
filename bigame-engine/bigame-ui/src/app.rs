@@ -560,7 +560,13 @@ fn install_missing_packages_hint(missing: &[String], runs: Option<String>) -> St
 
 #[must_use]
 fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
-    if missing.is_empty() {
+    // Offered only when every package installs from this system's
+    // repositories: otherwise the user is told to use their package manager.
+    if missing.is_empty()
+        || !missing
+            .iter()
+            .all(|p| bigame_core::capabilities::in_repositories(p))
+    {
         return None;
     }
     // Prefer pamac-installer (full GUI window with graphical polkit auth).
@@ -586,7 +592,13 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
 
 #[must_use]
 fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> {
-    if missing.is_empty() {
+    // Offered only when every package installs from this system's
+    // repositories: otherwise the user is told to use their package manager.
+    if missing.is_empty()
+        || !missing
+            .iter()
+            .all(|p| bigame_core::capabilities::in_repositories(p))
+    {
         return None;
     }
     if bigame_core::capabilities::which("pamac-installer").is_some() {

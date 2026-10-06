@@ -1417,16 +1417,22 @@ fn launch_through(
         let by = start.by;
         tracing::info!(game = %title, launcher = by, argv = ?start.argv, "launch through the launcher requested from Profiles");
         let result = gio::spawn_blocking(move || {
-            let turbo_on = bigame_core::systemd::Reader::shared()
+            let unit = bigame_core::systemd::Reader::shared()
                 .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
-                .is_some_and(|u| u.is_active());
-            start.spawn().map(|()| turbo_on)
+                .filter(bigame_core::systemd::UnitState::is_installed);
+            let falcond = unit.is_some();
+            let turbo_on = unit.is_some_and(|u| u.is_active());
+            start.spawn().map(|()| (falcond, turbo_on))
         })
         .await;
         match result {
-            Ok(Ok(turbo_on)) => {
-                tracing::info!(game = %title, launcher = by, turbo_on, "launcher asked to start the game");
-                let text = if !turbo_on {
+            Ok(Ok((falcond, turbo_on))) => {
+                tracing::info!(game = %title, launcher = by, falcond, turbo_on, "launcher asked to start the game");
+                let text = if !falcond {
+                    i18n(
+                        "Asked %l to start %s. falcond is not installed, so no game profile applies.",
+                    )
+                } else if !turbo_on {
                     i18n(
                         "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home.",
                     )

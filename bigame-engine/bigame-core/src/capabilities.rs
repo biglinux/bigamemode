@@ -296,6 +296,40 @@ pub fn which(binary: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+/// Whether pacman can install `package` from the repositories this system
+/// has, read from its sync databases (no root, no network). A package only
+/// some distributions carry (falcond, lsfg-vk and vkbasalt are in the
+/// distribution's own repositories on `BigLinux`, in the AUR on Arch) is
+/// offered as a command only where it installs. The answer is kept for the
+/// session.
+#[must_use]
+pub fn in_repositories(package: &str) -> bool {
+    static CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, bool>>> =
+        std::sync::Mutex::new(None);
+    let valid = !package.is_empty()
+        && !package.starts_with('-')
+        && package
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"@._+-".contains(&b));
+    if !valid || which("pacman").is_none() {
+        return false;
+    }
+    let mut cache = CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let cache = cache.get_or_insert_with(std::collections::HashMap::new);
+    *cache.entry(package.to_owned()).or_insert_with(|| {
+        std::process::Command::new("pacman")
+            .args(["-Sp", "--print-format", "%n", "--", package])
+            .env("LC_ALL", "C")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    })
+}
+
 /// [`detect_gamescope`], run once per installed binary: the answer is kept
 /// with the binary's path and modification time, so pages that open often
 /// do not start `gamescope --help` each time, and an update or a new install
@@ -414,6 +448,14 @@ pub fn vkbasalt_installed() -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_package_name_that_is_not_one_is_never_looked_up() {
+        for bad in ["", "-Syu", "a b", "x;rm", "../x", "pkg\n"] {
+            assert!(!in_repositories(bad), "{bad:?}");
+        }
+    }
+
     use super::*;
 
     #[test]

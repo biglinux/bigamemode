@@ -619,20 +619,26 @@ pub fn network_group() -> adw::PreferencesGroup {
                     link.mtu.map_or_else(|| "?".to_owned(), |m| m.to_string())
                 ));
 
-                let modern = link.has_modern_qdisc();
-                qdisc_row.set_subtitle(&format!(
-                    "{} — {}",
-                    link.qdisc.as_deref().unwrap_or(&i18n("unknown")),
-                    if modern {
-                        // Saying "already good" matters: offering to enable
-                        // something that is on would be a no-op reported as
-                        // an improvement.
-                        i18n("already manages latency under load; nothing to change")
-                    } else {
-                        i18n("does not actively manage latency under load")
-                    }
-                ));
-                qdisc_row.add_prefix(&status_icon(modern));
+                if let Some(qdisc) = link.qdisc.as_deref() {
+                    let modern = link.has_modern_qdisc();
+                    qdisc_row.set_subtitle(&format!(
+                        "{qdisc} — {}",
+                        if modern {
+                            // Saying "already good" matters: offering to
+                            // enable something that is on would be a no-op
+                            // reported as an improvement.
+                            i18n("already manages latency under load; nothing to change")
+                        } else {
+                            i18n("does not actively manage latency under load")
+                        }
+                    ));
+                    qdisc_row.add_prefix(&status_icon(modern));
+                } else {
+                    // No verdict on what could not be read.
+                    qdisc_row.set_subtitle(&i18n(
+                        "Unknown: tc (iproute2) could not read the interface's queue discipline",
+                    ));
+                }
             } else {
                 link_row.set_subtitle(&i18n("No default route — this machine is offline"));
                 qdisc_row.set_visible(false);

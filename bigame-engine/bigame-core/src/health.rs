@@ -86,6 +86,22 @@ fn advice(template: &'static str) -> Option<Fix> {
     Some(Fix::Advice(Text::plain(template)))
 }
 
+/// The command that installs `packages` where they install from this
+/// system's repositories; advice where they do not (an Arch system without
+/// `BigLinux`'s repositories has falcond in the AUR).
+fn install(packages: &[&str]) -> Option<Fix> {
+    if packages
+        .iter()
+        .all(|p| crate::capabilities::in_repositories(p))
+    {
+        cmd(format!("sudo pacman -S --needed {}", packages.join(" ")))
+    } else {
+        advice(N_(
+            "Not in this system's repositories: install it from your distribution or the AUR",
+        ))
+    }
+}
+
 /// A value shown as it is — a version, a list of names.
 fn verbatim(value: impl Into<String>) -> Text {
     Text::raw(value)
@@ -356,14 +372,17 @@ pub fn vulkan_32bit(vendor: GpuVendor, lib32: &Path) -> (bool, &'static str) {
     (lib32.join(file).exists(), package)
 }
 
-/// The command that brings power-profiles-daemon back.
+/// The command that brings power-profiles-daemon back, or installs it when
+/// its unit is not there.
 ///
 /// `BigLinux` starts the daemon from its own unit, which also picks the driver,
 /// and masks the stock one: enabling the stock unit there starts a second
 /// daemon that cannot own the bus name and fails until systemd gives up.
 #[must_use]
 pub fn power_profiles_fix(unit_dir: &Path) -> &'static str {
-    if unit_dir
+    if !unit_dir.join("power-profiles-daemon.service").exists() {
+        "sudo pacman -S --needed power-profiles-daemon"
+    } else if unit_dir
         .join("power-profiles-daemon-biglinux.service")
         .exists()
     {
@@ -541,9 +560,9 @@ pub fn collect() -> Vec<Check> {
     out.push(match (&backend, caps.falcond_installed) {
         (_, false) => check(
             N_("falcond"),
-            Status::Error,
-            N_("not installed: there is no per-game optimization"),
-            cmd("sudo pacman -S falcond falcond-profiles"),
+            Status::Warning,
+            N_("not installed: Turbo and per-game performance profiles are unavailable"),
+            install(&["falcond", "falcond-profiles"]),
         ),
         (Some(u), true) if u.active_state == "failed" => check(
             N_("falcond"),
@@ -1040,6 +1059,12 @@ mod tests {
     #[test]
     fn power_profiles_are_restarted_through_biglinux_s_own_unit_where_it_has_one() {
         let dir = tempfile::tempdir().unwrap();
+        // Not installed at all: enabling a unit that is not there fails.
+        assert_eq!(
+            power_profiles_fix(dir.path()),
+            "sudo pacman -S --needed power-profiles-daemon"
+        );
+        std::fs::write(dir.path().join("power-profiles-daemon.service"), "").unwrap();
         assert_eq!(
             power_profiles_fix(dir.path()),
             "sudo systemctl enable --now power-profiles-daemon"

@@ -449,6 +449,9 @@ pub struct SaveReport {
     pub frame_generation: Option<anyhow::Error>,
     /// The game's own launch settings could not be written.
     pub launch: Option<anyhow::Error>,
+    /// falcond is not installed: the performance profile was not written,
+    /// since nothing would read it; every other part was.
+    pub falcond_missing: bool,
     /// `MangoHud` was written (or refused, or failed); `None` when it did
     /// not change.
     pub mangohud: Option<Result<crate::mangohud::Applied>>,
@@ -568,14 +571,24 @@ impl GameOptimization {
     /// helper (which reloads falcond), lsfg-vk's entry, then `MangoHud` if it
     /// changed. Blocking: it may wait on a Polkit prompt.
     ///
+    /// Without falcond the profile is not written (nothing would read it, and
+    /// its directory may not exist) and the rest is saved all the same.
+    ///
     /// # Errors
     /// Returns an error when the profile itself is not saved; then nothing
     /// else is written.
     pub fn save(&mut self) -> Result<SaveReport> {
+        self.save_with(crate::capabilities::which("falcond").is_some())
+    }
+
+    fn save_with(&mut self, falcond: bool) -> Result<SaveReport> {
         self.sync_copy();
-        crate::profiles::save_file(&self.profile)?;
+        if falcond {
+            crate::profiles::save_file(&self.profile)?;
+        }
         let mut report = SaveReport {
             process: self.profile.name.clone(),
+            falcond_missing: !falcond,
             ..SaveReport::default()
         };
         // lsfg-vk's file only when this page changed its values: saving a

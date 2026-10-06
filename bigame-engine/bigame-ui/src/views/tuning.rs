@@ -513,6 +513,10 @@ fn report_steam_gamescope(
 fn build_performance(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
     let shared = falcond.shared();
     let group = ui::section(&i18n("Performance"));
+    if !m.falcond {
+        group.add(&falcond_missing_row());
+        return group;
+    }
     group.set_description(Some(&i18n(
         "Applied by falcond while Turbo is on, and undone when it is turned off. Saved through the privileged helper.",
     )));
@@ -1435,16 +1439,10 @@ fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
 
 // ── Advanced ────────────────────────────────────────────────────────────────
 
-/// falcond's own settings and the facts for the person who knows what a
-/// scheduler flag is: last, each with its ⓘ.
-#[allow(clippy::too_many_lines)]
-fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
+/// Advanced's rows that are falcond's own: its scan interval and the set of
+/// profiles it uses.
+fn add_falcond_rows(group: &adw::PreferencesGroup, falcond: &FalcondSaver) {
     let shared = falcond.shared();
-    let group = ui::section(&i18n("Advanced"));
-    group.set_description(Some(&i18n(
-        "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play.",
-    )));
-
     let poll_row = adw::SpinRow::new(
         Some(&gtk4::Adjustment::new(
             f64::from(shared.borrow().poll_interval_ms),
@@ -1514,6 +1512,33 @@ fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup 
         });
     }
     falcond.on_revert(move |c| set.set(&c.profile_mode));
+}
+
+/// What Tuning shows in falcond's place when it is not installed.
+fn falcond_missing_row() -> adw::ActionRow {
+    ui::missing_row(
+        "falcond",
+        &i18n(
+            "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it, Turbo and these settings are unavailable.",
+        ),
+        "sudo pacman -S falcond",
+    )
+}
+
+/// falcond's own settings and the facts for the person who knows what a
+/// scheduler flag is: last, each with its ⓘ.
+#[allow(clippy::too_many_lines)]
+fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
+    let group = ui::section(&i18n("Advanced"));
+    group.set_description(Some(&i18n(
+        "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play.",
+    )));
+
+    if m.falcond {
+        add_falcond_rows(&group, falcond);
+    } else {
+        group.add(&falcond_missing_row());
+    }
     // The governor, for reference: power-profiles-daemon sets it.
     let gov_row = adw::ActionRow::builder()
         .title(i18n("CPU governor"))

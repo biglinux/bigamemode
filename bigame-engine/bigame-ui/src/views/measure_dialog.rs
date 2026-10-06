@@ -48,6 +48,19 @@ pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String])
     let title = title.to_owned();
     let command = command.to_vec();
     glib::spawn_future_local(async move {
+        // The frame times come from MangoHud's log: without it every run
+        // would end, minutes later, with too few frames.
+        if bigame_core::capabilities::which("mangohud").is_none() {
+            let dialog = adw::AlertDialog::new(
+                Some(&i18n("MangoHud is not installed")),
+                Some(&i18n(
+                    "Measure the difference reads each run's frame times from MangoHud's log. Install mangohud (and lib32-mangohud for 32-bit games), then measure again.",
+                )),
+            );
+            dialog.add_response("close", &i18n("Close"));
+            dialog.present(Some(&anchor));
+            return;
+        }
         let nothing_to_change =
             gtk4::gio::spawn_blocking(|| BoosterEngine::detect().dry_run().1.is_empty())
                 .await

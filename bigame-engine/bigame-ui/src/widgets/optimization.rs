@@ -57,6 +57,8 @@ pub struct Machine {
     pub lsfg_dll: bool,
     /// `mangohud` is on `PATH`.
     pub mangohud: bool,
+    /// falcond is installed: Turbo and the per-game performance profiles.
+    pub falcond: bool,
 }
 
 impl Machine {
@@ -75,6 +77,7 @@ impl Machine {
             lsfg: bigame_core::fg::layer_installed(),
             lsfg_dll: bigame_core::fg::is_lossless_dll_ready(),
             mangohud: bigame_core::capabilities::which("mangohud").is_some(),
+            falcond: bigame_core::capabilities::which("falcond").is_some(),
         }
     }
 }
@@ -643,6 +646,11 @@ pub fn summary(g: &GameOptimization, m: &Machine) -> Vec<(String, String)> {
 pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
     use bigame_core::mangohud::Applied;
     let mut problems = Vec::new();
+    if report.falcond_missing {
+        problems.push(i18n(
+            "falcond is not installed, so the game's performance profile was not saved; its other settings were. Install falcond to use Turbo and performance profiles.",
+        ));
+    }
     if let Some(e) = &report.frame_generation {
         problems.push(format!("lsfg-vk: {}", crate::i18n::error_text(e)));
     }
