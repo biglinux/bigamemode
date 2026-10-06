@@ -424,6 +424,12 @@ pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()
 /// public entry point keeps the guard: a caller that skipped it would have its
 /// edit silently discarded when Steam next exits, which is worse than an error.
 fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> {
+    // The id becomes a key of the file: anything but digits (from a crafted
+    // appmanifest in a shared library) could write a block for another game.
+    anyhow::ensure!(
+        !app_id.is_empty() && app_id.bytes().all(|b| b.is_ascii_digit()),
+        UserError::with(N_("not a Steam app id: %s"), [app_id])
+    );
     // Written in Steam's escapes: a bare quote or newline would corrupt the
     // file for every game, not just this one.
     let stored = escape(value);
@@ -665,6 +671,17 @@ pub fn mentions_wrapper(options: &str, wrapper: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn an_app_id_that_is_not_a_number_is_refused_and_nothing_written() {
+        let path = write_temp("bad-id", VDF);
+        for bad in ["", "381210\"\n\"1", "1a", "-1"] {
+            assert!(write_launch_options(&path, bad, "mangohud %command%").is_err());
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), VDF);
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
     use super::*;
 
     /// Shaped like a real `localconfig.vdf`, including the `cloud` sub-block

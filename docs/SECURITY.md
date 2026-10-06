@@ -49,7 +49,7 @@ an administrator's password.
 |---|---|
 | Profile name | `[A-Za-z0-9 ._+-]`, 1–128 bytes, no leading `.`, no `..`, no leading or trailing space — a separator cannot be expressed |
 | Profile `name` field | must equal the name it is saved under, so a profile is always found, and removed, by the name it matches; and it may not be a process of the session itself (`Xorg`, `Xwayland`, `kwin_wayland`, `gnome-shell`, `plasmashell`, `systemd`, `dbus-daemon`, `pipewire`, `falcond`, `sh`, `bash`, `sudo`…), which falcond would otherwise treat as a game |
-| Profile content | ≤ 64 KiB; no NUL or other control characters (a bare `\r` is a line break to some parsers); **exactly one plain `key = value` per line**: falcond's parser (`otter_conf`) reads the next key on the same line after a value, so `idle_inhibit = true start_script = "…"` would hide a second assignment from a line-based check. Keys are `[a-z_][a-z0-9_]*`; a value is a bare word (`[A-Za-z0-9_.+-]`) or a quoted string with no quote, backslash or `#` inside, and nothing may follow it. Keys come from an allow-list — falcond's fields and Big Game Mode's own — and none is repeated (one parser keeps the first value, another the last); **no `start_script` / `stop_script`**: falcond runs them through `/bin/sh` (2.0.14: as the user that owns the matched process, which is root for a root process) |
+| Profile content | ≤ 64 KiB; no NUL or other control characters (a bare `\r` is a line break to some parsers); **exactly one plain `key = value` per line**: falcond's parser (`otter_conf`) reads the next key on the same line after a value, so `idle_inhibit = true start_script = "…"` would hide a second assignment from a line-based check. Keys are `[a-z_][a-z0-9_]*`; a value is a bare word (`[A-Za-z0-9_.+-]`) or a quoted string with no quote, backslash or `#` inside, and nothing may follow it. Boolean settings take only `true` or `false`, and `poll_interval_ms` only 100–600000. Keys come from an allow-list — falcond's fields and Big Game Mode's own — and none is repeated (one parser keeps the first value, another the last); **no `start_script` / `stop_script`**: falcond runs them through `/bin/sh` (2.0.14: as the user that owns the matched process, which is root for a root process) |
 | falcond configuration | ≤ 64 KiB, the same one-assignment-per-line grammar (with one-line lists for `system_processes`) and only falcond's configuration keys; the settings that decide between a reload and a restart are read the same strict way |
 | Governor / EPP | `[a-z0-9_-]`, and one of the values the kernel lists in `scaling_available_governors` / `energy_performance_available_preferences` — an arbitrary governor name would make cpufreq load a `cpufreq_<name>` module |
 | DRM card | `card` followed by 1–3 digits |
@@ -104,8 +104,11 @@ not use:
   it names are symlinks into it. Also writable: `/etc/falcond`
   (`ConfigurationDirectory=falcond`: falcond's package does not ship it, and
   an absent `ReadWritePaths` entry is ignored, which left it read-only),
-  `/usr/share/falcond/profiles` (ignored when absent) and
-  `StateDirectory=bigame-mode`.
+  `/usr/share/falcond/profiles/user` and `StateDirectory=bigame-mode`. Only
+  the user profiles: the system profiles beside them may carry start scripts
+  falcond runs as root, so a path bug in the helper cannot plant one. The
+  package owns that directory, so it exists when the helper starts even if
+  falcond is installed later.
 - Turning falcond on that does not reach `active` disables the unit again,
   so a failed Turbo does not come back on at the next boot; off does not
   disable a unit that is still stopping. A unit found `enabled-runtime` is
@@ -161,7 +164,12 @@ that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
 - Steam's launch options are edited only while Steam is closed, with a backup
   of the file before the first change and a read-back; they are read and
   written in Steam's own escapes, and only the words Big Game Mode recorded
-  adding are ever removed.
+  adding are ever removed. The app id they are filed under must be all
+  digits: one from a crafted `appmanifest` in a shared library could
+  otherwise write a block for another game.
+- OptiScaler's log in a game folder is read for Logs and the support report
+  only when it is a plain file (never through a link), and only its last
+  4 MiB for a report.
 
 ## AI Graphics
 
@@ -177,7 +185,10 @@ comes from the same GitHub response as the file, so it proves the transfer,
 not the source; only the tested release's hash is pinned in the program. The
 installed release is found again by that hash, so Repair never uses another
 version's files, and the unpacked cache keeps a hash per file, so a damaged
-file is unpacked again from the kept archive rather than used. OptiScaler's own update check is switched off in the configuration
+file is unpacked again from the kept archive rather than used. The archive's
+listing is checked before anything is unpacked: plain files and folders with
+relative names only, and the sizes it lists within 1 GiB; what was written is
+measured again after. OptiScaler's own update check is switched off in the configuration
 Big Game Mode writes.
 
 **Release list.** To offer updates, the list of releases is read from the

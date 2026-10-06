@@ -337,6 +337,15 @@ pub fn check_listing(verbose: &str, names: &str) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
+/// The total size `bsdtar -tvf` lists (its fifth column, as `ls -l`), or
+/// `None` when a line does not read as one.
+fn listed_size(verbose: &str) -> Option<u64> {
+    verbose
+        .lines()
+        .map(|l| l.split_whitespace().nth(4)?.parse::<u64>().ok())
+        .try_fold(0u64, |total, size| total.checked_add(size?))
+}
+
 pub(super) fn run(program: &str, args: &[&std::ffi::OsStr]) -> Result<String> {
     let out = std::process::Command::new(program)
         .args(args)
@@ -365,6 +374,11 @@ pub fn extract_safely(archive: &Path, dest: &Path) -> Result<()> {
     let verbose = run("bsdtar", &["-tvf".as_ref(), archive.as_os_str()])?;
     let names = run("bsdtar", &["-tf".as_ref(), archive.as_os_str()])?;
     check_listing(&verbose, &names)?;
+    // The sizes it lists, checked before anything is written; what was
+    // written is checked again after.
+    if let Some(listed) = listed_size(&verbose) {
+        ensure!(listed <= MAX_UNPACKED, "archive lists {listed} bytes");
+    }
     let tmp = dest.with_extension("unpacking");
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp)?;
@@ -1110,6 +1124,22 @@ pub fn read_log(text: &str) -> LogFindings {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_listed_size_is_summed_before_extracting() {
+        let verbose = "drwxr-xr-x  0 0      0           0 Jul 18 12:00 Licenses/\n\
+                       -rw-r--r--  0 0      0     1048576 Jul 18 12:00 OptiScaler.dll\n\
+                       -rw-r--r--  0 0      0        2048 Jul 18 12:00 OptiScaler.ini\n";
+        assert_eq!(listed_size(verbose), Some(1_050_624));
+        // A line that does not read as a size: no total, the result is
+        // checked after unpacking instead.
+        assert_eq!(listed_size("garbage line\n"), None);
+        assert_eq!(
+            listed_size(&format!("-r 0 0 0 {} x\n-r 0 0 0 1 y\n", u64::MAX)),
+            None
+        );
+    }
+
     use super::*;
 
     fn opts(input: Input, output: Output, api: Api) -> Options {

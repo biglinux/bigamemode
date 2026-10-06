@@ -16,6 +16,8 @@ use super::{Analysis, Target, manifest::Manifest, state_dir};
 
 /// Lines of a log kept in the report: the end, which is the current run.
 const LOG_TAIL: usize = 3000;
+/// At most this much of a log is read for its last [`LOG_TAIL`] lines.
+const LOG_BYTES: u64 = 4 * 1024 * 1024;
 
 fn tail(text: &str, lines: usize) -> String {
     let all: Vec<&str> = text.lines().collect();
@@ -37,7 +39,13 @@ fn safe_name(name: &str) -> String {
 /// folder must not pull another of the user's files into a report they
 /// share.
 fn read_plain(path: &Path) -> std::io::Result<String> {
-    use std::io::Read as _;
+    read_plain_tail(path, u64::MAX)
+}
+
+/// [`read_plain`], keeping only the last `max` bytes: a debug log can grow
+/// to gigabytes, and a report needs its end.
+fn read_plain_tail(path: &Path, max: u64) -> std::io::Result<String> {
+    use std::io::{Read as _, Seek as _};
     use std::os::unix::fs::OpenOptionsExt;
     let mut f = std::fs::OpenOptions::new()
         .read(true)
@@ -49,9 +57,13 @@ fn read_plain(path: &Path) -> std::io::Result<String> {
             format!("{} is not a plain file", path.display()),
         ));
     }
-    let mut text = String::new();
-    f.read_to_string(&mut text)?;
-    Ok(text)
+    let len = f.metadata()?.len();
+    if len > max {
+        f.seek(std::io::SeekFrom::Start(len - max))?;
+    }
+    let mut bytes = Vec::new();
+    f.take(max).read_to_end(&mut bytes)?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// The identifiers masked in every file.
@@ -209,12 +221,12 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
     if let Ok(ini) = read_plain(&exe_dir.join("OptiScaler.ini")) {
         files.push(("OptiScaler.ini".into(), ini));
     }
-    let log = read_plain(&exe_dir.join("OptiScaler.log"))
-        .or_else(|_| read_plain(&state.join(&key).join("last-run/OptiScaler.log")));
+    let log = read_plain_tail(&exe_dir.join("OptiScaler.log"), LOG_BYTES)
+        .or_else(|_| read_plain_tail(&state.join(&key).join("last-run/OptiScaler.log"), LOG_BYTES));
     if let Ok(log) = log {
         files.push(("OptiScaler.log".into(), tail(&log, LOG_TAIL)));
     }
-    if let Ok(log) = read_plain(&exe_dir.join(super::external::LOG)) {
+    if let Ok(log) = read_plain_tail(&exe_dir.join(super::external::LOG), LOG_BYTES) {
         files.push((super::external::LOG.into(), tail(&log, LOG_TAIL)));
     }
     // Copies kept after a removal: originals of files another program
@@ -279,6 +291,19 @@ pub fn write_report(target: &Target, a: &Analysis, dest_dir: &Path) -> Result<Pa
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_log_is_read_from_its_end_and_never_through_a_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("OptiScaler.log");
+        std::fs::write(&log, "old\nmiddle\nnew\n").unwrap();
+        assert_eq!(read_plain_tail(&log, 4).unwrap(), "new\n");
+        assert_eq!(read_plain_tail(&log, 1000).unwrap(), "old\nmiddle\nnew\n");
+        let link = dir.path().join("link.log");
+        std::os::unix::fs::symlink(&log, &link).unwrap();
+        assert!(read_plain_tail(&link, 1000).is_err());
+    }
+
     use super::*;
 
     #[test]

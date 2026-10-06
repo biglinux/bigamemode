@@ -633,8 +633,11 @@ fn log_files() -> Vec<(PathBuf, FileFormat)> {
             }
             let live = m.install_root.join(generated);
             let kept = state.join(&key).join("last-run").join(generated);
-            let path = if live.is_file() { live } else { kept };
-            if path.is_file() && seen.insert(path.clone()) {
+            // A link in the game's folder must not bring another of the
+            // user's files into the view and its export.
+            let plain = |p: &Path| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_file());
+            let path = if plain(&live) { live } else { kept };
+            if plain(&path) && seen.insert(path.clone()) {
                 out.push((path, FileFormat::OptiScaler(title.clone())));
             }
         }

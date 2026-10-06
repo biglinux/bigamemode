@@ -188,6 +188,41 @@ fn assignment(line: &str, lists: bool) -> Result<Option<(&str, &str)>, String> {
     Ok(Some((key, value.trim_matches('"'))))
 }
 
+/// Settings falcond reads as a boolean.
+const BOOL_KEYS: &[&str] = &[
+    "enable_performance_mode",
+    "performance_mode",
+    "idle_inhibit",
+    "dmem_protect",
+    "disable_split_lock",
+    "fg_perf_mode",
+    "fg_hdr",
+];
+
+/// How often falcond may rescan the process list, in milliseconds: never a
+/// busy loop, never effectively off.
+const POLL_INTERVAL_MS: std::ops::RangeInclusive<u32> = 100..=600_000;
+
+/// Whether `value` is one `key` can take, where that is known for certain:
+/// booleans and falcond's scan interval. The rest keep the general grammar.
+fn value_fits(key: &str, value: &str) -> Result<(), String> {
+    if BOOL_KEYS.contains(&key) && !matches!(value, "true" | "false") {
+        return Err(format!("{key} must be true or false"));
+    }
+    if key == "poll_interval_ms"
+        && !value
+            .parse::<u32>()
+            .is_ok_and(|ms| POLL_INTERVAL_MS.contains(&ms))
+    {
+        return Err(format!(
+            "poll_interval_ms must be between {} and {}",
+            POLL_INTERVAL_MS.start(),
+            POLL_INTERVAL_MS.end()
+        ));
+    }
+    Ok(())
+}
+
 /// Every assignment of a payload, each key once and from `allowed`.
 fn assignments<'a>(
     content: &'a str,
@@ -216,6 +251,7 @@ fn assignments<'a>(
         if !seen.insert(key) {
             return Err(format!("{key} is given more than once"));
         }
+        value_fits(key, value)?;
         out.push((key, value));
     }
     Ok(out)
@@ -364,6 +400,24 @@ pub fn profile_name_matches(name: &str, payload: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn booleans_and_the_scan_interval_take_only_their_values() {
+        assert!(
+            config_payload("poll_interval_ms = 9000\nenable_performance_mode = true\n").is_ok()
+        );
+        for bad in [
+            "poll_interval_ms = 0\n",
+            "poll_interval_ms = 99999999999\n",
+            "poll_interval_ms = fast\n",
+            "enable_performance_mode = yes\n",
+        ] {
+            assert!(config_payload(bad).is_err(), "{bad}");
+        }
+        let profile = "name = \"game.exe\"\nperformance_mode = 1\n";
+        assert!(profile_payload(profile).is_err());
+    }
+
     #[test]
     fn two_assignments_on_one_line_cannot_hide_a_script_or_a_second_name() {
         use super::{profile_name_matches, profile_payload};

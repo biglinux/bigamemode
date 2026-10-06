@@ -156,6 +156,10 @@ package() {
     # Where the helper writes falcond's global configuration; falcond's
     # package does not ship it. Owned here so removal takes it away when empty.
     install -dm755 "${pkgdir}/etc/falcond"
+    # The per-game profiles the helper writes, the only part of falcond's
+    # profile tree its sandbox can write. Owned here so it exists before the
+    # helper starts, with falcond installed or not.
+    install -dm755 "${pkgdir}/usr/share/falcond/profiles/user"
 
     # Icons: the application icon and the tray's. The tray gives its icon by
     # name only, so the panel draws the symbolic icon in its own colours; it

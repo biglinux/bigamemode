@@ -65,7 +65,12 @@ ReadOnlyPaths=-/sys/block -/sys/bus -/sys/class -/sys/dev -/sys/firmware -/sys/f
 # A path that does not exist makes systemd refuse to start the service at all
 # (226/NAMESPACE), so paths that depend on hardware or on falcond being
 # installed carry the "-" prefix: ignored when absent.
-ReadWritePaths=-/usr/share/falcond/profiles
+#
+# Only the user profiles: the system ones beside them may carry start
+# scripts falcond runs as root, so the helper cannot write there. The package
+# owns this directory, so it exists when the helper starts even if falcond is
+# installed later; an absent one would stay read-only until a restart.
+ReadWritePaths=-/usr/share/falcond/profiles/user
 #
 # falcond's global configuration. Its package ships no /etc/falcond, and an
 # absent path is ignored above, which left / read-only and every save of the
