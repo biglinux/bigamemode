@@ -1,6 +1,6 @@
 post_install() {
     cat <<'MSG'
-==> BiGame-mode: open it from the application menu ("BiGame-mode").
+==> Big Game Mode: open it from the application menu ("Big Game Mode").
     The privileged helper (bigame-daemon) starts on demand over D-Bus.
 MSG
 }
@@ -25,14 +25,20 @@ post_upgrade() {
 pre_remove() {
     # Give falcond back as it was before BiGame-mode first took charge of it
     # (enabled or not, running or not). Does nothing if it never did.
-    busctl call --timeout=10 com.biglinux.BiGameMode /com/biglinux/BiGameMode \
-        com.biglinux.BiGameMode ReleaseGameBackend >/dev/null 2>&1 || :
+    if ! busctl call --timeout=10 com.biglinux.BiGameMode /com/biglinux/BiGameMode \
+        com.biglinux.BiGameMode ReleaseGameBackend >/dev/null 2>&1; then
+        echo "==> Big Game Mode could not hand falcond back as it found it; check it with: systemctl status falcond"
+    fi
     systemctl stop bigame-daemon.service >/dev/null 2>&1 || :
     _stop_bus_spawned_helper
 
     cat <<'MSG'
 ==> Games changed by AI Graphics keep their OptiScaler files until restored.
-    Use "Restore Game Graphics" in BiGame-mode before removing it, or
+    Use "Restore Game Graphics" in Big Game Mode before removing it, or
     reinstall later: the backups in ~/.local/state/bigame-mode/graphics stay.
+==> Settings Big Game Mode wrote for your user stay as they are: launch
+    options in Steam, Heroic and Lutris, lsfg-vk entries, MangoHud and vkBasalt
+    styles, ~/.config/environment.d/bigame-mode.conf, and the per-game
+    profiles in /usr/share/falcond/profiles/user, which falcond keeps applying.
 MSG
 }

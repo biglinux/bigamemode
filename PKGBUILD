@@ -35,9 +35,8 @@ depends=(
     'curl'
     'libarchive'
 
-    # Graphics card names: the PCI database (hwdata) and lspci (pciutils).
+    # Graphics card names: the PCI database.
     'hwdata'
-    'pciutils'
 
     # Network, on the Details page: latency (ping) and the interface's queue
     # discipline (tc).
@@ -74,6 +73,11 @@ optdepends=(
     # nmcli, as the user: the DNS comparison can make a resolver the
     # connection's DNS server. Without it the option says it is unavailable.
     'networkmanager: set the DNS server of the connection from the DNS comparison'
+    # Proton and Wine synchronise through /dev/ntsync when it exists; on Arch
+    # only wine pulls this in, so a Steam-only system may lack the device.
+    'ntsync-autoload: load the NTSync driver at boot (Proton/Wine synchronisation)'
+    # The overlay and Measure the difference in 32-bit games.
+    'lib32-mangohud: MangoHud in 32-bit games'
 )
 install="${pkgname}.install"
 source=("${pkgname}::git+${url}.git")
@@ -153,11 +157,11 @@ package() {
     # package does not ship it. Owned here so removal takes it away when empty.
     install -dm755 "${pkgdir}/etc/falcond"
 
-    # Icons: the application icon and the four tray states. The tray also
-    # carries them inside the binary; installing them lets tray hosts that
-    # draw by icon name find them in the theme.
+    # Icons: the application icon and the tray's. The tray gives its icon by
+    # name only, so the panel draws the symbolic icon in its own colours; it
+    # has to be in the theme for that.
     local icon
-    for icon in com.biglinux.BiGameMode input-gaming-symbolic-{blue,green,yellow}; do
+    for icon in com.biglinux.BiGameMode bigamemode-symbolic; do
         install -Dm644 "usr/share/icons/hicolor/scalable/apps/${icon}.svg" \
             "${pkgdir}/usr/share/icons/hicolor/scalable/apps/${icon}.svg"
     done

@@ -1,5 +1,5 @@
 [Unit]
-Description=BiGame-mode privileged helper
+Description=Big Game Mode privileged helper
 Documentation=https://github.com/ruscher/bigamemode
 After=dbus.service polkit.service
 Requires=dbus.service
@@ -40,6 +40,15 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources @mount @debug @obsolete
 UMask=0022
+# Every file the helper writes is root's own (cpufreq, DRM and V-Cache
+# attributes, /etc/falcond, the profile directory, its state directory), so
+# uid 0 needs no capability to write it: DAC_OVERRIDE, PTRACE, NET_*, SETUID
+# and the rest go. CAP_SYS_ADMIN stays: systemd checks a uid-0 caller's
+# capabilities, not its uid, before it starts or stops falcond on its behalf.
+CapabilityBoundingSet=CAP_SYS_ADMIN
+# No PrivateNetwork: in its own network namespace the unit's sysfs showed no
+# cpufreq attributes (systemd 261, checked: SetCpuGovernor found none), and
+# RestrictAddressFamilies=AF_UNIX already leaves it no network socket.
 
 # Writes are confined to the locations the helper touches: the rest of the
 # filesystem is read-only. ProtectSystem=strict leaves /sys writable, and on
