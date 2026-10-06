@@ -672,31 +672,6 @@ pub fn flatpak_vkbasalt_missing() -> Option<String> {
     crate::mangohud::missing_flatpak_layer(crate::launchers::HEROIC_FLATPAK, VKBASALT_LAYER)
 }
 
-/// Heroic's own Wine FSR switch for the game whose process is `process`
-/// (the game's, or Heroic's default), `None` for a game Heroic does not
-/// start. Heroic sets `WINE_FULLSCREEN_FSR` from it for every Wine game, over
-/// the session's: Tuning's and a Turbo preset's Wine FSR do not reach these
-/// games, only this switch does.
-#[must_use]
-pub fn wine_fsr_switch(process: &str) -> Option<bool> {
-    let target = targets(process).into_iter().next()?;
-    let text = std::fs::read_to_string(target.file()).unwrap_or_default();
-    Some(wine_fsr_in(
-        &text,
-        &target.app_name,
-        &Defaults::read(&target.config_dir),
-    ))
-}
-
-/// Heroic's Wine FSR switch for `app_name` in its settings `text`, over
-/// `defaults`.
-fn wine_fsr_in(text: &str, app_name: &str, defaults: &Defaults) -> bool {
-    serde_json::from_str::<Value>(text)
-        .ok()
-        .and_then(|root| root.get(app_name)?.get(WINE_FSR)?.as_bool())
-        .unwrap_or(defaults.wine_fsr)
-}
-
 /// What writing a game's Heroic settings did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Applied {
@@ -1278,21 +1253,5 @@ mod tests {
         // A record written by an older version reads.
         let old: Written = serde_json::from_str(r#"{"file": "x", "keys": []}"#).unwrap();
         assert!(old.wrappers.is_empty());
-    }
-
-    #[test]
-    fn heroics_own_wine_fsr_switch_is_read_over_its_defaults() {
-        let on = Defaults {
-            wine_fsr: true,
-            ..Defaults::default()
-        };
-        assert!(wine_fsr_in(r#"{"g": {}}"#, "g", &on));
-        assert!(!wine_fsr_in(r#"{"g": {"enableFSR": false}}"#, "g", &on));
-        assert!(wine_fsr_in(
-            r#"{"g": {"enableFSR": true}}"#,
-            "g",
-            &Defaults::default()
-        ));
-        assert!(!wine_fsr_in("", "g", &Defaults::default()));
     }
 }

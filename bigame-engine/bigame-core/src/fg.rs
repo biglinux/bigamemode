@@ -890,13 +890,6 @@ pub fn read_profile_any(name: &str) -> (u32, u32, bool, bool, u32) {
 /// No entry: frame generation off.
 const OFF: (u32, u32, bool, bool, u32) = (1, 100, false, false, 1);
 
-/// The games lsfg-vk's file generates frames for (multiplier above 1), by
-/// the names its entries match.
-#[must_use]
-pub fn generating_games() -> Vec<String> {
-    read_config().map_or_else(|_| Vec::new(), |t| generating_in(&t))
-}
-
 pub(crate) fn generating_in(t: &Table) -> Vec<String> {
     let mut games = Vec::new();
     for format in [Format::V1, Format::V2] {

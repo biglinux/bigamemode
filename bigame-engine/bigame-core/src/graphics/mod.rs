@@ -40,16 +40,6 @@ pub fn state_dir() -> PathBuf {
     crate::paths::state_home().join("bigame-mode/graphics")
 }
 
-/// The installed manifest for the game that runs as `process`, if
-/// BiGame-mode placed files in it.
-#[must_use]
-pub fn manifest_for_process(state: &Path, process: &str) -> Option<manifest::Manifest> {
-    match record_for_process(state, process)? {
-        ForProcess::Files(m) => Some(*m),
-        ForProcess::Unreadable => None,
-    }
-}
-
 /// What the state holds for the game that runs as `process`.
 enum ForProcess {
     /// Files installed. A manifest that only keeps the game's own settings

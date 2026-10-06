@@ -111,17 +111,6 @@ pub fn live(status: Option<FalcondStatus>, falcond_running: bool) -> Option<Falc
     status.filter(|_| falcond_running)
 }
 
-/// [`read`], only while systemd reports falcond running ([`live`]).
-/// Blocking (systemd over D-Bus): for worker threads, not from inside a
-/// Tokio runtime.
-#[must_use]
-pub fn read_live() -> Option<FalcondStatus> {
-    let running = crate::systemd::Reader::shared()
-        .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT))
-        .is_some_and(|u| u.is_active());
-    live(read(), running)
-}
-
 /// Read and parse a specific status file, after checking it can be trusted.
 ///
 /// Returns `None` rather than an error: from the caller's point of view "no
