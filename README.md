@@ -1,338 +1,224 @@
 <div align="center">
 
-<img src="usr/share/icons/hicolor/scalable/apps/com.biglinux.BiGameMode.svg" width="112" alt="Ícone do Big Game Mode">
+<img src="usr/share/icons/hicolor/scalable/apps/com.biglinux.BiGameMode.svg" width="112" alt="Big Game Mode icon">
 
 # Big Game Mode
 
-**O modo de jogo do BigLinux.**<br>
-Turbo com um clique e um preset, perfis por jogo, Gráficos com IA e uma página
-que mostra, com evidência, o que está mesmo em vigor.
+**BigLinux's game mode.**<br>
+One switch for per-game performance, presets for what games should favour,
+AI Graphics with full backup and undo, and a page that shows — with evidence —
+what is really in effect.
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-2.2.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode)
-[![Licença](https://img.shields.io/badge/licen%C3%A7a-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.3.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
-[![Idiomas](https://img.shields.io/badge/idiomas-29-f39c12?style=for-the-badge)](#-idiomas)
+[![Languages](https://img.shields.io/badge/languages-29-f39c12?style=for-the-badge)](#languages)
 
-[Recursos](#-recursos) ·
-[Capturas de tela](#-capturas-de-tela) ·
-[Instalação](#-instalação) ·
-[Benchmarks](#-benchmarks) ·
-[Segurança](#%EF%B8%8F-segurança) ·
-[Desenvolvimento](#%EF%B8%8F-desenvolvimento)
+[Features](#features) ·
+[Screenshots](#screenshots) ·
+[Installation](#installation) ·
+[Troubleshooting](#troubleshooting) ·
+[Security](#security) ·
+[Development](#development)
 
 <br>
 
 <picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-default-light.png">
-  <img src="docs/screenshots/home.png" width="860" alt="Página Início do Big Game Mode com o Modo Turbo ligado">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-light.png">
+  <img src="docs/screenshots/home.png" width="860" alt="Big Game Mode's Home page with the Turbo button and its presets">
 </picture>
 
 </div>
 
 ---
 
-## 🎮 O que é
+## What it is
 
-O Big Game Mode é a central de jogos do BigLinux. Com um botão, o **Turbo**, os
-jogos passam a rodar com o perfil de desempenho certo, aplicado ao abrir e
-desfeito ao fechar pelo [falcond](https://git.pika-os.com/general-packages/falcond).
-O aplicativo mostra o que de fato está em vigor, mede se uma mudança ajudou e
-cuida do que acontece *dentro* do jogo, como o upscaling e a geração de quadros,
-sempre com backup e desfazer completos.
+Big Game Mode (the BiGame-mode project) is the gaming hub of BigLinux. With one
+button, **Turbo**, every game gets its own performance profile, applied by
+[falcond](https://git.pika-os.com/general-packages/falcond) when the game
+starts and undone when it closes. The application shows what is really in
+effect, measures whether a change helped, and takes care of what happens
+*inside* the game — upscaling and frame generation — always with a backup and
+a way back.
 
 > [!NOTE]
-> Uma regra atravessa o projeto: **nada é oferecido que a máquina não possa
-> fazer, e nada é chamado de melhoria sem medição.**
+> One rule runs through the project: **nothing is offered that the machine
+> cannot do, and nothing is called an improvement without a measurement.**
 
-## 🚀 Novidades da 2.2.0
+## What's new in 2.3.0
 
-- **Boas-vindas, Sobre e Ajuda refeitos.** Uma tela de boas-vindas com os
-  recursos, o Sobre com a descrição, créditos e informações de depuração
-  completas, e uma Ajuda passo a passo para cada página.
-- **Ajustes mais claros.** O Gamescope fica sempre à vista, com os tamanhos
-  escolhidos entre as resoluções padrão e a da tela principal detectada; cada
-  opção técnica tem um ⓘ. O vkBasalt ganhou visuais: CAS ou o estilo
-  **Nara Linux** (do Narayan), com os shaders do ReShade baixados só quando
-  escolhido e conferidos pelo SHA-256.
-- **Perfil do jogo igual aos Ajustes**, com as mesmas seções e linhas. Os
-  valores próprios do jogo chegam a ele pelo **Iniciar (Turbo)**, pelas opções
-  de inicialização da Steam ou pelas configurações do jogo no **Heroic**.
-- **Iniciar (Turbo) em todos os lançadores** (Steam, Heroic, Lutris,
-  Flatpak), e **Reabrir** para o lançador que estava aberto antes do preset,
-  recusado enquanto um jogo dele roda.
-- **Gráficos com IA redesenhados**: veredito primeiro, o porquê, o que fazer
-  no jogo, opções legíveis com ⓘ, **Verificar de novo** e **Salvar escolha**.
-  A análise segue o inicializador até o jogo real e reconhece upscalers
-  embutidos no executável.
-- **Detalhes**: fechar ou pausar programas em segundo plano (nunca os do
-  sistema, da área de trabalho ou do jogo), aplicar um DNS medido como o
-  principal, com backup e restauração, e escolher o alvo do ping entre os
-  servidores medidos. **Registros** cobre todas as fontes de que o app
-  depende. O controle do falcond pode ser devolvido e retomado.
+- **Big Game Mode** is the name you see everywhere; package names, the
+  application id and file locations are unchanged.
+- **The tray is a quick control:** Turbo on or off, the four presets, and its
+  own symbolic icon drawn in the panel's colours.
+- **Launchers opened before a preset** (Steam, Heroic, Lutris) are offered a
+  reopen from a notice at the top of any page, never while one of their games
+  runs.
+- **Profiles:** the wizard is the main way to create one, and a profile can be
+  started from its editor with **Launch (Turbo)**. Home names the CPU and every
+  GPU, the gaming one first on hybrid laptops.
+- **lsfg-vk 2.x:** its configuration format is read from the installed
+  library and written in that format; a `Lossless.dll` lsfg-vk cannot use is
+  reported instead of letting the game fail.
+- **Hybrid NVIDIA laptops:** Gamescope no longer crashes (the render-offload
+  variables reach only the game), and nested Gamescope shows the game the
+  screen's size instead of 1280×720.
+- **Turbo** rolls back cleanly when falcond fails to start, and a preset leaves
+  nothing behind once Turbo is off. Restore Defaults now resets everything
+  Tuning shows.
+- **Game detection** reads Steam, Heroic and Lutris libraries directly and no
+  longer takes launchers, trials, bootstrappers or scripts for the game.
+- **AI Graphics:** frame generation is shown active only when OptiScaler's log
+  proves it; Restore and Repair are safer; the download cache keeps only the
+  releases games use; a game's built-in FSR under VKD3D-Proton stays its own.
+- **A stricter privileged helper**, and about 0.15 % of one CPU core while idle
+  in the tray (2 % before).
+- **No extra repository needed:** falcond, lsfg-vk, sched-ext, Gamescope,
+  MangoHud and vkBasalt are optional. What needs one says so and how to
+  install it.
 
 <details>
-<summary><b>Novidades da 2.1.0</b></summary>
+<summary><b>2.2.0 and 2.1.0</b></summary>
 
-- **Presets do Turbo.** Antes de ligar, escolha o que os jogos priorizam:
-  **Padrão**, **Mais FPS**, **60 FPS Fixo** ou **Gráficos aprimorados**.
-  Cada preset usa só o que os jogos leem de verdade e sai junto com o Turbo.
-- **Nova Início.** Um botão power que se enche como um líquido nas cores do
-  tema a cada etapa real do Turbo, CPU, GPU e rede ao vivo, e um card do jogo
-  em execução com uma flag colorida por recurso. Tudo cabe na janela.
-- **Ajustes, perfil do jogo e Assistente num só modelo**, com as mesmas seções
-  e o que fica em "Configuração geral" seguindo os Ajustes. Toda colisão entre
-  tecnologias (Wine FSR, upscaling do Gamescope, OptiScaler, lsfg-vk) é
-  perguntada, nunca resolvida em silêncio.
-- **Jogos da Steam recebem o Gamescope e o Wine FSR** pelas opções de
-  inicialização, gravadas com a Steam fechada. Mudar os tamanhos do Gamescope
-  nos Ajustes atualiza os jogos que o usam, e a Steam aberta ganha um botão
-  para fechar, gravar e reabrir.
-- **Detecção do jogo mais certeira.** O lançador de um jogo (a página do
-  REDlauncher, atualizadores) não é mais tomado pelo jogo. O Gamescope e o
-  vkBasalt são vistos também quando a Steam os coloca em volta do jogo.
-- **Detalhes diz quando o falcond não aplica o perfil de um jogo, e por quê**
-  (o falcond 2.0.2 não enxerga jogos que renomeiam a thread principal, como o
-  Cyberpunk 2077; a correção veio no falcond 2.0.3).
-- A revisão do perfil oferecido mostra a recomendação dos Gráficos com IA para
-  a placa de vídeo, e o MangoHud ganhou estilos inspirados no Steam Deck.
+- **2.2.0:** a welcome screen, a rewritten About and Help; Tuning with
+  Gamescope always in view and vkBasalt looks (CAS or the Nara Linux style);
+  game profiles with the same rows as Tuning, reaching Steam and Heroic games;
+  Launch (Turbo) through every launcher; a redesigned AI Graphics window;
+  background programs can be closed or paused, a measured DNS applied with a
+  backup, and falcond handed back and taken again.
+- **2.1.0:** Turbo presets chosen before switching it on; a redrawn Home;
+  Tuning, game profiles and the profile wizard on one model with every
+  conflict asked; Gamescope and Wine FSR reach Steam games through their launch
+  options; Details tells when falcond does not apply a game's profile, and why.
 
 </details>
 
-## ✨ Recursos
+## Features
 
-<table>
-<tr>
-<td width="50%" valign="top">
+### Turbo and presets
 
-### ⚡ Turbo
+Turbo is the master switch. Off, Big Game Mode leaves every game alone. On,
+falcond applies each game's profile — power profile, sched-ext CPU scheduler,
+3D V-Cache mode, idle inhibition — and restores everything when the game
+closes.
 
-A chave principal. Desligado, o Big Game Mode não interfere em jogo nenhum.
-Ligado, o falcond aplica o perfil de cada jogo (perfil de energia, escalonador
-sched-ext, modo do 3D V-Cache, inibição de repouso) e restaura tudo quando o
-jogo fecha.
+Before switching it on, choose what games should favour:
 
-Antes de ligar, escolha o que os jogos devem priorizar:
-
-- **Padrão**: os Ajustes como estão.
-- **Mais FPS**: sem limite de quadros e sem filtro de imagem. Os quadros
-  vêm de baixar a resolução no jogo, com o Wine FSR ampliando.
-- **60 FPS Fixo**: limite do DXVK e do VKD3D-Proton nos jogos do
-  Proton; nos jogos nativos abertos pelo Big Game Mode, o limitador do MangoHud.
-- **Gráficos aprimorados**: nitidez CAS do vkBasalt (um arquivo só de CAS do
-  Big Game Mode; o seu `vkBasalt.conf` não é usado nem alterado), FSR 4 onde a
-  GPU tem e 60 FPS para a imagem mais pesada rodar estável.
-
-O preset vale enquanto o Turbo está ligado e sai com ele, inclusive quando o
-falcond para por fora ou não chega a iniciar; valores seus de `DXVK_CONFIG` e
-das variáveis de FSR 4 são mantidos e devolvidos. Jogos com geração de
-quadros são avisados conforme o gerador: com o OptiScaler o limite conta os
-quadros exibidos (o jogo renderiza cerca de metade); o lsfg-vk gera depois do
-limite (o jogo renderiza até o limite e a tela mostra o limite multiplicado). A Steam aberta antes recebe o preset quando é reaberta, e a
-Início oferece reabrir.
-
-</td>
-<td width="50%" valign="top">
-
-### 🕹️ Perfis por jogo
-
-Jogos do Steam, Lutris, Heroic e do menu de aplicativos (nativos e Flatpak).
-Só aparecem os que estão mesmo instalados. Quando um jogo desconhecido abre com
-o Turbo ligado, uma notificação oferece criar o perfil, com um assistente que
-explica cada opção.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🤖 Gráficos com IA
-
-Analisa o jogo que realmente roda (seguindo o inicializador do Unreal até o
-executável do jogo): a API gráfica, o DLSS/XeSS/FSR que ele traz em DLL ou
-embutido no executável, as DLLs de proxy, o anti-cheat e a GPU em que ele
-renderiza. Mostra primeiro o veredito e o porquê, com um ⓘ em cada item, e o
-que fazer no menu do próprio jogo. Só ao clicar em **Aplicar** ele instala o
-OptiScaler com backup verificado ou eleva o FSR 3.1 ao FSR 4 pelo Proton.
-Também oferece **Verificar de novo**, **Reparar**, **Restaurar** e
-**Diagnosticar**.
-
-</td>
-<td valign="top">
-
-### 🔍 Detalhes com evidência
-
-Cada item diz se está **ativo**, **aguardando**, **configurado mas não
-detectado**, **desligado**, **sem dependência** ou **não suportado**. Ao abrir
-a linha, você vê o que isso significa, a evidência e a correção. A página
-também traz telemetria em tempo real, um cartão por GPU e **Problemas**
-classificados, com comandos para copiar.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🎛️ Ajustes honestos
-
-Desempenho do sistema, exibição e Gamescope (tamanhos escolhidos entre as
-resoluções padrão, com a da tela principal detectada), upscaling e nitidez
-(Wine FSR e vkBasalt, com os visuais CAS e Nara Linux), geração de quadros
-(lsfg-vk), overlay e opções avançadas, cada opção técnica com um ⓘ. O que a
-máquina não pode fazer aparece como **não suportado** ou **dependência
-ausente**, com o comando que resolve. Nunca aparece um controle quebrado.
-
-</td>
-<td valign="top">
-
-### 📏 Medir a diferença
-
-Compara o jogo com e sem otimizações em várias execuções alternadas e dá o
-veredito com o teste t de Welch. Uma melhoria só é chamada assim quando
-supera a variação.
-
-</td>
-</tr>
-</table>
-
-<details>
-<summary><b>Tudo o que cada página faz</b></summary>
-
-| Página | O que faz |
+| Preset | What it does |
 |---|---|
-| **Início** | O **Turbo** e o seu preset, três leituras ao vivo (CPU, GPU, rede) e um card que resume o que o Turbo fez ou, com um jogo aberto, mostra o jogo (capa e nome vindos da biblioteca, de qualquer lançador) com uma flag colorida por recurso (perfil, escalonador, energia, Gamescope, upscaling, geração de quadros, MangoHud, vkBasalt, limite de FPS) e o relatório completo. Um lançador que já estava aberto antes do preset (Steam, Heroic, Lutris) e não o recebeu aparece com **Reabrir**, recusado enquanto um jogo dele roda. |
-| **Perfis** | A biblioteca de jogos com capas (Steam, Lutris, Heroic, Flatpak e menu), busca e filtros. Cada perfil tem as mesmas seções e linhas dos Ajustes, só para aquele jogo; cada opção começa em "Configuração geral", que segue os Ajustes (o Perfil global). Os valores próprios do jogo (tamanhos e filtro do Gamescope, limite de FPS, Wine FSR, vkBasalt) chegam a ele onde podem chegar: pelo **Iniciar (Turbo)**, nas opções de inicialização da Steam ou nas configurações do jogo no Heroic, gravadas com o lançador fechado e sem tocar no que é seu. No menu ⋮ de cada jogo: **Iniciar (Turbo)** (direto ou pelo próprio lançador), **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
-| **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
-| **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
-| **Registros** | O que importa numa sessão de jogo: falcond, Big Game Mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
-| **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
+| **Standard** | Tuning as it is; the preset changes nothing |
+| **More FPS** | No frame cap and no image filter; Wine FSR upscales a lower in-game resolution |
+| **Locked 60 FPS** | DXVK and VKD3D-Proton's limiter in Proton games, MangoHud's in native games Big Game Mode starts |
+| **Enhanced graphics** | vkBasalt CAS sharpening (from Big Game Mode's own CAS-only file), FSR 4 where the GPU has it, and 60 FPS so the heavier image stays steady |
 
-Fechar a janela deixa o aplicativo na **bandeja**. A cor do ícone indica o
-estado: azul quando ocioso, verde com um jogo otimizado e amarelo quando há
-um aviso.
+A preset lives only in the running session (the user's systemd manager, never
+`environment.d`) and leaves with Turbo, even when falcond stops on its own. Your
+own `DXVK_CONFIG` and FSR 4 variables are kept and given back.
 
-</details>
+### Per-game profiles
 
-## 📸 Capturas de tela
+Games from **Steam**, **Heroic**, **Lutris** and the application menu, native
+or Flatpak — only the ones really installed. When an unknown game starts with
+Turbo on, a notification offers to create its profile with a wizard that
+explains every option. A profile has the same sections as Tuning, each option
+starting at "General configuration". What a game needs reaches it where it can:
+through **Launch (Turbo)**, Steam's launch options, or the game's settings in
+Heroic — written with the launcher closed, touching only what Big Game Mode
+added.
+
+### Launch settings: Gamescope, MangoHud, vkBasalt, frame generation
+
+**Tuning** holds the configuration every game shares:
+
+- system performance through falcond (scheduler, V-Cache, profiles);
+- **Gamescope** with sizes picked from standard resolutions and the main
+  screen's;
+- **Wine FSR** and **vkBasalt** (CAS or the Nara Linux look);
+- **frame generation** with [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk)
+  (1.x and 2.x, with your own `Lossless.dll`, never shipped or downloaded);
+- the **MangoHud** overlay, with Steam Deck–like styles.
+
+Two technologies that do the same job never run in series: enabling one while
+the other is on asks which to keep. What the machine cannot do is shown as
+**Unsupported** or **Not installed**, with the command that fixes it — never as
+a broken control.
+
+### AI Graphics (OptiScaler)
+
+AI Graphics analyses the game that really runs (following launcher stubs to
+the real executable): its graphics API, the DLSS/XeSS/FSR it ships as a DLL or
+builds into the executable, proxy DLLs, anti-cheat and the GPU it renders on.
+It shows the verdict first, then why, and what to set in the game's own menu.
+Only **Apply** changes anything. It installs
+[OptiScaler](https://github.com/optiscaler/OptiScaler) from the official
+release (HTTPS, pinned SHA-256) with a verified backup, or raises FSR 3.1 to
+FSR 4 through Proton. **Check Again**, **Repair**, **Restore** and **Diagnose**
+are always there. Games with anti-cheat are never touched.
+
+### Details, monitoring and logs
+
+**Details** says for every part whether it is **active**, **waiting**,
+**configured but not detected**, **off**, **missing a dependency** or
+**unsupported**, with the evidence and the fix. It adds live telemetry, a card
+per GPU (load, clocks, VRAM, temperature, power, and which one renders the
+game), the video pipeline, a ranked **Problems** list, the network with a DNS
+comparison, background load, broken Steam launch options and a support report.
+**Logs** gathers falcond, the helper, power-profiles-daemon, scx_loader,
+Gamescope, GPU drivers, crashes and, from Steam games' output, Proton/Wine,
+MangoHud, vkBasalt, lsfg-vk and OptiScaler, filtered by source.
+
+### Measure the difference
+
+Compares a game with and without optimisations over several alternated runs
+and gives a verdict with Welch's t-test. A gain is called one only when it
+exceeds the run-to-run spread. Method and results:
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+### Tray
+
+Closing the window keeps Big Game Mode in the tray, with Turbo, the presets and
+**Open** a click away. On GNOME the tray needs an AppIndicator extension.
+
+## Screenshots
 
 <table>
 <tr>
-<td colspan="2"><img src="docs/screenshots/home-game.png" alt="Início com Shadow of the Tomb Raider em execução no Gamescope"></td>
+<td width="50%"><img src="docs/screenshots/profiles.png" alt="Profiles: the library of installed games"></td>
+<td width="50%"><img src="docs/screenshots/tuning.png" alt="Tuning: performance, Gamescope, image quality and frame generation"></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><b>Início</b> com um jogo aberto: cada recurso numa flag colorida, com o que está ativo e o que não está</td>
+<td align="center"><b>Profiles</b>: every installed game, each with its profile</td>
+<td align="center"><b>Tuning</b>: what the machine cannot do is shown as such</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/screenshots/profiles.png" alt="Perfis: biblioteca de jogos com capas"></td>
-<td width="50%"><img src="docs/screenshots/details.png" alt="Detalhes: visão geral, telemetria e GPUs"></td>
+<td><img src="docs/screenshots/ai-graphics.png" alt="AI Graphics: the verdict for a game and what to do"></td>
+<td><img src="docs/screenshots/details.png" alt="Details: what is in effect, with the evidence"></td>
 </tr>
 <tr>
-<td align="center"><b>Perfis</b>: a biblioteca de jogos instalados, cada um com seu perfil</td>
-<td align="center"><b>Detalhes</b>: o que está em vigor, com a evidência</td>
+<td align="center"><b>AI Graphics</b>: the verdict first, then why</td>
+<td align="center"><b>Details</b>: what is in effect, with the evidence</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/tuning.png" alt="Ajustes: desempenho do sistema, Gamescope e upscaling"></td>
-<td><img src="docs/screenshots/settings.png" alt="Configurações: tema, Turbo, perfis e notificações"></td>
+<td><img src="docs/screenshots/logs.png" alt="Logs: every source a game session depends on"></td>
+<td><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications and falcond"></td>
 </tr>
 <tr>
-<td align="center"><b>Ajustes</b>: o que a máquina não suporta aparece como tal</td>
-<td align="center"><b>Configurações</b>: temas Padrão e Gamer, claro ou escuro</td>
+<td align="center"><b>Logs</b>: every source, filtered</td>
+<td align="center"><b>Settings</b>: Default and Gamer themes, light or dark</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/details-gamer-light.png" alt="Detalhes no tema Gamer claro"></td>
-<td><img src="docs/screenshots/home-default-light.png" alt="Início no tema Padrão claro"></td>
-</tr>
-<tr>
-<td align="center"><b>Tema Gamer claro</b></td>
-<td align="center"><b>Tema Padrão claro</b></td>
+<td colspan="2" align="center"><img src="docs/screenshots/about.png" width="430" alt="About Big Game Mode"></td>
 </tr>
 </table>
 
-## ⚙️ Como funciona
+## Installation
 
-- **O falcond cuida do desempenho do sistema.** Ele reconhece o jogo pelo nome
-  do processo, aplica o perfil e restaura tudo quando o jogo fecha. O
-  Big Game Mode liga e desliga o falcond (Turbo) e escreve os perfis que ele lê.
-- **Cada ajuste tem um único dono.** O Big Game Mode não aplica por conta própria
-  o que o falcond ou o power-profiles-daemon já aplicam. O GameMode da Feral
-  não é usado, porque os dois disputariam os mesmos ajustes.
-- **Duas tecnologias com a mesma função não rodam em série.** Num jogo com
-  OptiScaler, o Wine FSR e o upscaling do Gamescope ficam desligados naquela
-  execução. O lsfg-vk também fica desligado quando o OptiScaler gera os
-  quadros. Ligar uma quando a outra já está ligada pergunta qual manter.
-- **Um jogo da Steam é aberto pela Steam**, fora do alcance do Big Game Mode. O
-  que o perfil pede para ele (Gamescope, Wine FSR desligado, MangoHud) vai para
-  as opções de inicialização do jogo, gravadas com a Steam fechada, em todas as
-  contas, e só o trecho que o Big Game Mode escreveu é trocado ou removido.
-- **Os presets do Turbo ficam só na sessão em execução** (o gerenciador do
-  systemd do usuário), nunca no `environment.d`, para saírem por completo
-  quando o Turbo desliga.
-- **Os Gráficos com IA detectam o que o jogo realmente usa** pela tabela de
-  importação do executável, não pelo nome das DLLs, e reconhecem um upscaler
-  compilado dentro do executável. Um jogo testado em que uma combinação trava
-  fica registrado na lista de jogos (por exemplo, The Outer Worlds: Spacer's
-  Choice Edition mantém o próprio FSR 2: o OptiScaler assume o FSR 2 dele,
-  mas o FSR 3.1/FSR 4 trava o jogo sob o VKD3D-Proton). Eles nunca tocam jogos com
-  anti-cheat e baixam o [OptiScaler](https://github.com/optiscaler/OptiScaler)
-  da release oficial, por HTTPS e com SHA-256 fixado.
-- **Cada instalação é uma transação**: backup verificado, diário, troca atômica
-  e verificação. Uma instalação interrompida é desfeita na próxima abertura.
-- O Big Game Mode **não redistribui binários de terceiros** nem baixa ou
-  substitui DLLs da NVIDIA. A renderização neural em AMD (DLSS-NR-on-AMD) é
-  detectada e explicada, mas nunca baixada, porque a licença não permite.
+### BigLinux, Manjaro and Arch Linux
 
-## 🛡️ Segurança
-
-```text
-┌─────────────────────────┐   D-Bus (sistema)   ┌─────────────────────────┐
-│ bigame-ui    (usuário)  │ ──────────────────▶ │ bigame-daemon   (root)  │
-│ GTK4 + libadwaita, tray │  cada chamada passa │ valida cada argumento;  │
-│ Gráficos com IA,        │  pelo Polkit        │ perfis e config do      │
-│ medições, registros     │                     │ falcond, Turbo, sysfs   │
-└───────────┬─────────────┘                     └───────────┬─────────────┘
-            │ lê o estado                                   ▼
-            └──────────────────────────────▶ falcond ──▶ scx_loader,
-                                             (perfis)    power-profiles-daemon
-```
-
-- **A interface nunca roda como root.** Só um pequeno auxiliar no barramento de
-  sistema tem privilégios.
-- **Nove métodos privilegiados**, cada um autorizado pelo Polkit antes de
-  qualquer outra coisa (sem Polkit, o acesso é negado) e com cada argumento
-  validado do lado root.
-- **Escritas estreitas e atômicas.** Cada método escreve um único local
-  conhecido, com `O_EXCL | O_NOFOLLOW`, nunca num caminho montado por quem
-  chama. Perfis não aceitam `start_script`/`stop_script`.
-- **Confinado pelo systemd.** `/sys` é somente leitura, exceto
-  `/sys/devices`. Nenhum comando passa por shell.
-
-Detalhes em [docs/SECURITY.md](docs/SECURITY.md) e
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## 📦 Instalação
-
-### BigLinux · Manjaro · Arch Linux
-
-**1. Ative o repositório BigCommunity (community-extra).** O `falcond` e o
-`lsfg-vk` vêm dele, e ele não vem ativado numa instalação padrão do BigLinux.
-O `vkbasalt` vem do repositório do BigLinux (no Arch, do AUR).
-
-```bash
-sudo pacman-key --keyserver hkps://keyserver.ubuntu.com \
-    --recv-keys AECEEE84E52BBFAA9F1C9DF01EA0CEEEB09B44A3
-sudo pacman-key --lsign-key AECEEE84E52BBFAA9F1C9DF01EA0CEEEB09B44A3
-
-sudo tee -a /etc/pacman.conf <<'CONF'
-
-[community-extra]
-SigLevel = PackageRequired
-Server = https://repo.communitybig.org/extra/$arch
-CONF
-
-sudo pacman -Sy
-```
-
-**2. Compile e instale o Big Game Mode.**
+Big Game Mode builds and installs from the official Arch repositories alone
+(`core`, `extra`, `multilib`). No extra repository has to be added.
 
 ```bash
 sudo pacman -S --needed base-devel git
@@ -341,228 +227,263 @@ cd bigamemode
 makepkg -si
 ```
 
-O `makepkg` instala o que falta para compilar, compila, confere as traduções,
-roda os testes e instala o pacote. O PKGBUILD compila a branch `main` do
-GitHub, não as mudanças locais do clone.
+`makepkg` installs what the build needs, builds the tagged release, checks the
+translation template, runs the tests and installs the package. Then open
+**Big Game Mode** from the application menu.
 
-Depois, abra **Big Game Mode** no menu de aplicativos.
+### Requirements
+
+| Package | Why |
+|---|---|
+| `gtk4`, `libadwaita`, `glib2`, `hicolor-icon-theme` | the interface |
+| `dbus`, `polkit`, `systemd` | the privileged helper: a system-bus service started by systemd, every method authorised by Polkit |
+| `curl`, `libarchive` | downloading and unpacking OptiScaler (AI Graphics) |
+| `hwdata` | graphics card names |
+| `iputils`, `iproute2` | network latency and queue discipline (Details) |
+
+### Optional components
+
+Each one unlocks features; without it the feature says it is unavailable and
+how to install it.
+
+| Package | Unlocks | Where it comes from |
+|---|---|---|
+| `falcond` | per-game performance profiles (without it Turbo applies only the general settings and presets) | BigLinux repository |
+| `power-profiles-daemon` | the power profile games run with (falcond asks for it) | `extra` |
+| `scx-scheds`, `scx-tools` | the sched-ext CPU schedulers falcond switches to per game | `extra` |
+| `gamescope` | Gamescope per game and in presets | `extra` |
+| `mangohud`, `lib32-mangohud` | the overlay, its frame cap, and *Measure the difference* (32-bit games need the `lib32` one) | `extra`, `multilib` |
+| `vkbasalt` | CAS sharpening and the Nara Linux look | BigLinux repository |
+| `lsfg-vk` | frame generation with your own `Lossless.dll` | BigLinux repository |
+| `nvidia-utils` | GPU telemetry on NVIDIA cards (NVML) | `extra` |
+| `networkmanager` | applying a DNS server from the DNS comparison | `extra` |
+| `ntsync-autoload` | loading the NTSync driver at boot for Proton/Wine | `extra` |
+
+On BigLinux every optional component above is in the distribution's own
+repositories; on Arch, the three marked "BigLinux repository" come from the
+AUR. The launchers themselves (Steam, Heroic, Lutris) are not dependencies:
+Big Game Mode finds the ones installed, native or Flatpak.
+
+The package installs `bigame-ui` (the application, run as your user),
+`bigame-daemon` (the root helper) with its systemd unit, D-Bus files and Polkit
+policy, the desktop entry, AppStream metadata, icons and translations.
 
 > [!TIP]
-> Ao atualizar, o auxiliar para e volta na próxima chamada, já com a versão
-> nova. Ao remover, o falcond volta ao estado em que estava antes do
-> Big Game Mode. Os arquivos que os Gráficos com IA colocaram em jogos continuam
-> lá até **Restaurar os gráficos do jogo**. Os backups ficam em
-> `~/.local/state/bigame-mode/graphics`.
+> On upgrade the helper stops and comes back, new, at its next call. On
+> removal falcond is handed back as it was before Big Game Mode took charge.
+> Files AI Graphics placed in games stay until **Restore the game's graphics**; the
+> backups are in `~/.local/state/bigame-mode/graphics`.
 
-### Dependências
+## Running
 
-| Pacote | Por quê |
+Open **Big Game Mode** from the menu, or run `bigame-ui`. `bigame-ui --background`
+starts it in the tray; `bigame-ui --diagnostics` prints the support report in a
+terminal without opening a window (`--network` adds the DNS measurements).
+
+## Troubleshooting
+
+| Symptom | What to do |
 |---|---|
-| `gtk4`, `libadwaita`, `glib2`, `hicolor-icon-theme` | interface |
-| `dbus`, `polkit`, `systemd` | o auxiliar root: serviço no barramento de sistema, iniciado pelo systemd, com cada ação autorizada pelo Polkit |
-| `falcond`, `power-profiles-daemon` | desempenho por jogo e perfil de energia |
-| `scx-tools`, `scx-scheds` | o `scx_loader`, com que o falcond troca o escalonador de CPU durante o jogo, e os escalonadores |
-| `gamescope`, `mangohud`, `vkbasalt` | o que os ajustes por jogo e de lançamento ligam; o MangoHud também captura os frametimes das medições |
-| `lsfg-vk` | geração de quadros (Lossless Scaling) por jogo, nos formatos de configuração do 1.x e do 2.x (lido da biblioteca instalada); só gera quadros com o seu próprio `Lossless.dll`, que nunca vem no pacote |
-| `curl`, `libarchive` | baixar e extrair o OptiScaler |
-| `hwdata` | identificar a placa de vídeo |
-| `iputils`, `iproute2` | latência e fila de rede |
+| Games get no performance profile | Install `falcond`: without it Turbo applies only the general settings. Details → Problems names anything else missing |
+| A game does not get its profile | Details shows whether falcond applies it and why not; falcond 2.0.3 or newer is needed for games that rename their main thread (Cyberpunk 2077) |
+| A preset does not reach Steam's games | Steam keeps the settings it was opened with: use **Reopen Steam** in the notice |
+| A frame generation option is disabled | lsfg-vk is not installed or your `Lossless.dll` is not usable by it; the row says which |
+| AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
+| No tray icon on GNOME | Install and enable an AppIndicator extension |
+| Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
 
-**Opcional:** `nvidia-utils` fornece a telemetria em placas NVIDIA, pela
-biblioteca NVML. Só serve a placas NVIDIA e conflita com os pacotes dos
-drivers NVIDIA antigos. `networkmanager` permite trocar o DNS da conexão a
-partir da comparação de DNS; sem ele a opção aparece indisponível, com o
-motivo. `ntsync-autoload` carrega o NTSync no boot (no Arch só o `wine` o
-traz), e `lib32-mangohud` leva o overlay a jogos de 32 bits; a página de
-Diagnóstico diz quando faltam.
+## How it works
 
-Os lançadores **não** são dependências: o Big Game Mode encontra os jogos do
-Steam, do Lutris e do Heroic que estiverem instalados, nativos ou em Flatpak.
+- **falcond owns system performance.** It recognises a game by its process
+  name, applies the profile and restores everything when the game closes. Big
+  Game Mode switches falcond on and off (Turbo) and writes the profiles it reads.
+- **Every setting has one owner.** Big Game Mode never applies itself what
+  falcond or power-profiles-daemon already apply. Feral GameMode is not used:
+  both would fight over the same settings.
+- **A Steam game is started by Steam,** out of Big Game Mode's reach. What its
+  profile asks for goes into the game's launch options, written with Steam
+  closed, on every account; only the part Big Game Mode wrote is ever changed
+  or removed.
+- **AI Graphics detects what a game really uses** from the executable's import
+  table, not DLL names, and records tested combinations that crash in its game
+  list. Every install is a transaction: verified backup, journal, atomic swap
+  and verification; an interrupted install is undone at the next start.
+- Big Game Mode **never redistributes third-party binaries** and never downloads
+  or replaces NVIDIA DLLs.
 
-O pacote instala o `bigame-ui` (o aplicativo, que roda como usuário comum) e o
-`bigame-daemon` (o auxiliar root), com sua unit do systemd, os arquivos de
-D-Bus e a política do Polkit. Instala também o `.desktop`, o metainfo, os
-ícones e as traduções.
+More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## 💻 Compatibilidade
+## Security
+
+```text
+┌─────────────────────────┐  D-Bus (system bus) ┌─────────────────────────┐
+│ bigame-ui      (user)   │ ──────────────────▶ │ bigame-daemon   (root)  │
+│ GTK4 + libadwaita, tray │   every call goes   │ validates every argu-   │
+│ AI Graphics, measure-   │   through Polkit    │ ment; falcond profiles  │
+│ ments, logs             │                     │ and config, Turbo, sysfs│
+└───────────┬─────────────┘                     └───────────┬─────────────┘
+            │ reads the state                               ▼
+            └──────────────────────────────▶ falcond ──▶ scx_loader,
+                                             (profiles)  power-profiles-daemon
+```
+
+- **The interface never runs as root.** Only a small helper on the system bus
+  is privileged, confined by systemd (`ProtectSystem=strict`, `/sys` read-only
+  except `/sys/devices`, one capability).
+- **Every privileged method is authorised by Polkit first** (without Polkit,
+  access is denied) and every argument is validated on the root side.
+- **Narrow, atomic writes** to one known place each, never through a path the
+  caller builds. Profiles cannot carry `start_script`/`stop_script`.
+- **No command goes through a shell**; downloads are HTTPS-only with a pinned
+  SHA-256 and a checked archive listing.
+
+Details in [docs/SECURITY.md](docs/SECURITY.md).
+
+## Compatibility
 
 | | |
 |---|---|
-| **Sistema** | BigLinux e derivados do Manjaro/Arch, com systemd e o falcond do repositório BigCommunity. Recomenda-se o falcond 2.0.3 ou mais novo: o 2.0.2 não aplica o perfil a jogos que renomeiam a thread principal (Cyberpunk 2077), e Detalhes avisa quando isso acontece |
-| **Área de trabalho** | Testado no KDE Plasma (Wayland). No GNOME, o ícone da bandeja depende de uma extensão AppIndicator |
-| **Jogos** | Steam (incluindo Proton), Lutris, Heroic e jogos nativos do menu de aplicativos, nativos ou Flatpak |
-| **GPUs** | AMD, NVIDIA e Intel, inclusive notebooks híbridos (a GPU em que o jogo renderiza é identificada, com PRIME offload) |
-| **Testado em** | AMD Ryzen 7 5700G com Radeon RX 9060 XT (RDNA 4) e a Radeon Vega integrada; notebook híbrido com Intel HD 630 e GeForce GTX 1050 Ti (driver NVIDIA 580); máquina virtual com BigLinux padrão (instalação do zero, sem aceleração 3D) |
-| **Detectado, ainda não testado em hardware real** | RDNA 3, RTX, Intel Arc, CPUs híbridas, 3D V-Cache, notebooks na bateria, X11, VRR e HDR. Nessas máquinas, o Big Game Mode oferece só o que detectar como suportado |
+| **System** | BigLinux and other Arch/Manjaro systems with systemd. falcond 2.0.3 or newer is recommended |
+| **Desktop** | Tested on KDE Plasma (Wayland); X11 sessions are supported but less tested |
+| **Games** | Steam (including Proton), Heroic, Lutris and native games from the menu, native or Flatpak |
+| **GPUs** | AMD, NVIDIA and Intel, including hybrid laptops (the GPU a game renders on is identified, with PRIME offload) |
+| **Tested on** | Ryzen 7 5700G with Radeon RX 9060 XT (RDNA 4) and Radeon Vega; a hybrid laptop with Intel HD 630 and GeForce GTX 1050 Ti (NVIDIA 580); a virtual machine with a stock BigLinux |
+| **Detected, not yet tested on real hardware** | RDNA 3, RTX, Intel Arc, hybrid CPUs, 3D V-Cache, laptops on battery, VRR and HDR. There, Big Game Mode offers only what it detects as supported |
 
-## 📊 Benchmarks
+## Benchmarks
 
-**Presets do Turbo** (2.1.0, uma execução por configuração, com o benchmark do
-próprio jogo e a potência lida do sensor da GPU):
+Highlights (each a session of alternated runs with a Welch's t-test verdict):
 
-| Jogo | Padrão | Com preset |
-|---|---|---|
-| SuperTuxKart (nativo, aberto pelo Big Game Mode) | 455 FPS típicos, GPU a 53 W | **60 FPS Fixo**: 60 típicos, 59 estáveis, GPU a **31 W** |
-| Cyberpunk 2077 (traçado de raios ultra) | 37,5 FPS | **Gráficos aprimorados**: 37,3 FPS, com o vkBasalt e o provedor do FSR 4 carregados no jogo |
-| Shadow of the Tomb Raider, com geração de quadros do OptiScaler | 62,5 FPS | **60 FPS Fixo**: 30 FPS renderizados (60 na tela), o motivo do aviso sobre geração de quadros |
+| Measured | Result |
+|---|---|
+| Shadow of the Tomb Raider, 3440×1440, RX 9060 XT: OptiScaler FSR vs native TAA | **+10.1 %** (89.8 → 98.8 FPS); the game's own XeSS +4.9 % |
+| Same game, GTX 1050 Ti laptop: OptiScaler FSR 3.1 vs the game's XeSS Quality | **+20.1 %** (24.2 → 29.0 FPS) |
+| SuperTuxKart on the hybrid laptop: PRIME offload vs the integrated GPU | **4.7×** (13.0 → 61.2 FPS) |
+| Locked 60 FPS preset, SuperTuxKart | 455 → 60 FPS, GPU power 53 → **31 W** |
+| GPU DPM level pinned to `high` | 7.5–8.3 % **slower**, so Big Game Mode never forces it |
+| Power profile, governor, sched-ext schedulers | no measurable change in GPU-bound games |
 
-O limitador próprio do Gamescope (`-r`, `--framerate-limit`) não segurou o
-SuperTuxKart com o V-Sync do jogo desligado (570 FPS apresentados); por isso,
-nos jogos nativos, o limite é o do MangoHud.
+Method and every result: [docs/BENCHMARKS.md](docs/BENCHMARKS.md). Each
+session's report and metrics are in `bigame-engine/benchmarks/`; the raw
+captures are at the tag `benchmarks-raw-data`.
 
-**Resultados anteriores:**
+## Languages
 
+Big Game Mode is written in English and translated into **29 languages**:
+Bulgarian, Chinese, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish,
+French, German, Greek, Hebrew, Hungarian, Icelandic, Italian, Japanese, Korean,
+Norwegian Bokmål, Polish, Portuguese, Brazilian Portuguese, Romanian, Russian,
+Slovak, Spanish, Swedish, Turkish and Ukrainian. It follows the system
+language. The catalogues are in [`locale/`](locale); corrections and new
+languages are welcome.
 
-Medido com o benchmark do próprio **Shadow of the Tomb Raider** (3440×1440, três
-execuções alternadas por configuração, diferença exigida acima da variação e
-no teste t de Welch a 95 %):
+## Development
 
-| Configuração | FPS médio | |
-|---|---:|---|
-| TAA nativo do jogo | 89,8 | `████████████████████░░` |
-| XeSS Quality do próprio jogo | 94,2 | `█████████████████████░` **+4,9 %** |
-| **FSR via OptiScaler (Gráficos com IA)** | **98,8** | `██████████████████████` **+10,1 %** |
-
-- **Cyberpunk 2077**, que traz o FSR 3.1 da AMD: o FSR 4 pelo Proton (uma
-  opção de execução, nenhum arquivo) rendeu o mesmo que o FSR 3.1 (38,4 → 38,2,
-  sem diferença, duas execuções por configuração). O OptiScaler ficou 6,4 %
-  **mais lento**, por isso ali o recomendado é o FSR do próprio jogo.
-- **Nível de energia da GPU:** fixar a GPU no nível `high` deixou os jogos
-  7,5–8,3 % **mais lentos**. Perfil de energia, governador e escalonadores
-  sched-ext não mudaram nada, por isso o Big Game Mode não os força.
-- **Geração de quadros:** o lsfg-vk custou 42 % dos quadros renderizados em x2
-  (88,9 → 51,8) e 55 % em x3, por isso nunca é ligado sozinho.
-
-Método e todos os resultados em [docs/BENCHMARKS.md](docs/BENCHMARKS.md). O
-relatório e as métricas de cada sessão ficam em `bigame-engine/benchmarks/`; as
-capturas brutas, no histórico (tag `benchmarks-raw-data`).
-
-## 🌍 Idiomas
-
-O Big Game Mode é escrito em inglês e está traduzido para **29 idiomas**:
-
-> alemão · búlgaro · chinês · coreano · croata · dinamarquês · eslovaco ·
-> espanhol · estoniano · finlandês · francês · grego · hebraico · holandês ·
-> húngaro · inglês · islandês · italiano · japonês · norueguês · polonês ·
-> português · português do Brasil · romeno · russo · sueco · tcheco · turco ·
-> ucraniano
-
-O idioma segue o do sistema. Os catálogos ficam em [`locale/`](locale).
-Correções e novos idiomas são bem-vindos.
-
-## 🛠️ Desenvolvimento
-
-Requer Rust 1.85 ou mais novo, GTK 4.14+, libadwaita 1.7+ e
-`glib-compile-resources`.
+Requires Rust 1.85 or newer, GTK 4.14+, libadwaita 1.7+,
+`glib-compile-resources` (glib2) and, for the catalogues, gettext and Python 3.
 
 ```bash
 cd bigame-engine
 cargo build --workspace
 cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings   # lints pedantic
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 ./target/debug/bigame-ui
-./target/debug/bigame-ui --diagnostics     # relatório de suporte no terminal
+./target/debug/bigame-ui --diagnostics
 ```
 
-O código é um workspace Rust em `bigame-engine/`:
-
-| Crate | Papel |
+| Crate | Role |
 |---|---|
-| `bigame-core` | toda a lógica, sem interface: detecção, perfis, Turbo, Gráficos com IA, telemetria, medições |
-| `bigame-ui` | o aplicativo GTK4/libadwaita e o ícone da bandeja |
-| `bigame-daemon` | o auxiliar root no D-Bus, autorizado pelo Polkit |
+| `bigame-core` | all the logic, no interface: detection, profiles, Turbo, AI Graphics, telemetry, measurements |
+| `bigame-ui` | the GTK4/libadwaita application and the tray icon |
+| `bigame-daemon` | the root helper on D-Bus, authorised by Polkit |
 
-- Sem o pacote instalado, a interface roda, mas o que exige root (perfis,
-  Turbo, configuração do falcond) fica indisponível.
-- `tests/daemon-authorization.sh` confere que o auxiliar recusa todas as ações
-  privilegiadas quando o Polkit não está disponível.
-- `bigame-core/examples/` traz ferramentas de linha de comando: detecção
-  (`detect`, `library`, `running`, `health`), Gráficos com IA (`graphics_scan`,
+- Without the package installed the interface runs, but what needs root
+  (profiles, Turbo, falcond's configuration) is unavailable.
+- `tests/daemon-authorization.sh` checks that the helper refuses every
+  privileged method when Polkit is unreachable.
+- `bigame-core/examples/` holds command-line tools: detection (`detect`,
+  `library`, `running`, `health`), AI Graphics (`graphics_scan`,
   `graphics_plan`, `graphics_apply`, `graphics_status`,
-  `graphics_capabilities`, `graphics_diagnose`, `graphics_native`), Turbo e
-  Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), quem controla o
-  falcond (`falcond_control`), o comando que o lançador monta (`launch_plan`),
-  um jogo iniciado pelo próprio lançador (`launch_through`), os ajustes de um
-  jogo gravados no Heroic (`heroic_apply`), o Gamescope de um jogo nas opções
-  de lançamento da Steam (`steam_gamescope`), o estilo do vkBasalt
-  (`vkbasalt_style`), lsfg-vk (`lsfg`) e relatórios de benchmark
-  (`bench_report`, `bench_native_report`). Rode com
-  `cargo run -p bigame-core --example <nome>`.
+  `graphics_capabilities`, `graphics_diagnose`, `graphics_native`), Turbo and
+  Booster (`turbo`, `turbo_preset`, `booster_run`, `measure`), falcond control
+  (`falcond_control`), the launch command (`launch_plan`), a game started
+  through its launcher (`launch_through`), a game's settings in Heroic
+  (`heroic_apply`), a game's Gamescope in Steam's launch options
+  (`steam_gamescope`), the vkBasalt look (`vkbasalt_style`), lsfg-vk (`lsfg`)
+  and benchmark reports (`bench_report`, `bench_native_report`). Run them with
+  `cargo run -p bigame-core --example <name>`.
 
-<details>
-<summary><b>Traduções</b></summary>
+### Translations
 
-Todo texto visível passa por `i18n`/`ni18n` na interface e por `N_` no
-`bigame-core`. Depois de mudar textos no código:
+Every visible text goes through `i18n`/`ni18n` in the interface and `N_` in
+`bigame-core`. After changing texts:
 
 ```bash
-python3 locale/extract-strings.py        # atualiza locale/bigame-mode.pot
+python3 locale/extract-strings.py        # updates locale/bigame-mode.pot
 for po in locale/*.po; do
     msgmerge -U --no-wrap --no-fuzzy-matching "$po" locale/bigame-mode.pot
 done
 ```
 
-O extrator recusa rodar se um arquivo com textos faltar em
-`locale/POTFILES.in`, e o build falha se o template estiver desatualizado.
+The extractor refuses to run when a file with texts is missing from
+`locale/POTFILES.in`, and the package build fails when the template is stale.
+To try a translation from the build tree, compile the catalogues and point the
+application at them:
 
-</details>
+```bash
+for po in locale/*.po; do
+    l=$(basename "$po" .po); mkdir -p /tmp/bgm-locale/$l/LC_MESSAGES
+    msgfmt -o /tmp/bgm-locale/$l/LC_MESSAGES/bigame-mode.mo "$po"
+done
+BIGAME_LOCALEDIR=/tmp/bgm-locale LANGUAGE=pt_BR bigame-engine/target/debug/bigame-ui
+```
 
-## 👤 Autor
+### Packaging
 
-<table>
-<tr>
-<td>
+The `PKGBUILD` builds the tag `v${pkgver}` from GitHub with
+`cargo build --release --frozen --workspace` (LTO), checks the translation
+template, compiles the catalogues and runs `cargo test --release --frozen
+--workspace` in `check()`.
+
+## Author
 
 **Rafael Ruscher** · <rruscher@gmail.com>
 
-Eu, **Rafael Ruscher**, sempre fui apaixonado por jogos. Sou um grande
-entusiasta e, principalmente, um defensor ferrenho de jogos no Linux. Nos
-últimos anos, vimos o jogo virar: com as melhorias constantes e o apoio
-massivo da **Valve**, a compatibilidade hoje é quase total.
+I have always loved games, and I am a firm believer in gaming on Linux. In
+recent years, with Valve's constant work, compatibility has become almost
+complete. I play with friends like **Barnabé di Kartola** and follow
+**Alessandro** and **Pacheco** of the **System Infotech** channel, who play
+every day; seeing BigLinux in action on their channels keeps me going. Big Game
+Mode exists so this community gets the most out of its hardware, with the latest
+technology for every frame.
 
-Fico extremamente feliz em poder jogar com amigos como o **Barnabé di
-Kartola**, e acompanhar a turma do **Alessandro** e do **Pacheco** do canal
-**System Infotech**. Eles jogam diariamente e, sempre que me sobra um
-tempinho, estou lá jogando com eles. Ver canais mostrando o **BigLinux** em
-ação me motiva profundamente.
+**Thanks to** Bruno Gonçalves, Barnabé di Kartola, Alessandro and Pacheco
+(System Infotech), Narayan Silva (Nara Linux) and the BigLinux community.
 
-Em respeito a essa comunidade e para garantir que todos tenham a melhor
-experiência possível, criei o **Big Game Mode**. O objetivo é aproveitar o
-máximo do hardware, trazendo os últimos recursos tecnológicos para alcançar o
-FPS máximo. Com a integração do `lsfg-vk` (Lossless Scaling) e o `falcond`,
-criamos uma solução completa de GameMode para o ecossistema BigLinux.
+## Built on
 
-**Agradecimentos:** Bruno Gonçalves, Barnabé di Kartola, Alessandro e Pacheco
-(System Infotech) e a comunidade BigLinux.
+Big Game Mode builds on third-party projects, each with its own authors and
+licence:
 
-</td>
-</tr>
-</table>
+- **System:** [falcond](https://git.pika-os.com/general-packages/falcond)
+  (PikaOS), [sched-ext](https://github.com/sched-ext/scx) and `scx_loader`,
+  power-profiles-daemon, systemd, D-Bus and Polkit.
+- **Games and graphics:** [OptiScaler](https://github.com/optiscaler/OptiScaler),
+  Gamescope and Proton (Valve), DXVK, VKD3D-Proton,
+  [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk), MangoHud and vkBasalt. The
+  vkBasalt **Nara Linux** look is by Narayan of the
+  [Nara Linux](https://www.youtube.com/watch?v=GGBC-qMB_0Y) channel and uses
+  shaders from [ReShade](https://github.com/crosire/reshade-shaders) and
+  [SweetFX](https://github.com/CeeJayDK/SweetFX), downloaded only when that
+  look is chosen, at fixed versions checked by SHA-256. DLSS, XeSS and FSR
+  belong to NVIDIA, Intel and AMD under their licences.
+- **Application:** Rust, GTK and libadwaita (GNOME), gtk4-rs, zbus, Tokio,
+  Serde, ksni and gettext.
 
-## 🙏 Projetos utilizados
+## License
 
-O Big Game Mode se apoia em projetos de terceiros, cada um com seus autores e
-licenças:
-
-- **Sistema:** [falcond](https://git.pika-os.com/general-packages/falcond)
-  (PikaOS), [sched-ext](https://github.com/sched-ext/scx) e `scx_loader`,
-  power-profiles-daemon, systemd, D-Bus e Polkit.
-- **Jogos e gráficos:** [OptiScaler](https://github.com/optiscaler/OptiScaler),
-  Gamescope e Proton (Valve), DXVK, VKD3D-Proton,
-  [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk), MangoHud e vkBasalt. O
-  visual **Nara Linux** do vkBasalt é do Narayan, do canal
-  [Nara Linux](https://www.youtube.com/watch?v=GGBC-qMB_0Y), e usa shaders do
-  [ReShade](https://github.com/crosire/reshade-shaders) e do
-  [SweetFX](https://github.com/CeeJayDK/SweetFX), baixados só quando esse
-  visual é escolhido, em versões fixas conferidas pelo SHA-256. DLSS,
-  XeSS e FSR pertencem a NVIDIA, Intel e AMD e seguem as licenças delas.
-- **Aplicativo:** Rust, GTK e libadwaita (GNOME), gtk4-rs, zbus, Tokio, Serde,
-  ksni e gettext.
-
-## 📄 Licença
-
-Distribuído sob a **GPL-3.0-or-later**. Veja [LICENSE](LICENSE).
+Distributed under the **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
 <div align="center">
-<sub>Feito com 🎮 para a comunidade <b>BigLinux</b>.</sub>
+<sub>Made with 🎮 for the <b>BigLinux</b> community.</sub>
 </div>

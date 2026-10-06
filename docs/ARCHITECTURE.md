@@ -23,6 +23,14 @@ error.
 | Helper | `bigame-engine/bigame-daemon` (root, system bus `com.biglinux.BiGameMode`, object `/com/biglinux/BiGameMode`) | The handful of writes the UI cannot do: `SaveProfile`, `DeleteProfile`, `ApplyFalcondConfig`, `SetVCacheMode`, `SetCpuGovernor`, `SetCpuEpp`, `SetGpuDpmLevel`, `SetGameBackend`, `ReleaseGameBackend`, plus the unauthenticated `Ping`. Started on demand by D-Bus through `bigame-daemon.service`. See [SECURITY.md](SECURITY.md). |
 | falcond | external system service | Matches game processes by name and applies their profile — performance power profile, sched-ext scheduler (through `scx_loader`), 3D V-Cache mode, idle inhibit — and restores everything when the game exits. |
 
+falcond, power-profiles-daemon, sched-ext, Gamescope, MangoHud, vkBasalt and
+lsfg-vk are optional packages: the package depends only on what Arch's own
+repositories carry. Without falcond, Turbo applies only the general settings
+(the Booster) and the presets, and a game's profile saves everything but its
+performance part. A missing component is shown where it would act as *Not
+installed*, with the command that installs it when pacman can find the package
+(`capabilities::in_repositories`) and advice otherwise.
+
 ## Turbo
 
 Turbo off means Big Game Mode does not intervene in games; on means falcond runs
@@ -576,7 +584,7 @@ directory.
 | Path | Content |
 |---|---|
 | `/etc/falcond/config.conf` | falcond's global configuration (written by the helper) |
-| `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper) |
+| `/usr/share/falcond/profiles/user/<process>.conf` | per-game falcond profiles (written by the helper; the directory is the package's, the only part of falcond's tree the helper can write) |
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before Big Game Mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
