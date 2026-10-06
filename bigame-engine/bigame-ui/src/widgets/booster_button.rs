@@ -66,7 +66,7 @@ impl State {
     #[must_use]
     pub fn subtitle(&self) -> String {
         match self {
-            Self::Off => i18n("Off · BiGame-mode is not intervening in games"),
+            Self::Off => i18n("Off · Big Game Mode is not intervening in games"),
             Self::Working { step } => step.clone(),
             Self::On { detail } | Self::Partial { detail } | Self::Error { detail } => {
                 detail.clone()
@@ -146,8 +146,12 @@ struct Art {
     target: f64,
     tint: super::turbo_art::Tint,
     hover: bool,
-    /// For what turns.
-    started: std::time::Instant,
+    /// For what turns: seconds it has turned, which only advance while it
+    /// does, so it resumes where it stopped.
+    time: f64,
+    /// Until when it turns after a change of state; while hovered it turns
+    /// as well. At rest the disc is still and the frame clock is let go.
+    spin_until: Option<std::time::Instant>,
     /// The frame clock's time at the last tick, µs.
     last_tick: i64,
     /// When the artwork was last redrawn while nothing but its turning moved.
@@ -161,12 +165,19 @@ type Listener = Box<dyn Fn(&State)>;
 /// something to glance at, and a game may be running.
 const IDLE_FRAME: std::time::Duration = std::time::Duration::from_millis(33);
 
+/// How long the disc turns after its state changes.
+const SPIN: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// The frame-clock callback that animates the disc, while there is one.
+type Ticker = std::rc::Rc<std::cell::RefCell<Option<gtk4::TickCallbackId>>>;
+
 /// The Turbo Mode control.
 pub struct BoosterButton {
     button: gtk4::Button,
     caption: gtk4::Label,
     area: gtk4::DrawingArea,
     art: std::rc::Rc<std::cell::RefCell<Art>>,
+    ticker: Ticker,
     state: std::cell::RefCell<State>,
     /// Called with every state shown.
     listeners: std::cell::RefCell<Vec<Listener>>,
@@ -187,12 +198,29 @@ impl BoosterButton {
             target: 0.0,
             tint: super::turbo_art::Tint::Spectrum,
             hover: false,
-            started: std::time::Instant::now(),
+            time: 0.0,
+            spin_until: None,
             last_tick: 0,
             last_draw: std::time::Instant::now(),
         }));
 
         let area = art_area(&art);
+        // The frame clock ticks a widget that is realized, not only one on
+        // screen, and a page in a view stack stays realized: the callback
+        // lives only while the disc is mapped and something moves.
+        let ticker: Ticker = Rc::new(RefCell::new(None));
+        {
+            let (art, ticker) = (Rc::clone(&art), Rc::clone(&ticker));
+            area.connect_map(move |area| wake(area, &art, &ticker));
+        }
+        {
+            let ticker = Rc::clone(&ticker);
+            area.connect_unmap(move |_| {
+                if let Some(id) = ticker.borrow_mut().take() {
+                    id.remove();
+                }
+            });
+        }
 
         // Nothing is written on the disc: the symbol says on or off, and
         // what is happening goes under it (`caption`).
@@ -206,9 +234,11 @@ impl BoosterButton {
             let motion = gtk4::EventControllerMotion::new();
             let (enter, leave) = (Rc::clone(&art), Rc::clone(&art));
             let (a1, a2) = (area.clone(), area.clone());
+            let ticking = Rc::clone(&ticker);
             motion.connect_enter(move |_, _, _| {
                 enter.borrow_mut().hover = true;
                 a1.queue_draw();
+                wake(&a1, &enter, &ticking);
             });
             motion.connect_leave(move |_| {
                 leave.borrow_mut().hover = false;
@@ -235,6 +265,7 @@ impl BoosterButton {
             caption,
             area,
             art,
+            ticker,
             state: RefCell::new(State::Off),
             listeners: RefCell::new(Vec::new()),
         })
@@ -284,8 +315,10 @@ impl BoosterButton {
             let mut art = self.art.borrow_mut();
             art.target = state.level();
             art.tint = state.tint();
+            art.spin_until = Some(std::time::Instant::now() + SPIN);
         }
         self.area.queue_draw();
+        wake(&self.area, &self.art, &self.ticker);
 
         self.button.update_property(&[
             gtk4::accessible::Property::Label(&title),
@@ -308,8 +341,12 @@ impl BoosterButton {
     /// colours filling the mesh.
     pub fn set_progress(&self, done: f64) {
         if matches!(*self.state.borrow(), State::Working { .. }) {
-            let mut art = self.art.borrow_mut();
-            art.target = art.target.max(0.12 + done.clamp(0.0, 1.0) * 0.76);
+            {
+                let mut art = self.art.borrow_mut();
+                art.target = art.target.max(0.12 + done.clamp(0.0, 1.0) * 0.76);
+                art.spin_until = Some(std::time::Instant::now() + SPIN);
+            }
+            wake(&self.area, &self.art, &self.ticker);
         }
     }
 
@@ -334,11 +371,7 @@ fn art_area(art: &std::rc::Rc<std::cell::RefCell<Art>>) -> gtk4::DrawingArea {
                 (f64::from(width) - size) / 2.0,
                 (f64::from(height) - size) / 2.0,
             );
-            let time = if animations_enabled() {
-                a.started.elapsed().as_secs_f64()
-            } else {
-                0.0
-            };
+            let time = if animations_enabled() { a.time } else { 0.0 };
             super::turbo_art::draw(
                 cr,
                 size,
@@ -351,40 +384,58 @@ fn art_area(art: &std::rc::Rc<std::cell::RefCell<Art>>) -> gtk4::DrawingArea {
             );
         });
     }
-    // Moves the level towards its target, and keeps what turns turning.
-    // GTK only ticks a widget that is on screen, so a hidden window or
-    // another page costs nothing.
-    {
-        let art = Rc::clone(art);
-        area.add_tick_callback(move |area, clock| {
-            let mut a = art.borrow_mut();
-            let now = clock.frame_time();
-            #[allow(clippy::cast_precision_loss)]
-            let dt = if a.last_tick == 0 {
-                0.0
-            } else {
-                ((now - a.last_tick) as f64 / 1e6).min(0.1)
-            };
-            a.last_tick = now;
-            let animate = animations_enabled();
-            let moving = (a.target - a.level).abs() > 0.002;
-            if moving {
-                a.level = if animate {
-                    // About a second from off to on.
-                    a.level + (a.target - a.level) * (1.0 - (-dt * 3.5).exp())
-                } else {
-                    a.target
-                };
-            }
-            let turning = animate && a.level > 0.02;
-            if moving || (turning && a.last_draw.elapsed() >= IDLE_FRAME) {
-                a.last_draw = std::time::Instant::now();
-                area.queue_draw();
-            }
-            glib::ControlFlow::Continue
-        });
-    }
     area
+}
+
+/// Run the frame-clock callback while `area` is on screen and something
+/// moves: the level towards its target, and what turns for a while after a
+/// change or while hovered. It lets itself go once the disc is at rest.
+fn wake(area: &gtk4::DrawingArea, art: &std::rc::Rc<std::cell::RefCell<Art>>, ticker: &Ticker) {
+    if !area.is_mapped() || ticker.borrow().is_some() {
+        return;
+    }
+    let (art, slot) = (std::rc::Rc::clone(art), std::rc::Rc::clone(ticker));
+    let id = area.add_tick_callback(move |area, clock| {
+        let mut a = art.borrow_mut();
+        let now = clock.frame_time();
+        #[allow(clippy::cast_precision_loss)]
+        let dt = if a.last_tick == 0 {
+            0.0
+        } else {
+            ((now - a.last_tick) as f64 / 1e6).min(0.1)
+        };
+        a.last_tick = now;
+        let animate = animations_enabled();
+        let moving = (a.target - a.level).abs() > 0.002;
+        if moving {
+            a.level = if animate {
+                // About a second from off to on.
+                a.level + (a.target - a.level) * (1.0 - (-dt * 3.5).exp())
+            } else {
+                a.target
+            };
+        }
+        let spinning = a.hover || a.spin_until.is_some_and(|t| std::time::Instant::now() < t);
+        let turning = animate && a.level > 0.02 && spinning;
+        if turning {
+            a.time += dt;
+        }
+        if moving || (turning && a.last_draw.elapsed() >= IDLE_FRAME) {
+            a.last_draw = std::time::Instant::now();
+            area.queue_draw();
+        }
+        if moving || turning {
+            return glib::ControlFlow::Continue;
+        }
+        // At rest: the last step drawn exactly, and the clock let go.
+        a.level = a.target;
+        a.last_tick = 0;
+        area.queue_draw();
+        // Ended by returning Break: the id is dropped, not removed.
+        slot.borrow_mut().take();
+        glib::ControlFlow::Break
+    });
+    *ticker.borrow_mut() = Some(id);
 }
 
 /// Whether the desktop has asked for reduced motion.

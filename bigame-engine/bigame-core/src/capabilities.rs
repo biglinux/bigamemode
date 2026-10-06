@@ -278,7 +278,7 @@ impl Capabilities {
             power_profiles: crate::dbus::power_profile_get().is_some(),
             power_profiles_available: crate::dbus::power_profiles_available(),
             sched_ext: detect_sched_ext(),
-            lsfg_vk: vulkan_layer_installed("VkLayer_LS_frame_generation"),
+            lsfg_vk: crate::fg::layer_installed(),
             vkbasalt: vkbasalt_installed(),
             steam: which("steam").is_some(),
         }

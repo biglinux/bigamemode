@@ -137,14 +137,14 @@ fn falcond_row() -> adw::ActionRow {
                 None => i18n("Could not read falcond's service"),
                 Some(Control::NotInstalled) => i18n("falcond is not installed"),
                 Some(Control::Managed { since }) => {
-                    i18n("Managed by BiGame-mode since %s").replace("%s", &local_time(since))
+                    i18n("Managed by Big Game Mode since %s").replace("%s", &local_time(since))
                 }
                 Some(Control::HandedBack { at }) => {
-                    i18n("Handed back on %s: falcond is as it was before BiGame-mode")
+                    i18n("Handed back on %s: falcond is as it was before Big Game Mode")
                         .replace("%s", &local_time(at))
                 }
                 Some(Control::NeverManaged) => {
-                    i18n("Not managed: BiGame-mode has not changed falcond's service")
+                    i18n("Not managed: Big Game Mode has not changed falcond's service")
                 }
             };
             row.set_subtitle(&subtitle);
@@ -184,14 +184,31 @@ fn falcond_row() -> adw::ActionRow {
             let refresh = refresh.clone();
             glib::spawn_future_local(async move {
                 b.set_sensitive(false);
+                // A falcond stopped by the hand-back takes Turbo off: the
+                // preset and the Booster's changes go with it, as they would
+                // with Turbo off.
                 let result = gio::spawn_blocking(|| {
-                    bigame_core::dbus_client::daemon_proxy_blocking()
-                        .and_then(|p| Ok(p.release_game_backend()?))
+                    let released = bigame_core::dbus_client::daemon_proxy_blocking()
+                        .and_then(|p| Ok(p.release_game_backend()?))?;
+                    let tidied = if released {
+                        bigame_core::turbo::tidy_up_blocking()
+                    } else {
+                        Ok(())
+                    };
+                    anyhow::Ok((released, tidied))
                 })
                 .await;
                 let text = match result {
-                    Ok(Ok(true)) => i18n("falcond is back as it was before BiGame-mode"),
-                    Ok(Ok(false)) => i18n("There was nothing to hand back"),
+                    Ok(Ok((true, Ok(())))) => {
+                        i18n("falcond is back as it was before Big Game Mode")
+                    }
+                    Ok(Ok((true, Err(e)))) => format!(
+                        "{}. {}: {}",
+                        i18n("falcond is back as it was before Big Game Mode"),
+                        i18n("Some settings could not be put back"),
+                        error_text(&e)
+                    ),
+                    Ok(Ok((false, _))) => i18n("There was nothing to hand back"),
                     Ok(Err(e)) => {
                         format!("{}: {}", i18n("Could not hand it back"), error_text(&e))
                     }
@@ -209,7 +226,7 @@ fn falcond_row() -> adw::ActionRow {
             b.set_sensitive(false);
             let result = gio::spawn_blocking(bigame_core::turbo::take_back_blocking).await;
             let text = match result {
-                Ok(Ok(_)) => i18n("BiGame-mode manages falcond again"),
+                Ok(Ok(_)) => i18n("Big Game Mode manages falcond again"),
                 Ok(Err(e)) => format!(
                     "{}: {}",
                     i18n("Could not take control back"),
@@ -286,6 +303,23 @@ fn ping_rows(current: &str) -> [adw::PreferencesRow; 2] {
     [combo.upcast(), entry.upcast()]
 }
 
+/// Run `apply` with each state `row` is switched to. When it fails, say why
+/// and put the switch back: it never shows a choice that is not kept.
+fn on_switch(row: &adw::SwitchRow, apply: impl Fn(bool) -> Result<(), String> + 'static) {
+    let reverting = std::rc::Rc::new(std::cell::Cell::new(false));
+    row.connect_active_notify(move |row| {
+        if reverting.get() {
+            return;
+        }
+        if let Err(e) = apply(row.is_active()) {
+            crate::widgets::toast::show(row, &format!("{}: {e}", i18n("Could not change it")));
+            reverting.set(true);
+            row.set_active(!row.is_active());
+            reverting.set(false);
+        }
+    });
+}
+
 /// Keep `target` as the ping target, unless it is empty or would be read as
 /// an option by ping.
 fn save_ping_target(target: String) {
@@ -317,13 +351,11 @@ pub fn build() -> adw::PreferencesPage {
         &i18n("So games you start from Steam are noticed even with this window closed"),
         settings::starts_at_login(),
         &i18n(
-            "Adds a login entry for your user only (~/.config/autostart). BiGame-mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry.",
+            "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry.",
         ),
     );
-    login.connect_active_notify(|row| {
-        if let Err(e) = settings::set_starts_at_login(row.is_active()) {
-            crate::widgets::toast::show(row, &format!("{}: {e}", i18n("Could not change it")));
-        }
+    on_switch(&login, |on| {
+        settings::set_starts_at_login(on).map_err(|e| e.to_string())
     });
     turbo.add(&login);
 
@@ -342,15 +374,15 @@ pub fn build() -> adw::PreferencesPage {
             "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to.",
         ),
     );
-    offer.connect_active_notify(|row| {
+    on_switch(&offer, |on| {
         let mut s = settings::load();
-        s.offer_profiles = row.is_active();
-        settings::save(&s);
+        s.offer_profiles = on;
+        settings::try_save(&s).map_err(|e| e.to_string())
     });
     profiles.add(&offer);
 
     let migrate = adw::ActionRow::builder()
-        .title(i18n("Profiles from an older BiGame-mode"))
+        .title(i18n("Profiles from an older Big Game Mode"))
         .subtitle(i18n("Checking…"))
         .use_markup(false)
         .build();
@@ -361,13 +393,20 @@ pub fn build() -> adw::PreferencesPage {
         .build();
     migrate.add_suffix(&migrate_button);
     migrate.add_suffix(&info::button(
-        &i18n("Profiles from an older BiGame-mode"),
+        &i18n("Profiles from an older Big Game Mode"),
         &i18n(
             "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched.",
         ),
     ));
     profiles.add(&migrate);
-    {
+    // Checked when the row is first shown, not when the page is built: the
+    // page is built at login with the window hidden, and the check scans
+    // every launcher's library.
+    let checked = std::rc::Rc::new(std::cell::Cell::new(false));
+    migrate.connect_map(move |migrate| {
+        if checked.replace(true) {
+            return;
+        }
         let migrate = migrate.clone();
         let button = migrate_button.clone();
         glib::spawn_future_local(async move {
@@ -438,7 +477,7 @@ pub fn build() -> adw::PreferencesPage {
                 });
             });
         });
-    }
+    });
     page.add(&profiles);
 
     // ── Notifications ───────────────────────────────────────────────────
@@ -452,10 +491,10 @@ pub fn build() -> adw::PreferencesPage {
             "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above.",
         ),
     );
-    notif_row.connect_active_notify(|row| {
+    on_switch(&notif_row, |on| {
         let mut s = settings::load();
-        s.notifications_enabled = row.is_active();
-        settings::save(&s);
+        s.notifications_enabled = on;
+        settings::try_save(&s).map_err(|e| e.to_string())
     });
     notif.add(&notif_row);
     page.add(&notif);

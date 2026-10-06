@@ -80,7 +80,7 @@ pub fn report(include_network: bool) -> String {
     let caps = Capabilities::detect();
     let mut out = String::new();
 
-    let _ = writeln!(out, "BiGame-mode diagnostics");
+    let _ = writeln!(out, "Big Game Mode diagnostics");
     let _ = writeln!(out, "version        {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(out, "generated      {}", timestamp());
     let _ = writeln!(out);
@@ -134,7 +134,7 @@ fn date(when: libc::time_t) -> String {
 fn section_bigame(out: &mut String) {
     use crate::turbo::Section;
 
-    let _ = writeln!(out, "── BiGame-mode ──");
+    let _ = writeln!(out, "── Big Game Mode ──");
     let reader = crate::systemd::Reader::shared();
     let unit = reader.and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
     // As Home reads it (turbo::state): falcond's unit when it is installed,
@@ -162,11 +162,18 @@ fn section_bigame(out: &mut String) {
         }
         None => {}
     }
+    // What the session really holds, not only what the record says: after a
+    // reboot the record can outlive the session's variables.
+    let in_force = match crate::turbo_preset::in_session() {
+        Ok(Some(p)) => p.label().to_owned(),
+        Ok(None) => crate::turbo_preset::Preset::Standard.label().to_owned(),
+        Err(e) => format!("unknown ({e})"),
+    };
     let _ = writeln!(
         out,
-        "  preset       {} in force · {} chosen for the next Turbo",
-        crate::turbo_preset::active().label(),
-        crate::turbo_preset::chosen().label()
+        "  preset       {in_force} in force · {} chosen for the next Turbo (recorded: {})",
+        crate::turbo_preset::chosen().label(),
+        crate::turbo_preset::active().label()
     );
     let _ = writeln!(
         out,
@@ -332,7 +339,11 @@ fn section_gpu(out: &mut String, hw: &Hardware) {
         let _ = writeln!(
             out,
             "  {} {:?} {} driver {}{}",
-            gpu.card, gpu.vendor, gpu.pci_id, gpu.driver, role
+            gpu.node(),
+            gpu.vendor,
+            gpu.pci_id,
+            gpu.driver,
+            role
         );
         if let Some(info) = infos.get(i) {
             let _ = writeln!(
@@ -344,6 +355,9 @@ fn section_gpu(out: &mut String, hw: &Hardware) {
                     .unwrap_or("userspace driver unknown")
             );
         }
+        // The sensors as the panels read them: a GPU in runtime suspend is
+        // not woken to fill a report.
+        let sample = crate::gpu_telemetry::sample(gpu);
         let _ = writeln!(
             out,
             "     vram {} · {} · dpm {}",
@@ -356,20 +370,45 @@ fn section_gpu(out: &mut String, hw: &Hardware) {
             } else {
                 "integrated"
             },
-            gpu.dpm_level().unwrap_or_else(|| "n/a".into())
+            if sample.asleep {
+                "asleep".to_owned()
+            } else {
+                gpu.dpm_level().unwrap_or_else(|| "n/a".into())
+            }
         );
-        if let Some(t) = gpu.hwmon_u64("temp1_input") {
-            let _ = write!(out, "     {} °C", t / 1000);
-            if let Some(p) = gpu.hwmon_u64("power1_average") {
-                let _ = write!(out, " · {} W", p / 1_000_000);
-            }
-            if let Some(b) = gpu.busy_percent() {
-                let _ = write!(out, " · {b}% busy");
-            }
-            let _ = writeln!(out);
+        // An APU's PPT is the whole package's power, its CPU included.
+        let package = gpu.vendor == crate::hardware::GpuVendor::Amd && !gpu.discrete;
+        if let Some(line) = sensor_line(&sample, package) {
+            let _ = writeln!(out, "     {line}");
         }
     }
     let _ = writeln!(out);
+}
+
+/// What a GPU's sensors read, or that it is asleep; `None` when the driver
+/// reports nothing. `package`: the power reading is the whole chip's.
+fn sensor_line(s: &crate::gpu_telemetry::GpuSample, package: bool) -> Option<String> {
+    if s.asleep {
+        return Some("asleep (runtime suspended, not queried)".to_owned());
+    }
+    let mut parts = Vec::new();
+    if let Some(t) = s.temp_c {
+        parts.push(format!("{t:.0} °C"));
+    }
+    if let Some(p) = s.power_w {
+        parts.push(if package {
+            format!("{p:.0} W package")
+        } else {
+            format!("{p:.0} W")
+        });
+    }
+    if let Some(c) = s.clock_mhz {
+        parts.push(format!("{c} MHz"));
+    }
+    if let Some(b) = s.busy_pct {
+        parts.push(format!("{b}% busy"));
+    }
+    (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
 fn section_display(out: &mut String, hw: &Hardware) {
@@ -380,7 +419,7 @@ fn section_display(out: &mut String, hw: &Hardware) {
     for d in &hw.displays {
         let _ = writeln!(
             out,
-            "  {} on {} · max {} · VRR {}",
+            "  {} on {} · preferred {} · VRR {}",
             d.connector,
             d.card,
             d.max_mode
@@ -388,7 +427,8 @@ fn section_display(out: &mut String, hw: &Hardware) {
             match d.vrr_capable {
                 Some(true) => "yes",
                 Some(false) => "no",
-                None => "not reported by the kernel",
+                // A DRM property, not in sysfs: unknown, never "no".
+                None => "unknown",
             }
         );
     }
@@ -869,7 +909,7 @@ mod tests {
     fn the_report_answers_the_questions_support_asks() {
         let text = report(false);
         for heading in [
-            "── BiGame-mode ──",
+            "── Big Game Mode ──",
             "── System ──",
             "── CPU ──",
             "── GPU ──",
@@ -884,7 +924,7 @@ mod tests {
         ] {
             assert!(text.contains(heading), "missing section {heading}");
         }
-        assert!(text.contains("BiGame-mode diagnostics"));
+        assert!(text.contains("Big Game Mode diagnostics"));
     }
 
     #[test]
@@ -921,6 +961,36 @@ mod tests {
         assert!(text.ends_with("(games/, settings.toml)"), "{text}");
         assert!(!text.contains("secret"));
         assert!(listing(&dir.path().join("gone")).ends_with("(missing)"));
+    }
+
+    #[test]
+    fn a_sleeping_gpu_is_said_asleep_and_a_reading_lists_what_it_has() {
+        use crate::gpu_telemetry::GpuSample;
+        let asleep = GpuSample {
+            asleep: true,
+            ..GpuSample::default()
+        };
+        assert_eq!(
+            sensor_line(&asleep, false).as_deref(),
+            Some("asleep (runtime suspended, not queried)")
+        );
+        // The Cezanne iGPU: power from `power1_input`, as `sample` reads it,
+        // which on an APU is the package's.
+        let apu = GpuSample {
+            temp_c: Some(41.0),
+            power_w: Some(12.0),
+            busy_pct: Some(0),
+            ..GpuSample::default()
+        };
+        assert_eq!(
+            sensor_line(&apu, true).as_deref(),
+            Some("41 °C · 12 W package · 0% busy")
+        );
+        assert_eq!(
+            sensor_line(&apu, false).as_deref(),
+            Some("41 °C · 12 W · 0% busy")
+        );
+        assert_eq!(sensor_line(&GpuSample::default(), false), None);
     }
 
     #[test]

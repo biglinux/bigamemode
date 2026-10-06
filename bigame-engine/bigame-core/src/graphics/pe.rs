@@ -96,10 +96,13 @@ struct Section {
 }
 
 fn rva_to_offset(sections: &[Section], rva: u32) -> Option<usize> {
+    // A section header is the file's to say: a raw offset near the top of
+    // the range must not wrap (or panic) when the offset into it is added.
     sections
         .iter()
         .find(|s| rva >= s.va && rva - s.va < s.size)
-        .map(|s| (rva - s.va + s.raw) as usize)
+        .and_then(|s| s.raw.checked_add(rva - s.va))
+        .and_then(|off| usize::try_from(off).ok())
 }
 
 fn c_string(b: &[u8], off: usize) -> Option<String> {
@@ -551,6 +554,25 @@ mod tests {
         let mut bad_magic = img.clone();
         bad_magic[0x80 + 24] = 0x33;
         assert_eq!(parse(&bad_magic), Err(PeError::UnknownFormat));
+    }
+
+    #[test]
+    fn a_section_at_the_top_of_the_offset_range_is_refused_not_wrapped() {
+        let mut img = fixture::pe(0x8664, true, &["d3d11.dll"], &[], b"");
+        // The one section's raw offset, near u32::MAX: the import table's
+        // offset would overflow.
+        let raw = 0x80 + 24 + 240 + 20;
+        img[raw..raw + 4].copy_from_slice(&0xFFFF_FF00u32.to_le_bytes());
+        assert!(parse(&img).unwrap().imports.is_empty());
+        // The resource directory in that section too, as a version read
+        // follows it.
+        let dirs = 0x80 + 24 + 112;
+        img[dirs + 16..dirs + 20].copy_from_slice(&0x1000u32.to_le_bytes());
+        img[dirs + 20..dirs + 24].copy_from_slice(&0x100u32.to_le_bytes());
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("dxgi.dll");
+        std::fs::write(&path, &img).unwrap();
+        assert_eq!(read_file_version(&path), None);
     }
 
     #[test]

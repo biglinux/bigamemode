@@ -27,17 +27,22 @@ use bigame_core::overview::{AppliedProfile, Snapshot, State as Fact};
 use bigame_core::running::GameIdentity;
 use bigame_core::turbo::{self, Report, Section, Step};
 
+use bigame_core::turbo_preset;
+
 use crate::i18n::{error_text, i18n, ni18n};
 use crate::widgets::booster_button::{self, BoosterButton, State};
+use crate::widgets::launcher_notice::LauncherNotice;
 use crate::widgets::sparkline::{self, SparkHandle};
 use crate::widgets::status::Chip;
+use crate::widgets::turbo_presets::{Mode, PresetPicker};
 
 /// What the worker thread sends back to the UI.
 enum Event {
     /// A stage began.
     Step(Step),
-    /// The transition finished.
-    Done(Box<Report>),
+    /// The transition finished, and whether Turbo is on afterwards as
+    /// systemd says (`None` when it could not be read).
+    Done(Box<Report>, Option<bool>),
     /// It could not start at all.
     Failed(String),
 }
@@ -55,18 +60,27 @@ const PING_EVERY: u32 = 5;
 /// Build the Home page.
 ///
 /// `show_report` is how the page asks the window to open the report, so
-/// navigation stays the window's concern.
+/// navigation stays the window's concern. Turbo and its preset are given to
+/// `app` as the stateful actions `app.turbo` and `app.turbo-preset`: their
+/// state is what this page shows, read from the systems that hold it, and
+/// changing it runs what the Turbo button and the preset picker run. The
+/// tray reads and changes Turbo through them, never beside them.
 #[must_use]
 #[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
-pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
+pub fn build(
+    app: &adw::Application,
+    show_report: Rc<dyn Fn(&Report)>,
+    launcher_notice: Rc<LauncherNotice>,
+) -> gtk4::Widget {
     let button = BoosterButton::new();
     let last_report: Rc<RefCell<Option<Report>>> = Rc::new(RefCell::new(Report::load_last()));
 
-    let status = gtk4::Label::new(Some(&i18n("Checking your system…")));
-    status.add_css_class("dim-label");
-    status.add_css_class("home-status");
-    status.set_wrap(true);
-    status.set_justify(gtk4::Justification::Center);
+    // The machine, named once its hardware has been read.
+    let machine = gtk4::Label::new(Some(&i18n("Checking your system…")));
+    machine.add_css_class("dim-label");
+    machine.add_css_class("home-status");
+    machine.set_wrap(true);
+    machine.set_justify(gtk4::Justification::Center);
 
     // ── Live readings, above the disc ───────────────────────────────────
     let readings = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
@@ -81,24 +95,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     // ── The card: Turbo's result, or the running game ───────────────────
     let card = InfoCard::new(Rc::clone(&last_report), Rc::clone(&show_report));
 
-    // The preset is chosen before Turbo is switched on, and locked while it
-    // is on or switching.
-    let presets = crate::widgets::turbo_presets::PresetPicker::new();
-    {
-        let presets = Rc::clone(&presets);
-        button.connect_state_changed(move |state| {
-            presets.set_locked(
-                !matches!(state, State::Off | State::Error { .. }),
-                state.is_on(),
-            );
-        });
-    }
-
-    // A launcher keeps the environment it started with: a preset switched
-    // on while it is open reaches its games only once it is opened again.
-    // One compact row per launcher that lacks it, so the page still fits
-    // its window while they are shown.
-    let launcher_rows = LauncherRows::new();
+    let presets = PresetPicker::new();
 
     let column = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     column.set_halign(gtk4::Align::Center);
@@ -107,12 +104,11 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     column.set_margin_bottom(8);
     column.set_margin_start(18);
     column.set_margin_end(18);
-    column.append(&status);
+    column.append(&machine);
     column.append(&readings);
     column.append(button.widget());
     column.append(button.caption());
     column.append(presets.widget());
-    column.append(launcher_rows.widget());
     column.append(card.widget());
 
     let scroll = gtk4::ScrolledWindow::builder()
@@ -122,6 +118,155 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         .build();
 
     let turbo_on = Rc::new(Cell::new(false));
+    // A preset is being put in force while Turbo is on: Turbo and the
+    // presets wait for it.
+    let switching_preset = Rc::new(Cell::new(false));
+
+    // ── Turbo and its preset, for the application (the tray) ────────────
+    let turbo_action = gio::SimpleAction::new_stateful("turbo", None, &false.to_variant());
+    turbo_action.set_enabled(false);
+    let preset_action = gio::SimpleAction::new_stateful(
+        "turbo-preset",
+        Some(glib::VariantTy::STRING),
+        &presets.shown().id().to_variant(),
+    );
+    preset_action.set_enabled(false);
+    app.add_action(&turbo_action);
+    app.add_action(&preset_action);
+    // What the page shows, handed to the actions: called whenever it changes.
+    let publish: Rc<dyn Fn()> = {
+        let (button, presets, switching) = (
+            Rc::clone(&button),
+            Rc::clone(&presets),
+            Rc::clone(&switching_preset),
+        );
+        let (turbo_action, preset_action) = (turbo_action.clone(), preset_action.clone());
+        Rc::new(move || {
+            let state = button.state();
+            turbo_action.set_state(&state.is_on().to_variant());
+            turbo_action.set_enabled(state.is_interactive() && !switching.get());
+            preset_action.set_state(&presets.shown().id().to_variant());
+            preset_action.set_enabled(presets.is_open());
+        })
+    };
+
+    // With Turbo off a pick is for when it is switched on; with Turbo on it
+    // changes the preset in force. Nothing is picked while either switches.
+    {
+        let (presets, switching, publish) = (
+            Rc::clone(&presets),
+            Rc::clone(&switching_preset),
+            Rc::clone(&publish),
+        );
+        button.connect_state_changed(move |state| {
+            let mode = if !state.is_interactive() || switching.get() {
+                Mode::Locked
+            } else if state.is_on() {
+                // The one in force is the one shown.
+                presets.show(turbo_preset::active());
+                Mode::Live
+            } else {
+                Mode::Next
+            };
+            presets.set_mode(mode);
+            publish();
+        });
+    }
+    {
+        let presets_weak = Rc::downgrade(&presets);
+        let (button, switching, publish, card, turbo_on, notice) = (
+            Rc::clone(&button),
+            Rc::clone(&switching_preset),
+            Rc::clone(&publish),
+            card.clone(),
+            Rc::clone(&turbo_on),
+            Rc::clone(&launcher_notice),
+        );
+        presets.connect_picked(move |preset| {
+            let Some(presets) = presets_weak.upgrade() else {
+                return;
+            };
+            if !button.state().is_on() {
+                if let Err(e) = turbo_preset::set_chosen(preset) {
+                    crate::widgets::toast::error(
+                        presets.widget(),
+                        &i18n("The preset could not be changed"),
+                        &error_text(&e),
+                    );
+                }
+                publish();
+                return;
+            }
+            // Turbo is on: the session's environment changes, off the main
+            // thread, and nothing else switches meanwhile.
+            switching.set(true);
+            presets.set_mode(Mode::Locked);
+            button.widget().set_sensitive(false);
+            publish();
+            let (button, switching, publish, card, turbo_on, notice) = (
+                Rc::clone(&button),
+                Rc::clone(&switching),
+                Rc::clone(&publish),
+                card.clone(),
+                Rc::clone(&turbo_on),
+                Rc::clone(&notice),
+            );
+            // Quit waits for the session's environment to be in one state.
+            let busy = crate::app::Busy::hold();
+            glib::spawn_future_local(async move {
+                let result = gio::spawn_blocking(move || turbo_preset::switch(preset)).await;
+                drop(busy);
+                switching.set(false);
+                let state = button.state();
+                button.widget().set_sensitive(state.is_interactive());
+                match result {
+                    Ok(Ok(_)) => {
+                        tracing::info!(target: "turbo", preset = preset.id(), "Turbo preset changed");
+                        notice.check(true);
+                    }
+                    Ok(Err(e)) => crate::widgets::toast::error(
+                        presets.widget(),
+                        &i18n("The preset could not be changed"),
+                        &error_text(&e),
+                    ),
+                    Err(_) => crate::widgets::toast::error(
+                        presets.widget(),
+                        &i18n("The preset could not be changed"),
+                        &i18n("the worker thread stopped"),
+                    ),
+                }
+                // What is in force, read back.
+                presets.show(turbo_preset::active());
+                presets.set_mode(if !state.is_interactive() {
+                    Mode::Locked
+                } else if state.is_on() {
+                    Mode::Live
+                } else {
+                    Mode::Next
+                });
+                card.show(crate::game_watch::current().as_ref(), turbo_on.get());
+                card.refresh_preset();
+                publish();
+            });
+        });
+    }
+    // The tray asks for a preset as a click on it would.
+    {
+        let presets = Rc::downgrade(&presets);
+        preset_action.connect_change_state(move |_, value| {
+            let Some(preset) = value
+                .and_then(glib::Variant::str)
+                .and_then(turbo_preset::Preset::from_id)
+            else {
+                return;
+            };
+            if let Some(presets) = presets.upgrade() {
+                if presets.is_open() && presets.shown() != preset {
+                    presets.select(preset);
+                }
+            }
+        });
+    }
 
     // ── Initial state, from the systems that hold it ────────────────────
     // The button is deliberately NOT focused on start-up: a focused button is
@@ -134,6 +279,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         let button = Rc::clone(&button);
         let turbo_on = Rc::clone(&turbo_on);
         let card = card.clone();
+        let notice = Rc::clone(&launcher_notice);
         glib::spawn_future_local(async move {
             let state = gtk4::gio::spawn_blocking(turbo::state_blocking).await;
             let on = matches!(state, Ok(Ok(turbo::State::On)));
@@ -142,10 +288,19 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
             card.turbo_readable.set(readable);
             // A preset lives only in the running session: after a login it
             // is set again while Turbo is on, and dropped if Turbo is off.
+            // Then a launcher opened before that is asked to reopen.
             if readable {
-                gio::spawn_blocking(move || {
-                    if let Err(e) = bigame_core::turbo_preset::resync(on) {
-                        tracing::warn!(error = %format!("{e:#}"), "could not bring the Turbo preset back");
+                let card = card.clone();
+                glib::spawn_future_local(async move {
+                    let _ = gio::spawn_blocking(move || {
+                        if let Err(e) = turbo_preset::resync(on) {
+                            tracing::warn!(error = %format!("{e:#}"), "could not bring the Turbo preset back");
+                        }
+                    })
+                    .await;
+                    card.refresh_preset();
+                    if on {
+                        notice.check(false);
                     }
                 });
             }
@@ -183,17 +338,19 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
         });
     }
 
-    // ── Activation ──────────────────────────────────────────────────────
-    {
+    // ── Activation: the button, or `app.turbo` from the tray ────────────
+    let start: Rc<dyn Fn(bool)> = {
         let button = Rc::clone(&button);
-        let status = status.clone();
         let last = Rc::clone(&last_report);
         let show = Rc::clone(&show_report);
         let turbo_on = Rc::clone(&turbo_on);
         let card = card.clone();
-        let launcher_rows = launcher_rows.clone();
-        button.clone().connect_activated(move || {
-            let turning_off = button.state().is_on();
+        let notice = Rc::clone(&launcher_notice);
+        let switching = Rc::clone(&switching_preset);
+        Rc::new(move |turning_off| {
+            if !button.state().is_interactive() || switching.get() {
+                return;
+            }
             let working = if turning_off {
                 State::Restoring
             } else {
@@ -206,14 +363,16 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
 
             let (tx, rx) = mpsc::channel::<Event>();
             spawn_worker(tx, turning_off);
+            // Quit waits for the transition: half of Turbo on (or off) is a
+            // state no surface describes. Released when the result is in.
+            let busy = std::cell::RefCell::new(Some(crate::app::Busy::hold()));
 
             let button = Rc::clone(&button);
-            let status = status.clone();
             let last = Rc::clone(&last);
             let show = Rc::clone(&show);
             let turbo_on = Rc::clone(&turbo_on);
             let card = card.clone();
-            let launcher_rows = launcher_rows.clone();
+            let notice = Rc::clone(&notice);
             glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
                 loop {
                     let event = match rx.try_recv() {
@@ -222,6 +381,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                         // The worker ended without an answer (it panicked):
                         // say so rather than stay on "working" for ever.
                         Err(mpsc::TryRecvError::Disconnected) => {
+                            busy.borrow_mut().take();
                             button.set_state(&State::Error {
                                 detail: i18n(
                                     "The change stopped without an answer. Open Logs to see why.",
@@ -239,24 +399,20 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                                 button.set_progress(step_progress(&step));
                             }
                         }
-                        Event::Done(report) => {
+                        Event::Done(report, now) => {
+                            busy.borrow_mut().take();
                             let report = *report;
-                            let (state, on) = finished_state(&report);
-                            launcher_rows.refresh(
-                                on && bigame_core::turbo_preset::active()
-                                    != bigame_core::turbo_preset::Preset::Standard,
-                            );
+                            let (state, on) = finished_state(&report, now);
                             turbo_on.set(on);
                             button.set_state(&state);
                             booster_button::set_pulse(button.widget(), !on);
-                            status.set_label(&if on {
-                                i18n("Games are optimized as they start")
-                            } else {
-                                i18n("BiGame-mode is not intervening in games")
-                            });
+                            // The session's environment changed: a launcher
+                            // opened before keeps the old one.
+                            notice.check(true);
                             let failed = report.count(Section::Failed) > 0;
                             *last.borrow_mut() = Some(report);
                             card.show(crate::game_watch::current().as_ref(), on);
+                            card.refresh_preset();
                             crate::game_watch::check();
                             // Open the report on its own only when something
                             // went wrong; a clean run is summarised on Home.
@@ -268,6 +424,7 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                             return glib::ControlFlow::Break;
                         }
                         Event::Failed(detail) => {
+                            busy.borrow_mut().take();
                             button.set_state(&State::Error { detail });
                             return glib::ControlFlow::Break;
                         }
@@ -275,32 +432,75 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                 }
                 glib::ControlFlow::Continue
             });
+        })
+    };
+    // On switches off, off switches on. After an error, what a failed start
+    // may have left (falcond enabled, a preset, Booster changes) is switched
+    // off first: an error must never be a state nothing can leave.
+    let toggle: Rc<dyn Fn()> = {
+        let button = Rc::clone(&button);
+        let switching = Rc::clone(&switching_preset);
+        Rc::new(move || {
+            let state = button.state();
+            if !state.is_interactive() || switching.get() {
+                return;
+            }
+            if !matches!(state, State::Error { .. }) {
+                start(state.is_on());
+                return;
+            }
+            let start = Rc::clone(&start);
+            glib::spawn_future_local(async move {
+                let left = gio::spawn_blocking(turbo::something_left_blocking)
+                    .await
+                    .unwrap_or(true);
+                start(left);
+            });
+        })
+    };
+    {
+        let toggle = Rc::clone(&toggle);
+        button.connect_activated(move || toggle());
+    }
+    {
+        let button = Rc::clone(&button);
+        turbo_action.connect_change_state(move |_, value| {
+            // A request, not the result: the state follows once Turbo has
+            // really switched.
+            if let Some(wanted) = value.and_then(bool::from_variant) {
+                if wanted != button.state().is_on() {
+                    toggle();
+                }
+            }
         });
     }
 
     // ── Turbo changed elsewhere ─────────────────────────────────────────
     // The command-line tool, systemctl, or another session can turn falcond
     // on or off; Home follows what systemd says rather than what it last did
-    // itself. One D-Bus read every 10 s, only while the page is on screen.
+    // itself. One D-Bus read every 10 s, with the window hidden too, so the
+    // tray never shows a Turbo that is no longer so.
     {
         let button = Rc::clone(&button);
         let turbo_on = Rc::clone(&turbo_on);
         let last = Rc::clone(&last_report);
         let card = card.clone();
-        let launcher_rows = launcher_rows.clone();
+        let notice = Rc::clone(&launcher_notice);
+        let switching = Rc::clone(&switching_preset);
         let root = scroll.clone();
         let busy = Rc::new(Cell::new(false));
         glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
-            if !root.is_mapped() || !button.state().is_interactive() || busy.replace(true) {
+            if !button.state().is_interactive() || switching.get() || busy.replace(true) {
                 return glib::ControlFlow::Continue;
             }
-            let (button, turbo_on, last, card, busy, launcher_rows) = (
+            let (button, turbo_on, last, card, busy, notice, root) = (
                 Rc::clone(&button),
                 Rc::clone(&turbo_on),
                 Rc::clone(&last),
                 card.clone(),
                 Rc::clone(&busy),
-                launcher_rows.clone(),
+                Rc::clone(&notice),
+                root.clone(),
             );
             glib::spawn_future_local(async move {
                 let reading = gio::spawn_blocking(|| {
@@ -320,14 +520,23 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                 } else {
                     turbo_on.get()
                 };
-                // A launcher opened again, or closed, by hand leaves its row;
-                // Turbo switched off elsewhere takes them all away.
-                if launcher_rows.widget().is_visible() {
-                    launcher_rows.refresh(on);
+                // A launcher opened again, or closed, by hand leaves the
+                // notice.
+                if root.is_mapped() {
+                    notice.recheck();
                 }
+                // The preset's flag follows what the session holds.
+                card.refresh_preset();
                 if on != turbo_on.get()
                     || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
                 {
+                    let switched = on != turbo_on.get();
+                    // falcond stopped without Big Game Mode (systemctl, a
+                    // crash, Settings → Hand back): what Turbo laid over the
+                    // session and the machine goes too, as Turbo off does.
+                    if switched && !on {
+                        tidy_up(&root, &card);
+                    }
                     turbo_on.set(on);
                     *last.borrow_mut() = report;
                     button.set_state(&if on {
@@ -339,6 +548,9 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                     });
                     booster_button::set_pulse(button.widget(), !on);
                     card.show(crate::game_watch::current().as_ref(), on);
+                    if switched {
+                        notice.check(false);
+                    }
                 }
             });
             glib::ControlFlow::Continue
@@ -347,16 +559,34 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
 
     // ── Live readings ───────────────────────────────────────────────────
     {
-        let status = status.clone();
         let card = card.clone();
         let root = scroll.clone();
-        // Probed once: the CPU model and render GPU do not change while the
-        // application runs, and re-probing every tick would be a full
-        // hardware scan to update three numbers.
-        let hw = Rc::new(Hardware::detect());
-        status.set_label(&summary_line_machine(&hw));
+        // Read once, off the main thread: the CPU model and the GPUs do not
+        // change while the application runs, and naming the GPUs reads the
+        // PCI database. Until then (and if it fails) the tiles still run.
+        let hw: Rc<RefCell<Option<std::sync::Arc<Hardware>>>> = Rc::new(RefCell::new(None));
+        {
+            let (hw, machine) = (Rc::clone(&hw), machine.clone());
+            glib::spawn_future_local(async move {
+                let Ok(read) = gio::spawn_blocking(|| {
+                    let hw = Hardware::detect();
+                    let line = machine_line(&hw);
+                    (hw, line)
+                })
+                .await
+                else {
+                    machine.set_label(&i18n("Unknown CPU"));
+                    return;
+                };
+                let (read, (line, tooltip)) = read;
+                machine.set_label(&line);
+                machine.set_tooltip_text(tooltip.as_deref());
+                *hw.borrow_mut() = Some(std::sync::Arc::new(read));
+            });
+        }
         let tick = Cell::new(0u32);
         let net = net_tile.clone();
+        let gpu_busy = Rc::new(Cell::new(false));
         let refresh = Refresh {
             update: Box::new(move |n| {
                 if let Some(khz) = crate::views::details::telemetry::read_cpu_khz() {
@@ -364,8 +594,19 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
                     let ghz = khz as f64 / 1_000_000.0;
                     cpu_tile.set(&format!("{ghz:.1} GHz"), ghz);
                 }
-                if let Some((text, value)) = gpu_reading(&hw) {
-                    gpu_tile.set(&text, value);
+                // Off the main thread, as Details reads it: NVIDIA's reading
+                // loads NVML on first use and makes several calls per tick.
+                if let Some(hw) = hw.borrow().clone().filter(|_| !gpu_busy.replace(true)) {
+                    let running = crate::game_watch::current().and_then(|g| g.render_card);
+                    let (tile, busy) = (gpu_tile.clone(), Rc::clone(&gpu_busy));
+                    glib::spawn_future_local(async move {
+                        let reading =
+                            gio::spawn_blocking(move || gpu_reading(&hw, running.as_deref())).await;
+                        busy.set(false);
+                        if let Ok(Some((text, value))) = reading {
+                            tile.set(&text, value);
+                        }
+                    });
                 }
                 if n % PING_EVERY == 1 {
                     let net = net.clone();
@@ -401,6 +642,31 @@ pub fn build(show_report: Rc<dyn Fn(&Report)>) -> gtk4::Widget {
     }
 
     scroll.upcast()
+}
+
+/// Take away the preset and the Booster's changes a Turbo switched off from
+/// outside left in force, off the main thread.
+fn tidy_up(anchor: &gtk4::ScrolledWindow, card: &InfoCard) {
+    let (anchor, card) = (anchor.clone(), card.clone());
+    glib::spawn_future_local(async move {
+        let result = gio::spawn_blocking(turbo::tidy_up_blocking).await;
+        match result {
+            Ok(Ok(())) => {
+                tracing::info!(target: "turbo", "Turbo went off from outside; its preset and Booster changes were put back");
+            }
+            Ok(Err(e)) => crate::widgets::toast::error(
+                &anchor,
+                &i18n("Some settings could not be put back"),
+                &error_text(&e),
+            ),
+            Err(_) => crate::widgets::toast::error(
+                &anchor,
+                &i18n("Some settings could not be put back"),
+                &i18n("the worker thread stopped"),
+            ),
+        }
+        card.refresh_preset();
+    });
 }
 
 /// The live readings' refresh: forced when the page appears, then paced.
@@ -460,8 +726,42 @@ fn step_progress(step: &Step) -> f64 {
     }
 }
 
-/// The button's state, and whether Turbo is on, after a transition.
-fn finished_state(report: &Report) -> (State, bool) {
+/// The button's state, and whether Turbo is on, after a transition: from
+/// the report, and from what systemd says now (`now`), which is Turbo's
+/// state whatever the report expected.
+fn finished_state(report: &Report, now: Option<bool>) -> (State, bool) {
+    let (state, on) = expected_state(report);
+    match now {
+        // falcond came up although its start reported an error.
+        Some(true) if !on => {
+            let failed = report.count(Section::Failed).max(1);
+            (
+                State::Partial {
+                    detail: ni18n(
+                        "%n did not take effect — see details",
+                        "%n did not take effect — see details",
+                        failed,
+                    ),
+                },
+                true,
+            )
+        }
+        Some(false) if on => (
+            State::Error {
+                detail: ni18n(
+                    "%n did not take effect — see details",
+                    "%n did not take effect — see details",
+                    report.count(Section::Failed).max(1),
+                ),
+            },
+            false,
+        ),
+        _ => (state, on),
+    }
+}
+
+/// [`finished_state`] from the report alone.
+fn expected_state(report: &Report) -> (State, bool) {
     let failed = report.count(Section::Failed);
     let backend_failed = report
         .items
@@ -568,147 +868,23 @@ fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
                 } else {
                     turbo::turn_on(on_step).await
                 };
+                // Turbo's state is falcond's unit, read back, not what the
+                // transition meant to reach.
+                let now = match turbo::state().await {
+                    Ok(state) => Some(state == turbo::State::On),
+                    Err(e) => {
+                        tracing::warn!(error = %format!("{e:#}"), "Turbo's state could not be read back");
+                        None
+                    }
+                };
                 let _ = tx.send(match result {
-                    Ok(report) => Event::Done(Box::new(report)),
+                    Ok(report) => Event::Done(Box::new(report), now),
                     Err(e) => Event::Failed(error_text(&e)),
                 });
             });
         });
     if let Err(e) = spawned {
         tracing::error!("could not start the Turbo worker thread: {e}");
-    }
-}
-
-// ── Launchers open before the preset ─────────────────────────────────────────
-
-/// The launchers that were open before the preset and do not have it: one
-/// compact row each, with a button to open that launcher again in the
-/// session as it is now.
-#[derive(Clone)]
-struct LauncherRows {
-    root: gtk4::Box,
-    /// A launcher is being opened again: the rows stay as they are until
-    /// it is done, so its button cannot come back and be pressed twice.
-    reopening: Rc<Cell<bool>>,
-}
-
-impl LauncherRows {
-    fn new() -> Self {
-        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
-        root.set_visible(false);
-        Self {
-            root,
-            reopening: Rc::new(Cell::new(false)),
-        }
-    }
-
-    fn widget(&self) -> &gtk4::Box {
-        &self.root
-    }
-
-    /// Read which launchers are behind the session, off the main thread,
-    /// and show a row for each; none when `wanted` is false.
-    fn refresh(&self, wanted: bool) {
-        if self.reopening.get() {
-            return;
-        }
-        if !wanted {
-            self.show(&[]);
-            return;
-        }
-        let me = self.clone();
-        glib::spawn_future_local(async move {
-            if let Ok(behind) =
-                gio::spawn_blocking(bigame_core::launchers::behind_the_session).await
-            {
-                if !me.reopening.get() {
-                    me.show(&behind);
-                }
-            }
-        });
-    }
-
-    fn show(&self, launchers: &[bigame_core::launchers::Launcher]) {
-        while let Some(child) = self.root.first_child() {
-            self.root.remove(&child);
-        }
-        // What opening one again means is said once, on the first row; the
-        // others keep it in their tooltip, so three launchers still fit.
-        for (i, launcher) in launchers.iter().enumerate() {
-            self.root.append(&self.row(*launcher, i == 0));
-        }
-        self.root.set_visible(!launchers.is_empty());
-    }
-
-    fn row(&self, launcher: bigame_core::launchers::Launcher, explained: bool) -> gtk4::Box {
-        let name = launcher.name();
-        let icon = gtk4::Image::from_icon_name("dialog-information-symbolic");
-        icon.add_css_class("accent");
-        let title = gtk4::Label::new(Some(&i18n("%s was already open").replace("%s", name)));
-        title.add_css_class("heading");
-        title.set_xalign(0.0);
-        title.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        let body = i18n(
-            "It keeps the environment it started with, so its games get the preset once it is opened again. Opening it again closes it the way it closes itself, never while it runs a game.",
-        );
-        let lines = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
-        lines.set_hexpand(true);
-        lines.set_valign(gtk4::Align::Center);
-        lines.append(&title);
-        if explained {
-            let text = gtk4::Label::new(Some(&body));
-            text.add_css_class("caption");
-            text.add_css_class("dim-label");
-            text.set_xalign(0.0);
-            text.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-            lines.append(&text);
-        }
-        lines.set_tooltip_text(Some(&body));
-        let button = gtk4::Button::builder()
-            .label(i18n("Reopen %s").replace("%s", name))
-            .css_classes(["suggested-action", "pill"])
-            .valign(gtk4::Align::Center)
-            .build();
-        let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
-        row.add_css_class("card");
-        row.add_css_class("home-launcher");
-        row.append(&icon);
-        row.append(&lines);
-        row.append(&button);
-        {
-            let (me, row) = (self.clone(), row.clone());
-            button.connect_clicked(move |b| {
-                if me.reopening.replace(true) {
-                    return;
-                }
-                b.set_sensitive(false);
-                let (me, row, b) = (me.clone(), row.clone(), b.clone());
-                glib::spawn_future_local(async move {
-                    let done =
-                        gio::spawn_blocking(move || bigame_core::launchers::reopen(launcher)).await;
-                    me.reopening.set(false);
-                    b.set_sensitive(true);
-                    match done {
-                        Ok(Ok(())) => {
-                            crate::widgets::toast::show(
-                                &me.root,
-                                &i18n("%s opened again: its games get the preset")
-                                    .replace("%s", name),
-                            );
-                            me.root.remove(&row);
-                            me.root.set_visible(me.root.first_child().is_some());
-                        }
-                        Ok(Err(e)) => crate::widgets::toast::error(
-                            &me.root,
-                            &i18n("%s could not be opened again").replace("%s", name),
-                            &error_text(&e),
-                        ),
-                        Err(_) => {}
-                    }
-                });
-            });
-        }
-        row
     }
 }
 
@@ -746,6 +922,9 @@ struct InfoCard {
     turbo_on: Rc<Cell<bool>>,
     /// Turbo's state could be read; when not, the card says nothing from it.
     turbo_readable: Rc<Cell<bool>>,
+    /// The Turbo preset the session really holds, read off the main thread
+    /// ([`turbo_preset::in_session`]); the record alone outlives a login.
+    preset_in_session: Rc<Cell<Option<turbo_preset::Preset>>>,
     /// The pid whose FSR 4 question was answered, and the answer
     /// ([`bigame_core::graphics::native_fsr4_applies`]): asked once per game.
     fsr4_applies: Rc<Cell<Option<(u32, bool)>>>,
@@ -847,6 +1026,7 @@ impl InfoCard {
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
             turbo_readable: Rc::new(Cell::new(true)),
+            preset_in_session: Rc::new(Cell::new(None)),
             fsr4_applies: Rc::new(Cell::new(None)),
             last_report,
         };
@@ -892,16 +1072,15 @@ impl InfoCard {
                 self.name.set_label(&i18n("Watching for games"));
                 self.facts
                     .set_label(&i18n("The next game gets its profile as it starts."));
-                let preset = bigame_core::turbo_preset::active();
                 let mut flags = vec![Flag::new(Fact::Active, i18n("Turbo"))];
-                if preset != bigame_core::turbo_preset::Preset::Standard {
+                if let Some(preset) = self.preset_in_session.get() {
                     flags.push(Flag::new(Fact::Active, i18n(preset.label())));
                 }
                 self.set_flags(&flags);
             } else {
                 self.name.set_label(&i18n("Turbo is off"));
                 self.facts
-                    .set_label(&i18n("Games run without BiGame-mode's optimizations."));
+                    .set_label(&i18n("Games run without Big Game Mode's optimizations."));
                 self.set_flags(&[Flag::new(Fact::Off, i18n("Turbo"))]);
             }
             self.root.set_visible(self.turbo_readable.get());
@@ -919,13 +1098,10 @@ impl InfoCard {
             let shown = Rc::clone(&self.game);
             let pid = g.pid;
             let size = image.pixel_size() * image.scale_factor().max(1);
-            let (app_id, process, folder) = (
-                g.steam_app_id.clone(),
-                g.process_name.clone(),
-                g.install_path.clone(),
-            );
+            let app_id = g.steam_app_id.clone();
             let name = self.name.clone();
             let bare_name = g.display_name == g.process_name;
+            let identity = g.clone();
             glib::spawn_future_local(async move {
                 let found = gio::spawn_blocking(move || {
                     let steam = app_id.as_ref().and_then(|id| {
@@ -935,10 +1111,8 @@ impl InfoCard {
                     // Only a process name: the library knows the title.
                     let installed = (steam.is_none() || bare_name)
                         .then(|| {
-                            bigame_core::games::installed_game_for_process(
-                                &process,
-                                folder.as_deref(),
-                            )
+                            // Its own file first: two games can share a name.
+                            bigame_core::games::installed_game_for_running(&identity)
                         })
                         .flatten();
                     let title = installed.as_ref().map(|g| g.name.clone());
@@ -972,6 +1146,25 @@ impl InfoCard {
         self.create
             .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
         self.tick();
+    }
+
+    /// Read again which preset the session holds, and show it.
+    fn refresh_preset(&self) {
+        let me = self.clone();
+        glib::spawn_future_local(async move {
+            let read = gio::spawn_blocking(turbo_preset::in_session).await;
+            let preset = match read {
+                Ok(Ok(preset)) => preset,
+                Ok(Err(e)) => {
+                    tracing::warn!(error = %format!("{e:#}"), "the session's environment could not be read");
+                    None
+                }
+                Err(_) => None,
+            };
+            if me.preset_in_session.replace(preset) != preset && me.game.borrow().is_none() {
+                me.show(None, me.turbo_on.get());
+            }
+        });
     }
 
     /// Refresh what changes while the game runs.
@@ -1097,46 +1290,86 @@ fn game_flags(snap: &Snapshot, native_fsr4: Option<bool>, turbo: bool) -> Vec<Fl
 
 // ── Readings ─────────────────────────────────────────────────────────────────
 
-/// One-line description of the machine: the CPU and the GPU games use.
-fn summary_line_machine(hw: &Hardware) -> String {
-    let gpu = bigame_core::graphics::report::render_gpu(hw)
-        .map(|g| bigame_core::graphics::report::display_name(&g.name))
-        .filter(|n| !n.contains(':'))
-        .or_else(|| hw.render_gpu().map(short_gpu))
-        .map_or_else(String::new, |g| format!(" · {g}"));
-    format!("{}{}", short_cpu(&hw.cpu.model), gpu)
-}
-
-/// Trim vendor boilerplate so the line stays readable at small widths.
-pub(crate) fn short_cpu(model: &str) -> String {
-    if model == bigame_core::hardware::UNKNOWN_CPU {
-        return i18n(bigame_core::hardware::UNKNOWN_CPU);
+/// The machine in one line — its processor and the GPU games render on —
+/// and a tooltip that says which GPU does what.
+///
+/// On a hybrid laptop, where another GPU drives the display and games are
+/// sent to the discrete one, both are named, the games' first: `Intel Core
+/// i7-13700H · NVIDIA GeForce RTX 4060 Laptop GPU + Intel UHD Graphics`.
+/// Elsewhere only the games' GPU is: an idle integrated GPU beside a card
+/// that drives the monitor would be noise.
+fn machine_line(hw: &Hardware) -> (String, Option<String>) {
+    use bigame_core::graphics::report::{GpuInfo, gpu_infos};
+    let cpu = short_cpu(&hw.cpu);
+    let (gpus, render) = gpu_infos(hw, None);
+    let name = |g: &GpuInfo| {
+        g.product
+            .clone()
+            .unwrap_or_else(|| vendor_gpu(g.vendor).unwrap_or_else(|| i18n("GPU")))
+    };
+    let Some(games) = render.and_then(|i| gpus.get(i)) else {
+        return (cpu, None);
+    };
+    let games_name = name(games);
+    let display = render
+        .and_then(|i| bigame_core::hardware::offload_for(&hw.gpus, i).map(|_| i))
+        .and_then(|i| {
+            hw.gpus
+                .iter()
+                .enumerate()
+                .find(|(j, g)| *j != i && !g.connected_outputs.is_empty())
+                .and_then(|(j, _)| gpus.get(j))
+        })
+        .map(name)
+        .filter(|n| *n != games_name);
+    match display {
+        Some(display) => (
+            format!("{cpu} · {games_name} + {display}"),
+            Some(
+                i18n("Games render on %g; %d drives the display.")
+                    .replace("%g", &games_name)
+                    .replace("%d", &display),
+            ),
+        ),
+        None => (
+            format!("{cpu} · {games_name}"),
+            Some(i18n("Games render on %s.").replace("%s", &games_name)),
+        ),
     }
-    model
-        .replace("(R)", "")
-        .replace("(TM)", "")
-        .replace(" with Radeon Graphics", "")
-        .replace("CPU ", "")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
-fn short_gpu(gpu: &bigame_core::hardware::Gpu) -> String {
-    match gpu.vendor {
-        bigame_core::hardware::GpuVendor::Amd => i18n("%s GPU").replace("%s", "AMD"),
-        bigame_core::hardware::GpuVendor::Nvidia => i18n("%s GPU").replace("%s", "NVIDIA"),
-        bigame_core::hardware::GpuVendor::Intel => i18n("%s GPU").replace("%s", "Intel"),
-        bigame_core::hardware::GpuVendor::Other => gpu.driver.clone(),
+/// The processor's name as the pages show it
+/// ([`bigame_core::hardware::cpu_display_name`]); with no name in
+/// `/proc/cpuinfo`, its maker.
+pub(crate) fn short_cpu(cpu: &bigame_core::hardware::Cpu) -> String {
+    use bigame_core::hardware::{CpuVendor, UNKNOWN_CPU, cpu_display_name};
+    if cpu.model != UNKNOWN_CPU {
+        return cpu_display_name(&cpu.model);
+    }
+    match cpu.vendor {
+        CpuVendor::Amd => i18n("%s processor").replace("%s", "AMD"),
+        CpuVendor::Intel => i18n("%s processor").replace("%s", "Intel"),
+        CpuVendor::Other => i18n(UNKNOWN_CPU),
     }
 }
 
-/// The card games use: the one the running game has open, else the expected
-/// one. Its load when the driver reports it, else its temperature.
-fn gpu_reading(hw: &Hardware) -> Option<(String, f64)> {
-    let running = crate::game_watch::current().and_then(|g| g.render_card);
-    let gpu = bigame_core::gpu_telemetry::games_gpu(&hw.gpus, running.as_deref())
-        .and_then(|i| hw.gpus.get(i))?;
+/// "NVIDIA GPU", for a GPU the PCI database does not name.
+fn vendor_gpu(vendor: bigame_core::hardware::GpuVendor) -> Option<String> {
+    let maker = match vendor {
+        bigame_core::hardware::GpuVendor::Amd => "AMD",
+        bigame_core::hardware::GpuVendor::Nvidia => "NVIDIA",
+        bigame_core::hardware::GpuVendor::Intel => "Intel",
+        bigame_core::hardware::GpuVendor::Other => return None,
+    };
+    Some(i18n("%s GPU").replace("%s", maker))
+}
+
+/// The card games use: the one the running game has open (`running`), else
+/// the expected one. Its load when the driver reports it, else its
+/// temperature. Blocking: from a worker thread.
+fn gpu_reading(hw: &Hardware, running: Option<&str>) -> Option<(String, f64)> {
+    let gpu =
+        bigame_core::gpu_telemetry::games_gpu(&hw.gpus, running).and_then(|i| hw.gpus.get(i))?;
     let s = bigame_core::gpu_telemetry::sample(gpu);
     if s.asleep {
         return Some((i18n("Asleep"), 0.0));
@@ -1215,16 +1448,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cpu_model_is_trimmed_for_display() {
-        assert_eq!(
-            short_cpu("AMD Ryzen 7 5700G with Radeon Graphics"),
-            "AMD Ryzen 7 5700G"
-        );
-        assert_eq!(
-            short_cpu("Intel(R) Core(TM) i7-12700K CPU @ 3.60GHz"),
-            "Intel Core i7-12700K @ 3.60GHz"
-        );
-        assert!(!short_cpu("Intel(R)  Core(TM)  i5").contains("  "));
+    fn an_unnamed_processor_is_named_by_its_maker() {
+        let hw = Hardware::detect();
+        let mut cpu = hw.cpu;
+        cpu.model = "Intel(R) Core(TM) i7-12700K CPU @ 3.60GHz".into();
+        assert_eq!(short_cpu(&cpu), "Intel Core i7-12700K");
+        cpu.model = bigame_core::hardware::UNKNOWN_CPU.into();
+        cpu.vendor = bigame_core::hardware::CpuVendor::Amd;
+        assert_eq!(short_cpu(&cpu), "AMD processor");
+        cpu.vendor = bigame_core::hardware::CpuVendor::Other;
+        assert_eq!(short_cpu(&cpu), "Unknown CPU");
     }
 
     fn report(sections: &[Section]) -> Report {
@@ -1268,16 +1501,28 @@ mod tests {
             text: None,
             title: None,
         });
-        let (state, on) = finished_state(&r);
+        let (state, on) = finished_state(&r, Some(false));
         assert!(!on);
         assert!(matches!(state, State::Error { .. }));
+        // A start that reported an error but brought falcond up is on:
+        // Turbo's state is the unit's.
+        let (state, on) = finished_state(&r, Some(true));
+        assert!(on);
+        assert!(matches!(state, State::Partial { .. }));
     }
 
     #[test]
     fn a_partial_failure_is_on_but_says_so() {
-        let (state, on) = finished_state(&report(&[Section::Verified, Section::Failed]));
+        let r = report(&[Section::Verified, Section::Failed]);
+        let (state, on) = finished_state(&r, Some(true));
         assert!(on);
         assert!(matches!(state, State::Partial { .. }));
+        // systemd unreadable: the report decides.
+        assert!(finished_state(&r, None).1);
+        // A Turbo on that reads off afterwards is not shown on.
+        let (state, on) = finished_state(&report(&[Section::Verified]), Some(false));
+        assert!(!on);
+        assert!(matches!(state, State::Error { .. }));
     }
 
     #[test]

@@ -9,8 +9,10 @@
 )]
 use crate::i18n::i18n;
 use adw::prelude::*;
-use gtk4::glib;
+use gtk4::{gio, glib};
 use libadwaita as adw;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A button that shows a prominent error indicator when something is wrong.
 pub struct ErrorIndicator {
@@ -22,6 +24,8 @@ pub struct ErrorIndicator {
     action: std::sync::Arc<std::sync::Mutex<Option<(String, Vec<String>)>>>,
     /// Optional copy action: (`button_label`, `text_to_copy`).
     copy_action: std::sync::Arc<std::sync::Mutex<Option<(String, String)>>>,
+    /// Called once the action's command has ended, however it ended.
+    action_done: Rc<RefCell<Option<Rc<dyn Fn()>>>>,
 }
 
 impl ErrorIndicator {
@@ -46,6 +50,8 @@ impl ErrorIndicator {
         let s = solution.clone();
         let a = action.clone();
         let c = copy_action.clone();
+        let action_done: Rc<RefCell<Option<Rc<dyn Fn()>>>> = Rc::default();
+        let done = Rc::clone(&action_done);
 
         button.connect_clicked(move |btn| {
             let win = btn.root().and_then(|r| r.downcast::<gtk4::Window>().ok());
@@ -79,18 +85,11 @@ impl ErrorIndicator {
             }
 
             if act.is_some() || copy_act.is_some() {
+                let (anchor, done) = (btn.clone(), Rc::clone(&done));
                 dialog.connect_response(None, move |_, response| {
                     if response == "action" {
                         if let Some((_, cmd)) = &act {
-                            if let Some((prog, args)) = cmd.split_first() {
-                                if let Ok(mut child) =
-                                    std::process::Command::new(prog).args(args).spawn()
-                                {
-                                    std::thread::spawn(move || {
-                                        let _ = child.wait();
-                                    });
-                                }
-                            }
+                            run_action(&anchor, cmd.clone(), done.borrow().clone());
                         }
                     } else if response == "copy" {
                         if let Some((_, text)) = &copy_act {
@@ -115,11 +114,17 @@ impl ErrorIndicator {
             solution,
             action,
             copy_action,
+            action_done,
         }
     }
 
     pub fn widget(&self) -> &gtk4::Button {
         &self.button
+    }
+
+    /// Call `f` once the action's command has ended, to read the state again.
+    pub fn connect_action_done(&self, f: impl Fn() + 'static) {
+        *self.action_done.borrow_mut() = Some(Rc::new(f));
     }
 
     pub fn set_error(&self, title: &str, msg: &str, solution: &str) {
@@ -179,4 +184,35 @@ impl ErrorIndicator {
             *c = None;
         }
     }
+}
+
+/// Run the action's command off the main thread and say how it ended: an
+/// install cancelled at the password prompt, a locked package database or a
+/// conflict is a failure the user has to hear about.
+fn run_action(anchor: &gtk4::Button, cmd: Vec<String>, done: Option<Rc<dyn Fn()>>) {
+    let Some((prog, args)) = cmd.split_first().map(|(p, a)| (p.clone(), a.to_vec())) else {
+        return;
+    };
+    let anchor = anchor.clone();
+    glib::spawn_future_local(async move {
+        let shown = cmd.join(" ");
+        let ended =
+            gio::spawn_blocking(move || std::process::Command::new(prog).args(args).status()).await;
+        let failure = match ended {
+            Ok(Ok(status)) if status.success() => None,
+            Ok(Ok(status)) => Some(format!("{shown}: {status}")),
+            Ok(Err(e)) => Some(format!("{shown}: {e}")),
+            Err(_) => Some(i18n("the worker thread stopped")),
+        };
+        if let Some(details) = failure {
+            crate::widgets::toast::error(
+                &anchor,
+                &i18n("Could not install the missing packages"),
+                &details,
+            );
+        }
+        if let Some(done) = done {
+            done();
+        }
+    });
 }

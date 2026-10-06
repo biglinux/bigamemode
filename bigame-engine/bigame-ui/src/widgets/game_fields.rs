@@ -96,7 +96,7 @@ fn no_reach_row() -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(i18n("Not for this game"))
         .subtitle(i18n(
-            "BiGame-mode cannot start this game, and its launcher takes no launch settings from BiGame-mode: it gets Tuning's, Wine FSR and vkBasalt from the session environment.",
+            "Big Game Mode cannot start this game, and its launcher takes no launch settings from Big Game Mode: it gets Tuning's, Wine FSR and vkBasalt from the session environment.",
         ))
         .subtitle_lines(4)
         .use_markup(false)
@@ -566,7 +566,7 @@ impl GamescopeFields {
         let frame = Picker::new(
             &i18n("Frame limit"),
             &i18n(
-                "Only this game: Gamescope shows it at this rate (-r). A Turbo preset with a frame limit replaces it.",
+                "Only this game: Gamescope shows it at this rate (-r), over a Turbo preset's frame cap.",
             ),
             &limits,
             &own.frame_limit.to_string(),
@@ -698,7 +698,7 @@ impl GamescopeFields {
                     }
                 } else {
                     follow_subtitle(
-                        &i18n("Wraps this game when BiGame-mode starts it"),
+                        &i18n("Wraps this game when Big Game Mode starts it"),
                         (mode == Mode::Auto)
                             .then(|| on_off(general.gamescope_enabled))
                             .as_deref(),
@@ -1078,7 +1078,7 @@ fn ai_graphics_row(game: &Game) -> adw::ActionRow {
         .subtitle(if game.target.is_none() {
             i18n("Needs the game's install folder, which its launcher does not record")
         } else if installed {
-            i18n("OptiScaler installed by BiGame-mode for this game")
+            i18n("OptiScaler installed by Big Game Mode for this game")
         } else {
             i18n("Upscaling and frame generation inside the game, with backup and undo")
         })
@@ -1182,24 +1182,43 @@ impl FrameGenFields {
             .subtitle(i18n("lsfg-vk's lighter model"))
             .active(f.performance)
             .build();
+        // lsfg-vk 2.x has no HDR mode and presents with FIFO or the game's
+        // own mode; offering 1.x's four modes there would change nothing.
+        let full_options = bigame_core::fg::per_game_hdr_and_present_modes();
         let hdr = adw::SwitchRow::builder()
             .title(i18n("HDR Mode"))
             .active(f.hdr)
+            .visible(full_options)
             .build();
-        let presents = gtk4::StringList::new(&[
-            &i18n("VSync/FIFO (default)"),
-            &i18n("Recommended"),
-            &i18n("Mailbox"),
-            &i18n("Immediate"),
-        ]);
+        let presents = if full_options {
+            gtk4::StringList::new(&[
+                &i18n("VSync/FIFO (default)"),
+                &i18n("Recommended"),
+                &i18n("Mailbox"),
+                &i18n("Immediate"),
+            ])
+        } else {
+            gtk4::StringList::new(&[
+                &i18n("VSync/FIFO (default)"),
+                &i18n("The game's own present mode"),
+            ])
+        };
         let present = adw::ComboRow::builder()
             .title(i18n("Present Mode"))
             .model(&presents)
-            .selected(f.present_mode.min(3))
+            .selected(if full_options {
+                f.present_mode.min(3)
+            } else {
+                u32::from(f.present_mode >= 2)
+            })
             .build();
         let details = adw::ExpanderRow::builder()
             .title(i18n("lsfg-vk options"))
-            .subtitle(i18n("Multiplier, flow scale, HDR and present mode"))
+            .subtitle(if full_options {
+                i18n("Multiplier, flow scale, HDR and present mode")
+            } else {
+                i18n("Multiplier, flow scale and present mode")
+            })
             .build();
         for r in [&multiplier, &flow] {
             details.add_row(r);
@@ -1335,8 +1354,16 @@ impl FrameGenFields {
                 },
                 flow_scale: r.flow.value() as u32,
                 performance: r.perf.is_active(),
-                hdr: r.hdr.is_active(),
-                present_mode: r.present.selected(),
+                hdr: r.hdr.is_visible() && r.hdr.is_active(),
+                // With lsfg-vk 2.x's two choices, the second keeps the
+                // game's mode (stored as 1.x's first mode without vsync).
+                present_mode: if r.hdr.is_visible() {
+                    r.present.selected()
+                } else if r.present.selected() == 1 {
+                    2
+                } else {
+                    0
+                },
             };
         }
     }
@@ -1480,13 +1507,13 @@ impl GameFields {
                 "Written into this game's Steam launch options when you save, with Steam closed; your own options there are kept.",
             ),
             Reach::Launch => {
-                i18n("For this game when BiGame-mode starts it (Profiles → Launch (Turbo)).")
+                i18n("For this game when Big Game Mode starts it (Profiles → Launch (Turbo)).")
             }
             Reach::Heroic { .. } => i18n(
                 "Written into Heroic's settings for this game when you save, with Heroic closed; your own settings there are kept.",
             ),
             Reach::Unknown => i18n(
-                "For this game when BiGame-mode starts it, and in its Steam launch options or its settings in Heroic when one of them starts it (written when you save, with that launcher closed).",
+                "For this game when Big Game Mode starts it, and in its Steam launch options or its settings in Heroic when one of them starts it (written when you save, with that launcher closed).",
             ),
             Reach::Nothing => i18n(
                 "Started through its own launcher, this game gets Tuning's settings from the session environment.",
@@ -1517,7 +1544,7 @@ impl GameFields {
         let monitoring_group = section(
             "Monitoring",
             i18n(
-                "Written when you save where this game's launcher reads it: Steam's launch options, its settings in Heroic or Lutris, or BiGame-mode's own launch.",
+                "Written when you save where this game's launcher reads it: Steam's launch options, its settings in Heroic or Lutris, or Big Game Mode's own launch.",
             ),
         );
 

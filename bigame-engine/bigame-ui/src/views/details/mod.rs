@@ -88,27 +88,40 @@ pub(crate) async fn mapped(widget: &impl IsA<gtk4::Widget>) {
 }
 
 /// Build the Details page.
+///
+/// Filled the first time it is on screen: the hardware (sysfs, DRM, the
+/// displays) is read off the main thread, and not at all for a window that
+/// never shows the page — such as one started hidden at login.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn build() -> gtk4::Widget {
     let page = adw::PreferencesPage::new();
-    let hw = Rc::new(bigame_core::hardware::Hardware::detect());
+    let root = page.clone();
+    glib::spawn_future_local(async move {
+        mapped(&root).await;
+        if let Ok(hw) = gio::spawn_blocking(bigame_core::hardware::Hardware::detect).await {
+            fill(&root, &Rc::new(hw));
+        }
+    });
+    page.upcast()
+}
 
-    let overview = overview::Overview::new(&hw);
+#[allow(clippy::too_many_lines)]
+fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
+    let overview = overview::Overview::new(hw);
     page.add(overview.group());
 
     let telemetry = telemetry::Telemetry::new();
     page.add(telemetry.group());
     telemetry.start();
 
-    let gpus = gpus::Gpus::new(&hw);
+    let gpus = gpus::Gpus::new(hw);
     page.add(gpus.group());
-    gpus.start(&hw, telemetry.gpu_targets());
+    gpus.start(hw, telemetry.gpu_targets());
 
-    let performance = performance::Performance::new(&hw);
+    let performance = performance::Performance::new(hw);
     page.add(performance.group());
 
-    let pipeline = pipeline::Pipeline::new(&hw);
+    let pipeline = pipeline::Pipeline::new(hw);
     page.add(pipeline.header_group());
     page.add(pipeline.group());
 
@@ -218,6 +231,4 @@ pub fn build() -> gtk4::Widget {
             glib::ControlFlow::Continue
         });
     }
-
-    page.upcast()
 }

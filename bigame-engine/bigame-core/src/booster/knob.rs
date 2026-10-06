@@ -66,6 +66,13 @@ impl Knob {
         }
     }
 
+    /// Whether its state outlives a reboot. power-profiles-daemon keeps its
+    /// profile; the kernel resets the sysfs knobs at boot.
+    #[must_use]
+    pub fn survives_reboot(&self) -> bool {
+        matches!(self, Self::PowerProfile)
+    }
+
     /// The label in English, for logs, progress and the journal.
     #[must_use]
     pub fn title(&self) -> String {

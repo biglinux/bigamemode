@@ -62,6 +62,24 @@ pub enum Status {
         /// Its error lines.
         errors: Vec<String>,
     },
+    /// The files were put back; a setting of the game's own that Apply
+    /// changed could not be yet (its Wine prefix was in use). Restore tries
+    /// again.
+    SettingsLeft,
+    /// BiGame-mode installed into another folder than the game's: the game
+    /// was moved since (and the files did not move with it), or the record
+    /// is not this game's. Nothing is changed until that is settled.
+    Moved {
+        /// The folder the record names.
+        installed_in: PathBuf,
+    },
+    /// The record of what was installed cannot be read (damaged, or written
+    /// by a newer BiGame-mode). Apply is refused: it would take the
+    /// game's files for originals.
+    Unreadable {
+        /// Why.
+        error: super::text::Text,
+    },
 }
 
 /// What the game's own graphics path is doing, read from the running game.
@@ -132,6 +150,9 @@ pub fn status(
     let Some(m) = manifest else {
         return Status::NotInstalled;
     };
+    if m.settings_only() {
+        return Status::SettingsLeft;
+    }
     // A config its owner rewrote is not a fault: OptiScaler saves its ini on
     // every start. Only a missing file or a replaced binary is.
     let changed: Vec<PathBuf> = verify(m)
@@ -158,10 +179,12 @@ pub fn status(
                 name.is_some_and(|n| super::scan::PROXY_SLOTS.contains(&n.as_str()))
             }
         })
-        .map(|e| m.install_root.join(&e.path));
-    let loaded = proxy
-        .as_ref()
-        .is_some_and(|p| maps(pid).is_some_and(|text| mapped_paths(&text).iter().any(|q| q == p)));
+        .map(|e| real_path(&m.install_root.join(&e.path)));
+    // The kernel names a mapped file by its real path: a library reached
+    // through a link (`~/.steam/steam`) is compared after resolving it.
+    let loaded = proxy.as_ref().is_some_and(|p| {
+        maps(pid).is_some_and(|text| mapped_paths(&text).iter().any(|q| real_path(q) == *p))
+    });
     let findings: Option<LogFindings> = log(exe_dir, age).map(|t| read_log(&t));
     if let Some(f) = &findings {
         if !f.errors.is_empty() {
@@ -189,6 +212,11 @@ pub fn status(
     } else {
         Status::NotDetected
     }
+}
+
+/// `p` with its links resolved, or as written when it cannot be.
+fn real_path(p: &Path) -> PathBuf {
+    std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
 
 /// Read `OptiScaler.log` in `exe_dir` if it was written after a process that
@@ -383,6 +411,29 @@ mod tests {
         };
         assert_eq!(upscaler, "fsr31");
         assert!(fsr4.unwrap().contains("Fsr4Update: true"));
+    }
+
+    #[test]
+    fn a_game_reached_through_a_link_is_seen_loading_its_real_files() {
+        // The library as `~/.steam/steam` reaches it; the kernel names the
+        // mapped file by its real path.
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let m = installed(&link);
+        let dll = real.join("dxgi.dll").display().to_string();
+        let maps = move |_| Some(format!("7f00-7f10 r-xp 0 08:01 1 {dll}\n"));
+        assert_eq!(
+            status(
+                Some(&m),
+                Some((1, &link, Duration::from_secs(90))),
+                &maps,
+                NO_LOG
+            ),
+            Status::Loaded { version: None }
+        );
     }
 
     #[test]

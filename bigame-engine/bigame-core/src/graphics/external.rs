@@ -180,7 +180,7 @@ pub fn availability(r: &Report) -> Availability {
         missing.push(backend::Missing {
             what: N_("Neural-rendering model"),
             detail: Text::plain(N_(
-                "your own copy of NVIDIA's DLSS neural-rendering model (nvngx_dlssnr.dll) beside the game; BiGame-mode does not download it or say where to get it",
+                "your own copy of NVIDIA's DLSS neural-rendering model (nvngx_dlssnr.dll) beside the game; Big Game Mode does not download it or say where to get it",
             )),
         });
     }
@@ -303,6 +303,7 @@ mod tests {
                 card: "card1".into(),
                 vendor: GpuVendor::Amd,
                 name: "Navi 44 [Radeon RX 9060 XT]".into(),
+                product: None,
                 driver: "amdgpu".into(),
                 userspace: None,
                 vram: None,

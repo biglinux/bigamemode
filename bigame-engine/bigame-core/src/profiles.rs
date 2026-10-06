@@ -238,19 +238,43 @@ pub struct ProfileRef {
 }
 
 impl ProfileRef {
-    /// Whether this profile is for `process`.
+    /// Whether this profile is for `process`: falcond compares the `name`
+    /// field alone, ignoring case (`findByName`, 2.0.14), never the file's
+    /// name.
     #[must_use]
     pub fn matches(&self, process: &str) -> bool {
-        self.name == process || self.stem == process
+        self.name.eq_ignore_ascii_case(process)
     }
 }
 
-/// Every profile on disk, user ones first. A user file and a system file with
-/// the same stem are one profile, the user's.
+/// How many profiles falcond loads at most, shipped and user ones together
+/// (`max_profiles`, 2.0.14). It loads the shipped ones first, so a user
+/// profile past that is the one left out (with only a line in its log).
+pub const FALCOND_MAX_PROFILES: usize = 64;
+
+/// How many of `refs` falcond cannot load ([`FALCOND_MAX_PROFILES`]): a
+/// user profile that overrides a shipped one by name takes no place of its
+/// own, which [`index`] already accounts for.
+#[must_use]
+pub fn beyond_falcond_limit(refs: &[ProfileRef]) -> usize {
+    refs.len().saturating_sub(FALCOND_MAX_PROFILES)
+}
+
+/// Every profile on disk, user ones first. A user profile and a shipped one
+/// with the same `name` (ignoring case) are one profile, the user's: falcond
+/// lays the user's over the shipped one.
 #[must_use]
 pub fn index() -> Vec<ProfileRef> {
+    index_in(&[
+        (Path::new(USER_PROFILES_DIR), false),
+        (Path::new(SYSTEM_PROFILES_DIR), true),
+    ])
+}
+
+/// [`index`] over `dirs`, each with whether it holds shipped profiles.
+fn index_in(dirs: &[(&Path, bool)]) -> Vec<ProfileRef> {
     let mut refs: Vec<ProfileRef> = Vec::new();
-    for (dir, system) in [(USER_PROFILES_DIR, false), (SYSTEM_PROFILES_DIR, true)] {
+    for &(dir, system) in dirs {
         let Ok(entries) = std::fs::read_dir(dir) else {
             continue;
         };
@@ -262,14 +286,14 @@ pub fn index() -> Vec<ProfileRef> {
             let Some(stem) = path.file_stem().map(|s| s.to_string_lossy().into_owned()) else {
                 continue;
             };
-            if refs.iter().any(|r| r.stem == stem) {
-                continue;
-            }
             let name = std::fs::read_to_string(&path)
                 .ok()
                 .and_then(|c| crate::running::profile_name_field(&c))
                 .filter(|n| !n.is_empty())
                 .unwrap_or_else(|| stem.clone());
+            if refs.iter().any(|r| r.name.eq_ignore_ascii_case(&name)) {
+                continue;
+            }
             refs.push(ProfileRef { stem, name, system });
         }
     }
@@ -307,7 +331,8 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
             continue;
         };
         let key = key.trim();
-        let val = val.trim().trim_matches('"');
+        let raw = val.trim();
+        let val = raw.trim_matches('"');
         match key {
             "name" => p.name = val.to_string(),
             "performance_mode" => p.performance_mode = val == "true",
@@ -348,8 +373,10 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
             "fg_present_mode" => p.fg_present_mode = val.parse().unwrap_or(0),
             // Anything this build does not know is kept so saving cannot
             // destroy a falcond feature we have not caught up with yet.
+            // Verbatim, quotes included: written back bare, a string value
+            // would no longer read as one.
             other => {
-                p.extra.insert(other.to_owned(), val.to_owned());
+                p.extra.insert(other.to_owned(), raw.to_owned());
             }
         }
     }
@@ -480,8 +507,11 @@ pub fn delete(name: &str) -> Result<()> {
     // The helper reloads falcond itself, through systemd.
     proxy.delete_profile(name)?;
 
-    // Remove FG entry from lsfg-vk config (best-effort).
-    let _ = crate::fg::delete_profile(name);
+    // lsfg-vk's entry for the game goes too. The profile is gone already,
+    // so a failure here is logged rather than reported as a failed delete.
+    if let Err(e) = crate::fg::delete_profile(name) {
+        tracing::warn!(profile = %name, error = %format!("{e:#}"), "the profile is deleted, but its lsfg-vk entry is still there");
+    }
 
     Ok(())
 }
@@ -650,6 +680,74 @@ some_future_falcond_key = 42
         // And the values survive a second round trip unchanged.
         let again = parse_profile_otter_conf(&written);
         assert_eq!(again.extra, parsed.extra);
+    }
+
+    #[test]
+    fn an_unknown_string_value_is_written_back_quoted() {
+        let original = "name = \"x\"\nsome_future_path = \"/opt/a b\"\n";
+        let written = serialize_profile_otter_conf(&parse_profile_otter_conf(original));
+        assert!(
+            written.contains("some_future_path = \"/opt/a b\""),
+            "{written}"
+        );
+    }
+
+    fn profile_dir(tag: &str, files: &[(&str, &str)]) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "bigame_profiles_{tag}_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for (file, content) in files {
+            std::fs::write(dir.join(file), content).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn a_profile_matches_by_its_name_as_falcond_does() {
+        let r = ProfileRef {
+            stem: "cyberpunk2077".into(),
+            name: "Cyberpunk2077.exe".into(),
+            system: true,
+        };
+        // falcond compares names ignoring case, and never the file's name.
+        assert!(r.matches("cyberpunk2077.EXE"));
+        assert!(!r.matches("cyberpunk2077"));
+    }
+
+    #[test]
+    fn a_user_profile_overrides_a_shipped_one_by_name() {
+        let user = profile_dir("user", &[("mine.conf", "name = \"cs2\"\n")]);
+        let shipped = profile_dir(
+            "shipped",
+            &[
+                ("cs2.conf", "name = \"CS2\"\n"),
+                ("mine.conf", "name = \"Other.exe\"\n"),
+            ],
+        );
+        let refs = index_in(&[(&user, false), (&shipped, true)]);
+        let names: Vec<(&str, bool)> = refs.iter().map(|r| (r.name.as_str(), r.system)).collect();
+        // One cs2, the user's; the shipped file with the user's file name is
+        // a profile of its own, which falcond loads too.
+        assert_eq!(names, [("cs2", false), ("Other.exe", true)]);
+        let _ = std::fs::remove_dir_all(&user);
+        let _ = std::fs::remove_dir_all(&shipped);
+    }
+
+    #[test]
+    fn profiles_past_falconds_limit_are_counted() {
+        let refs: Vec<ProfileRef> = (0..70)
+            .map(|i| ProfileRef {
+                stem: format!("g{i}"),
+                name: format!("g{i}.exe"),
+                system: i < 12,
+            })
+            .collect();
+        assert_eq!(beyond_falcond_limit(&refs), 6);
+        assert_eq!(beyond_falcond_limit(&refs[..64]), 0);
     }
 
     #[test]

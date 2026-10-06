@@ -46,8 +46,8 @@ impl Filter {
             (Self::Warnings, i18n("Warnings and errors")),
             (Self::Success, i18n("Success")),
             (Self::Only(Source::Falcond), "falcond".into()),
-            (Self::Only(Source::BiGame), "BiGame-mode".into()),
-            (Self::Only(Source::Helper), i18n("BiGame-mode helper")),
+            (Self::Only(Source::BiGame), "Big Game Mode".into()),
+            (Self::Only(Source::Helper), i18n("Big Game Mode helper")),
             (Self::KernelGpu, i18n("Kernel and GPU")),
             (Self::Only(Source::Gamescope), "Gamescope".into()),
             (Self::Only(Source::Scheduler), "sched-ext".into()),
@@ -64,7 +64,10 @@ impl Filter {
 
     fn accepts(self, entry: &Entry) -> bool {
         match self {
-            Self::All => true,
+            // Everything worth reading: a scheduler's start-up dump, Wine's
+            // notes to its developers and the like stay one source filter
+            // away rather than burying the rest.
+            Self::All => entry.level != Level::Debug,
             Self::Errors => entry.level == Level::Error,
             Self::Warnings => entry.level >= Level::Warning,
             Self::Success => entry.level == Level::Success,
@@ -92,7 +95,7 @@ pub fn build() -> adw::PreferencesPage {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Logs"));
     group.set_description(Some(&i18n(
-        "falcond, BiGame-mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files.",
+        "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files.",
     )));
 
     // ── Controls ────────────────────────────────────────────────────────
@@ -312,21 +315,12 @@ pub fn build() -> adw::PreferencesPage {
     page
 }
 
-/// Severity colours, readable on light and dark backgrounds alike.
+/// Severity colours, readable on light and dark backgrounds alike, and
+/// following the scheme when it changes while the window is open.
 fn install_tags(buffer: &gtk4::TextBuffer) {
-    let dark = adw::StyleManager::default().is_dark();
-    let (red, orange, green) = if dark {
-        ("#ff7b63", "#ffc057", "#8ff0a4")
-    } else {
-        ("#c01c28", "#9c6e03", "#1b7a3f")
-    };
     let table = buffer.tag_table();
-    for (name, colour) in [("error", red), ("warning", orange), ("success", green)] {
-        let tag = gtk4::TextTag::builder()
-            .name(name)
-            .foreground(colour)
-            .weight(700)
-            .build();
+    for name in ["error", "warning", "success"] {
+        let tag = gtk4::TextTag::builder().name(name).weight(700).build();
         table.add(&tag);
     }
     let dim = gtk4::TextTag::builder()
@@ -334,6 +328,39 @@ fn install_tags(buffer: &gtk4::TextBuffer) {
         .foreground_rgba(&gtk4::gdk::RGBA::new(0.5, 0.5, 0.5, 1.0))
         .build();
     table.add(&dim);
+    let style = adw::StyleManager::default();
+    colour_tags(&table, style.is_dark());
+    let table = table.downgrade();
+    style.connect_dark_notify(move |style| {
+        if let Some(table) = table.upgrade() {
+            colour_tags(&table, style.is_dark());
+        }
+    });
+}
+
+/// The severity colours for a dark or a light background.
+const fn severity_colours(dark: bool) -> [(&'static str, &'static str); 3] {
+    if dark {
+        [
+            ("error", "#ff7b63"),
+            ("warning", "#ffc057"),
+            ("success", "#8ff0a4"),
+        ]
+    } else {
+        [
+            ("error", "#c01c28"),
+            ("warning", "#9c6e03"),
+            ("success", "#1b7a3f"),
+        ]
+    }
+}
+
+fn colour_tags(table: &gtk4::TextTagTable, dark: bool) {
+    for (name, colour) in severity_colours(dark) {
+        if let Some(tag) = table.lookup(name) {
+            tag.set_foreground(Some(colour));
+        }
+    }
 }
 
 fn level_tag(level: Level) -> Option<&'static str> {
@@ -458,6 +485,19 @@ mod tests {
             level,
             message: message.into(),
         }
+    }
+
+    #[test]
+    fn all_leaves_debug_out_and_a_source_filter_keeps_it() {
+        let dump = entry(Source::Scheduler, Level::Debug, "    verbose: 0,");
+        let switch = entry(
+            Source::Scheduler,
+            Level::Info,
+            "switching Lavd with mode Gaming..",
+        );
+        assert!(!Filter::All.accepts(&dump));
+        assert!(Filter::All.accepts(&switch));
+        assert!(Filter::Only(Source::Scheduler).accepts(&dump));
     }
 
     #[test]

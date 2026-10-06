@@ -147,6 +147,19 @@ pub fn status_text(s: &Status) -> String {
             i18n("Failed"),
             errors.first().cloned().unwrap_or_default()
         ),
+        Status::SettingsLeft => i18n(
+            "Files put back; the game's own setting is still to be put back — press Restore again",
+        ),
+        Status::Moved { installed_in } => format!(
+            "{}: {}",
+            i18n("Installed in another folder"),
+            installed_in.display()
+        ),
+        Status::Unreadable { error } => format!(
+            "{}: {}",
+            i18n("The record of what was installed cannot be read"),
+            tr(error)
+        ),
     }
 }
 
@@ -381,7 +394,7 @@ fn render_verdict(page: &Rc<Page>, a: &Analysis) {
         (
             "emblem-ok-symbolic",
             i18n(
-                "BiGame-mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back.",
+                "Big Game Mode installed OptiScaler in this game, and with the choice below it is not needed. Restore puts the game's own files back.",
             ),
         )
     } else if a.pending_changes {
@@ -395,13 +408,13 @@ fn render_verdict(page: &Rc<Page>, a: &Analysis) {
         (
             "emblem-ok-symbolic",
             i18n(
-                "What BiGame-mode installed for this game. Restore puts the game's own files back.",
+                "What Big Game Mode installed for this game. Restore puts the game's own files back.",
             ),
         )
     } else if installs {
         (
             "emblem-ok-symbolic",
-            i18n("What BiGame-mode would do. Nothing changes until you press Apply."),
+            i18n("What Big Game Mode would do. Nothing changes until you press Apply."),
         )
     } else if own_upscaler {
         (
@@ -510,10 +523,10 @@ fn decided_button() -> gtk4::Button {
         (
             i18n("How this is decided"),
             i18n(
-                "BiGame-mode picks the fewest components that give the best result for this game on \
+                "Big Game Mode picks the fewest components that give the best result for this game on \
                  this GPU. If the game's own upscaler is already the best, nothing is installed. \
                  OptiScaler is used where it adds something the game lacks — FSR 4 on RDNA 4 \
-                 graphics cards — or where BiGame-mode's game list records it as faster for that \
+                 graphics cards — or where Big Game Mode's game list records it as faster for that \
                  game, measured on its test machines. DLSS is offered only \
                  on NVIDIA RTX cards. Frame generation is never switched on by itself: it raises the \
                  presented frame rate, not the rendered one, and adds latency. Games with \
@@ -523,13 +536,13 @@ fn decided_button() -> gtk4::Button {
                 Entry {
                     title: i18n("Recommended"),
                     body: i18n(
-                        "The game's own feature, or a combination verified to work on BiGame-mode's test machines.",
+                        "The game's own feature, or a combination verified to work on Big Game Mode's test machines.",
                     ),
                 },
                 Entry {
                     title: i18n("Compatible — not yet verified in practice"),
                     body: i18n(
-                        "OptiScaler's documentation says it works; BiGame-mode has not verified it yet.",
+                        "OptiScaler's documentation says it works; Big Game Mode has not verified it yet.",
                     ),
                 },
                 Entry {
@@ -547,7 +560,7 @@ fn decided_button() -> gtk4::Button {
                 Entry {
                     title: i18n("Blocked"),
                     body: i18n(
-                        "Anti-cheat or BiGame-mode's game list: injecting a DLL could put the account at risk, so nothing is offered.",
+                        "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the account at risk, so nothing is offered.",
                     ),
                 },
             ],
@@ -606,7 +619,7 @@ fn render_facts(page: &Rc<Page>, a: &Analysis) {
                 .replacen("%s", &stub.display().to_string(), 1)
                 .replacen("%s", &name, 1),
             info: Some(i18n(
-                "The launcher starts a small Unreal Engine bootstrap, which starts the real game. BiGame-mode looks at the game that runs — its folder is where OptiScaler would go, and its executable says which upscalers the game has — and knows it as running by either name.",
+                "The launcher starts a small Unreal Engine bootstrap, which starts the real game. Big Game Mode looks at the game that runs — its folder is where OptiScaler would go, and its executable says which upscalers the game has — and knows it as running by either name.",
             )),
         });
     }
@@ -766,14 +779,14 @@ fn running_now(a: &Analysis) -> String {
     }
     if a.report.native_fsr4_path() {
         return match (a.native.fsr4_provider_loaded, a.native.fsr4_upgrade_env) {
+            (Some(_), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
             (Some(true), _) => i18n("FSR 4 provider loaded in the running game"),
-            (Some(false), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
             (Some(false), _) => i18n("running without the FSR 4 provider: FSR is off in its menu"),
             (None, _) if a.fsr4_upgrade_set => i18n("FSR 4 expected through Proton's provider"),
-            (None, _) => i18n("Nothing from BiGame-mode: the game's own graphics"),
+            (None, _) => i18n("Nothing from Big Game Mode: the game's own graphics"),
         };
     }
-    i18n("Nothing from BiGame-mode: the game's own graphics")
+    i18n("Nothing from Big Game Mode: the game's own graphics")
 }
 
 /// Everything *Check Again* compares, by name: what the game has, what
@@ -798,7 +811,7 @@ fn checked_facts(a: &Analysis) -> Vec<(String, String)> {
         (i18n("Running now"), running_now(a)),
         (i18n("Neural rendering"), neural_words(&a.neural).0),
         (
-            i18n("Installed by BiGame-mode"),
+            i18n("Installed by Big Game Mode"),
             r.installed.as_ref().map_or_else(
                 || i18n("Nothing"),
                 |m| format!("{} {}", m.source.component, m.source.version),
@@ -995,7 +1008,7 @@ fn render_plan(page: &Rc<Page>, a: &Analysis) {
         group.set_title(&i18n("What will change"));
         wrap_title(&group);
         group.set_description(Some(&if installed && !a.pending_changes {
-            i18n("What is in the game's folder now, placed by BiGame-mode.")
+            i18n("What is in the game's folder now, placed by Big Game Mode.")
         } else {
             i18n("Nothing changes until you press Apply.")
         }));
@@ -1054,8 +1067,14 @@ fn render_buttons(page: &Rc<Page>, a: &Analysis) {
     let p = &a.plan;
     let installed = r.installed.is_some();
     let option_set = a.fsr4_upgrade_set;
+    // A record of an install that cannot be used (another folder, or one
+    // that does not load) stops Apply: it would take BiGame-mode's own
+    // files in the game for its originals.
+    let unusable = matches!(a.status, Status::Moved { .. } | Status::Unreadable { .. });
     page.apply.set_visible(
-        a.pending_changes || !installed && (p.optiscaler.is_some() || p.native_action.is_some()),
+        !unusable
+            && (a.pending_changes
+                || !installed && (p.optiscaler.is_some() || p.native_action.is_some())),
     );
     page.apply.set_label(&if a.pending_changes {
         i18n("Apply changes")
@@ -1126,7 +1145,7 @@ fn neural_words(s: &external::Status) -> (String, &'static str, String) {
                     .collect::<Vec<_>>()
                     .join("\n"),
                 i18n(
-                    "Nothing is wrong, and nothing needs to be done: AI Graphics works fully without it, and BiGame-mode never downloads or installs it.",
+                    "Nothing is wrong, and nothing needs to be done: AI Graphics works fully without it, and Big Game Mode never downloads or installs it.",
                 ),
             ),
         ),
@@ -1185,19 +1204,19 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
             (
                 i18n("Neural rendering (optional)"),
                 i18n(
-                    "Not needed for the upscaling above. A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project BiGame-mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton.",
+                    "Not needed for the upscaling above. A neural pass over the game's own FSR output, through DLSS-NR-on-AMD — an external project Big Game Mode does not distribute, install or remove. Experimental: documented for Windows, not established under Proton.",
                 ),
                 vec![
                     Entry {
                         title: i18n("What it needs"),
                         body: i18n(
-                            "An AMD RDNA 3 or RDNA 4 card, a 64-bit Windows game in DirectX 12 under Proton that ships AMD's FidelityFX API (FSR 3.1 or newer), and NVIDIA's neural-rendering model (nvngx_dlssnr.dll), which BiGame-mode never downloads.",
+                            "An AMD RDNA 3 or RDNA 4 card, a 64-bit Windows game in DirectX 12 under Proton that ships AMD's FidelityFX API (FSR 3.1 or newer), and NVIDIA's neural-rendering model (nvngx_dlssnr.dll), which Big Game Mode never downloads.",
                         ),
                     },
                     Entry {
-                        title: i18n("Why BiGame-mode only links to it"),
+                        title: i18n("Why Big Game Mode only links to it"),
                         body: i18n(
-                            "Its license allows personal use and forbids redistribution, so BiGame-mode only links to it. Install it beside the game with its own setup, then press Check Again.",
+                            "Its license allows personal use and forbids redistribution, so Big Game Mode only links to it. Install it beside the game with its own setup, then press Check Again.",
                         ),
                     },
                     Entry {
@@ -1236,7 +1255,7 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
             let r = adw::ActionRow::builder()
                 .title(i18n("Get it from its official page"))
                 .subtitle(i18n(
-                    "Its license allows personal use and forbids redistribution, so BiGame-mode only links to it. Install it beside the game with its own setup, then press Check Again.",
+                    "Its license allows personal use and forbids redistribution, so Big Game Mode only links to it. Install it beside the game with its own setup, then press Check Again.",
                 ))
                 .use_markup(false)
                 .build();
@@ -1496,7 +1515,7 @@ fn found_expander(r: &Report) -> adw::ExpanderRow {
     }
     if let Some(m) = &r.installed {
         details.add_row(&row(
-            &i18n("Installed by BiGame-mode"),
+            &i18n("Installed by Big Game Mode"),
             &format!(
                 "{} {} · {}",
                 m.source.component,
@@ -1616,7 +1635,7 @@ fn upscaler_about() -> gtk4::Button {
                 Entry {
                     title: i18n("Recommended for this game"),
                     body: i18n(
-                        "BiGame-mode picks for this game and this graphics card: the game's own upscaler when it is already the best, or OptiScaler where it adds something the game lacks (FSR 4 on RDNA 4 cards) or where BiGame-mode measured it faster. The card at the top says what that is here.",
+                        "Big Game Mode picks for this game and this graphics card: the game's own upscaler when it is already the best, or OptiScaler where it adds something the game lacks (FSR 4 on RDNA 4 cards) or where Big Game Mode measured it faster. The card at the top says what that is here.",
                     ),
                 },
                 Entry {
@@ -1676,9 +1695,9 @@ fn version_about() -> gtk4::Button {
             i18n("Used for the next install; an installed game is updated only when you choose"),
             vec![
                 Entry {
-                    title: i18n("Tested with BiGame-mode"),
+                    title: i18n("Tested with Big Game Mode"),
                     body: i18n(
-                        "The release BiGame-mode was tested with, checked against the SHA-256 it records. The default.",
+                        "The release Big Game Mode was tested with, checked against the SHA-256 it records. The default.",
                     ),
                 },
                 Entry {
@@ -1762,7 +1781,7 @@ fn build_choice(cfg: &AiGraphicsConfig) -> Choice {
         Kind::Conflict,
         &i18n("Wine FSR is also on for this game"),
         &i18n(
-            "OptiScaler upscales it, and Wine FSR would scale the image a second time whenever the game runs fullscreen below the display's resolution. BiGame-mode's own launch turns it off; the Steam client needs it in the game's launch options.",
+            "OptiScaler upscales it, and Wine FSR would scale the image a second time whenever the game runs fullscreen below the display's resolution. Big Game Mode's own launch turns it off; the Steam client needs it in the game's launch options.",
         ),
     );
     wine_fsr.set_visible(false);
@@ -1793,7 +1812,7 @@ fn build_choice(cfg: &AiGraphicsConfig) -> Choice {
         _ => tested.clone(),
     };
     let versions = gtk4::StringList::new(&[
-        &format!("{} ({tested})", i18n("Tested with BiGame-mode")),
+        &format!("{} ({tested})", i18n("Tested with Big Game Mode")),
         &i18n("Latest stable"),
         &format!("{} ({keep})", i18n("Keep one version")),
     ]);
@@ -1931,12 +1950,12 @@ fn wire_choice(page: &Rc<Page>) {
                 return;
             }
             let keep = page.choice.keep_version.borrow().clone();
-            page.cfg.borrow_mut().version = match r.selected() {
+            let policy = match r.selected() {
                 1 => VersionPolicy::Latest,
                 2 => VersionPolicy::Pinned(keep),
                 _ => VersionPolicy::Recommended,
             };
-            save_settings(&page);
+            save_version_choice(&page, |c| c.version = policy.clone());
             refresh(&page);
         });
     }
@@ -2221,16 +2240,14 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
         {
             let (page, v) = (page.clone(), new.version.clone());
             skip.connect_clicked(move |_| {
-                page.cfg.borrow_mut().skipped_update = Some(v.clone());
-                save_settings(&page);
+                save_version_choice(&page, |c| c.skipped_update = Some(v.clone()));
                 refresh(&page);
             });
         }
         {
             let (page, v) = (page.clone(), offer.installed.clone());
             keep.connect_clicked(move |_| {
-                page.cfg.borrow_mut().version = VersionPolicy::Pinned(v.clone());
-                save_settings(&page);
+                save_version_choice(&page, |c| c.version = VersionPolicy::Pinned(v.clone()));
                 refresh(&page);
             });
         }
@@ -2334,7 +2351,7 @@ fn report_fsr4_upgrade(
             return;
         }
         Ok(Ok(Applied::LaunchPlan)) => {
-            i18n("Not a Steam game: the variable goes into BiGame-mode's own launch")
+            i18n("Not a Steam game: the variable goes into Big Game Mode's own launch")
         }
         Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
         Err(_) => i18n("Nothing was changed"),
@@ -2364,6 +2381,36 @@ async fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool 
 /// Save the choice for the game — a file in the user's own configuration,
 /// no game file and no privilege — and remember it as saved. Says so when
 /// it cannot be written.
+/// Save one version decision (Skip, Keep this version) on top of what is
+/// saved, and make it in the pending choice too. The rest of a choice not
+/// saved yet stays pending, as the hint beside the buttons says: these
+/// buttons answer the update offer, not *Save Choice*.
+fn save_version_choice(page: &Page, change: impl Fn(&mut AiGraphicsConfig)) -> bool {
+    change(&mut page.cfg.borrow_mut());
+    let mut saved = page.saved.borrow().clone();
+    change(&mut saved);
+    let result = bigame_core::game_settings::load(&page.target.process).and_then(|mut s| {
+        s.ai_graphics = saved.clone();
+        bigame_core::game_settings::save(&page.target.process, &s)
+    });
+    match result {
+        Ok(()) => {
+            *page.saved.borrow_mut() = saved;
+            render_saved(page);
+            true
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "could not save the AI Graphics version choice");
+            page.overlay.add_toast(adw::Toast::new(&format!(
+                "{}: {}",
+                i18n("The choice was not saved"),
+                error_text(&e)
+            )));
+            false
+        }
+    }
+}
+
 fn save_settings(page: &Page) -> bool {
     let cfg = page.cfg.borrow().clone();
     let result = bigame_core::game_settings::load(&page.target.process).and_then(|mut s| {
@@ -2677,11 +2724,18 @@ fn open_with(
                         && bigame_core::fg::read_profile_any(&target.process).0 > 1
                         && bigame_core::fg::save_for_game(&target.process, 1, 100, false, false, 1, true)
                             .is_ok();
-                    // And one upscaler: Wine FSR off for this game in its
-                    // Steam launch options, when Steam is closed (the page
-                    // offers it otherwise).
-                    if wine_fsr_second(&target) {
-                        let _ = bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true);
+                    // And one upscaler: Wine FSR off for this Steam game in
+                    // its launch options, whatever turns it on (Tuning, a
+                    // Turbo preset, the options themselves). One owner
+                    // writes it, and writing it again changes nothing; with
+                    // Steam open nothing is written, and the page offers it.
+                    if target.app_id.is_some() {
+                        if let Err(e) =
+                            bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true)
+                        {
+                            tracing::warn!(target: "graphics", game = %target.process,
+                                error = %format!("{e:#}"), "Wine FSR could not be turned off for the game");
+                        }
                     }
                     anyhow::Ok((done, lsfg_removed))
                 })
@@ -2697,6 +2751,17 @@ fn open_with(
                         );
                         if lsfg_removed {
                             let _ = write!(files, " · {}", i18n("lsfg-vk was turned off for this game"));
+                        }
+                        if done.kept_settings > 0 {
+                            let _ = write!(
+                                files,
+                                " · {}",
+                                ni18n(
+                                    "%n setting you changed in OptiScaler's overlay was kept",
+                                    "%n settings you changed in OptiScaler's overlay were kept",
+                                    done.kept_settings
+                                )
+                            );
                         }
                         match done.game_setting {
                             Some(Applied::TurnedOn(input)) => format!(
@@ -2782,7 +2847,7 @@ fn open_with(
                 busy(&page, Some(&i18n("Restoring the game's own files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || {
-                    let out = graphics::remove(&target)?;
+                    let out = graphics::restore(&target)?;
                     // BiGame-mode's WINE_FULLSCREEN_FSR=0 went in with
                     // OptiScaler, and goes with it (Steam closed; otherwise
                     // it stays, harmless, until the next Restore).
@@ -2796,17 +2861,14 @@ fn open_with(
                 .await;
                 busy(&page, None);
                 let text = match result {
-                    Ok(Ok(outcomes)) => {
-                        let kept = outcomes
+                    Ok(Ok(done)) => {
+                        use bigame_core::graphics::transaction::FileOutcome;
+                        let kept = done
+                            .files
                             .iter()
-                            .filter(|o| {
-                                matches!(
-                                    o,
-                                    bigame_core::graphics::transaction::FileOutcome::KeptChanged(_)
-                                )
-                            })
+                            .filter(|o| matches!(o, FileOutcome::KeptChanged(_)))
                             .count();
-                        if kept == 0 {
+                        let mut text = if kept == 0 {
                             i18n("The game's files are as they were before")
                         } else {
                             format!(
@@ -2815,7 +2877,28 @@ fn open_with(
                                     "Restored; files another program changed since were left alone"
                                 )
                             )
+                        };
+                        // The user's OptiScaler settings went with its ini:
+                        // where the copy is.
+                        for o in &done.files {
+                            if let FileOutcome::EditedCopyKept(_, copy) = o {
+                                let _ = write!(
+                                    text,
+                                    " · {}",
+                                    i18n("your edited settings were kept in %s")
+                                        .replace("%s", &copy.display().to_string())
+                                );
+                            }
                         }
+                        if let Some(why) = &done.settings_error {
+                            let _ = write!(
+                                text,
+                                " · {}: {}",
+                                i18n("The game's own setting could not be put back yet"),
+                                tr(why)
+                            );
+                        }
+                        text
                     }
                     Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
                     Err(_) => i18n("Could not restore"),

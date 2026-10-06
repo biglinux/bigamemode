@@ -83,7 +83,7 @@ pub const VCACHE_MODES: &[Choice] = &[
     choice(
         "none",
         N_("Unchanged"),
-        N_("BiGame-mode and falcond leave the driver's current preference alone."),
+        N_("Big Game Mode and falcond leave the driver's current preference alone."),
     ),
     choice(
         "cache",
@@ -434,6 +434,9 @@ pub struct GameOptimization {
     pub mangohud: crate::mangohud::Mode,
     /// `MangoHud` as saved, to know whether it changed.
     saved_mangohud: crate::mangohud::Mode,
+    /// lsfg-vk's values as read, to know whether they changed: an entry the
+    /// user keeps in lsfg-vk-ui is theirs until this page changes it.
+    saved_frame_generation: FrameGeneration,
 }
 
 /// What a save did beyond the profile, which is saved first and whose
@@ -485,6 +488,7 @@ impl GameOptimization {
             hdr,
             present_mode,
         };
+        me.saved_frame_generation = me.frame_generation;
         me.mangohud = crate::mangohud::mode_for(&me.profile.name);
         me.saved_mangohud = me.mangohud;
         me.launch = crate::game_settings::load(&me.profile.name)
@@ -519,6 +523,7 @@ impl GameOptimization {
             frame_generation: FrameGeneration::default(),
             mangohud: crate::mangohud::Mode::Off,
             saved_mangohud: crate::mangohud::Mode::Off,
+            saved_frame_generation: FrameGeneration::default(),
         };
         me.sync_copy();
         me
@@ -573,9 +578,13 @@ impl GameOptimization {
             process: self.profile.name.clone(),
             ..SaveReport::default()
         };
+        // lsfg-vk's file only when this page changed its values: saving a
+        // profile for its scheduler must not take over, or set aside, an
+        // entry the user keeps in lsfg-vk-ui.
         let f = self.frame_generation;
-        let global_on = crate::fg::global_state_allows_lsfg(&crate::video_config::load().frame_gen);
-        let lsfg = if f.on() || crate::fg::layer_installed() {
+        let lsfg = if self.frame_generation_changed() {
+            let global_on =
+                crate::fg::global_state_allows_lsfg(&crate::video_config::load().frame_gen);
             crate::fg::save_for_game(
                 &self.profile.name,
                 f.multiplier,
@@ -588,6 +597,9 @@ impl GameOptimization {
         } else {
             Ok(())
         };
+        if lsfg.is_ok() {
+            self.saved_frame_generation = f;
+        }
         report.frame_generation = lsfg.err();
         report.launch = self.save_launch().err();
         report.gamescope = Some(crate::steam_gamescope::apply(
@@ -608,6 +620,11 @@ impl GameOptimization {
             report.mangohud = Some(applied);
         }
         Ok(report)
+    }
+
+    /// Whether lsfg-vk's values differ from those read from its file.
+    fn frame_generation_changed(&self) -> bool {
+        self.frame_generation != self.saved_frame_generation
     }
 
     /// Write the game's own launch settings into its settings file, keeping
@@ -650,7 +667,9 @@ pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gam
         let Ok(settings) = crate::game_settings::load(&name) else {
             continue;
         };
-        let written = settings.steam_gamescope.is_some() || settings.steam_env.is_some();
+        let written = settings.steam_gamescope.is_some()
+            || settings.steam_env.is_some()
+            || settings.steam_wine_fsr_off;
         if !written {
             if settings.launch.is_empty() {
                 continue;
@@ -673,10 +692,29 @@ pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gam
     out
 }
 
+/// What the Steam game whose process is `process` gets in its launch
+/// options from BiGame-mode, as saved now; `wine_fsr_off` in place of the
+/// saved choice to switch Wine FSR off for it, when given.
+#[must_use]
+pub fn steam_wanted(process: &str, wine_fsr_off: Option<bool>) -> crate::steam_gamescope::Wanted {
+    let game = GameOptimization::load(process);
+    let off = wine_fsr_off
+        .unwrap_or_else(|| crate::game_settings::load(process).is_ok_and(|s| s.steam_wine_fsr_off));
+    game.steam_wanted_with(off)
+}
+
 impl GameOptimization {
     /// What a Steam game's launch options get from BiGame-mode: the
     /// Gamescope wrapper and the variables for its own launch settings.
     fn steam_wanted(&self) -> crate::steam_gamescope::Wanted {
+        let off =
+            crate::game_settings::load(&self.profile.name).is_ok_and(|s| s.steam_wine_fsr_off);
+        self.steam_wanted_with(off)
+    }
+
+    /// [`Self::steam_wanted`], with Wine FSR switched off for the game
+    /// (`wine_fsr_off`) or not.
+    fn steam_wanted_with(&self, wine_fsr_off: bool) -> crate::steam_gamescope::Wanted {
         let video = crate::video_config::load();
         let optiscaler =
             optiscaler_features(&self.profile.name).contains(&Feature::OptiScalerUpscaling);
@@ -688,11 +726,13 @@ impl GameOptimization {
                 .upscales(&video.upscaling, self.profile.gamescope_mode, false);
         let env = self
             .launch
-            .steam_env(&video.upscaling, upscales, optiscaler)
+            .steam_env(&video.upscaling, upscales, optiscaler || wine_fsr_off)
             .join(" ");
         crate::steam_gamescope::Wanted {
             gamescope,
             env: (!env.is_empty()).then_some(env),
+            wine_fsr_off,
+            drop_their_wine_fsr_on: false,
         }
     }
 
@@ -701,7 +741,8 @@ impl GameOptimization {
     /// whatever the game leaves to them), or Automatic when the game's own
     /// values need Gamescope. The general switch is for games BiGame-mode
     /// starts itself and does not wrap every Steam game. Where `OptiScaler`
-    /// already upscales, no render size.
+    /// already upscales, no render size. The Flatpak Steam runs Flathub's
+    /// Gamescope, whose options are not the system's.
     fn steam_gamescope_segment(&self, video: &VideoConfig, optiscaler: bool) -> Option<String> {
         use crate::gamescope::Mode;
         let mode = self.profile.gamescope_mode;
@@ -716,12 +757,33 @@ impl GameOptimization {
             cfg.render_width = 0;
             cfg.render_height = 0;
         }
-        crate::steam_gamescope::segment(
+        let caps = if crate::steam::only_flatpak(&crate::steam::users(&crate::paths::home_dir())) {
+            Some(crate::capabilities::GamescopeCaps::default())
+        } else {
+            crate::capabilities::gamescope_cached()
+        };
+        let segment = crate::steam_gamescope::segment(
             mode,
             &cfg,
-            crate::capabilities::gamescope_cached().as_ref(),
+            caps.as_ref(),
             crate::hardware::detect_session(),
-        )
+        )?;
+        Some(if self.vkbasalt_on(video) {
+            crate::steam_gamescope::keeping_vkbasalt_in_the_game(&segment)
+        } else {
+            segment
+        })
+    }
+
+    /// Whether vkBasalt is on for this game where its launcher starts it:
+    /// its own choice, or the session's (a Turbo preset's over Tuning's).
+    fn vkbasalt_on(&self, video: &VideoConfig) -> bool {
+        crate::capabilities::vkbasalt_installed()
+            && self.launch.vkbasalt.unwrap_or_else(|| {
+                crate::turbo_preset::active_levers()
+                    .vkbasalt
+                    .unwrap_or(video.upscaling.vkbasalt_enabled)
+            })
     }
 }
 
@@ -806,14 +868,25 @@ impl GameOptimization {
         if fsr4 {
             env.extend(HEROIC_FSR4.map(|(k, v)| (k.to_owned(), v.to_owned())));
         }
-        crate::heroic_launch::Wanted {
+        // MangoHud as Heroic has it: its own switch for Forced, the layer's
+        // variable for On.
+        if self.mangohud == crate::mangohud::Mode::On {
+            env.push(("MANGOHUD".to_owned(), "1".to_owned()));
+        }
+        let mut wanted = crate::heroic_launch::Wanted {
             gamescope: gamescope
                 .as_ref()
                 .map(crate::heroic_launch::Gamescope::from_config),
             wine_fsr,
             wine_fsr_off_where_on: upscales || optiscaler,
             env,
+            show_mangohud: self.mangohud == crate::mangohud::Mode::Forced,
+            wrapper: None,
+        };
+        if wanted.gamescope.is_some() && self.vkbasalt_on(video) {
+            wanted.keep_vkbasalt_in_the_game();
         }
+        wanted
     }
 }
 
@@ -903,6 +976,36 @@ pub fn refresh_heroic() -> Vec<(String, anyhow::Result<crate::heroic_launch::App
 #[must_use]
 pub fn lsfg_general_on(video: &VideoConfig) -> bool {
     video.frame_gen.enabled && video.frame_gen.backend == FrameGenBackend::LsfgVk
+}
+
+/// Which frames a Turbo preset's frame cap holds in a game that generates
+/// frames: that depends on the frame generator, not on the cap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CappedFrames {
+    /// The frames the game renders. lsfg-vk is a Vulkan layer under DXVK,
+    /// VKD3D-Proton and `MangoHud`'s limiter, so it generates after the cap:
+    /// the game shows `multiplier` times the cap.
+    Rendered {
+        /// lsfg-vk's multiplier for the game.
+        multiplier: u32,
+    },
+    /// The frames shown, generated ones included. `OptiScaler`'s generation
+    /// runs inside the game, above the cap: the game renders about half of
+    /// it (Shadow of the Tomb Raider under 60: 30.0 rendered).
+    Shown,
+}
+
+/// [`CappedFrames`] for the game whose process is `process`; `None` for a
+/// game that generates no frames. `OptiScaler`'s generation switches
+/// lsfg-vk off for the game, so it is the one that counts.
+#[must_use]
+pub fn capped_frames(process: &str) -> Option<CappedFrames> {
+    if optiscaler_features(process).contains(&Feature::OptiScalerFrameGen) {
+        return Some(CappedFrames::Shown);
+    }
+    let multiplier = crate::fg::read_profile_any(process).0;
+    (multiplier > 1 && lsfg_general_on(&crate::video_config::load()))
+        .then_some(CappedFrames::Rendered { multiplier })
 }
 
 #[cfg(test)]
@@ -1097,6 +1200,20 @@ mod tests {
         assert_eq!(a.profile.fg_multiplier, 1);
         assert!(a.profile.fg_dll_path.is_none());
         assert!(!a.frame_generation.on());
+    }
+
+    #[test]
+    fn saving_a_profile_leaves_lsfg_vks_entry_alone_unless_it_changed() {
+        // As loaded with a user's entry at x2: changing the scheduler alone
+        // must not write lsfg-vk's file (with the general switch off that
+        // would set the entry aside).
+        let mut g = GameOptimization::new("Game.exe");
+        g.frame_generation.multiplier = 2;
+        g.saved_frame_generation = g.frame_generation;
+        g.profile.scx_sched = "scx_lavd".into();
+        assert!(!g.frame_generation_changed());
+        g.frame_generation.flow_scale = 50;
+        assert!(g.frame_generation_changed());
     }
 
     #[test]

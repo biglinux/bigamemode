@@ -25,7 +25,15 @@
 //!   Its quality mode is a variable (`WINE_FULLSCREEN_FSR_MODE`).
 //! * **vkBasalt** — `ENABLE_VKBASALT` in the game's variables,
 //!   `enviromentOptions` (Heroic's spelling). Heroic's Flatpak needs
-//!   Flathub's `org.freedesktop.Platform.VulkanLayer.vkBasalt`.
+//!   Flathub's `org.freedesktop.Platform.VulkanLayer.vkBasalt`. Heroic
+//!   gives the variables to the whole `gamescope … -- wine …` command, and
+//!   Gamescope would load vkBasalt for itself and take `ENABLE_VKBASALT`
+//!   from the game: with Gamescope, `DISABLE_VKBASALT=1` goes in the
+//!   variables and `env -u DISABLE_VKBASALT ENABLE_VKBASALT=1` in front of
+//!   the game, as a wrapper (`wrapperOptions`, which Heroic puts after
+//!   Gamescope's `--`).
+//! * **`MangoHud`** — Forced is Heroic's own switch (`showMangohud`, its
+//!   `mangohud --dlsym` wrapper), On is `MANGOHUD=1` in the variables.
 //!
 //! Heroic merges a game's keys over its defaults one key at a time, so a
 //! `gamescope` object or a variable list the game did not have is created
@@ -62,6 +70,10 @@ const GAMESCOPE: &str = "gamescope";
 const WINE_FSR: &str = "enableFSR";
 /// Gamescope's extra arguments in Heroic.
 const OPTIONS: &str = "additionalOptions";
+/// Heroic's `MangoHud` switch.
+const MANGOHUD: &str = "showMangohud";
+/// Programs Heroic puts in front of the game (after Gamescope's `--`).
+const WRAPPERS: &str = "wrapperOptions";
 
 // ── What a game gets ────────────────────────────────────────────────────────
 
@@ -155,6 +167,10 @@ pub struct Wanted {
     pub wine_fsr_off_where_on: bool,
     /// Variables, `(name, value)`.
     pub env: Vec<(String, String)>,
+    /// Heroic's own `MangoHud` switch on (`MangoHud` forced).
+    pub show_mangohud: bool,
+    /// A program in front of the game, `(program, arguments)`.
+    pub wrapper: Option<(String, String)>,
 }
 
 impl Wanted {
@@ -165,6 +181,20 @@ impl Wanted {
             && self.wine_fsr.is_none()
             && !self.wine_fsr_off_where_on
             && self.env.is_empty()
+            && !self.show_mangohud
+            && self.wrapper.is_none()
+    }
+
+    /// vkBasalt kept out of the Gamescope Heroic runs and in the game
+    /// (`crate::launcher` does the same for its own launch).
+    pub fn keep_vkbasalt_in_the_game(&mut self) {
+        self.env.retain(|(k, _)| k != "DISABLE_VKBASALT");
+        self.env
+            .push(("DISABLE_VKBASALT".to_owned(), "1".to_owned()));
+        self.wrapper = Some((
+            "env".to_owned(),
+            "-u DISABLE_VKBASALT ENABLE_VKBASALT=1".to_owned(),
+        ));
     }
 }
 
@@ -206,6 +236,9 @@ pub struct Written {
     /// created from Heroic's defaults: what was there, and what it created.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub created: Vec<Owned>,
+    /// Entries it added to `wrapperOptions`, as JSON text.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub wrappers: Vec<String>,
 }
 
 impl Written {
@@ -217,6 +250,7 @@ impl Written {
             && self.env.is_empty()
             && self.options.is_none()
             && self.created.is_empty()
+            && self.wrappers.is_empty()
     }
 }
 
@@ -230,6 +264,8 @@ pub struct Defaults {
     pub env: Vec<Value>,
     /// Its Wine FSR switch.
     pub wine_fsr: bool,
+    /// Its wrappers.
+    pub wrappers: Vec<Value>,
 }
 
 impl Defaults {
@@ -251,6 +287,11 @@ impl Defaults {
                 .cloned()
                 .unwrap_or_default(),
             wine_fsr: d.get(WINE_FSR).and_then(Value::as_bool) == Some(true),
+            wrappers: d
+                .get(WRAPPERS)
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default(),
         }
     }
 }
@@ -382,6 +423,13 @@ fn undo(game: &mut Map<String, Value>, previous: &Written) {
         }
         undo_keys(gs, &previous.gamescope);
     }
+    if let Some(list) = game.get_mut(WRAPPERS).and_then(Value::as_array_mut) {
+        for w in previous.wrappers.iter().rev() {
+            if let Some(i) = list.iter().position(|e| text(e) == *w) {
+                list.remove(i);
+            }
+        }
+    }
     undo_keys(game, &previous.keys);
     // What it created goes when nothing else in it changed since.
     undo_keys(game, &previous.created);
@@ -428,6 +476,27 @@ fn redo(game: &mut Map<String, Value>, wanted: &Wanted, defaults: &Defaults, nex
         }
     } else if let Some(on) = wanted.wine_fsr {
         set(game, WINE_FSR, json!(on), &mut next.keys);
+    }
+    if wanted.show_mangohud {
+        set(game, MANGOHUD, json!(true), &mut next.keys);
+    }
+    if let Some((program, args)) = &wanted.wrapper {
+        if !game.get(WRAPPERS).is_some_and(Value::is_array) {
+            let seed = Value::Array(defaults.wrappers.clone());
+            next.created.push(Owned {
+                key: WRAPPERS.to_owned(),
+                before: game.get(WRAPPERS).map(text),
+                written: text(&seed),
+            });
+            game.insert(WRAPPERS.to_owned(), seed);
+        }
+        if let Some(list) = game.get_mut(WRAPPERS).and_then(Value::as_array_mut) {
+            let entry = json!({"exe": program, "args": args});
+            if !list.contains(&entry) {
+                next.wrappers.push(text(&entry));
+                list.push(entry);
+            }
+        }
     }
     if !wanted.env.is_empty() {
         if !game.get(ENV).is_some_and(Value::is_array) {
@@ -601,6 +670,31 @@ pub fn flatpak_gamescope_missing() -> Option<String> {
 #[must_use]
 pub fn flatpak_vkbasalt_missing() -> Option<String> {
     crate::mangohud::missing_flatpak_layer(crate::launchers::HEROIC_FLATPAK, VKBASALT_LAYER)
+}
+
+/// Heroic's own Wine FSR switch for the game whose process is `process`
+/// (the game's, or Heroic's default), `None` for a game Heroic does not
+/// start. Heroic sets `WINE_FULLSCREEN_FSR` from it for every Wine game, over
+/// the session's: Tuning's and a Turbo preset's Wine FSR do not reach these
+/// games, only this switch does.
+#[must_use]
+pub fn wine_fsr_switch(process: &str) -> Option<bool> {
+    let target = targets(process).into_iter().next()?;
+    let text = std::fs::read_to_string(target.file()).unwrap_or_default();
+    Some(wine_fsr_in(
+        &text,
+        &target.app_name,
+        &Defaults::read(&target.config_dir),
+    ))
+}
+
+/// Heroic's Wine FSR switch for `app_name` in its settings `text`, over
+/// `defaults`.
+fn wine_fsr_in(text: &str, app_name: &str, defaults: &Defaults) -> bool {
+    serde_json::from_str::<Value>(text)
+        .ok()
+        .and_then(|root| root.get(app_name)?.get(WINE_FSR)?.as_bool())
+        .unwrap_or(defaults.wine_fsr)
 }
 
 /// What writing a game's Heroic settings did.
@@ -1009,6 +1103,7 @@ mod tests {
             gamescope: Some(json!({"enableUpscaling": false, "additionalOptions": "--mine"})),
             env: vec![json!({"key": "PROTON_LOG", "value": "1"})],
             wine_fsr: false,
+            wrappers: Vec::new(),
         };
         for current in [
             "",
@@ -1141,5 +1236,63 @@ mod tests {
         let text = toml::to_string_pretty(&settings).unwrap();
         let back: crate::game_settings::GameSettings = toml::from_str(&text).unwrap();
         assert_eq!(back, settings, "{text}");
+    }
+
+    #[test]
+    fn vkbasalt_goes_into_the_game_heroic_runs_in_gamescope_and_comes_out_again() {
+        let file = r#"{
+  "g": {
+    "wineVersion": {"name": "Proton - GE-Proton-latest", "type": "proton"}
+  },
+  "version": "v0",
+  "explicit": true
+}"#;
+        let defaults = Defaults {
+            wrappers: vec![json!({"exe": "gamemoderun", "args": ""})],
+            ..Defaults::default()
+        };
+        let mut wanted = Wanted {
+            gamescope: Some(Gamescope::from_config(&crate::gamescope::Config::default())),
+            env: vec![("ENABLE_VKBASALT".into(), "1".into())],
+            ..Wanted::default()
+        };
+        wanted.keep_vkbasalt_in_the_game();
+        let (out, written) = transform(file, "g", &Written::default(), &wanted, &defaults).unwrap();
+        let v = json(&out);
+        let env = v["g"]["enviromentOptions"].as_array().unwrap();
+        assert!(
+            env.iter()
+                .any(|e| e["key"] == "DISABLE_VKBASALT" && e["value"] == "1")
+        );
+        // The defaults' wrapper stays, ours goes after it, after `--`.
+        assert_eq!(
+            v["g"]["wrapperOptions"],
+            json!([
+                {"exe": "gamemoderun", "args": ""},
+                {"exe": "env", "args": "-u DISABLE_VKBASALT ENABLE_VKBASALT=1"}
+            ])
+        );
+        // Taken out, the file is as it was.
+        let (back, _) = transform(&out, "g", &written, &Wanted::default(), &defaults).unwrap();
+        assert_eq!(json(&back), json(file));
+        // A record written by an older version reads.
+        let old: Written = serde_json::from_str(r#"{"file": "x", "keys": []}"#).unwrap();
+        assert!(old.wrappers.is_empty());
+    }
+
+    #[test]
+    fn heroics_own_wine_fsr_switch_is_read_over_its_defaults() {
+        let on = Defaults {
+            wine_fsr: true,
+            ..Defaults::default()
+        };
+        assert!(wine_fsr_in(r#"{"g": {}}"#, "g", &on));
+        assert!(!wine_fsr_in(r#"{"g": {"enableFSR": false}}"#, "g", &on));
+        assert!(wine_fsr_in(
+            r#"{"g": {"enableFSR": true}}"#,
+            "g",
+            &Defaults::default()
+        ));
+        assert!(!wine_fsr_in("", "g", &Defaults::default()));
     }
 }

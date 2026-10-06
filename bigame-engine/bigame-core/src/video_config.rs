@@ -56,15 +56,20 @@ pub fn load_from(path: &Path) -> VideoConfig {
 /// computed env vars (Wine FSR, vkBasalt) reach game processes spawned
 /// outside our launcher (notably Steam-launched games).
 ///
+/// Returns `Ok(Some(error))` when the settings were saved but environment.d
+/// or the running session could not be brought to them: games started now
+/// do not get the change, and the caller says so.
+///
 /// # Errors
 /// Returns error if directory creation or file write fails.
-pub fn save(cfg: &VideoConfig) -> Result<()> {
+pub fn save(cfg: &VideoConfig) -> Result<Option<anyhow::Error>> {
     save_to(cfg, &config_path())?;
-    // Best-effort: keep environment.d in sync. Failure here must not block save.
-    if let Err(e) = write_env_file(cfg) {
-        tracing::warn!(error = %e, "failed to update environment.d snippet");
+    // The settings are saved either way; the session part is reported apart.
+    let unsynced = write_env_file(cfg).err();
+    if let Some(e) = &unsynced {
+        tracing::warn!(error = %format!("{e:#}"), "saved, but the session environment was not updated");
     }
-    Ok(())
+    Ok(unsynced)
 }
 
 /// Persist video config to a specific file, without touching `environment.d`.
@@ -100,6 +105,7 @@ pub const SESSION_KEYS: &[&str] = &[
     "VKBASALT_CONFIG_FILE",
     // A Turbo preset's own, never in environment.d.
     "DXVK_CONFIG",
+    "DXVK_FRAME_RATE",
     "VKD3D_FRAME_RATE",
     "FSR4_UPGRADE",
     "PROTON_FSR4_UPGRADE",
@@ -113,7 +119,8 @@ pub const SESSION_KEYS: &[&str] = &[
 /// no variables the file is removed and the variables are unset.
 ///
 /// # Errors
-/// Returns error if directory creation or file I/O fails.
+/// Returns error if directory creation or file I/O fails, or the running
+/// session's environment cannot be updated.
 pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
     let path = env_file_path();
     let env = crate::launcher::build_persistent_env(cfg);
@@ -139,9 +146,7 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
             .with_context(|| format!("write env file: {}", path.display()))?;
     }
 
-    if let Err(e) = sync_session_env(cfg) {
-        tracing::warn!(error = %format!("{e:#}"), "could not update the running session's environment");
-    }
+    sync_session_env(cfg).context("update the running session's environment")?;
     Ok(())
 }
 
@@ -155,8 +160,22 @@ pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
 /// Returns an error when the session's environment cannot be set, or reads
 /// back different.
 pub fn sync_session_env(cfg: &VideoConfig) -> Result<Vec<String>> {
-    let env = session_env(cfg);
-    let (unset, set) = session_change(&env);
+    sync_session_env_with(cfg, &crate::turbo_preset::layer())
+}
+
+/// [`sync_session_env`] with the preset `layer` rather than the one in
+/// force: taking a preset away brings the session to Tuning's variables and
+/// the user's own values while its record is still there.
+///
+/// # Errors
+/// As [`sync_session_env`], and when the preset's own file cannot be written.
+pub fn sync_session_env_with(
+    cfg: &VideoConfig,
+    layer: &crate::turbo_preset::Layer,
+) -> Result<Vec<String>> {
+    crate::turbo_preset::prepare(layer.levers)?;
+    let env = session_env_with(cfg, layer);
+    let (unset, set) = session_change(&env, layer.owns_preset_keys);
     sync_session(&unset, &set)?;
     Ok(set)
 }
@@ -165,9 +184,42 @@ pub fn sync_session_env(cfg: &VideoConfig) -> Result<Vec<String>> {
 /// variables with the Turbo preset in force laid over them.
 #[must_use]
 pub fn session_env(cfg: &VideoConfig) -> HashMap<String, String> {
+    session_env_with(cfg, &crate::turbo_preset::layer())
+}
+
+fn session_env_with(
+    cfg: &VideoConfig,
+    layer: &crate::turbo_preset::Layer,
+) -> HashMap<String, String> {
     let mut env = crate::launcher::build_persistent_env(cfg);
-    crate::turbo_preset::overlay(&mut env, crate::turbo_preset::active_levers());
+    crate::turbo_preset::overlay_over(&mut env, layer.levers, &layer.before);
     env
+}
+
+/// The running `systemd --user` manager's environment.
+///
+/// # Errors
+/// Returns an error when the session bus or the manager cannot be reached.
+pub fn session_environment() -> Result<HashMap<String, String>> {
+    let conn = zbus::blocking::Connection::session().context("session bus")?;
+    let now: Vec<String> = user_manager(&conn)?
+        .get_property("Environment")
+        .context("read the session environment")?;
+    Ok(now
+        .iter()
+        .filter_map(|a| a.split_once('='))
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect())
+}
+
+fn user_manager(conn: &zbus::blocking::Connection) -> Result<zbus::blocking::Proxy<'static>> {
+    zbus::blocking::Proxy::new(
+        conn,
+        "org.freedesktop.systemd1",
+        "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager",
+    )
+    .context("systemd user manager")
 }
 
 /// What of BiGame-mode's variables ([`SESSION_KEYS`]) an environment really
@@ -209,8 +261,20 @@ const DETAILS: &[(&str, &str)] = &[
 /// systemd 261: `unset-environment ENABLE_VKBASALT` left it at 1). vkBasalt's
 /// layer and Wine enable on `1` only. The file no longer holds the variable,
 /// so from the next login it is simply absent.
-fn session_change(env: &HashMap<String, String>) -> (Vec<String>, Vec<String>) {
-    let absent = SESSION_KEYS.iter().filter(|k| !env.contains_key(**k));
+///
+/// A Turbo preset's keys ([`crate::turbo_preset::PRESET_KEYS`]) are managed
+/// only while a preset's record is there (`owns_preset_keys`): otherwise
+/// they are the user's alone (a `DXVK_CONFIG` of their own, from their
+/// `environment.d` or set by hand), and a Tuning save must not unset them.
+fn session_change(
+    env: &HashMap<String, String>,
+    owns_preset_keys: bool,
+) -> (Vec<String>, Vec<String>) {
+    let managed = |k: &&&str| owns_preset_keys || !crate::turbo_preset::PRESET_KEYS.contains(*k);
+    let absent = SESSION_KEYS
+        .iter()
+        .filter(managed)
+        .filter(|k| !env.contains_key(**k));
     let unset = absent
         .clone()
         .filter(|k| !SWITCHES.contains(k))
@@ -233,13 +297,7 @@ fn session_change(env: &HashMap<String, String>) -> (Vec<String>, Vec<String>) {
 /// process — then a read-back of its environment to confirm it holds.
 fn sync_session(unset: &[String], set: &[String]) -> Result<()> {
     let conn = zbus::blocking::Connection::session().context("session bus")?;
-    let manager = zbus::blocking::Proxy::new(
-        &conn,
-        "org.freedesktop.systemd1",
-        "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager",
-    )
-    .context("systemd user manager")?;
+    let manager = user_manager(&conn)?;
     manager
         .call_method("UnsetAndSetEnvironment", &(unset, set))
         .context("UnsetAndSetEnvironment")?;
@@ -280,7 +338,7 @@ mod tests {
     fn turning_a_feature_off_takes_it_out_of_the_session() {
         let mut env = HashMap::new();
         env.insert("ENABLE_VKBASALT".to_owned(), "1".to_owned());
-        let (unset, set) = session_change(&env);
+        let (unset, set) = session_change(&env, true);
         // Wine FSR off: its switch is set to 0, which overrides a value the
         // login put there; its mode and vkBasalt's file are just unset.
         assert_eq!(set, ["ENABLE_VKBASALT=1", "WINE_FULLSCREEN_FSR=0"]);
@@ -288,9 +346,59 @@ mod tests {
         assert!(unset.contains(&"VKBASALT_CONFIG_FILE".to_owned()));
         assert!(!unset.contains(&"ENABLE_VKBASALT".to_owned()));
         // Everything off: both switches at 0, the other keys removed.
-        let (unset, set) = session_change(&HashMap::new());
+        let (unset, set) = session_change(&HashMap::new(), true);
         assert_eq!(set, ["ENABLE_VKBASALT=0", "WINE_FULLSCREEN_FSR=0"]);
         assert_eq!(unset.len(), SESSION_KEYS.len() - SWITCHES.len());
+    }
+
+    #[test]
+    fn without_a_preset_the_users_own_preset_keys_are_left_alone() {
+        // A Tuning save with no preset in force: a DXVK_CONFIG the user set
+        // is theirs, and unsetting it failed the read-back when it came from
+        // their environment.d.
+        let (unset, set) = session_change(&HashMap::new(), false);
+        for key in crate::turbo_preset::PRESET_KEYS {
+            assert!(!unset.iter().any(|k| k == key), "{key} unset");
+            assert!(
+                !set.iter().any(|a| a.starts_with(&format!("{key}="))),
+                "{key} set"
+            );
+        }
+        // Tuning's own keys are still managed.
+        assert!(unset.contains(&"VKBASALT_CONFIG_FILE".to_owned()));
+        // Every preset key is one of the session's, so a preset can be
+        // taken away again.
+        for key in crate::turbo_preset::PRESET_KEYS {
+            assert!(SESSION_KEYS.contains(key), "{key}");
+        }
+        // While a preset's record is there, its keys are BiGame-mode's.
+        let (unset, _) = session_change(&HashMap::new(), true);
+        assert!(unset.contains(&"DXVK_CONFIG".to_owned()));
+    }
+
+    #[test]
+    fn taking_a_preset_away_puts_the_users_values_back() {
+        use crate::turbo_preset::{Layer, Levers};
+        let before = BTreeMap::from([
+            (
+                "DXVK_CONFIG".to_owned(),
+                "dxgi.customVendorId = 10de".to_owned(),
+            ),
+            ("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned()),
+        ]);
+        let layer = Layer {
+            levers: Levers::default(),
+            before,
+            owns_preset_keys: true,
+        };
+        let env = session_env_with(&VideoConfig::default(), &layer);
+        let (unset, set) = session_change(&env, layer.owns_preset_keys);
+        assert!(set.contains(&"DXVK_CONFIG=dxgi.customVendorId = 10de".to_owned()));
+        assert!(set.contains(&"PROTON_FSR4_UPGRADE=1".to_owned()));
+        // What the preset alone set goes.
+        assert!(unset.contains(&"VKD3D_FRAME_RATE".to_owned()));
+        assert!(unset.contains(&"FSR4_UPGRADE".to_owned()));
+        assert!(!unset.contains(&"DXVK_CONFIG".to_owned()));
     }
 
     #[test]

@@ -128,7 +128,7 @@ impl BiGameDaemon {
     ) -> Result<(), zbus::fdo::Error> {
         self.authorize(&hdr, actions::WRITE_CONFIG).await?;
         let _write = self.writes.lock().await;
-        validate::payload(config_payload).map_err(invalid)?;
+        validate::config_payload(config_payload).map_err(invalid)?;
 
         let path = Path::new(FALCOND_CONFIG);
         if let Some(parent) = path.parent() {
@@ -457,12 +457,11 @@ fn startup_settings(text: &str) -> Vec<(String, String)> {
         "scx_sched_props",
         "vcache_mode",
     ];
-    let mut found: Vec<(String, String)> = text
-        .lines()
-        .filter_map(|l| l.split_once('='))
-        .map(|(k, v)| (k.trim(), v.trim().trim_matches('"')))
-        .filter(|(k, _)| KEYS.contains(k))
-        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+    // Read the strict way the payload was validated, so a setting cannot sit
+    // where this reader misses it and falcond does not.
+    let mut found: Vec<(String, String)> = validate::config_settings(text)
+        .into_iter()
+        .filter(|(k, _)| KEYS.contains(&k.as_str()))
         .collect();
     found.sort();
     found

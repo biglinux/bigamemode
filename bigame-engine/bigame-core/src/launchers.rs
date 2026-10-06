@@ -488,7 +488,14 @@ fn find_open(procs: &[Proc]) -> Vec<Open> {
     for p in procs {
         let flatpak = flatpak_of(&p.cgroup);
         let (launcher, main) = match p.comm.as_str() {
-            "steam" if flatpak.is_none() && !parent_is(p, "steam") => (Launcher::Steam, p.pid),
+            // The native client, or the Flatpak's: either runs the games
+            // that `steam -shutdown` would close.
+            "steam"
+                if (flatpak.is_none() || flatpak == Some(crate::steam::FLATPAK))
+                    && !parent_is(p, "steam") =>
+            {
+                (Launcher::Steam, p.pid)
+            }
             "heroic-run" if flatpak == Some(HEROIC_FLATPAK) => {
                 let main = procs
                     .iter()
@@ -919,6 +926,41 @@ mod tests {
             ),
         ]);
         procs
+    }
+
+    #[test]
+    fn steams_flatpak_is_open_and_busy_while_its_game_runs() {
+        // The Flatpak client: its processes in its scope, the game under
+        // its reaper.
+        let scope = format!("{APPS}/app-flatpak-com.valvesoftware.Steam-4242.scope");
+        let mut procs = vec![
+            proc(10, 1, "steam", "/app/bin/steam", &scope),
+            proc(11, 10, "steam", "steam -srt-logger-opened", &scope),
+            proc(
+                12,
+                11,
+                "steamwebhelper",
+                "steamwebhelper --type=renderer",
+                &scope,
+            ),
+        ];
+        let open = find_open(&procs);
+        assert_eq!(open.len(), 1, "{open:?}");
+        assert_eq!(open[0].launcher, Launcher::Steam);
+        assert_eq!(open[0].main, 10);
+        assert!(!busy(&open[0], &procs));
+        procs.push(proc(
+            13,
+            11,
+            "reaper",
+            "reaper SteamLaunch AppId=570 -- x",
+            &scope,
+        ));
+        assert!(busy(&find_open(&procs)[0], &procs));
+        // Another application's Flatpak with a process called steam is not
+        // Steam.
+        let other = format!("{APPS}/app-flatpak-org.example.Other-1.scope");
+        assert!(find_open(&[proc(20, 1, "steam", "steam", &other)]).is_empty());
     }
 
     #[test]

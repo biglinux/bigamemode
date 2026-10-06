@@ -249,7 +249,7 @@ impl Manifest {
             serde_json::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
         if m.schema > SCHEMA {
             bail!(UserError::with(
-                N_("%s was written by a newer BiGame-mode (format %s)"),
+                N_("%s was written by a newer Big Game Mode (format %s)"),
                 [path.display().to_string(), m.schema.to_string()]
             ));
         }
@@ -301,11 +301,58 @@ impl Manifest {
     /// Returns an error if it exists and cannot be removed.
     pub fn delete(state_dir: &Path, game_key: &str) -> Result<()> {
         match std::fs::remove_file(Self::path(state_dir, game_key)) {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                // The deletion is what tells a later start that nothing is
+                // installed: on disk before the backups it frees go.
+                std::fs::File::open(state_dir.join(game_key))?.sync_all()?;
+                Ok(())
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(e.into()),
         }
     }
+
+    /// Whether the manifest is for the game in `root`: its install folder is
+    /// that folder, compared after resolving links (a library reached
+    /// through `~/.steam/steam` is the same folder). The manifest is found
+    /// by its key, which a game keeps when Steam moves it to another
+    /// library, and a manifest is only a file in the user's state: the
+    /// game's folder as its launcher records it is the one that counts.
+    #[must_use]
+    pub fn is_for(&self, root: &Path) -> bool {
+        same_folder(&self.install_root, root)
+    }
+
+    /// Only files of the game's own settings are left: the files were put
+    /// back, and a setting of the game's could not be yet
+    /// ([`super::ingame::restore`]).
+    #[must_use]
+    pub fn settings_only(&self) -> bool {
+        self.entries.is_empty() && !self.settings.is_empty()
+    }
+
+    /// The process name and install folder of a manifest that does not load
+    /// (a newer format, a damaged file), when its text still says them —
+    /// enough to keep a launch's protections and to list the game.
+    #[must_use]
+    pub fn peek(state_dir: &Path, game_key: &str) -> Option<(Option<String>, PathBuf)> {
+        let text = std::fs::read_to_string(Self::path(state_dir, game_key)).ok()?;
+        let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+        let root = PathBuf::from(v.get("install_root")?.as_str()?);
+        let process = v
+            .get("process")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned);
+        Some((process, root))
+    }
+}
+
+/// Whether `a` and `b` name the same folder, links resolved. A folder that
+/// is not there is compared as written.
+#[must_use]
+pub fn same_folder(a: &Path, b: &Path) -> bool {
+    let real = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.components().collect());
+    real(a) == real(b)
 }
 
 /// A stable, filesystem-safe key for a game: `steam-<appid>` when it has one,

@@ -33,6 +33,27 @@ fn safe_name(name: &str) -> String {
         .join("-")
 }
 
+/// A plain file's text, never through a link: a link planted in a game's
+/// folder must not pull another of the user's files into a report they
+/// share.
+fn read_plain(path: &Path) -> std::io::Result<String> {
+    use std::io::Read as _;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut f = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    if !f.metadata()?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("{} is not a plain file", path.display()),
+        ));
+    }
+    let mut text = String::new();
+    f.read_to_string(&mut text)?;
+    Ok(text)
+}
+
 /// The identifiers masked in every file.
 struct Masks {
     home: String,
@@ -64,9 +85,9 @@ impl Masks {
 fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String, String)>> {
     let mut files = Vec::new();
     let mut readme = String::new();
-    let _ = writeln!(readme, "BiGame-mode AI Graphics report");
+    let _ = writeln!(readme, "Big Game Mode AI Graphics report");
     let _ = writeln!(readme, "Game: {} ({})", target.name, target.process);
-    let _ = writeln!(readme, "BiGame-mode: {}", env!("CARGO_PKG_VERSION"));
+    let _ = writeln!(readme, "Big Game Mode: {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(readme, "Plan: {} [{:?}]", a.plan.summary, a.plan.standing);
     let _ = writeln!(readme, "Status: {:?}", a.status);
     let _ = writeln!(
@@ -166,8 +187,15 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
     ));
     let state = state_dir();
     let key = target.key();
-    if let Some(m) = Manifest::load(&state, &key)? {
-        files.push(("manifest.json".into(), serde_json::to_string_pretty(&m)?));
+    match Manifest::load(&state, &key) {
+        Ok(Some(m)) => files.push(("manifest.json".into(), serde_json::to_string_pretty(&m)?)),
+        Ok(None) => {}
+        // A record that does not load is what the report is for: as it is.
+        Err(e) => {
+            let raw = read_plain(&Manifest::path(&state, &key)).unwrap_or_default();
+            files.push(("manifest.json".into(), raw));
+            files.push(("manifest-error.txt".into(), format!("{e:#}\n")));
+        }
     }
     let exe_dir = a
         .report
@@ -178,16 +206,28 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
             || target.install_root.clone(),
             |d| target.install_root.join(d),
         );
-    if let Ok(ini) = std::fs::read_to_string(exe_dir.join("OptiScaler.ini")) {
+    if let Ok(ini) = read_plain(&exe_dir.join("OptiScaler.ini")) {
         files.push(("OptiScaler.ini".into(), ini));
     }
-    let log = std::fs::read_to_string(exe_dir.join("OptiScaler.log"))
-        .or_else(|_| std::fs::read_to_string(state.join(&key).join("last-run/OptiScaler.log")));
+    let log = read_plain(&exe_dir.join("OptiScaler.log"))
+        .or_else(|_| read_plain(&state.join(&key).join("last-run/OptiScaler.log")));
     if let Ok(log) = log {
         files.push(("OptiScaler.log".into(), tail(&log, LOG_TAIL)));
     }
-    if let Ok(log) = std::fs::read_to_string(exe_dir.join(super::external::LOG)) {
+    if let Ok(log) = read_plain(&exe_dir.join(super::external::LOG)) {
         files.push((super::external::LOG.into(), tail(&log, LOG_TAIL)));
+    }
+    // Copies kept after a removal: originals of files another program
+    // changed since, and configurations with the user's edits.
+    let mut kept = String::new();
+    for k in super::transaction::kept(&state)
+        .into_iter()
+        .filter(|k| k.game_key == key)
+    {
+        let _ = writeln!(kept, "{} → {}", k.file.display(), k.copy.display());
+    }
+    if !kept.is_empty() {
+        files.push(("kept-copies.txt".into(), kept));
     }
     if let Ok((entries, _)) = crate::logs::read(600, None) {
         let mut journal = String::new();
@@ -259,6 +299,24 @@ mod tests {
         assert_eq!(
             safe_name("Shadow of the Tomb Raider!"),
             "Shadow-of-the-Tomb-Raider"
+        );
+    }
+
+    #[test]
+    fn a_link_in_the_game_folder_is_not_read_into_the_report() {
+        let dir = tempfile::tempdir().unwrap();
+        let secret = dir.path().join("secret.txt");
+        std::fs::write(&secret, "private").unwrap();
+        let game = dir.path().join("game");
+        std::fs::create_dir(&game).unwrap();
+        std::os::unix::fs::symlink(&secret, game.join("OptiScaler.log")).unwrap();
+        assert!(read_plain(&game.join("OptiScaler.log")).is_err());
+        std::fs::create_dir(game.join("OptiScaler.ini")).unwrap();
+        assert!(read_plain(&game.join("OptiScaler.ini")).is_err());
+        std::fs::write(game.join("dlssnr_on_amd.log"), "a log").unwrap();
+        assert_eq!(
+            read_plain(&game.join("dlssnr_on_amd.log")).unwrap(),
+            "a log"
         );
     }
 }

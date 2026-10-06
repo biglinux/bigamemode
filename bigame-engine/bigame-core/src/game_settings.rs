@@ -50,6 +50,13 @@ pub struct GameSettings {
     /// options.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub heroic_fsr4_upgrade: bool,
+    /// The Steam accounts whose launch options for this game BiGame-mode
+    /// put `FSR4_UPGRADE=1` (and, where there was none, `%command%`) into,
+    /// from AI Graphics: only that is taken out again, and a variable the
+    /// user wrote stays. Unset for a game set up before this was recorded,
+    /// whose variable is taken out wherever it is, as it was then.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub steam_fsr4_upgrade: Option<Vec<crate::graphics::fsr4_upgrade::Added>>,
     /// What BiGame-mode wrote into the game's settings in Heroic, one entry
     /// per settings file, so it can replace or remove exactly that
     /// (`crate::heroic_launch`).
@@ -197,5 +204,30 @@ mod tests {
         save_to(d, "plain", &GameSettings::default()).unwrap();
         let text = std::fs::read_to_string(d.join("plain.toml")).unwrap();
         assert!(!text.contains("launch"), "{text}");
+    }
+
+    #[test]
+    fn the_accounts_given_the_fsr4_upgrade_are_kept_and_unset_reads_as_before() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path();
+        // A file from before: nothing recorded, not even an empty list.
+        std::fs::write(d.join("Game.exe.toml"), "heroic_fsr4_upgrade = false\n").unwrap();
+        assert_eq!(load_from(d, "Game.exe").unwrap().steam_fsr4_upgrade, None);
+        let mut s = GameSettings {
+            steam_fsr4_upgrade: Some(vec![crate::graphics::fsr4_upgrade::Added {
+                account: "1234".into(),
+                command: true,
+            }]),
+            ..GameSettings::default()
+        };
+        save_to(d, "Game.exe", &s).unwrap();
+        assert_eq!(load_from(d, "Game.exe").unwrap(), s);
+        s.steam_fsr4_upgrade = Some(Vec::new());
+        save_to(d, "Game.exe", &s).unwrap();
+        assert_eq!(
+            load_from(d, "Game.exe").unwrap().steam_fsr4_upgrade,
+            Some(Vec::new()),
+            "an empty list is not the unset of an older file"
+        );
     }
 }

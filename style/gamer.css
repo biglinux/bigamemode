@@ -1,4 +1,4 @@
-/* BiGame-mode — Gamer design
+/* Big Game Mode — Gamer design
  *
  * Loaded on top of libadwaita and style.css only while the Gamer design is
  * chosen (bigame-ui/src/theme.rs); unloading it gives back the Default
@@ -553,6 +553,15 @@ toast {
 
 .notice-info {
     background-color: var(--gm-surface-secondary);
+}
+
+.notice.top-notice {
+    background-color: var(--gm-surface-primary);
+    box-shadow: 0 0 0 1px var(--gm-border-subtle), var(--gm-shadow-sm);
+}
+
+button.wizard-button {
+    border-radius: var(--gm-radius-md);
 }
 
 /* ── Welcome screen and page help ──────────────────────────────────── */

@@ -12,6 +12,7 @@
 //! What the machine cannot do is a *missing* or *not supported* row with the
 //! reason, never a control that would do nothing.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -318,7 +319,8 @@ pub fn vcache_unsupported_row() -> adw::ActionRow {
 pub struct Picker {
     /// The row.
     pub row: adw::ComboRow,
-    ids: Rc<Vec<String>>,
+    model: gtk4::StringList,
+    ids: Rc<RefCell<Vec<String>>>,
 }
 
 impl Picker {
@@ -344,7 +346,8 @@ impl Picker {
         let ids: Vec<String> = items.iter().map(|(id, _)| id.clone()).collect();
         let me = Self {
             row,
-            ids: Rc::new(ids),
+            model,
+            ids: Rc::new(RefCell::new(ids)),
         };
         me.set(selected);
         me
@@ -354,28 +357,39 @@ impl Picker {
     #[must_use]
     pub fn value(&self) -> String {
         self.ids
+            .borrow()
             .get(self.row.selected() as usize)
             .cloned()
             .unwrap_or_default()
     }
 
-    /// Select `value` (the first item when it is not there).
+    /// Select `value`. A saved value the list does not offer (a scheduler
+    /// since uninstalled) is shown as it is, marked, rather than as the
+    /// first item while the configuration still holds it; an empty one
+    /// selects the first item.
     pub fn set(&self, value: &str) {
-        let i = self
-            .ids
-            .iter()
-            .position(|id| id == value)
-            .and_then(|i| u32::try_from(i).ok())
-            .unwrap_or(0);
-        self.row.set_selected(i);
+        let found = self.ids.borrow().iter().position(|id| id == value);
+        let i = match found {
+            Some(i) => i,
+            None if value.is_empty() => 0,
+            None => {
+                self.model
+                    .append(&i18n("%s (not available)").replace("%s", value));
+                let mut ids = self.ids.borrow_mut();
+                ids.push(value.to_owned());
+                ids.len() - 1
+            }
+        };
+        self.row.set_selected(u32::try_from(i).unwrap_or(0));
     }
 
     /// Call `f` with the new value whenever the selection changes.
     pub fn connect_changed(&self, f: impl Fn(&str) + 'static) {
         let ids = Rc::clone(&self.ids);
         self.row.connect_selected_notify(move |r| {
-            if let Some(id) = ids.get(r.selected() as usize) {
-                f(id);
+            let id = ids.borrow().get(r.selected() as usize).cloned();
+            if let Some(id) = id {
+                f(&id);
             }
         });
     }
@@ -648,6 +662,13 @@ pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
             )),
             Ok(G::Written(opts)) if !opts.is_empty() => {
                 note = Some(i18n("Steam launch options: %s").replace("%s", opts));
+            }
+            // Never one Gamescope inside another.
+            Ok(G::TheirGamescope(opts)) => {
+                note = Some(
+                    i18n("Steam launch options: %s. They already run a Gamescope of your own, so Big Game Mode's was not added.")
+                        .replace("%s", opts),
+                );
             }
             Ok(_) => {}
             Err(e) => problems.push(format!(

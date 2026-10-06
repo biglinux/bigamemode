@@ -438,9 +438,9 @@ fn library_key(game: &GameIdentity) -> Option<String> {
             return key.clone();
         }
     }
-    let key =
-        crate::games::installed_game_for_process(&game.process_name, game.install_path.as_deref())
-            .map(|g| g.profile_key().to_owned());
+    // The running game's own file, through its Wine prefix, before its name:
+    // two library games can share a name such as `Game.exe`.
+    let key = crate::games::installed_game_for_running(game).map(|g| g.profile_key().to_owned());
     *cache = Some((game.pid, key.clone()));
     key
 }
@@ -477,7 +477,9 @@ impl Snapshot {
     #[must_use]
     pub fn collect(game: Option<GameIdentity>) -> Self {
         let (turbo_on, unit_failed, turbo_unreadable) = read_turbo();
-        let falcond = crate::status::read();
+        // A status file a stopped (or killed) falcond left behind still names
+        // the profile it had active: believed only while falcond runs.
+        let falcond = crate::status::live(crate::status::read(), turbo_on);
         // No `Capabilities::detect` here: it runs `gamescope --help` and
         // `systemctl`, too much for a reading taken every few seconds.
         let sched_caps = SchedExtCaps::detect();

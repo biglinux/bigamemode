@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
         &process,
         bigame_core::steam_gamescope::Wanted {
             gamescope: segment,
-            env: None,
+            ..Default::default()
         },
     )?;
     println!("{applied:?}");

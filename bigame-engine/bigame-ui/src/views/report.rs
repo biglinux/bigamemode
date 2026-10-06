@@ -98,7 +98,7 @@ fn kind_explanation(kind: &Kind) -> String {
             "sched-ext lets a scheduler loaded at runtime replace the kernel's CPU scheduler. falcond switches it per game when a profile asks for one, which needs the scx_loader service.",
         ),
         Kind::Knob(_) => i18n(
-            "A system-wide setting BiGame-mode's own planner considers. It is applied only if nothing else owns it and it is known to help.",
+            "A system-wide setting Big Game Mode's own planner considers. It is applied only if nothing else owns it and it is known to help.",
         ),
     }
 }
@@ -154,6 +154,9 @@ fn item_row(item: &Item) -> adw::ActionRow {
     row
 }
 
+/// Where the power profile is among [`live_group`]'s rows.
+const POWER_ROW: usize = 3;
+
 /// What is in force right now, read live — not recalled from the report.
 fn live_group() -> Option<adw::PreferencesGroup> {
     let game = crate::game_watch::current()?;
@@ -174,12 +177,11 @@ fn live_group() -> Option<adw::PreferencesGroup> {
                 }
             },
         );
-    let power = bigame_core::dbus::power_profile_get().unwrap_or_else(|| i18n("unknown"));
     let rows = [
         (i18n("Profile"), profile),
         (i18n("Process"), game.process_name.clone()),
         (i18n("Graphics"), game.graphics.label().to_owned()),
-        (i18n("Power profile"), power),
+        (i18n("Power profile"), i18n("Reading…")),
         (
             i18n("Screen blanking"),
             if status.as_ref().is_some_and(|s| s.screensaver_inhibited) {
@@ -197,14 +199,28 @@ fn live_group() -> Option<adw::PreferencesGroup> {
                 .unwrap_or_else(|| i18n("kernel default")),
         ),
     ];
-    for (title, value) in rows {
+    let mut power = None;
+    for (i, (title, value)) in rows.into_iter().enumerate() {
         let row = adw::ActionRow::builder()
             .title(title)
             .subtitle(value)
             .use_markup(false)
             .build();
         group.add(&row);
+        if i == POWER_ROW {
+            power = Some(row);
+        }
     }
+    // power-profiles-daemon is asked over the system bus: off the main
+    // thread, filled in when it answers.
+    let power = power?;
+    gtk4::glib::spawn_future_local(async move {
+        let read = gtk4::gio::spawn_blocking(bigame_core::dbus::power_profile_get)
+            .await
+            .ok()
+            .flatten();
+        power.set_subtitle(&read.unwrap_or_else(|| i18n("unknown")));
+    });
     Some(group)
 }
 

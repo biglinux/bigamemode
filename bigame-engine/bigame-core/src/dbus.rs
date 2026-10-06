@@ -191,12 +191,9 @@ pub mod service {
         /// Return current falcond status (raw key-value text).
         #[allow(clippy::unused_self)] // zbus interface methods require &self
         fn get_status(&self) -> String {
-            let path = crate::status::status_path();
-            if crate::status::is_trustworthy(path) {
-                std::fs::read_to_string(path).unwrap_or_default()
-            } else {
-                String::new()
-            }
+            // Opened once, without following a link or blocking on a FIFO,
+            // checked on the open file and capped: never a check-then-open.
+            crate::status::read_trusted(crate::status::status_path()).unwrap_or_default()
         }
 
         /// Emitted whenever `/tmp/falcond_status` changes.
@@ -264,7 +261,12 @@ pub mod service {
         std::thread::Builder::new()
             .name("bigame-dbus-service".into())
             .spawn(|| {
-                let rt = match tokio::runtime::Runtime::new() {
+                // One status-file rebroadcast needs no worker pool: a
+                // multi-thread runtime would start one worker per CPU.
+                let rt = match tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
                     Ok(r) => r,
                     Err(e) => {
                         tracing::error!("D-Bus service: failed to create tokio runtime: {e}");

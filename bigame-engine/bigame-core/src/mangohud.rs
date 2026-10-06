@@ -15,13 +15,16 @@
 //!
 //! * **Steam** — the game's launch options, edited with Steam closed, backed
 //!   up and read back (`steam::set_launch_options`). Options the user wrote
-//!   stay; only what this module adds is ever removed.
-//! * **Heroic** — the game's `GamesConfig/<app>.json`: Forced is Heroic's own
+//!   stay; only the word this module added (recorded in BiGame-mode's state
+//!   directory) is ever removed.
+//! * **Heroic** — the game's `GamesConfig/<app>.json`, with the rest of the
+//!   game's launch settings (`crate::heroic_launch`): Forced is Heroic's own
 //!   `MangoHud` switch (`showMangohud`, its `mangohud --dlsym` wrapper), On
-//!   is `MANGOHUD=1` in the game's environment variables. Heroic merges a
-//!   game's file over its defaults, so only these two keys are written. It
-//!   keeps a game's settings in memory and writes them back when one
-//!   changes, so the file is written with Heroic closed.
+//!   is `MANGOHUD=1` in the game's environment variables, seeded from
+//!   Heroic's defaults so the game keeps the others. What was written is
+//!   recorded, and Off takes out exactly that. Heroic keeps a game's
+//!   settings in memory and writes them back when one changes, so the file
+//!   is written with Heroic closed.
 //! * **Lutris** — the game's YAML: Lutris's own *FPS counter (`MangoHud`)*
 //!   option, `system: mangohud: true`, for On and Forced alike.
 //!
@@ -29,7 +32,8 @@
 //! needs Flathub's `org.freedesktop.Platform.VulkanLayer.MangoHud` for its
 //! runtime's branch, and Heroic refuses to start a game with its switch on
 //! and no `mangohud` on its PATH. That is detected and said, with the
-//! command.
+//! command; for the Flatpak Steam, where `mangohud %command%` would not
+//! start the game, nothing is written until it is installed.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -50,47 +54,112 @@ pub enum Mode {
     Forced,
 }
 
-/// The word Steam replaces with the game's command.
-const COMMAND: &str = "%command%";
 /// What [`Mode::On`] adds in front of Steam's launch options.
 const LAYER: &str = "MANGOHUD=1";
 /// What [`Mode::Forced`] puts in front of `%command%`.
 const WRAPPER: &str = "mangohud";
 
-/// Steam launch options with `mode` applied to `current`.
+/// Steam launch options with `mode` applied to `current`, and the word added
+/// for it, to record.
 ///
-/// Removes what an earlier call added (a leading `MANGOHUD=1`, a `mangohud`
-/// right before `%command%`), then adds what `mode` needs. Everything else —
-/// other variables, other wrappers, the game's own arguments — is kept in
-/// place. Launch options without `%command%` are the game's arguments, and
-/// Steam appends them to the command; they are kept after it.
+/// `added` is the word an earlier call added (`MANGOHUD=1`, or `mangohud`
+/// right before `%command%`): it is taken out, and nothing else. A word the
+/// user typed themselves is never removed, nor added a second time.
+/// Everything else — other variables, other wrappers, the game's own
+/// arguments — is kept in place. Launch options without `%command%` are the
+/// game's arguments, and Steam appends them to the command; they are kept
+/// after it.
 #[must_use]
-pub fn launch_options(current: &str, mode: Mode) -> String {
-    let mut words: Vec<&str> = current.split_whitespace().collect();
-    words.retain(|w| *w != LAYER);
-    if let Some(i) = words.iter().position(|w| *w == COMMAND) {
-        if i > 0 && words[i - 1] == WRAPPER {
-            words.remove(i - 1);
+pub fn launch_options(
+    current: &str,
+    added: Option<&str>,
+    mode: Mode,
+) -> (String, Option<&'static str>) {
+    use crate::steam::{COMMAND, is_command};
+    let mut words = crate::steam::option_words(current);
+    let command = |w: &[&str]| w.iter().position(|w| is_command(w));
+    match added {
+        Some(LAYER) => {
+            if let Some(i) = words.iter().position(|w| *w == LAYER) {
+                words.remove(i);
+            }
         }
+        Some(WRAPPER) => {
+            if let Some(i) = command(&words).filter(|i| *i > 0 && words[i - 1] == WRAPPER) {
+                words.remove(i - 1);
+            }
+        }
+        _ => {}
     }
-    let has_command = words.contains(&COMMAND);
-    if mode == Mode::Off {
-        let rest = words.join(" ");
-        return if rest == COMMAND { String::new() } else { rest };
+    let add = match mode {
+        Mode::On if !words.contains(&LAYER) => Some(LAYER),
+        Mode::Forced if !command(&words).is_some_and(|i| i > 0 && words[i - 1] == WRAPPER) => {
+            Some(WRAPPER)
+        }
+        _ => None,
+    };
+    if let Some(word) = add {
+        if command(&words).is_none() {
+            // Plain arguments: they follow the command.
+            words.insert(0, COMMAND);
+        }
+        let at = if word == LAYER {
+            0
+        } else {
+            command(&words).unwrap_or(0)
+        };
+        words.insert(at, word);
     }
-    if !has_command {
-        // Plain arguments: they follow the command.
-        words.insert(0, COMMAND);
+    let rest = words.join(" ");
+    (if rest == COMMAND { String::new() } else { rest }, add)
+}
+
+/// Where the words added to Steam's launch options are recorded.
+fn added_path() -> std::path::PathBuf {
+    crate::paths::state_home().join("bigame-mode/mangohud/steam-added.toml")
+}
+
+/// The word recorded in `path` as added for `process`. With no record (an
+/// older version wrote the options), the word for the mode it saved
+/// (`saved`): it added that word whether or not the user had typed it.
+fn read_added(path: &std::path::Path, process: &str, saved: Mode) -> Result<Option<String>> {
+    let records = read_records(path)?;
+    Ok(match records.get(process) {
+        Some(word) => Some(word.clone()).filter(|w| !w.is_empty()),
+        None => legacy_added(saved),
+    })
+}
+
+fn read_records(path: &std::path::Path) -> Result<std::collections::BTreeMap<String, String>> {
+    use anyhow::Context;
+    match std::fs::read_to_string(path) {
+        Ok(text) => toml::from_str(&text).with_context(|| format!("parse {}", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(std::collections::BTreeMap::new()),
+        Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
     }
+}
+
+/// Record `word` as added for `process` in `path`.
+fn write_added(path: &std::path::Path, process: &str, word: Option<&str>) -> Result<()> {
+    use anyhow::Context;
+    let mut records = read_records(path)?;
+    records.insert(process.to_owned(), word.unwrap_or_default().to_owned());
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    }
+    let tmp = path.with_extension("toml.new");
+    std::fs::write(&tmp, toml::to_string(&records)?)
+        .with_context(|| format!("write {}", tmp.display()))?;
+    std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))
+}
+
+/// The word an older version added for a game saved at `mode`.
+fn legacy_added(mode: Mode) -> Option<String> {
     match mode {
-        Mode::On => words.insert(0, LAYER),
-        Mode::Forced => {
-            let i = words.iter().position(|w| *w == COMMAND).unwrap_or(0);
-            words.insert(i, WRAPPER);
-        }
-        Mode::Off => {}
+        Mode::Off => None,
+        Mode::On => Some(LAYER.to_owned()),
+        Mode::Forced => Some(WRAPPER.to_owned()),
     }
-    words.join(" ")
 }
 
 /// Where a `MangoHud` setting took effect.
@@ -123,8 +192,8 @@ pub enum Applied {
 /// the game will see it.
 ///
 /// # Errors
-/// Returns an error if the setting cannot be saved or Steam's configuration
-/// cannot be written or verified.
+/// Returns an error if the setting cannot be saved, Steam's configuration
+/// cannot be written or verified, or the Flatpak Steam has no `MangoHud`.
 pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
     let games: Vec<crate::games::DetectedGame> = crate::games::detect_all()
         .into_iter()
@@ -143,21 +212,39 @@ pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
     if !apps.is_empty() && crate::steam::is_running() {
         return Ok(Applied::SteamRunning);
     }
+    let users = crate::steam::users(&crate::paths::home_dir());
+    if !apps.is_empty() && mode != Mode::Off && crate::steam::any_flatpak(&users) {
+        if let Some(command) = crate::steam::flatpak_mangohud_missing() {
+            anyhow::bail!(UserError::with(
+                N_(
+                    "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
+                ),
+                [command]
+            ));
+        }
+    }
+    let mut settings = crate::game_settings::load(process)?;
+    let record = added_path();
+    let added = read_added(&record, process, settings.mangohud)?;
     // The launch options first, the saved choice after: if Steam's file cannot
     // be written, the choice stays as it was instead of claiming a mode the
     // game will not get.
     let mut last = String::new();
-    for user in crate::steam::users(&crate::paths::home_dir()) {
+    let mut now_added = None;
+    for user in &users {
         for app in &apps {
             let current = crate::steam::launch_options(&user.config, app).unwrap_or_default();
-            let wanted = launch_options(&current, mode);
+            let (wanted, add) = launch_options(&current, added.as_deref(), mode);
             if wanted != current {
                 crate::steam::set_launch_options(&user.config, app, &wanted)?;
             }
+            now_added = now_added.or(add);
             last = wanted;
         }
     }
-    let mut settings = crate::game_settings::load(process).unwrap_or_default();
+    if !apps.is_empty() {
+        write_added(&record, process, now_added)?;
+    }
     settings.mangohud = mode;
     crate::game_settings::save(process, &settings)?;
     if apps.is_empty() {
@@ -174,21 +261,26 @@ fn apply_to_launcher(
 ) -> Result<Applied> {
     use crate::games::LauncherRef;
     match launcher {
-        LauncherRef::Heroic {
-            app_name,
-            config_dir,
-            ..
-        } => {
-            if launcher_running("heroic") {
-                return Ok(Applied::LauncherRunning("Heroic"));
+        LauncherRef::Heroic { .. } => {
+            // Written with the game's other launch settings in Heroic, from
+            // the saved choice; the choice goes back if it is not written.
+            let mut settings = crate::game_settings::load(process)?;
+            let before = settings.mangohud;
+            settings.mangohud = mode;
+            crate::game_settings::save(process, &settings)?;
+            let applied = crate::optimization::apply_heroic(process);
+            if !matches!(
+                applied,
+                Ok(crate::heroic_launch::Applied::Written
+                    | crate::heroic_launch::Applied::Unchanged
+                    | crate::heroic_launch::Applied::NotHeroic)
+            ) {
+                let mut settings = crate::game_settings::load(process)?;
+                settings.mangohud = before;
+                crate::game_settings::save(process, &settings)?;
             }
-            let file = config_dir
-                .join("GamesConfig")
-                .join(format!("{app_name}.json"));
-            let current = std::fs::read_to_string(&file).unwrap_or_default();
-            let wanted = heroic_config(&current, app_name, mode)?;
-            if wanted != current {
-                write_keeping_backup(&file, &wanted)?;
+            if let crate::heroic_launch::Applied::HeroicRunning { .. } = applied? {
+                return Ok(Applied::LauncherRunning("Heroic"));
             }
         }
         LauncherRef::Lutris { config_file } => {
@@ -197,24 +289,16 @@ fn apply_to_launcher(
             if wanted != current {
                 write_keeping_backup(config_file, &wanted)?;
             }
+            let mut settings = crate::game_settings::load(process)?;
+            settings.mangohud = mode;
+            crate::game_settings::save(process, &settings)?;
         }
     }
-    let mut settings = crate::game_settings::load(process).unwrap_or_default();
-    settings.mangohud = mode;
-    crate::game_settings::save(process, &settings)?;
     Ok(Applied::Launcher {
         name: launcher.launcher_name(),
         missing_extension: (mode != Mode::Off)
             .then(|| launcher.flatpak_id().and_then(missing_flatpak_extension))
             .flatten(),
-    })
-}
-
-/// Whether a process named `name` runs (`/proc/<pid>/comm`).
-fn launcher_running(name: &str) -> bool {
-    std::fs::read_dir("/proc").is_ok_and(|d| {
-        d.flatten()
-            .any(|p| std::fs::read_to_string(p.path().join("comm")).is_ok_and(|c| c.trim() == name))
     })
 }
 
@@ -253,49 +337,6 @@ pub(crate) fn write_keeping_backup_in(
     let tmp = file.with_extension("bigame-new");
     std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
     std::fs::rename(&tmp, file).with_context(|| format!("replace {}", file.display()))
-}
-
-/// Heroic's per-game settings with `mode` applied: `showMangohud` for
-/// Forced, a `MANGOHUD=1` environment variable for On, neither for Off.
-/// Everything else in the file — the game's other settings, other games,
-/// Heroic's `version` and `explicit` — is kept.
-///
-/// # Errors
-/// Returns an error if the file is not a JSON object.
-pub fn heroic_config(current: &str, app_name: &str, mode: Mode) -> Result<String> {
-    use serde_json::{Map, Value, json};
-    let mut root: Value = if current.trim().is_empty() {
-        Value::Object(Map::new())
-    } else {
-        serde_json::from_str(current)?
-    };
-    let obj = root
-        .as_object_mut()
-        .ok_or_else(|| UserError::plain(N_("Heroic's game settings are not a JSON object")))?;
-    obj.entry("version").or_insert_with(|| json!("v0"));
-    obj.entry("explicit").or_insert_with(|| json!(true));
-    let game = obj
-        .entry(app_name)
-        .or_insert_with(|| Value::Object(Map::new()))
-        .as_object_mut()
-        .ok_or_else(|| {
-            UserError::with(N_("Heroic's settings for %s are not an object"), [app_name])
-        })?;
-    game.insert("showMangohud".into(), json!(mode == Mode::Forced));
-    let mut env: Vec<Value> = game
-        .get("enviromentOptions")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    env.retain(|e| e.get("key").and_then(Value::as_str) != Some("MANGOHUD"));
-    if mode == Mode::On {
-        env.push(json!({"key": "MANGOHUD", "value": "1"}));
-    }
-    // Heroic's own spelling.
-    game.insert("enviromentOptions".into(), Value::Array(env));
-    let mut text = serde_json::to_string_pretty(&root)?;
-    text.push('\n');
-    Ok(text)
 }
 
 /// A Lutris game YAML with `mode` applied to its `system:` section's
@@ -735,93 +776,170 @@ mod tests {
         assert!(!path.exists());
     }
 
+    /// `launch_options` as a chain of saves: what it added is what the next
+    /// call takes out.
+    fn steam(current: &str, added: Option<&str>, mode: Mode) -> (String, Option<String>) {
+        let (out, add) = launch_options(current, added, mode);
+        (out, add.map(str::to_owned))
+    }
+
     #[test]
     fn empty_launch_options_get_the_layer_or_the_wrapper() {
-        assert_eq!(launch_options("", Mode::On), "MANGOHUD=1 %command%");
-        assert_eq!(launch_options("", Mode::Forced), "mangohud %command%");
-        assert_eq!(launch_options("", Mode::Off), "");
+        assert_eq!(
+            steam("", None, Mode::On),
+            ("MANGOHUD=1 %command%".into(), Some(LAYER.into()))
+        );
+        assert_eq!(
+            steam("", None, Mode::Forced),
+            ("mangohud %command%".into(), Some(WRAPPER.into()))
+        );
+        assert_eq!(steam("", None, Mode::Off), (String::new(), None));
     }
 
     #[test]
     fn the_users_own_options_are_kept_in_place() {
         let mine = "PROTON_LOG=1 gamemoderun %command% -dx12";
         assert_eq!(
-            launch_options(mine, Mode::On),
+            steam(mine, None, Mode::On).0,
             "MANGOHUD=1 PROTON_LOG=1 gamemoderun %command% -dx12"
         );
         assert_eq!(
-            launch_options(mine, Mode::Forced),
+            steam(mine, None, Mode::Forced).0,
             "PROTON_LOG=1 gamemoderun mangohud %command% -dx12"
         );
         // Plain arguments follow the command.
         assert_eq!(
-            launch_options("-novid", Mode::On),
+            steam("-novid", None, Mode::On).0,
             "MANGOHUD=1 %command% -novid"
+        );
+        // A quoted command is the command.
+        assert_eq!(
+            steam("\"%command%\" -name 'A  B'", None, Mode::Forced).0,
+            "mangohud \"%command%\" -name 'A  B'"
         );
     }
 
     #[test]
     fn switching_mode_replaces_what_this_module_added_and_off_removes_it() {
-        let on = launch_options("gamemoderun %command%", Mode::On);
-        let forced = launch_options(&on, Mode::Forced);
+        let (on, added) = steam("gamemoderun %command%", None, Mode::On);
+        let (forced, added) = steam(&on, added.as_deref(), Mode::Forced);
         assert_eq!(forced, "gamemoderun mangohud %command%");
-        assert_eq!(launch_options(&forced, Mode::Off), "gamemoderun %command%");
-        assert_eq!(launch_options(&launch_options("", Mode::On), Mode::Off), "");
+        let (off, added) = steam(&forced, added.as_deref(), Mode::Off);
+        assert_eq!((off.as_str(), added), ("gamemoderun %command%", None));
         // Applying twice changes nothing.
-        assert_eq!(launch_options(&on, Mode::On), on);
+        let (again, _) = steam(&on, Some(LAYER), Mode::On);
+        assert_eq!(again, on);
     }
 
     #[test]
-    fn heroic_gets_its_own_switch_or_the_variable_and_keeps_everything_else() {
-        // What Heroic writes after a setting was changed on the game's page.
+    fn what_the_user_typed_is_never_taken_out() {
+        // Their own MANGOHUD=1: On adds nothing, so Off removes nothing.
+        let mine = "MANGOHUD=1 %command%";
+        let (on, added) = steam(mine, None, Mode::On);
+        assert_eq!((on.as_str(), added.as_deref()), (mine, None));
+        assert_eq!(steam(&on, added.as_deref(), Mode::Off).0, mine);
+        // Their own wrapper, likewise.
+        let mine = "mangohud %command%";
+        let (forced, added) = steam(mine, None, Mode::Forced);
+        assert_eq!(added, None);
+        assert_eq!(steam(&forced, added.as_deref(), Mode::Off).0, mine);
+        // An older version recorded nothing: the word for the saved mode was
+        // its own.
+        assert_eq!(legacy_added(Mode::On).as_deref(), Some(LAYER));
+        assert_eq!(
+            steam(mine, legacy_added(Mode::Forced).as_deref(), Mode::Off).0,
+            ""
+        );
+    }
+
+    #[test]
+    fn the_record_of_added_words_reads_back() {
+        let dir = crate::tests::tempdir("mangohud_added");
+        let path = dir.join("state/steam-added.toml");
+        // Nothing recorded: what an older version added for the saved mode.
+        assert_eq!(
+            read_added(&path, "Game.exe", Mode::Forced)
+                .unwrap()
+                .as_deref(),
+            Some(WRAPPER)
+        );
+        write_added(&path, "Game.exe", Some(LAYER)).unwrap();
+        write_added(&path, "Other.exe", None).unwrap();
+        assert_eq!(
+            read_added(&path, "Game.exe", Mode::Forced)
+                .unwrap()
+                .as_deref(),
+            Some(LAYER)
+        );
+        assert_eq!(read_added(&path, "Other.exe", Mode::On).unwrap(), None);
+        std::fs::write(&path, "not = [toml").unwrap();
+        assert!(
+            read_added(&path, "Game.exe", Mode::Off).is_err(),
+            "a broken record is said"
+        );
+    }
+
+    #[test]
+    fn heroic_gets_its_own_switch_or_the_variable_and_off_takes_out_only_that() {
+        use crate::heroic_launch::{Defaults, Wanted, Written, transform};
+        let value = |t: &str| serde_json::from_str::<serde_json::Value>(t).unwrap();
+        // A game with no variables of its own, and Heroic's defaults with
+        // some: the game's list starts from them, so it keeps them.
         let file = r#"{
   "cb3bf": {
-    "wineVersion": {"name": "Proton - GE-Proton-latest", "type": "proton"},
-    "enviromentOptions": [{"key": "DXVK_HUD", "value": "fps"}],
-    "showMangohud": false
+    "wineVersion": {"name": "Proton - GE-Proton-latest", "type": "proton"}
   },
   "version": "v0",
   "explicit": true
 }"#;
-        let forced: serde_json::Value =
-            serde_json::from_str(&heroic_config(file, "cb3bf", Mode::Forced).unwrap()).unwrap();
-        assert_eq!(forced["cb3bf"]["showMangohud"], true);
-        assert_eq!(forced["cb3bf"]["wineVersion"]["type"], "proton", "kept");
-        assert_eq!(forced["cb3bf"]["enviromentOptions"][0]["key"], "DXVK_HUD");
-
-        let on_text = heroic_config(file, "cb3bf", Mode::On).unwrap();
-        let on: serde_json::Value = serde_json::from_str(&on_text).unwrap();
-        assert_eq!(on["cb3bf"]["showMangohud"], false);
-        let env = on["cb3bf"]["enviromentOptions"].as_array().unwrap();
+        let defaults = Defaults {
+            env: vec![serde_json::json!({"key": "DXVK_ASYNC", "value": "1"})],
+            ..Defaults::default()
+        };
+        let on = Wanted {
+            env: vec![("MANGOHUD".into(), "1".into())],
+            ..Wanted::default()
+        };
+        let (text, written) =
+            transform(file, "cb3bf", &Written::default(), &on, &defaults).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let env = v["cb3bf"]["enviromentOptions"].as_array().unwrap();
+        assert!(env.iter().any(|e| e["key"] == "DXVK_ASYNC"), "{v}");
         assert!(
             env.iter()
                 .any(|e| e["key"] == "MANGOHUD" && e["value"] == "1")
         );
-        assert!(env.iter().any(|e| e["key"] == "DXVK_HUD"));
+        assert!(
+            v["cb3bf"].get("showMangohud").is_none(),
+            "Heroic's default stays"
+        );
+        // Off: back to the file as it was.
+        let (off, _) = transform(&text, "cb3bf", &written, &Wanted::default(), &defaults).unwrap();
+        assert_eq!(value(&off), value(file));
 
-        // Off takes back only what was added; twice is once.
-        let off: serde_json::Value =
-            serde_json::from_str(&heroic_config(&on_text, "cb3bf", Mode::Off).unwrap()).unwrap();
-        let env = off["cb3bf"]["enviromentOptions"].as_array().unwrap();
-        assert_eq!(env.len(), 1);
-        assert_eq!(heroic_config(&on_text, "cb3bf", Mode::On).unwrap(), on_text);
-    }
+        let forced = Wanted {
+            show_mangohud: true,
+            ..Wanted::default()
+        };
+        let (text, written) =
+            transform(file, "cb3bf", &Written::default(), &forced, &defaults).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["cb3bf"]["showMangohud"], true);
+        assert!(v["cb3bf"].get("enviromentOptions").is_none());
+        let (off, _) = transform(&text, "cb3bf", &written, &Wanted::default(), &defaults).unwrap();
+        assert_eq!(value(&off), value(file));
 
-    #[test]
-    fn a_heroic_game_without_a_settings_file_gets_only_the_two_keys() {
-        // Heroic merges the game's keys over its defaults, so nothing else
-        // (its Proton, its prefix) is frozen into the file.
-        for current in ["", "{}"] {
-            let v: serde_json::Value =
-                serde_json::from_str(&heroic_config(current, "app", Mode::Forced).unwrap())
-                    .unwrap();
-            assert_eq!(v["app"].as_object().unwrap().len(), 2, "{v}");
-            assert_eq!(
-                (v["version"].as_str(), v["explicit"].as_bool()),
-                (Some("v0"), Some(true))
-            );
-        }
-        assert!(heroic_config("[1]", "app", Mode::On).is_err());
+        // The user's own MANGOHUD in the game's list is theirs: On writes
+        // nothing over it, and Off leaves it.
+        let mine = file.replace(
+            "\"wineVersion\"",
+            "\"enviromentOptions\": [{\"key\": \"MANGOHUD\", \"value\": \"1\"}],\n    \"wineVersion\"",
+        );
+        let (same, written) =
+            transform(&mine, "cb3bf", &Written::default(), &on, &defaults).unwrap();
+        assert!(written.is_empty());
+        let (off, _) = transform(&same, "cb3bf", &written, &Wanted::default(), &defaults).unwrap();
+        assert_eq!(value(&off), value(&mine));
     }
 
     #[test]

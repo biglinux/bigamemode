@@ -200,7 +200,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
                     Arg::from(&p.slot),
                     Arg::Text(Text::plain(p.owner.label())),
                     if ours {
-                        Arg::Text(Text::plain(N_(" (placed by BiGame-mode)")))
+                        Arg::Text(Text::plain(N_(" (placed by Big Game Mode)")))
                     } else {
                         Arg::from("")
                     },
@@ -208,7 +208,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             ),
             match (&p.owner, ours, p.slot.as_str()) {
                 (ProxyOwner::OptiScaler, false, _) => Some(Text::plain(N_(
-                    "an OptiScaler BiGame-mode did not place: restore the game's files with the tool that put it there, or let BiGame-mode manage it after removing it",
+                    "an OptiScaler Big Game Mode did not place: restore the game's files with the tool that put it there, or let Big Game Mode manage it after removing it",
                 ))),
                 (ProxyOwner::Microsoft | ProxyOwner::DlssNrOnAmd, _, _) => None,
                 (_, false, "dxgi.dll") => Some(Text::plain(N_(
@@ -309,6 +309,38 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
                 "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair",
             ))),
         )),
+        Status::SettingsLeft => out.push(f(
+            Level::Warning,
+            N_("OptiScaler"),
+            Text::plain(N_(
+                "its files were put back; a setting of the game's own that Apply changed is still to be put back",
+            )),
+            Some(Text::plain(N_(
+                "close the game completely, then press Restore Game Graphics again",
+            ))),
+        )),
+        Status::Moved { installed_in } => out.push(f(
+            Level::Problem,
+            N_("OptiScaler"),
+            Text::with(
+                N_("installed into %s, which is not this game's folder now"),
+                [installed_in.display().to_string()],
+            ),
+            Some(Text::plain(N_(
+                "while that folder is there, Big Game Mode changes nothing in either: move the game back, or remove the old copy",
+            ))),
+        )),
+        Status::Unreadable { error } => out.push(f(
+            Level::Problem,
+            N_("OptiScaler"),
+            Text::with(
+                N_("the record of what was installed cannot be read: %s"),
+                [Arg::Text(error.clone())],
+            ),
+            Some(Text::plain(N_(
+                "Apply is refused, so the files in the game are not taken for its originals; the support report holds the record",
+            ))),
+        )),
     }
 
     // ── Conflicts the plan found ───────────────────────────────────────────
@@ -340,15 +372,25 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
     // ── Native FSR 4 ───────────────────────────────────────────────────────
     if a.plan.backend == Backend::Native && r.native_fsr4_path() {
         let env = a.native.fsr4_upgrade_env;
+        // Both halves of the evidence: the variable in the game's
+        // environment and the provider mapped. Which model the provider runs
+        // only the game shows.
         let (level, found, action) = match (a.native.fsr4_provider_loaded, env) {
-            (Some(true), _) => (
+            (Some(true), Some(true)) => (
                 Level::Ok,
                 Text::plain(N_(
-                    "the running game loaded Proton's FSR 4 provider: the game's FSR path runs FSR 4",
+                    "the running game has FSR4_UPGRADE=1 and loaded Proton's FSR 4 provider: the provider is active; the game's menu or overlay shows which FSR runs",
                 )),
                 None,
             ),
-            (Some(false), Some(false)) => (
+            (Some(true), None) => (
+                Level::Info,
+                Text::plain(N_(
+                    "the running game loaded Proton's FSR 4 provider; its environment could not be read to confirm FSR4_UPGRADE=1",
+                )),
+                None,
+            ),
+            (Some(_), Some(false)) => (
                 Level::Warning,
                 Text::plain(N_(
                     "the game is running without FSR4_UPGRADE=1 in its environment, so Proton did not hand its FSR to the FSR 4 provider",
@@ -430,7 +472,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
             N_("Neural rendering"),
             Text::with(N_("DLSS-NR-on-AMD failed: %s"), [errors.join(" · ")]),
             Some(Text::plain(N_(
-                "its log names what is missing; BiGame-mode does not change its files",
+                "its log names what is missing; Big Game Mode does not change its files",
             ))),
         )),
         external::Status::Blocked { anti_cheat } => out.push(f(

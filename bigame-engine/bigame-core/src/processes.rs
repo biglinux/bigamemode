@@ -91,10 +91,10 @@ impl Kind {
             Self::Media => N_("Encoding or transcoding media."),
             Self::Gaming => N_("Another game or a game launcher."),
             Self::Desktop => {
-                N_("Part of your desktop session. BiGame-mode will not close or pause it.")
+                N_("Part of your desktop session. Big Game Mode will not close or pause it.")
             }
             Self::ThisApp => N_(
-                "BiGame-mode itself. Details reads the system every second while it is on screen; minimised, it costs almost nothing.",
+                "Big Game Mode itself. Details reads the system every second while it is on screen; minimised, it costs almost nothing.",
             ),
             Self::Other => N_("Unrecognised."),
         }
@@ -943,7 +943,7 @@ fn allowed(target: &Target, facts: &Facts, guard: &Guard) -> Result<()> {
 fn refused(target: &Target) -> UserError {
     UserError::with(
         N_(
-            "%s is part of the system, the desktop, the game or BiGame-mode; BiGame-mode will not close or pause it.",
+            "%s is part of the system, the desktop, the game or Big Game Mode; Big Game Mode will not close or pause it.",
         ),
         [target.name.as_str()],
     )
@@ -1002,7 +1002,7 @@ fn signal(target: &Target, sig: i32, check: impl Fn(&Facts) -> Result<()>) -> Re
         return match e.raw_os_error() {
             Some(libc::ESRCH) => Err(gone(target).into()),
             Some(libc::EPERM) => Err(UserError::with(
-                N_("The system did not let BiGame-mode signal %s."),
+                N_("The system did not let Big Game Mode signal %s."),
                 [target.name.as_str()],
             )
             .caused_by(e)

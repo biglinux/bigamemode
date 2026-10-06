@@ -26,7 +26,7 @@ use super::pe::Machine;
 use super::report::{Confidence, Report};
 use super::rules::{self, Tech};
 use super::scan::ProxyOwner;
-use super::text::{N_, Text};
+use super::text::{Arg, N_, Text};
 use crate::hardware::GpuVendor;
 
 /// How good a plan is (no false precision — five levels).
@@ -203,6 +203,12 @@ fn outside_the_game() -> Vec<Step> {
     ]
 }
 
+/// Why a game whose folder the scan could not read whole gets nothing
+/// injected.
+pub const TOO_LARGE_TO_CHECK: &str = N_(
+    "the game's folder has too many files to check them all for anti-cheat, so nothing is injected into it",
+);
+
 /// Build the plan for a game.
 #[must_use]
 pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
@@ -275,6 +281,23 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             ),
         };
         p.frame_generation = fg;
+        // What else runs with the game's own upscaler is checked as it is
+        // with OptiScaler's: a second upscaler or frame generator in series.
+        let mut active: Vec<Tech> = native.map(|(_, t)| t).into_iter().collect();
+        if r.native.frame_gen() {
+            active.push(Tech::NativeFrameGen);
+        }
+        for (on, t) in [
+            (ctx.lsfg, Tech::LsfgVk),
+            (ctx.gamescope_upscaling, Tech::GamescopeUpscaling),
+            (ctx.wine_fsr, Tech::WineFsr),
+            (ctx.mangohud, Tech::MangoHud),
+        ] {
+            if on {
+                active.push(t);
+            }
+        }
+        p.problems = rules::problems(&active);
         p
     };
 
@@ -313,6 +336,15 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         }
         return p;
     }
+    // A folder too large to read whole may hold anti-cheat the scan never
+    // reached: nothing is injected into it.
+    if r.scan_truncated {
+        let mut p = keep_native(Text::plain(TOO_LARGE_TO_CHECK));
+        if native.is_none() {
+            p.standing = Standing::Blocked;
+        }
+        return p;
+    }
     let prefer = r.listed.as_ref().and_then(|e| e.prefer);
     if cfg.mode == Mode::Recommended && prefer == Some(Prefer::Nothing) {
         return nothing(
@@ -345,6 +377,13 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "OptiScaler exists only for 64-bit games and this one is 32-bit",
         )));
     }
+    // A Vulkan game draws without DXGI and need not load dxgi.dll at all,
+    // the one slot OptiScaler goes in as; no Vulkan game has been tested.
+    if r.api.api == Some(Api::Vulkan) {
+        return keep_native(Text::plain(N_(
+            "OptiScaler goes in as dxgi.dll, which a Vulkan game need not load: Big Game Mode does not install it in Vulkan games yet",
+        )));
+    }
     if cfg.mode == Mode::Advanced
         && matches!(cfg.upscaler, Upscaler::NativeDlss | Upscaler::Dlaa)
         && !dlss_runs
@@ -367,11 +406,25 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
 
     // Where OptiScaler would take over, and what it would run.
     let n = &r.native;
+    // OptiScaler's DLSS output runs the game's own DLSS runtime, and Big
+    // Game Mode never places one: without it there is nothing to run.
+    if cfg.mode == Mode::Advanced
+        && matches!(cfg.upscaler, Upscaler::NativeDlss | Upscaler::Dlaa)
+        && n.dlss.is_none()
+    {
+        return nothing(
+            Standing::NotRecommended,
+            Text::plain(N_("the game ships no DLSS")),
+            vec![Step::Note(Text::plain(N_(
+                "OptiScaler runs DLSS with the game's own DLSS runtime (nvngx_dlss.dll), which this game does not ship and Big Game Mode never places. Choose FSR or XeSS instead",
+            )))],
+        );
+    }
     let want_output = match (cfg.mode, cfg.upscaler) {
         (Mode::Advanced, Upscaler::Xess) => Output::Xess,
         (Mode::Advanced, Upscaler::NativeDlss | Upscaler::Dlaa) => Output::Dlss,
         _ => match vendor {
-            GpuVendor::Nvidia if dlss_runs => Output::Dlss,
+            GpuVendor::Nvidia if dlss_runs && n.dlss.is_some() => Output::Dlss,
             GpuVendor::Intel => Output::Xess,
             _ => Output::Fsr,
         },
@@ -485,7 +538,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             "FSR",
             Standing::Compatible,
             N_(
-                "OptiScaler takes over the game's FSR — documented upstream, not yet verified by BiGame-mode",
+                "OptiScaler takes over the game's FSR — documented upstream, not yet verified by Big Game Mode",
             ),
         )
     } else if let Some(b) = n.built_in_fsr().filter(|_| built_in_fsr_crashes(r)) {
@@ -557,33 +610,113 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             steps,
         );
     };
+    // XeSS in place of the game's own XeSS runs what the game already runs.
+    let output_chosen = cfg.mode == Mode::Advanced && cfg.upscaler != Upscaler::Auto;
+    if input == Input::Xess && want_output == Output::Xess && !output_chosen {
+        return keep_native(Text::plain(N_(
+            "the game's own XeSS is what OptiScaler would run in its place: nothing to gain",
+        )));
+    }
+    // Verified: OptiScaler's FSR from the game's XeSS. Any other output
+    // from it is documented upstream, not verified here.
+    let standing = if input == Input::Xess && want_output != Output::Fsr {
+        standing.max(Standing::Compatible)
+    } else {
+        standing
+    };
     let api = r.api.api.unwrap_or(Api::Dx12);
     // OptiScaler goes in as `dxgi.dll`: the slot upstream recommends, and one
     // Proton already loads natively from the game folder (it sets dxgi to
     // native for DXVK), so no override is needed. When another tool has it,
     // that is reported, not overwritten: which of two DXGI hooks wins is the
-    // user's decision, and chaining them is OptiScaler's own setting.
-    if let Some(p) = r
-        .proxies
-        .iter()
-        .find(|p| p.slot == "dxgi.dll" && p.owner != ProxyOwner::OptiScaler)
-    {
+    // user's decision, and chaining them is OptiScaler's own setting. Every
+    // other slot is read too: a second OptiScaler, or the external neural
+    // proxy, must not load with it.
+    let ours = |p: &super::scan::Proxy| {
+        r.installed
+            .as_ref()
+            .is_some_and(|m| m.entries.iter().any(|e| e.path == p.path))
+    };
+    let mut alongside = Vec::new();
+    for p in &r.proxies {
+        let why = match &p.owner {
+            ProxyOwner::OptiScaler if ours(p) => continue,
+            ProxyOwner::OptiScaler => Text::plain(N_(
+                "a second OptiScaler would load with the one Big Game Mode installs; remove it with the tool that put it there first",
+            )),
+            ProxyOwner::DlssNrOnAmd => {
+                Text::plain(rules::check(Tech::AmdNeuralExternal, Tech::OptiScalerUpscaler).why)
+            }
+            owner if p.slot == "dxgi.dll" => {
+                return nothing(
+                    Standing::NotRecommended,
+                    Text::plain(N_("the DLL slot OptiScaler needs is taken")),
+                    vec![Step::Note(Text::with(
+                        N_(
+                            "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler",
+                        ),
+                        [Arg::Text(Text::plain(owner.label()))],
+                    ))],
+                );
+            }
+            ProxyOwner::ReShade => {
+                alongside.push(Tech::ReShade);
+                continue;
+            }
+            ProxyOwner::SpecialK => {
+                alongside.push(Tech::SpecialK);
+                continue;
+            }
+            ProxyOwner::AsiLoader => {
+                alongside.push(Tech::AsiLoader);
+                continue;
+            }
+            _ => continue,
+        };
         return nothing(
             Standing::NotRecommended,
-            Text::plain(N_("the DLL slot OptiScaler needs is taken")),
+            Text::plain(N_("another tool already hooks the game")),
             vec![Step::Note(Text::with(
-                N_(
-                    "dxgi.dll beside the game belongs to %s; it is not overwritten. Remove it, or load it through OptiScaler, before AI Graphics can install OptiScaler",
-                ),
-                [format!("{:?}", p.owner)],
+                N_("%s beside the game is %s: %s"),
+                [
+                    Arg::from(&p.slot),
+                    Arg::Text(Text::plain(p.owner.label())),
+                    Arg::Text(why),
+                ],
             ))],
         );
     }
-    let frame_gen = if cfg.optiscaler_frame_generation() {
+    // The game list can name another slot for a game; it takes a Wine DLL
+    // override at every launch, which is not written.
+    if let Some(slot) = r
+        .listed
+        .as_ref()
+        .and_then(|e| e.proxy.as_deref())
+        .filter(|s| !s.eq_ignore_ascii_case("dxgi.dll"))
+    {
+        return keep_native(Text::with(
+            N_(
+                "the game list says OptiScaler needs %s in this game, which takes a Wine DLL override Big Game Mode does not write; it is not installed",
+            ),
+            [slot],
+        ));
+    }
+    // OptiFG is a DirectX 12 frame generator.
+    let frame_gen = if cfg.optiscaler_frame_generation() && api == Api::Dx12 {
         FrameGen::OptiFgFsr
     } else {
         FrameGen::Off
     };
+    let exe_dir = r
+        .executable
+        .as_ref()
+        .and_then(|e| e.parent())
+        .map(PathBuf::from)
+        .unwrap_or_default();
+    let game_xess = r.components.iter().any(|c| {
+        c.kind == super::scan::ComponentKind::Xess
+            && c.path.parent().unwrap_or_else(|| std::path::Path::new("")) == exe_dir
+    });
     let o = optiscaler::Options {
         proxy: "dxgi.dll".to_owned(),
         api,
@@ -593,6 +726,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         nvidia: vendor == GpuVendor::Nvidia,
         dlss: dlss_runs,
         watermark: false,
+        game_xess,
     };
     let output_name = match want_output {
         Output::Fsr if fsr4 => "FSR 4",
@@ -600,12 +734,6 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
         Output::Xess => "XeSS",
         Output::Dlss => "DLSS",
     };
-    let exe_dir = r
-        .executable
-        .as_ref()
-        .and_then(|e| e.parent())
-        .map(PathBuf::from)
-        .unwrap_or_default();
     let mut files = vec![exe_dir.join(&o.proxy), exe_dir.join("OptiScaler.ini")];
     files.extend(
         optiscaler::release_files(&o)
@@ -671,6 +799,25 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             [v],
         )));
     }
+    let version = ctx
+        .optiscaler_version
+        .clone()
+        .unwrap_or_else(|| optiscaler::Release::recommended().version);
+    let bad = r
+        .listed
+        .as_ref()
+        .is_some_and(|e| e.bad_optiscaler.contains(&version));
+    if bad {
+        steps.push(Step::Note(Text::with(
+            N_("the game list records OptiScaler %s as broken for this game: choose another version"),
+            [version],
+        )));
+    }
+    if cfg.optiscaler_frame_generation() && frame_gen == FrameGen::Off {
+        steps.push(Step::Note(Text::plain(N_(
+            "OptiScaler's frame generation is for DirectX 12 games, and this one is not: it is left off",
+        ))));
+    }
     if r.api.confidence >= Confidence::Likely {
         steps.push(Step::Note(Text::plain(N_(
             "the game's graphics API is not certain yet; it is confirmed the first time the game runs",
@@ -714,7 +861,13 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     if ctx.mangohud {
         active.push(Tech::MangoHud);
     }
+    active.extend(alongside);
     let problems = rules::problems(&active);
+    let standing = if bad {
+        standing.max(Standing::NotRecommended)
+    } else {
+        standing
+    };
     let frame_generation = if frame_gen != FrameGen::Off {
         FrameGenPlan::OptiScaler
     } else if ctx.lsfg {
@@ -758,6 +911,7 @@ mod tests {
             card: "card1".into(),
             vendor,
             name: "x".into(),
+            product: None,
             driver: "amdgpu".into(),
             userspace: None,
             vram: None,
@@ -1332,5 +1486,209 @@ mod tests {
             &Context::default(),
         );
         assert!(p.optiscaler.is_none() && p.files.is_empty() && p.steps.is_empty());
+    }
+
+    #[test]
+    fn a_folder_too_large_to_check_for_anti_cheat_gets_nothing_injected() {
+        let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+        r.scan_truncated = true;
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english() == TOO_LARGE_TO_CHECK)
+        );
+        r.native = Native::default();
+        assert_eq!(
+            plan(&r, &recommended(), &Context::default()).standing,
+            Standing::Blocked
+        );
+    }
+
+    #[test]
+    fn xess_from_the_games_own_xess_is_not_installed_and_its_libxess_never_replaced() {
+        // Shadow of the Tomb Raider on an Intel card: the list prefers
+        // OptiScaler, and XeSS through it is what the game already runs.
+        let mut r = report(sottr(), named(GpuVendor::Intel, "DG2 [Arc A770]"));
+        r.listed = listed("[[game]]\nsteam_app_id = \"1\"\nprefer = \"optiscaler\"\n");
+        r.components.push(crate::graphics::scan::Component {
+            kind: crate::graphics::scan::ComponentKind::Xess,
+            path: "libxess.dll".into(),
+            version: None,
+        });
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none(), "{:#?}", p.steps);
+        assert_eq!(p.summary.english(), "the game's own XeSS");
+        // Chosen by hand: installed, with the game's libxess.dll kept, and
+        // not Recommended (only XeSS to FSR was verified).
+        let adv = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            layer: Layer::OptiScaler,
+            upscaler: Upscaler::Xess,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(&r, &adv, &Context::default());
+        assert!(p.optiscaler.as_ref().is_some_and(|o| o.game_xess));
+        assert!(
+            !p.files.iter().any(|f| f.ends_with("libxess.dll")),
+            "{:?}",
+            p.files
+        );
+        assert_eq!(p.standing, Standing::Compatible);
+    }
+
+    #[test]
+    fn dlss_through_optiscaler_needs_the_games_own_dlss_runtime() {
+        let rtx = named(GpuVendor::Nvidia, "AD104 [GeForce RTX 4070 Ti]");
+        let xess_only = Native {
+            xess: Some("1.1.0.21".into()),
+            ..Native::default()
+        };
+        let adv = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            layer: Layer::OptiScaler,
+            upscaler: Upscaler::NativeDlss,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(
+            &report(xess_only.clone(), rtx.clone()),
+            &adv,
+            &Context::default(),
+        );
+        assert!(p.optiscaler.is_none());
+        assert_eq!(p.summary.english(), "the game ships no DLSS");
+        // Recommended on RTX, listed for OptiScaler: an output that runs.
+        let mut r = report(xess_only, rtx);
+        r.listed = listed("[[game]]\nsteam_app_id = \"1\"\nprefer = \"optiscaler\"\n");
+        let o = plan(&r, &recommended(), &Context::default())
+            .optiscaler
+            .unwrap();
+        assert_eq!(o.output, Output::Fsr);
+    }
+
+    #[test]
+    fn vulkan_games_get_no_optiscaler_and_frame_generation_is_for_dx12_only() {
+        let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+        r.api.api = Some(Api::Vulkan);
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        r.api.api = Some(Api::Dx11);
+        let fg = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            layer: Layer::OptiScaler,
+            frame_generation: FrameGeneration::OptiScaler,
+            experimental: true,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(&r, &fg, &Context::default());
+        let o = p.optiscaler.as_ref().unwrap();
+        assert_eq!(o.frame_gen, FrameGen::Off);
+        assert!(
+            !p.files
+                .iter()
+                .any(|f| f.to_string_lossy().contains("framegeneration"))
+        );
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("for DirectX 12 games"))
+        );
+    }
+
+    #[test]
+    fn every_dll_slot_is_read_not_only_dxgi() {
+        let with = |slot: &str, owner: ProxyOwner| {
+            let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+            r.proxies.push(Proxy {
+                slot: slot.into(),
+                path: slot.into(),
+                owner,
+                version: None,
+            });
+            plan(&r, &recommended(), &Context::default())
+        };
+        // A second OptiScaler, or the neural proxy: stopped.
+        for (slot, owner) in [
+            ("winmm.dll", ProxyOwner::OptiScaler),
+            ("version.dll", ProxyOwner::DlssNrOnAmd),
+            ("dxgi.dll", ProxyOwner::OptiScaler),
+        ] {
+            let p = with(slot, owner.clone());
+            assert!(p.optiscaler.is_none(), "{slot} {owner:?}");
+            assert_eq!(p.summary.english(), "another tool already hooks the game");
+        }
+        // ReShade or Special K elsewhere: installed, and said.
+        let p = with("d3d12.dll", ProxyOwner::SpecialK);
+        assert!(p.optiscaler.is_some());
+        assert!(
+            p.problems
+                .iter()
+                .any(|r| r.b == Tech::SpecialK || r.a == Tech::SpecialK)
+        );
+        let p = with("d3d11.dll", ProxyOwner::ReShade);
+        assert!(
+            p.problems
+                .iter()
+                .any(|r| r.b == Tech::ReShade || r.a == Tech::ReShade)
+        );
+    }
+
+    #[test]
+    fn the_game_lists_broken_versions_and_other_slots_are_honoured() {
+        let mut r = report(sottr(), gpu(GpuVendor::Amd, Some(4)));
+        r.listed = listed("[[game]]\nsteam_app_id = \"1\"\nbad_optiscaler = [\"0.9.4\"]\n");
+        let p = plan(&r, &recommended(), &Context::default());
+        assert_eq!(p.standing, Standing::NotRecommended);
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("as broken for this game"))
+        );
+        let other = Context {
+            optiscaler_version: Some("0.9.5".into()),
+            ..Context::default()
+        };
+        assert_eq!(
+            plan(&r, &recommended(), &other).standing,
+            Standing::Recommended
+        );
+        r.listed = listed("[[game]]\nsteam_app_id = \"1\"\nproxy = \"winmm.dll\"\n");
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none());
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("winmm.dll"))
+        );
+    }
+
+    #[test]
+    fn the_games_own_upscaler_with_a_second_one_is_a_problem_too() {
+        // RDNA 3: the game's own XeSS stays; Wine FSR and lsfg-vk are on.
+        let ctx = Context {
+            wine_fsr: true,
+            lsfg: true,
+            ..Context::default()
+        };
+        let n = Native {
+            fsr_fg: true,
+            ..sottr()
+        };
+        let p = plan(
+            &report(n, gpu(GpuVendor::Amd, Some(3))),
+            &recommended(),
+            &ctx,
+        );
+        assert!(p.optiscaler.is_none());
+        let pairs: Vec<(Tech, Tech)> = p.problems.iter().map(|r| (r.a, r.b)).collect();
+        assert!(
+            pairs.contains(&(Tech::NativeXess, Tech::WineFsr)),
+            "{pairs:?}"
+        );
+        assert!(
+            pairs.contains(&(Tech::NativeFrameGen, Tech::LsfgVk)),
+            "{pairs:?}"
+        );
     }
 }

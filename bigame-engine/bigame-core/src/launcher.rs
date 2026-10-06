@@ -8,9 +8,15 @@
 //! Priority, highest first:
 //!
 //! 1. What the game's profile sets itself: its sizes, filter, sharpness,
-//!    Wine FSR and vkBasalt take the place of Tuning's.
+//!    Wine FSR, vkBasalt and frame limit take the place of Tuning's and the
+//!    preset's.
 //! 2. The Turbo preset in force (Wine FSR, vkBasalt, a frame cap).
 //! 3. Tuning's settings, for everything the game leaves to them.
+//!
+//! A frame cap has one limiter per launch ([`Cap`]), and the plan is
+//! authoritative for what it manages: the game inherits BiGame-mode's own
+//! environment, a snapshot of the session from when it started, and what a
+//! preset no longer in force left there is taken out.
 //!
 //! A profile's older `[gamescope]` table stands in for the game's own
 //! Gamescope values when it has none.
@@ -39,6 +45,12 @@ struct Host {
     offload: Option<crate::hardware::Offload>,
     /// The main screen's size, Gamescope's output when nothing sets one.
     screen: Option<(u32, u32)>,
+    /// `MangoHud`'s wrapper is installed, so it can hold a frame cap.
+    mangohud: bool,
+    /// The environment a game started from here inherits: BiGame-mode's
+    /// own, taken from the session when it started, so it can hold what
+    /// Tuning or a Turbo preset set then and no longer sets.
+    env: HashMap<String, String>,
 }
 
 impl Host {
@@ -50,7 +62,17 @@ impl Host {
             offload: render.and_then(|i| crate::hardware::offload_for(&hw.gpus, i)),
             session: hw.session,
             screen: crate::screen::primary_size(),
+            mangohud: crate::capabilities::which("mangohud").is_some(),
+            // `vars` would panic on a variable that is not UTF-8.
+            env: std::env::vars_os()
+                .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
+                .collect(),
         }
+    }
+
+    /// Whether the inherited environment switches `switch` on.
+    fn inherits_on(&self, switch: &str) -> bool {
+        self.env.get(switch).is_some_and(|v| v != "0")
     }
 }
 
@@ -63,11 +85,17 @@ pub struct LaunchPlan {
     pub args: Vec<String>,
     /// Environment variables to inject alongside the parent environment.
     pub env: HashMap<String, String>,
+    /// Variables of the parent environment the game must not inherit: what
+    /// a Turbo preset no longer in force left there.
+    pub unset: Vec<String>,
     /// A frame cap for `MangoHud` to hold in a game that also shows its
     /// overlay: at spawn, a copy of the user's `MangoHud` configuration with
     /// `fps_limit` is written and the game pointed at it
     /// (`MANGOHUD_CONFIG` would replace their configuration, not add to it).
     pub mangohud_fps_limit: Option<u32>,
+    /// The process name the game's profile is keyed on, which names its own
+    /// `MangoHud` file.
+    pub process: String,
 }
 
 impl LaunchPlan {
@@ -191,11 +219,16 @@ impl LaunchPlan {
                 "harmony: Wine FSR off for this launch — Gamescope already upscales"
             );
         }
-        // The session may hold WINE_FULLSCREEN_FSR=1 (environment.d), and the
-        // game inherits it: a Wine FSR switched off for this launch has to be
-        // switched off explicitly.
-        let wine_fsr_suppressed =
-            video.upscaling.wine_fsr_enabled && !effective_video.upscaling.wine_fsr_enabled;
+        // The game inherits BiGame-mode's own environment, which holds what
+        // the session held when BiGame-mode started (environment.d, a Turbo
+        // preset then in force): a Wine FSR or a vkBasalt off for this
+        // launch is switched off explicitly.
+        let wine_fsr_suppressed = (video.upscaling.wine_fsr_enabled
+            || host.inherits_on("WINE_FULLSCREEN_FSR"))
+            && !effective_video.upscaling.wine_fsr_enabled;
+        let vkbasalt_suppressed = (video.upscaling.vkbasalt_enabled
+            || host.inherits_on("ENABLE_VKBASALT"))
+            && !effective_video.upscaling.vkbasalt_enabled;
         let upscaling = &effective_video.upscaling;
 
         // `steam -applaunch` starts the *client*, which then starts the game in
@@ -210,11 +243,16 @@ impl LaunchPlan {
                 "steam client launch: per-game settings belong in Steam's launch \
                  options, not around the client process"
             );
+            let env = HashMap::new();
+            // A client started here would hand a stale preset to every game.
+            let unset = left_by_a_preset(&host.env, &env);
             return Self {
                 program: executable.to_string(),
                 args: executable_args.to_vec(),
-                env: HashMap::new(),
+                env,
+                unset,
                 mangohud_fps_limit: None,
+                process: logical_game.to_owned(),
             };
         }
 
@@ -226,26 +264,27 @@ impl LaunchPlan {
         if wine_fsr_suppressed {
             env.insert("WINE_FULLSCREEN_FSR".into(), "0".into());
         }
-        // vkBasalt switched off by the preset while the session has it on.
-        if video.upscaling.vkbasalt_enabled && !upscaling.vkbasalt_enabled {
+        if vkbasalt_suppressed {
             env.insert("ENABLE_VKBASALT".into(), "0".into());
         }
-        env.extend(crate::turbo_preset::preset_env(preset));
         // On a hybrid laptop a native game renders on the GPU that drives the
         // panel unless it is offloaded: an OpenGL one through libglvnd, a
         // Vulkan one that takes the first device listed (SuperTuxKart did).
         // DXVK and VKD3D-Proton pick the discrete GPU themselves.
         // A value the user already set in their environment wins.
-        if let Some(offload) = &host.offload {
-            for (k, v) in offload.env() {
-                if std::env::var_os(k).is_none() {
-                    env.insert(k.to_owned(), v);
-                }
-            }
-        }
+        let offload: Vec<(String, String)> = host
+            .offload
+            .iter()
+            .flat_map(crate::hardware::Offload::env)
+            .filter(|(k, _)| !host.env.contains_key(*k))
+            .map(|(k, v)| (k.to_owned(), v))
+            .collect();
         if disables.contains(&crate::graphics::rules::Tech::LsfgVk) {
-            // The lsfg-vk layer's own off switch (its `disable_environment`).
-            env.insert("DISABLE_LSFG".to_owned(), "1".to_owned());
+            // The lsfg-vk layer's own off switch (its `disable_environment`),
+            // under 1.x's name and 2.x's.
+            for var in crate::fg::DISABLE_VARIABLES {
+                env.insert(var.to_owned(), "1".to_owned());
+            }
         }
 
         // ── Decide program + args ─────────────────────────────────────────────
@@ -269,58 +308,79 @@ impl LaunchPlan {
             reason = %decision.reason,
             "gamescope decision"
         );
-        // A native game reads no DXVK or VKD3D variable, and Gamescope's
-        // limiters (`-r`, `--framerate-limit`) did not hold SuperTuxKart
-        // with its vsync off (570 FPS presented, MangoHud's log): the cap is
-        // MangoHud's `fps_limit`, which waits inside the game's own swap.
-        let native_cap = preset
-            .frame_cap
-            .filter(|fps| *fps > 0)
-            .filter(|_| is_native(executable, executable_args));
-        if decision.use_gamescope {
+        // One frame limiter per launch: two pacers at one rate beat.
+        let cap = Cap::choose(
+            preset.frame_cap,
+            decision
+                .use_gamescope
+                .then(|| own_frame_limit(gs_override))
+                .flatten(),
+            is_native(executable, executable_args),
+            host.mangohud,
+            decision.use_gamescope,
+        );
+        if cap == Cap::OwnLimit {
+            tracing::info!(
+                game = logical_game,
+                "frame cap: the game's own Gamescope limit, over the Turbo preset's"
+            );
+        }
+        env.extend(crate::turbo_preset::preset_env(
+            crate::turbo_preset::Levers {
+                frame_cap: cap.proton(),
+                ..preset
+            },
+        ));
+        if let Some(fps) = cap.proton() {
+            // DXVK before 2.3 reads only this name.
+            env.insert("DXVK_FRAME_RATE".into(), fps.to_string());
+            // A DXVK configuration of the user's own stays; the cap goes after
+            // it, and DXVK takes the last value.
+            if let (Some(theirs), Some(ours)) =
+                (host.env.get("DXVK_CONFIG"), env.get_mut("DXVK_CONFIG"))
+            {
+                if !is_a_presets(&host.env, "DXVK_CONFIG") && !theirs.trim().is_empty() {
+                    *ours = format!("{}; {ours}", theirs.trim().trim_end_matches(';'));
+                }
+            }
+        }
+
+        let mut plan = if decision.use_gamescope {
             let mut gs = gs_override.cloned().unwrap_or_default();
             // Gamescope's own overlay cannot limit the game; the game's own
             // MangoHud, which draws the same overlay, can.
-            if mangohud != crate::mangohud::Mode::Off && native_cap.is_none() {
+            if mangohud != crate::mangohud::Mode::Off && !matches!(cap, Cap::MangoHud(_)) {
                 gs.mangoapp = true;
             }
-            // The preset's rate for the nested display too.
-            let capped = match preset.frame_cap {
-                Some(0) => {
-                    gs.frame_limit = gamescope::FrameLimit::None;
-                    true
-                }
-                Some(fps) => {
-                    gs.frame_limit = gamescope::FrameLimit::NestedRefresh(fps);
-                    true
-                }
-                None => false,
+            let capped = if let Cap::Gamescope(fps) = cap {
+                gs.frame_limit = gamescope::FrameLimit::NestedRefresh(fps);
+                true
+            } else {
+                false
             };
             let gs_override = (gs_override.is_some() || gs.mangoapp || capped).then_some(&gs);
             let (program, mut args) =
                 build_gamescope_argv(host, executable, executable_args, upscaling, gs_override);
-            if let Some(offload) = &host.offload {
-                keep_offload_in_the_game(&mut args, &mut env, offload);
-            }
-            keep_vkbasalt_in_the_game(&mut args, &mut env);
-            let mut plan = Self {
+            keep_in_the_game(&mut args, &mut env, &offload);
+            Self {
                 program,
                 args,
                 env,
+                unset: Vec::new(),
                 mangohud_fps_limit: None,
-            };
-            if let Some(fps) = native_cap {
-                plan.limit_native(fps, mangohud);
+                process: logical_game.to_owned(),
             }
-            plan
         } else {
+            env.extend(offload);
             // On: MangoHud's Vulkan layer. Forced: its wrapper, which also
             // reaches OpenGL games.
             let mut plan = Self {
                 program: executable.to_string(),
                 args: executable_args.to_vec(),
                 env,
+                unset: Vec::new(),
                 mangohud_fps_limit: None,
+                process: logical_game.to_owned(),
             };
             match mangohud {
                 crate::mangohud::Mode::On => {
@@ -332,17 +392,25 @@ impl LaunchPlan {
                 }
                 crate::mangohud::Mode::Off => {}
             }
-            if let Some(fps) = native_cap {
-                plan.limit_native(fps, mangohud);
-            }
             plan
+        };
+        if let Cap::MangoHud(fps) = cap {
+            plan.limit_native(fps, mangohud, &host.env);
         }
+        plan.unset = left_by_a_preset(&host.env, &plan.env);
+        plan
     }
 
     /// Hold a native game at `fps` with `MangoHud`'s limiter: its wrapper in
     /// front of the game (inside Gamescope when there is one), hidden when
-    /// the game's profile does not show `MangoHud`.
-    fn limit_native(&mut self, fps: u32, mangohud: crate::mangohud::Mode) {
+    /// the game's profile does not show `MangoHud`. A `MANGOHUD_CONFIG` the
+    /// game inherits replaces every `MangoHud` file, so the cap goes into it.
+    fn limit_native(
+        &mut self,
+        fps: u32,
+        mangohud: crate::mangohud::Mode,
+        inherited: &HashMap<String, String>,
+    ) {
         let wrapped = self.program == "mangohud" || self.args.iter().any(|a| a == "mangohud");
         if !wrapped {
             if let Some(sep) = self.args.iter().position(|a| a == "--") {
@@ -357,6 +425,9 @@ impl LaunchPlan {
                 "MANGOHUD_CONFIG".into(),
                 format!("no_display,fps_limit={fps}"),
             );
+        } else if let Some(theirs) = inherited.get("MANGOHUD_CONFIG") {
+            self.env
+                .insert("MANGOHUD_CONFIG".into(), with_fps_limit(theirs, fps));
         } else {
             self.mangohud_fps_limit = Some(fps);
         }
@@ -464,9 +535,12 @@ impl LaunchPlan {
     pub fn spawn(self) -> Result<std::process::Child> {
         let mut cmd = std::process::Command::new(&self.program);
         cmd.args(&self.args);
+        for key in &self.unset {
+            cmd.env_remove(key);
+        }
         cmd.envs(&self.env);
         if let Some(fps) = self.mangohud_fps_limit {
-            match write_capped_mangohud_config(fps) {
+            match write_capped_mangohud_config(fps, &self.process) {
                 Ok(path) => {
                     cmd.env("MANGOHUD_CONFIGFILE", path);
                 }
@@ -479,6 +553,120 @@ impl LaunchPlan {
     }
 }
 
+/// Which limiter holds a launch's frame cap: exactly one, so two pacers at
+/// one rate never beat against each other.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Cap {
+    /// No cap.
+    None,
+    /// The game's own Gamescope limit (`-r`), which a preset does not
+    /// override: the game's profile is the more specific choice.
+    OwnLimit,
+    /// DXVK and VKD3D-Proton, for a Windows game.
+    Proton(u32),
+    /// `MangoHud`'s `fps_limit`, which waits inside a native game's own swap.
+    MangoHud(u32),
+    /// Gamescope's `-r`, for a native game without `MangoHud`.
+    Gamescope(u32),
+}
+
+impl Cap {
+    /// The limiter for a preset's cap `preset` (`Some(0)` is "no cap"), the
+    /// game's own Gamescope limit `own`, on a game that is `native` or not.
+    /// Gamescope's limiters did not hold `SuperTuxKart` with its vsync off
+    /// (570 FPS presented, `MangoHud`'s log), so `-r` is the last resort.
+    fn choose(
+        preset: Option<u32>,
+        own: Option<u32>,
+        native: bool,
+        mangohud: bool,
+        gamescope: bool,
+    ) -> Self {
+        if own.is_some() {
+            return Self::OwnLimit;
+        }
+        match preset.filter(|fps| *fps > 0) {
+            Some(fps) if !native => Self::Proton(fps),
+            Some(fps) if mangohud => Self::MangoHud(fps),
+            Some(fps) if gamescope => Self::Gamescope(fps),
+            _ => Self::None,
+        }
+    }
+
+    fn proton(self) -> Option<u32> {
+        match self {
+            Self::Proton(fps) => Some(fps),
+            _ => None,
+        }
+    }
+}
+
+/// The game's own Gamescope frame limit, when it has one.
+fn own_frame_limit(gs: Option<&gamescope::Config>) -> Option<u32> {
+    match gs?.frame_limit {
+        gamescope::FrameLimit::NestedRefresh(hz) if hz > 0 => Some(hz),
+        gamescope::FrameLimit::NestedRefresh(_) | gamescope::FrameLimit::None => None,
+    }
+}
+
+/// The variables a Turbo preset puts in the session.
+const PRESET_VARIABLES: &[&str] = &[
+    "DXVK_CONFIG",
+    "VKD3D_FRAME_RATE",
+    "DXVK_FRAME_RATE",
+    "FSR4_UPGRADE",
+    "PROTON_FSR4_UPGRADE",
+];
+
+/// Whether `inherited` holds `key` at a value a Turbo preset writes, rather
+/// than one of the user's own.
+fn is_a_presets(inherited: &HashMap<String, String>, key: &str) -> bool {
+    let Some(value) = inherited.get(key) else {
+        return false;
+    };
+    let everything = crate::turbo_preset::Machine {
+        vkbasalt: true,
+        fsr4: true,
+    };
+    crate::turbo_preset::ALL.iter().any(|p| {
+        let env = crate::turbo_preset::preset_env(crate::turbo_preset::levers(*p, everything));
+        // DXVK_FRAME_RATE holds the same number as VKD3D_FRAME_RATE.
+        let wrote = if key == "DXVK_FRAME_RATE" {
+            env.get("VKD3D_FRAME_RATE")
+        } else {
+            env.get(key)
+        };
+        wrote == Some(value)
+    })
+}
+
+/// What of a Turbo preset the game would inherit and the plan does not set:
+/// a preset no longer in force (Turbo off since BiGame-mode started), whose
+/// cap or FSR 4 upgrade would otherwise reach every game started here.
+fn left_by_a_preset(
+    inherited: &HashMap<String, String>,
+    planned: &HashMap<String, String>,
+) -> Vec<String> {
+    PRESET_VARIABLES
+        .iter()
+        .filter(|k| !planned.contains_key(**k) && is_a_presets(inherited, k))
+        .map(|k| (*k).to_owned())
+        .collect()
+}
+
+/// `MangoHud` options `config` (`MANGOHUD_CONFIG`'s comma list) with its own
+/// frame limit replaced by `fps`.
+fn with_fps_limit(config: &str, fps: u32) -> String {
+    config
+        .split(',')
+        .map(str::trim)
+        .filter(|o| !o.is_empty() && o.split('=').next().map(str::trim) != Some("fps_limit"))
+        .map(str::to_owned)
+        .chain(std::iter::once(format!("fps_limit={fps}")))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 /// Whether BiGame-mode starts a native Linux program rather than a Windows
 /// one through Wine or Proton.
 fn is_native(executable: &str, args: &[String]) -> bool {
@@ -486,22 +674,111 @@ fn is_native(executable: &str, args: &[String]) -> bool {
     !exe(executable) && !args.iter().any(|a| exe(a))
 }
 
-/// The user's `MangoHud` configuration with `fps_limit` added, written in the
-/// runtime directory for one launch.
-fn write_capped_mangohud_config(fps: u32) -> Result<std::path::PathBuf> {
-    let theirs = std::fs::read_to_string(crate::mangohud::style_path()).unwrap_or_default();
+/// The `MangoHud` file a game started here reads: the one `MANGOHUD_CONFIGFILE`
+/// names, the game's own (`<process>.conf`, which `MangoHud` reads in place
+/// of the general one), or the general one.
+fn mangohud_base(
+    config_dir: &std::path::Path,
+    named: Option<&std::ffi::OsStr>,
+    process: &str,
+) -> std::path::PathBuf {
+    if let Some(file) = named.filter(|f| !f.is_empty()) {
+        return file.into();
+    }
+    let own = config_dir.join(format!("{process}.conf"));
+    if own.is_file() {
+        return own;
+    }
+    config_dir.join("MangoHud.conf")
+}
+
+/// `MangoHud` configuration `theirs` with its frame limit replaced by `fps`.
+/// Only the `fps_limit` key goes; `fps_limit_method` and the rest stay.
+fn capped_mangohud_text(theirs: &str, fps: u32) -> String {
     let kept: Vec<&str> = theirs
         .lines()
-        .filter(|l| !l.trim_start().starts_with("fps_limit"))
+        .filter(|l| l.split('=').next().map(str::trim) != Some("fps_limit"))
         .collect();
-    let dir = std::env::var_os("XDG_RUNTIME_DIR")
-        .map_or_else(std::env::temp_dir, std::path::PathBuf::from)
-        .join("bigame-mode");
-    std::fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
-    let path = dir.join("mangohud-fps-limit.conf");
-    std::fs::write(&path, format!("{}\nfps_limit={fps}\n", kept.join("\n")))
-        .with_context(|| format!("write {}", path.display()))?;
+    format!("{}\nfps_limit={fps}\n", kept.join("\n"))
+}
+
+/// The user's `MangoHud` configuration for `process` with `fps_limit` added,
+/// written for one launch in a directory only this user can open.
+fn write_capped_mangohud_config(fps: u32, process: &str) -> Result<std::path::PathBuf> {
+    let style = crate::mangohud::style_path();
+    let base = mangohud_base(
+        style.parent().unwrap_or(&style),
+        std::env::var_os("MANGOHUD_CONFIGFILE").as_deref(),
+        process,
+    );
+    let theirs = std::fs::read_to_string(&base).unwrap_or_default();
+    // The runtime directory, or the cache: never a shared one such as /tmp,
+    // where another user could have put a link, or the file itself.
+    let root = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.is_absolute() && p.is_dir())
+        .unwrap_or_else(crate::paths::cache_home);
+    let dir = private_dir(&root.join("bigame-mode"))?;
+    let name: String = process
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || "._-".contains(c) {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let path = dir.join(format!("mangohud-fps-limit-{name}.conf"));
+    write_private(&path, capped_mangohud_text(&theirs, fps).as_bytes())?;
     Ok(path)
+}
+
+/// `dir`, created with mode 0700 when missing, and refused unless it is a
+/// real directory of this user's; one others could open is closed to them.
+fn private_dir(dir: &std::path::Path) -> Result<std::path::PathBuf> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(dir)
+        .with_context(|| format!("create {}", dir.display()))?;
+    let meta = std::fs::symlink_metadata(dir).with_context(|| format!("read {}", dir.display()))?;
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    let me = unsafe { libc::geteuid() };
+    anyhow::ensure!(
+        meta.is_dir() && meta.uid() == me,
+        "{} is not a directory of this user's",
+        dir.display()
+    );
+    if meta.mode() & 0o077 != 0 {
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+            .with_context(|| format!("restrict {}", dir.display()))?;
+    }
+    Ok(dir.to_path_buf())
+}
+
+/// Write `path` through a new file that no link can stand in for, then put
+/// it in place.
+fn write_private(path: &std::path::Path, content: &[u8]) -> Result<()> {
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.subsec_nanos());
+    let tmp = path.with_extension(format!("{}.{nanos}.new", std::process::id()));
+    let written = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&tmp)
+        .and_then(|mut f| f.write_all(content));
+    if let Err(e) = written.and_then(|()| std::fs::rename(&tmp, path)) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e).with_context(|| format!("write {}", path.display()));
+    }
+    Ok(())
 }
 
 /// Start `cmd` as the leader of a new process group, so [`terminate`] can
@@ -611,6 +888,9 @@ impl LaunchPlan {
     }
 }
 
+/// What Gamescope must not get and the game must: put in front of the game,
+/// after Gamescope's `--`, as `env [-u NAME]… [NAME=value]… <game>`.
+///
 /// vkBasalt is a Vulkan layer switched on by the environment, and Gamescope
 /// is a Vulkan program too. Left alone, Gamescope loads vkBasalt and filters
 /// its own composited output ("vkBasalt info: effects = cas" in its log on
@@ -619,56 +899,37 @@ impl LaunchPlan {
 /// never got the filter. Gamescope gets vkBasalt's off switch; the game gets
 /// the switch back on, so the filter runs where it was asked for, in the
 /// game.
-fn keep_vkbasalt_in_the_game(args: &mut Vec<String>, env: &mut HashMap<String, String>) {
-    // The plan's own variable, from the Video settings — the same settings
-    // the session's environment.d file is written from.
-    let wanted = env.get("ENABLE_VKBASALT").is_some_and(|v| v == "1");
-    let Some(sep) = args.iter().position(|a| a == "--") else {
-        return;
-    };
-    if !wanted {
-        return;
-    }
-    env.insert("DISABLE_VKBASALT".into(), "1".into());
-    for (i, a) in ["env", "-u", "DISABLE_VKBASALT", "ENABLE_VKBASALT=1"]
-        .into_iter()
-        .enumerate()
-    {
-        args.insert(sep + 1 + i, a.into());
-    }
-}
-
-/// Give the render-offload variables to the game inside Gamescope, not to
-/// Gamescope.
 ///
-/// Gamescope composites where the display is. Given the offload variables it
-/// picks the discrete GPU for itself: on the GTX 1050 Ti laptop (NVIDIA 580,
-/// the HD 630 driving the panel) it then fails `vkImportSemaphoreFdKHR` and
-/// segfaults within seconds, before the game shows a frame. With them only
-/// on the game, `env K=V … <game>` after `--`, Gamescope composites on the
-/// HD 630 and the game still renders on the GTX. Variables the user set
-/// themselves are not in the plan's environment and are left alone.
-fn keep_offload_in_the_game(
+/// The hybrid laptop's `offload` variables are the game's alone: the NVIDIA
+/// Optimus layer hides the GPU that drives the panel from Gamescope's own
+/// Vulkan, and `DRI_PRIME` reorders its devices, so Gamescope would composite
+/// on a GPU with no output and show no window.
+fn keep_in_the_game(
     args: &mut Vec<String>,
     env: &mut HashMap<String, String>,
-    offload: &crate::hardware::Offload,
+    offload: &[(String, String)],
 ) {
     let Some(sep) = args.iter().position(|a| a == "--") else {
+        // No separator: the variables go to the program, which is the game.
+        env.extend(offload.iter().cloned());
         return;
     };
-    let assignments: Vec<String> = offload
-        .env()
-        .into_iter()
-        .filter_map(|(k, _)| env.remove(k).map(|v| format!("{k}={v}")))
-        .collect();
-    if assignments.is_empty() {
+    // The plan's own variable, from the Video settings — the same settings
+    // the session's environment.d file is written from.
+    let vkbasalt = env.get("ENABLE_VKBASALT").is_some_and(|v| v == "1");
+    let mut words: Vec<String> = Vec::new();
+    if vkbasalt {
+        env.insert("DISABLE_VKBASALT".into(), "1".into());
+        // `env` takes its options before the first assignment.
+        words.extend(["-u", "DISABLE_VKBASALT", "ENABLE_VKBASALT=1"].map(str::to_owned));
+    }
+    words.extend(offload.iter().map(|(k, v)| format!("{k}={v}")));
+    if words.is_empty() {
         return;
     }
-    for (i, a) in std::iter::once("env".to_owned())
-        .chain(assignments)
-        .enumerate()
-    {
-        args.insert(sep + 1 + i, a);
+    words.insert(0, "env".into());
+    for (i, w) in words.into_iter().enumerate() {
+        args.insert(sep + 1 + i, w);
     }
 }
 
@@ -700,7 +961,7 @@ fn build_gamescope_argv(
     // Gamescope never showed a window on the lab laptop (GTX 1050 Ti rendering,
     // Intel HD 630 driving the panel): it could not hand its frames to the
     // compositor. The game inside still renders on the discrete GPU, through
-    // the offload variables it inherits.
+    // the offload variables put in front of it after `--`.
     let (argv, unsupported) = cfg.build_argv(&caps, executable, executable_args);
     for u in &unsupported {
         tracing::warn!(
@@ -760,6 +1021,8 @@ mod tests {
             session: crate::hardware::Session::Wayland,
             offload: None,
             screen: None,
+            mangohud: true,
+            env: HashMap::new(),
         }
     }
 
@@ -779,6 +1042,8 @@ mod tests {
             session: crate::hardware::Session::Wayland,
             offload: Some(crate::hardware::Offload::Nvidia),
             screen: None,
+            mangohud: true,
+            env: HashMap::new(),
         }
     }
 
@@ -793,21 +1058,26 @@ mod tests {
             &video,
             None,
         );
-        if std::env::var_os("__NV_PRIME_RENDER_OFFLOAD").is_none() {
-            assert_eq!(
-                plan.env
-                    .get("__NV_PRIME_RENDER_OFFLOAD")
-                    .map(String::as_str),
-                Some("1")
-            );
-            assert_eq!(
-                plan.env
-                    .get("__GLX_VENDOR_LIBRARY_NAME")
-                    .map(String::as_str),
-                Some("nvidia")
-            );
-        }
+        assert_eq!(
+            plan.env
+                .get("__NV_PRIME_RENDER_OFFLOAD")
+                .map(String::as_str),
+            Some("1")
+        );
+        assert_eq!(
+            plan.env
+                .get("__GLX_VENDOR_LIBRARY_NAME")
+                .map(String::as_str),
+            Some("nvidia")
+        );
         assert!(!plan.env.contains_key("DRI_PRIME"));
+        // A value the user set in the environment the game inherits wins.
+        let mine = Host {
+            env: HashMap::from([("__GLX_VENDOR_LIBRARY_NAME".to_owned(), "mesa".to_owned())]),
+            ..hybrid_laptop()
+        };
+        let plan = LaunchPlan::build_on(&mine, "supertuxkart", &[], "supertuxkart", &video, None);
+        assert!(!plan.env.contains_key("__GLX_VENDOR_LIBRARY_NAME"));
         // Nothing of the sort on a desktop whose dGPU drives the monitor.
         let plan = LaunchPlan::build_on(
             &desktop(),
@@ -824,7 +1094,7 @@ mod tests {
     fn vkbasalt_runs_in_the_game_not_in_gamescope() {
         let mut env = HashMap::from([("ENABLE_VKBASALT".to_owned(), "1".to_owned())]);
         let mut args: Vec<String> = ["-f", "--", "game", "-arg"].map(str::to_owned).to_vec();
-        keep_vkbasalt_in_the_game(&mut args, &mut env);
+        keep_in_the_game(&mut args, &mut env, &[]);
         assert_eq!(env.get("DISABLE_VKBASALT").map(String::as_str), Some("1"));
         assert_eq!(
             args,
@@ -845,7 +1115,7 @@ mod tests {
     fn without_vkbasalt_the_command_is_untouched() {
         let mut env = HashMap::new();
         let mut args: Vec<String> = ["-f", "--", "game"].map(str::to_owned).to_vec();
-        keep_vkbasalt_in_the_game(&mut args, &mut env);
+        keep_in_the_game(&mut args, &mut env, &[]);
         assert!(env.is_empty());
         assert_eq!(args, ["-f", "--", "game"]);
     }
@@ -858,81 +1128,40 @@ mod tests {
         assert_eq!(plan.program, "gamescope");
         // Composited on the discrete GPU, nested Gamescope showed no window.
         assert!(!plan.args.iter().any(|a| a == "--prefer-vk-device"));
-        // Gamescope itself does not get the offload variables: given them it
-        // composited on the GTX and segfaulted. The game, after `--`, does.
-        for k in [
+        // The offload variables are the game's, after `--`: in Gamescope's
+        // own environment the Optimus layer would hide the GPU that drives
+        // the panel from it.
+        for key in [
             "__NV_PRIME_RENDER_OFFLOAD",
             "__GLX_VENDOR_LIBRARY_NAME",
             "__VK_LAYER_NV_optimus",
         ] {
-            assert!(!plan.env.contains_key(k), "{k} reaches Gamescope");
+            assert!(!plan.env.contains_key(key), "{key} reaches Gamescope");
         }
-        if std::env::var_os("__NV_PRIME_RENDER_OFFLOAD").is_none() {
-            let sep = plan.args.iter().position(|a| a == "--").unwrap();
-            assert_eq!(plan.args[sep + 1], "env");
-            let game = plan.args.iter().rposition(|a| a == "game").unwrap();
-            assert!(plan.args[sep + 1..game].contains(&"__NV_PRIME_RENDER_OFFLOAD=1".to_owned()));
-            assert!(
-                plan.args[sep + 1..game].contains(&"__VK_LAYER_NV_optimus=NVIDIA_only".to_owned())
-            );
-        }
-    }
-
-    #[test]
-    fn offload_goes_after_vkbasalt_and_before_the_game_inside_gamescope() {
-        let mut env: HashMap<String, String> = [
-            ("DRI_PRIME".to_owned(), "pci-0000_03_00_0".to_owned()),
-            ("ENABLE_VKBASALT".to_owned(), "1".to_owned()),
-        ]
-        .into();
-        let mut args: Vec<String> = ["-f", "--", "game"].map(str::to_owned).to_vec();
-        let offload = crate::hardware::Offload::DriPrime("pci-0000_03_00_0".into());
-        keep_offload_in_the_game(&mut args, &mut env, &offload);
-        keep_vkbasalt_in_the_game(&mut args, &mut env);
-        assert!(!env.contains_key("DRI_PRIME"));
-        assert_eq!(
-            args,
-            [
-                "-f",
-                "--",
-                "env",
-                "-u",
-                "DISABLE_VKBASALT",
-                "ENABLE_VKBASALT=1",
-                "env",
-                "DRI_PRIME=pci-0000_03_00_0",
-                "game"
-            ]
+        let sep = plan.args.iter().position(|a| a == "--").unwrap();
+        let game = &plan.args[sep + 1..];
+        assert_eq!(game[0], "env");
+        assert!(
+            game.iter()
+                .any(|a| a == "__VK_LAYER_NV_optimus=NVIDIA_only")
         );
-    }
+        assert!(game.iter().any(|a| a == "__NV_PRIME_RENDER_OFFLOAD=1"));
+        assert_eq!(game.last().map(String::as_str), Some("game"));
 
-    #[test]
-    fn gamescope_shows_the_game_the_screen_size_when_nothing_sets_one() {
-        let mut video = VideoConfig::default();
-        video.upscaling.gamescope_enabled = true;
-        let host = Host {
-            gamescope: Some(crate::capabilities::GamescopeCaps {
-                version: None,
-                flags: ["w", "h", "W", "H", "f"].map(str::to_owned).to_vec(),
-            }),
-            screen: Some((1920, 1080)),
-            ..desktop()
-        };
-        let plan = LaunchPlan::build_on(&host, "game", &[], "game", &video, None);
-        assert_eq!(plan.program, "gamescope");
-        let at = |flag: &str| {
-            plan.args
-                .iter()
-                .position(|a| a == flag)
-                .map(|i| plan.args[i + 1].as_str())
-        };
+        // With vkBasalt too, one `env`: its options first, then the
+        // assignments (GNU env stops reading options at the first one).
+        video.upscaling.vkbasalt_enabled = true;
+        let plan = LaunchPlan::build_on(&hybrid_laptop(), "game", &[], "game", &video, None);
+        let sep = plan.args.iter().position(|a| a == "--").unwrap();
         assert_eq!(
-            (at("-W"), at("-H")),
-            (Some("1920"), Some("1080")),
-            "{:?}",
-            plan.args
+            plan.args[sep + 1..sep + 5],
+            ["env", "-u", "DISABLE_VKBASALT", "ENABLE_VKBASALT=1"]
         );
-        assert_eq!(at("-w"), None, "the game's size follows the output");
+        assert_eq!(
+            plan.env.get("DISABLE_VKBASALT").map(String::as_str),
+            Some("1")
+        );
+        assert!(!plan.env.contains_key("__VK_LAYER_NV_optimus"));
     }
 
     fn build(exe: &str, video: &VideoConfig, gs: Option<&gamescope::Config>) -> LaunchPlan {
@@ -1112,6 +1341,8 @@ mod tests {
             session: crate::hardware::Session::Wayland,
             offload: None,
             screen: None,
+            mangohud: true,
+            env: HashMap::new(),
         };
         let plan_with = |video: &VideoConfig, preset| {
             LaunchPlan::build_on_with_mode(
@@ -1126,18 +1357,14 @@ mod tests {
                 levers(preset, desktop_fsr4),
             )
         };
-        // Locked 60: the Proton caps in the environment, Gamescope's -r too,
-        // and for this native game MangoHud's limiter, hidden, inside it.
+        // Locked 60 on a native game in Gamescope: MangoHud's limiter,
+        // hidden, inside it, and nothing else — no -r, no Proton cap.
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
         let plan = plan_with(&video, Preset::Locked60);
-        assert_eq!(
-            plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
-            Some("60")
-        );
-        assert!(plan.env.contains_key("DXVK_CONFIG"));
-        let r = plan.args.iter().position(|a| a == "-r").expect("-r");
-        assert_eq!(plan.args[r + 1], "60");
+        assert!(!plan.args.iter().any(|a| a == "-r"), "{:?}", plan.args);
+        assert!(!plan.env.contains_key("DXVK_CONFIG"));
+        assert!(!plan.env.contains_key("VKD3D_FRAME_RATE"));
         let sep = plan.args.iter().position(|a| a == "--").unwrap();
         assert_eq!(plan.args[sep + 1], "mangohud");
         assert_eq!(
@@ -1150,20 +1377,32 @@ mod tests {
             (plan.program.as_str(), plan.args[0].as_str()),
             ("mangohud", "game")
         );
-        // A Windows game is capped by DXVK and VKD3D-Proton, not MangoHud.
+        // A Windows game is capped by DXVK and VKD3D-Proton alone, in
+        // Gamescope too.
         let plan = LaunchPlan::build_on_with_mode(
             &host,
             "game.exe",
             &[],
             "game.exe",
-            &VideoConfig::default(),
+            &video,
             None,
             None,
             &crate::game_launch::GameLaunch::default(),
             levers(Preset::Locked60, desktop_fsr4),
         );
-        assert_eq!(plan.program, "game.exe");
+        assert_eq!(plan.program, "gamescope");
+        assert!(!plan.args.iter().any(|a| a == "-r" || a == "mangohud"));
         assert!(!plan.env.contains_key("MANGOHUD_CONFIG"));
+        assert_eq!(
+            plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
+            Some("60")
+        );
+        assert_eq!(
+            plan.env.get("DXVK_FRAME_RATE").map(String::as_str),
+            Some("60"),
+            "DXVK before 2.3"
+        );
+        assert!(plan.env.contains_key("DXVK_CONFIG"));
         // Enhanced over a Tuning with Wine FSR on: switched off explicitly,
         // vkBasalt on, FSR 4 asked for.
         let mut video = VideoConfig::default();
@@ -1514,7 +1753,9 @@ mod tests {
             program: "sh".into(),
             args: vec!["-c".into(), "sleep 30 & wait".into()],
             env: HashMap::new(),
+            unset: Vec::new(),
             mangohud_fps_limit: None,
+            process: "sh".into(),
         };
         let mut child = plan.spawn().expect("spawn");
         let child_pid = i32::try_from(child.id()).unwrap();
@@ -1536,7 +1777,9 @@ mod tests {
             program: "sh".into(),
             args: vec!["-c".into(), "sleep 60 & echo $! > /dev/null; wait".into()],
             env: HashMap::new(),
+            unset: Vec::new(),
             mangohud_fps_limit: None,
+            process: "sh".into(),
         };
         let mut child = plan.spawn().expect("spawn");
         let pid = i32::try_from(child.id()).unwrap();
@@ -1559,5 +1802,283 @@ mod tests {
         let plan = build_with_args("steam", &args, &video, None);
         assert_eq!(plan.program, "steam");
         assert_eq!(plan.args, args);
+    }
+
+    fn preset_plan(
+        host: &Host,
+        exe: &str,
+        own: &crate::game_launch::GameLaunch,
+        mode: Option<gamescope::Mode>,
+        preset: crate::turbo_preset::Preset,
+    ) -> LaunchPlan {
+        LaunchPlan::build_on_with_mode(
+            host,
+            exe,
+            &[],
+            exe,
+            &VideoConfig::default(),
+            None,
+            mode,
+            own,
+            crate::turbo_preset::levers(
+                preset,
+                crate::turbo_preset::Machine {
+                    vkbasalt: true,
+                    fsr4: true,
+                },
+            ),
+        )
+    }
+
+    fn capable() -> Host {
+        Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: ["r", "w", "h", "W", "H", "f"].map(str::to_owned).to_vec(),
+            }),
+            ..desktop()
+        }
+    }
+
+    #[test]
+    fn the_games_own_frame_limit_is_the_only_limiter_under_a_preset() {
+        use crate::turbo_preset::Preset;
+        let own = crate::game_launch::GameLaunch {
+            frame_limit: 30,
+            ..crate::game_launch::GameLaunch::default()
+        };
+        let always = Some(gamescope::Mode::Enabled);
+        for exe in ["game", "game.exe"] {
+            // Locked 60 neither raises it to 60 nor adds a second pacer.
+            let plan = preset_plan(&capable(), exe, &own, always, Preset::Locked60);
+            assert_eq!(arg_after(&plan, "-r"), Some("30"), "{exe}");
+            for key in [
+                "DXVK_CONFIG",
+                "VKD3D_FRAME_RATE",
+                "DXVK_FRAME_RATE",
+                "MANGOHUD_CONFIG",
+            ] {
+                assert!(!plan.env.contains_key(key), "{exe}: {key}");
+            }
+            assert!(!plan.args.iter().any(|a| a == "mangohud"), "{exe}");
+            // More FPS does not take it away.
+            let plan = preset_plan(&capable(), exe, &own, always, Preset::MoreFps);
+            assert_eq!(arg_after(&plan, "-r"), Some("30"), "{exe}");
+        }
+        // Without Gamescope the game's own limit is not in force: the
+        // preset's cap is.
+        let never = Some(gamescope::Mode::Disabled);
+        let plan = preset_plan(&capable(), "game.exe", &own, never, Preset::Locked60);
+        assert_eq!(
+            plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
+            Some("60")
+        );
+    }
+
+    #[test]
+    fn gamescopes_limit_is_the_last_resort_for_a_native_game() {
+        use crate::turbo_preset::Preset;
+        let none = crate::game_launch::GameLaunch::default();
+        let always = Some(gamescope::Mode::Enabled);
+        let no_mangohud = Host {
+            mangohud: false,
+            ..capable()
+        };
+        let plan = preset_plan(&no_mangohud, "game", &none, always, Preset::Locked60);
+        assert_eq!(arg_after(&plan, "-r"), Some("60"));
+        assert!(!plan.args.iter().any(|a| a == "mangohud"));
+        // Neither MangoHud nor Gamescope: no cap at all, rather than a
+        // wrapper that is not there.
+        let plan = preset_plan(&no_mangohud, "game", &none, None, Preset::Locked60);
+        assert_eq!(plan.program, "game");
+        for key in ["DXVK_CONFIG", "VKD3D_FRAME_RATE", "MANGOHUD_CONFIG"] {
+            assert!(!plan.env.contains_key(key), "{key}");
+        }
+    }
+
+    #[test]
+    fn what_a_preset_no_longer_in_force_left_behind_does_not_reach_the_game() {
+        use crate::turbo_preset::Preset;
+        // BiGame-mode started while Locked 60 and Tuning's Wine FSR were in
+        // the session; both are off now.
+        let stale = Host {
+            env: [
+                (
+                    "DXVK_CONFIG",
+                    "dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60",
+                ),
+                ("VKD3D_FRAME_RATE", "60"),
+                ("FSR4_UPGRADE", "1"),
+                ("PROTON_FSR4_UPGRADE", "1"),
+                ("WINE_FULLSCREEN_FSR", "1"),
+                ("WINE_FULLSCREEN_FSR_MODE", "balanced"),
+                ("ENABLE_VKBASALT", "1"),
+                ("PATH", "/usr/bin"),
+            ]
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+            .collect(),
+            ..desktop()
+        };
+        let none = crate::game_launch::GameLaunch::default();
+        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Standard);
+        let mut unset = plan.unset.clone();
+        unset.sort();
+        assert_eq!(
+            unset,
+            [
+                "DXVK_CONFIG",
+                "FSR4_UPGRADE",
+                "PROTON_FSR4_UPGRADE",
+                "VKD3D_FRAME_RATE"
+            ]
+        );
+        assert_eq!(
+            plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(
+            plan.env.get("ENABLE_VKBASALT").map(String::as_str),
+            Some("0")
+        );
+        // Through the Steam client too, which would hand them to every game.
+        let args = vec!["-applaunch".to_owned(), "1".to_owned()];
+        let plan = LaunchPlan::build_on(
+            &stale,
+            "steam",
+            &args,
+            "steam",
+            &VideoConfig::default(),
+            None,
+        );
+        assert_eq!(plan.unset.len(), 4);
+        // A preset in force sets its own values: nothing to take away.
+        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Enhanced);
+        assert!(plan.unset.is_empty(), "{:?}", plan.unset);
+    }
+
+    #[test]
+    fn a_dxvk_configuration_of_the_users_own_stays_and_takes_the_cap() {
+        use crate::turbo_preset::Preset;
+        let mine = Host {
+            env: HashMap::from([(
+                "DXVK_CONFIG".to_owned(),
+                "dxgi.syncInterval = 0;".to_owned(),
+            )]),
+            ..desktop()
+        };
+        let none = crate::game_launch::GameLaunch::default();
+        let plan = preset_plan(&mine, "game.exe", &none, None, Preset::Standard);
+        assert!(plan.unset.is_empty(), "the user's own is not a preset's");
+        let plan = preset_plan(&mine, "game.exe", &none, None, Preset::Locked60);
+        assert_eq!(
+            plan.env.get("DXVK_CONFIG").map(String::as_str),
+            Some("dxgi.syncInterval = 0; dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60")
+        );
+    }
+
+    #[test]
+    fn the_native_cap_keeps_the_users_mangohud_settings() {
+        // An inherited MANGOHUD_CONFIG replaces every MangoHud file: the cap
+        // goes into it, in place of its own limit.
+        let mut plan = LaunchPlan {
+            program: "game".into(),
+            args: Vec::new(),
+            env: HashMap::new(),
+            unset: Vec::new(),
+            mangohud_fps_limit: None,
+            process: "game".into(),
+        };
+        let inherited = HashMap::from([(
+            "MANGOHUD_CONFIG".to_owned(),
+            "fps,fps_limit=144,fps_limit_method=early".to_owned(),
+        )]);
+        plan.limit_native(60, crate::mangohud::Mode::On, &inherited);
+        assert_eq!(
+            plan.env.get("MANGOHUD_CONFIG").map(String::as_str),
+            Some("fps,fps_limit_method=early,fps_limit=60")
+        );
+        assert_eq!(plan.mangohud_fps_limit, None);
+        assert_eq!(
+            (plan.program.as_str(), plan.args.as_slice()),
+            ("mangohud", ["game".to_owned()].as_slice())
+        );
+        // A file: only `fps_limit` goes, `fps_limit_method` stays.
+        let text = capped_mangohud_text("fps\nfps_limit=144\nfps_limit_method=late\n", 60);
+        assert_eq!(text, "fps\nfps_limit_method=late\nfps_limit=60\n");
+    }
+
+    #[test]
+    fn the_games_own_mangohud_file_is_the_one_capped() {
+        let dir = crate::tests::tempdir("launcher_mangohud_base");
+        std::fs::write(dir.join("MangoHud.conf"), "fps\n").unwrap();
+        assert_eq!(mangohud_base(&dir, None, "game"), dir.join("MangoHud.conf"));
+        std::fs::write(dir.join("game.conf"), "gpu_stats\n").unwrap();
+        assert_eq!(mangohud_base(&dir, None, "game"), dir.join("game.conf"));
+        let named = dir.join("mine.conf");
+        assert_eq!(mangohud_base(&dir, Some(named.as_os_str()), "game"), named);
+    }
+
+    #[test]
+    fn the_capped_file_is_written_only_where_nobody_else_can() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = crate::tests::tempdir("launcher_private");
+        // A directory others can open is closed to them.
+        let open = root.join("open");
+        std::fs::create_dir(&open).unwrap();
+        std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o777)).unwrap();
+        private_dir(&open).unwrap();
+        let mode = std::fs::metadata(&open).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o700);
+        // A link in its place is refused, not followed.
+        let link = root.join("link");
+        std::os::unix::fs::symlink(&open, &link).unwrap();
+        assert!(private_dir(&link).is_err());
+        // A link at the file's name is replaced, and what it pointed at is
+        // left as it was.
+        let target = root.join("victim");
+        std::fs::write(&target, "theirs").unwrap();
+        let file = open.join("mangohud-fps-limit-game.conf");
+        std::os::unix::fs::symlink(&target, &file).unwrap();
+        write_private(&file, b"fps_limit=60\n").unwrap();
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "theirs");
+        assert!(
+            !std::fs::symlink_metadata(&file)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "fps_limit=60\n");
+        let mode = std::fs::metadata(&file).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+
+    #[test]
+    fn gamescope_shows_the_game_the_screen_size_when_nothing_sets_one() {
+        let mut video = VideoConfig::default();
+        video.upscaling.gamescope_enabled = true;
+        let host = Host {
+            gamescope: Some(crate::capabilities::GamescopeCaps {
+                version: None,
+                flags: ["w", "h", "W", "H", "f"].map(str::to_owned).to_vec(),
+            }),
+            screen: Some((1920, 1080)),
+            ..desktop()
+        };
+        let plan = LaunchPlan::build_on(&host, "game", &[], "game", &video, None);
+        assert_eq!(plan.program, "gamescope");
+        let at = |flag: &str| {
+            plan.args
+                .iter()
+                .position(|a| a == flag)
+                .map(|i| plan.args[i + 1].as_str())
+        };
+        assert_eq!(
+            (at("-W"), at("-H")),
+            (Some("1920"), Some("1080")),
+            "{:?}",
+            plan.args
+        );
+        assert_eq!(at("-w"), None, "the game's size follows the output");
     }
 }

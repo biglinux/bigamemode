@@ -33,7 +33,7 @@ const OPTISCALER_RISKS: &[&str] = &[
 ];
 
 const AMD_NEURAL_RISKS: &[&str] = &[
-    N_("an external component BiGame-mode does not distribute, install or remove"),
+    N_("an external component Big Game Mode does not distribute, install or remove"),
     N_("documented for Windows; not established under Proton"),
     N_("takes a DLL slot beside the game and may collide with OptiScaler"),
 ];
@@ -363,6 +363,7 @@ mod tests {
                 card: "card1".into(),
                 vendor,
                 name: "GPU".into(),
+                product: None,
                 driver: String::new(),
                 userspace: None,
                 vram: None,

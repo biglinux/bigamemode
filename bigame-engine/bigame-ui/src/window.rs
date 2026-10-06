@@ -103,7 +103,11 @@ pub fn build(
         back_button.connect_clicked(move |_| stack.set_visible_child_name("home"));
     }
 
-    let home = views::home::build(Rc::clone(&show_report));
+    // A launcher opened before a Turbo change is asked to reopen from the
+    // top of the window, whichever page is shown.
+    let launcher_notice = widgets::launcher_notice::LauncherNotice::new(app);
+
+    let home = views::home::build(app, Rc::clone(&show_report), Rc::clone(&launcher_notice));
     view_stack.add_named(&home, Some("home"));
 
     let profiles = views::profiles::build();
@@ -127,15 +131,19 @@ pub fn build(
     content_header.set_title_widget(Some(&page_title));
     content_header.pack_start(&back_button);
 
+    let pages = gtk4::Overlay::new();
+    pages.set_child(Some(&view_stack));
+    pages.add_overlay(launcher_notice.widget());
+
     let toast_overlay = adw::ToastOverlay::new();
-    toast_overlay.set_child(Some(&view_stack));
+    toast_overlay.set_child(Some(&pages));
 
     let content_view = adw::ToolbarView::new();
     content_view.add_top_bar(&content_header);
     content_view.set_content(Some(&toast_overlay));
 
     let content_page = adw::NavigationPage::builder()
-        .title("BiGame-mode")
+        .title(crate::app::NAME)
         .child(&content_view)
         .build();
 
@@ -177,7 +185,7 @@ pub fn build(
 
     let sidebar_header = adw::HeaderBar::new();
     let app_label = gtk4::Label::builder()
-        .label("BiGame-mode")
+        .label(crate::app::NAME)
         .css_classes(["title"])
         .build();
     sidebar_header.set_title_widget(Some(&app_label));
@@ -188,7 +196,7 @@ pub fn build(
     sidebar_view.set_content(Some(&sidebar_scroll));
 
     let sidebar_page = adw::NavigationPage::builder()
-        .title("BiGame-mode")
+        .title(crate::app::NAME)
         .child(&sidebar_view)
         .build();
 
@@ -204,7 +212,7 @@ pub fn build(
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("BiGame-mode")
+        .title(crate::app::NAME)
         .default_width(saved.window_width)
         .default_height(saved.window_height)
         .content(&nav_split)
@@ -333,51 +341,36 @@ pub fn build(
             let th2 = Rc::clone(&th);
             let sidebar2 = sidebar.clone();
             dialog.connect_response(None, move |_, response| {
-                if response != "restore" { return; }
-                // Tuning's launch settings (Gamescope, Wine FSR, vkBasalt,
-                // lsfg-vk: video.toml, the session environment and lsfg-vk's
-                // file), then falcond's through the helper -- off the main
-                // thread, since it may wait on a password prompt -- and say
-                // what actually happened.
-                let (overlay3, stack3, th3, sidebar3) =
-                    (overlay2.clone(), stack2.clone(), Rc::clone(&th2), sidebar2.clone());
+                if response != "restore" {
+                    return;
+                }
+                let (stack, overlay, th, sidebar) =
+                    (stack2.clone(), overlay2.clone(), Rc::clone(&th2), sidebar2.clone());
+                // Off the main thread: falcond's goes through the helper,
+                // which may wait on a password prompt, and the launch
+                // settings through the session bus.
                 glib::spawn_future_local(async move {
-                    let restored = gtk4::gio::spawn_blocking(|| {
-                        let video = bigame_core::video_config::VideoConfig::default();
-                        let launch = bigame_core::video_config::save(&video).and_then(|()| {
-                            bigame_core::fg::sync_global_enablement(&video.frame_gen).map(|_| ())
-                        });
-                        let falcond = bigame_core::config::write_blocking(
-                            &bigame_core::config::FalcondConfig::default(),
-                        );
-                        (falcond, launch)
-                    })
-                    .await;
-                    let message = match restored {
-                        Ok((Ok(()), Ok(()))) => i18n("Default settings restored"),
-                        Ok((Err(e), _)) => format!("{}: {}", i18n("Could not restore falcond's settings"), error_text(&e)),
-                        Ok((_, Err(e))) => format!("{}: {}", i18n("Could not save the launch settings"), error_text(&e)),
-                        Err(_) => i18n("Could not restore falcond's settings"),
-                    };
-                    overlay3.add_toast(adw::Toast::new(&message));
-                    // Rebuilt from the files as they now are, so the page
-                    // shows what was restored.
-                    let old = th3.borrow().clone();
-                    stack3.remove(&old);
+                    let done = gio::spawn_blocking(restore_defaults).await;
+                    report_restore(&overlay, done.ok());
+                    // Rebuilt only once both are written, so the page reads
+                    // back what is now in force.
+                    let old = th.borrow().clone();
+                    stack.remove(&old);
                     let new_tuning = views::tuning::build();
-                    stack3.add_named(&new_tuning, Some("tuning"));
-                    *th3.borrow_mut() = new_tuning;
+                    stack.add_named(&new_tuning, Some("tuning"));
+                    *th.borrow_mut() = new_tuning;
                     // Through the sidebar, so its selection and the window
                     // title follow the page.
                     let mut i = 0;
-                    while let Some(row) = sidebar3.row_at_index(i) {
+                    while let Some(row) = sidebar.row_at_index(i) {
                         if row.widget_name() == "tuning" {
-                            sidebar3.unselect_all();
-                            sidebar3.select_row(Some(&row));
+                            sidebar.unselect_all();
+                            sidebar.select_row(Some(&row));
                             break;
                         }
                         i += 1;
                     }
+                    views::tuning::launch_settings_changed(stack.upcast_ref());
                 });
             });
             dialog.present(Some(&win));
@@ -508,6 +501,77 @@ fn layout_without_icon(layout: &str) -> (String, bool) {
             strip(layout),
             layout.split(',').any(|item| item.trim() == "icon"),
         ),
+    }
+}
+
+/// What Restore Defaults wrote, part by part.
+struct Restored {
+    falcond: anyhow::Result<()>,
+    /// `Ok(Some(_))`: saved, but the running session was not updated.
+    launch: anyhow::Result<Option<anyhow::Error>>,
+    lsfg: anyhow::Result<bool>,
+}
+
+/// Put Tuning back to its defaults: falcond's settings (through the helper)
+/// and the launch settings (`video.toml`, the session environment, and
+/// lsfg-vk's entries, which follow its general switch).
+fn restore_defaults() -> Restored {
+    let video = bigame_core::video_config::VideoConfig::default();
+    Restored {
+        falcond: bigame_core::config::write_blocking(&bigame_core::config::FalcondConfig::default()),
+        launch: bigame_core::video_config::save(&video),
+        lsfg: bigame_core::fg::sync_global_enablement(&video.frame_gen),
+    }
+}
+
+/// Say what Restore Defaults did: success only when every part was written.
+fn report_restore(overlay: &adw::ToastOverlay, done: Option<Restored>) {
+    let Some(done) = done else {
+        widgets::toast::error(
+            overlay,
+            &i18n("Could not restore falcond's settings"),
+            &i18n("the worker thread stopped"),
+        );
+        return;
+    };
+    let mut ok = true;
+    if let Err(e) = &done.falcond {
+        ok = false;
+        widgets::toast::error(
+            overlay,
+            &i18n("Could not restore falcond's settings"),
+            &error_text(e),
+        );
+    }
+    match &done.launch {
+        Err(e) => {
+            ok = false;
+            widgets::toast::error(
+                overlay,
+                &i18n("Could not restore Gamescope's settings"),
+                &error_text(e),
+            );
+        }
+        Ok(Some(e)) => {
+            ok = false;
+            widgets::toast::error(
+                overlay,
+                &views::tuning::session_not_updated(),
+                &error_text(e),
+            );
+        }
+        Ok(None) => {}
+    }
+    if let Err(e) = &done.lsfg {
+        ok = false;
+        widgets::toast::error(
+            overlay,
+            &i18n("Could not update lsfg-vk's file"),
+            &error_text(e),
+        );
+    }
+    if ok {
+        overlay.add_toast(adw::Toast::new(&i18n("Default settings restored")));
     }
 }
 

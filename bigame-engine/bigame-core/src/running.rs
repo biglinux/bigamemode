@@ -47,13 +47,26 @@ pub struct Proc {
 
 /// Read the current user's processes from `/proc`.
 ///
-/// One directory walk, three small reads per process, no forks.
+/// One directory walk, the owner from the directory itself, two small reads
+/// per process of the user's, no forks.
 #[must_use]
 #[allow(clippy::similar_names)] // pid and ppid are what /proc calls them
 pub fn snapshot() -> Vec<Proc> {
+    snapshot_in(Path::new("/proc"))
+}
+
+/// [`snapshot`] of a `/proc`-like tree at `root`.
+///
+/// A process's directory belongs to its effective user, which is what
+/// `status`'s `Uid:` line was read for; the `stat` of the directory costs
+/// no open and no parse, for the hundreds of processes that are not the
+/// user's.
+#[allow(clippy::similar_names)]
+fn snapshot_in(root: &Path) -> Vec<Proc> {
+    use std::os::unix::fs::MetadataExt;
     // SAFETY: getuid cannot fail and has no side effects.
     let uid = unsafe { libc::getuid() };
-    let Ok(entries) = std::fs::read_dir("/proc") else {
+    let Ok(entries) = std::fs::read_dir(root) else {
         return Vec::new();
     };
     entries
@@ -61,15 +74,7 @@ pub fn snapshot() -> Vec<Proc> {
         .filter_map(|entry| {
             let pid: u32 = entry.file_name().to_string_lossy().parse().ok()?;
             let dir = entry.path();
-            let status = std::fs::read_to_string(dir.join("status")).ok()?;
-            let owner: u32 = status
-                .lines()
-                .find_map(|l| l.strip_prefix("Uid:"))?
-                .split_whitespace()
-                .next()?
-                .parse()
-                .ok()?;
-            if owner != uid {
+            if entry.metadata().ok()?.uid() != uid {
                 return None;
             }
             let stat = std::fs::read_to_string(dir.join("stat")).ok()?;
@@ -264,6 +269,89 @@ const INFRASTRUCTURE: &[&str] = &[
     "qtwebengineprocess.exe",
     "cefsharp.browsersubprocess.exe",
     "msedgewebview2.exe",
+    "unrealcefsubprocess.exe",
+    // Store clients a game starts through, or that run beside it under
+    // Wine: they sign in and update for longer than a profile offer waits.
+    "upc.exe",
+    "ubisoftconnect.exe",
+    "playgtav.exe",
+    "galaxyclient.exe",
+    "galaxyclient helper.exe",
+    "gog galaxy notifications renderer.exe",
+    "origin.exe",
+    "battle.net.exe",
+    "battle.net helper.exe",
+    "agent.exe",
+    "start_protected_game.exe",
+    // Linux launchers, wrappers and the compositing around a game: the menu
+    // does not list them as games and the running game is never one of
+    // them. BiGame-mode itself is in the menu's Game category too.
+    "bigame-ui",
+    "lutris",
+    "heroic",
+    "heroic-run",
+    "legendary",
+    "gogdl",
+    "nile",
+    "umu-run",
+    "faugus-launcher",
+    "bottles",
+    "bottles-cli",
+    "itch",
+    "minigalaxy",
+    "gamehub",
+    "playonlinux",
+    "protonup-qt",
+    "protonplus",
+    "gamescope",
+    "gamescope-wl",
+    "gamescopereaper",
+    "xwayland",
+    "mangohud",
+    "mangoapp",
+    "mangojuice",
+    "goverlay",
+    "obs-gamecapture",
+    "bwrap",
+    "flatpak",
+    "flatpak-spawn",
+    "xdg-open",
+    "steamtinkerlaunch",
+    // Game streaming: the game runs on another machine.
+    "moonlight",
+    "sunshine",
+    "big-remote-play",
+    "chiaki",
+    "chiaki-ng",
+    "greenlight",
+    "nvidia geforce now",
+    "geforcenow",
+];
+
+/// Name prefixes of store clients and their services, without `.exe`: EA
+/// (`EADesktop`, `EABackgroundService`, `EALocalHostSvc`, `Link2EA`),
+/// Ubisoft (`UplayWebCore`, `UbisoftConnect…`), GOG Galaxy, Rockstar
+/// (`RockstarService`, `SocialClubHelper`), Epic Online Services, and
+/// `BattlEye`'s service under any build name (`BEService_x64`).
+const STORE_CLIENT_PREFIXES: &[&str] = &[
+    "eadesktop",
+    "eabackgroundservice",
+    "ealocalhostsvc",
+    "eaconnect",
+    "eacefsubprocess",
+    "link2ea",
+    "igoproxy",
+    "uplay",
+    "ubisoftconnect",
+    "upc_",
+    "galaxyclient",
+    "gogalaxy",
+    "socialclub",
+    "rockstarservice",
+    "rockstarsteamhelper",
+    "epiconlineservices",
+    "eosoverlayrenderer",
+    "beservice",
 ];
 
 /// Name prefixes of the Steam Linux Runtime's own programs (pressure-vessel
@@ -331,6 +419,9 @@ pub fn is_infrastructure(name: &str) -> bool {
         || lower.contains("launcher")
         // REDupdater.exe, EA's EADesktopUpdater…: they update, they do not play.
         || lower.contains("updater")
+        || STORE_CLIENT_PREFIXES.iter().any(|p| lower.starts_with(p))
+        // BattlEye's starters beside protected games (`DuneSandbox_BE.exe`).
+        || lower.ends_with("_be.exe")
         || crate::games::is_support_binary(&lower)
 }
 
@@ -405,10 +496,13 @@ fn descendants<'a>(
     all: &'a [Proc],
 ) -> Vec<&'a Proc> {
     let mut out: Vec<&Proc> = all.iter().filter(|p| p.pid == root).collect();
+    // `/proc` is not read at one instant: a pid reused while it is read can
+    // make a process its own ancestor, and the walk must still end.
+    let mut seen: std::collections::HashSet<u32> = out.iter().map(|p| p.pid).collect();
     let mut i = 0;
     while i < out.len() {
         if let Some(children) = by_parent.get(&out[i].pid) {
-            out.extend(children.iter().copied());
+            out.extend(children.iter().copied().filter(|c| seen.insert(c.pid)));
         }
         i += 1;
     }
@@ -439,6 +533,60 @@ pub fn identify_with<S: std::hash::BuildHasher>(
     procs: &[Proc],
     native: &HashMap<String, String, S>,
 ) -> Vec<GameIdentity> {
+    identify_ranked(procs, native, &Activity::default())
+}
+
+/// What tells the process being played from the others beside it: the CPU
+/// time each has used since the previous look, and whether it submits GPU
+/// work.
+///
+/// Total CPU time since a process started favours whatever has been open
+/// longest: Ubisoft Connect's web page, open for an hour, outweighs the game
+/// started a minute ago. And the busiest process is not always the one
+/// drawing: the one that submits GPU work is.
+#[derive(Default)]
+pub struct Activity {
+    /// CPU ticks of each process at the previous look.
+    pub previous: HashMap<u32, u64>,
+    /// Whether a process submits GPU work; `None` when it cannot be told,
+    /// so CPU time decides alone.
+    pub renders: Option<Box<dyn Fn(u32) -> bool>>,
+}
+
+impl Activity {
+    /// CPU ticks since the previous look; all of them for a process not seen
+    /// then — or seen with more, so a pid reused since.
+    fn recent(&self, p: &Proc) -> u64 {
+        match self.previous.get(&p.pid) {
+            Some(&before) if before <= p.cpu_ticks => p.cpu_ticks - before,
+            _ => p.cpu_ticks,
+        }
+    }
+
+    /// The process being played among `pool`: the one drawing, then the
+    /// busiest of late. The GPU is asked only when there is a choice.
+    fn choose<'a>(&self, pool: Vec<&'a Proc>) -> Option<&'a Proc> {
+        if pool.len() > 1 {
+            if let Some(renders) = &self.renders {
+                return pool
+                    .into_iter()
+                    .map(|p| (renders(p.pid), self.recent(p), p))
+                    .max_by_key(|(drawing, recent, p)| (*drawing, *recent, p.cpu_ticks))
+                    .map(|(_, _, p)| p);
+            }
+        }
+        pool.into_iter()
+            .max_by_key(|p| (self.recent(p), p.cpu_ticks))
+    }
+}
+
+/// [`identify_with`], choosing within a tree by [`Activity`].
+#[must_use]
+pub fn identify_ranked<S: std::hash::BuildHasher>(
+    procs: &[Proc],
+    native: &HashMap<String, String, S>,
+    activity: &Activity,
+) -> Vec<GameIdentity> {
     let mut by_parent: HashMap<u32, Vec<&Proc>> = HashMap::new();
     for p in procs {
         by_parent.entry(p.ppid).or_default().push(p);
@@ -455,7 +603,7 @@ pub fn identify_with<S: std::hash::BuildHasher>(
             .filter(|p| !p.argv0.is_empty() && !is_infrastructure(falcond_name(&p.argv0)))
             .collect();
         let pool = game_pool(candidates, proton.is_some());
-        let Some(game) = pool.into_iter().max_by_key(|p| p.cpu_ticks) else {
+        let Some(game) = activity.choose(pool.into_iter().copied().collect()) else {
             continue;
         };
         found.push(GameIdentity {
@@ -568,26 +716,61 @@ pub fn known_native_games() -> HashMap<String, String> {
 }
 
 fn read_native_games() -> HashMap<String, String> {
-    let mut games = HashMap::new();
-    // Profile names first, so a menu entry's friendlier name wins.
+    let mut profiles = Vec::new();
     let base = Path::new(crate::profiles::SYSTEM_PROFILES_DIR);
     for dir in [base.to_path_buf(), base.join("user")] {
         for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
             let Ok(content) = std::fs::read_to_string(entry.path()) else {
                 continue;
             };
-            if let Some(name) = profile_name_field(&content) {
-                if name != "Proton"
-                    && !name.to_ascii_lowercase().ends_with(".exe")
-                    && !is_infrastructure(&name)
-                {
-                    games.insert(name.clone(), name);
-                }
-            }
+            profiles.extend(profile_name_field(&content));
         }
     }
-    for game in crate::games::menu_games() {
-        games.insert(game.program, game.name);
+    native_games_from(&profiles, &crate::games::detect_all())
+}
+
+/// Names too common among native programs to say which game runs: a
+/// script's or an engine's (`run`, `AppRun`, NW.js's `nw`, LÖVE's `love`).
+const GENERIC_NATIVE_NAMES: &[&str] = &[
+    "game", "run", "start", "main", "app", "apprun", "nw", "love", "godot", "java",
+];
+
+/// The native-game map of [`known_native_games`] from falcond's profile
+/// names and the library: menu games and Flatpaks by their program, and the
+/// Linux programs of Lutris, Heroic and Faugus games that run here directly.
+/// Steam's are found by their reaper, Windows games by Wine.
+fn native_games_from(
+    profile_names: &[String],
+    library: &[crate::games::DetectedGame],
+) -> HashMap<String, String> {
+    use crate::games::Source;
+    let mut games = HashMap::new();
+    // Profile names first, so a library title wins.
+    for name in profile_names {
+        if !name.eq_ignore_ascii_case("proton")
+            && !name.to_ascii_lowercase().ends_with(".exe")
+            && !is_infrastructure(name)
+        {
+            games.insert(name.clone(), name.clone());
+        }
+    }
+    let usable = |name: &str| {
+        !name.to_ascii_lowercase().ends_with(".exe")
+            && !is_infrastructure(name)
+            && !crate::games::is_generic_program(name)
+            && !GENERIC_NATIVE_NAMES.contains(&name.to_ascii_lowercase().as_str())
+    };
+    for game in library {
+        let names: Vec<&String> = match game.source {
+            Source::Native | Source::Flatpak => game.executables.iter().take(1).collect(),
+            Source::Lutris | Source::Heroic | Source::Faugus if game.launch_command.is_some() => {
+                game.executables.iter().filter(|e| usable(e)).collect()
+            }
+            _ => Vec::new(),
+        };
+        for name in names {
+            games.insert(name.clone(), game.name.clone());
+        }
     }
     games
 }
@@ -635,6 +818,39 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
     }
 }
 
+/// How long a game's graphics path, once told, is taken as known: its
+/// memory map is a large read, and the watcher asks every few seconds. A
+/// game that loads its renderer late is read again after this.
+const GRAPHICS_KEPT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// [`graphics_from_maps`] of process `pid`, read again only after
+/// [`GRAPHICS_KEPT`] once it is known.
+fn graphics_of(pid: u32, executable: &str) -> Graphics {
+    type Seen = HashMap<(u32, String), (std::time::Instant, Graphics)>;
+    static SEEN: std::sync::Mutex<Option<Seen>> = std::sync::Mutex::new(None);
+    let key = (pid, executable.to_owned());
+    let now = std::time::Instant::now();
+    let mut seen = SEEN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let seen = seen.get_or_insert_with(HashMap::new);
+    if let Some((at, graphics)) = seen.get(&key) {
+        if now.saturating_duration_since(*at) < GRAPHICS_KEPT {
+            return *graphics;
+        }
+    }
+    let graphics = std::fs::read_to_string(format!("/proc/{pid}/maps"))
+        .map_or(Graphics::Unknown, |maps| graphics_from_maps(&maps));
+    // Only the game being watched is kept.
+    seen.retain(|(p, _), _| *p == pid);
+    if graphics == Graphics::Unknown {
+        seen.remove(&key);
+    } else {
+        seen.insert(key, (now, graphics));
+    }
+    graphics
+}
+
 /// A GPU a process has open.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct OpenGpu {
@@ -646,10 +862,18 @@ struct OpenGpu {
     nvidia_node: bool,
     /// The firmware's boot display adapter.
     boot_vga: bool,
+    /// In runtime suspend: nothing renders on it.
+    asleep: bool,
     /// GPU time the process has submitted through this card's render nodes,
     /// from their DRM fdinfo; `None` where the driver does not publish it.
     work: Option<u64>,
 }
+
+/// GPU time past which the one card with work is taken as the game's even
+/// beside an open card that publishes no fdinfo (nouveau): one second, in
+/// nanoseconds (cycles on xe, the same order). Less is what enumerating
+/// devices and a presentation path submit.
+const DOMINANT_WORK: u64 = 1_000_000_000;
 
 /// Which of the GPUs a process has open it renders on.
 ///
@@ -662,24 +886,71 @@ struct OpenGpu {
 /// driver renders only through it); then the card the process has actually
 /// submitted work to, from DRM fdinfo (amdgpu, i915, xe publish it) — and
 /// while fdinfo is readable but no work has been submitted yet, no answer, so
-/// callers fall back to the GPU games are expected on; then, where no driver
-/// says, the card that is not the boot display adapter (a secondary card is
-/// opened on purpose, for offload); then the only one.
+/// callers fall back to the GPU games are expected on. Beside an open card
+/// that publishes no fdinfo (nouveau), the card with work is the answer only
+/// once its work is clearly a game's ([`DOMINANT_WORK`]); the silent card may
+/// be the one rendering. Where no driver says, the card that is not the boot
+/// display adapter (a secondary card is opened on purpose, for offload);
+/// then the only one. Among equals, the first.
 fn choose_render_gpu(open: &[OpenGpu]) -> Option<&str> {
     if let Some(g) = open.iter().find(|g| g.nvidia_node) {
         return Some(g.card.as_str());
     }
     if open.iter().any(|g| g.work.is_some()) {
-        return open
+        // `max_by_key` keeps the last of equals; reversed, the first wins.
+        let busiest = open
             .iter()
+            .rev()
             .filter(|g| g.work.is_some_and(|w| w > 0))
-            .max_by_key(|g| g.work)
-            .map(|g| g.card.as_str());
+            .max_by_key(|g| g.work)?;
+        let silent = open.iter().any(|g| g.work.is_none());
+        return (!silent || busiest.work.is_some_and(|w| w >= DOMINANT_WORK))
+            .then_some(busiest.card.as_str());
     }
     open.iter()
         .find(|g| open.len() > 1 && !g.boot_vga)
         .or_else(|| open.first())
         .map(|g| g.card.as_str())
+}
+
+/// The GPUs a process has open, from its GPU descriptors as `(gpu, DRM
+/// client id)`: one entry per card and kind of node, with the work of each
+/// DRM client counted once. Descriptors dup'd from one DRM file share its
+/// client id and its counters (Xwayland holds four of one client on a render
+/// node), so summing them would count the same work again.
+fn merge_open_gpus(fds: impl IntoIterator<Item = (OpenGpu, Option<u64>)>) -> Vec<OpenGpu> {
+    let mut open: Vec<OpenGpu> = Vec::new();
+    let mut clients: Vec<(String, u64)> = Vec::new();
+    for (gpu, client) in fds {
+        if let Some(id) = client {
+            if clients.iter().any(|(c, i)| *c == gpu.card && *i == id) {
+                continue;
+            }
+            clients.push((gpu.card.clone(), id));
+        }
+        if let Some(known) = open
+            .iter_mut()
+            .find(|g| g.card == gpu.card && g.nvidia_node == gpu.nvidia_node)
+        {
+            known.work = match (known.work, gpu.work) {
+                (Some(a), Some(b)) => Some(a.saturating_add(b)),
+                (a, b) => a.or(b),
+            };
+            continue;
+        }
+        open.push(gpu);
+    }
+    open
+}
+
+/// The `drm-client-id` of a DRM file descriptor's fdinfo.
+fn fdinfo_client(fdinfo: &str) -> Option<u64> {
+    fdinfo.lines().find_map(|l| {
+        let (key, value) = l.split_once(':')?;
+        (key.trim() == "drm-client-id")
+            .then(|| value.trim().parse().ok())
+            .flatten()
+    })
 }
 
 /// GPU work submitted through one DRM file descriptor, from its fdinfo
@@ -743,7 +1014,7 @@ fn nvidia_device(minor: u32) -> Option<std::path::PathBuf> {
 /// The DRM card a process renders on, from the GPU device nodes it has open.
 fn render_card(pid: u32) -> Option<String> {
     let fds = std::fs::read_dir(format!("/proc/{pid}/fd")).ok()?;
-    let mut open: Vec<OpenGpu> = Vec::new();
+    let mut held: Vec<(OpenGpu, Option<u64>)> = Vec::new();
     for fd in fds.flatten() {
         let Ok(target) = std::fs::read_link(fd.path()) else {
             continue;
@@ -771,7 +1042,7 @@ fn render_card(pid: u32) -> Option<String> {
         let Some(card) = card_of_device(&device) else {
             continue;
         };
-        let work = if nvidia_node {
+        let fdinfo = if nvidia_node {
             None
         } else {
             std::fs::read_to_string(format!(
@@ -779,34 +1050,26 @@ fn render_card(pid: u32) -> Option<String> {
                 fd.file_name().to_string_lossy()
             ))
             .ok()
-            .as_deref()
-            .and_then(fdinfo_work)
         };
-        if let Some(known) = open
-            .iter_mut()
-            .find(|g| g.card == card && g.nvidia_node == nvidia_node)
-        {
-            known.work = match (known.work, work) {
-                (Some(a), Some(b)) => Some(a.saturating_add(b)),
-                (a, b) => a.or(b),
-            };
-            continue;
-        }
-        let boot_vga =
-            std::fs::read_to_string(device.join("boot_vga")).is_ok_and(|v| v.trim() == "1");
-        let pci_slot = device
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        open.push(OpenGpu {
+        let attr = |f: &str| std::fs::read_to_string(device.join(f)).unwrap_or_default();
+        let gpu = OpenGpu {
             card,
-            pci_slot,
+            pci_slot: device
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
             nvidia_node,
-            boot_vga,
-            work,
-        });
+            boot_vga: attr("boot_vga").trim() == "1",
+            asleep: attr("power/runtime_status").trim() == "suspended",
+            work: fdinfo.as_deref().and_then(fdinfo_work),
+        };
+        held.push((gpu, fdinfo.as_deref().and_then(fdinfo_client)));
     }
-    let open = drop_enumerated_only(open, pid, crate::gpu_telemetry::nvidia_graphics_pids);
+    let open = drop_enumerated_only(
+        merge_open_gpus(held),
+        pid,
+        crate::gpu_telemetry::nvidia_graphics_pids,
+    );
     choose_render_gpu(&open).map(str::to_owned)
 }
 
@@ -816,7 +1079,9 @@ fn render_card(pid: u32) -> Option<String> {
 /// node, so a game on the integrated GPU holds NVIDIA nodes too (checked with
 /// `vkcube --gpu_number 0` on the lab laptop: seven `/dev/nvidia0` fds). The
 /// driver's list of processes with a graphics context tells them apart; when
-/// it cannot be read, nothing is removed.
+/// it cannot be read, nothing is removed. A card in runtime suspend renders
+/// nothing and is not asked: asking NVML would wake it, every few seconds,
+/// for as long as the game runs.
 fn drop_enumerated_only(
     open: Vec<OpenGpu>,
     pid: u32,
@@ -825,7 +1090,7 @@ fn drop_enumerated_only(
     let idle: Vec<String> = open
         .iter()
         .filter(|g| g.nvidia_node)
-        .filter(|g| contexts(&g.pci_slot).is_some_and(|pids| !pids.contains(&pid)))
+        .filter(|g| g.asleep || contexts(&g.pci_slot).is_some_and(|pids| !pids.contains(&pid)))
         .map(|g| g.card.clone())
         .collect();
     if idle.is_empty() {
@@ -838,9 +1103,7 @@ fn drop_enumerated_only(
 
 /// Fill in what the launcher and the live process can say.
 fn enrich(mut game: GameIdentity) -> GameIdentity {
-    if let Ok(maps) = std::fs::read_to_string(format!("/proc/{}/maps", game.pid)) {
-        game.graphics = graphics_from_maps(&maps);
-    }
+    game.graphics = graphics_of(game.pid, &game.executable);
     game.render_card = render_card(game.pid);
     if let Some(id) = game.steam_app_id.clone() {
         if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
@@ -870,16 +1133,108 @@ fn enrich(mut game: GameIdentity) -> GameIdentity {
 
 /// The running game, if there is one.
 ///
-/// When more than one is found, the busiest wins: that is the one being
-/// played, and it is also the one falcond will be holding a profile for.
+/// When more than one is found, the one drawing wins, then the busiest of
+/// late ([`Activity`]): that is the one being played, and it is also the one
+/// falcond will be holding a profile for.
 #[must_use]
 pub fn detect() -> Option<GameIdentity> {
+    static BASELINES: std::sync::Mutex<Baselines> = std::sync::Mutex::new(Baselines {
+        older: None,
+        newer: None,
+    });
     let procs = snapshot();
     let ticks: HashMap<u32, u64> = procs.iter().map(|p| (p.pid, p.cpu_ticks)).collect();
-    identify_with(&procs, &known_native_games())
-        .into_iter()
-        .max_by_key(|g| ticks.get(&g.pid).copied().unwrap_or(0))
-        .map(enrich)
+    let previous = BASELINES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take(std::time::Instant::now(), &ticks);
+    let activity = Activity {
+        previous,
+        renders: Some(Box::new(|pid| submits_gpu_work(Path::new("/proc"), pid))),
+    };
+    let games = identify_ranked(&procs, &known_native_games(), &activity);
+    let by_pid: HashMap<u32, &Proc> = procs.iter().map(|p| (p.pid, p)).collect();
+    let chosen = if games.len() > 1 {
+        games.into_iter().max_by_key(|g| {
+            let p = by_pid.get(&g.pid);
+            (
+                submits_gpu_work(Path::new("/proc"), g.pid),
+                p.map_or(0, |p| activity.recent(p)),
+                p.map_or(0, |p| p.cpu_ticks),
+            )
+        })
+    } else {
+        games.into_iter().next()
+    };
+    chosen.map(enrich)
+}
+
+/// The shortest time CPU use is compared over: shorter, a tick or two of
+/// noise decides.
+const MIN_WINDOW: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// The CPU ticks of earlier looks, two kept so that a look soon after
+/// another still compares over at least [`MIN_WINDOW`].
+struct Baselines {
+    older: Option<(std::time::Instant, HashMap<u32, u64>)>,
+    newer: Option<(std::time::Instant, HashMap<u32, u64>)>,
+}
+
+impl Baselines {
+    /// The ticks to compare `current` with — the newest look at least
+    /// [`MIN_WINDOW`] old, else the oldest kept — and `current` remembered.
+    fn take(&mut self, now: std::time::Instant, current: &HashMap<u32, u64>) -> HashMap<u32, u64> {
+        let old_enough = |b: &Option<(std::time::Instant, HashMap<u32, u64>)>| {
+            b.as_ref()
+                .is_some_and(|(at, _)| now.saturating_duration_since(*at) >= MIN_WINDOW)
+        };
+        let pick = if old_enough(&self.newer) {
+            &self.newer
+        } else if self.older.is_some() {
+            &self.older
+        } else {
+            &self.newer
+        };
+        let previous = pick.as_ref().map(|(_, t)| t.clone()).unwrap_or_default();
+        if self.newer.is_none() || old_enough(&self.newer) {
+            self.older = self.newer.take();
+            self.newer = Some((now, current.clone()));
+        }
+        previous
+    }
+}
+
+/// Whether process `pid` of the `/proc`-like tree at `root` submits GPU
+/// work: it holds an NVIDIA device node (the proprietary driver publishes no
+/// fdinfo, and only opens one to draw or compute), or a DRM render node
+/// whose fdinfo shows engine time. A launcher's or a helper's process has
+/// none, or none yet.
+fn submits_gpu_work(root: &Path, pid: u32) -> bool {
+    let dir = root.join(pid.to_string());
+    let Ok(fds) = std::fs::read_dir(dir.join("fd")) else {
+        return false;
+    };
+    // A game holds a few thousand descriptors at most.
+    fds.flatten().take(16_384).any(|fd| {
+        let Ok(target) = std::fs::read_link(fd.path()) else {
+            return false;
+        };
+        let Some(name) = target.file_name().and_then(|n| n.to_str()) else {
+            return false;
+        };
+        if name
+            .strip_prefix("nvidia")
+            .is_some_and(|m| !m.is_empty() && m.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return true;
+        }
+        name.starts_with("renderD")
+            && std::fs::read_to_string(dir.join("fdinfo").join(fd.file_name()))
+                .ok()
+                .as_deref()
+                .and_then(fdinfo_work)
+                .is_some_and(|work| work > 0)
+    })
 }
 
 /// What is really in effect inside a running game, read from the game
@@ -1153,7 +1508,25 @@ pub fn profile_name_field(content: &str) -> Option<String> {
 /// way falcond does: exactly, then case-insensitively.
 #[must_use]
 pub fn matching_profile(process_name: &str, profile_mode: &str) -> Option<ProfileMatch> {
-    let base = Path::new(crate::profiles::SYSTEM_PROFILES_DIR);
+    matching_profile_in(
+        Path::new(crate::profiles::SYSTEM_PROFILES_DIR),
+        process_name,
+        profile_mode,
+    )
+}
+
+/// [`matching_profile`] among the profiles under `base`.
+///
+/// falcond loads the mode's profiles, then lets each user profile override
+/// the one of the same name, compared without regard to case, and matches a
+/// process by exact name, then without regard to case; `Proton`, in any
+/// case, is its fallback. So a user profile matching the process is the one
+/// in effect — over a system one, or as its own.
+fn matching_profile_in(
+    base: &Path,
+    process_name: &str,
+    profile_mode: &str,
+) -> Option<ProfileMatch> {
     let mode_dir = match profile_mode {
         "handheld" | "htpc" => base.join(profile_mode),
         _ => base.to_path_buf(),
@@ -1172,20 +1545,19 @@ pub fn matching_profile(process_name: &str, profile_mode: &str) -> Option<Profil
                 continue;
             };
             if let Some(name) = profile_name_field(&content) {
-                if name != "Proton" {
+                if !name.eq_ignore_ascii_case("proton") {
                     candidates.push(ProfileMatch { name, path, user });
                 }
             }
         }
     }
+    let matching = |c: &&ProfileMatch| c.name.eq_ignore_ascii_case(process_name);
     candidates
         .iter()
-        .find(|c| c.name == process_name)
-        .or_else(|| {
-            candidates
-                .iter()
-                .find(|c| c.name.eq_ignore_ascii_case(process_name))
-        })
+        .filter(matching)
+        .find(|c| c.user)
+        .or_else(|| candidates.iter().find(|c| c.name == process_name))
+        .or_else(|| candidates.iter().find(matching))
         .cloned()
 }
 
@@ -1207,6 +1579,7 @@ mod tests {
             .into(),
             nvidia_node,
             boot_vga,
+            asleep: false,
             work: None,
         }
     }
@@ -1305,6 +1678,73 @@ mod tests {
         // NVML unavailable: nothing is removed, as before.
         let unknown = drop_enumerated_only(held(), 42, |_| None);
         assert_eq!(choose_render_gpu(&unknown), Some("card0"));
+    }
+
+    #[test]
+    fn a_suspended_geforce_is_idle_and_nvml_is_not_asked() {
+        // A Turing laptop with RTD3: the game on the iGPU enumerated Vulkan
+        // devices, so it holds /dev/nvidia0, and the GeForce went to sleep.
+        let mut nv = open_gpu("card0", true, false);
+        nv.asleep = true;
+        let open = vec![nv, with_work(open_gpu("card1", false, true), 5_000)];
+        let kept = drop_enumerated_only(open, 42, |_| -> Option<Vec<u32>> {
+            panic!("NVML would wake the GPU")
+        });
+        assert_eq!(choose_render_gpu(&kept), Some("card1"));
+    }
+
+    #[test]
+    fn dupd_descriptors_of_one_drm_client_count_its_work_once() {
+        // Xwayland: four fds of client 77 on renderD128 (card1), each
+        // showing the same counters, beside 3 ms of its own on card0.
+        let fd = |card: &str, work: u64, client: u64| {
+            (
+                with_work(open_gpu(card, false, card == "card1"), work),
+                Some(client),
+            )
+        };
+        let mut fds: Vec<_> = (0..4).map(|_| fd("card1", 2_000_000, 77)).collect();
+        fds.push(fd("card0", 3_000_000, 78));
+        let open = merge_open_gpus(fds);
+        assert_eq!(open.len(), 2);
+        assert_eq!(open[0].work, Some(2_000_000));
+        assert_eq!(choose_render_gpu(&open), Some("card0"));
+        // Two clients on one card are two DRM files: both count.
+        let open = merge_open_gpus([fd("card1", 5, 1), fd("card1", 7, 2)]);
+        assert_eq!(open[0].work, Some(12));
+        assert_eq!(
+            fdinfo_client("drm-driver:\tamdgpu\ndrm-client-id:\t77\n"),
+            Some(77)
+        );
+        assert_eq!(fdinfo_client("pos:\t0\n"), None);
+    }
+
+    #[test]
+    fn a_little_igpu_work_does_not_outvote_a_card_that_publishes_no_fdinfo() {
+        // Intel iGPU (fdinfo) + GeForce on nouveau (none): the game opened
+        // both; a little work on the iGPU proves nothing about where it
+        // renders.
+        let nouveau = open_gpu("card0", false, false);
+        let open = [
+            nouveau.clone(),
+            with_work(open_gpu("card1", false, true), 4_000_000),
+        ];
+        assert_eq!(choose_render_gpu(&open), None);
+        // Seconds of GPU time on the iGPU are a game's.
+        let open = [
+            nouveau,
+            with_work(open_gpu("card1", false, true), 6_000_000_000),
+        ];
+        assert_eq!(choose_render_gpu(&open), Some("card1"));
+    }
+
+    #[test]
+    fn the_first_of_two_equally_busy_cards_is_the_answer() {
+        let open = [
+            with_work(open_gpu("card0", false, false), 500),
+            with_work(open_gpu("card1", false, true), 500),
+        ];
+        assert_eq!(choose_render_gpu(&open), Some("card0"));
     }
 
     #[test]
@@ -1838,6 +2278,333 @@ mod tests {
     fn stat_is_parsed_past_a_comm_with_parentheses() {
         let stat = "2238202 (SOTTR.exe (1)) S 2238018 2238018 0 0 -1 4194304 1 0 0 0 1200 370 0 0 20 0 60 0";
         assert_eq!(parse_stat(stat), Some((2238018, 'S', 1570)));
+    }
+
+    // ── Regression: store clients, wrappers, ranking ──────────────────────
+
+    fn reaper(pid: u32, app: &str) -> Proc {
+        p(
+            pid,
+            0,
+            &format!("/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId={app} --"),
+            1,
+        )
+    }
+
+    #[test]
+    fn a_tree_with_a_cycle_still_ends() {
+        // A pid reused while /proc is read can make a process its own
+        // ancestor; the walk once grew without end on such a list.
+        let tree = vec![
+            p(
+                1,
+                1,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=570 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "/g/steamapps/common/dota 2 beta/game/bin/linuxsteamrt64/dota2|",
+                4_000,
+            ),
+        ];
+        assert_eq!(identify(&tree)[0].process_name, "dota2");
+    }
+
+    #[test]
+    fn store_clients_are_never_the_game() {
+        // Unravel Two through the EA app on Steam: the client signs in and
+        // updates for longer than a profile offer waits.
+        let ea = "C:\\Program Files\\Electronic Arts\\EA Desktop\\EA Desktop";
+        let mut tree = vec![
+            reaper(1, "1225570"),
+            p(
+                2,
+                1,
+                "python3|/s/steamapps/common/Proton 9.0/proton waitforexitandrun x",
+                5,
+            ),
+            p(3, 2, "c:\\windows\\system32\\steam.exe|S:\\x", 3),
+            p(4, 3, &format!("{ea}\\EADesktop.exe|"), 9_000),
+            p(5, 4, &format!("{ea}\\QtWebEngineProcess.exe|"), 8_000),
+            p(6, 4, &format!("{ea}\\EABackgroundService.exe|"), 7_000),
+            p(7, 4, &format!("{ea}\\EALocalHostSvc.exe|"), 6_000),
+            p(
+                8,
+                2,
+                "S:\\steamapps\\common\\Unravel Two\\Link2EA.exe|",
+                900,
+            ),
+            p(
+                9,
+                2,
+                "S:\\steamapps\\common\\Unravel Two\\__Installer\\Touchup.exe|",
+                5_000,
+            ),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
+        tree.push(p(
+            10,
+            4,
+            "S:\\steamapps\\common\\Unravel Two\\UnravelTwo.exe|",
+            300,
+        ));
+        assert_eq!(identify(&tree)[0].process_name, "UnravelTwo.exe");
+
+        // Ubisoft Connect opened alone in Lutris.
+        let upc = "C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher";
+        let lutris = vec![
+            p(20, 1, "/usr/bin/lutris|", 500),
+            p(21, 20, "/h/wine/bin/wine64-preloader|", 100),
+            p(22, 21, &format!("{upc}\\upc.exe|"), 9_000),
+            p(23, 22, &format!("{upc}\\UplayWebCore.exe|"), 8_000),
+            p(24, 22, &format!("{upc}\\UbisoftConnect.exe|"), 800),
+            p(
+                25,
+                21,
+                "C:\\Program Files (x86)\\GOG Galaxy\\GalaxyClient Helper.exe|",
+                800,
+            ),
+            p(26, 21, "C:\\Rockstar\\SocialClubHelper.exe|", 800),
+            p(27, 21, "C:\\g\\DuneSandbox_BE.exe|", 800),
+            p(28, 21, "C:\\g\\BEService_x64.exe|", 800),
+            p(29, 21, "C:\\g\\EOSOverlayRenderer-Win64-Shipping.exe|", 800),
+            p(30, 21, "C:\\g\\UnrealCEFSubProcess.exe|", 800),
+        ];
+        assert!(identify(&lutris).is_empty(), "{:?}", identify(&lutris));
+        for name in [
+            "EADesktop.exe",
+            "Link2EA.exe",
+            "upc.exe",
+            "PlayGTAV.exe",
+            "RockstarService.exe",
+            "Battle.net Helper.exe",
+        ] {
+            assert!(is_infrastructure(name), "{name}");
+        }
+        assert!(
+            !is_infrastructure("EarthDefenseForce.exe"),
+            "starts like EA's, is a game"
+        );
+    }
+
+    #[test]
+    fn the_wrappers_around_a_native_game_are_not_the_game() {
+        // Dota 2 started through Steam's launch options with Gamescope.
+        let tree = vec![
+            reaper(1, "570"),
+            p(2, 1, "/usr/bin/gamescope|-W 2560 -- %command%", 9_000),
+            p(3, 2, "/usr/bin/Xwayland|:1", 8_000),
+            p(4, 2, "/usr/bin/mangoapp|", 700),
+            p(
+                5,
+                2,
+                "/g/steamapps/common/dota 2 beta/game/bin/linuxsteamrt64/dota2|",
+                4_000,
+            ),
+        ];
+        assert_eq!(identify(&tree)[0].process_name, "dota2");
+        for name in [
+            "heroic",
+            "legendary",
+            "gogdl",
+            "umu-run",
+            "gamescope-wl",
+            "bwrap",
+            "obs-gamecapture",
+            "bigame-ui",
+            "moonlight",
+        ] {
+            assert!(is_infrastructure(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn the_game_is_the_one_busy_now_or_drawing_not_the_one_open_longest() {
+        let tree = || {
+            vec![
+                reaper(1, "4242"),
+                p(
+                    2,
+                    1,
+                    "python3|/s/steamapps/common/Proton 9.0/proton waitforexitandrun x",
+                    5,
+                ),
+                // Open for an hour, idle now.
+                p(3, 2, "S:\\steamapps\\common\\G\\Companion.exe|", 4_000),
+                // Started a minute ago.
+                p(4, 2, "S:\\steamapps\\common\\G\\Game.exe|", 2_000),
+            ]
+        };
+        assert_eq!(identify(&tree())[0].pid, 3, "by total CPU time alone");
+        let activity = Activity {
+            previous: HashMap::from([(3, 3_990), (4, 500)]),
+            renders: None,
+        };
+        let found = identify_ranked(&tree(), &HashMap::<String, String>::new(), &activity);
+        assert_eq!(found[0].pid, 4, "by CPU time since the last look");
+        let drawing = Activity {
+            previous: HashMap::new(),
+            renders: Some(Box::new(|pid| pid == 4)),
+        };
+        let found = identify_ranked(&tree(), &HashMap::<String, String>::new(), &drawing);
+        assert_eq!(found[0].pid, 4, "the one submitting GPU work");
+        // A pid reused since the last look counts all its time.
+        let reused = Activity {
+            previous: HashMap::from([(4, 9_999)]),
+            renders: None,
+        };
+        assert_eq!(reused.recent(&tree()[3]), 2_000);
+    }
+
+    #[test]
+    fn cpu_time_is_compared_over_at_least_the_minimum_window() {
+        let start = std::time::Instant::now();
+        let ticks = |n: u64| HashMap::from([(1, n)]);
+        let mut b = Baselines {
+            older: None,
+            newer: None,
+        };
+        assert!(b.take(start, &ticks(10)).is_empty());
+        // Right after: still compared with the first look.
+        assert_eq!(b.take(start + MIN_WINDOW / 4, &ticks(11))[&1], 10);
+        let later = start + MIN_WINDOW * 3;
+        assert_eq!(b.take(later, &ticks(50))[&1], 10);
+        // A look just after a fresh one compares with the one before it.
+        assert_eq!(b.take(later + MIN_WINDOW / 4, &ticks(51))[&1], 10);
+        assert_eq!(b.take(later + MIN_WINDOW * 2, &ticks(90))[&1], 50);
+    }
+
+    #[test]
+    fn gpu_work_is_read_from_the_processs_descriptors() {
+        let root = std::env::temp_dir().join(format!("bigame_gpu_fds_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let fd = |pid: u32, n: u32, target: &str, fdinfo: &str| {
+            let dir = root.join(pid.to_string());
+            std::fs::create_dir_all(dir.join("fd")).unwrap();
+            std::fs::create_dir_all(dir.join("fdinfo")).unwrap();
+            std::os::unix::fs::symlink(target, dir.join("fd").join(n.to_string())).unwrap();
+            std::fs::write(dir.join("fdinfo").join(n.to_string()), fdinfo).unwrap();
+        };
+        fd(
+            10,
+            3,
+            "/dev/dri/renderD128",
+            "drm-client-id:\t7\ndrm-engine-gfx:\t18885878 ns\n",
+        );
+        fd(11, 3, "/dev/dri/renderD128", "drm-client-id:\t8\n");
+        fd(11, 4, "/dev/nvidiactl", "pos:\t0\n");
+        fd(12, 5, "/dev/nvidia0", "pos:\t0\n");
+        fd(13, 0, "/dev/null", "pos:\t0\n");
+        assert!(submits_gpu_work(&root, 10));
+        assert!(
+            !submits_gpu_work(&root, 11),
+            "a render node with no work, the control node"
+        );
+        assert!(submits_gpu_work(&root, 12));
+        assert!(!submits_gpu_work(&root, 13));
+        assert!(!submits_gpu_work(&root, 99));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_proc_tree_is_read_without_status_files() {
+        let root = std::env::temp_dir().join(format!("bigame_fake_proc_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dir = root.join("4242");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("stat"),
+            "4242 (Game.exe) S 4000 4242 0 0 -1 0 0 0 0 0 1200 370 0 0 20 0 60 0 99",
+        )
+        .unwrap();
+        std::fs::write(dir.join("cmdline"), b"C:\\g\\Game.exe\0-dx12\0").unwrap();
+        std::fs::create_dir_all(root.join("self")).unwrap();
+        let procs = snapshot_in(&root);
+        assert_eq!(procs.len(), 1);
+        assert_eq!(procs[0].pid, 4242);
+        assert_eq!(procs[0].ppid, 4000);
+        assert_eq!(procs[0].cpu_ticks, 1570);
+        assert_eq!(procs[0].cmdline, "C:\\g\\Game.exe -dx12");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn native_games_of_every_launcher_are_known() {
+        use crate::games::{DetectedGame, Source};
+        let game = |name: &str, source: Source, exes: &[&str], native: bool| DetectedGame {
+            name: name.into(),
+            source,
+            app_id: None,
+            install_path: None,
+            executables: exes.iter().map(|e| (*e).to_owned()).collect(),
+            launch_file: None,
+            cover: None,
+            icon: None,
+            launch_command: native.then(|| vec!["x".to_owned()]),
+            launcher: None,
+        };
+        let library = [
+            game("SuperTuxKart", Source::Lutris, &["supertuxkart"], true),
+            game(
+                "Altered Beast Remake Linux",
+                Source::Lutris,
+                &["Altered Beast Remake"],
+                true,
+            ),
+            game(
+                "Rock & Roll Racing",
+                Source::Lutris,
+                &["Rock N Roll Racing.exe"],
+                false,
+            ),
+            game(
+                "Linux Port",
+                Source::Heroic,
+                &["GameBinary", "run", "nw"],
+                true,
+            ),
+            game("Windows Build", Source::Heroic, &["Some.bin"], false),
+            game("KMines", Source::Native, &["kmines"], true),
+            game("Hades", Source::Steam, &["hades"], false),
+        ];
+        let known = native_games_from(&["cs2".to_owned(), "proton".to_owned()], &library);
+        let mut keys: Vec<&str> = known.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "Altered Beast Remake",
+                "GameBinary",
+                "cs2",
+                "kmines",
+                "supertuxkart"
+            ]
+        );
+        assert_eq!(known["supertuxkart"], "SuperTuxKart");
+    }
+
+    #[test]
+    fn the_profile_in_effect_is_the_users_whatever_the_case() {
+        let base = std::env::temp_dir().join(format!("bigame_profiles_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("user")).unwrap();
+        std::fs::write(base.join("game.conf"), "name = \"Game.exe\"\n").unwrap();
+        std::fs::write(base.join("user/mine.conf"), "name = \"game.exe\"\n").unwrap();
+        std::fs::write(base.join("proton.conf"), "name = \"proton\"\n").unwrap();
+        std::fs::write(base.join("other.conf"), "name = \"Other.exe\"\n").unwrap();
+        let found = matching_profile_in(&base, "Game.exe", "default").unwrap();
+        assert!(found.user, "the user's file overrides falcond's: {found:?}");
+        assert_eq!(found.path, base.join("user/mine.conf"));
+        assert_eq!(
+            matching_profile_in(&base, "OTHER.EXE", "default")
+                .unwrap()
+                .name,
+            "Other.exe"
+        );
+        assert_eq!(matching_profile_in(&base, "Proton", "default"), None);
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]

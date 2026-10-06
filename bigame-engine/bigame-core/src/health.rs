@@ -95,30 +95,251 @@ fn verbatim(value: impl Into<String>) -> Text {
 ///
 /// Read from each entry's `desc` rather than inferred from directory names,
 /// because names share prefixes (`falcond` and `falcond-profiles`).
+///
+/// A package that only *provides* `name` — a local build such as
+/// `falcond-local` with `provides=(falcond)` — counts too: its versioned
+/// `provides` entry (`falcond=2.0.14`) when it has one, its own version
+/// otherwise. Otherwise such a build reads as "not installed" and loses
+/// every version-dependent explanation.
 #[must_use]
 pub fn package_version(db: &Path, name: &str) -> Option<String> {
-    let entries = std::fs::read_dir(db).ok()?;
-    for entry in entries.flatten() {
+    let entries: Vec<_> = std::fs::read_dir(db).ok()?.flatten().collect();
+    let desc_of =
+        |entry: &std::fs::DirEntry| std::fs::read_to_string(entry.path().join("desc")).ok();
+    for entry in &entries {
         let dir = entry.file_name().to_string_lossy().into_owned();
         if !dir.starts_with(&format!("{name}-")) {
             continue;
         }
-        let Ok(desc) = std::fs::read_to_string(entry.path().join("desc")) else {
+        let Some(desc) = desc_of(entry) else {
             continue;
         };
-        let field = |key: &str| {
-            let mut lines = desc.lines();
-            lines.by_ref().find(|l| *l == key)?;
-            lines.next().map(str::to_owned)
-        };
-        if field("%NAME%").as_deref() == Some(name) {
-            return field("%VERSION%");
+        if desc_field(&desc, "%NAME%").first() == Some(&name) {
+            return desc_field(&desc, "%VERSION%")
+                .first()
+                .map(|v| (*v).to_owned());
         }
     }
-    None
+    // Only a package that names something else can provide it.
+    entries.iter().find_map(|entry| {
+        let desc = desc_of(entry)?;
+        desc_field(&desc, "%PROVIDES%").into_iter().find_map(|p| {
+            let (provided, version) = p.split_once('=').unwrap_or((p, ""));
+            (provided == name).then(|| {
+                if version.is_empty() {
+                    desc_field(&desc, "%VERSION%")
+                        .first()
+                        .map(|v| (*v).to_owned())
+                } else {
+                    Some(version.to_owned())
+                }
+            })?
+        })
+    })
+}
+
+/// The lines of one `%FIELD%` section of a pacman `desc` file.
+fn desc_field<'a>(desc: &'a str, key: &str) -> Vec<&'a str> {
+    let mut lines = desc.lines();
+    if lines.by_ref().find(|l| *l == key).is_none() {
+        return Vec::new();
+    }
+    lines.take_while(|l| !l.is_empty()).collect()
 }
 
 pub(crate) const PACMAN_DB: &str = "/var/lib/pacman/local";
+
+/// `NTSync`: the kernel's Windows synchronisation driver, which Wine and
+/// Proton use instead of fsync/esync when `/dev/ntsync` can be opened.
+///
+/// Read from the device node, `/sys/module` and the running kernel's module
+/// directory; nothing is loaded and no variable is set — Proton picks it up
+/// by itself. On Arch the module is loaded at boot by `ntsync-autoload`,
+/// which only `wine` pulls in, so a Steam-only installation may have a kernel
+/// with `NTSync` and no device.
+#[must_use]
+pub fn ntsync_check(dev: &Path, sys_module: &Path, modules_dir: &Path) -> Check {
+    use std::os::unix::fs::FileTypeExt as _;
+    let device = std::fs::metadata(dev).is_ok_and(|m| m.file_type().is_char_device());
+    if device {
+        let usable = std::ffi::CString::new(dev.as_os_str().as_encoded_bytes())
+            // SAFETY: access(2) reads only the NUL-terminated path.
+            .is_ok_and(|c| unsafe { libc::access(c.as_ptr(), libc::R_OK | libc::W_OK) } == 0);
+        return if usable {
+            check(
+                N_("NTSync"),
+                Status::Ok,
+                N_(
+                    "available: Proton and Wine synchronise game threads through the kernel when they support it",
+                ),
+                None,
+            )
+        } else {
+            check(
+                N_("NTSync"),
+                Status::Warning,
+                N_(
+                    "/dev/ntsync exists, but this user cannot open it, so games fall back to fsync or esync",
+                ),
+                cmd("ls -l /dev/ntsync"),
+            )
+        };
+    }
+    let builtin = std::fs::read_to_string(modules_dir.join("modules.builtin"))
+        .is_ok_and(|b| b.lines().any(|l| l.ends_with("/ntsync.ko")));
+    let module = builtin
+        || sys_module.exists()
+        || std::fs::read_dir(modules_dir.join("kernel/drivers/misc")).is_ok_and(|d| {
+            d.flatten()
+                .any(|e| e.file_name().to_string_lossy().starts_with("ntsync.ko"))
+        });
+    if module {
+        check(
+            N_("NTSync"),
+            Status::Warning,
+            N_("the kernel has NTSync, but it is not loaded, so games fall back to fsync or esync"),
+            cmd("sudo pacman -S --needed ntsync-autoload && sudo modprobe ntsync"),
+        )
+    } else {
+        check(
+            N_("NTSync"),
+            Status::NotApplicable,
+            N_("this kernel has no NTSync; games use fsync or esync"),
+            None,
+        )
+    }
+}
+
+/// The scheduler `scx_loader` starts by itself at boot (`default_sched`, and
+/// `default_mode`), from the first of its configuration files that exists.
+#[must_use]
+pub fn scx_loader_default(files: &[&Path]) -> Option<(String, String)> {
+    let text = files.iter().find_map(|f| std::fs::read_to_string(f).ok())?;
+    let table = text.parse::<toml::Table>().ok()?;
+    let sched = table.get("default_sched")?.as_str()?.trim();
+    if sched.is_empty() {
+        return None;
+    }
+    let mode = table
+        .get("default_mode")
+        .and_then(toml::Value::as_str)
+        .unwrap_or("Auto");
+    Some((sched.to_owned(), mode.to_owned()))
+}
+
+/// A scheduler `scx_loader` loads at boot is a second owner of the CPU
+/// scheduler: it runs with Turbo off and on battery, and falcond's choice
+/// replaces it for a game while Turbo is on. Said, never changed.
+#[must_use]
+pub fn scx_loader_default_check(default: Option<(String, String)>) -> Option<Check> {
+    let (sched, mode) = default?;
+    Some(check(
+        N_("Scheduler at boot"),
+        Status::Info,
+        Text::with(
+            N_(
+                "scx_loader starts %s (%s mode) at every boot, with Turbo off too: a second owner of the CPU scheduler. While Turbo is on, a game's profile can replace it.",
+            ),
+            [sched, mode],
+        ),
+        None,
+    ))
+}
+
+/// falcond's VRAM protection (DMEM, falcond 2.0.14): unavailable on this
+/// system, or failing with the error falcond reports. Nothing when it works
+/// or this falcond does not report it.
+#[must_use]
+pub fn dmem_check(status: Option<&crate::status::FalcondStatus>) -> Option<Check> {
+    let status = status?;
+    if let Some(error) = &status.dmem_last_error {
+        return Some(check(
+            N_("VRAM protection"),
+            Status::Warning,
+            Text::with(
+                N_("falcond could not protect a game's VRAM: %s"),
+                [error.clone()],
+            ),
+            advice(N_(
+                "falcond protects a game's VRAM only when the dmem controller is delegated to your session (the dmemcg-booster service does that); without it games run as before, without the protection",
+            )),
+        ));
+    }
+    (status.dmem_cgroup == Some(false)).then(|| {
+        check(
+            N_("VRAM protection"),
+            Status::Info,
+            N_("this kernel or its cgroup setup does not let falcond protect a game's VRAM (DMEM); games run without that protection"),
+            None,
+        )
+    })
+}
+
+/// A falcond directory that someone other than root can write: falcond, a
+/// root service, applies what is in it, and Big Game Mode writes there only
+/// after an administrator's password. A group-writable profile directory (as
+/// some setup scripts make for falcond-gui) skips that password.
+#[must_use]
+pub fn falcond_dirs_check(dirs: &[&Path]) -> Option<Check> {
+    use std::os::unix::fs::MetadataExt as _;
+    let open: Vec<String> = dirs
+        .iter()
+        .filter(|d| {
+            std::fs::symlink_metadata(d).is_ok_and(|m| m.uid() != 0 || m.mode() & 0o022 != 0)
+        })
+        .map(|d| d.display().to_string())
+        .collect();
+    let first = open.first()?;
+    Some(check(
+        N_("falcond's files"),
+        Status::Warning,
+        Text::with(
+            N_(
+                "%s can be changed without the administrator password, yet falcond applies what it holds as root",
+            ),
+            [open.join(", ")],
+        ),
+        cmd(format!(
+            "sudo chown root:root '{first}' && sudo chmod 755 '{first}'"
+        )),
+    ))
+}
+
+/// `MangoHud` without its 32-bit build: 32-bit games (and 32-bit Vulkan in
+/// Proton) get no overlay and no capture for Measure the difference.
+#[must_use]
+pub fn mangohud_32bit_check(mangohud: bool, lib32: &Path) -> Option<Check> {
+    (mangohud && !lib32.join("mangohud/libMangoHud.so").exists()).then(|| {
+        check(
+            N_("MangoHud (32-bit)"),
+            Status::Info,
+            N_("only the 64-bit MangoHud is installed: 32-bit games show no overlay and cannot be measured"),
+            cmd("sudo pacman -S lib32-mangohud"),
+        )
+    })
+}
+
+/// A `Lossless.dll` the installed lsfg-vk cannot generate frames with: the
+/// profile loads, the swapchain does not, and a game may close at start.
+/// Asked of lsfg-vk itself ([`crate::fg::check_dll`], saved until the DLL or
+/// lsfg-vk changes).
+fn lossless_dll_check() -> Option<Check> {
+    let dll = crate::fg::read_global_dll()?;
+    match crate::fg::check_dll(Path::new(&dll))? {
+        crate::fg::DllCheck::Works => None,
+        crate::fg::DllCheck::Unusable(reason) => Some(check(
+            N_("Frame generation (lsfg-vk)"),
+            Status::Warning,
+            Text::with(
+                N_(
+                    "lsfg-vk cannot generate frames with this Lossless.dll (%s): update Lossless Scaling and choose its Lossless.dll again",
+                ),
+                [reason],
+            ),
+            None,
+        )),
+    }
+}
 
 /// The 32-bit Vulkan driver a render GPU needs, and whether it is present.
 ///
@@ -198,7 +419,7 @@ pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
     };
     let values = [
         Arg::from(vendor),
-        Arg::from(&gpu.card),
+        Arg::from(gpu.node()),
         Arg::Text(offload.label()),
     ];
     Some(check(
@@ -207,14 +428,14 @@ pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
         if prime_run {
             Text::with(
                 N_(
-                    "games render on the %s GPU (%s); games BiGame-mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options",
+                    "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options",
                 ),
                 values,
             )
         } else {
             Text::with(
                 N_(
-                    "games render on the %s GPU (%s); games BiGame-mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options",
+                    "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options",
                 ),
                 values,
             )
@@ -413,6 +634,31 @@ pub fn collect() -> Vec<Check> {
         ),
     });
 
+    out.extend(dmem_check(status.as_ref()));
+    if caps.falcond_installed {
+        out.extend(falcond_dirs_check(&[
+            Path::new("/etc/falcond"),
+            Path::new("/usr/share/falcond/profiles/user"),
+        ]));
+    }
+    out.extend(mangohud_32bit_check(caps.mangohud, Path::new("/usr/lib32")));
+    out.extend(lossless_dll_check());
+    if let Some(c) = scx_loader_default_check(scx_loader_default(&[
+        Path::new("/etc/scx_loader.toml"),
+        Path::new("/etc/scx_loader/config.toml"),
+        Path::new("/usr/share/scx_loader/config.toml"),
+    ])) {
+        out.push(c);
+    }
+
+    // NTSync
+    let release = std::fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_default();
+    out.push(ntsync_check(
+        Path::new("/dev/ntsync"),
+        Path::new("/sys/module/ntsync"),
+        &Path::new("/lib/modules").join(release.trim()),
+    ));
+
     // Power profiles
     out.push(if caps.power_profiles {
         check(
@@ -435,7 +681,7 @@ pub fn collect() -> Vec<Check> {
         check(
             N_("Feral GameMode"),
             Status::Warning,
-            N_("installed alongside falcond; BiGame-mode does not use it, because two controllers would save and restore the same settings"),
+            N_("installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"),
             None,
         )
     } else {
@@ -563,9 +809,14 @@ pub fn collect() -> Vec<Check> {
         .ok()
         .and_then(|p| p.ping().ok());
     out.push(match helper {
-        Some(_) => check(N_("BiGame-mode helper"), Status::Ok, N_("reachable"), None),
+        Some(_) => check(
+            N_("Big Game Mode helper"),
+            Status::Ok,
+            N_("reachable"),
+            None,
+        ),
         None => check(
-            N_("BiGame-mode helper"),
+            N_("Big Game Mode helper"),
             Status::Error,
             N_("not reachable: Turbo and profile changes cannot be made"),
             cmd("sudo systemctl restart bigame-daemon"),
@@ -627,7 +878,7 @@ fn resizable_bar(bar: u64, vram: u64) -> Check {
                 [size(bar), size(vram)],
             ),
             advice(N_(
-                "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and BiGame-mode does not change firmware settings",
+                "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and Big Game Mode does not change firmware settings",
             )),
         )
     }
@@ -636,6 +887,114 @@ fn resizable_bar(bar: u64, vram: u64) -> Check {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dmem_is_reported_only_when_unavailable_or_failing() {
+        let mut s = crate::status::FalcondStatus::default();
+        assert!(dmem_check(None).is_none());
+        assert!(
+            dmem_check(Some(&s)).is_none(),
+            "an older falcond says nothing"
+        );
+        s.dmem_cgroup = Some(true);
+        assert!(dmem_check(Some(&s)).is_none());
+        s.dmem_cgroup = Some(false);
+        assert_eq!(dmem_check(Some(&s)).unwrap().status, Status::Info);
+        s.dmem_cgroup = Some(true);
+        s.dmem_last_error = Some(
+            "dmem exists, but the source cgroup hierarchy does not expose dmem to the game scope"
+                .into(),
+        );
+        let c = dmem_check(Some(&s)).unwrap();
+        assert_eq!(c.status, Status::Warning);
+        assert!(c.detail.english().contains("does not expose dmem"));
+    }
+
+    #[test]
+    fn a_falcond_directory_writable_without_root_is_named() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = std::env::temp_dir().join(format!("bgm-fdirs-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // Owned by this (non-root) user: writable without the password.
+        let c = falcond_dirs_check(&[&dir]).unwrap();
+        assert_eq!(c.status, Status::Warning);
+        assert!(c.fix.unwrap().english().contains("chmod 755"));
+        // A root-owned 0755 directory is fine; a missing one is not checked.
+        assert!(falcond_dirs_check(&[Path::new("/usr"), &dir.join("absent")]).is_none());
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn missing_32bit_mangohud_is_named_only_with_mangohud() {
+        let dir = std::env::temp_dir().join(format!("bgm-lib32mh-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("mangohud")).unwrap();
+        assert!(mangohud_32bit_check(false, &dir).is_none());
+        assert!(mangohud_32bit_check(true, &dir).is_some());
+        std::fs::write(dir.join("mangohud/libMangoHud.so"), b"").unwrap();
+        assert!(mangohud_32bit_check(true, &dir).is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_scheduler_scx_loader_starts_at_boot_is_named() {
+        let dir = std::env::temp_dir().join(format!("bgm-scxl-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (etc, share) = (dir.join("etc.toml"), dir.join("share.toml"));
+        // The packaged file: every default commented out.
+        std::fs::write(
+            &share,
+            "# default_sched = \"scx_bpfland\"\n[scheds.scx_cake]\n",
+        )
+        .unwrap();
+        assert_eq!(scx_loader_default(&[&etc, &share]), None);
+        assert!(scx_loader_default_check(None).is_none());
+        std::fs::write(
+            &etc,
+            "default_sched = \"scx_beerland\"\ndefault_mode = \"Auto\"\n",
+        )
+        .unwrap();
+        let d = scx_loader_default(&[&etc, &share]);
+        assert_eq!(d, Some(("scx_beerland".to_owned(), "Auto".to_owned())));
+        let c = scx_loader_default_check(d).unwrap();
+        assert_eq!(c.status, Status::Info);
+        assert!(c.detail.english().contains("scx_beerland (Auto mode)"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn ntsync_is_told_apart_by_device_module_and_kernel() {
+        let dir = std::env::temp_dir().join(format!("bgm-ntsync-{}", std::process::id()));
+        let modules = dir.join("modules");
+        std::fs::create_dir_all(modules.join("kernel/drivers/misc")).unwrap();
+        let none = dir.join("absent");
+        // No device and no module: a kernel without it.
+        let c = ntsync_check(&none, &none, &modules);
+        assert_eq!(c.status, Status::NotApplicable);
+        // The module file, not loaded: say so, with the package that loads it.
+        std::fs::write(modules.join("kernel/drivers/misc/ntsync.ko.zst"), b"").unwrap();
+        let c = ntsync_check(&none, &none, &modules);
+        assert_eq!(c.status, Status::Warning);
+        assert!(c.fix.unwrap().english().contains("ntsync-autoload"));
+        // A regular file where the device should be is not a device.
+        let fake = dir.join("ntsync");
+        std::fs::write(&fake, b"").unwrap();
+        assert_eq!(ntsync_check(&fake, &none, &modules).status, Status::Warning);
+        // Built into the kernel counts as present too.
+        std::fs::remove_file(modules.join("kernel/drivers/misc/ntsync.ko.zst")).unwrap();
+        std::fs::write(
+            modules.join("modules.builtin"),
+            "kernel/drivers/misc/ntsync.ko\n",
+        )
+        .unwrap();
+        assert_eq!(ntsync_check(&none, &none, &modules).status, Status::Warning);
+        // A character device the user can open: /dev/null stands in for it.
+        assert_eq!(
+            ntsync_check(Path::new("/dev/null"), &none, &modules).status,
+            Status::Ok
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn resizable_bar_off_and_on() {
@@ -805,6 +1164,33 @@ mod tests {
             Some("r23.a3e0e63-1")
         );
         assert_eq!(package_version(&db, "mangohud"), None);
+        // A local build that provides it: its versioned provides, or its own
+        // version.
+        for (dir, desc) in [
+            (
+                "falcond-local-2.0.14.r3.gabc-1",
+                "%NAME%\nfalcond-local\n\n%VERSION%\n2.0.14.r3.gabc-1\n\n%PROVIDES%\nfalcond=2.0.14\nfalcond-git\n",
+            ),
+            (
+                "vkbasalt-git-r1-1",
+                "%NAME%\nvkbasalt-git\n\n%VERSION%\nr1-1\n\n%PROVIDES%\nvkbasalt\n",
+            ),
+        ] {
+            std::fs::create_dir_all(db.join(dir)).unwrap();
+            std::fs::write(db.join(dir).join("desc"), desc).unwrap();
+        }
+        assert_eq!(
+            package_version(&db, "falcond").as_deref(),
+            Some("2.0.2-2"),
+            "the real package first"
+        );
+        assert_eq!(
+            package_version(&db, "falcond-git").as_deref(),
+            Some("2.0.14.r3.gabc-1")
+        );
+        assert_eq!(package_version(&db, "vkbasalt").as_deref(), Some("r1-1"));
+        std::fs::remove_dir_all(db.join("falcond-2.0.2-2")).unwrap();
+        assert_eq!(package_version(&db, "falcond").as_deref(), Some("2.0.14"));
         let _ = std::fs::remove_dir_all(&db);
     }
 

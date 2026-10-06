@@ -1,5 +1,6 @@
-//! Turbo presets: one choice, made before Turbo is switched on, for what the
-//! games started while it is on should favour.
+//! Turbo presets: one choice for what the games started while Turbo is on
+//! should favour. It is made before Turbo is switched on (for when it is),
+//! or while it is on ([`switch`]), from Home or the tray alike.
 //!
 //! A preset is a layer on top of Tuning, never a second copy of it. While
 //! Turbo is on, the running session's environment carries the preset's
@@ -15,8 +16,10 @@
 //!   BiGame-mode starts itself. A native Linux game reads none of these;
 //! - Wine FSR (`WINE_FULLSCREEN_FSR`): Wine scales a game running in
 //!   exclusive fullscreen below the display's resolution;
-//! - vkBasalt (`ENABLE_VKBASALT`): the sharpening filter (CAS) in its
-//!   configuration;
+//! - vkBasalt (`ENABLE_VKBASALT`) with BiGame-mode's own CAS-only file
+//!   (`VKBASALT_CONFIG_FILE`, [`cas_config_path`]): the user's
+//!   `vkBasalt.conf` may hold any effect, and "sharper image" has to mean
+//!   sharpening;
 //! - `FSR4_UPGRADE=1` (Valve's Proton) and `PROTON_FSR4_UPGRADE=1` (GE-Proton,
 //!   which Heroic games often run; it also fetches AMD's provider): Proton
 //!   hands a game's FSR 3.1 to AMD's FSR 4, on a GPU that runs FSR 4
@@ -27,9 +30,17 @@
 //! login and cannot be unset later (systemd 261), and a preset must go away
 //! completely when Turbo does. BiGame-mode puts them back when it starts with
 //! Turbo on ([`resync`]).
+//!
+//! The user may have set a preset's variables too (a `DXVK_CONFIG` of their
+//! own, `PROTON_FSR4_UPGRADE=1` in their `environment.d`). Their values in
+//! the session before the first preset went in are kept in the record of the
+//! preset in force ([`Layer::before`]): a frame cap is merged into their
+//! `DXVK_CONFIG`, a key the preset does not set keeps their value, and taking
+//! the preset away puts their values back rather than unsetting them. The
+//! record goes only once the session reads back without the preset.
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -169,16 +180,55 @@ pub fn levers(preset: Preset, machine: Machine) -> Levers {
     }
 }
 
-/// The variables only a preset sets, for `levers`; they are never in
-/// `environment.d`.
+/// The variables only a preset sets among BiGame-mode's; BiGame-mode never
+/// puts them in `environment.d`, though the user may have.
+pub const PRESET_KEYS: &[&str] = &[
+    "DXVK_CONFIG",
+    "DXVK_FRAME_RATE",
+    "VKD3D_FRAME_RATE",
+    "FSR4_UPGRADE",
+    "PROTON_FSR4_UPGRADE",
+];
+
+/// DXVK's options that cap the frame rate.
+const DXVK_CAPS: [&str; 2] = ["dxgi.maxFrameRate", "d3d9.maxFrameRate"];
+
+/// `DXVK_CONFIG` with a cap of `fps`, as a preset alone writes it.
+fn dxvk_cap(fps: u32) -> String {
+    format!("dxgi.maxFrameRate = {fps}; d3d9.maxFrameRate = {fps}")
+}
+
+/// The user's `DXVK_CONFIG` without its frame caps, then a cap of `fps`
+/// (none for `0`). Their other options (a vendor id, a HUD) stay: a preset
+/// changes the cap, not the rest of the file.
+#[must_use]
+pub fn merge_dxvk_config(user: Option<&str>, fps: u32) -> String {
+    let mut options: Vec<String> = user
+        .unwrap_or_default()
+        .split(';')
+        .map(str::trim)
+        .filter(|o| !o.is_empty())
+        .filter(|o| {
+            let key = o.split_once('=').map_or(*o, |(k, _)| k).trim();
+            !DXVK_CAPS.contains(&key)
+        })
+        .map(str::to_owned)
+        .collect();
+    if fps > 0 {
+        options.push(dxvk_cap(fps));
+    }
+    options.join("; ")
+}
+
+/// The variables a preset sets for `levers` in a game BiGame-mode starts:
+/// [`PRESET_KEYS`], and vkBasalt's CAS-only file when it turns vkBasalt on.
 #[must_use]
 pub fn preset_env(levers: Levers) -> HashMap<String, String> {
     let mut env = HashMap::new();
     if let Some(fps) = levers.frame_cap.filter(|f| *f > 0) {
-        env.insert(
-            "DXVK_CONFIG".into(),
-            format!("dxgi.maxFrameRate = {fps}; d3d9.maxFrameRate = {fps}"),
-        );
+        env.insert("DXVK_CONFIG".into(), dxvk_cap(fps));
+        // DXVK before 2.3 reads only this name.
+        env.insert("DXVK_FRAME_RATE".into(), fps.to_string());
         env.insert("VKD3D_FRAME_RATE".into(), fps.to_string());
     }
     if levers.fsr4_upgrade {
@@ -186,12 +236,67 @@ pub fn preset_env(levers: Levers) -> HashMap<String, String> {
         // GE-Proton reads only its own name, and then fetches the provider.
         env.insert("PROTON_FSR4_UPGRADE".into(), "1".into());
     }
+    if levers.vkbasalt == Some(true) {
+        env.insert(
+            "VKBASALT_CONFIG_FILE".into(),
+            cas_config_path().to_string_lossy().into_owned(),
+        );
+    }
+    env
+}
+
+/// [`PRESET_KEYS`] as the session holds them under `levers`, over the
+/// user's own values `before`: the cap merged into their `DXVK_CONFIG`, a
+/// key the preset leaves alone at their value. "No cap" keeps their other
+/// DXVK options and turns VKD3D-Proton's limiter off with `0` (one of
+/// theirs from `environment.d` cannot be unset from the running session).
+fn preset_keys_over(levers: Levers, before: &BTreeMap<String, String>) -> HashMap<String, String> {
+    let mut env: HashMap<String, String> = before
+        .iter()
+        .filter(|(k, _)| PRESET_KEYS.contains(&k.as_str()))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    match levers.frame_cap {
+        Some(0) => {
+            if let Some(user) = before.get("DXVK_CONFIG") {
+                env.insert("DXVK_CONFIG".into(), merge_dxvk_config(Some(user), 0));
+            }
+            for limiter in ["DXVK_FRAME_RATE", "VKD3D_FRAME_RATE"] {
+                if before.contains_key(limiter) {
+                    env.insert(limiter.into(), "0".into());
+                }
+            }
+        }
+        Some(fps) => {
+            env.insert(
+                "DXVK_CONFIG".into(),
+                merge_dxvk_config(before.get("DXVK_CONFIG").map(String::as_str), fps),
+            );
+            env.insert("DXVK_FRAME_RATE".into(), fps.to_string());
+            env.insert("VKD3D_FRAME_RATE".into(), fps.to_string());
+        }
+        None => {}
+    }
+    if levers.fsr4_upgrade {
+        env.insert("FSR4_UPGRADE".into(), "1".into());
+        env.insert("PROTON_FSR4_UPGRADE".into(), "1".into());
+    }
     env
 }
 
 /// `env` (Tuning's session variables) with `levers` laid over it.
 pub fn overlay<S: std::hash::BuildHasher>(env: &mut HashMap<String, String, S>, levers: Levers) {
-    env.extend(preset_env(levers));
+    overlay_over(env, levers, &BTreeMap::new());
+}
+
+/// [`overlay`], keeping the user's own values `before` of [`PRESET_KEYS`]
+/// ([`Layer::before`]).
+pub fn overlay_over<S: std::hash::BuildHasher>(
+    env: &mut HashMap<String, String, S>,
+    levers: Levers,
+    before: &BTreeMap<String, String>,
+) {
+    env.extend(preset_keys_over(levers, before));
     match levers.wine_fsr {
         Some(true) => {
             env.insert("WINE_FULLSCREEN_FSR".into(), "1".into());
@@ -205,6 +310,10 @@ pub fn overlay<S: std::hash::BuildHasher>(env: &mut HashMap<String, String, S>, 
     match levers.vkbasalt {
         Some(true) => {
             env.insert("ENABLE_VKBASALT".into(), "1".into());
+            env.insert(
+                "VKBASALT_CONFIG_FILE".into(),
+                cas_config_path().to_string_lossy().into_owned(),
+            );
         }
         Some(false) => {
             env.remove("ENABLE_VKBASALT");
@@ -214,22 +323,146 @@ pub fn overlay<S: std::hash::BuildHasher>(env: &mut HashMap<String, String, S>, 
     }
 }
 
+// ── vkBasalt's sharpening ───────────────────────────────────────────────────
+
+/// BiGame-mode's own vkBasalt file for "Enhanced graphics": CAS and nothing
+/// else. Never the user's `~/.config/vkBasalt/vkBasalt.conf`, which can hold
+/// any look (or the Nara Linux style, whose shaders may be missing).
+#[must_use]
+pub fn cas_config_path() -> PathBuf {
+    crate::paths::config_home()
+        .join("bigame-mode")
+        .join("vkbasalt-cas.conf")
+}
+
+/// Write [`cas_config_path`]'s file when `levers` turn vkBasalt on. vkBasalt
+/// falls back to the user's own file when the one named is missing, so it
+/// is written again whenever the session is synced.
+///
+/// # Errors
+/// Returns an error when the file cannot be written.
+pub fn prepare(levers: Levers) -> Result<()> {
+    if levers.vkbasalt != Some(true) {
+        return Ok(());
+    }
+    write_cas_config(&cas_config_path())
+}
+
+fn write_cas_config(path: &Path) -> Result<()> {
+    let text = crate::vkbasalt::style_config(crate::vkbasalt::Style::Cas, Path::new(""))
+        .context("vkBasalt's CAS style")?;
+    if std::fs::read_to_string(path).is_ok_and(|t| t == text) {
+        return Ok(());
+    }
+    write_atomic(path, &text)
+}
+
+/// Replace `path` with `text` in one rename: a reader sees the old file or
+/// the new one, never half of one.
+fn write_atomic(path: &Path, text: &str) -> Result<()> {
+    use std::io::Write as _;
+    let dir = path.parent().context("path has no parent directory")?;
+    std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let tmp = dir.join(format!(".{name}.{}", std::process::id()));
+    let written = (|| {
+        let mut f = std::fs::File::create(&tmp)?;
+        f.write_all(text.as_bytes())?;
+        f.sync_all()?;
+        std::fs::rename(&tmp, path)
+    })();
+    if let Err(e) = written {
+        if let Err(cleanup) = std::fs::remove_file(&tmp) {
+            if cleanup.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!(file = %tmp.display(), error = %cleanup, "could not remove a temporary file");
+            }
+        }
+        return Err(e).with_context(|| format!("write {}", path.display()));
+    }
+    Ok(())
+}
+
 // ── Frame generation under a cap ────────────────────────────────────────────
 
-/// The games that generate frames: lsfg-vk entries with a multiplier above
-/// 1 (while lsfg-vk's general switch is on), and games whose AI Graphics
-/// has `OptiScaler`'s frame generation. A frame cap counts the frames shown,
-/// generated ones included, so under a 60 FPS cap such a game renders about
-/// 30 (Shadow of the Tomb Raider with `OptiScaler` generation: 62.5 → 30.0 in
-/// its own benchmark, on the reference desktop).
-#[must_use]
-pub fn frame_generation_games() -> Vec<String> {
-    let mut games = Vec::new();
-    if crate::optimization::lsfg_general_on(&crate::video_config::load()) {
-        let text = std::fs::read_to_string(crate::fg::config_path()).unwrap_or_default();
-        games.extend(lsfg_generating(&text));
+/// The games that generate frames, by which frames a DXVK or VKD3D-Proton
+/// frame cap holds in them ([`crate::optimization::CappedFrames`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FrameGenerators {
+    /// The cap counts the frames shown: `OptiScaler`'s generation runs in
+    /// the game, above the cap, so under 60 FPS the game renders about 30
+    /// (Shadow of the Tomb Raider: 62.5 → 30.0 in its own benchmark, on the
+    /// reference desktop).
+    pub shown: Vec<String>,
+    /// The cap holds the frames rendered, with lsfg-vk's multiplier: lsfg-vk
+    /// is a Vulkan layer under the limiter and multiplies what is shown (not
+    /// measured here).
+    pub rendered: Vec<(String, u32)>,
+}
+
+impl FrameGenerators {
+    /// Whether no game generates frames.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.shown.is_empty() && self.rendered.is_empty()
     }
-    if let Ok(dir) = std::fs::read_dir(crate::game_settings::dir()) {
+}
+
+/// The games that generate frames on this machine ([`FrameGenerators`]):
+/// every game lsfg-vk generates for while its general switch is on, and
+/// every game whose AI Graphics has `OptiScaler`'s frame generation, chosen
+/// or switched on later from `OptiScaler`'s overlay — each told apart as a
+/// launch tells it ([`crate::optimization::capped_frames`]).
+#[must_use]
+pub fn frame_generation_games() -> FrameGenerators {
+    let lsfg_conf = crate::optimization::lsfg_general_on(&crate::video_config::load())
+        .then(|| std::fs::read_to_string(crate::fg::config_path()).unwrap_or_default());
+    let (optiscaler, lsfg) = frame_generators_in(
+        &crate::graphics::state_dir(),
+        &crate::game_settings::dir(),
+        lsfg_conf.as_deref(),
+    );
+    classify(
+        optiscaler.into_iter().chain(lsfg),
+        crate::optimization::capped_frames,
+    )
+}
+
+/// `games` sorted by what a cap holds in each (`capped`); one that does
+/// not generate after all is left out.
+fn classify(
+    games: impl IntoIterator<Item = String>,
+    capped: impl Fn(&str) -> Option<crate::optimization::CappedFrames>,
+) -> FrameGenerators {
+    use crate::optimization::CappedFrames;
+    let mut found = FrameGenerators::default();
+    for game in games {
+        match capped(&game) {
+            Some(CappedFrames::Shown) => found.shown.push(game),
+            Some(CappedFrames::Rendered { multiplier }) => found.rendered.push((game, multiplier)),
+            None => {}
+        }
+    }
+    found.shown.sort();
+    found.shown.dedup();
+    found.rendered.sort();
+    found.rendered.dedup();
+    found
+}
+
+/// The games that may generate frames, from AI Graphics' manifests in
+/// `state`, the per-game settings in `settings`, and lsfg-vk's file (`None`
+/// while its general switch is off): those with `OptiScaler`'s generation,
+/// then lsfg-vk's others.
+fn frame_generators_in(
+    state: &Path,
+    settings: &Path,
+    lsfg_conf: Option<&str>,
+) -> (Vec<String>, Vec<String>) {
+    let mut optiscaler: Vec<String> = Vec::new();
+    if let Ok(dir) = std::fs::read_dir(settings) {
         for entry in dir.flatten() {
             let path = entry.path();
             let Some(name) = path
@@ -239,35 +472,39 @@ pub fn frame_generation_games() -> Vec<String> {
             else {
                 continue;
             };
-            if crate::game_settings::load(name)
+            if crate::game_settings::load_from(settings, name)
                 .is_ok_and(|s| s.ai_graphics.optiscaler_frame_generation())
             {
-                games.push(name.to_owned());
+                optiscaler.push(name.to_owned());
             }
         }
     }
-    games.sort();
-    games.dedup();
-    games
+    // Switched on from OptiScaler's overlay: the ini in the game says so,
+    // which is what a launch reads too (it turns lsfg-vk off for them).
+    for process in crate::graphics::installed_processes(state) {
+        let generates = crate::graphics::launch_disables(state, settings, &process)
+            .contains(&crate::graphics::rules::Tech::LsfgVk);
+        if generates && !optiscaler.iter().any(|g| g.eq_ignore_ascii_case(&process)) {
+            optiscaler.push(process);
+        }
+    }
+    let mut lsfg = lsfg_conf.map(lsfg_generating).unwrap_or_default();
+    // A game with OptiScaler's generation runs with lsfg-vk off.
+    lsfg.retain(|g| !optiscaler.iter().any(|o| o.eq_ignore_ascii_case(g)));
+    for list in [&mut optiscaler, &mut lsfg] {
+        list.sort();
+        list.dedup();
+    }
+    (optiscaler, lsfg)
 }
 
 /// The executables lsfg-vk's configuration generates frames for. `proton`
 /// is not a game's process (Proton's launcher script), so it is left out.
+/// lsfg-vk's file in either version's layout (1.x `[[game]]`, 2.x
+/// `[[profile]]`), so a package update does not hide a generating game.
 fn lsfg_generating(conf: &str) -> Vec<String> {
-    let Ok(table) = conf.parse::<toml::Table>() else {
-        return Vec::new();
-    };
-    table
-        .get("game")
-        .and_then(toml::Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|g| {
-            let exe = g.get("exe")?.as_str()?;
-            let multiplier = g.get("multiplier")?.as_integer()?;
-            (multiplier > 1 && exe != "proton").then(|| exe.to_owned())
-        })
-        .collect()
+    conf.parse::<toml::Table>()
+        .map_or_else(|_| Vec::new(), |t| crate::fg::generating_in(&t))
 }
 
 // ── What was chosen, and what is in force ───────────────────────────────────
@@ -276,6 +513,10 @@ fn lsfg_generating(conf: &str) -> Vec<String> {
 struct Stored {
     #[serde(default)]
     preset: Preset,
+    /// In the record of the preset in force: the user's own values of
+    /// [`PRESET_KEYS`] in the session before the first preset went in.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    before: BTreeMap<String, String>,
 }
 
 fn chosen_path() -> PathBuf {
@@ -285,32 +526,25 @@ fn chosen_path() -> PathBuf {
 }
 
 fn active_path() -> PathBuf {
-    std::env::var_os("XDG_STATE_HOME")
-        .map_or_else(
-            || crate::paths::home_dir().join(".local/state"),
-            PathBuf::from,
-        )
+    crate::paths::state_home()
         .join("bigame-mode")
         .join("turbo-preset-active.toml")
 }
 
-fn read(path: &std::path::Path) -> Option<Preset> {
+fn read_stored(path: &Path) -> Option<Stored> {
     let text = std::fs::read_to_string(path).ok()?;
-    toml::from_str::<Stored>(&text).ok().map(|s| s.preset)
+    toml::from_str::<Stored>(&text).ok()
 }
 
-fn write(path: &std::path::Path, preset: Preset) -> Result<()> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
-    }
-    let text = toml::to_string(&Stored { preset }).context("serialize the preset")?;
-    std::fs::write(path, text).with_context(|| format!("write {}", path.display()))
+fn write(path: &Path, stored: &Stored) -> Result<()> {
+    let text = toml::to_string(stored).context("serialize the preset")?;
+    write_atomic(path, &text)
 }
 
 /// The preset chosen for the next time Turbo is switched on.
 #[must_use]
 pub fn chosen() -> Preset {
-    read(&chosen_path()).unwrap_or_default()
+    read_stored(&chosen_path()).unwrap_or_default().preset
 }
 
 /// Choose the preset for the next time Turbo is switched on.
@@ -318,14 +552,20 @@ pub fn chosen() -> Preset {
 /// # Errors
 /// Returns an error when the choice cannot be written.
 pub fn set_chosen(preset: Preset) -> Result<()> {
-    write(&chosen_path(), preset)
+    write(
+        &chosen_path(),
+        &Stored {
+            preset,
+            before: BTreeMap::new(),
+        },
+    )
 }
 
 /// The preset in force now: the one Turbo was switched on with, until it is
-/// switched off.
+/// switched off and the session reads back without it.
 #[must_use]
 pub fn active() -> Preset {
-    read(&active_path()).unwrap_or_default()
+    read_stored(&active_path()).unwrap_or_default().preset
 }
 
 /// The levers in force now.
@@ -337,39 +577,165 @@ pub fn active_levers() -> Levers {
     }
 }
 
-/// Put `preset` in force: remembered, and the session's environment
-/// brought to Tuning's plus the preset's. Returns what the session holds
-/// afterwards, read back.
-///
-/// # Errors
-/// Returns an error when the state cannot be written or the session's
-/// environment cannot be set.
-pub fn activate(preset: Preset) -> Result<Vec<String>> {
-    write(&active_path(), preset)?;
-    crate::video_config::sync_session_env(&crate::video_config::load())
+/// What the session's environment carries over Tuning's for a preset.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Layer {
+    /// The preset's levers.
+    pub levers: Levers,
+    /// The user's own values of [`PRESET_KEYS`] before the first preset.
+    pub before: BTreeMap<String, String>,
+    /// Whether a preset's record is there, so [`PRESET_KEYS`] are
+    /// BiGame-mode's to set and unset. Without one they are the user's alone
+    /// and a session sync leaves them as they are.
+    pub owns_preset_keys: bool,
 }
 
-/// Take the preset away: the session goes back to Tuning's variables.
+/// The layer of the preset in force.
+#[must_use]
+pub fn layer() -> Layer {
+    read_stored(&active_path()).map_or_else(Layer::default, |s| Layer {
+        levers: match s.preset {
+            Preset::Standard => Levers::default(),
+            preset => levers(preset, Machine::detect()),
+        },
+        before: s.before,
+        owns_preset_keys: true,
+    })
+}
+
+/// The user's own values of [`PRESET_KEYS`] in a session environment. A
+/// frame cap exactly as a preset writes it (`DXVK_CONFIG` and
+/// `VKD3D_FRAME_RATE` together, and `DXVK_FRAME_RATE` at the same rate) is
+/// what an earlier build left behind when taking its preset away failed, not
+/// the user's: it is not kept as theirs.
+fn user_values(session: &HashMap<String, String>) -> BTreeMap<String, String> {
+    let leftover_rate = session.get("VKD3D_FRAME_RATE").filter(|fps| {
+        fps.parse::<u32>()
+            .is_ok_and(|n| session.get("DXVK_CONFIG") == Some(&dxvk_cap(n)))
+    });
+    let leftover = |key: &str| match (key, leftover_rate) {
+        ("DXVK_CONFIG" | "VKD3D_FRAME_RATE", Some(_)) => true,
+        ("DXVK_FRAME_RATE", Some(rate)) => session.get(key) == Some(rate),
+        _ => false,
+    };
+    PRESET_KEYS
+        .iter()
+        .filter(|k| !leftover(k))
+        .filter_map(|k| session.get(*k).map(|v| ((*k).to_owned(), v.clone())))
+        .collect()
+}
+
+/// Put `preset` in force: recorded (with the user's own values of its keys,
+/// the first time), and the session's environment brought to Tuning's plus
+/// the preset's. Returns what the session holds afterwards, read back.
 ///
 /// # Errors
-/// Returns an error when the session's environment cannot be set.
+/// Returns an error when the session cannot be read, the record cannot be
+/// written or the session's environment cannot be set. The record stays
+/// then, so taking the preset away can still put the user's values back.
+pub fn activate(preset: Preset) -> Result<Vec<String>> {
+    let path = active_path();
+    // Switching between presets keeps what was there before the first one.
+    let before = match read_stored(&path) {
+        Some(record) => record.before,
+        None => user_values(&crate::video_config::session_environment()?),
+    };
+    write(&path, &Stored { preset, before })?;
+    let set = crate::video_config::sync_session_env(&crate::video_config::load())?;
+    follow_in_steam();
+    Ok(set)
+}
+
+/// Steam's launch options carry a game's vkBasalt switch, which follows the
+/// preset in force: they are brought in line with it. A game whose options
+/// cannot be written keeps the old ones, which is said in the log.
+fn follow_in_steam() {
+    for (game, result) in crate::optimization::refresh_steam_gamescope() {
+        if let Err(e) = result {
+            tracing::warn!(%game, error = %format!("{e:#}"), "Steam's launch options do not follow the Turbo preset");
+        }
+    }
+}
+
+/// Take the preset away: the session goes back to Tuning's variables and
+/// the user's own values of the preset's keys. The record is removed only
+/// once the session reads back that way, so a failure leaves something to
+/// retry from ([`resync`], the next Turbo off).
+///
+/// # Errors
+/// Returns an error when the session's environment cannot be set or the
+/// record cannot be removed.
 pub fn deactivate() -> Result<Vec<String>> {
     let path = active_path();
-    if path.exists() {
-        std::fs::remove_file(&path).with_context(|| format!("remove {}", path.display()))?;
-    }
-    crate::video_config::sync_session_env(&crate::video_config::load())
+    let Some(record) = read_stored(&path) else {
+        let unreadable = path.exists();
+        if unreadable {
+            // Unreadable: the user's values are lost with it, but a preset's
+            // variables must still go.
+            tracing::warn!(file = %path.display(), "the Turbo preset's record cannot be read; clearing its variables");
+        }
+        let set = crate::video_config::sync_session_env_with(
+            &crate::video_config::load(),
+            &Layer {
+                owns_preset_keys: unreadable,
+                ..Layer::default()
+            },
+        )?;
+        remove_record(&path)?;
+        if unreadable {
+            follow_in_steam();
+        }
+        return Ok(set);
+    };
+    let set = crate::video_config::sync_session_env_with(
+        &crate::video_config::load(),
+        &Layer {
+            levers: Levers::default(),
+            before: record.before,
+            owns_preset_keys: true,
+        },
+    )?;
+    remove_record(&path)?;
+    follow_in_steam();
+    Ok(set)
 }
 
-/// Bring the session in line when BiGame-mode starts: the preset's
-/// variables live only in the running session, so after a login they are
-/// set again while Turbo is on, and a preset left behind by a Turbo switched
-/// off elsewhere is dropped.
+fn remove_record(path: &Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e).with_context(|| format!("remove {}", path.display())),
+    }
+}
+
+/// Change the preset while Turbo is on: chosen, put in force, and the
+/// session's environment brought to it. Games already running keep what
+/// they started with; games started from now on get `preset`. A launcher
+/// that is open keeps its own environment until it is opened again
+/// ([`crate::launchers::behind_the_session`]).
+///
+/// # Errors
+/// Returns an error when the choice or the state cannot be written, or the
+/// session's environment cannot be set.
+pub fn switch(preset: Preset) -> Result<Vec<String>> {
+    set_chosen(preset)?;
+    if preset == Preset::Standard {
+        deactivate()
+    } else {
+        activate(preset)
+    }
+}
+
+/// Bring the session in line when BiGame-mode starts, and whenever Turbo is
+/// found switched off from outside: the preset's variables live only in the
+/// running session, so after a login they are set again while Turbo is on,
+/// and a preset left behind by a Turbo switched off elsewhere (or a Turbo
+/// off whose undo failed) is taken away.
 ///
 /// # Errors
 /// Returns an error when the session's environment cannot be set.
 pub fn resync(turbo_on: bool) -> Result<()> {
-    if active() == Preset::Standard {
+    if !active_path().exists() {
         return Ok(());
     }
     if turbo_on {
@@ -378,6 +744,54 @@ pub fn resync(turbo_on: bool) -> Result<()> {
         deactivate()?;
     }
     Ok(())
+}
+
+/// Whether the session's environment `session` holds `layer`: every
+/// variable the preset sets at its value, and every switch it turns off off.
+#[must_use]
+pub fn session_holds<S: std::hash::BuildHasher>(
+    layer: &Layer,
+    session: &HashMap<String, String, S>,
+) -> bool {
+    let levers = layer.levers;
+    let switch_is = |key: &str, on: bool| (session.get(key).map(String::as_str) == Some("1")) == on;
+    let wanted = preset_keys_over(levers, &layer.before);
+    wanted.iter().all(|(k, v)| session.get(k) == Some(v))
+        && levers
+            .wine_fsr
+            .is_none_or(|on| switch_is("WINE_FULLSCREEN_FSR", on))
+        && levers.vkbasalt.is_none_or(|on| {
+            switch_is("ENABLE_VKBASALT", on)
+                && (!on
+                    || session.get("VKBASALT_CONFIG_FILE").map(String::as_str)
+                        == Some(cas_config_path().to_string_lossy().as_ref()))
+        })
+}
+
+/// The preset whose variables the running session really holds: the one in
+/// force by its record, read back from the user manager's environment. After
+/// a login without BiGame-mode running, the record says a preset the session
+/// no longer carries.
+///
+/// # Errors
+/// Returns an error when the session's environment cannot be read.
+pub fn in_session() -> Result<Option<Preset>> {
+    // Asked every few seconds by Home: the machine (hardware, vkBasalt) is
+    // read once, not each time.
+    static MACHINE: std::sync::OnceLock<Machine> = std::sync::OnceLock::new();
+    let Some(record) = read_stored(&active_path()) else {
+        return Ok(None);
+    };
+    if record.preset == Preset::Standard {
+        return Ok(None);
+    }
+    let layer = Layer {
+        levers: levers(record.preset, *MACHINE.get_or_init(Machine::detect)),
+        before: record.before,
+        owns_preset_keys: true,
+    };
+    let session = crate::video_config::session_environment()?;
+    Ok(session_holds(&layer, &session).then_some(record.preset))
 }
 
 #[cfg(test)]
@@ -411,6 +825,8 @@ mod tests {
         let mut env = HashMap::new();
         overlay(&mut env, levers(Preset::Locked60, DESKTOP));
         assert_eq!(env["VKD3D_FRAME_RATE"], "60");
+        // DXVK before 2.3 reads only DXVK_FRAME_RATE.
+        assert_eq!(env["DXVK_FRAME_RATE"], "60");
         let dxvk = &env["DXVK_CONFIG"];
         assert!(dxvk.contains("dxgi.maxFrameRate = 60"), "{dxvk}");
         assert!(dxvk.contains("d3d9.maxFrameRate = 60"), "{dxvk}");
@@ -463,15 +879,255 @@ multiplier = 2
 "#;
         assert_eq!(lsfg_generating(conf), ["Bodycam-Win64-Shipping.exe"]);
         assert!(lsfg_generating("not toml [").is_empty());
+        let v2 = r#"
+version = 2
+[global]
+[[profile]]
+name = "Big Game Mode: no game"
+active_in = []
+[[profile]]
+name = "Bodycam"
+active_in = ["Bodycam-Win64-Shipping.exe"]
+multiplier = 3
+[[profile]]
+name = "Off"
+active_in = "Off.exe"
+multiplier = 1
+"#;
+        assert_eq!(lsfg_generating(v2), ["Bodycam-Win64-Shipping.exe"]);
     }
 
     #[test]
     fn a_preset_is_stored_by_its_id() {
         for p in ALL {
             assert_eq!(Preset::from_id(p.id()), Some(p));
-            let text = toml::to_string(&Stored { preset: p }).unwrap();
+            let text = toml::to_string(&Stored {
+                preset: p,
+                before: BTreeMap::new(),
+            })
+            .unwrap();
             assert_eq!(toml::from_str::<Stored>(&text).unwrap().preset, p);
         }
         assert_eq!(Preset::from_id("nope"), None);
+        // A record written before the user's values were kept still loads.
+        let old: Stored = toml::from_str("preset = \"locked60\"\n").unwrap();
+        assert_eq!(old.preset, Preset::Locked60);
+        assert!(old.before.is_empty());
+    }
+
+    /// A private folder per test, removed afterwards.
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new(tag: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "bigame_preset_{tag}_{}_{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn enhanced_points_vkbasalt_at_its_own_cas_file() {
+        let cas = cas_config_path().to_string_lossy().into_owned();
+        let mut env = tuning();
+        overlay(&mut env, levers(Preset::Enhanced, DESKTOP));
+        assert_eq!(env["VKBASALT_CONFIG_FILE"], cas);
+        assert!(
+            !cas.ends_with("vkBasalt/vkBasalt.conf"),
+            "never the user's own file: {cas}"
+        );
+        // Games BiGame-mode starts get the same file.
+        assert_eq!(
+            preset_env(levers(Preset::Enhanced, DESKTOP))["VKBASALT_CONFIG_FILE"],
+            cas
+        );
+        // Only Enhanced turns vkBasalt on, so only it names a file.
+        assert!(
+            !preset_env(levers(Preset::Locked60, DESKTOP)).contains_key("VKBASALT_CONFIG_FILE")
+        );
+    }
+
+    #[test]
+    fn the_cas_file_holds_sharpening_and_nothing_else() {
+        let dir = Scratch::new("cas");
+        let path = dir.0.join("bigame-mode").join("vkbasalt-cas.conf");
+        write_cas_config(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let effects: Vec<&str> = text
+            .lines()
+            .filter_map(|l| l.strip_prefix("effects"))
+            .collect();
+        assert_eq!(effects.len(), 1, "{text}");
+        assert_eq!(effects[0].trim_start_matches([' ', '=']).trim(), "cas");
+        assert!(!text.contains("FakeHDR") && !text.contains("FilmGrain"));
+        // Written again unchanged, in one rename: no temporary file is left.
+        write_cas_config(&path).unwrap();
+        let names: Vec<String> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["vkbasalt-cas.conf"]);
+    }
+
+    #[test]
+    fn a_cap_is_merged_into_the_users_dxvk_config() {
+        assert_eq!(
+            merge_dxvk_config(
+                Some("dxgi.customVendorId = 10de; dxgi.maxFrameRate = 144"),
+                60
+            ),
+            "dxgi.customVendorId = 10de; dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60"
+        );
+        assert_eq!(merge_dxvk_config(None, 60), dxvk_cap(60));
+        // No cap: the user's other options stay, their caps go.
+        assert_eq!(
+            merge_dxvk_config(Some("d3d9.maxFrameRate=30;dxgi.hideNvidiaGpu = False"), 0),
+            "dxgi.hideNvidiaGpu = False"
+        );
+    }
+
+    #[test]
+    fn a_preset_keeps_the_users_own_values() {
+        let before = BTreeMap::from([
+            (
+                "DXVK_CONFIG".to_owned(),
+                "dxgi.customVendorId = 10de".to_owned(),
+            ),
+            ("VKD3D_FRAME_RATE".to_owned(), "144".to_owned()),
+            ("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned()),
+        ]);
+        let mut env = HashMap::new();
+        overlay_over(&mut env, levers(Preset::Locked60, DESKTOP), &before);
+        assert_eq!(
+            env["DXVK_CONFIG"],
+            "dxgi.customVendorId = 10de; dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60"
+        );
+        assert_eq!(env["VKD3D_FRAME_RATE"], "60");
+        // A key Locked 60 does not set keeps the user's value.
+        assert_eq!(env["PROTON_FSR4_UPGRADE"], "1");
+        assert!(!env.contains_key("FSR4_UPGRADE"));
+        // More FPS: no cap, the rest of their DXVK options kept, and their
+        // VKD3D-Proton limit switched off rather than unset.
+        let mut env = HashMap::new();
+        overlay_over(&mut env, levers(Preset::MoreFps, DESKTOP), &before);
+        assert_eq!(env["DXVK_CONFIG"], "dxgi.customVendorId = 10de");
+        assert_eq!(env["VKD3D_FRAME_RATE"], "0");
+    }
+
+    #[test]
+    fn a_cap_an_earlier_build_left_behind_is_not_taken_as_the_users() {
+        let leftover = HashMap::from([
+            ("DXVK_CONFIG".to_owned(), dxvk_cap(60)),
+            ("DXVK_FRAME_RATE".to_owned(), "60".to_owned()),
+            ("VKD3D_FRAME_RATE".to_owned(), "60".to_owned()),
+            ("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned()),
+            ("HOME".to_owned(), "/home/u".to_owned()),
+        ]);
+        let mine = user_values(&leftover);
+        assert_eq!(
+            mine,
+            BTreeMap::from([("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned())])
+        );
+        // A cap of the user's own, in their own words, is theirs.
+        let own = HashMap::from([
+            (
+                "DXVK_CONFIG".to_owned(),
+                "dxgi.maxFrameRate = 60".to_owned(),
+            ),
+            ("VKD3D_FRAME_RATE".to_owned(), "60".to_owned()),
+        ]);
+        assert_eq!(user_values(&own).len(), 2);
+    }
+
+    #[test]
+    fn what_the_session_holds_is_checked_variable_by_variable() {
+        let layer = Layer {
+            levers: levers(Preset::Locked60, DESKTOP),
+            before: BTreeMap::new(),
+            owns_preset_keys: true,
+        };
+        let mut session = HashMap::from([
+            ("DXVK_CONFIG".to_owned(), dxvk_cap(60)),
+            ("DXVK_FRAME_RATE".to_owned(), "60".to_owned()),
+            ("VKD3D_FRAME_RATE".to_owned(), "60".to_owned()),
+            ("WINE_FULLSCREEN_FSR".to_owned(), "1".to_owned()),
+            ("ENABLE_VKBASALT".to_owned(), "0".to_owned()),
+        ]);
+        assert!(session_holds(&layer, &session));
+        // After a login the manager has none of it: the record is not enough.
+        session.remove("VKD3D_FRAME_RATE");
+        assert!(!session_holds(&layer, &session));
+        session.insert("VKD3D_FRAME_RATE".into(), "60".into());
+        session.insert("ENABLE_VKBASALT".into(), "1".into());
+        assert!(
+            !session_holds(&layer, &session),
+            "vkBasalt is off in Locked 60"
+        );
+    }
+
+    #[test]
+    fn frame_generation_is_told_apart_by_technology() {
+        let dir = Scratch::new("fg");
+        let settings = dir.0.join("games");
+        let mut opti = crate::game_settings::GameSettings::default();
+        opti.ai_graphics.mode = crate::graphics::config::Mode::Advanced;
+        opti.ai_graphics.frame_generation = crate::graphics::config::FrameGeneration::OptiScaler;
+        opti.ai_graphics.experimental = true;
+        crate::game_settings::save_to(&settings, "SOTTR.exe", &opti).unwrap();
+        crate::game_settings::save_to(
+            &settings,
+            "Plain.exe",
+            &crate::game_settings::GameSettings::default(),
+        )
+        .unwrap();
+        let lsfg = r#"
+version = 1
+[[game]]
+exe = "Bodycam-Win64-Shipping.exe"
+multiplier = 2
+[[game]]
+exe = "sottr.exe"
+multiplier = 2
+"#;
+        let none = dir.0.join("no-manifests");
+        let (optiscaler, lsfg_games) = frame_generators_in(&none, &settings, Some(lsfg));
+        assert_eq!(optiscaler, ["SOTTR.exe"]);
+        // lsfg-vk is off in a game that runs OptiScaler's generation.
+        assert_eq!(lsfg_games, ["Bodycam-Win64-Shipping.exe"]);
+        // lsfg-vk's general switch off: none of its entries generate.
+        let (_, lsfg_games) = frame_generators_in(&none, &settings, None);
+        assert!(lsfg_games.is_empty());
+    }
+
+    #[test]
+    fn each_game_is_worded_by_what_the_cap_holds_in_it() {
+        use crate::optimization::CappedFrames;
+        let capped = |game: &str| match game {
+            "SOTTR.exe" => Some(CappedFrames::Shown),
+            "Bodycam-Win64-Shipping.exe" => Some(CappedFrames::Rendered { multiplier: 3 }),
+            _ => None,
+        };
+        let found = classify(
+            ["Bodycam-Win64-Shipping.exe", "SOTTR.exe", "Gone.exe"].map(str::to_owned),
+            capped,
+        );
+        assert_eq!(found.shown, ["SOTTR.exe"]);
+        assert_eq!(
+            found.rendered,
+            [("Bodycam-Win64-Shipping.exe".to_owned(), 3)]
+        );
+        assert!(classify(["Gone.exe".to_owned()], capped).is_empty());
     }
 }

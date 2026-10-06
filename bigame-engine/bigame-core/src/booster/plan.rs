@@ -258,8 +258,12 @@ impl Plan {
         // Which one it puts back: falcond 2.0.2 records the profile when the
         // service starts, not when a game starts (checked on the reference
         // desktop: started in balanced, switched to power-saver, ran a
-        // profiled process — balanced came back). The report says so, because
-        // "restores it" reads as "the one before the game".
+        // profiled process — balanced came back). 2.0.14 reads it as a game's
+        // profile activates, but from otter-desktop's cached `ActiveProfile`,
+        // filled at start-up and by falcond's own writes: falcond never
+        // dispatches the bus's change signals, so a profile chosen later is
+        // still not seen. The report says so, because "restores it" reads as
+        // "the one before the game".
         if caps.falcond_installed {
             let detail = match owner {
                 PowerProfileOwner::Falcond { profile } => falcond_is_managing(profile),

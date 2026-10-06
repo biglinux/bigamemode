@@ -57,7 +57,7 @@ pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String])
                 Some(&i18n("Nothing to measure")),
                 Some(
                     &i18n(
-                        "BiGame-mode would change nothing on this machine, so %t would \
+                        "Big Game Mode would change nothing on this machine, so %t would \
                          be measured against itself. The game's profile is still \
                          applied by falcond whenever it runs.",
                     )
@@ -131,6 +131,8 @@ fn run(parent: &gtk4::Widget, title: &str, command: &[String]) {
 
     let (tx, rx) = mpsc::channel::<Event>();
     spawn_worker(tx, command.to_vec());
+    // Quit waits for the baseline to be back: held until the answer comes.
+    let busy = crate::app::Busy::hold();
 
     let progress_ref = progress.clone();
     let parent = parent.clone();
@@ -148,6 +150,7 @@ fn run(parent: &gtk4::Widget, title: &str, command: &[String]) {
             match event {
                 Event::Progress(text) => progress_ref.set_body(&text),
                 Event::Done(result) => {
+                    let _ = &busy;
                     progress_ref.close();
                     show_result(&parent, &title, *result);
                     return glib::ControlFlow::Break;

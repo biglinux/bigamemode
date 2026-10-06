@@ -154,7 +154,8 @@ fn read_intel(device: &Path, s: &mut GpuSample) {
 /// The part of NVML this reads, loaded with `dlopen` on first use.
 mod nvml {
     use std::ffi::{CString, c_char, c_int, c_uint, c_ulonglong, c_void};
-    use std::sync::OnceLock;
+    use std::sync::{Mutex, PoisonError};
+    use std::time::{Duration, Instant};
 
     use super::GpuSample;
 
@@ -218,10 +219,20 @@ mod nvml {
     unsafe impl Send for Api {}
     unsafe impl Sync for Api {}
 
-    static API: OnceLock<Option<Api>> = OnceLock::new();
+    /// How long a failed load or initialisation is remembered before NVML
+    /// is tried again: the driver may have been loading, or just installed.
+    const RETRY_AFTER: Duration = Duration::from_secs(60);
+
+    static API: Mutex<super::Loader<&'static Api>> = Mutex::new(super::Loader::new());
 
     fn api() -> Option<&'static Api> {
-        API.get_or_init(load).as_ref()
+        API.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(Instant::now(), RETRY_AFTER, || {
+                // Kept for the life of the process: the handles NVML gives
+                // out point into it.
+                load().map(|api| &*Box::leak(Box::new(api)))
+            })
     }
 
     /// Resolve `name` in `lib`, as a function pointer of type `T`.
@@ -240,18 +251,47 @@ mod nvml {
         Some(unsafe { std::mem::transmute_copy::<*mut c_void, T>(&p) })
     }
 
+    /// `NVML_INIT_FLAG_NO_ATTACH`: initialise without attaching (and so
+    /// waking) every GPU; a GPU is attached when a handle to it is taken.
+    const INIT_FLAG_NO_ATTACH: c_uint = 2;
+
     fn load() -> Option<Api> {
         let name = CString::new("libnvidia-ml.so.1").ok()?;
-        // SAFETY: dlopen with a valid C string; the handle is never closed, so
-        // the symbols below stay valid for the life of the process.
+        // SAFETY: dlopen with a valid C string; once NVML is initialised the
+        // handle is never closed, so the symbols below stay valid for the
+        // life of the process.
         let lib = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL) };
         if lib.is_null() {
+            tracing::debug!("NVML not available: libnvidia-ml.so.1 did not load");
             return None;
         }
         // SAFETY: each type below is the signature from nvml.h (r580).
+        let api = unsafe { init(lib) };
+        if api.is_none() {
+            // SAFETY: `lib` came from dlopen above and nothing from it is kept.
+            unsafe { libc::dlclose(lib) };
+        }
+        api
+    }
+
+    /// Initialise NVML and resolve what this reads.
+    ///
+    /// # Safety
+    /// `lib` must be a live handle to `libnvidia-ml.so.1`.
+    unsafe fn init(lib: *mut c_void) -> Option<Api> {
+        // SAFETY: the signatures are nvml.h's; `lib` is live (caller).
         unsafe {
-            let init: unsafe extern "C" fn() -> Ret = sym(lib, "nvmlInit_v2")?;
-            if init() != SUCCESS {
+            let with_flags: Option<unsafe extern "C" fn(c_uint) -> Ret> =
+                sym(lib, "nvmlInitWithFlags");
+            let r = if let Some(f) = with_flags {
+                f(INIT_FLAG_NO_ATTACH)
+            } else {
+                // Drivers before r440 have only the attaching initialiser.
+                let f: unsafe extern "C" fn() -> Ret = sym(lib, "nvmlInit_v2")?;
+                f()
+            };
+            if r != SUCCESS {
+                tracing::warn!(error = r, "NVML did not initialise; trying again later");
                 return None;
             }
             Some(Api {
@@ -380,10 +420,62 @@ mod nvml {
 /// not available — the caller cannot tell rendering from enumerating then.
 ///
 /// A process that only enumerated Vulkan devices keeps `/dev/nvidia0` open
-/// without rendering there; only a context shows it is really in use.
+/// without rendering there; only a context shows it is really in use. A GPU
+/// in runtime suspend holds no context, and is not asked: taking an NVML
+/// handle to it would wake it.
 #[must_use]
 pub fn nvidia_graphics_pids(pci_slot: &str) -> Option<Vec<u32>> {
+    if pci_runtime_suspended(pci_slot) {
+        return Some(Vec::new());
+    }
     nvml::graphics_pids(pci_slot)
+}
+
+/// Whether the PCI device at `pci_slot` (`0000:01:00.0`) is
+/// runtime-suspended.
+#[must_use]
+pub fn pci_runtime_suspended(pci_slot: &str) -> bool {
+    !pci_slot.is_empty() && runtime_suspended(&Path::new("/sys/bus/pci/devices").join(pci_slot))
+}
+
+/// A resource loaded on first use whose failure is remembered for a while,
+/// not for good: NVML that failed while the driver was still loading works
+/// a minute later.
+#[derive(Debug)]
+struct Loader<T> {
+    loaded: Option<T>,
+    failed_at: Option<std::time::Instant>,
+}
+
+impl<T: Copy> Loader<T> {
+    const fn new() -> Self {
+        Self {
+            loaded: None,
+            failed_at: None,
+        }
+    }
+
+    /// The loaded value; `load` runs when nothing is loaded and no failure
+    /// happened within `retry_after` of `now`.
+    fn get(
+        &mut self,
+        now: std::time::Instant,
+        retry_after: std::time::Duration,
+        load: impl FnOnce() -> Option<T>,
+    ) -> Option<T> {
+        if let Some(v) = self.loaded {
+            return Some(v);
+        }
+        if self
+            .failed_at
+            .is_some_and(|at| now.saturating_duration_since(at) < retry_after)
+        {
+            return None;
+        }
+        self.loaded = load();
+        self.failed_at = self.loaded.is_none().then_some(now);
+        self.loaded
+    }
 }
 
 fn limits_from_reasons(power: bool, thermal: bool, hardware: bool) -> Vec<ClockLimit> {
@@ -449,6 +541,17 @@ mod tests {
     }
 
     #[test]
+    fn an_apu_without_an_average_reports_its_instant_power() {
+        // The Cezanne iGPU (SMU 12) and RDNA 3 boards publish only
+        // `power1_input`.
+        let d = tempfile::tempdir().unwrap();
+        let hw = d.path().join("card0/device/hwmon/hwmon2");
+        put(&hw.join("power1_input"), "12000000\n");
+        let s = sample(&gpu(d.path(), "card0", "amdgpu", GpuVendor::Amd, Some(hw)));
+        assert_eq!(s.power_w, Some(12.0));
+    }
+
+    #[test]
     fn intel_reports_only_the_actual_clock_and_nothing_it_does_not_have() {
         let d = tempfile::tempdir().unwrap();
         put(&d.path().join("card1/gt/gt0/rps_act_freq_mhz"), "1050\n");
@@ -496,6 +599,25 @@ mod tests {
         assert_eq!(games_gpu(&gpus, Some("card1")), Some(1));
         // A card that is gone falls back to the expectation.
         assert_eq!(games_gpu(&gpus, Some("card7")), Some(0));
+    }
+
+    #[test]
+    fn a_failed_load_is_tried_again_after_the_cooldown_and_a_success_is_kept() {
+        let t0 = std::time::Instant::now();
+        let wait = std::time::Duration::from_secs(60);
+        let mut loader: Loader<u8> = Loader::new();
+        let mut tries = 0;
+        let mut attempt = |ok: bool| {
+            tries += 1;
+            ok.then_some(7)
+        };
+        assert_eq!(loader.get(t0, wait, || attempt(false)), None);
+        // Within the cooldown nothing is tried.
+        assert_eq!(loader.get(t0 + wait / 2, wait, || attempt(true)), None);
+        // After it, the load runs again and its success is kept.
+        assert_eq!(loader.get(t0 + wait, wait, || attempt(true)), Some(7));
+        assert_eq!(loader.get(t0 + wait * 9, wait, || attempt(false)), Some(7));
+        assert_eq!(tries, 2);
     }
 
     #[test]

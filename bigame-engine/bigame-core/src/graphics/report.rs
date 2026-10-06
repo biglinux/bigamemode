@@ -53,6 +53,10 @@ pub struct GpuInfo {
     pub vendor: GpuVendor,
     /// Model name from the PCI ID database, or the PCI ID.
     pub name: String,
+    /// The name it is sold under, with its maker (`NVIDIA GeForce RTX 4060
+    /// Laptop GPU`, `AMD Radeon RX 9060 XT`, `Intel UHD Graphics 630`):
+    /// [`product_name`]. `None` when nothing names more than the maker.
+    pub product: Option<String>,
     /// Kernel driver (`amdgpu`, `nvidia`, …).
     pub driver: String,
     /// Userspace driver and version (`Mesa 26.2.2`, `NVIDIA 580.1`).
@@ -68,10 +72,22 @@ pub struct GpuInfo {
 }
 
 impl GpuInfo {
-    /// The family the card belongs to.
+    /// The family the card belongs to: from its RDNA generation when that
+    /// is known (the GPU says it, [`rdna_of`]), from its names otherwise —
+    /// the PCI database's first, then the driver's own (`product`), which
+    /// knows a card newer than the database.
     #[must_use]
     pub fn family(&self) -> Family {
-        family(self.vendor, &self.name)
+        if let (GpuVendor::Amd, Some(g)) = (self.vendor, self.rdna) {
+            return Family::Rdna(g);
+        }
+        match family(self.vendor, &self.name) {
+            Family::Unknown => self
+                .product
+                .as_deref()
+                .map_or(Family::Unknown, |p| family(self.vendor, p)),
+            known => known,
+        }
     }
 
     /// Whether FSR 4 can run here under Proton. VKD3D-Proton exposes it only
@@ -86,7 +102,7 @@ impl GpuInfo {
     #[must_use]
     pub fn dlss(&self) -> Option<bool> {
         if self.vendor == GpuVendor::Nvidia {
-            nvidia_dlss(&self.name)
+            nvidia_dlss(&self.name).or_else(|| self.product.as_deref().and_then(nvidia_dlss))
         } else {
             Some(false)
         }
@@ -391,7 +407,7 @@ impl Report {
                     self.api.confidence = Confidence::Detected;
                     self.api.evidence.push(match e.origin {
                         super::gamedb::Origin::Carried => Text::plain(N_(
-                            "BiGame-mode's game list names the API this game renders with by default",
+                            "Big Game Mode's game list names the API this game renders with by default",
                         )),
                         super::gamedb::Origin::User => Text::plain(N_(
                             "your game list names the API this game renders with",
@@ -633,6 +649,116 @@ pub fn display_name(pci_name: &str) -> String {
     }
 }
 
+/// The name a GPU is sold under, with its maker.
+///
+/// NVIDIA's driver names its GPUs itself, as the box does, in
+/// `/proc/driver/nvidia/gpus/<slot>/information` (`NVIDIA GeForce RTX 4060
+/// Laptop GPU`): read without running `nvidia-smi`, which may be missing or
+/// hang with the GPU asleep. Otherwise — nouveau, amdgpu, i915, xe, or an
+/// NVIDIA driver too old to say — the PCI database's product
+/// ([`display_name`]; for NVIDIA the product alone, without the chip),
+/// led by the maker. `None` when the database does not know the device
+/// either (a `hwdata` older than the card).
+#[must_use]
+pub fn product_name(vendor: GpuVendor, pci_slot: &str, pci_name: Option<&str>) -> Option<String> {
+    if vendor == GpuVendor::Nvidia && !pci_slot.is_empty() {
+        let info =
+            std::fs::read_to_string(format!("/proc/driver/nvidia/gpus/{pci_slot}/information"));
+        if let Some(model) = info.ok().as_deref().and_then(nvidia_model) {
+            return Some(with_maker(vendor, &model));
+        }
+    }
+    let pci_name = pci_name?;
+    let product = if vendor == GpuVendor::Nvidia {
+        nvidia_product(pci_name)
+    } else {
+        display_name(pci_name)
+    };
+    Some(with_maker(vendor, &product))
+}
+
+/// The `Model:` line of the NVIDIA driver's `information` file.
+fn nvidia_model(information: &str) -> Option<String> {
+    information.lines().find_map(|l| {
+        let model = l.strip_prefix("Model:")?.trim();
+        (!model.is_empty()).then(|| model.to_owned())
+    })
+}
+
+/// An NVIDIA product from its PCI database name: `GA106M [GeForce RTX 3060
+/// Mobile / Max-Q]` → `GeForce RTX 3060 Mobile`. The chip code tells NVIDIA
+/// products apart no better than their names do.
+fn nvidia_product(pci_name: &str) -> String {
+    match (pci_name.find('['), pci_name.rfind(']')) {
+        (Some(a), Some(b)) if b > a + 1 => pci_name[a + 1..b]
+            .split(" / ")
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_owned(),
+        _ => pci_name.to_owned(),
+    }
+}
+
+/// `product` led by its maker's name, unless it already is.
+#[must_use]
+pub fn with_maker(vendor: GpuVendor, product: &str) -> String {
+    let maker = match vendor {
+        GpuVendor::Nvidia => "NVIDIA",
+        GpuVendor::Amd => "AMD",
+        GpuVendor::Intel => "Intel",
+        GpuVendor::Other => return product.to_owned(),
+    };
+    let lower = product.to_ascii_lowercase();
+    if lower.starts_with(&maker.to_ascii_lowercase()) || lower.starts_with("ati ") {
+        product.to_owned()
+    } else {
+        format!("{maker} {product}")
+    }
+}
+
+/// The RDNA generation of the AMD card `card` (`card1`): from the graphics
+/// IP version the GPU reports ([`gc_version`]), and from its PCI database
+/// name only when it reports none (an older kernel). The name knows only the dGPUs' `Navi`
+/// chips: APUs (Phoenix, Strix, Rembrandt, Van Gogh) and any card newer
+/// than the system's `hwdata` have none.
+#[must_use]
+pub fn rdna_of(card: &str, pci_name: &str) -> Option<u8> {
+    match gc_version(&Path::new("/sys/class/drm").join(card).join("device")) {
+        Some((major, minor)) => rdna_from_gc(major, minor),
+        None => rdna_generation(pci_name),
+    }
+}
+
+/// The graphics IP version a GPU reports under `device` (a DRM card's
+/// `device` folder): `ip_discovery/die/0/GC/0/{major,minor}`.
+#[must_use]
+pub fn gc_version(device: &Path) -> Option<(u32, u32)> {
+    let gc = device.join("ip_discovery/die/0/GC/0");
+    let read = |f: &str| -> Option<u32> {
+        std::fs::read_to_string(gc.join(f))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    };
+    Some((read("major")?, read("minor")?))
+}
+
+/// The RDNA generation of graphics IP `major.minor`: GC 12 is RDNA 4, 11
+/// (and 11.5, RDNA 3.5) RDNA 3, 10.3 RDNA 2, 10.1 RDNA 1; 9 and below came
+/// before RDNA.
+#[must_use]
+pub fn rdna_from_gc(major: u32, minor: u32) -> Option<u8> {
+    match (major, minor) {
+        (12, _) => Some(4),
+        (11, _) => Some(3),
+        (10, 3..) => Some(2),
+        (10, _) => Some(1),
+        _ => None,
+    }
+}
+
 /// AMD RDNA generation from a model name (`Navi 44 [Radeon RX 9060 XT]`).
 #[must_use]
 pub fn rdna_generation(name: &str) -> Option<u8> {
@@ -664,7 +790,9 @@ pub fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Opt
         .gpus
         .iter()
         .map(|g| {
-            let name = device_name(&g.pci_id).unwrap_or_else(|| g.pci_id.clone());
+            let pci_name = device_name(&g.pci_id);
+            let product = product_name(g.vendor, &g.pci_slot, pci_name.as_deref());
+            let name = pci_name.unwrap_or_else(|| g.pci_id.clone());
             let userspace = match g.vendor {
                 GpuVendor::Nvidia => std::fs::read_to_string("/proc/driver/nvidia/version")
                     .ok()
@@ -687,9 +815,10 @@ pub fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Opt
                 card: g.card.clone(),
                 vendor: g.vendor,
                 rdna: (g.vendor == GpuVendor::Amd)
-                    .then(|| rdna_generation(&name))
+                    .then(|| rdna_of(&g.card, &name))
                     .flatten(),
                 name,
+                product,
                 driver: g.driver.clone(),
                 userspace,
                 vram: g.vram_total_bytes,
@@ -944,6 +1073,61 @@ mod tests {
     }
 
     #[test]
+    fn a_gpu_is_named_as_it_is_sold() {
+        // The NVIDIA driver's own name wins; the PCI database is the fallback.
+        let info = "Model: \t\t NVIDIA GeForce RTX 4060 Laptop GPU\nIRQ:   \t\t 180\n";
+        assert_eq!(
+            nvidia_model(info).as_deref(),
+            Some("NVIDIA GeForce RTX 4060 Laptop GPU")
+        );
+        assert_eq!(nvidia_model("Model: \nIRQ: 1\n"), None);
+        for (vendor, pci, shown) in [
+            (
+                GpuVendor::Nvidia,
+                "GA106M [GeForce RTX 3060 Mobile / Max-Q]",
+                "NVIDIA GeForce RTX 3060 Mobile",
+            ),
+            (
+                GpuVendor::Nvidia,
+                "GP104 [GeForce GTX 1070]",
+                "NVIDIA GeForce GTX 1070",
+            ),
+            (
+                GpuVendor::Amd,
+                "Navi 44 [Radeon RX 9060 XT]",
+                "AMD Radeon RX 9060 XT",
+            ),
+            (
+                GpuVendor::Amd,
+                "Cezanne [Radeon Vega Series / Radeon Vega Mobile Series]",
+                "AMD Radeon Vega (Cezanne)",
+            ),
+            (
+                GpuVendor::Intel,
+                "CometLake-S GT2 [UHD Graphics 630]",
+                "Intel UHD Graphics 630",
+            ),
+            (
+                GpuVendor::Intel,
+                "Alder Lake-P GT2 [Iris Xe Graphics]",
+                "Intel Iris Xe Graphics",
+            ),
+        ] {
+            // An empty slot: nothing read from this machine's driver.
+            assert_eq!(
+                product_name(vendor, "", Some(pci)).as_deref(),
+                Some(shown),
+                "{pci}"
+            );
+        }
+        assert_eq!(product_name(GpuVendor::Nvidia, "", None), None);
+        assert_eq!(
+            with_maker(GpuVendor::Amd, "AMD Radeon 780M"),
+            "AMD Radeon 780M"
+        );
+    }
+
+    #[test]
     fn dlss_needs_an_rtx_card_and_frame_generation_needs_ada_or_later() {
         // Names exactly as /usr/share/hwdata/pci.ids has them.
         for (name, sr) in [
@@ -1111,11 +1295,76 @@ mod tests {
     }
 
     #[test]
+    fn the_rdna_generation_comes_from_the_gpus_graphics_ip() {
+        let dir = tempfile::tempdir().unwrap();
+        let device = dir.path();
+        assert_eq!(gc_version(device), None, "an older kernel says nothing");
+        let gc = device.join("ip_discovery/die/0/GC/0");
+        std::fs::create_dir_all(&gc).unwrap();
+        // As the reference desktop's cards report it: the RX 9060 XT, then
+        // the Vega of its Cezanne APU, then APUs pci.ids names no Navi for.
+        for (major, minor, want) in [
+            ("12", "0", Some(4)),
+            ("9", "3", None),
+            ("11", "5", Some(3)),
+            ("11", "0", Some(3)),
+            ("10", "3", Some(2)),
+            ("10", "1", Some(1)),
+        ] {
+            std::fs::write(gc.join("major"), format!("{major}\n")).unwrap();
+            std::fs::write(gc.join("minor"), format!("{minor}\n")).unwrap();
+            let (ma, mi) = gc_version(device).unwrap();
+            assert_eq!(rdna_from_gc(ma, mi), want, "GC {major}.{minor}");
+        }
+        // Phoenix's name has no Navi in it; its GC 11 makes it RDNA 3.
+        assert_eq!(rdna_generation("Phoenix1"), None);
+        let apu = GpuInfo {
+            card: "card0".into(),
+            vendor: GpuVendor::Amd,
+            name: "Phoenix1".into(),
+            product: None,
+            driver: "amdgpu".into(),
+            userspace: None,
+            vram: None,
+            discrete: false,
+            rdna: rdna_from_gc(11, 0),
+            renders_game: false,
+        };
+        assert_eq!(apu.family(), Family::Rdna(3));
+    }
+
+    #[test]
+    fn a_card_newer_than_the_pci_database_is_known_by_the_drivers_name() {
+        // hwdata older than the card: only the id. NVIDIA's driver names it.
+        let card = GpuInfo {
+            card: "card1".into(),
+            vendor: GpuVendor::Nvidia,
+            name: "10DE:2D83".into(),
+            product: Some("NVIDIA GeForce RTX 5050".into()),
+            driver: "nvidia".into(),
+            userspace: None,
+            vram: None,
+            discrete: true,
+            rdna: None,
+            renders_game: false,
+        };
+        assert_eq!(card.dlss(), Some(true));
+        assert_eq!(card.family(), Family::Rtx50);
+        // Without a name from the driver it stays unknown, never "yes".
+        let bare = GpuInfo {
+            product: None,
+            ..card
+        };
+        assert_eq!((bare.dlss(), bare.family()), (None, Family::Unknown));
+    }
+
+    #[test]
     fn only_nvidia_cards_run_dlss() {
         let g = |vendor, name: &str| GpuInfo {
             card: "card0".into(),
             vendor,
             name: name.into(),
+            product: None,
             driver: String::new(),
             userspace: None,
             vram: None,

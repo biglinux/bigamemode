@@ -78,14 +78,20 @@ pub fn check() {
                 .ok()
                 .flatten();
             watch.checking.set(false);
-            // A game caught the moment it starts has not mapped its graphics
-            // DLLs yet; learning them later is a change worth passing on.
-            let key = |g: Option<&GameIdentity>| g.map(|g| (g.pid, g.graphics));
-            let changed = key(watch.current.borrow().as_ref()) != key(found.as_ref());
+            let previous = watch.current.borrow().clone();
+            let (found, changed) = merge(previous.as_ref(), found);
             if !changed {
                 return;
             }
-            if let Some(g) = &found { tracing::info!(game = %g.display_name, process = %g.process_name, pid = g.pid, "game detected") } else { tracing::info!("game no longer running") }
+            match (&found, &previous) {
+                (Some(g), Some(p)) if p.pid == g.pid => {
+                    tracing::debug!(pid = g.pid, graphics = ?g.graphics, card = ?g.render_card, "game updated");
+                }
+                (Some(g), _) => {
+                    tracing::info!(game = %g.display_name, process = %g.process_name, pid = g.pid, "game detected");
+                }
+                (None, _) => tracing::info!("game no longer running"),
+            }
             *watch.current.borrow_mut() = found;
             let current = watch.current.borrow();
             watch
@@ -94,6 +100,27 @@ pub fn check() {
                 .retain(|listener| listener(current.as_ref()).is_continue());
         });
     });
+}
+
+/// What the watch holds after a check found `found`, and whether that is a
+/// change to pass on.
+///
+/// A game caught the moment it starts has not mapped its graphics DLLs nor
+/// submitted GPU work yet; learning either later is a change. The card it
+/// renders on, once learned, is kept when a later check of the same process
+/// cannot tell.
+fn merge(
+    current: Option<&GameIdentity>,
+    mut found: Option<GameIdentity>,
+) -> (Option<GameIdentity>, bool) {
+    if let (Some(cur), Some(new)) = (current, found.as_mut()) {
+        if cur.pid == new.pid && new.render_card.is_none() {
+            new.render_card.clone_from(&cur.render_card);
+        }
+    }
+    let key = |g: Option<&GameIdentity>| g.map(|g| (g.pid, g.graphics, g.render_card.clone()));
+    let changed = key(current) != key(found.as_ref());
+    (found, changed)
 }
 
 /// The game running now, if any.
@@ -110,4 +137,51 @@ pub fn subscribe(listener: impl Fn(Option<&GameIdentity>) -> glib::ControlFlow +
             watch.listeners.borrow_mut().push(Box::new(listener));
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bigame_core::running::{Graphics, Runtime};
+
+    fn game(pid: u32, graphics: Graphics, card: Option<&str>) -> GameIdentity {
+        GameIdentity {
+            display_name: "Shadow of the Tomb Raider".into(),
+            steam_app_id: Some("750920".into()),
+            install_path: None,
+            compatdata_path: None,
+            pid,
+            process_name: "SOTTR.exe".into(),
+            executable: "SOTTR.exe".into(),
+            runtime: Runtime::Proton("proton_10".into()),
+            graphics,
+            render_card: card.map(Into::into),
+            tree: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn the_render_card_learned_after_the_game_is_passed_on_and_kept() {
+        // Caught at falcond's event: no DLLs mapped, no GPU work yet.
+        let (first, changed) = merge(None, Some(game(7, Graphics::Unknown, None)));
+        assert!(changed);
+        let (graphics, changed) = merge(first.as_ref(), Some(game(7, Graphics::Dxvk, None)));
+        assert!(changed);
+        // The GPU work shows which card it renders on.
+        let (card, changed) = merge(
+            graphics.as_ref(),
+            Some(game(7, Graphics::Dxvk, Some("card1"))),
+        );
+        assert!(changed, "a render card learned later is a change");
+        assert_eq!(card.as_ref().unwrap().render_card.as_deref(), Some("card1"));
+        // A later check that cannot tell keeps it, and is no change.
+        let (kept, changed) = merge(card.as_ref(), Some(game(7, Graphics::Dxvk, None)));
+        assert!(!changed);
+        assert_eq!(kept.unwrap().render_card.as_deref(), Some("card1"));
+        // Another process starts with nothing known.
+        let (next, changed) = merge(card.as_ref(), Some(game(8, Graphics::Dxvk, None)));
+        assert!(changed);
+        assert_eq!(next.unwrap().render_card, None);
+        assert!(merge(card.as_ref(), None).1);
+    }
 }

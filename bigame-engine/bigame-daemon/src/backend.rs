@@ -155,11 +155,32 @@ pub async fn set_enabled(
     let reached = if enabled {
         manager.enable_unit_files(&[UNIT], false, false).await?;
         manager.reload().await?;
-        manager.start_unit(UNIT, "replace").await?;
-        settle(connection, "active").await?
+        let started = match manager.start_unit(UNIT, "replace").await {
+            Ok(_) => settle(connection, "active").await,
+            Err(e) => Err(e.into()),
+        };
+        match started {
+            Ok(reached) if reached == "active" => reached,
+            // A unit left enabled after a failed start would bring Turbo
+            // back on at the next boot, while the UI said it failed.
+            failed => {
+                manager.disable_unit_files(&[UNIT], false).await?;
+                manager.reload().await?;
+                match failed {
+                    Ok(reached) => reached,
+                    Err(e) => return Err(e),
+                }
+            }
+        }
     } else {
         manager.stop_unit(UNIT, "replace").await?;
         let reached = settle(connection, "inactive").await?;
+        // Still stopping (falcond restoring a game's profile): disabling now
+        // would report a failure for a switch that is happening. The caller
+        // sees the state and can ask again.
+        if reached != "inactive" {
+            anyhow::bail!("{UNIT} is still {reached}; not disabled yet");
+        }
         manager.disable_unit_files(&[UNIT], false).await?;
         manager.reload().await?;
         reached
@@ -184,8 +205,12 @@ pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Own
     };
     let manager = manager(connection).await?;
     match record.unit_file_state.as_str() {
-        "enabled" | "enabled-runtime" => {
+        "enabled" => {
             manager.enable_unit_files(&[UNIT], false, false).await?;
+        }
+        // Enabled until the next boot only, as it was found.
+        "enabled-runtime" => {
+            manager.enable_unit_files(&[UNIT], true, false).await?;
         }
         "disabled" => {
             manager.disable_unit_files(&[UNIT], false).await?;

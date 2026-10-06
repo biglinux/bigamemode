@@ -83,6 +83,12 @@ pub struct FalcondStatus {
     /// `None` when this falcond does not report it — releases before DMEM
     /// support — which is different from "reported unavailable".
     pub dmem_cgroup: Option<bool>,
+    /// The cgroup falcond protects the VRAM of now (`DMEM` → `Active
+    /// Protection`), `None` when it protects none or does not say.
+    pub dmem_active_protection: Option<String>,
+    /// falcond's last DMEM error (`DMEM` → `Last Error`), `None` when it
+    /// reports none or does not say.
+    pub dmem_last_error: Option<String>,
     /// The sched-ext schedulers falcond can switch to (`scx_lavd`, …), as it
     /// lists them itself.
     pub available_scx: Vec<String>,
@@ -95,6 +101,25 @@ pub struct FalcondStatus {
 #[must_use]
 pub fn read() -> Option<FalcondStatus> {
     read_from(status_path())
+}
+
+/// `status` only while falcond runs. falcond rewrites its file as it stops
+/// cleanly, but one killed (SIGKILL, a crash) leaves the last one in place,
+/// `ACTIVE_PROFILE` and all, and a stopped falcond applies nothing.
+#[must_use]
+pub fn live(status: Option<FalcondStatus>, falcond_running: bool) -> Option<FalcondStatus> {
+    status.filter(|_| falcond_running)
+}
+
+/// [`read`], only while systemd reports falcond running ([`live`]).
+/// Blocking (systemd over D-Bus): for worker threads, not from inside a
+/// Tokio runtime.
+#[must_use]
+pub fn read_live() -> Option<FalcondStatus> {
+    let running = crate::systemd::Reader::shared()
+        .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT))
+        .is_some_and(|u| u.is_active());
+    live(read(), running)
 }
 
 /// Read and parse a specific status file, after checking it can be trusted.
@@ -157,9 +182,13 @@ pub fn parse(content: &str) -> FalcondStatus {
             continue;
         }
 
-        // Section header: "SECTION_NAME:"
-        if !trimmed.starts_with(' ') && trimmed.ends_with(':') && !trimmed.contains(": ") {
-            section = trimmed.trim_end_matches(':');
+        // Section header: "SECTION_NAME:", at the start of the line. An
+        // indented "Regions:" is a list inside the section (falcond 2.0.14's
+        // DMEM block), and the keys after its items still belong to it.
+        if trimmed.ends_with(':') && !trimmed.contains(": ") {
+            if !line.starts_with(' ') {
+                section = trimmed.trim_end_matches(':');
+            }
             continue;
         }
 
@@ -192,6 +221,11 @@ pub fn parse(content: &str) -> FalcondStatus {
     if let Some(&v) = kv.get(&("FEATURES", "DMEM Cgroup")) {
         status.dmem_cgroup = Some(v == "Available");
     }
+    let reported = |v: &str| (v != "None").then(|| v.to_owned());
+    status.dmem_active_protection = kv
+        .get(&("DMEM", "Active Protection"))
+        .and_then(|v| reported(v));
+    status.dmem_last_error = kv.get(&("DMEM", "Last Error")).and_then(|v| reported(v));
     if let Some(&v) = kv.get(&("CONFIG", "Profile Mode")) {
         v.clone_into(&mut status.profile_mode);
     }
@@ -232,6 +266,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_status_left_by_a_stopped_falcond_is_not_believed() {
+        let left = parse("ACTIVE_PROFILE: Cyberpunk2077.exe\n");
+        assert_eq!(left.active_profile.as_deref(), Some("Cyberpunk2077.exe"));
+        assert!(live(Some(left.clone()), false).is_none());
+        assert_eq!(live(Some(left.clone()), true), Some(left));
+        assert!(live(None, true).is_none());
+    }
+
+    #[test]
     fn a_fifo_or_a_users_file_under_the_name_is_refused_without_blocking() {
         let dir = crate::tests::tempdir("status-trust");
         let fifo = dir.join("falcond_status");
@@ -242,6 +285,30 @@ mod tests {
         let own = dir.join("owned_by_me");
         std::fs::write(&own, "CURRENT_STATUS:\n").unwrap();
         assert_eq!(read_trusted(&own), None, "not root-owned");
+    }
+
+    #[test]
+    fn the_dmem_block_of_falcond_2_0_14_is_read_and_does_not_hide_later_keys() {
+        // This machine's status, falcond 2.0.14.
+        let text = "FEATURES:\n  Performance Mode: Available\n  DMEM Cgroup: Available\n\nDMEM:\n  Regions:\n    drm/0000:03:00.0/vram 17095983104\n    drm/0000:0a:00.0/vram 536870912\n  Active Protection: None\n  Protected Cgroups:\n    (None)\n  Holding Cgroups:\n    (None)\n  Last Error: None\n\nCONFIG:\n  Profile Mode: none\n  Global VCache Mode: none\n  Global SCX Scheduler: lavd\n\nLOADED_PROFILES: 10\n\nACTIVE_PROFILE: None\n";
+        let s = parse(text);
+        assert_eq!(s.dmem_cgroup, Some(true));
+        assert_eq!(s.dmem_active_protection, None);
+        assert_eq!(s.dmem_last_error, None);
+        assert_eq!(s.config_scx, "lavd");
+        assert_eq!(s.loaded_profiles, 10);
+        let failing = text
+            .replace("Active Protection: None", "Active Protection: /user.slice/app-steam.scope")
+            .replace(
+                "Last Error: None",
+                "Last Error: dmem exists, but the source cgroup hierarchy does not expose dmem to the game scope",
+            );
+        let s = parse(&failing);
+        assert_eq!(
+            s.dmem_active_protection.as_deref(),
+            Some("/user.slice/app-steam.scope")
+        );
+        assert!(s.dmem_last_error.unwrap().contains("does not expose dmem"));
     }
 
     #[test]

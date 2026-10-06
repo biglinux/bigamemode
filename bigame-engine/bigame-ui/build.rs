@@ -37,4 +37,8 @@ fn main() {
         "cargo::rerun-if-changed={}",
         root.join("usr/share/icons/hicolor/scalable/apps").display()
     );
+    println!(
+        "cargo::rerun-if-changed={}",
+        root.join("data/icons").display()
+    );
 }

@@ -85,6 +85,9 @@ pub enum Restored {
     PutBack(String),
     /// Changed since Apply (in the game's menu): left as it is now.
     LeftAsChanged(String),
+    /// The prefix, or its registry, is not there any more (deleted to reset
+    /// the game, or never kept): there is nothing to put back.
+    Gone(String),
 }
 
 /// How long to wait for the prefix's Wine server, which stays up a few
@@ -170,11 +173,12 @@ fn switch_text(text: &str, s: &InputSetting, file: &Path) -> Option<Switch> {
 }
 
 /// Put back what Apply changed. A value changed again since (in the game's
-/// menu) is the user's choice and stays.
+/// menu) is the user's choice and stays; a prefix or registry that is not
+/// there any more has nothing to put back ([`Restored::Gone`]).
 ///
 /// # Errors
-/// Returns an error, having changed nothing, if a process of the prefix
-/// keeps running or the registry cannot be read or written.
+/// Returns an error, having changed nothing in that registry, if a process
+/// of the prefix keeps running or the registry cannot be read or written.
 pub fn restore(changes: &[SettingChange]) -> Result<Vec<Restored>> {
     restore_with(changes, &prefix_in_use, SETTLE)
 }
@@ -189,6 +193,15 @@ fn restore_with(
     files.dedup();
     for file in files {
         let prefix = file.parent().context("registry file without a folder")?;
+        // Deleting a game's prefix is how a broken game is reset; with it,
+        // the value Apply changed went too.
+        if std::fs::symlink_metadata(file).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+        {
+            for c in changes.iter().filter(|c| c.file == file) {
+                out.push(Restored::Gone(c.value.clone()));
+            }
+            continue;
+        }
         if !wait_until_free(prefix, in_use, settle) {
             bail!(UserError::plain(N_(
                 "the game's Wine prefix is still in use; close the game completely and try again"

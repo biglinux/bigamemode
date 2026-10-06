@@ -473,8 +473,63 @@ fn lower_name(p: &Path) -> String {
         .to_ascii_lowercase()
 }
 
+/// How deep below the install folder the anti-cheat check looks, and how
+/// deep below each folder on the way to the executable: deep enough for
+/// an Unreal game's `<Project>/Binaries/Win64/BattlEye/`, from the top.
+const ANTI_CHEAT_DEPTH: usize = 4;
+const ANTI_CHEAT_DEPTH_NEAR_EXE: usize = 2;
+
+/// Anti-cheat markers by name alone, with no entry limit: in the install
+/// folder and a few levels below it, and around every folder on the way to
+/// the executable. The walk that reads the rest stops at [`MAX_ENTRIES`],
+/// and a game must never look unprotected because it is large. Names only:
+/// nothing is read, and links are not followed.
+fn anti_cheat_near(root: &Path, exe: Option<&Path>) -> Vec<AntiCheat> {
+    let mut starts = vec![(PathBuf::new(), ANTI_CHEAT_DEPTH)];
+    let mut on_the_way = PathBuf::new();
+    for c in exe
+        .and_then(Path::parent)
+        .into_iter()
+        .flat_map(Path::components)
+    {
+        on_the_way.push(c);
+        starts.push((on_the_way.clone(), ANTI_CHEAT_DEPTH_NEAR_EXE));
+    }
+    let mut found: Vec<AntiCheat> = Vec::new();
+    // Each folder listed once, from wherever it is reached with the most
+    // depth left.
+    let mut listed: HashMap<PathBuf, usize> = HashMap::new();
+    let mut stack = starts;
+    while let Some((rel, left)) = stack.pop() {
+        if left == 0 || listed.get(&rel).is_some_and(|&l| l >= left) {
+            continue;
+        }
+        listed.insert(rel.clone(), left);
+        let Ok(entries) = std::fs::read_dir(root.join(&rel)) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(ft) = entry.file_type() else { continue };
+            let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+            let child = rel.join(entry.file_name());
+            if let Some(ac) = anti_cheat_marker(&name, ft.is_dir()) {
+                if !found.iter().any(|a| a.name == ac) {
+                    found.push(AntiCheat {
+                        name: ac.to_owned(),
+                        evidence: child.clone(),
+                    });
+                }
+            }
+            if ft.is_dir() {
+                stack.push((child, left - 1));
+            }
+        }
+    }
+    found
+}
+
 /// Walk the tree once, bounded, collecting every file and directory name.
-fn walk(root: &Path) -> (Vec<(PathBuf, bool)>, bool) {
+fn walk(root: &Path, max_entries: usize) -> (Vec<(PathBuf, bool)>, bool) {
     let mut out = Vec::new();
     let mut stack = vec![(root.to_path_buf(), 0usize)];
     let mut seen = 0usize;
@@ -484,7 +539,7 @@ fn walk(root: &Path) -> (Vec<(PathBuf, bool)>, bool) {
         };
         for entry in entries.flatten() {
             seen += 1;
-            if seen > MAX_ENTRIES {
+            if seen > max_entries {
                 return (out, true);
             }
             // `file_type` does not follow symlinks: a link is neither a file
@@ -845,8 +900,22 @@ fn executable_of(
 /// `exe_hint` is the process name the game runs as, when known.
 #[must_use]
 pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
-    let (files, truncated) = walk(root);
-    let (executable, launcher_stub) = executable_of(root, &files, exe_hint);
+    scan_limited(root, exe_hint, MAX_ENTRIES)
+}
+
+// One pass over the walked names, in the order the scan reads them.
+#[allow(clippy::too_many_lines)]
+fn scan_limited(root: &Path, exe_hint: Option<&str>, max_entries: usize) -> GameScan {
+    let (files, truncated) = walk(root, max_entries);
+    let (mut executable, mut launcher_stub) = executable_of(root, &files, exe_hint);
+    if executable.is_none() && truncated {
+        // The walk stopped before the executable: the name the game runs
+        // as, at the top of its folder, is looked for directly.
+        if let Some(exe) = exe_hint.and_then(|h| resolve_ci(root, h)) {
+            let listed = [(exe, false)];
+            (executable, launcher_stub) = executable_of(root, &listed, exe_hint);
+        }
+    }
     let executable_pe = executable
         .as_ref()
         .and_then(|e| pe::parse_file(&root.join(e), 64 << 20).ok());
@@ -916,6 +985,11 @@ pub fn scan(root: &Path, exe_hint: Option<&str>) -> GameScan {
             .is_some_and(|e| lower_name(e).ends_with("-win64-shipping.exe"))
     {
         engine = Some(Engine::Unreal);
+    }
+    for ac in anti_cheat_near(root, executable.as_deref()) {
+        if !anti_cheat.iter().any(|a| a.name == ac.name) {
+            anti_cheat.push(ac);
+        }
     }
     if let Some(ac) = executable
         .as_ref()
@@ -1344,5 +1418,39 @@ mod tests {
         let s = scan(r, None);
         assert!(!s.has(ComponentKind::DlssSuperResolution));
         assert!(!s.truncated);
+    }
+
+    #[test]
+    fn anti_cheat_is_found_however_large_the_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let r = dir.path();
+        // More entries at the top than the walk is allowed to read, and
+        // BattlEye beside an Unreal game's executable, four levels down.
+        for i in 0..120 {
+            put(r, &format!("pak{i:03}.dat"), b"x");
+        }
+        put(r, "Game.exe", &exe(&[], 0));
+        put(r, "Proj/Binaries/Win64/BattlEye/BEClient_x64.dll", b"MZ");
+        let s = scan_limited(r, Some("Game.exe"), 50);
+        assert!(s.truncated);
+        assert_eq!(s.executable.as_deref(), Some(Path::new("Game.exe")));
+        assert_eq!(
+            s.anti_cheat
+                .iter()
+                .map(|a| a.name.as_str())
+                .collect::<Vec<_>>(),
+            ["BattlEye"]
+        );
+        // Beside a deeper executable too, past the depth from the top.
+        let dir = tempfile::tempdir().unwrap();
+        let r = dir.path();
+        put(r, "a/b/c/d/Game.exe", &exe(&[], 0));
+        put(r, "a/b/c/d/x/EasyAntiCheat_x64.dll", b"MZ");
+        let found = anti_cheat_near(r, Some(Path::new("a/b/c/d/Game.exe")));
+        assert_eq!(found[0].name, "Easy Anti-Cheat");
+        assert_eq!(
+            found[0].evidence,
+            Path::new("a/b/c/d/x/EasyAntiCheat_x64.dll")
+        );
     }
 }

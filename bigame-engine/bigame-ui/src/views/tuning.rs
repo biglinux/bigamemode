@@ -11,7 +11,10 @@
 //! (written through the privileged helper, which reloads falcond) and the
 //! launch settings in `video.toml` (read when BiGame-mode starts a game;
 //! Wine FSR and vkBasalt also go into the session environment). Every
-//! change is saved at once; a save that fails is said, with its reason.
+//! change is saved at once, off the main thread, one write at a time with
+//! the newest state last (a spin button or a typed path waits until it
+//! settles); a save that fails is said, with its reason, and the page goes
+//! back to what is saved.
 //!
 //! Two technologies doing the same job are never left on together in
 //! silence: switching one on while the other is on asks which to keep
@@ -30,83 +33,308 @@ use bigame_core::optimization::{self as opt, Feature, PROFILE_SETS, VCACHE_MODES
 use bigame_core::overview::State;
 use bigame_core::video_config::{self, VideoConfig};
 
-use crate::i18n::{error_text, i18n, tr};
+use crate::i18n::{N_, error_text, i18n, tr};
 use crate::widgets::launch::{self, icon};
 use crate::widgets::notice::{self, Kind, Notice};
 use crate::widgets::optimization::{self as ui, Machine, Picker, Scope};
 use crate::widgets::resolution::SizePicker;
 use crate::widgets::status::Chip;
 
-/// falcond's configuration as the page last saved it.
-type SharedConfig = Rc<RefCell<bigame_core::config::FalcondConfig>>;
+/// falcond's configuration, written through the helper.
+type FalcondSaver = Rc<Saver<bigame_core::config::FalcondConfig>>;
 
-/// The launch settings as the page holds them; every change writes them.
-type SharedVideo = Rc<RefCell<VideoConfig>>;
+/// The launch settings (`video.toml` and the session environment).
+type VideoSaver = Rc<Saver<VideoConfig>>;
 
-/// Build the Tuning page.
+/// How long a spin button or a typed path must rest before it is saved.
+const SETTLE_MS: u32 = 500;
+
+/// Build the Tuning page. What it shows is read off the main thread (the
+/// helper's file, sched-ext over D-Bus, `PATH`) and filled in when it comes.
 #[must_use]
 pub fn build() -> adw::PreferencesPage {
     let page = adw::PreferencesPage::new();
-    let m = Machine::detect();
-    let shared = Rc::new(RefCell::new(m.general.clone()));
-    let video = Rc::new(RefCell::new(m.video.clone()));
-
     page.add(&ui::scope_banner(Scope::General));
-    page.add(&build_performance(&shared, &m));
-    let display = Display::build(&video, &m);
-    page.add(&display.group);
-    page.add(&build_image_quality(&video, &display));
-    page.add(&build_frame_generation(&video, &m));
-    page.add(&build_monitoring(&m));
-    page.add(&build_advanced(&shared, &m));
+    let filled = page.clone();
+    glib::spawn_future_local(async move {
+        if let Ok(m) = gio::spawn_blocking(Machine::detect).await {
+            fill(&filled, &m);
+        }
+    });
     page
 }
 
-/// Write falcond's configuration through the helper, off the main thread,
-/// and say so when it fails.
-fn save_config(shared: &SharedConfig, anchor: &impl IsA<gtk4::Widget>) {
-    save_config_then(shared, anchor, || {});
-}
-
-/// [`save_config`], running `after` once the helper has written it.
-fn save_config_then(
-    shared: &SharedConfig,
-    anchor: &impl IsA<gtk4::Widget>,
-    after: impl Fn() + 'static,
-) {
-    let cfg = shared.borrow().clone();
-    let anchor = anchor.clone().upcast::<gtk4::Widget>();
-    // Not awaited here: zbus runs on Tokio, and the main thread has no runtime.
-    glib::spawn_future_local(async move {
-        let result = gio::spawn_blocking(move || bigame_core::config::write_blocking(&cfg)).await;
-        let failed = match result {
-            Ok(Ok(())) => {
-                after();
-                return;
-            }
-            Ok(Err(e)) => error_text(&e),
-            Err(_) => i18n("the worker thread stopped"),
-        };
-        crate::widgets::toast::error(
-            &anchor,
-            &i18n("Could not save falcond's configuration"),
-            &failed,
-        );
+fn fill(page: &adw::PreferencesPage, m: &Machine) {
+    let falcond = Saver::new(
+        m.general.clone(),
+        |c| bigame_core::config::write_blocking(c).map(|()| None),
+        N_("Could not save falcond's configuration"),
+        None,
+    );
+    let video = Saver::new(
+        m.video.clone(),
+        video_config::save,
+        N_("Could not save the launch settings"),
+        Some(launch_settings_changed),
+    );
+    page.add(&build_performance(&falcond, m));
+    let display = Display::build(&video, m);
+    page.add(&display.group);
+    page.add(&build_image_quality(&video, &display));
+    page.add(&build_frame_generation(&video, m));
+    page.add(&build_monitoring(m));
+    page.add(&build_advanced(&falcond, m));
+    // The savers hold the controls (to put them back) and the controls the
+    // savers: let go when the page goes (Restore Defaults rebuilds it).
+    let (falcond, video) = (Rc::downgrade(&falcond), Rc::downgrade(&video));
+    page.connect_destroy(move |_| {
+        if let Some(s) = falcond.upgrade() {
+            s.release();
+        }
+        if let Some(s) = video.upgrade() {
+            s.release();
+        }
     });
 }
 
-/// Write the launch settings (and the session environment), and say so when
-/// it fails.
-fn save_video(video: &SharedVideo, anchor: &impl IsA<gtk4::Widget>) {
-    if let Err(e) = video_config::save(&video.borrow()) {
-        crate::widgets::toast::error(
-            anchor,
-            &i18n("Could not save the launch settings"),
-            &error_text(&e),
-        );
-        return;
+/// What a toast says when the launch settings were saved but the running
+/// session could not be brought to them.
+#[must_use]
+pub fn session_not_updated() -> String {
+    i18n(
+        "Saved, but the session environment could not be updated: games started now do not get the change until you log in again",
+    )
+}
+
+/// One configuration's writes: at most one in flight, and whatever was
+/// asked meanwhile written once it ends, so the newest state lands last.
+#[derive(Debug, Default)]
+struct WriteQueue {
+    busy: bool,
+    again: bool,
+}
+
+impl WriteQueue {
+    /// A save is asked for: whether to start a write now (otherwise one is
+    /// in flight, and another follows it).
+    fn request(&mut self) -> bool {
+        if self.busy {
+            self.again = true;
+            false
+        } else {
+            self.busy = true;
+            true
+        }
     }
-    schedule_steam_gamescope(anchor.upcast_ref());
+
+    /// The write in flight ended: whether to start the one asked meanwhile.
+    fn finished(&mut self) -> bool {
+        if self.again {
+            self.again = false;
+            true
+        } else {
+            self.busy = false;
+            false
+        }
+    }
+
+    /// Forget what was asked while the write was in flight.
+    fn cancel(&mut self) {
+        self.again = false;
+    }
+}
+
+/// How a configuration is written: `Ok(Some(_))` is saved, with a part
+/// that did not take (the session environment).
+type Write<T> = fn(&T) -> anyhow::Result<Option<anyhow::Error>>;
+
+/// Puts one control back from a configuration.
+type Resync<T> = Box<dyn Fn(&T)>;
+
+/// Saves one configuration for the page, off the main thread.
+///
+/// A failed write puts the configuration and every control back to what was
+/// last saved, so a later save never writes a change the user was told
+/// failed.
+struct Saver<T> {
+    /// The configuration as the controls show it.
+    shared: Rc<RefCell<T>>,
+    /// What the file holds, as far as the page knows.
+    saved: RefCell<T>,
+    queue: RefCell<WriteQueue>,
+    /// Bumped by every save asked; a delayed one runs only if none came
+    /// after it.
+    generation: Cell<u32>,
+    /// Set while the controls are put back: their handlers save nothing.
+    reverting: Cell<bool>,
+    /// Each control, set from a configuration.
+    resyncs: RefCell<Vec<Resync<T>>>,
+    /// Run once the write that holds the change that asked for them is in.
+    afters: RefCell<Vec<Box<dyn FnOnce()>>>,
+    /// Where toasts go: the control last changed.
+    anchor: RefCell<Option<gtk4::Widget>>,
+    write: Write<T>,
+    failed: &'static str,
+    /// Run after every successful write.
+    written: Option<fn(&gtk4::Widget)>,
+}
+
+impl<T: Clone + Send + 'static> Saver<T> {
+    fn new(
+        value: T,
+        write: Write<T>,
+        failed: &'static str,
+        written: Option<fn(&gtk4::Widget)>,
+    ) -> Rc<Self> {
+        Rc::new(Self {
+            shared: Rc::new(RefCell::new(value.clone())),
+            saved: RefCell::new(value),
+            queue: RefCell::default(),
+            generation: Cell::new(0),
+            reverting: Cell::new(false),
+            resyncs: RefCell::default(),
+            afters: RefCell::default(),
+            anchor: RefCell::default(),
+            write,
+            failed,
+            written,
+        })
+    }
+
+    /// The configuration as the controls show it.
+    fn shared(&self) -> &Rc<RefCell<T>> {
+        &self.shared
+    }
+
+    /// How to put a control back after a failed save.
+    fn on_revert(&self, f: impl Fn(&T) + 'static) {
+        self.resyncs.borrow_mut().push(Box::new(f));
+    }
+
+    /// Save now.
+    fn save(self: &Rc<Self>, anchor: &impl IsA<gtk4::Widget>) {
+        self.request(anchor.upcast_ref(), 0, None);
+    }
+
+    /// Save once the control has rested for [`SETTLE_MS`].
+    fn save_settled(self: &Rc<Self>, anchor: &impl IsA<gtk4::Widget>) {
+        self.request(anchor.upcast_ref(), SETTLE_MS, None);
+    }
+
+    /// Save now, and run `after` once it is written.
+    fn save_then(self: &Rc<Self>, anchor: &impl IsA<gtk4::Widget>, after: impl FnOnce() + 'static) {
+        self.request(anchor.upcast_ref(), 0, Some(Box::new(after)));
+    }
+
+    fn request(
+        self: &Rc<Self>,
+        anchor: &gtk4::Widget,
+        delay_ms: u32,
+        after: Option<Box<dyn FnOnce()>>,
+    ) {
+        if self.reverting.get() {
+            return;
+        }
+        *self.anchor.borrow_mut() = Some(anchor.clone());
+        self.afters.borrow_mut().extend(after);
+        let generation = self.generation.get().wrapping_add(1);
+        self.generation.set(generation);
+        if delay_ms == 0 {
+            self.kick();
+            return;
+        }
+        let me = Rc::clone(self);
+        glib::timeout_add_local_once(
+            std::time::Duration::from_millis(delay_ms.into()),
+            move || {
+                if me.generation.get() == generation {
+                    me.kick();
+                }
+            },
+        );
+    }
+
+    fn kick(self: &Rc<Self>) {
+        if self.queue.borrow_mut().request() {
+            self.start();
+        }
+    }
+
+    /// Write the configuration as it is now; then the one asked meanwhile.
+    fn start(self: &Rc<Self>) {
+        let snapshot = self.shared.borrow().clone();
+        let afters = std::mem::take(&mut *self.afters.borrow_mut());
+        let write = self.write;
+        let me = Rc::clone(self);
+        glib::spawn_future_local(async move {
+            let kept = snapshot.clone();
+            let result = gio::spawn_blocking(move || write(&snapshot)).await;
+            let anchor = me.anchor.borrow().clone();
+            match result {
+                Ok(Ok(partly)) => {
+                    *me.saved.borrow_mut() = kept;
+                    for after in afters {
+                        after();
+                    }
+                    if let Some(anchor) = &anchor {
+                        if let Some(e) = partly {
+                            crate::widgets::toast::error(
+                                anchor,
+                                &session_not_updated(),
+                                &error_text(&e),
+                            );
+                        }
+                        if let Some(written) = me.written {
+                            written(anchor);
+                        }
+                    }
+                }
+                failed => {
+                    let why = match failed {
+                        Ok(Err(e)) => error_text(&e),
+                        _ => i18n("the worker thread stopped"),
+                    };
+                    if let Some(anchor) = &anchor {
+                        crate::widgets::toast::error(anchor, &i18n(me.failed), &why);
+                    }
+                    me.revert();
+                }
+            }
+            if me.queue.borrow_mut().finished() {
+                me.start();
+            }
+        });
+    }
+
+    /// Let go of the controls, whose page is gone.
+    fn release(&self) {
+        self.resyncs.borrow_mut().clear();
+        self.anchor.borrow_mut().take();
+    }
+
+    /// Put the configuration and the controls back to what is saved, and
+    /// drop whatever was waiting to be written on top of the failed change.
+    fn revert(&self) {
+        self.queue.borrow_mut().cancel();
+        self.generation.set(self.generation.get().wrapping_add(1));
+        self.afters.borrow_mut().clear();
+        let saved = self.saved.borrow().clone();
+        *self.shared.borrow_mut() = saved.clone();
+        self.reverting.set(true);
+        for resync in self.resyncs.borrow().iter() {
+            resync(&saved);
+        }
+        // A handler run by a control moving back may have copied another
+        // control's state on the way; what is saved is what holds.
+        *self.shared.borrow_mut() = saved;
+        self.reverting.set(false);
+    }
+}
+
+/// The launch settings changed (a save, Restore Defaults): bring the Steam
+/// and Heroic games that take Tuning's values in line, once changes settle.
+pub fn launch_settings_changed(anchor: &gtk4::Widget) {
+    schedule_steam_gamescope(anchor);
 }
 
 thread_local! {
@@ -218,6 +446,19 @@ fn report_steam_gamescope(
         .filter(|(_, r)| matches!(r, Ok(Applied::Written(_))))
         .map(|(n, _)| n.as_str())
         .collect();
+    // Games whose own launch options already run a Gamescope keep theirs.
+    let theirs: Vec<&str> = results
+        .iter()
+        .filter(|(_, r)| matches!(r, Ok(Applied::TheirGamescope(_))))
+        .map(|(n, _)| n.as_str())
+        .collect();
+    if !theirs.is_empty() {
+        crate::widgets::toast::show(
+            anchor,
+            &i18n("These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s")
+                .replace("%s", &theirs.join(", ")),
+        );
+    }
     let blocked = results
         .iter()
         .any(|(_, r)| matches!(r, Ok(Applied::SteamRunning)));
@@ -225,7 +466,7 @@ fn report_steam_gamescope(
         crate::widgets::toast::error(
             anchor,
             &i18n("Could not update Gamescope in Steam's launch options"),
-            &format!("{name}: {e:#}"),
+            &format!("{name}: {}", error_text(e)),
         );
     }
     if !written.is_empty() {
@@ -255,7 +496,7 @@ fn report_steam_gamescope(
                         Ok(Err(e)) => crate::widgets::toast::error(
                             &a,
                             &i18n("Steam could not be opened again"),
-                            &format!("{e:#}"),
+                            &error_text(&e),
                         ),
                         Err(_) => {}
                     }
@@ -269,7 +510,8 @@ fn report_steam_gamescope(
 
 /// Performance mode, the scheduler and 3D V-Cache, as falcond applies them.
 #[allow(clippy::too_many_lines)]
-fn build_performance(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
+fn build_performance(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
+    let shared = falcond.shared();
     let group = ui::section(&i18n("Performance"));
     group.set_description(Some(&i18n(
         "Applied by falcond while Turbo is on, and undone when it is turned off. Saved through the privileged helper.",
@@ -284,11 +526,13 @@ fn build_performance(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGrou
         .build();
     group.add(&perf);
     {
-        let cfg = Rc::clone(shared);
+        let me = Rc::clone(falcond);
         perf.connect_active_notify(move |row| {
-            cfg.borrow_mut().enable_performance_mode = row.is_active();
-            save_config(&cfg, row);
+            me.shared().borrow_mut().enable_performance_mode = row.is_active();
+            me.save(row);
         });
+        let perf = perf.clone();
+        falcond.on_revert(move |c| perf.set_active(c.enable_performance_mode));
     }
 
     if let Some(row) = ui::scheduler_unavailable_row(m) {
@@ -346,26 +590,30 @@ fn build_performance(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGrou
             .set_sensitive(!opt::inherits(&shared.borrow().scx_sched));
         group.add(&mode.row);
         {
-            let (cfg, mode) = (Rc::clone(shared), mode.clone());
+            let (falcond, mode) = (Rc::clone(falcond), mode.clone());
             let row = sched.row.clone();
             let refresh = Rc::clone(&refresh_now);
             sched.connect_changed(move |value| {
-                value.clone_into(&mut cfg.borrow_mut().scx_sched);
+                value.clone_into(&mut falcond.shared().borrow_mut().scx_sched);
                 mode.row.set_sensitive(!opt::inherits(value));
                 let refresh = Rc::clone(&refresh);
-                save_config_then(&cfg, &row, move || refresh(3000));
+                falcond.save_then(&row, move || refresh(3000));
             });
         }
         {
-            let cfg = Rc::clone(shared);
+            let falcond = Rc::clone(falcond);
             let row = mode.row.clone();
             let refresh = Rc::clone(&refresh_now);
             mode.connect_changed(move |value| {
-                value.clone_into(&mut cfg.borrow_mut().scx_sched_props);
+                value.clone_into(&mut falcond.shared().borrow_mut().scx_sched_props);
                 let refresh = Rc::clone(&refresh);
-                save_config_then(&cfg, &row, move || refresh(3000));
+                falcond.save_then(&row, move || refresh(3000));
             });
         }
+        falcond.on_revert(move |c| {
+            sched.set(&c.scx_sched);
+            mode.set(&c.scx_sched_props);
+        });
     }
 
     if m.vcache {
@@ -383,12 +631,15 @@ fn build_performance(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGrou
             .row
             .add_suffix(&crate::widgets::info::vcache_button());
         group.add(&vcache.row);
-        let cfg = Rc::clone(shared);
-        let row = vcache.row.clone();
-        vcache.connect_changed(move |value| {
-            value.clone_into(&mut cfg.borrow_mut().vcache_mode);
-            save_config(&cfg, &row);
-        });
+        {
+            let falcond = Rc::clone(falcond);
+            let row = vcache.row.clone();
+            vcache.connect_changed(move |value| {
+                value.clone_into(&mut falcond.shared().borrow_mut().vcache_mode);
+                falcond.save(&row);
+            });
+        }
+        falcond.on_revert(move |c| vcache.set(&c.vcache_mode));
     } else {
         group.add(&ui::vcache_unsupported_row());
     }
@@ -410,10 +661,11 @@ struct Display {
 
 impl Display {
     #[allow(clippy::too_many_lines)]
-    fn build(video: &SharedVideo, m: &Machine) -> Self {
+    fn build(saver: &VideoSaver, m: &Machine) -> Self {
+        let video = saver.shared();
         let group = ui::section(&i18n("Display"));
         group.set_description(Some(&i18n(
-            "For games started from BiGame-mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
+            "For games started from Big Game Mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
         )));
         let quiet = Rc::new(Cell::new(false));
         if !m.gamescope {
@@ -431,7 +683,7 @@ impl Display {
         let cfg = video.borrow().clone();
         let switch = adw::SwitchRow::builder()
             .title("Gamescope")
-            .subtitle(i18n("Wraps games started from BiGame-mode"))
+            .subtitle(i18n("Wraps games started from Big Game Mode"))
             .active(cfg.upscaling.gamescope_enabled)
             .build();
         switch.add_prefix(&gtk4::Image::from_icon_name("video-display-symbolic"));
@@ -445,7 +697,7 @@ impl Display {
                     .flatten();
                 if let Some(v) = caps.and_then(|c| c.version) {
                     switch.set_subtitle(
-                        &i18n("Version %v · wraps games started from BiGame-mode")
+                        &i18n("Version %v · wraps games started from Big Game Mode")
                             .replace("%v", &v.to_string()),
                     );
                 }
@@ -469,8 +721,7 @@ impl Display {
             0,
         );
         sharpness_row.set_title(&i18n("FSR sharpness"));
-        sharpness_row.set_subtitle(&i18n("0 = sharpest · 20 = softest"));
-        sharpness_row.set_sensitive(cfg.upscaling.gamescope_filter == GamescopeFilter::Fsr);
+        show_sharpness(&sharpness_row, cfg.upscaling.gamescope_filter);
         group.add(&sharpness_row);
 
         let render = SizePicker::new(
@@ -491,35 +742,54 @@ impl Display {
         group.add(&output.row);
 
         {
-            let video = Rc::clone(video);
+            let saver = Rc::clone(saver);
             let sharpness_row = sharpness_row.clone();
             let row = filter.row.clone();
             filter.connect_changed(move |id| {
                 let f = launch::filter_of(id).unwrap_or_default();
-                sharpness_row.set_sensitive(f == GamescopeFilter::Fsr);
-                video.borrow_mut().upscaling.gamescope_filter = f;
-                save_video(&video, &row);
+                show_sharpness(&sharpness_row, f);
+                saver.shared().borrow_mut().upscaling.gamescope_filter = f;
+                saver.save(&row);
             });
         }
         {
-            let video = Rc::clone(video);
+            let saver = Rc::clone(saver);
+            // One step at a time would be one write per step: saved once it rests.
             sharpness_row.connect_changed(move |row| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let v = row.value() as u8;
-                video.borrow_mut().upscaling.gamescope_sharpness = v;
-                save_video(&video, row);
+                saver.shared().borrow_mut().upscaling.gamescope_sharpness = v;
+                saver.save_settled(row);
             });
         }
         {
-            let video = Rc::clone(video);
+            let saver = Rc::clone(saver);
             let row = output.row.clone();
             output.connect_changed(move |(w, h)| {
                 {
-                    let mut v = video.borrow_mut();
+                    let mut v = saver.shared().borrow_mut();
                     v.upscaling.target_width = w;
                     v.upscaling.target_height = h;
                 }
-                save_video(&video, &row);
+                saver.save(&row);
+            });
+        }
+        {
+            let (switch, render, quiet) = (switch.clone(), Rc::clone(&render), Rc::clone(&quiet));
+            saver.on_revert(move |c| {
+                let u = &c.upscaling;
+                quiet.set(true);
+                switch.set_active(u.gamescope_enabled);
+                render.set((u.base_width, u.base_height));
+                quiet.set(false);
+                filter.set(
+                    ["fsr", "nis", "integer"]
+                        .into_iter()
+                        .find(|id| launch::filter_of(id) == Some(u.gamescope_filter))
+                        .unwrap_or_default(),
+                );
+                sharpness_row.set_value(f64::from(u.gamescope_sharpness.min(20)));
+                output.set((u.target_width, u.target_height));
             });
         }
         Self {
@@ -530,12 +800,25 @@ impl Display {
     }
 }
 
+/// Gamescope's sharpness applies to its FSR filter only: with another, the
+/// row is greyed out and says why.
+fn show_sharpness(row: &adw::SpinRow, filter: GamescopeFilter) {
+    let fsr = filter == GamescopeFilter::Fsr;
+    row.set_sensitive(fsr);
+    row.set_subtitle(&if fsr {
+        i18n("0 = sharpest · 20 = softest")
+    } else {
+        i18n("Only for the FSR filter")
+    });
+}
+
 // ── Image quality ───────────────────────────────────────────────────────────
 
 /// Wine FSR and vkBasalt, with the conflict against Gamescope's upscaling
 /// resolved in both directions.
 #[allow(clippy::too_many_lines)]
-fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::PreferencesGroup {
+fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::PreferencesGroup {
+    let video = saver.shared();
     let group = ui::section(&i18n("Image quality"));
     group.set_description(Some(&i18n(
         "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it.",
@@ -567,12 +850,27 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
     quality.set_sensitive(cfg.upscaling.wine_fsr_enabled);
     group.add(&quality);
     {
-        let video = Rc::clone(video);
+        let saver = Rc::clone(saver);
         let row = quality.clone();
         quality_picker.connect_changed(move |id| {
-            video.borrow_mut().upscaling.wine_fsr_mode =
+            saver.shared().borrow_mut().upscaling.wine_fsr_mode =
                 launch::wine_fsr_mode_of(id).unwrap_or_default();
-            save_video(&video, &row);
+            saver.save(&row);
+        });
+    }
+    {
+        let (wine, quiet) = (wine.clone(), Rc::clone(&display.quiet));
+        saver.on_revert(move |c| {
+            let u = &c.upscaling;
+            quiet.set(true);
+            wine.set_active(u.wine_fsr_enabled);
+            quiet.set(false);
+            quality_picker.set(
+                ["performance", "balanced", "quality", "ultra"]
+                    .into_iter()
+                    .find(|id| launch::wine_fsr_mode_of(id) == Some(u.wine_fsr_mode))
+                    .unwrap_or_default(),
+            );
         });
     }
 
@@ -603,7 +901,7 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
     // The page's own way to switch a feature off, used by both prompts and
     // by the legacy notice: the control moves, the file follows.
     let turn_off: Rc<dyn Fn(Feature)> = {
-        let (video, wine, quiet) = (Rc::clone(video), wine.clone(), Rc::clone(&quiet));
+        let (saver, wine, quiet) = (Rc::clone(saver), wine.clone(), Rc::clone(&quiet));
         let rows = display.rows.clone();
         let refresh = Rc::clone(&refresh_legacy);
         Rc::new(move |f: Feature| {
@@ -618,8 +916,8 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
                 _ => {}
             }
             quiet.set(false);
-            opt::turn_off_general(&mut video.borrow_mut(), f);
-            save_video(&video, &wine);
+            opt::turn_off_general(&mut saver.shared().borrow_mut(), f);
+            saver.save(&wine);
             refresh();
         })
     };
@@ -642,7 +940,8 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
 
     // Wine FSR switched on while Gamescope upscales: ask.
     {
-        let (video, quality, quiet) = (Rc::clone(video), quality.clone(), Rc::clone(&quiet));
+        let (saver, quality, quiet) = (Rc::clone(saver), quality.clone(), Rc::clone(&quiet));
+        let video = Rc::clone(saver.shared());
         let turn_off = Rc::clone(&turn_off);
         let refresh = Rc::clone(&refresh_legacy);
         wine.connect_active_notify(move |row| {
@@ -677,7 +976,7 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
                 }
             }
             video.borrow_mut().upscaling.wine_fsr_enabled = on;
-            save_video(&video, row);
+            saver.save(row);
             refresh();
         });
     }
@@ -686,7 +985,8 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
     // Wine FSR is on: ask. Keeping Wine FSR puts the render size back.
     if let Some((switch, render)) = display.rows.clone() {
         let ask = {
-            let (video, wine, quiet) = (Rc::clone(video), wine.clone(), Rc::clone(&quiet));
+            let (saver, wine, quiet) = (Rc::clone(saver), wine.clone(), Rc::clone(&quiet));
+            let video = Rc::clone(saver.shared());
             let turn_off = Rc::clone(&turn_off);
             let refresh = Rc::clone(&refresh_legacy);
             let (switch, render) = (switch.clone(), Rc::clone(&render));
@@ -701,8 +1001,8 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
                 let now = opt::gamescope_upscales(&video.borrow().upscaling);
                 if !quiet.get() && now && !was && wine.is_active() {
                     if let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr) {
-                        let (turn_off, video2, quiet2) =
-                            (Rc::clone(&turn_off), Rc::clone(&video), Rc::clone(&quiet));
+                        let (turn_off, saver2, quiet2) =
+                            (Rc::clone(&turn_off), Rc::clone(&saver), Rc::clone(&quiet));
                         let (switch2, render2) = (switch.clone(), Rc::clone(&render));
                         notice::ask_conflict(&switch, &c, move |use_gamescope| {
                             if use_gamescope {
@@ -717,11 +1017,11 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
                                 render2.set(before.1);
                                 quiet2.set(false);
                                 {
-                                    let mut v = video2.borrow_mut();
+                                    let mut v = saver2.shared().borrow_mut();
                                     v.upscaling.gamescope_enabled = before.0;
                                     (v.upscaling.base_width, v.upscaling.base_height) = before.1;
                                 }
-                                save_video(&video2, &switch2);
+                                saver2.save(&switch2);
                             }
                         });
                         // Nothing is saved until one is chosen: the file never
@@ -729,7 +1029,7 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
                         return;
                     }
                 }
-                save_video(&video, &switch);
+                saver.save(&switch);
                 refresh();
             })
         };
@@ -755,7 +1055,7 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
 
     // vkBasalt: a look, not a speed-up; only where its layer is installed.
     if bigame_core::capabilities::vkbasalt_installed() {
-        build_vkbasalt(video, &group);
+        build_vkbasalt(saver, &group);
     } else {
         group.add(&ui::missing_row(
             "vkBasalt",
@@ -779,8 +1079,9 @@ fn build_image_quality(video: &SharedVideo, display: &Display) -> adw::Preferenc
 
 /// vkBasalt's switch, its look and its file.
 #[allow(clippy::too_many_lines)]
-fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
+fn build_vkbasalt(saver: &VideoSaver, group: &adw::PreferencesGroup) {
     use bigame_core::vkbasalt::{self as vkb, Style, StyleState};
+    let video = saver.shared();
     let cfg = video.borrow().clone();
     let switch = adw::SwitchRow::builder()
         .title("vkBasalt")
@@ -792,10 +1093,10 @@ fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
     switch.add_prefix(&gtk4::Image::from_icon_name("image-x-generic-symbolic"));
     group.add(&switch);
     {
-        let video = Rc::clone(video);
+        let saver = Rc::clone(saver);
         switch.connect_active_notify(move |row| {
-            video.borrow_mut().upscaling.vkbasalt_enabled = row.is_active();
-            save_video(&video, row);
+            saver.shared().borrow_mut().upscaling.vkbasalt_enabled = row.is_active();
+            saver.save(row);
         });
     }
 
@@ -845,21 +1146,37 @@ fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
     group.add(missing.widget());
     let quiet = Rc::new(Cell::new(false));
     {
-        let (video, missing, quiet) = (Rc::clone(video), missing.clone(), Rc::clone(&quiet));
+        let (saver, missing, quiet) = (Rc::clone(saver), missing.clone(), Rc::clone(&quiet));
+        // Saved once typing rests: a half-typed path is never written.
         conf.connect_changed(move |row| {
             let text = row.text().to_string();
             missing.set_visible(!text.is_empty() && !std::path::Path::new(&text).exists());
             if quiet.get() {
                 return;
             }
-            video.borrow_mut().upscaling.vkbasalt_config_path = (!text.is_empty()).then_some(text);
-            save_video(&video, row);
+            saver.shared().borrow_mut().upscaling.vkbasalt_config_path =
+                (!text.is_empty()).then_some(text);
+            saver.save_settled(row);
+        });
+    }
+    {
+        let (switch, conf, quiet) = (switch.clone(), conf.clone(), Rc::clone(&quiet));
+        saver.on_revert(move |c| {
+            switch.set_active(c.upscaling.vkbasalt_enabled);
+            quiet.set(true);
+            conf.set_text(
+                &c.upscaling.vkbasalt_config_path.clone().unwrap_or_else(|| {
+                    vkb::default_config()
+                        .map_or_else(String::new, |p| p.to_string_lossy().into_owned())
+                }),
+            );
+            quiet.set(false);
         });
     }
 
     // A look is written to vkBasalt's own file, so that is the file used.
     let point_at_user_file = {
-        let (video, conf, quiet) = (Rc::clone(video), conf.clone(), Rc::clone(&quiet));
+        let (saver, conf, quiet) = (Rc::clone(saver), conf.clone(), Rc::clone(&quiet));
         Rc::new(move || {
             let file = vkb::user_config();
             let path = file.exists().then(|| file.to_string_lossy().into_owned());
@@ -868,8 +1185,8 @@ fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
                 vkb::default_config().map_or_else(String::new, |p| p.to_string_lossy().into_owned())
             }));
             quiet.set(false);
-            video.borrow_mut().upscaling.vkbasalt_config_path = path;
-            save_video(&video, &conf);
+            saver.shared().borrow_mut().upscaling.vkbasalt_config_path = path;
+            saver.save(&conf);
         })
     };
     let previous = Rc::new(RefCell::new(look.value()));
@@ -965,7 +1282,8 @@ fn build_vkbasalt(video: &SharedVideo, group: &adw::PreferencesGroup) {
 
 /// lsfg-vk's general switch and its DLL. Each game's own frame generation
 /// is in its profile.
-fn build_frame_generation(video: &SharedVideo, m: &Machine) -> adw::PreferencesGroup {
+fn build_frame_generation(saver: &VideoSaver, m: &Machine) -> adw::PreferencesGroup {
+    let video = saver.shared();
     let group = ui::section(&i18n("Frame generation"));
     if !m.lsfg {
         group.add(&ui::missing_row(
@@ -984,27 +1302,33 @@ fn build_frame_generation(video: &SharedVideo, m: &Machine) -> adw::PreferencesG
         .build();
     group.add(&switch);
     {
-        let video = Rc::clone(video);
+        let me = Rc::clone(saver);
         switch.connect_active_notify(move |row| {
             let on = row.is_active();
-            {
-                let mut v = video.borrow_mut();
+            let frame_gen = {
+                let mut v = me.shared().borrow_mut();
                 v.frame_gen.enabled = on;
                 v.frame_gen.backend = if on {
                     FrameGenBackend::LsfgVk
                 } else {
                     FrameGenBackend::None
                 };
-            }
-            save_video(&video, row);
-            if let Err(e) = bigame_core::fg::sync_global_enablement(&video.borrow().frame_gen) {
-                crate::widgets::toast::error(
-                    row,
-                    &i18n("Could not update lsfg-vk's file"),
-                    &error_text(&e),
-                );
-            }
+                v.frame_gen.clone()
+            };
+            // lsfg-vk's file follows only a switch that was saved.
+            let anchor = row.clone();
+            me.save_then(row, move || {
+                if let Err(e) = bigame_core::fg::sync_global_enablement(&frame_gen) {
+                    crate::widgets::toast::error(
+                        &anchor,
+                        &i18n("Could not update lsfg-vk's file"),
+                        &error_text(&e),
+                    );
+                }
+            });
         });
+        let switch = switch.clone();
+        saver.on_revert(move |c| switch.set_active(opt::lsfg_general_on(c)));
     }
     let dll_state = Notice::new(Kind::Warning, "", "");
     let show_dll = {
@@ -1114,7 +1438,8 @@ fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
 /// falcond's own settings and the facts for the person who knows what a
 /// scheduler flag is: last, each with its ⓘ.
 #[allow(clippy::too_many_lines)]
-fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
+fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
+    let shared = falcond.shared();
     let group = ui::section(&i18n("Advanced"));
     group.set_description(Some(&i18n(
         "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play.",
@@ -1145,21 +1470,32 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
     ));
     group.add(&poll_row);
     {
-        let cfg = Rc::clone(shared);
+        let me = Rc::clone(falcond);
+        // Each step would be a privileged write and a falcond reload: saved
+        // once the value rests.
         poll_row.connect_changed(move |row| {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let val = row.value() as u32;
-            cfg.borrow_mut().poll_interval_ms = val;
-            save_config(&cfg, row);
+            me.shared().borrow_mut().poll_interval_ms = val;
+            me.save_settled(row);
         });
+        let poll_row = poll_row.clone();
+        falcond.on_revert(move |c| poll_row.set_value(f64::from(c.poll_interval_ms)));
     }
+    // The set's own name in the list; what it is for, under it.
     let sets: Vec<(String, String)> = PROFILE_SETS
         .iter()
-        .map(|c| (c.id.to_owned(), format!("{} ({})", i18n(c.label), c.id)))
+        .map(|c| (c.id.to_owned(), i18n(c.label)))
         .collect();
+    let help = |id: &str| {
+        PROFILE_SETS
+            .iter()
+            .find(|c| c.id == id)
+            .map_or_else(String::new, |c| i18n(c.help))
+    };
     let set = Picker::new(
         &i18n("Profile set"),
-        &i18n("Desktop (none) is the one for a PC at a desk"),
+        &help(&shared.borrow().profile_mode),
         &sets,
         &shared.borrow().profile_mode,
     );
@@ -1169,13 +1505,15 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
         .add_suffix(&crate::widgets::info::profile_sets_button());
     group.add(&set.row);
     {
-        let cfg = Rc::clone(shared);
+        let falcond = Rc::clone(falcond);
         let row = set.row.clone();
         set.connect_changed(move |value| {
-            value.clone_into(&mut cfg.borrow_mut().profile_mode);
-            save_config(&cfg, &row);
+            row.set_subtitle(&help(value));
+            value.clone_into(&mut falcond.shared().borrow_mut().profile_mode);
+            falcond.save(&row);
         });
     }
+    falcond.on_revert(move |c| set.set(&c.profile_mode));
     // The governor, for reference: power-profiles-daemon sets it.
     let gov_row = adw::ActionRow::builder()
         .title(i18n("CPU governor"))
@@ -1186,7 +1524,7 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
     gov_row.add_suffix(&crate::widgets::info::button(
         &i18n("CPU governor"),
         &i18n(
-            "The kernel's rule for the CPU's clock. BiGame-mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards.",
+            "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards.",
         ),
     ));
     group.add(&gov_row);
@@ -1327,4 +1665,31 @@ fn build_advanced(shared: &SharedConfig, m: &Machine) -> adw::PreferencesGroup {
         });
     }
     group
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WriteQueue;
+
+    #[test]
+    fn writes_never_overlap_and_the_newest_state_goes_last() {
+        let mut q = WriteQueue::default();
+        assert!(q.request(), "nothing in flight: write now");
+        // Holding "+" on a spin button: one more write, not one per step.
+        assert!(!q.request());
+        assert!(!q.request());
+        assert!(q.finished(), "what was asked meanwhile is written next");
+        assert!(!q.finished(), "and then nothing is left");
+        assert!(q.request());
+    }
+
+    #[test]
+    fn a_failed_write_drops_what_was_queued_on_top_of_it() {
+        let mut q = WriteQueue::default();
+        assert!(q.request());
+        assert!(!q.request());
+        q.cancel();
+        assert!(!q.finished());
+        assert!(q.request(), "the next change starts a write of its own");
+    }
 }

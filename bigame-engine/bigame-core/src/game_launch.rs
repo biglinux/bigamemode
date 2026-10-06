@@ -240,40 +240,39 @@ impl GameLaunch {
 
     /// The variables a Steam game's launch options get, in front of
     /// everything, for the values this game sets itself (a game that sets
-    /// none gets Tuning's from the session). Wine FSR is left out where
-    /// `OptiScaler` upscales: its own switch is written for that. Where
-    /// Gamescope upscales the game, Wine FSR is switched off, as
-    /// BiGame-mode's own launch does.
+    /// none gets Tuning's from the session). Where Gamescope or `OptiScaler`
+    /// upscales the game, or Wine FSR is switched off for it
+    /// (`wine_fsr_off`), Wine FSR is switched off whatever Tuning says: the
+    /// session can hold it on from a Turbo preset, or from before BiGame-mode
+    /// started, and two upscalers never run in series.
     #[must_use]
     pub fn steam_env(
         &self,
         general: &UpscalingSettings,
         gamescope_upscales: bool,
-        optiscaler_upscales: bool,
+        wine_fsr_off: bool,
     ) -> Vec<String> {
         let mut words = Vec::new();
         let u = self.over(general, Mode::Auto);
-        if !optiscaler_upscales {
-            if gamescope_upscales && u.wine_fsr_enabled {
-                words.push("WINE_FULLSCREEN_FSR=0".to_owned());
-            } else {
-                let mode = || {
-                    format!(
-                        "WINE_FULLSCREEN_FSR_MODE={}",
-                        wine_fsr_mode_word(u.wine_fsr_mode)
-                    )
-                };
-                match self.wine_fsr {
-                    Some(true) => {
-                        words.push("WINE_FULLSCREEN_FSR=1".to_owned());
-                        words.push(mode());
-                    }
-                    Some(false) => words.push("WINE_FULLSCREEN_FSR=0".to_owned()),
-                    None if self.wine_fsr_mode.is_some() && general.wine_fsr_enabled => {
-                        words.push(mode());
-                    }
-                    None => {}
+        if gamescope_upscales || wine_fsr_off {
+            words.push("WINE_FULLSCREEN_FSR=0".to_owned());
+        } else {
+            let mode = || {
+                format!(
+                    "WINE_FULLSCREEN_FSR_MODE={}",
+                    wine_fsr_mode_word(u.wine_fsr_mode)
+                )
+            };
+            match self.wine_fsr {
+                Some(true) => {
+                    words.push("WINE_FULLSCREEN_FSR=1".to_owned());
+                    words.push(mode());
                 }
+                Some(false) => words.push("WINE_FULLSCREEN_FSR=0".to_owned()),
+                None if self.wine_fsr_mode.is_some() && general.wine_fsr_enabled => {
+                    words.push(mode());
+                }
+                None => {}
             }
         }
         match self.vkbasalt {
@@ -514,9 +513,16 @@ mod tests {
             ]
         );
         // Gamescope upscales it: never two upscalers.
-        assert_eq!(on.steam_env(&g, true, false)[0], "WINE_FULLSCREEN_FSR=0");
-        // OptiScaler's own switch is written apart.
-        assert_eq!(on.steam_env(&g, false, true), ["ENABLE_VKBASALT=0"]);
+        assert_eq!(
+            on.steam_env(&g, true, false),
+            ["WINE_FULLSCREEN_FSR=0", "ENABLE_VKBASALT=0"]
+        );
+        // OptiScaler upscales it, or Wine FSR is switched off for it: the
+        // same switch, from the same owner.
+        assert_eq!(
+            on.steam_env(&g, false, true),
+            ["WINE_FULLSCREEN_FSR=0", "ENABLE_VKBASALT=0"]
+        );
         // A quality mode alone, over Tuning's Wine FSR.
         let mode = GameLaunch {
             wine_fsr_mode: Some(WineFsrMode::Performance),
@@ -536,6 +542,14 @@ mod tests {
             GameLaunch::default().steam_env(&general(), true, false),
             ["WINE_FULLSCREEN_FSR=0"]
         );
+        // Tuning's off, but the session may hold a Turbo preset's Wine FSR:
+        // switched off all the same where something else upscales.
+        for (gamescope, optiscaler) in [(true, false), (false, true)] {
+            assert_eq!(
+                GameLaunch::default().steam_env(&off, gamescope, optiscaler),
+                ["WINE_FULLSCREEN_FSR=0"]
+            );
+        }
     }
 
     #[test]

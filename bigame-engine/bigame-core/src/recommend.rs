@@ -107,6 +107,24 @@ fn decide(key: &str, value: &str, evidence: Evidence, why: impl Into<Text>) -> D
 /// Recommend a profile for `game` on this machine.
 #[must_use]
 pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) -> Recommendation {
+    let general = crate::config::read()
+        .ok()
+        .filter(|c| !c.scx_sched.is_empty() && c.scx_sched != "none")
+        .map(|c| (c.scx_sched, c.scx_sched_props));
+    recommend_with(game, hardware, caps, general.as_ref())
+}
+
+/// [`recommend`] with falcond's general scheduler and its mode (`lavd`,
+/// `gaming`), when its configuration names one. A profile's `scx_sched =
+/// none` does not mean "no scheduler": falcond leaves the general one
+/// running, so that is what the game gets.
+#[must_use]
+pub fn recommend_with(
+    game: &GameIdentity,
+    hardware: &Hardware,
+    caps: &Capabilities,
+    general: Option<&(String, String)>,
+) -> Recommendation {
     let mut decisions = vec![decide(
         "name",
         &game.process_name,
@@ -132,31 +150,13 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
             Evidence::UpstreamDefault,
             N_(
                 "switches to the performance power profile while the game runs and back \
-             afterwards, as falcond's own profiles do; in BiGame-mode's measurements \
+             afterwards, as falcond's own profiles do; in Big Game Mode's measurements \
              it was no faster than balanced, so it is not a speed claim",
             ),
         )
     });
 
-    let scheduler = match caps.sched_ext.switchable().describe_text() {
-        None => decide(
-            "scx_sched",
-            "none",
-            Evidence::CapabilityOnly,
-            N_(
-                "sched-ext is available, but no scheduler has been measured faster for games \
-             in general; the game's profile can choose one",
-            ),
-        ),
-        Some(why) => decide("scx_sched", "none", Evidence::Unsupported, why),
-    };
-    decisions.push(scheduler);
-    decisions.push(decide(
-        "scx_sched_props",
-        "default",
-        Evidence::Fact,
-        N_("no scheduler is set, so its mode has no effect"),
-    ));
+    decisions.extend(scheduler_decisions(caps, general));
 
     decisions.push(if hardware.cpu.vcache.is_some() {
         decide(
@@ -185,6 +185,60 @@ pub fn recommend(game: &GameIdentity, hardware: &Hardware, caps: &Capabilities) 
         name: game.process_name.clone(),
         decisions,
     }
+}
+
+/// `scx_sched` and `scx_sched_props`: `none`, whatever the machine. With a
+/// scheduler in falcond's general configuration (`general`) that is what the
+/// game keeps, and the reasons say so.
+fn scheduler_decisions(caps: &Capabilities, general: Option<&(String, String)>) -> [Decision; 2] {
+    let switchable = caps.sched_ext.switchable().describe_text();
+    let scheduler = match (&switchable, general) {
+        (None, Some((name, _))) => decide(
+            "scx_sched",
+            "none",
+            Evidence::CapabilityOnly,
+            Text::with(
+                N_(
+                    "keeps the scheduler of falcond's general configuration (%s) while the \
+                     game runs: none has been measured faster for games in general; the \
+                     game's profile can choose one",
+                ),
+                [format!("scx_{name}")],
+            ),
+        ),
+        (None, None) => decide(
+            "scx_sched",
+            "none",
+            Evidence::CapabilityOnly,
+            N_(
+                "sched-ext is available, but no scheduler has been measured faster for games \
+             in general; the game's profile can choose one",
+            ),
+        ),
+        (Some(why), _) => decide("scx_sched", "none", Evidence::Unsupported, why.clone()),
+    };
+    let props = match (&switchable, general) {
+        (None, Some((_, mode))) => decide(
+            "scx_sched_props",
+            "default",
+            Evidence::Fact,
+            Text::with(
+                N_("no scheduler is set here, so the general one keeps its own mode (%s)"),
+                [if mode.is_empty() {
+                    "default"
+                } else {
+                    mode.as_str()
+                }],
+            ),
+        ),
+        _ => decide(
+            "scx_sched_props",
+            "default",
+            Evidence::Fact,
+            N_("no scheduler is set, so its mode has no effect"),
+        ),
+    };
+    [scheduler, props]
 }
 
 #[cfg(test)]
@@ -260,6 +314,40 @@ mod tests {
             "{}",
             perf.why
         );
+    }
+
+    #[test]
+    fn a_general_scheduler_is_what_the_game_keeps() {
+        let (hw, mut caps) = machine(false, false);
+        caps.sched_ext.kernel_support = true;
+        caps.sched_ext.installed = vec!["scx_lavd".into()];
+        caps.sched_ext.loader_service = true;
+        assert!(caps.sched_ext.switchable().describe_text().is_none());
+        let general = ("lavd".to_owned(), "gaming".to_owned());
+        let rec = recommend_with(&game("Game.exe"), &hw, &caps, Some(&general));
+        let why = |k: &str| {
+            rec.decisions
+                .iter()
+                .find(|d| d.key == k)
+                .unwrap()
+                .why
+                .english()
+        };
+        assert!(
+            why("scx_sched").contains("(scx_lavd)"),
+            "{}",
+            why("scx_sched")
+        );
+        assert!(!why("scx_sched_props").contains("no effect"));
+        assert!(why("scx_sched_props").contains("(gaming)"));
+        // No general scheduler: "none" means none.
+        let rec = recommend_with(&game("Game.exe"), &hw, &caps, None);
+        let props = rec
+            .decisions
+            .iter()
+            .find(|d| d.key == "scx_sched_props")
+            .unwrap();
+        assert!(props.why.english().contains("no effect"));
     }
 
     #[test]

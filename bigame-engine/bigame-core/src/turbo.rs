@@ -17,6 +17,10 @@
 //!      → Booster's journal restored → report
 //! ```
 //!
+//! A falcond that does not start leaves Turbo off, and then neither the
+//! Booster nor the preset is applied: what a failed start left behind is
+//! taken away instead, so an "off" never hides a frame cap.
+//!
 //! OFF undoes in reverse order on purpose. falcond's snapshot of a running
 //! game is taken *after* Booster's changes, so it must be put back first;
 //! restoring Booster first and then stopping falcond would write Booster's
@@ -28,7 +32,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::booster::BoosterEngine;
@@ -454,8 +458,11 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         );
     }
 
+    let mut running = true;
     if caps.falcond_installed {
-        enable_backend(&hardware, &mut report, &mut progress).await;
+        // What runs before Turbo, so Turbo off can tell what falcond left.
+        remember_scheduler(current_scheduler().await.as_deref());
+        running = enable_backend(&hardware, &mut report, &mut progress).await;
     } else {
         report.push(
             Kind::GameBackend,
@@ -481,13 +488,30 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         );
     }
 
+    if !running {
+        // Turbo's state is falcond's: it did not start, so Turbo is off, and
+        // nothing of Turbo may be left in force behind an "off".
+        hold_back(preset, true, &mut report);
+        remove_preset(&mut report).await;
+        restore_booster(&mut report).await;
+        report.save();
+        tracing::warn!(target: "turbo", "falcond did not start; Booster and the preset were not applied");
+        return Ok(report);
+    }
+
     let engine = BoosterEngine::detect();
     match engine.activate(|p| progress(Step::Booster(p))).await {
         Ok(booster) => absorb_booster(&booster, &mut report),
         Err(e) => booster_failed(&mut report, &e),
     }
 
-    apply_preset(preset, &mut report).await;
+    // Without falcond Turbo is on while the Booster's record is there; a
+    // preset with no Turbo to take it away would stay for the session.
+    if caps.falcond_installed || BoosterEngine::is_active() {
+        apply_preset(preset, &mut report).await;
+    } else {
+        hold_back(preset, false, &mut report);
+    }
 
     report.save();
     tracing::info!(
@@ -501,11 +525,53 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     Ok(report)
 }
 
+/// Turbo's parts that were not applied because Turbo did not come on: the
+/// Booster when `booster`, and the preset.
+fn hold_back(preset: crate::turbo_preset::Preset, booster: bool, report: &mut Report) {
+    let why = || Text::plain(N_("not applied: Turbo did not come on"));
+    if booster {
+        report.push_knob(
+            Text::plain(N_("Booster")),
+            Section::Skipped,
+            "Booster",
+            why(),
+        );
+    }
+    if preset != crate::turbo_preset::Preset::Standard {
+        report.push_knob(
+            Text::plain(N_("Turbo preset")),
+            Section::Skipped,
+            "Big Game Mode",
+            why(),
+        );
+    }
+}
+
+/// Whether falcond runs, as systemd reports it now. A unit that cannot be
+/// read is taken as not running: nothing of Turbo is applied on a guess.
+async fn backend_active() -> bool {
+    let read = async {
+        let connection = zbus::Connection::system().await?;
+        anyhow::Ok(crate::systemd::unit_state(&connection, BACKEND_UNIT).await?)
+    }
+    .await;
+    match read {
+        Ok(unit) => unit.is_active(),
+        Err(e) => {
+            tracing::warn!(target: "turbo", error = %format!("{e:#}"), "falcond's state could not be read");
+            false
+        }
+    }
+}
+
+/// Enable and start falcond, and say so in the report. Returns whether it
+/// runs afterwards: a start that reported an error may still have brought it
+/// up, and one that did not leaves Turbo off.
 async fn enable_backend<F: FnMut(Step)>(
     hardware: &Hardware,
     report: &mut Report,
     progress: &mut F,
-) {
+) -> bool {
     // Profile set first, so falcond starts with the right one rather than
     // loading the wrong set and reloading.
     if let Ok(mut config) = crate::config::read() {
@@ -518,7 +584,7 @@ async fn enable_backend<F: FnMut(Step)>(
                     .push(
                         Kind::ProfileSet,
                         Section::Verified,
-                        "BiGame-mode",
+                        "Big Game Mode",
                         Text::with(
                             N_(
                                 "%s → %s: the handheld profiles run games in power-saving mode, \
@@ -530,13 +596,13 @@ async fn enable_backend<F: FnMut(Step)>(
                 Ok(()) => report.push(
                     Kind::ProfileSet,
                     Section::Failed,
-                    "BiGame-mode",
+                    "Big Game Mode",
                     Text::plain(N_("the configuration was written but reads back unchanged")),
                 ),
                 Err(e) => report.push(
                     Kind::ProfileSet,
                     Section::Failed,
-                    "BiGame-mode",
+                    "Big Game Mode",
                     crate::error::describe(&e),
                 ),
             }
@@ -575,19 +641,26 @@ async fn enable_backend<F: FnMut(Step)>(
                 )),
             };
             report.push(Kind::GameBackend, Section::Verified, "falcond", detail);
+            true
         }
-        Ok(other) => report.push(
-            Kind::GameBackend,
-            Section::Failed,
-            "falcond",
-            systemd_reports(other),
-        ),
-        Err(e) => report.push(
-            Kind::GameBackend,
-            Section::Failed,
-            "falcond",
-            crate::error::describe(&e),
-        ),
+        Ok(other) => {
+            report.push(
+                Kind::GameBackend,
+                Section::Failed,
+                "falcond",
+                systemd_reports(other),
+            );
+            backend_active().await
+        }
+        Err(e) => {
+            report.push(
+                Kind::GameBackend,
+                Section::Failed,
+                "falcond",
+                crate::error::describe(&e),
+            );
+            backend_active().await
+        }
     }
 }
 
@@ -616,7 +689,7 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
         Ok(_) if crate::steam::is_running() => report.push_knob(
             title,
             Section::Verified,
-            "BiGame-mode",
+            "Big Game Mode",
             Text::with(
                 N_(
                     "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset",
@@ -624,16 +697,22 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
                 [Arg::Text(name)],
             ),
         ),
+        // Not "every game from now on": a launcher opened from the
+        // application menu gets the login's environment from the desktop
+        // shell, not the session manager's. Home's launcher notice finds
+        // one that does not have the preset.
         Ok(_) => report.push_knob(
             title,
             Section::Verified,
-            "BiGame-mode",
+            "Big Game Mode",
             Text::with(
-                N_("%s: in the session's environment for every game started from now on"),
+                N_(
+                    "%s: in the session's environment. Games get it through a launcher that has it; Home offers to reopen one that does not",
+                ),
                 [Arg::Text(name)],
             ),
         ),
-        Err(e) => report.push_knob(title, Section::Failed, "BiGame-mode", crate::error::describe(&e)),
+        Err(e) => report.push_knob(title, Section::Failed, "Big Game Mode", crate::error::describe(&e)),
     }
 }
 
@@ -652,7 +731,7 @@ async fn remove_preset(report: &mut Report) {
         Ok(_) => report.push_knob(
             title,
             Section::Restored,
-            "BiGame-mode",
+            "Big Game Mode",
             Text::with(
                 N_("%s taken away: games get Tuning's settings again"),
                 [Arg::Text(Text::plain(preset.label()))],
@@ -661,7 +740,7 @@ async fn remove_preset(report: &mut Report) {
         Err(e) => report.push_knob(
             title,
             Section::Failed,
-            "BiGame-mode",
+            "Big Game Mode",
             crate::error::describe(&e),
         ),
     }
@@ -800,8 +879,26 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         }
     }
 
+    if caps.falcond_installed {
+        note_scheduler_left(&mut report).await;
+    }
+
     progress(Step::Restoring);
     remove_preset(&mut report).await;
+    restore_booster(&mut report).await;
+
+    report.save();
+    tracing::info!(
+        target: "turbo",
+        restored = report.count(Section::Restored),
+        failed = report.count(Section::Failed),
+        "turbo off"
+    );
+    Ok(report)
+}
+
+/// Put the Booster's journalled changes back and say so in the report.
+async fn restore_booster(report: &mut Report) {
     match BoosterEngine::deactivate().await {
         Ok(outcomes) => {
             for outcome in outcomes {
@@ -829,22 +926,234 @@ pub async fn turn_off<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
                 );
             }
         }
-        Err(e) => booster_failed(&mut report, &e),
+        Err(e) => booster_failed(report, &e),
     }
+}
 
-    report.save();
-    tracing::info!(
-        target: "turbo",
-        restored = report.count(Section::Restored),
-        failed = report.count(Section::Failed),
-        "turbo off"
+// ── The scheduler falcond leaves behind ─────────────────────────────────────
+
+/// Where the scheduler loaded before Turbo on is noted.
+fn scheduler_record() -> PathBuf {
+    crate::paths::state_home()
+        .join("bigame-mode")
+        .join("scheduler-before-turbo.json")
+}
+
+/// Note the sched-ext scheduler loaded before Turbo on (`None`: none).
+fn remember_scheduler(loaded: Option<&str>) {
+    let path = scheduler_record();
+    let written = (|| {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({ "loaded": loaded }))?,
+        )?;
+        anyhow::Ok(())
+    })();
+    if let Err(e) = written {
+        tracing::warn!(target: "turbo", error = %format!("{e:#}"), "could not note the scheduler loaded before Turbo");
+    }
+}
+
+/// What was noted at Turbo on about the sched-ext scheduler.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SchedulerBefore {
+    /// Nothing was noted (Turbo was switched on by an earlier build).
+    Unknown,
+    /// None was loaded.
+    Nothing,
+    /// This one was.
+    Loaded(String),
+}
+
+/// The scheduler noted at Turbo on.
+fn remembered_scheduler() -> SchedulerBefore {
+    let Some(value) = std::fs::read_to_string(scheduler_record())
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
+        return SchedulerBefore::Unknown;
+    };
+    match value.get("loaded") {
+        Some(serde_json::Value::String(name)) => SchedulerBefore::Loaded(name.clone()),
+        Some(serde_json::Value::Null) => SchedulerBefore::Nothing,
+        _ => SchedulerBefore::Unknown,
+    }
+}
+
+/// The scheduler still loaded after falcond stopped that Turbo put there.
+///
+/// falcond (2.0.14, `daemon.zig`) loads the scheduler its general
+/// configuration names when it starts, and on stopping only puts back what
+/// a game's profile changed: the general one stays loaded through
+/// `scx_loader`. One that ran before Turbo on is not Turbo's; with nothing
+/// noted then, the general configuration's own is.
+fn scheduler_left(
+    before: &SchedulerBefore,
+    after: Option<&str>,
+    general: Option<&str>,
+) -> Option<String> {
+    let after = after?;
+    let turbos = match before {
+        SchedulerBefore::Loaded(name) => name != after,
+        SchedulerBefore::Nothing => true,
+        SchedulerBefore::Unknown => general == Some(after),
+    };
+    turbos.then(|| after.to_owned())
+}
+
+/// The sched-ext scheduler running or being started: `scx_loader`'s
+/// `CurrentScheduler`, else what the kernel has attached.
+///
+/// The loader names a scheduler as soon as it is asked to start one; the
+/// kernel shows it only once its BPF program is attached, a second or two
+/// later. A Turbo off right after a Turbo on (checked: on at :23, off at
+/// :24, lavd attached at :25) would otherwise find nothing loaded, and the
+/// scheduler falcond leaves behind would go unreported.
+async fn current_scheduler() -> Option<String> {
+    match loader_scheduler().await {
+        Some(name) => name,
+        None => crate::running::loaded_scheduler(),
+    }
+}
+
+/// `scx_loader`'s `CurrentScheduler`: `Some(None)` when it runs none,
+/// `None` when the loader cannot be asked (not running: nothing starts a
+/// scheduler then, and the kernel's answer stands).
+async fn loader_scheduler() -> Option<Option<String>> {
+    let connection = zbus::Connection::system().await.ok()?;
+    let dbus = zbus::fdo::DBusProxy::new(&connection).await.ok()?;
+    let name = zbus::names::BusName::try_from("org.scx.Loader").ok()?;
+    // Asked only of a running loader: a property read would start it.
+    if !dbus.name_has_owner(name).await.ok()? {
+        return None;
+    }
+    let proxy = zbus::proxy::Builder::<zbus::Proxy<'_>>::new(&connection)
+        .destination("org.scx.Loader")
+        .ok()?
+        .path("/org/scx/Loader")
+        .ok()?
+        .interface("org.scx.Loader")
+        .ok()?
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
+        .ok()?;
+    let current: String = proxy.get_property("CurrentScheduler").await.ok()?;
+    Some(loader_name(&current))
+}
+
+/// `scx_lavd` → `lavd`; `unknown` (the loader's word for none) → `None`.
+fn loader_name(current: &str) -> Option<String> {
+    let name = current.trim();
+    let name = name.strip_prefix("scx_").unwrap_or(name);
+    (!name.is_empty() && name != "unknown").then(|| name.to_owned())
+}
+
+/// Report a scheduler falcond left loaded as it stopped.
+async fn note_scheduler_left(report: &mut Report) {
+    let before = remembered_scheduler();
+    let general = crate::config::read()
+        .ok()
+        .map(|c| c.scx_sched)
+        .filter(|s| !s.is_empty() && s != "none");
+    let left = scheduler_left(
+        &before,
+        current_scheduler().await.as_deref(),
+        general.as_deref(),
     );
-    Ok(report)
+    if let Some(name) = left {
+        report.push(
+            Kind::Scheduler,
+            Section::Failed,
+            "falcond",
+            Text::with(
+                N_(
+                    "%s is still loaded after falcond stopped: falcond does not unload the \
+                     scheduler its general configuration loads",
+                ),
+                [format!("scx_{name}")],
+            ),
+        );
+    }
+    let path = scheduler_record();
+    if let Err(e) = std::fs::remove_file(&path) {
+        if e.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(target: "turbo", file = %path.display(), error = %e, "could not remove the scheduler note");
+        }
+    }
+}
+
+// ── Turbo switched off from outside ─────────────────────────────────────────
+
+/// Whether anything of Turbo may still be in force: falcond enabled or
+/// running, a preset's record, or Booster changes. An error after a failed
+/// Turbo on is then something to turn off, not only to retry.
+#[must_use]
+pub fn something_left(
+    unit: Option<&crate::systemd::UnitState>,
+    preset: bool,
+    booster: bool,
+) -> bool {
+    let unit = unit.is_some_and(|u| {
+        u.is_installed() && (u.is_active() || u.unit_file_state.starts_with("enabled"))
+    });
+    unit || preset || booster
+}
+
+/// [`something_left`] on this machine, for the UI's worker threads.
+#[must_use]
+pub fn something_left_blocking() -> bool {
+    let unit = crate::systemd::Reader::shared().and_then(|r| r.unit_state(BACKEND_UNIT));
+    something_left(
+        unit.as_ref(),
+        crate::turbo_preset::active() != crate::turbo_preset::Preset::Standard,
+        BoosterEngine::is_active(),
+    )
+}
+
+/// Take away what Turbo left in force after falcond stopped without Big
+/// Game Mode asking: Settings → Hand back, `systemctl stop`, a crash. The
+/// preset's variables and the Booster's changes stay otherwise, behind a
+/// Turbo that every surface shows off. Nothing is done while falcond runs:
+/// Turbo is on then. For the UI's worker threads.
+///
+/// # Errors
+/// Returns an error if systemd cannot be asked about falcond, or the preset
+/// or the Booster's changes could not be put back; both are attempted
+/// either way.
+pub fn tidy_up_blocking() -> Result<()> {
+    let unit = crate::systemd::Reader::shared()
+        .and_then(|r| r.unit_state(BACKEND_UNIT))
+        .ok_or_else(|| anyhow::anyhow!("systemd could not be asked about {BACKEND_UNIT}"))?;
+    if !unit.is_installed() || unit.is_active() {
+        return Ok(());
+    }
+    let preset = crate::turbo_preset::resync(false);
+    let booster = reconcile_blocking();
+    if let Ok(n) = &booster {
+        if *n > 0 {
+            tracing::info!(target: "turbo", restored = n, "Booster changes put back after falcond stopped");
+        }
+    }
+    preset.context("take the Turbo preset away")?;
+    booster.context("put the Booster's changes back")?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_loaders_scheduler_name_is_the_kernels() {
+        assert_eq!(loader_name("scx_lavd").as_deref(), Some("lavd"));
+        assert_eq!(loader_name("unknown"), None);
+        assert_eq!(loader_name(""), None);
+        assert_eq!(loader_name("bpfland").as_deref(), Some("bpfland"));
+    }
 
     #[test]
     fn who_controls_falcond_is_read_from_both_records() {
@@ -868,6 +1177,72 @@ mod tests {
         assert!(Control::NeverManaged.can_take());
         assert!(!Control::Managed { since: 1 }.can_take());
         assert!(!Control::NotInstalled.can_take());
+    }
+
+    #[test]
+    fn the_scheduler_falcond_leaves_loaded_is_reported_only_when_turbo_put_it_there() {
+        // lavd from falcond's general configuration, nothing loaded before.
+        use SchedulerBefore::{Loaded, Nothing, Unknown};
+        assert_eq!(
+            scheduler_left(&Nothing, Some("lavd"), Some("lavd")),
+            Some("lavd".into())
+        );
+        // Loaded before Turbo on: someone else's, left alone.
+        assert_eq!(
+            scheduler_left(&Loaded("lavd".into()), Some("lavd"), Some("lavd")),
+            None
+        );
+        // Another one than before is Turbo's doing.
+        assert_eq!(
+            scheduler_left(&Loaded("bpfland".into()), Some("lavd"), None),
+            Some("lavd".into())
+        );
+        // Nothing loaded: nothing to say.
+        assert_eq!(scheduler_left(&Nothing, None, Some("lavd")), None);
+        // Nothing noted at Turbo on: only the general configuration's own.
+        assert_eq!(
+            scheduler_left(&Unknown, Some("lavd"), Some("lavd")),
+            Some("lavd".into())
+        );
+        assert_eq!(scheduler_left(&Unknown, Some("rusty"), Some("lavd")), None);
+        assert_eq!(scheduler_left(&Unknown, Some("lavd"), None), None);
+    }
+
+    #[test]
+    fn an_error_with_something_left_offers_turning_it_off() {
+        let unit = |file: &str, active: &str| crate::systemd::UnitState {
+            unit_file_state: file.into(),
+            active_state: active.into(),
+        };
+        // A failed start left falcond enabled: Turbo off disables it.
+        assert!(something_left(
+            Some(&unit("enabled", "failed")),
+            false,
+            false
+        ));
+        assert!(something_left(
+            Some(&unit("disabled", "active")),
+            false,
+            false
+        ));
+        // A preset or Booster changes left in force.
+        assert!(something_left(
+            Some(&unit("disabled", "inactive")),
+            true,
+            false
+        ));
+        assert!(something_left(None, false, true));
+        // Nothing at all: the error is only a Turbo that did not start.
+        assert!(!something_left(
+            Some(&unit("disabled", "failed")),
+            false,
+            false
+        ));
+        assert!(!something_left(
+            Some(&unit("not-found", "inactive")),
+            false,
+            false
+        ));
     }
 
     #[test]
