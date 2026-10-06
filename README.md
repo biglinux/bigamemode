@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="usr/share/icons/hicolor/scalable/apps/com.biglinux.BiGameMode.svg" width="112" alt="Ícone do BiGame-mode">
+<img src="usr/share/icons/hicolor/scalable/apps/com.biglinux.BiGameMode.svg" width="112" alt="Ícone do Big Game Mode">
 
-# BiGame-mode
+# Big Game Mode
 
 **O modo de jogo do BigLinux.**<br>
 Turbo com um clique e um preset, perfis por jogo, Gráficos com IA e uma página
@@ -25,7 +25,7 @@ que mostra, com evidência, o que está mesmo em vigor.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-default-light.png">
-  <img src="docs/screenshots/home.png" width="860" alt="Página Início do BiGame-mode com o Modo Turbo ligado">
+  <img src="docs/screenshots/home.png" width="860" alt="Página Início do Big Game Mode com o Modo Turbo ligado">
 </picture>
 
 </div>
@@ -34,7 +34,7 @@ que mostra, com evidência, o que está mesmo em vigor.
 
 ## 🎮 O que é
 
-O BiGame-mode é a central de jogos do BigLinux. Com um botão, o **Turbo**, os
+O Big Game Mode é a central de jogos do BigLinux. Com um botão, o **Turbo**, os
 jogos passam a rodar com o perfil de desempenho certo, aplicado ao abrir e
 desfeito ao fechar pelo [falcond](https://git.pika-os.com/general-packages/falcond).
 O aplicativo mostra o que de fato está em vigor, mede se uma mudança ajudou e
@@ -75,7 +75,7 @@ sempre com backup e desfazer completos.
 <summary><b>Novidades da 2.1.0</b></summary>
 
 - **Presets do Turbo.** Antes de ligar, escolha o que os jogos priorizam:
-  **Padrão**, **Mais FPS**, **FPS cravado em 60** ou **Gráficos aprimorados**.
+  **Padrão**, **Mais FPS**, **60 FPS Fixo** ou **Gráficos aprimorados**.
   Cada preset usa só o que os jogos leem de verdade e sai junto com o Turbo.
 - **Nova Início.** Um botão power que se enche como um líquido nas cores do
   tema a cada etapa real do Turbo, CPU, GPU e rede ao vivo, e um card do jogo
@@ -107,7 +107,7 @@ sempre com backup e desfazer completos.
 
 ### ⚡ Turbo
 
-A chave principal. Desligado, o BiGame-mode não interfere em jogo nenhum.
+A chave principal. Desligado, o Big Game Mode não interfere em jogo nenhum.
 Ligado, o falcond aplica o perfil de cada jogo (perfil de energia, escalonador
 sched-ext, modo do 3D V-Cache, inibição de repouso) e restaura tudo quando o
 jogo fecha.
@@ -117,14 +117,18 @@ Antes de ligar, escolha o que os jogos devem priorizar:
 - **Padrão**: os Ajustes como estão.
 - **Mais FPS**: sem limite de quadros e sem filtro de imagem. Os quadros
   vêm de baixar a resolução no jogo, com o Wine FSR ampliando.
-- **FPS cravado em 60**: limite do DXVK e do VKD3D-Proton nos jogos do
-  Proton; nos jogos nativos abertos pelo BiGame-mode, o limitador do MangoHud.
-- **Gráficos aprimorados**: nitidez CAS do vkBasalt, FSR 4 onde a GPU tem e
-  60 FPS para a imagem mais pesada rodar estável.
+- **60 FPS Fixo**: limite do DXVK e do VKD3D-Proton nos jogos do
+  Proton; nos jogos nativos abertos pelo Big Game Mode, o limitador do MangoHud.
+- **Gráficos aprimorados**: nitidez CAS do vkBasalt (um arquivo só de CAS do
+  Big Game Mode; o seu `vkBasalt.conf` não é usado nem alterado), FSR 4 onde a
+  GPU tem e 60 FPS para a imagem mais pesada rodar estável.
 
-O preset vale enquanto o Turbo está ligado e sai com ele. Jogos com geração de
-quadros são avisados: o limite conta os quadros exibidos, então eles
-renderizam metade. A Steam aberta antes recebe o preset quando é reaberta, e a
+O preset vale enquanto o Turbo está ligado e sai com ele, inclusive quando o
+falcond para por fora ou não chega a iniciar; valores seus de `DXVK_CONFIG` e
+das variáveis de FSR 4 são mantidos e devolvidos. Jogos com geração de
+quadros são avisados conforme o gerador: com o OptiScaler o limite conta os
+quadros exibidos (o jogo renderiza cerca de metade); o lsfg-vk gera depois do
+limite (o jogo renderiza até o limite e a tela mostra o limite multiplicado). A Steam aberta antes recebe o preset quando é reaberta, e a
 Início oferece reabrir.
 
 </td>
@@ -200,7 +204,7 @@ supera a variação.
 | **Perfis** | A biblioteca de jogos com capas (Steam, Lutris, Heroic, Flatpak e menu), busca e filtros. Cada perfil tem as mesmas seções e linhas dos Ajustes, só para aquele jogo; cada opção começa em "Configuração geral", que segue os Ajustes (o Perfil global). Os valores próprios do jogo (tamanhos e filtro do Gamescope, limite de FPS, Wine FSR, vkBasalt) chegam a ele onde podem chegar: pelo **Iniciar (Turbo)**, nas opções de inicialização da Steam ou nas configurações do jogo no Heroic, gravadas com o lançador fechado e sem tocar no que é seu. No menu ⋮ de cada jogo: **Iniciar (Turbo)** (direto ou pelo próprio lançador), **Criar com Assistente**, **Gráficos com IA**, **Medir a diferença** e **Restaurar os gráficos do jogo**. |
 | **Ajustes** | A configuração geral, usada por todos os jogos: desempenho, exibição, qualidade de imagem, geração de quadros, monitoramento (com os estilos do MangoHud inspirados no Steam Deck) e avançado. Ligar uma tecnologia que colide com outra já ligada pergunta qual manter. Mudar os tamanhos do Gamescope atualiza as opções de inicialização da Steam dos jogos que o usam. |
 | **Detalhes** | Visão geral (pronto para jogar, Turbo, falcond, perfil, energia, escalonador, GPU, Gamescope, upscaling, geração de quadros), telemetria em tempo real, um cartão por placa de vídeo (carga, clock, VRAM, temperatura, energia e qual renderiza o jogo), o desempenho e o pipeline de vídeo. Traz ainda os **Problemas**, a rede (com a comparação de servidores DNS, que pode tornar o escolhido o DNS da conexão pelo NetworkManager, guardando antes as configurações anteriores para **Restaurar**), a carga em segundo plano, as opções de lançamento da Steam quebradas e o relatório para suporte. |
-| **Registros** | O que importa numa sessão de jogo: falcond, BiGame-mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
+| **Registros** | O que importa numa sessão de jogo: falcond, Big Game Mode e o helper, power-profiles-daemon, scx_loader, Gamescope, os drivers de GPU, as falhas (coredumps), as instalações pelo pkexec e, da saída dos jogos da Steam, o que vem do Proton/Wine, MangoHud, vkBasalt, lsfg-vk e OptiScaler, com filtro por fonte. |
 | **Configurações** | A aparência (tema **Padrão** ou **Gamer**, claro, escuro ou o do sistema; uma instalação nova abre em Gamer escuro), o início em segundo plano, a oferta de perfis, as notificações, o alvo do ping (um dos servidores da comparação de DNS ou outro endereço) e o controle do falcond: **Devolver** o entrega exatamente como estava antes, e **Retomar o controle** volta a geri-lo, registrando de novo o estado em que ele está. |
 
 Fechar a janela deixa o aplicativo na **bandeja**. A cor do ícone indica o
@@ -248,18 +252,18 @@ um aviso.
 
 - **O falcond cuida do desempenho do sistema.** Ele reconhece o jogo pelo nome
   do processo, aplica o perfil e restaura tudo quando o jogo fecha. O
-  BiGame-mode liga e desliga o falcond (Turbo) e escreve os perfis que ele lê.
-- **Cada ajuste tem um único dono.** O BiGame-mode não aplica por conta própria
+  Big Game Mode liga e desliga o falcond (Turbo) e escreve os perfis que ele lê.
+- **Cada ajuste tem um único dono.** O Big Game Mode não aplica por conta própria
   o que o falcond ou o power-profiles-daemon já aplicam. O GameMode da Feral
   não é usado, porque os dois disputariam os mesmos ajustes.
 - **Duas tecnologias com a mesma função não rodam em série.** Num jogo com
   OptiScaler, o Wine FSR e o upscaling do Gamescope ficam desligados naquela
   execução. O lsfg-vk também fica desligado quando o OptiScaler gera os
   quadros. Ligar uma quando a outra já está ligada pergunta qual manter.
-- **Um jogo da Steam é aberto pela Steam**, fora do alcance do BiGame-mode. O
+- **Um jogo da Steam é aberto pela Steam**, fora do alcance do Big Game Mode. O
   que o perfil pede para ele (Gamescope, Wine FSR desligado, MangoHud) vai para
   as opções de inicialização do jogo, gravadas com a Steam fechada, em todas as
-  contas, e só o trecho que o BiGame-mode escreveu é trocado ou removido.
+  contas, e só o trecho que o Big Game Mode escreveu é trocado ou removido.
 - **Os presets do Turbo ficam só na sessão em execução** (o gerenciador do
   systemd do usuário), nunca no `environment.d`, para saírem por completo
   quando o Turbo desliga.
@@ -273,7 +277,7 @@ um aviso.
   da release oficial, por HTTPS e com SHA-256 fixado.
 - **Cada instalação é uma transação**: backup verificado, diário, troca atômica
   e verificação. Uma instalação interrompida é desfeita na próxima abertura.
-- O BiGame-mode **não redistribui binários de terceiros** nem baixa ou
+- O Big Game Mode **não redistribui binários de terceiros** nem baixa ou
   substitui DLLs da NVIDIA. A renderização neural em AMD (DLSS-NR-on-AMD) é
   detectada e explicada, mas nunca baixada, porque a licença não permite.
 
@@ -328,7 +332,7 @@ CONF
 sudo pacman -Sy
 ```
 
-**2. Compile e instale o BiGame-mode.**
+**2. Compile e instale o Big Game Mode.**
 
 ```bash
 sudo pacman -S --needed base-devel git
@@ -341,12 +345,12 @@ O `makepkg` instala o que falta para compilar, compila, confere as traduções,
 roda os testes e instala o pacote. O PKGBUILD compila a branch `main` do
 GitHub, não as mudanças locais do clone.
 
-Depois, abra **BiGame-mode** no menu de aplicativos.
+Depois, abra **Big Game Mode** no menu de aplicativos.
 
 > [!TIP]
 > Ao atualizar, o auxiliar para e volta na próxima chamada, já com a versão
 > nova. Ao remover, o falcond volta ao estado em que estava antes do
-> BiGame-mode. Os arquivos que os Gráficos com IA colocaram em jogos continuam
+> Big Game Mode. Os arquivos que os Gráficos com IA colocaram em jogos continuam
 > lá até **Restaurar os gráficos do jogo**. Os backups ficam em
 > `~/.local/state/bigame-mode/graphics`.
 
@@ -359,18 +363,20 @@ Depois, abra **BiGame-mode** no menu de aplicativos.
 | `falcond`, `power-profiles-daemon` | desempenho por jogo e perfil de energia |
 | `scx-tools`, `scx-scheds` | o `scx_loader`, com que o falcond troca o escalonador de CPU durante o jogo, e os escalonadores |
 | `gamescope`, `mangohud`, `vkbasalt` | o que os ajustes por jogo e de lançamento ligam; o MangoHud também captura os frametimes das medições |
-| `lsfg-vk` | geração de quadros (Lossless Scaling) por jogo; só gera quadros com o seu próprio `Lossless.dll`, que nunca vem no pacote |
+| `lsfg-vk` | geração de quadros (Lossless Scaling) por jogo, nos formatos de configuração do 1.x e do 2.x (lido da biblioteca instalada); só gera quadros com o seu próprio `Lossless.dll`, que nunca vem no pacote |
 | `curl`, `libarchive` | baixar e extrair o OptiScaler |
-| `hwdata`, `pciutils` | identificar a placa de vídeo |
+| `hwdata` | identificar a placa de vídeo |
 | `iputils`, `iproute2` | latência e fila de rede |
 
 **Opcional:** `nvidia-utils` fornece a telemetria em placas NVIDIA, pela
 biblioteca NVML. Só serve a placas NVIDIA e conflita com os pacotes dos
 drivers NVIDIA antigos. `networkmanager` permite trocar o DNS da conexão a
 partir da comparação de DNS; sem ele a opção aparece indisponível, com o
-motivo.
+motivo. `ntsync-autoload` carrega o NTSync no boot (no Arch só o `wine` o
+traz), e `lib32-mangohud` leva o overlay a jogos de 32 bits; a página de
+Diagnóstico diz quando faltam.
 
-Os lançadores **não** são dependências: o BiGame-mode encontra os jogos do
+Os lançadores **não** são dependências: o Big Game Mode encontra os jogos do
 Steam, do Lutris e do Heroic que estiverem instalados, nativos ou em Flatpak.
 
 O pacote instala o `bigame-ui` (o aplicativo, que roda como usuário comum) e o
@@ -387,7 +393,7 @@ D-Bus e a política do Polkit. Instala também o `.desktop`, o metainfo, os
 | **Jogos** | Steam (incluindo Proton), Lutris, Heroic e jogos nativos do menu de aplicativos, nativos ou Flatpak |
 | **GPUs** | AMD, NVIDIA e Intel, inclusive notebooks híbridos (a GPU em que o jogo renderiza é identificada, com PRIME offload) |
 | **Testado em** | AMD Ryzen 7 5700G com Radeon RX 9060 XT (RDNA 4) e a Radeon Vega integrada; notebook híbrido com Intel HD 630 e GeForce GTX 1050 Ti (driver NVIDIA 580); máquina virtual com BigLinux padrão (instalação do zero, sem aceleração 3D) |
-| **Detectado, ainda não testado em hardware real** | RDNA 3, RTX, Intel Arc, CPUs híbridas, 3D V-Cache, notebooks na bateria, X11, VRR e HDR. Nessas máquinas, o BiGame-mode oferece só o que detectar como suportado |
+| **Detectado, ainda não testado em hardware real** | RDNA 3, RTX, Intel Arc, CPUs híbridas, 3D V-Cache, notebooks na bateria, X11, VRR e HDR. Nessas máquinas, o Big Game Mode oferece só o que detectar como suportado |
 
 ## 📊 Benchmarks
 
@@ -396,9 +402,9 @@ próprio jogo e a potência lida do sensor da GPU):
 
 | Jogo | Padrão | Com preset |
 |---|---|---|
-| SuperTuxKart (nativo, aberto pelo BiGame-mode) | 455 FPS típicos, GPU a 53 W | **FPS cravado em 60**: 60 típicos, 59 estáveis, GPU a **31 W** |
+| SuperTuxKart (nativo, aberto pelo Big Game Mode) | 455 FPS típicos, GPU a 53 W | **60 FPS Fixo**: 60 típicos, 59 estáveis, GPU a **31 W** |
 | Cyberpunk 2077 (traçado de raios ultra) | 37,5 FPS | **Gráficos aprimorados**: 37,3 FPS, com o vkBasalt e o provedor do FSR 4 carregados no jogo |
-| Shadow of the Tomb Raider, com geração de quadros do OptiScaler | 62,5 FPS | **FPS cravado em 60**: 30 FPS renderizados (60 na tela), o motivo do aviso sobre geração de quadros |
+| Shadow of the Tomb Raider, com geração de quadros do OptiScaler | 62,5 FPS | **60 FPS Fixo**: 30 FPS renderizados (60 na tela), o motivo do aviso sobre geração de quadros |
 
 O limitador próprio do Gamescope (`-r`, `--framerate-limit`) não segurou o
 SuperTuxKart com o V-Sync do jogo desligado (570 FPS apresentados); por isso,
@@ -423,7 +429,7 @@ no teste t de Welch a 95 %):
   **mais lento**, por isso ali o recomendado é o FSR do próprio jogo.
 - **Nível de energia da GPU:** fixar a GPU no nível `high` deixou os jogos
   7,5–8,3 % **mais lentos**. Perfil de energia, governador e escalonadores
-  sched-ext não mudaram nada, por isso o BiGame-mode não os força.
+  sched-ext não mudaram nada, por isso o Big Game Mode não os força.
 - **Geração de quadros:** o lsfg-vk custou 42 % dos quadros renderizados em x2
   (88,9 → 51,8) e 55 % em x3, por isso nunca é ligado sozinho.
 
@@ -433,7 +439,7 @@ capturas brutas, no histórico (tag `benchmarks-raw-data`).
 
 ## 🌍 Idiomas
 
-O BiGame-mode é escrito em inglês e está traduzido para **29 idiomas**:
+O Big Game Mode é escrito em inglês e está traduzido para **29 idiomas**:
 
 > alemão · búlgaro · chinês · coreano · croata · dinamarquês · eslovaco ·
 > espanhol · estoniano · finlandês · francês · grego · hebraico · holandês ·
@@ -521,7 +527,7 @@ tempinho, estou lá jogando com eles. Ver canais mostrando o **BigLinux** em
 ação me motiva profundamente.
 
 Em respeito a essa comunidade e para garantir que todos tenham a melhor
-experiência possível, criei o **BiGame-mode**. O objetivo é aproveitar o
+experiência possível, criei o **Big Game Mode**. O objetivo é aproveitar o
 máximo do hardware, trazendo os últimos recursos tecnológicos para alcançar o
 FPS máximo. Com a integração do `lsfg-vk` (Lossless Scaling) e o `falcond`,
 criamos uma solução completa de GameMode para o ecossistema BigLinux.
@@ -535,7 +541,7 @@ criamos uma solução completa de GameMode para o ecossistema BigLinux.
 
 ## 🙏 Projetos utilizados
 
-O BiGame-mode se apoia em projetos de terceiros, cada um com seus autores e
+O Big Game Mode se apoia em projetos de terceiros, cada um com seus autores e
 licenças:
 
 - **Sistema:** [falcond](https://git.pika-os.com/general-packages/falcond)

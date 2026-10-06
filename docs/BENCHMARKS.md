@@ -1,6 +1,6 @@
 # Benchmarks
 
-BiGame-mode claims a setting helps only when a measurement says so. This page
+Big Game Mode claims a setting helps only when a measurement says so. This page
 describes how measurements are made and what they found on the reference
 machine. Each session in `bigame-engine/benchmarks/` keeps what its result
 rests on: the report, the metrics and verdicts, the machine and its state, and
@@ -36,7 +36,7 @@ screenshots behind them are in the history, at the tag `benchmarks-raw-data`
   transitions a MangoHud window excludes; in Shadow of the Tomb Raider it
   reads 3–4 fps lower for the same run.
 - **The product is what is measured:** machine state is changed through
-  BiGame-mode's own helper, captured before the session and restored after it,
+  Big Game Mode's own helper, captured before the session and restored after it,
   including on interrupt.
 - glxgears and vkcube only confirm a driver works; they are never evidence.
 
@@ -54,7 +54,7 @@ screenshots behind them are in the history, at the tag `benchmarks-raw-data`
 |---|---|
 | `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a session of a game's built-in benchmark, in the layout of `bigame-engine/benchmarks/` |
 | `cargo run -p bigame-core --example bench_report -- <session> <baseline>` | verdicts for a SuperTuxKart A/B session |
-| `cargo run -p bigame-core --example turbo_preset -- <id\|off>` and `--example launch_plan -- <executable>` | put a Turbo preset in force as Turbo does, and print the command BiGame-mode's launcher would run with it |
+| `cargo run -p bigame-core --example turbo_preset -- <id\|off>` and `--example launch_plan -- <executable>` | put a Turbo preset in force as Turbo does, and print the command Big Game Mode's launcher would run with it |
 | *Measure the difference* (a game card's menu) | the same A/B method for any game that starts directly, driven by the application |
 
 The sessions are driven by the scripts in `bigame-engine/scripts/`:
@@ -79,7 +79,7 @@ Core i7-7700HQ, Intel HD 630 plus a GeForce GTX 1050 Ti Mobile (4 GB, NVIDIA
 580.178.04) — a hybrid laptop, the game rendering on the GTX — 1920×1080,
 Proton Experimental, KDE Plasma Wayland.
 
-Results are evidence for the defaults BiGame-mode ships, not claims about other
+Results are evidence for the defaults Big Game Mode ships, not claims about other
 hardware. They reach the application as fixed rules (the Booster never forces
 GPU DPM) and as entries in the AI Graphics game list; nothing is measured on a
 user's machine.
@@ -104,7 +104,7 @@ user's machine.
 | DX12, XeSS Performance → OptiScaler 0.9.4 FSR 3.1 with OptiFG frame generation, installed by AI Graphics (Choose yourself, experimental) | same | **60.7 fps presented** (MangoHud, 6652 frames in 110 s), 1 % low 18.7; the game's menu went from 41 to 71 fps | presented frames, not rendered ones, and more latency; **unstable on this GTX**: NVIDIA Xid 69 in this arm and Xid 31 in the next play session, which ended the game — removed from the game | arm E |
 | as E without frame generation (OptiScaler FSR 3.1 from XeSS Performance) | same | 40.6 fps rendered, 1 % low 13.7: **+12 %** over the game's XeSS (arm A), the same gain as the day before at High | faster | arm F |
 | as E with the game's XeSS at Quality (1280×720 → 1080p) | same | 51.8 fps presented, 1 % low 24.1, p99 30.7 ms, 18 stutters against E's 131 — smoother, below 60 | the better-paced choice | arm G |
-| lsfg-vk 1.0.0 x2 (the user's Lossless.dll) on top of F, entry written by BiGame-mode, A B A B | same | rendered (the game's count) 38 / 39 → **27 / 27**; presented (MangoHud) 41.3 / 42.3 → **57.9 / 57.0**; frames over twice the median 70 / 132 → 1329 / 908 | more frames shown, −30 % rendered, worse pacing | `2026-09-25-sottr-gtx1050ti-lsfg` |
+| lsfg-vk 1.0.0 x2 (the user's Lossless.dll) on top of F, entry written by Big Game Mode, A B A B | same | rendered (the game's count) 38 / 39 → **27 / 27**; presented (MangoHud) 41.3 / 42.3 → **57.9 / 57.0**; frames over twice the median 70 / 132 → 1329 / 908 | more frames shown, −30 % rendered, worse pacing | `2026-09-25-sottr-gtx1050ti-lsfg` |
 | Turbo off versus on (falcond per-game profile: power profile and governor performance, idle inhibit), on top of F, A B A B | same | rendered 40 / 36 vs 39 / 37; presented 43.0 / 39.2 vs 42.8 / 41.4; CPU package 87–88 vs 88–89 °C | no difference: GPU-bound at the GTX's power limit | `2026-09-25-sottr-gtx1050ti-turbo` |
 | sched-ext `lavd`, `bpfland` vs none, set in the game's falcond profile (falcond loads it at game start, unloads it after; checked in `/sys/kernel/sched_ext`), A B C C B A + A B C | SotTR, lab laptop, same settings | rendered frames 5863 ± 175 / 6097 ± 196 / 6136 ± 215 (+4.0 %, +4.7 %); Welch's t 1.5 and 1.7, under the 95 % critical value; every arm drifted up through the evening | no difference | `2026-09-25-sottr-gtx1050ti-scheduler` |
 | AI Graphics on a game that ships the FidelityFX API: the game's FSR 3.1 → the same with `FSR4_UPGRADE=1` (Proton's FSR 4 provider, verified mapped, `Replaced FSR3 with FSR4!` logged) → OptiScaler 0.9.4 FSR from the game's XeSS (`Fsr4Update`), two passes per arm | Cyberpunk 2077 2.3, RT Ultra, 3440×1440, upscaling Auto, RX 9060 XT | 38.4 → 38.2 fps (−0.6 %, Welch's t 1.9: no difference) → **36.0 fps (−6.4 %, t 24.7)**; lows too scattered over two runs to compare | FSR 4 through Proton costs nothing measurable; OptiScaler slower where the game's own FSR already reaches FSR 4 | `2026-09-26-cyberpunk-rx9060xt-native-vs-optiscaler` |
@@ -124,7 +124,7 @@ What follows for the code:
 - Power profile, governor and EPP made no difference here, GPU- or CPU-bound,
   so the Booster leaves them to power-profiles-daemon and falcond.
 - No scheduler was faster, so recommended profiles use `scx_sched = none`.
-- AI Graphics is the first setting BiGame-mode applies that measurably moves the
+- AI Graphics is the first setting Big Game Mode applies that measurably moves the
   frame rate. This holds for OptiScaler 0.9.4, the tested release. The gain
   is larger where the game's XeSS runs on the slower DP4a path (the GTX).
 - On the lab laptop the planner, reading that session from the local
@@ -132,7 +132,7 @@ What follows for the code:
   Recommended: the 1 % low could not be shown to be no worse.
 - The session also found that OptiScaler's default configuration made the
   game exit at start on a GTX (its DLSS path on a card without DLSS); the
-  configuration BiGame-mode writes turns that path off there.
+  configuration Big Game Mode writes turns that path off there.
 - At the lab laptop's lowest preset the GPU, not the settings, is the limit:
   36–40 fps rendered whatever the resolution, and DX11 only moves the limit to
   the CPU. Nothing an upscaler does reaches 60 there, so the plan says so when
@@ -166,7 +166,7 @@ throughput verdict: no arm was repeated.
 
 | Game | Standard | Preset | What it shows |
 |---|---|---|---|
-| SuperTuxKart 1.5, native, started by BiGame-mode's launcher (Gamescope, 3440×1440, vsync off) | 455 FPS typical, 142 steady; GPU 53 W, 62 % busy | Locked 60: 60 typical, 59 steady; GPU 31 W, 15 % busy | MangoHud's `fps_limit` holds a native game; Gamescope's `-r` and `--framerate-limit` did not (570 FPS presented) |
+| SuperTuxKart 1.5, native, started by Big Game Mode's launcher (Gamescope, 3440×1440, vsync off) | 455 FPS typical, 142 steady; GPU 53 W, 62 % busy | Locked 60: 60 typical, 59 steady; GPU 31 W, 15 % busy | MangoHud's `fps_limit` holds a native game; Gamescope's `-r` and `--framerate-limit` did not (570 FPS presented) |
 | Cyberpunk 2077, RT Ultra, FSR 2.1 auto | 37.5 FPS | Enhanced: 37.3 FPS | vkBasalt's CAS costs about nothing here; Proton's FSR 4 provider loaded, used only once FSR 3.1/4 is chosen in the game; the 60 cap is not reached |
 | Shadow of the Tomb Raider, OptiScaler frame generation | 62.5 FPS (game counter) | Locked 60: 30.0 FPS | a cap counts the frames shown, generated ones included: the game renders half. The preset now names such games |
 | Shadow of the Tomb Raider in Gamescope from Steam's launch options (3440×1440 output) | 70.3 FPS | Enhanced: 30.0 FPS, GPU 44 W against 99 W | Gamescope wraps a Steam game through its launch options; the same frame-generation halving under the cap |
