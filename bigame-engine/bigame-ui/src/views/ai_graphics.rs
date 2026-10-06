@@ -2590,10 +2590,17 @@ fn open_with(
         buttons.insert(b, -1);
     }
     // FlowBox children are focusable cells; the buttons inside are what
-    // Tab should reach.
+    // Tab should reach. A cell follows its button's visibility: an empty
+    // visible cell is measured at its padding alone, which GTK warns about.
     let mut child = buttons.first_child();
     while let Some(c) = child {
         c.set_focusable(false);
+        if let Some(button) = c.first_child() {
+            button
+                .bind_property("visible", &c, "visible")
+                .sync_create()
+                .build();
+        }
         child = c.next_sibling();
     }
     let actions = gtk4::Box::new(gtk4::Orientation::Horizontal, 12);
