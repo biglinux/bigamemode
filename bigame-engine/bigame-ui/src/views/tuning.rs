@@ -1519,7 +1519,7 @@ fn falcond_missing_row() -> adw::ActionRow {
     ui::missing_row(
         "falcond",
         &i18n(
-            "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it, Turbo and these settings are unavailable.",
+            "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it Turbo applies only the general settings and presets, and these options are unavailable.",
         ),
         "sudo pacman -S falcond",
     )

@@ -49,7 +49,7 @@ optdepends=(
     # System performance is falcond's: Turbo switches it on, and Big Game
     # Mode writes the per-game profiles it applies. BigLinux's repositories
     # carry it; on Arch it is in the AUR.
-    'falcond: Turbo and per-game performance profiles'
+    'falcond: per-game performance profiles (without it Turbo applies only the general settings)'
     'power-profiles-daemon: the power profile games run with'
     # scx_loader is how falcond switches CPU schedulers; without it every
     # switch fails with ServiceUnknown.

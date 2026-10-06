@@ -648,7 +648,7 @@ pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
     let mut problems = Vec::new();
     if report.falcond_missing {
         problems.push(i18n(
-            "falcond is not installed, so the game's performance profile was not saved; its other settings were. Install falcond to use Turbo and performance profiles.",
+            "falcond is not installed, so the game's performance profile was not saved; its other settings were. Install falcond for per-game performance profiles.",
         ));
     }
     if let Some(e) = &report.frame_generation {

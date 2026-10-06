@@ -561,7 +561,7 @@ pub fn collect() -> Vec<Check> {
         (_, false) => check(
             N_("falcond"),
             Status::Warning,
-            N_("not installed: Turbo and per-game performance profiles are unavailable"),
+            N_("not installed: no per-game performance profiles; Turbo applies only the general settings"),
             install(&["falcond", "falcond-profiles"]),
         ),
         (Some(u), true) if u.active_state == "failed" => check(
