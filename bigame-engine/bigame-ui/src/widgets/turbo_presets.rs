@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
-use bigame_core::turbo_preset::{self, Machine, Preset};
+use bigame_core::turbo_preset::{self, FrameGenerators, Machine, Preset};
 
 use crate::i18n::i18n;
 
@@ -20,9 +20,11 @@ pub struct PresetPicker {
     buttons: Vec<(Preset, gtk4::ToggleButton)>,
     description: gtk4::Label,
     note: gtk4::Label,
-    machine: Machine,
+    /// What the machine lets a preset use, read once off the main thread
+    /// (sched-ext, `/usr/bin`, the GPUs); `None` until then.
+    machine: std::cell::Cell<Option<Machine>>,
     /// Games that generate frames, read once off the main thread.
-    generating: std::cell::RefCell<Vec<String>>,
+    generating: std::cell::RefCell<FrameGenerators>,
     /// Told of every preset picked, by a click or by [`Self::select`].
     picked: std::cell::RefCell<Vec<Picked>>,
     /// Set while the buttons are moved to show a preset, not picked.
@@ -53,11 +55,12 @@ pub(crate) fn icon(preset: Preset) -> &'static str {
     }
 }
 
-/// What `preset` does, and what this machine leaves out of it.
-fn describe(preset: Preset, machine: Machine, generating: &[String]) -> String {
+/// What `preset` does, and what this machine (once read) leaves out of it.
+fn describe(preset: Preset, machine: Option<Machine>, generating: &FrameGenerators) -> String {
     let mut text = i18n(preset.description());
-    let levers = turbo_preset::levers(preset, machine);
-    if preset == Preset::Enhanced {
+    // The cap does not depend on the machine.
+    let levers = turbo_preset::levers(preset, machine.unwrap_or_default());
+    if let Some(machine) = machine.filter(|_| preset == Preset::Enhanced) {
         if !machine.vkbasalt {
             text.push(' ');
             text.push_str(&i18n(
@@ -74,13 +77,29 @@ fn describe(preset: Preset, machine: Machine, generating: &[String]) -> String {
         text.push_str(&i18n(
             "A native Linux game is capped only when Big Game Mode starts it (Profiles → Launch).",
         ));
-        if !generating.is_empty() {
+        // Where the generation sits decides what the cap holds: OptiScaler's
+        // runs in the game, above the limiter; lsfg-vk is a layer under it.
+        if !generating.shown.is_empty() {
             text.push(' ');
             text.push_str(
                 &i18n(
                     "With frame generation the cap counts the frames shown, so these games render about half of it: %s.",
                 )
-                .replace("%s", &generating.join(", ")),
+                .replace("%s", &generating.shown.join(", ")),
+            );
+        }
+        if !generating.rendered.is_empty() {
+            let games: Vec<String> = generating
+                .rendered
+                .iter()
+                .map(|(game, multiplier)| format!("{game} ×{multiplier}"))
+                .collect();
+            text.push(' ');
+            text.push_str(
+                &i18n(
+                    "lsfg-vk adds its frames after the cap, so these games render the cap and show it multiplied: %s.",
+                )
+                .replace("%s", &games.join(", ")),
             );
         }
     }
@@ -137,9 +156,9 @@ impl PresetPicker {
             buttons.push((preset, button));
         }
 
-        let machine = Machine::detect();
         // Two lines on the page; the whole text as a tooltip.
-        let description = gtk4::Label::new(Some(&describe(chosen, machine, &[])));
+        let not_read_yet = FrameGenerators::default();
+        let description = gtk4::Label::new(Some(&describe(chosen, None, &not_read_yet)));
         description.add_css_class("dim-label");
         description.add_css_class("caption");
         description.set_wrap(true);
@@ -147,7 +166,7 @@ impl PresetPicker {
         description.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         description.set_justify(gtk4::Justification::Center);
         description.set_max_width_chars(70);
-        description.set_tooltip_text(Some(&describe(chosen, machine, &[])));
+        description.set_tooltip_text(Some(&describe(chosen, None, &not_read_yet)));
 
         let note = gtk4::Label::new(None);
         note.add_css_class("caption");
@@ -168,21 +187,28 @@ impl PresetPicker {
             buttons,
             description,
             note,
-            machine,
-            generating: std::cell::RefCell::new(Vec::new()),
+            machine: std::cell::Cell::new(None),
+            generating: std::cell::RefCell::new(FrameGenerators::default()),
             picked: std::cell::RefCell::new(Vec::new()),
             quiet: std::cell::Cell::new(false),
         });
         {
             let weak = Rc::downgrade(&me);
             gtk4::glib::spawn_future_local(async move {
-                let games = gtk4::gio::spawn_blocking(turbo_preset::frame_generation_games)
-                    .await
-                    .unwrap_or_default();
-                if let Some(me) = weak.upgrade() {
+                let read = gtk4::gio::spawn_blocking(|| {
+                    (Machine::detect(), turbo_preset::frame_generation_games())
+                })
+                .await;
+                let Some(me) = weak.upgrade() else {
+                    return;
+                };
+                if let Ok((machine, games)) = read {
+                    me.machine.set(Some(machine));
                     *me.generating.borrow_mut() = games;
-                    me.refresh();
+                } else {
+                    tracing::warn!("the machine could not be read for the presets");
                 }
+                me.refresh();
             });
         }
         me.follow_clicks();
@@ -212,7 +238,7 @@ impl PresetPicker {
 
     /// Describe the preset shown now again.
     fn refresh(&self) {
-        let text = describe(self.shown(), self.machine, &self.generating.borrow());
+        let text = describe(self.shown(), self.machine.get(), &self.generating.borrow());
         self.description.set_label(&text);
         self.description.set_tooltip_text(Some(&text));
     }
@@ -269,5 +295,46 @@ impl PresetPicker {
         };
         self.note.set_label(note.as_deref().unwrap_or_default());
         self.note.set_visible(note.is_some());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cap_is_explained_per_frame_generator() {
+        let machine = Machine {
+            vkbasalt: true,
+            fsr4: true,
+        };
+        let generating = FrameGenerators {
+            shown: vec!["SOTTR.exe".into()],
+            rendered: vec![("Bodycam-Win64-Shipping.exe".into(), 2)],
+        };
+        let text = describe(Preset::Locked60, Some(machine), &generating);
+        // OptiScaler above DXVK's limiter: about half rendered.
+        let half = text
+            .find("render about half of it: SOTTR.exe")
+            .expect(&text);
+        // lsfg-vk under the limiter: the cap is rendered, shown multiplied.
+        let after = text
+            .find("render the cap and show it multiplied: Bodycam-Win64-Shipping.exe ×2")
+            .expect(&text);
+        assert!(!text[half..after].contains("Bodycam"), "{text}");
+        // No cap, nothing to explain.
+        let text = describe(Preset::MoreFps, Some(machine), &generating);
+        assert!(
+            !text.contains("SOTTR.exe") && !text.contains("Bodycam"),
+            "{text}"
+        );
+        // Until the machine is read, nothing is said about what it lacks.
+        let bare = Some(Machine::default());
+        assert!(
+            describe(Preset::Enhanced, bare, &generating).contains("vkBasalt is not installed")
+        );
+        assert!(
+            !describe(Preset::Enhanced, None, &generating).contains("vkBasalt is not installed")
+        );
     }
 }

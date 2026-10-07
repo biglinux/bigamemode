@@ -147,6 +147,19 @@ pub fn status_text(s: &Status) -> String {
             i18n("Failed"),
             errors.first().cloned().unwrap_or_default()
         ),
+        Status::SettingsLeft => i18n(
+            "Files put back; the game's own setting is still to be put back — press Restore again",
+        ),
+        Status::Moved { installed_in } => format!(
+            "{}: {}",
+            i18n("Installed in another folder"),
+            installed_in.display()
+        ),
+        Status::Unreadable { error } => format!(
+            "{}: {}",
+            i18n("The record of what was installed cannot be read"),
+            tr(error)
+        ),
     }
 }
 
@@ -766,8 +779,8 @@ fn running_now(a: &Analysis) -> String {
     }
     if a.report.native_fsr4_path() {
         return match (a.native.fsr4_provider_loaded, a.native.fsr4_upgrade_env) {
+            (Some(_), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
             (Some(true), _) => i18n("FSR 4 provider loaded in the running game"),
-            (Some(false), Some(false)) => i18n("running without FSR4_UPGRADE=1: FSR 3.1"),
             (Some(false), _) => i18n("running without the FSR 4 provider: FSR is off in its menu"),
             (None, _) if a.fsr4_upgrade_set => i18n("FSR 4 expected through Proton's provider"),
             (None, _) => i18n("Nothing from Big Game Mode: the game's own graphics"),
@@ -1054,8 +1067,14 @@ fn render_buttons(page: &Rc<Page>, a: &Analysis) {
     let p = &a.plan;
     let installed = r.installed.is_some();
     let option_set = a.fsr4_upgrade_set;
+    // A record of an install that cannot be used (another folder, or one
+    // that does not load) stops Apply: it would take Big Game Mode's own
+    // files in the game for its originals.
+    let unusable = matches!(a.status, Status::Moved { .. } | Status::Unreadable { .. });
     page.apply.set_visible(
-        a.pending_changes || !installed && (p.optiscaler.is_some() || p.native_action.is_some()),
+        !unusable
+            && (a.pending_changes
+                || !installed && (p.optiscaler.is_some() || p.native_action.is_some())),
     );
     page.apply.set_label(&if a.pending_changes {
         i18n("Apply changes")
@@ -1275,7 +1294,7 @@ fn neural_group(page: &Rc<Page>, a: &Analysis) -> adw::PreferencesGroup {
                 parts.push(i18n("converted weights"));
             }
             if let Some(m) = &found.model {
-                parts.push(format!("{} {m}", i18n("model")));
+                parts.push(i18n("model %s").replace("%s", m));
             }
             group.add(&row(&i18n("Found beside the game"), &parts.join(" · ")));
             if let external::Status::Failed { errors, .. } = &a.neural {
@@ -1551,7 +1570,7 @@ fn save_report(page: &Rc<Page>, button: &gtk4::Button, row: &adw::ActionRow) {
         button.set_sensitive(true);
         match result {
             Ok(Ok(path)) => {
-                let text = format!("{} {}", i18n("Report saved to"), path.display());
+                let text = i18n("Report saved to %s").replace("%s", &path.display().to_string());
                 row.set_subtitle(&text);
                 let toast = adw::Toast::builder()
                     .title(&text)
@@ -1931,12 +1950,12 @@ fn wire_choice(page: &Rc<Page>) {
                 return;
             }
             let keep = page.choice.keep_version.borrow().clone();
-            page.cfg.borrow_mut().version = match r.selected() {
+            let policy = match r.selected() {
                 1 => VersionPolicy::Latest,
                 2 => VersionPolicy::Pinned(keep),
                 _ => VersionPolicy::Recommended,
             };
-            save_settings(&page);
+            save_version_choice(&page, |c| c.version = policy.clone());
             refresh(&page);
         });
     }
@@ -1977,7 +1996,7 @@ fn wire_choice(page: &Rc<Page>) {
             .add_action(&i18n("Switch it back on"), true, move |_| {
                 let page = Rc::clone(&page);
                 glib::spawn_future_local(async move {
-                    if refuse_while_running(&page, &page.overlay) {
+                    if refuse_while_running(&page, &page.overlay).await {
                         return;
                     }
                     busy(&page, Some(&i18n("Writing the game's settings…")));
@@ -2040,13 +2059,25 @@ fn wire_choice(page: &Rc<Page>) {
 }
 
 /// Whether Wine FSR would run next to `OptiScaler` in this Steam game: on in
-/// Tuning or in its own launch options, and not switched off for it by
-/// Big Game Mode. Blocking (it reads Steam's configuration).
+/// Tuning, in a Turbo preset, or in its own launch options, and not switched
+/// off for it by Big Game Mode. Blocking (it reads Steam's configuration).
 fn wine_fsr_second(target: &Target) -> bool {
     target.app_id.is_some()
         && !bigame_core::game_settings::load(&target.process).is_ok_and(|s| s.steam_wine_fsr_off)
         && (bigame_core::video_config::load().upscaling.wine_fsr_enabled
+            || preset_turns_wine_fsr_on()
             || bigame_core::steam_gamescope::wine_fsr_in_options(&target.process))
+}
+
+/// A Turbo preset that switches Wine FSR on reaches every game the Steam
+/// client starts, through the session's environment: More FPS did, in Shadow
+/// of the Tomb Raider with `OptiScaler` installed. The preset in force and the
+/// one chosen for the next Turbo both count, since Turbo can be switched on
+/// after `OptiScaler` is installed without this page being opened again.
+fn preset_turns_wine_fsr_on() -> bool {
+    use bigame_core::turbo_preset as preset;
+    preset::active_levers().wine_fsr == Some(true)
+        || preset::levers(preset::chosen(), preset::Machine::detect()).wine_fsr == Some(true)
 }
 
 /// Switch `OptiScaler`'s frame generation on or off in the choice. It is
@@ -2175,7 +2206,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
     group.set_title("OptiScaler");
     let pinned = matches!(page.cfg.borrow().version, VersionPolicy::Pinned(_));
     group.add(&row(
-        &format!("{} {}", i18n("Installed version"), offer.installed),
+        &i18n("Installed version %s").replace("%s", &offer.installed),
         &if pinned {
             i18n("Kept at this version: newer releases are not offered")
         } else {
@@ -2184,7 +2215,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
     ));
     if let Some(new) = &offer.available {
         let r = adw::ActionRow::builder()
-            .title(format!("{} {}", i18n("Update available:"), new.version))
+            .title(i18n("Update available: %s").replace("%s", &new.version))
             .subtitle(i18n(
                 "The current version stays one click away. Updating while a version works is your choice.",
             ))
@@ -2209,23 +2240,21 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
         {
             let (page, v) = (page.clone(), new.version.clone());
             skip.connect_clicked(move |_| {
-                page.cfg.borrow_mut().skipped_update = Some(v.clone());
-                save_settings(&page);
+                save_version_choice(&page, |c| c.skipped_update = Some(v.clone()));
                 refresh(&page);
             });
         }
         {
             let (page, v) = (page.clone(), offer.installed.clone());
             keep.connect_clicked(move |_| {
-                page.cfg.borrow_mut().version = VersionPolicy::Pinned(v.clone());
-                save_settings(&page);
+                save_version_choice(&page, |c| c.version = VersionPolicy::Pinned(v.clone()));
                 refresh(&page);
             });
         }
     }
     if let Some(prev) = &offer.previous {
         let r = row(
-            &format!("{} {}", i18n("Before the last update:"), prev),
+            &i18n("Before the last update: %s").replace("%s", prev),
             &i18n("Go back if the new version does not work as well in this game"),
         );
         let back = gtk4::Button::with_label(&i18n("Go back"));
@@ -2243,7 +2272,7 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
 fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler::Release>) {
     let page = page.clone();
     glib::spawn_future_local(async move {
-        if refuse_while_running(&page, &page.overlay) {
+        if refuse_while_running(&page, &page.overlay).await {
             return;
         }
         busy(&page, Some(&i18n("Downloading, checking and installing…")));
@@ -2333,8 +2362,14 @@ fn report_fsr4_upgrade(
 /// Files cannot change while the game runs (its DLLs are loaded, and a
 /// change takes effect only at the next start). Checked here, in the UI's
 /// language, before core's own check would refuse in English.
-fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool {
-    if graphics::is_running(&page.target) {
+async fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool {
+    // A /proc walk, and the first time the game's executable is read: off the
+    // main thread. A check that could not run refuses, as a running game does.
+    let target = page.target.clone();
+    let running = gio::spawn_blocking(move || graphics::is_running(&target))
+        .await
+        .unwrap_or(true);
+    if running {
         overlay.add_toast(adw::Toast::new(&i18n(
             "Close the game first: its files are in use, and a change takes effect at the next start",
         )));
@@ -2346,6 +2381,36 @@ fn refuse_while_running(page: &Page, overlay: &adw::ToastOverlay) -> bool {
 /// Save the choice for the game — a file in the user's own configuration,
 /// no game file and no privilege — and remember it as saved. Says so when
 /// it cannot be written.
+/// Save one version decision (Skip, Keep this version) on top of what is
+/// saved, and make it in the pending choice too. The rest of a choice not
+/// saved yet stays pending, as the hint beside the buttons says: these
+/// buttons answer the update offer, not *Save Choice*.
+fn save_version_choice(page: &Page, change: impl Fn(&mut AiGraphicsConfig)) -> bool {
+    change(&mut page.cfg.borrow_mut());
+    let mut saved = page.saved.borrow().clone();
+    change(&mut saved);
+    let result = bigame_core::game_settings::load(&page.target.process).and_then(|mut s| {
+        s.ai_graphics = saved.clone();
+        bigame_core::game_settings::save(&page.target.process, &s)
+    });
+    match result {
+        Ok(()) => {
+            *page.saved.borrow_mut() = saved;
+            render_saved(page);
+            true
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "could not save the AI Graphics version choice");
+            page.overlay.add_toast(adw::Toast::new(&format!(
+                "{}: {}",
+                i18n("The choice was not saved"),
+                error_text(&e)
+            )));
+            false
+        }
+    }
+}
+
 fn save_settings(page: &Page) -> bool {
     let cfg = page.cfg.borrow().clone();
     let result = bigame_core::game_settings::load(&page.target.process).and_then(|mut s| {
@@ -2514,22 +2579,16 @@ fn open_with(
     left.append(&spinner);
     left.append(&busy_label);
     left.append(&hint);
-    let buttons = gtk4::FlowBox::builder()
-        .selection_mode(gtk4::SelectionMode::None)
-        .max_children_per_line(4)
-        .column_spacing(8)
-        .row_spacing(8)
+    // A wrap box rather than a FlowBox: no focusable cells around the
+    // buttons, and no cells GTK measures at a width they cannot have.
+    let buttons = adw::WrapBox::builder()
+        .child_spacing(8)
+        .line_spacing(8)
+        .align(1.0)
         .halign(gtk4::Align::End)
         .build();
     for b in [&remove, &repair, &save, &apply] {
-        buttons.insert(b, -1);
-    }
-    // FlowBox children are focusable cells; the buttons inside are what
-    // Tab should reach.
-    let mut child = buttons.first_child();
-    while let Some(c) = child {
-        c.set_focusable(false);
-        child = c.next_sibling();
+        buttons.append(b);
     }
     let actions = gtk4::Box::new(gtk4::Orientation::Horizontal, 12);
     actions.add_css_class("editor-save-bar");
@@ -2608,7 +2667,7 @@ fn open_with(
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
-                if refuse_while_running(&page, &overlay) {
+                if refuse_while_running(&page, &overlay).await {
                     return;
                 }
                 let native_only = page
@@ -2659,11 +2718,18 @@ fn open_with(
                         && bigame_core::fg::read_profile_any(&target.process).0 > 1
                         && bigame_core::fg::save_for_game(&target.process, 1, 100, false, false, 1, true)
                             .is_ok();
-                    // And one upscaler: Wine FSR off for this game in its
-                    // Steam launch options, when Steam is closed (the page
-                    // offers it otherwise).
-                    if wine_fsr_second(&target) {
-                        let _ = bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true);
+                    // And one upscaler: Wine FSR off for this Steam game in
+                    // its launch options, whatever turns it on (Tuning, a
+                    // Turbo preset, the options themselves). One owner
+                    // writes it, and writing it again changes nothing; with
+                    // Steam open nothing is written, and the page offers it.
+                    if target.app_id.is_some() {
+                        if let Err(e) =
+                            bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true)
+                        {
+                            tracing::warn!(target: "graphics", game = %target.process,
+                                error = %format!("{e:#}"), "Wine FSR could not be turned off for the game");
+                        }
                     }
                     anyhow::Ok((done, lsfg_removed))
                 })
@@ -2679,6 +2745,17 @@ fn open_with(
                         );
                         if lsfg_removed {
                             let _ = write!(files, " · {}", i18n("lsfg-vk was turned off for this game"));
+                        }
+                        if done.kept_settings > 0 {
+                            let _ = write!(
+                                files,
+                                " · {}",
+                                ni18n(
+                                    "%n setting you changed in OptiScaler's overlay was kept",
+                                    "%n settings you changed in OptiScaler's overlay were kept",
+                                    done.kept_settings
+                                )
+                            );
                         }
                         match done.game_setting {
                             Some(Applied::TurnedOn(input)) => format!(
@@ -2709,7 +2786,7 @@ fn open_with(
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
-                if refuse_while_running(&page, &overlay) {
+                if refuse_while_running(&page, &overlay).await {
                     return;
                 }
                 busy(&page, Some(&i18n("Checking files…")));
@@ -2734,7 +2811,7 @@ fn open_with(
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
-                if refuse_while_running(&page, &overlay) {
+                if refuse_while_running(&page, &overlay).await {
                     return;
                 }
                 let installed = page
@@ -2764,7 +2841,7 @@ fn open_with(
                 busy(&page, Some(&i18n("Restoring the game's own files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || {
-                    let out = graphics::remove(&target)?;
+                    let out = graphics::restore(&target)?;
                     // Big Game Mode's WINE_FULLSCREEN_FSR=0 went in with
                     // OptiScaler, and goes with it (Steam closed; otherwise
                     // it stays, harmless, until the next Restore).
@@ -2778,17 +2855,14 @@ fn open_with(
                 .await;
                 busy(&page, None);
                 let text = match result {
-                    Ok(Ok(outcomes)) => {
-                        let kept = outcomes
+                    Ok(Ok(done)) => {
+                        use bigame_core::graphics::transaction::FileOutcome;
+                        let kept = done
+                            .files
                             .iter()
-                            .filter(|o| {
-                                matches!(
-                                    o,
-                                    bigame_core::graphics::transaction::FileOutcome::KeptChanged(_)
-                                )
-                            })
+                            .filter(|o| matches!(o, FileOutcome::KeptChanged(_)))
                             .count();
-                        if kept == 0 {
+                        let mut text = if kept == 0 {
                             i18n("The game's files are as they were before")
                         } else {
                             format!(
@@ -2797,7 +2871,28 @@ fn open_with(
                                     "Restored; files another program changed since were left alone"
                                 )
                             )
+                        };
+                        // The user's OptiScaler settings went with its ini:
+                        // where the copy is.
+                        for o in &done.files {
+                            if let FileOutcome::EditedCopyKept(_, copy) = o {
+                                let _ = write!(
+                                    text,
+                                    " · {}",
+                                    i18n("your edited settings were kept in %s")
+                                        .replace("%s", &copy.display().to_string())
+                                );
+                            }
                         }
+                        if let Some(why) = &done.settings_error {
+                            let _ = write!(
+                                text,
+                                " · {}: {}",
+                                i18n("The game's own setting could not be put back yet"),
+                                tr(why)
+                            );
+                        }
+                        text
                     }
                     Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
                     Err(_) => i18n("Could not restore"),
@@ -2853,13 +2948,19 @@ fn open_with(
     refresh(&page);
     // The game starting or closing changes what the page says (Current,
     // the status, Diagnose): read it again while the page is open. The
-    // listener holds the page weakly and goes once the page is gone, and it
-    // skips the call subscribe makes at once (refreshed just above).
+    // listener goes when the dialog closes (the page's own widgets hold it,
+    // so a weak reference alone would never let go), and it skips the call
+    // subscribe makes at once (refreshed just above).
     {
+        let closed = Rc::new(std::cell::Cell::new(false));
+        dialog.connect_closed({
+            let closed = Rc::clone(&closed);
+            move |_| closed.set(true)
+        });
         let weak = Rc::downgrade(&page);
         let first = std::cell::Cell::new(true);
         crate::game_watch::subscribe(move |_| {
-            let Some(page) = weak.upgrade() else {
+            let Some(page) = weak.upgrade().filter(|_| !closed.get()) else {
                 return glib::ControlFlow::Break;
             };
             if !first.replace(false) && page.verdict.is_mapped() {

@@ -438,9 +438,9 @@ fn library_key(game: &GameIdentity) -> Option<String> {
             return key.clone();
         }
     }
-    let key =
-        crate::games::installed_game_for_process(&game.process_name, game.install_path.as_deref())
-            .map(|g| g.profile_key().to_owned());
+    // The running game's own file, through its Wine prefix, before its name:
+    // two library games can share a name such as `Game.exe`.
+    let key = crate::games::installed_game_for_running(game).map(|g| g.profile_key().to_owned());
     *cache = Some((game.pid, key.clone()));
     key
 }
@@ -459,10 +459,12 @@ fn steam_launch_facts(game: Option<&GameIdentity>) -> (Option<bool>, bool) {
 }
 
 /// Turbo from falcond's unit: whether it is on, whether the unit failed,
-/// and whether systemd could not be asked at all.
+/// and whether systemd could not be asked at all. Without falcond, Turbo's
+/// own state (Booster only), as Home shows it.
 fn read_turbo() -> (bool, bool, bool) {
-    let unit =
-        crate::systemd::Reader::shared().and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
+    let unit = crate::systemd::Reader::shared()
+        .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT))
+        .filter(crate::systemd::UnitState::is_installed);
     if let Some(unit) = unit {
         return (unit.is_active(), unit.active_state == "failed", false);
     }
@@ -477,7 +479,9 @@ impl Snapshot {
     #[must_use]
     pub fn collect(game: Option<GameIdentity>) -> Self {
         let (turbo_on, unit_failed, turbo_unreadable) = read_turbo();
-        let falcond = crate::status::read();
+        // A status file a stopped (or killed) falcond left behind still names
+        // the profile it had active: believed only while falcond runs.
+        let falcond = crate::status::live(crate::status::read(), turbo_on);
         // No `Capabilities::detect` here: it runs `gamescope --help` and
         // `systemctl`, too much for a reading taken every few seconds.
         let sched_caps = SchedExtCaps::detect();
@@ -1104,6 +1108,7 @@ mod tests {
             version: None,
             fsr4: None,
             fsr_generation: None,
+            frame_generation: None,
         };
         let mut s = Snapshot {
             ai_graphics: Some(active.clone()),

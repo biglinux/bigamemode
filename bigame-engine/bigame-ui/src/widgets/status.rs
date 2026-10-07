@@ -10,6 +10,8 @@ use adw::prelude::*;
 use bigame_core::overview::State;
 use libadwaita as adw;
 
+use bigame_core::text::Text;
+
 use crate::i18n::i18n;
 
 /// The label people read.
@@ -74,7 +76,11 @@ impl Chip {
     /// A chip showing `state`.
     #[must_use]
     pub fn new(state: State) -> Self {
-        let image = gtk4::Image::from_icon_name(icon(state));
+        // The icon repeats the label; a screen reader reads the label alone.
+        let image = gtk4::glib::Object::builder::<gtk4::Image>()
+            .property("icon-name", icon(state))
+            .property("accessible-role", gtk4::AccessibleRole::Presentation)
+            .build();
         image.set_pixel_size(14);
         let text = gtk4::Label::new(Some(&label(state)));
         text.add_css_class("caption");
@@ -105,6 +111,13 @@ impl Chip {
         self.root.add_css_class(css(state));
         self.root
             .set_tooltip_text(text.map(|_| label(state)).as_deref());
+        // A short text ("Turbo", "vkBasalt") says what, not how it stands:
+        // the state is read with it, not left to the colour and the icon.
+        self.text
+            .update_property(&[gtk4::accessible::Property::Label(&text.map_or_else(
+                || label(state),
+                |t| Text::fill(&i18n("%s: %s"), &[t.to_owned(), label(state)]),
+            ))]);
     }
 }
 

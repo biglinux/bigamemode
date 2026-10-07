@@ -40,8 +40,9 @@ use crate::widgets::turbo_presets::{Mode, PresetPicker};
 enum Event {
     /// A stage began.
     Step(Step),
-    /// The transition finished.
-    Done(Box<Report>),
+    /// The transition finished, and whether Turbo is on afterwards as
+    /// systemd says (`None` when it could not be read).
+    Done(Box<Report>, Option<bool>),
     /// It could not start at all.
     Failed(String),
 }
@@ -187,7 +188,11 @@ pub fn build(
             };
             if !button.state().is_on() {
                 if let Err(e) = turbo_preset::set_chosen(preset) {
-                    tracing::warn!(error = %format!("{e:#}"), "could not keep the Turbo preset");
+                    crate::widgets::toast::error(
+                        presets.widget(),
+                        &i18n("The preset could not be changed"),
+                        &error_text(&e),
+                    );
                 }
                 publish();
                 return;
@@ -206,8 +211,11 @@ pub fn build(
                 Rc::clone(&turbo_on),
                 Rc::clone(&notice),
             );
+            // Quit waits for the session's environment to be in one state.
+            let busy = crate::app::Busy::hold();
             glib::spawn_future_local(async move {
                 let result = gio::spawn_blocking(move || turbo_preset::switch(preset)).await;
+                drop(busy);
                 switching.set(false);
                 let state = button.state();
                 button.widget().set_sensitive(state.is_interactive());
@@ -237,6 +245,7 @@ pub fn build(
                     Mode::Next
                 });
                 card.show(crate::game_watch::current().as_ref(), turbo_on.get());
+                card.refresh_preset();
                 publish();
             });
         });
@@ -281,6 +290,7 @@ pub fn build(
             // is set again while Turbo is on, and dropped if Turbo is off.
             // Then a launcher opened before that is asked to reopen.
             if readable {
+                let card = card.clone();
                 glib::spawn_future_local(async move {
                     let _ = gio::spawn_blocking(move || {
                         if let Err(e) = turbo_preset::resync(on) {
@@ -288,6 +298,7 @@ pub fn build(
                         }
                     })
                     .await;
+                    card.refresh_preset();
                     if on {
                         notice.check(false);
                     }
@@ -328,7 +339,7 @@ pub fn build(
     }
 
     // ── Activation: the button, or `app.turbo` from the tray ────────────
-    let toggle: Rc<dyn Fn()> = {
+    let start: Rc<dyn Fn(bool)> = {
         let button = Rc::clone(&button);
         let last = Rc::clone(&last_report);
         let show = Rc::clone(&show_report);
@@ -336,11 +347,10 @@ pub fn build(
         let card = card.clone();
         let notice = Rc::clone(&launcher_notice);
         let switching = Rc::clone(&switching_preset);
-        Rc::new(move || {
+        Rc::new(move |turning_off| {
             if !button.state().is_interactive() || switching.get() {
                 return;
             }
-            let turning_off = button.state().is_on();
             let working = if turning_off {
                 State::Restoring
             } else {
@@ -353,6 +363,9 @@ pub fn build(
 
             let (tx, rx) = mpsc::channel::<Event>();
             spawn_worker(tx, turning_off);
+            // Quit waits for the transition: half of Turbo on (or off) is a
+            // state no surface describes. Released when the result is in.
+            let busy = std::cell::RefCell::new(Some(crate::app::Busy::hold()));
 
             let button = Rc::clone(&button);
             let last = Rc::clone(&last);
@@ -368,6 +381,7 @@ pub fn build(
                         // The worker ended without an answer (it panicked):
                         // say so rather than stay on "working" for ever.
                         Err(mpsc::TryRecvError::Disconnected) => {
+                            busy.borrow_mut().take();
                             button.set_state(&State::Error {
                                 detail: i18n(
                                     "The change stopped without an answer. Open Logs to see why.",
@@ -385,9 +399,10 @@ pub fn build(
                                 button.set_progress(step_progress(&step));
                             }
                         }
-                        Event::Done(report) => {
+                        Event::Done(report, now) => {
+                            busy.borrow_mut().take();
                             let report = *report;
-                            let (state, on) = finished_state(&report);
+                            let (state, on) = finished_state(&report, now);
                             turbo_on.set(on);
                             button.set_state(&state);
                             booster_button::set_pulse(button.widget(), !on);
@@ -397,6 +412,7 @@ pub fn build(
                             let failed = report.count(Section::Failed) > 0;
                             *last.borrow_mut() = Some(report);
                             card.show(crate::game_watch::current().as_ref(), on);
+                            card.refresh_preset();
                             crate::game_watch::check();
                             // Open the report on its own only when something
                             // went wrong; a clean run is summarised on Home.
@@ -408,12 +424,37 @@ pub fn build(
                             return glib::ControlFlow::Break;
                         }
                         Event::Failed(detail) => {
+                            busy.borrow_mut().take();
                             button.set_state(&State::Error { detail });
                             return glib::ControlFlow::Break;
                         }
                     }
                 }
                 glib::ControlFlow::Continue
+            });
+        })
+    };
+    // On switches off, off switches on. After an error, what a failed start
+    // may have left (falcond enabled, a preset, Booster changes) is switched
+    // off first: an error must never be a state nothing can leave.
+    let toggle: Rc<dyn Fn()> = {
+        let button = Rc::clone(&button);
+        let switching = Rc::clone(&switching_preset);
+        Rc::new(move || {
+            let state = button.state();
+            if !state.is_interactive() || switching.get() {
+                return;
+            }
+            if !matches!(state, State::Error { .. }) {
+                start(state.is_on());
+                return;
+            }
+            let start = Rc::clone(&start);
+            glib::spawn_future_local(async move {
+                let left = gio::spawn_blocking(turbo::something_left_blocking)
+                    .await
+                    .unwrap_or(true);
+                start(left);
             });
         })
     };
@@ -484,10 +525,18 @@ pub fn build(
                 if root.is_mapped() {
                     notice.recheck();
                 }
+                // The preset's flag follows what the session holds.
+                card.refresh_preset();
                 if on != turbo_on.get()
                     || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
                 {
                     let switched = on != turbo_on.get();
+                    // falcond stopped without Big Game Mode (systemctl, a
+                    // crash, Settings → Hand back): what Turbo laid over the
+                    // session and the machine goes too, as Turbo off does.
+                    if switched && !on {
+                        tidy_up(&root, &card);
+                    }
                     turbo_on.set(on);
                     *last.borrow_mut() = report;
                     button.set_state(&if on {
@@ -515,7 +564,7 @@ pub fn build(
         // Read once, off the main thread: the CPU model and the GPUs do not
         // change while the application runs, and naming the GPUs reads the
         // PCI database. Until then (and if it fails) the tiles still run.
-        let hw: Rc<RefCell<Option<Hardware>>> = Rc::new(RefCell::new(None));
+        let hw: Rc<RefCell<Option<std::sync::Arc<Hardware>>>> = Rc::new(RefCell::new(None));
         {
             let (hw, machine) = (Rc::clone(&hw), machine.clone());
             glib::spawn_future_local(async move {
@@ -532,11 +581,12 @@ pub fn build(
                 let (read, (line, tooltip)) = read;
                 machine.set_label(&line);
                 machine.set_tooltip_text(tooltip.as_deref());
-                *hw.borrow_mut() = Some(read);
+                *hw.borrow_mut() = Some(std::sync::Arc::new(read));
             });
         }
         let tick = Cell::new(0u32);
         let net = net_tile.clone();
+        let gpu_busy = Rc::new(Cell::new(false));
         let refresh = Refresh {
             update: Box::new(move |n| {
                 if let Some(khz) = crate::views::details::telemetry::read_cpu_khz() {
@@ -544,8 +594,19 @@ pub fn build(
                     let ghz = khz as f64 / 1_000_000.0;
                     cpu_tile.set(&format!("{ghz:.1} GHz"), ghz);
                 }
-                if let Some((text, value)) = hw.borrow().as_ref().and_then(gpu_reading) {
-                    gpu_tile.set(&text, value);
+                // Off the main thread, as Details reads it: NVIDIA's reading
+                // loads NVML on first use and makes several calls per tick.
+                if let Some(hw) = hw.borrow().clone().filter(|_| !gpu_busy.replace(true)) {
+                    let running = crate::game_watch::current().and_then(|g| g.render_card);
+                    let (tile, busy) = (gpu_tile.clone(), Rc::clone(&gpu_busy));
+                    glib::spawn_future_local(async move {
+                        let reading =
+                            gio::spawn_blocking(move || gpu_reading(&hw, running.as_deref())).await;
+                        busy.set(false);
+                        if let Ok(Some((text, value))) = reading {
+                            tile.set(&text, value);
+                        }
+                    });
                 }
                 if n % PING_EVERY == 1 {
                     let net = net.clone();
@@ -581,6 +642,31 @@ pub fn build(
     }
 
     scroll.upcast()
+}
+
+/// Take away the preset and the Booster's changes a Turbo switched off from
+/// outside left in force, off the main thread.
+fn tidy_up(anchor: &gtk4::ScrolledWindow, card: &InfoCard) {
+    let (anchor, card) = (anchor.clone(), card.clone());
+    glib::spawn_future_local(async move {
+        let result = gio::spawn_blocking(turbo::tidy_up_blocking).await;
+        match result {
+            Ok(Ok(())) => {
+                tracing::info!(target: "turbo", "Turbo went off from outside; its preset and Booster changes were put back");
+            }
+            Ok(Err(e)) => crate::widgets::toast::error(
+                &anchor,
+                &i18n("Some settings could not be put back"),
+                &error_text(&e),
+            ),
+            Err(_) => crate::widgets::toast::error(
+                &anchor,
+                &i18n("Some settings could not be put back"),
+                &i18n("the worker thread stopped"),
+            ),
+        }
+        card.refresh_preset();
+    });
 }
 
 /// The live readings' refresh: forced when the page appears, then paced.
@@ -640,8 +726,42 @@ fn step_progress(step: &Step) -> f64 {
     }
 }
 
-/// The button's state, and whether Turbo is on, after a transition.
-fn finished_state(report: &Report) -> (State, bool) {
+/// The button's state, and whether Turbo is on, after a transition: from
+/// the report, and from what systemd says now (`now`), which is Turbo's
+/// state whatever the report expected.
+fn finished_state(report: &Report, now: Option<bool>) -> (State, bool) {
+    let (state, on) = expected_state(report);
+    match now {
+        // falcond came up although its start reported an error.
+        Some(true) if !on => {
+            let failed = report.count(Section::Failed).max(1);
+            (
+                State::Partial {
+                    detail: ni18n(
+                        "%n did not take effect — see details",
+                        "%n did not take effect — see details",
+                        failed,
+                    ),
+                },
+                true,
+            )
+        }
+        Some(false) if on => (
+            State::Error {
+                detail: ni18n(
+                    "%n did not take effect — see details",
+                    "%n did not take effect — see details",
+                    report.count(Section::Failed).max(1),
+                ),
+            },
+            false,
+        ),
+        _ => (state, on),
+    }
+}
+
+/// [`finished_state`] from the report alone.
+fn expected_state(report: &Report) -> (State, bool) {
     let failed = report.count(Section::Failed);
     let backend_failed = report
         .items
@@ -748,8 +868,17 @@ fn spawn_worker(tx: mpsc::Sender<Event>, turning_off: bool) {
                 } else {
                     turbo::turn_on(on_step).await
                 };
+                // Turbo's state is falcond's unit, read back, not what the
+                // transition meant to reach.
+                let now = match turbo::state().await {
+                    Ok(state) => Some(state == turbo::State::On),
+                    Err(e) => {
+                        tracing::warn!(error = %format!("{e:#}"), "Turbo's state could not be read back");
+                        None
+                    }
+                };
                 let _ = tx.send(match result {
-                    Ok(report) => Event::Done(Box::new(report)),
+                    Ok(report) => Event::Done(Box::new(report), now),
                     Err(e) => Event::Failed(error_text(&e)),
                 });
             });
@@ -793,6 +922,9 @@ struct InfoCard {
     turbo_on: Rc<Cell<bool>>,
     /// Turbo's state could be read; when not, the card says nothing from it.
     turbo_readable: Rc<Cell<bool>>,
+    /// The Turbo preset the session really holds, read off the main thread
+    /// ([`turbo_preset::in_session`]); the record alone outlives a login.
+    preset_in_session: Rc<Cell<Option<turbo_preset::Preset>>>,
     /// The pid whose FSR 4 question was answered, and the answer
     /// ([`bigame_core::graphics::native_fsr4_applies`]): asked once per game.
     fsr4_applies: Rc<Cell<Option<(u32, bool)>>>,
@@ -894,6 +1026,7 @@ impl InfoCard {
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
             turbo_readable: Rc::new(Cell::new(true)),
+            preset_in_session: Rc::new(Cell::new(None)),
             fsr4_applies: Rc::new(Cell::new(None)),
             last_report,
         };
@@ -939,9 +1072,8 @@ impl InfoCard {
                 self.name.set_label(&i18n("Watching for games"));
                 self.facts
                     .set_label(&i18n("The next game gets its profile as it starts."));
-                let preset = bigame_core::turbo_preset::active();
                 let mut flags = vec![Flag::new(Fact::Active, i18n("Turbo"))];
-                if preset != bigame_core::turbo_preset::Preset::Standard {
+                if let Some(preset) = self.preset_in_session.get() {
                     flags.push(Flag::new(Fact::Active, i18n(preset.label())));
                 }
                 self.set_flags(&flags);
@@ -966,13 +1098,10 @@ impl InfoCard {
             let shown = Rc::clone(&self.game);
             let pid = g.pid;
             let size = image.pixel_size() * image.scale_factor().max(1);
-            let (app_id, process, folder) = (
-                g.steam_app_id.clone(),
-                g.process_name.clone(),
-                g.install_path.clone(),
-            );
+            let app_id = g.steam_app_id.clone();
             let name = self.name.clone();
             let bare_name = g.display_name == g.process_name;
+            let identity = g.clone();
             glib::spawn_future_local(async move {
                 let found = gio::spawn_blocking(move || {
                     let steam = app_id.as_ref().and_then(|id| {
@@ -982,10 +1111,8 @@ impl InfoCard {
                     // Only a process name: the library knows the title.
                     let installed = (steam.is_none() || bare_name)
                         .then(|| {
-                            bigame_core::games::installed_game_for_process(
-                                &process,
-                                folder.as_deref(),
-                            )
+                            // Its own file first: two games can share a name.
+                            bigame_core::games::installed_game_for_running(&identity)
                         })
                         .flatten();
                     let title = installed.as_ref().map(|g| g.name.clone());
@@ -1019,6 +1146,25 @@ impl InfoCard {
         self.create
             .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
         self.tick();
+    }
+
+    /// Read again which preset the session holds, and show it.
+    fn refresh_preset(&self) {
+        let me = self.clone();
+        glib::spawn_future_local(async move {
+            let read = gio::spawn_blocking(turbo_preset::in_session).await;
+            let preset = match read {
+                Ok(Ok(preset)) => preset,
+                Ok(Err(e)) => {
+                    tracing::warn!(error = %format!("{e:#}"), "the session's environment could not be read");
+                    None
+                }
+                Err(_) => None,
+            };
+            if me.preset_in_session.replace(preset) != preset && me.game.borrow().is_none() {
+                me.show(None, me.turbo_on.get());
+            }
+        });
     }
 
     /// Refresh what changes while the game runs.
@@ -1218,12 +1364,12 @@ fn vendor_gpu(vendor: bigame_core::hardware::GpuVendor) -> Option<String> {
     Some(i18n("%s GPU").replace("%s", maker))
 }
 
-/// The card games use: the one the running game has open, else the expected
-/// one. Its load when the driver reports it, else its temperature.
-fn gpu_reading(hw: &Hardware) -> Option<(String, f64)> {
-    let running = crate::game_watch::current().and_then(|g| g.render_card);
-    let gpu = bigame_core::gpu_telemetry::games_gpu(&hw.gpus, running.as_deref())
-        .and_then(|i| hw.gpus.get(i))?;
+/// The card games use: the one the running game has open (`running`), else
+/// the expected one. Its load when the driver reports it, else its
+/// temperature. Blocking: from a worker thread.
+fn gpu_reading(hw: &Hardware, running: Option<&str>) -> Option<(String, f64)> {
+    let gpu =
+        bigame_core::gpu_telemetry::games_gpu(&hw.gpus, running).and_then(|i| hw.gpus.get(i))?;
     let s = bigame_core::gpu_telemetry::sample(gpu);
     if s.asleep {
         return Some((i18n("Asleep"), 0.0));
@@ -1355,16 +1501,28 @@ mod tests {
             text: None,
             title: None,
         });
-        let (state, on) = finished_state(&r);
+        let (state, on) = finished_state(&r, Some(false));
         assert!(!on);
         assert!(matches!(state, State::Error { .. }));
+        // A start that reported an error but brought falcond up is on:
+        // Turbo's state is the unit's.
+        let (state, on) = finished_state(&r, Some(true));
+        assert!(on);
+        assert!(matches!(state, State::Partial { .. }));
     }
 
     #[test]
     fn a_partial_failure_is_on_but_says_so() {
-        let (state, on) = finished_state(&report(&[Section::Verified, Section::Failed]));
+        let r = report(&[Section::Verified, Section::Failed]);
+        let (state, on) = finished_state(&r, Some(true));
         assert!(on);
         assert!(matches!(state, State::Partial { .. }));
+        // systemd unreadable: the report decides.
+        assert!(finished_state(&r, None).1);
+        // A Turbo on that reads off afterwards is not shown on.
+        let (state, on) = finished_state(&report(&[Section::Verified]), Some(false));
+        assert!(!on);
+        assert!(matches!(state, State::Error { .. }));
     }
 
     #[test]

@@ -1,0 +1,66 @@
+[
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "native_fsr31",
+      "runs": [
+        38.52645797493783,
+        38.327058919170724
+      ],
+      "mean": 38.426758447054276,
+      "median": 38.426758447054276,
+      "min": 38.327058919170724,
+      "max": 38.52645797493783,
+      "stddev": 0.14099642449511282,
+      "cov": 0.003669225045078486
+    },
+    "candidate": {
+      "arm": "native_fsr4",
+      "runs": [
+        38.26571732801575,
+        38.153845388113155
+      ],
+      "mean": 38.20978135806445,
+      "median": 38.20978135806445,
+      "min": 38.153845388113155,
+      "max": 38.26571732801575,
+      "stddev": 0.07910540732961674,
+      "cov": 0.0020702920696750067
+    },
+    "delta_pct": -0.5646510342234238,
+    "verdict": "within_noise",
+    "rationale": "a 0.6% difference, but Welch's t = 1.90 falls short of the 12.71 needed for 95% confidence at 1.6 degrees of freedom"
+  },
+  {
+    "metric": "avg_fps",
+    "baseline": {
+      "arm": "native_fsr31",
+      "runs": [
+        38.52645797493783,
+        38.327058919170724
+      ],
+      "mean": 38.426758447054276,
+      "median": 38.426758447054276,
+      "min": 38.327058919170724,
+      "max": 38.52645797493783,
+      "stddev": 0.14099642449511282,
+      "cov": 0.003669225045078486
+    },
+    "candidate": {
+      "arm": "optiscaler_fsr",
+      "runs": [
+        35.96312518623762,
+        35.96586325778786
+      ],
+      "mean": 35.96449422201274,
+      "median": 35.96449422201274,
+      "min": 35.96312518623762,
+      "max": 35.96586325778786,
+      "stddev": 0.0019361089605488832,
+      "cov": 0.00005383389930627334
+    },
+    "delta_pct": -6.407681325590161,
+    "verdict": "regression",
+    "rationale": "6.4% slower, above the 0.4% run-to-run spread and significant at 95% (Welch's t = 24.69 against a 12.71 threshold)"
+  }
+]

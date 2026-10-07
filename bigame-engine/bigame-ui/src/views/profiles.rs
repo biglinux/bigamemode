@@ -56,6 +56,8 @@ struct LibraryView {
     /// The page shown when nothing matches.
     no_match: adw::StatusPage,
     refresh_btn: gtk4::Button,
+    /// Shown when falcond has more profiles than it loads.
+    limit_note: gtk4::Label,
     /// The user's profiles with no installed game, collapsed under the grid.
     others_group: adw::PreferencesGroup,
     others: adw::ExpanderRow,
@@ -69,6 +71,20 @@ struct LibraryView {
 }
 
 impl LibraryView {
+    /// Say that `beyond` profiles are past what falcond loads, or nothing.
+    fn show_limit(&self, beyond: usize) {
+        self.limit_note.set_visible(beyond > 0);
+        if beyond > 0 {
+            self.limit_note.set_label(
+                &ni18n(
+                    "falcond loads at most 64 profiles, and there is %n more: one of yours is not applied.",
+                    "falcond loads at most 64 profiles, and there are %n more: %n of yours are not applied.",
+                    beyond,
+                ),
+            );
+        }
+    }
+
     /// Whether `e` passes the search and both filters: the query is found
     /// in the title or the launcher, ignoring case.
     fn matches(&self, e: &game_card::Entry) -> bool {
@@ -277,6 +293,14 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         .build();
     create.append(&wizard_btn);
     create.append(&add_btn);
+    let limit_note = gtk4::Label::builder()
+        .wrap(true)
+        .xalign(0.0)
+        .visible(false)
+        .margin_bottom(12)
+        .css_classes(["warning"])
+        .build();
+    group.add(&limit_note);
     group.add(&create);
     group.add(&filters);
     group.add(&stack);
@@ -326,6 +350,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         sources: RefCell::new(Vec::new()),
         no_match,
         refresh_btn: refresh_btn.clone(),
+        limit_note,
         others_group,
         others,
         other_rows: RefCell::new(Vec::new()),
@@ -409,7 +434,6 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         });
     }
 
-    // Import profile from file
     {
         let view = Rc::clone(&view);
         import_btn.connect_clicked(move |btn| {
@@ -552,20 +576,70 @@ fn build_new_page(process: &str, card: Option<&game_card::Entry>) -> adw::Naviga
 
 /// A game's profile: the same sections as Tuning, for this game only.
 ///
-/// The rows are `widgets::game_fields`', the same the wizard shows one per
-/// step, over the same `GameOptimization`; Save writes each part to its
-/// owner and says which part did not take.
-#[allow(clippy::too_many_lines)]
+/// What the editor needs to know about the machine and the game (sched-ext
+/// over the system bus, `/usr/bin`, `OptiScaler` in the game's folder) is read
+/// off the main thread; the page shows a spinner until then.
 fn build_editor(
     g: GameOptimization,
     card: Option<&game_card::Entry>,
     is_new: bool,
 ) -> adw::NavigationPage {
-    let page = adw::PreferencesPage::new();
-    let m = ui::Machine::detect();
     let title = card.map_or_else(|| g.profile.name.clone(), |c| c.title.clone());
-    let target = card.and_then(|c| c.target.clone());
-    let mut game = ui::Game::detect(&g.profile.name, &title, target.clone());
+    let spinner = adw::Spinner::builder()
+        .width_request(32)
+        .height_request(32)
+        .halign(gtk4::Align::Center)
+        .valign(gtk4::Align::Center)
+        .build();
+    let nav_page = adw::NavigationPage::builder()
+        .title(if is_new {
+            i18n("New Profile")
+        } else if title.is_empty() {
+            g.profile.name.clone()
+        } else {
+            title.clone()
+        })
+        .child(&spinner)
+        .build();
+    let card = card.cloned();
+    let target = card.as_ref().and_then(|c| c.target.clone());
+    let process = g.profile.name.clone();
+    let shown = nav_page.clone();
+    glib::spawn_future_local(async move {
+        let read = gio::spawn_blocking(move || {
+            (
+                ui::Machine::detect(),
+                ui::Game::detect(&process, &title, target),
+            )
+        })
+        .await;
+        match read {
+            Ok((m, game)) => shown.set_child(Some(&editor(g, card.as_ref(), is_new, &m, game))),
+            Err(_) => shown.set_child(Some(
+                &adw::StatusPage::builder()
+                    .icon_name("dialog-error-symbolic")
+                    .title(i18n("the worker thread stopped"))
+                    .build(),
+            )),
+        }
+    });
+    nav_page
+}
+
+/// [`build_editor`]'s page once the machine `m` and the `game` are read.
+///
+/// The rows are `widgets::game_fields`', the same the wizard shows one per
+/// step, over the same `GameOptimization`; Save writes each part to its
+/// owner and says which part did not take.
+#[allow(clippy::too_many_lines)]
+fn editor(
+    g: GameOptimization,
+    card: Option<&game_card::Entry>,
+    is_new: bool,
+    m: &ui::Machine,
+    mut game: ui::Game,
+) -> adw::ToolbarView {
+    let page = adw::PreferencesPage::new();
     // What reaches the game: its Steam launch options, Big Game Mode's own
     // launch, its settings in Heroic, or — started through another
     // launcher (Lutris, Flatpak) — nothing of the game's own.
@@ -603,7 +677,7 @@ fn build_editor(
         page.add(&identity);
     }
 
-    let fields = Rc::new(GameFields::build(&g, &m, &game, true));
+    let fields = Rc::new(GameFields::build(&g, m, &game, true));
     page.add(&fields.performance.group);
     page.add(&fields.gamescope.group);
     page.add(&fields.image_quality.group);
@@ -707,15 +781,7 @@ fn build_editor(
     toolbar.add_top_bar(&detail_header);
     toolbar.set_content(Some(&page));
     toolbar.add_bottom_bar(&bar);
-
-    adw::NavigationPage::builder()
-        .title(if is_new {
-            i18n("New Profile")
-        } else {
-            game.title.clone()
-        })
-        .child(&toolbar)
-        .build()
+    toolbar
 }
 
 /// Save `g` off the main thread — the helper may wait on a Polkit password
@@ -1120,14 +1186,18 @@ fn refresh_library(view: &Rc<LibraryView>) {
 
     let view = Rc::clone(view);
     glib::spawn_future_local(async move {
-        let scanned = gio::spawn_blocking(|| {
+        let (scanned, beyond) = gio::spawn_blocking(|| {
             (
-                bigame_core::library::scan(),
-                bigame_core::graphics::installed_processes(&bigame_core::graphics::state_dir()),
+                (
+                    bigame_core::library::scan(),
+                    bigame_core::graphics::installed_processes(&bigame_core::graphics::state_dir()),
+                ),
+                bigame_core::profiles::beyond_falcond_limit(&bigame_core::profiles::index()),
             )
         })
         .await
         .unwrap_or_default();
+        view.show_limit(beyond);
         if view.shown.borrow().as_ref() != Some(&scanned) {
             show_library(&view, &scanned.0, &scanned.1);
             *view.shown.borrow_mut() = Some(scanned);
@@ -1164,10 +1234,13 @@ fn show_library(
     for entry in entries {
         let nav_activate = view.nav.clone();
         let nav_menu = view.nav.clone();
+        // Weak: the cards belong to the view, and the view must not be kept
+        // alive by its own cards.
+        let library = Rc::downgrade(view);
         let card = game_card::build(
             &entry,
             move |entry| open_profile(entry, &nav_activate),
-            move |entry, anchor| show_card_menu(entry, anchor, &nav_menu),
+            move |entry, anchor| show_card_menu(entry, anchor, &nav_menu, &library),
         );
         view.grid.insert(&card, -1);
         // The card is the focus stop, not the cell around it: one ring,
@@ -1344,16 +1417,22 @@ fn launch_through(
         let by = start.by;
         tracing::info!(game = %title, launcher = by, argv = ?start.argv, "launch through the launcher requested from Profiles");
         let result = gio::spawn_blocking(move || {
-            let turbo_on = bigame_core::systemd::Reader::shared()
+            let unit = bigame_core::systemd::Reader::shared()
                 .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
-                .is_some_and(|u| u.is_active());
-            start.spawn().map(|()| turbo_on)
+                .filter(bigame_core::systemd::UnitState::is_installed);
+            let falcond = unit.is_some();
+            let turbo_on = unit.is_some_and(|u| u.is_active());
+            start.spawn().map(|()| (falcond, turbo_on))
         })
         .await;
         match result {
-            Ok(Ok(turbo_on)) => {
-                tracing::info!(game = %title, launcher = by, turbo_on, "launcher asked to start the game");
-                let text = if !turbo_on {
+            Ok(Ok((falcond, turbo_on))) => {
+                tracing::info!(game = %title, launcher = by, falcond, turbo_on, "launcher asked to start the game");
+                let text = if !falcond {
+                    i18n(
+                        "Asked %l to start %s. falcond is not installed, so no game profile applies.",
+                    )
+                } else if !turbo_on {
                     i18n(
                         "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home.",
                     )
@@ -1411,7 +1490,21 @@ pub(crate) fn source_label(source: bigame_core::games::Source) -> String {
 // One action per entry, built where the menu is; splitting them would
 // separate an item from what it does.
 #[allow(clippy::too_many_lines)]
-fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::NavigationView) {
+fn show_card_menu(
+    entry: &game_card::Entry,
+    anchor: &gtk4::Widget,
+    nav: &adw::NavigationView,
+    library: &std::rc::Weak<LibraryView>,
+) {
+    // What the card shows changed: the library is read again.
+    let rescan = {
+        let library = library.clone();
+        move || {
+            if let Some(view) = library.upgrade() {
+                refresh_library(&view);
+            }
+        }
+    };
     // Only what applies to this game, in the order a person needs it:
     // start it, set it up, look inside it, measure it, undo.
     let menu = gio::Menu::new();
@@ -1456,14 +1549,13 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
         let wizard = gio::SimpleAction::new("wizard", None);
         let key = entry.key.clone();
         let anchor = anchor.clone();
-        let nav = nav.clone();
+        let rescan = rescan.clone();
         wizard.connect_activate(move |_, _| {
             let anchor_saved = anchor.clone();
-            let nav = nav.clone();
+            let rescan = rescan.clone();
             crate::views::profile_wizard::open_with_suggested_name(&anchor, &key, move |_| {
                 toast::show(&anchor_saved, &i18n("Profile created"));
-                // The library rescans when its grid comes back on screen.
-                let _ = &nav;
+                rescan();
             });
         });
         group.add_action(&wizard);
@@ -1472,9 +1564,11 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
     if let Some(target) = entry.target.clone().filter(|_| entry.ai_installed) {
         let restore = gio::SimpleAction::new("restore", None);
         let anchor = anchor.clone();
+        let rescan = rescan.clone();
         restore.connect_activate(move |_, _| {
             let anchor = anchor.clone();
             let target = target.clone();
+            let rescan = rescan.clone();
             glib::spawn_future_local(async move {
                 let t = target.clone();
                 let result = gio::spawn_blocking(move || bigame_core::graphics::remove(&t)).await;
@@ -1486,6 +1580,7 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
                         Err(_) => i18n("Could not restore"),
                     },
                 );
+                rescan();
             });
         });
         group.add_action(&restore);
@@ -1522,6 +1617,7 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
         let delete = gio::SimpleAction::new("delete", None);
         let entry = entry.clone();
         let anchor_ref = anchor.clone();
+        let rescan = rescan.clone();
         delete.connect_activate(move |_, _| {
             let dialog = adw::AlertDialog::new(
                 Some(&i18n("Delete this profile?")),
@@ -1538,19 +1634,29 @@ fn show_card_menu(entry: &game_card::Entry, anchor: &gtk4::Widget, nav: &adw::Na
 
             let stem = stem.clone();
             let anchor_inner = anchor_ref.clone();
+            let rescan = rescan.clone();
             dialog.connect_response(None, move |_, response| {
                 if response != "delete" {
                     return;
                 }
                 let stem = stem.clone();
                 let anchor = anchor_inner.clone();
+                let rescan = rescan.clone();
+                // The helper's D-Bus call waits for Polkit's password: off
+                // the main thread, or the window freezes until it is typed.
                 glib::spawn_future_local(async move {
-                    match bigame_core::profiles::delete(&stem) {
-                        Ok(()) => toast::show(&anchor, &i18n("Profile deleted")),
-                        Err(e) => toast::show(
+                    let result =
+                        gio::spawn_blocking(move || bigame_core::profiles::delete(&stem)).await;
+                    match result {
+                        Ok(Ok(())) => {
+                            toast::show(&anchor, &i18n("Profile deleted"));
+                            rescan();
+                        }
+                        Ok(Err(e)) => toast::show(
                             &anchor,
                             &i18n("Could not delete profile: %s").replace("%s", &error_text(&e)),
                         ),
+                        Err(_) => toast::show(&anchor, &i18n("Could not delete profile")),
                     }
                 });
             });

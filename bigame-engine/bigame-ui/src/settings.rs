@@ -9,7 +9,7 @@
 //! missing key. [`load`] tells the two apart, and the first save writes the
 //! values out, so the file's meaning stays fixed from then on.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -105,14 +105,46 @@ pub fn load() -> Settings {
     Settings::from_file(std::fs::read_to_string(&path).ok().as_deref())
 }
 
-/// Save settings to disk. Silently ignores errors.
+/// Save settings to disk, logging a failure. For what the user switched
+/// and must hear about when it is not kept, [`try_save`].
 pub fn save(settings: &Settings) {
-    let path = settings_path();
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+    if let Err(e) = try_save(settings) {
+        tracing::warn!(error = %e, "could not save the settings");
     }
-    if let Ok(content) = toml::to_string_pretty(settings) {
-        let _ = std::fs::write(&path, content);
+}
+
+/// Save settings to disk.
+///
+/// # Errors
+/// Returns an error when the file cannot be written; the previous file is
+/// then left as it was.
+pub fn try_save(settings: &Settings) -> std::io::Result<()> {
+    let content = toml::to_string_pretty(settings).map_err(std::io::Error::other)?;
+    write_atomic(&settings_path(), content.as_bytes())
+}
+
+/// Write `path` whole or not at all: into a file beside it, then renamed
+/// over it. A write cut short (a full disk) leaves the old file, never an
+/// empty one, which would read as a file with every key missing and bring
+/// back choices the user had turned off.
+pub(crate) fn write_atomic(path: &Path, content: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    let written = std::fs::File::create(&tmp).and_then(|mut f| {
+        f.write_all(content)?;
+        f.sync_all()
+    });
+    match written.and_then(|()| std::fs::rename(&tmp, path)) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
     }
 }
 
@@ -151,14 +183,33 @@ pub fn set_starts_at_login(enabled: bool) -> std::io::Result<()> {
             _ => Ok(()),
         };
     }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
+    write_atomic(&path, AUTOSTART_ENTRY.as_bytes())
+}
+
+/// The autostart entry. `TryExec`: once the package is removed, the desktop
+/// skips the entry instead of trying to run a program that is gone at
+/// every login.
+const AUTOSTART_ENTRY: &str = "[Desktop Entry]\nType=Application\nName=Big Game Mode\n\
+    TryExec=bigame-ui\nExec=bigame-ui --background\nIcon=com.biglinux.BiGameMode\n\
+    NoDisplay=true\nX-GNOME-Autostart-enabled=true\n";
+
+/// Bring an autostart entry an older version wrote up to [`AUTOSTART_ENTRY`];
+/// no entry stays no entry.
+pub fn refresh_autostart_entry() {
+    let Some(path) = autostart_path() else {
+        return;
+    };
+    if let Err(e) = refresh_entry(&path) {
+        tracing::warn!(error = %e, "could not update the autostart entry");
     }
-    std::fs::write(
-        path,
-        "[Desktop Entry]\nType=Application\nName=Big Game Mode\nExec=bigame-ui --background\n\
-         Icon=com.biglinux.BiGameMode\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
-    )
+}
+
+fn refresh_entry(path: &Path) -> std::io::Result<()> {
+    match std::fs::read_to_string(path) {
+        Ok(text) if text != AUTOSTART_ENTRY => write_atomic(path, AUTOSTART_ENTRY.as_bytes()),
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+        _ => Ok(()),
+    }
 }
 
 #[cfg(test)]
@@ -215,6 +266,56 @@ mod tests {
             theme_of(&Settings::from_file(Some(&text))),
             (Design::Gamer, Scheme::Dark)
         );
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("bigame-ui-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn a_save_replaces_the_file_whole_and_leaves_nothing_beside_it() {
+        let dir = temp_dir("atomic");
+        let path = dir.join("bigame-mode").join("settings.toml");
+        write_atomic(&path, b"theme = \"gamer\"\n").unwrap();
+        write_atomic(&path, b"maximized = true\n").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "maximized = true\n"
+        );
+        let names: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, ["settings.toml"]);
+        // A write that cannot happen leaves the old file and reports it.
+        let blocked = dir.join("bigame-mode").join("settings.toml.tmp");
+        std::fs::create_dir(&blocked).unwrap();
+        assert!(write_atomic(&path, b"theme = \"default\"\n").is_err());
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "maximized = true\n"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_older_autostart_entry_gets_try_exec_and_none_is_not_created() {
+        let dir = temp_dir("autostart");
+        let path = dir.join("com.biglinux.BiGameMode.desktop");
+        refresh_entry(&path).unwrap();
+        assert!(!path.exists());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, "[Desktop Entry]\nExec=bigame-ui --background\n").unwrap();
+        refresh_entry(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains("\nTryExec=bigame-ui\n")
+                && text.contains("\nExec=bigame-ui --background\n")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

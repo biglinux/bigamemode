@@ -72,10 +72,22 @@ pub struct GpuInfo {
 }
 
 impl GpuInfo {
-    /// The family the card belongs to.
+    /// The family the card belongs to: from its RDNA generation when that
+    /// is known (the GPU says it, [`rdna_of`]), from its names otherwise —
+    /// the PCI database's first, then the driver's own (`product`), which
+    /// knows a card newer than the database.
     #[must_use]
     pub fn family(&self) -> Family {
-        family(self.vendor, &self.name)
+        if let (GpuVendor::Amd, Some(g)) = (self.vendor, self.rdna) {
+            return Family::Rdna(g);
+        }
+        match family(self.vendor, &self.name) {
+            Family::Unknown => self
+                .product
+                .as_deref()
+                .map_or(Family::Unknown, |p| family(self.vendor, p)),
+            known => known,
+        }
     }
 
     /// Whether FSR 4 can run here under Proton. VKD3D-Proton exposes it only
@@ -90,18 +102,7 @@ impl GpuInfo {
     #[must_use]
     pub fn dlss(&self) -> Option<bool> {
         if self.vendor == GpuVendor::Nvidia {
-            nvidia_dlss(&self.name).0
-        } else {
-            Some(false)
-        }
-    }
-
-    /// Whether DLSS Frame Generation runs on this GPU (RTX 40 and later —
-    /// Ada and Blackwell). `None` when the model does not say.
-    #[must_use]
-    pub fn dlss_fg(&self) -> Option<bool> {
-        if self.vendor == GpuVendor::Nvidia {
-            nvidia_dlss(&self.name).1
+            nvidia_dlss(&self.name).or_else(|| self.product.as_deref().and_then(nvidia_dlss))
         } else {
             Some(false)
         }
@@ -178,7 +179,7 @@ pub fn family(vendor: GpuVendor, name: &str) -> Family {
             }
             None => Family::Unknown,
         },
-        GpuVendor::Nvidia => match nvidia_dlss(name).0 {
+        GpuVendor::Nvidia => match nvidia_dlss(name) {
             Some(false) => Family::Gtx,
             _ if chip.starts_with("GB") => Family::Rtx50,
             _ if chip.starts_with("AD") => Family::Rtx40,
@@ -219,16 +220,15 @@ pub fn family(vendor: GpuVendor, name: &str) -> Family {
     }
 }
 
-/// What an NVIDIA model can run: (DLSS Super Resolution, DLSS Frame
-/// Generation), from its PCI database name — `GP107M [GeForce GTX 1050 Ti
+/// Whether an NVIDIA model can run DLSS Super Resolution, from its PCI
+/// database name — `GP107M [GeForce GTX 1050 Ti
 /// Mobile]`, `AD104 [GeForce RTX 4070]`, `TU102GL [Quadro RTX 6000/8000]`.
 ///
 /// DLSS needs tensor cores: every RTX-branded card has them, no GTX, GT, MX
 /// or pre-Turing Quadro does, and the GTX 16 series (TU116/TU117) is Turing
-/// without them. Frame generation needs Ada's optical-flow hardware or later
-/// (`AD1xx`, `GB2xx`). A name that fits none of this is unknown, not "yes".
+/// without them. A name that fits none of this is unknown, not "yes".
 #[must_use]
-pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
+pub fn nvidia_dlss(name: &str) -> Option<bool> {
     let chip = name
         .split_whitespace()
         .next()
@@ -252,32 +252,13 @@ pub fn nvidia_dlss(name: &str) -> (Option<bool>, Option<bool>) {
     ]
     .iter()
     .any(|b| upper.contains(b));
-    let sr = if upper.contains("RTX") {
+    if upper.contains("RTX") {
         Some(true)
     } else if older_chip || non_rtx_brand {
         Some(false)
     } else {
         None
-    };
-    // A GeForce RTX 40xx/50xx or an "… Ada" workstation card, when the name
-    // carries no chip code. ("RTX 4000" alone is also a Turing Quadro.)
-    let geforce_40_50 = upper.match_indices("RTX ").any(|(i, m)| {
-        let model: String = upper[i + m.len()..]
-            .chars()
-            .take_while(char::is_ascii_digit)
-            .collect();
-        model.len() == 4
-            && (model.starts_with("40") || model.starts_with("50"))
-            && upper.contains("GEFORCE")
-    });
-    let fg = match sr {
-        Some(false) => Some(false),
-        _ if chip.starts_with("AD") || chip.starts_with("GB") => Some(true),
-        _ if chip.starts_with("TU") || chip.starts_with("GA") => Some(false),
-        _ if geforce_40_50 || upper.contains(" ADA") => Some(true),
-        _ => None,
-    };
-    (sr, fg)
+    }
 }
 
 /// A [`Native`] version when the component is there but its DLL names none;
@@ -736,6 +717,48 @@ pub fn with_maker(vendor: GpuVendor, product: &str) -> String {
     }
 }
 
+/// The RDNA generation of the AMD card `card` (`card1`): from the graphics
+/// IP version the GPU reports ([`gc_version`]), and from its PCI database
+/// name only when it reports none (an older kernel). The name knows only the dGPUs' `Navi`
+/// chips: APUs (Phoenix, Strix, Rembrandt, Van Gogh) and any card newer
+/// than the system's `hwdata` have none.
+#[must_use]
+pub fn rdna_of(card: &str, pci_name: &str) -> Option<u8> {
+    match gc_version(&Path::new("/sys/class/drm").join(card).join("device")) {
+        Some((major, minor)) => rdna_from_gc(major, minor),
+        None => rdna_generation(pci_name),
+    }
+}
+
+/// The graphics IP version a GPU reports under `device` (a DRM card's
+/// `device` folder): `ip_discovery/die/0/GC/0/{major,minor}`.
+#[must_use]
+pub fn gc_version(device: &Path) -> Option<(u32, u32)> {
+    let gc = device.join("ip_discovery/die/0/GC/0");
+    let read = |f: &str| -> Option<u32> {
+        std::fs::read_to_string(gc.join(f))
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    };
+    Some((read("major")?, read("minor")?))
+}
+
+/// The RDNA generation of graphics IP `major.minor`: GC 12 is RDNA 4, 11
+/// (and 11.5, RDNA 3.5) RDNA 3, 10.3 RDNA 2, 10.1 RDNA 1; 9 and below came
+/// before RDNA.
+#[must_use]
+pub fn rdna_from_gc(major: u32, minor: u32) -> Option<u8> {
+    match (major, minor) {
+        (12, _) => Some(4),
+        (11, _) => Some(3),
+        (10, 3..) => Some(2),
+        (10, _) => Some(1),
+        _ => None,
+    }
+}
+
 /// AMD RDNA generation from a model name (`Navi 44 [Radeon RX 9060 XT]`).
 #[must_use]
 pub fn rdna_generation(name: &str) -> Option<u8> {
@@ -792,7 +815,7 @@ pub fn gpu_infos(hw: &Hardware, render_card: Option<&str>) -> (Vec<GpuInfo>, Opt
                 card: g.card.clone(),
                 vendor: g.vendor,
                 rdna: (g.vendor == GpuVendor::Amd)
-                    .then(|| rdna_generation(&name))
+                    .then(|| rdna_of(&g.card, &name))
                     .flatten(),
                 name,
                 product,
@@ -1107,46 +1130,30 @@ mod tests {
     #[test]
     fn dlss_needs_an_rtx_card_and_frame_generation_needs_ada_or_later() {
         // Names exactly as /usr/share/hwdata/pci.ids has them.
-        for (name, sr, fg) in [
-            (
-                "GP107M [GeForce GTX 1050 Ti Mobile]",
-                Some(false),
-                Some(false),
-            ),
-            ("GP104 [GeForce GTX 1080]", Some(false), Some(false)),
-            ("GP108 [GeForce GT 1030]", Some(false), Some(false)),
-            ("TU117 [GeForce GTX 1650]", Some(false), Some(false)),
-            (
-                "TU117M [GeForce GTX 1650 Ti Mobile]",
-                Some(false),
-                Some(false),
-            ),
-            ("TU106 [GeForce RTX 2060 Rev. A]", Some(true), Some(false)),
-            ("TU102GL [Quadro RTX 6000/8000]", Some(true), Some(false)),
-            ("GA102 [GeForce RTX 3090]", Some(true), Some(false)),
-            (
-                "GA106M [GeForce RTX 3060 Mobile / Max-Q]",
-                Some(true),
-                Some(false),
-            ),
-            ("GA102GL [RTX A6000]", Some(true), Some(false)),
-            ("AD102 [GeForce RTX 4090]", Some(true), Some(true)),
-            ("AD104 [GeForce RTX 4070 Ti]", Some(true), Some(true)),
-            (
-                "AD104GL [RTX 4000 SFF Ada Generation]",
-                Some(true),
-                Some(true),
-            ),
-            ("GB202 [GeForce RTX 5090]", Some(true), Some(true)),
-            ("GB206 [GeForce RTX 5060 Ti]", Some(true), Some(true)),
+        for (name, sr) in [
+            ("GP107M [GeForce GTX 1050 Ti Mobile]", Some(false)),
+            ("GP104 [GeForce GTX 1080]", Some(false)),
+            ("GP108 [GeForce GT 1030]", Some(false)),
+            ("TU117 [GeForce GTX 1650]", Some(false)),
+            ("TU117M [GeForce GTX 1650 Ti Mobile]", Some(false)),
+            ("TU106 [GeForce RTX 2060 Rev. A]", Some(true)),
+            ("TU102GL [Quadro RTX 6000/8000]", Some(true)),
+            ("GA102 [GeForce RTX 3090]", Some(true)),
+            ("GA106M [GeForce RTX 3060 Mobile / Max-Q]", Some(true)),
+            ("GA102GL [RTX A6000]", Some(true)),
+            ("AD102 [GeForce RTX 4090]", Some(true)),
+            ("AD104 [GeForce RTX 4070 Ti]", Some(true)),
+            ("AD104GL [RTX 4000 SFF Ada Generation]", Some(true)),
+            ("GB202 [GeForce RTX 5090]", Some(true)),
+            ("GB206 [GeForce RTX 5060 Ti]", Some(true)),
             // No chip code: the brand alone.
-            ("NVIDIA GeForce RTX 4070", Some(true), Some(true)),
-            ("NVIDIA GeForce RTX 2080", Some(true), None),
-            ("NVIDIA GeForce GTX 1050 Ti", Some(false), Some(false)),
+            ("NVIDIA GeForce RTX 4070", Some(true)),
+            ("NVIDIA GeForce RTX 2080", Some(true)),
+            ("NVIDIA GeForce GTX 1050 Ti", Some(false)),
             // Nothing to go on: unknown, never "yes".
-            ("10de:9999", None, None),
+            ("10de:9999", None),
         ] {
-            assert_eq!(nvidia_dlss(name), (sr, fg), "{name}");
+            assert_eq!(nvidia_dlss(name), sr, "{name}");
         }
     }
 
@@ -1288,6 +1295,70 @@ mod tests {
     }
 
     #[test]
+    fn the_rdna_generation_comes_from_the_gpus_graphics_ip() {
+        let dir = tempfile::tempdir().unwrap();
+        let device = dir.path();
+        assert_eq!(gc_version(device), None, "an older kernel says nothing");
+        let gc = device.join("ip_discovery/die/0/GC/0");
+        std::fs::create_dir_all(&gc).unwrap();
+        // As the reference desktop's cards report it: the RX 9060 XT, then
+        // the Vega of its Cezanne APU, then APUs pci.ids names no Navi for.
+        for (major, minor, want) in [
+            ("12", "0", Some(4)),
+            ("9", "3", None),
+            ("11", "5", Some(3)),
+            ("11", "0", Some(3)),
+            ("10", "3", Some(2)),
+            ("10", "1", Some(1)),
+        ] {
+            std::fs::write(gc.join("major"), format!("{major}\n")).unwrap();
+            std::fs::write(gc.join("minor"), format!("{minor}\n")).unwrap();
+            let (ma, mi) = gc_version(device).unwrap();
+            assert_eq!(rdna_from_gc(ma, mi), want, "GC {major}.{minor}");
+        }
+        // Phoenix's name has no Navi in it; its GC 11 makes it RDNA 3.
+        assert_eq!(rdna_generation("Phoenix1"), None);
+        let apu = GpuInfo {
+            card: "card0".into(),
+            vendor: GpuVendor::Amd,
+            name: "Phoenix1".into(),
+            product: None,
+            driver: "amdgpu".into(),
+            userspace: None,
+            vram: None,
+            discrete: false,
+            rdna: rdna_from_gc(11, 0),
+            renders_game: false,
+        };
+        assert_eq!(apu.family(), Family::Rdna(3));
+    }
+
+    #[test]
+    fn a_card_newer_than_the_pci_database_is_known_by_the_drivers_name() {
+        // hwdata older than the card: only the id. NVIDIA's driver names it.
+        let card = GpuInfo {
+            card: "card1".into(),
+            vendor: GpuVendor::Nvidia,
+            name: "10DE:2D83".into(),
+            product: Some("NVIDIA GeForce RTX 5050".into()),
+            driver: "nvidia".into(),
+            userspace: None,
+            vram: None,
+            discrete: true,
+            rdna: None,
+            renders_game: false,
+        };
+        assert_eq!(card.dlss(), Some(true));
+        assert_eq!(card.family(), Family::Rtx50);
+        // Without a name from the driver it stays unknown, never "yes".
+        let bare = GpuInfo {
+            product: None,
+            ..card
+        };
+        assert_eq!((bare.dlss(), bare.family()), (None, Family::Unknown));
+    }
+
+    #[test]
     fn only_nvidia_cards_run_dlss() {
         let g = |vendor, name: &str| GpuInfo {
             card: "card0".into(),
@@ -1329,13 +1400,13 @@ mod tests {
         ] {
             assert_eq!(g(GpuVendor::Nvidia, name).family(), want, "{name}");
         }
-        assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").dlss_fg(), Some(false));
+        assert_eq!(g(GpuVendor::Intel, "DG2 [Arc A770]").dlss(), Some(false));
         assert_eq!(
             g(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]").dlss(),
             Some(false)
         );
         assert_eq!(
-            g(GpuVendor::Nvidia, "AD102 [GeForce RTX 4090]").dlss_fg(),
+            g(GpuVendor::Nvidia, "AD102 [GeForce RTX 4090]").dlss(),
             Some(true)
         );
     }

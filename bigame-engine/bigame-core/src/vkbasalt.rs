@@ -24,8 +24,7 @@ pub const EXAMPLE: &str = "/usr/share/vkBasalt/vkBasalt.conf.example";
 /// The Nara Linux channel's video with the style.
 pub const NARA_VIDEO: &str = "https://www.youtube.com/watch?v=GGBC-qMB_0Y";
 
-/// The first line of a file Big Game Mode wrote. Files already on users'
-/// machines carry this spelling of the name, so it stays.
+/// The first line of a file Big Game Mode wrote.
 const MARKER: &str = "# Managed by BiGame-mode";
 
 /// Narayan's file, with `/home/USERNAME/.local/share/reshade` for the
@@ -276,7 +275,10 @@ pub fn fetch_shaders(dir: &Path) -> Result<()> {
         }
         std::fs::rename(&part, &dest).with_context(|| format!("put {}", dest.display()))?;
     }
-    ensure!(shaders_ready_in(dir), "the shaders are not all in place");
+    ensure!(
+        shaders_ready_in(dir),
+        UserError::plain(N_("the vkBasalt shaders are not all in place"))
+    );
     tracing::info!(target: "vkbasalt", dir = %dir.display(), "Nara Linux shaders in place and verified");
     Ok(())
 }

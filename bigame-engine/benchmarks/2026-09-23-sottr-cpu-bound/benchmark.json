@@ -1,0 +1,31 @@
+{
+  "schema": "bigame.benchmark/1",
+  "workload": "2026-09-23-sottr-cpu-bound",
+  "metric": "avg_fps",
+  "date": "2026-09-23",
+  "fingerprint": "02db452880e054ab",
+  "arms": {
+    "baseline": [
+      116.62726969579418,
+      117.15920498667353,
+      109.14095162068095
+    ],
+    "cpu_governor": [
+      116.04191391168797,
+      115.13327467197622,
+      107.83751572466218
+    ],
+    "rest": [
+      117.70955044031825,
+      116.40977566997603,
+      116.04119782065621
+    ]
+  },
+  "warmup_runs": 1,
+  "alternating": true,
+  "caveats": [
+    "Shadow of the Tomb Raider CPU-bound: render scale at its minimum, 3440x1440 output, GPU ~84% busy; arms baseline (balanced/powersave/balance_performance), cpu_governor (baseline + governor and EPP performance), rest (performance profile). GPU DPM auto in all.",
+    "INTERFERENCE in round 3: a continuous slowdown from about 22:14:30 to 22:17:30 spans the end of baseline run-03 and the start of cpu_governor run-03 -- two arms, across a configuration change, with CPU clocks unchanged -- so it is external, not an arm effect. Its source was not identified (not the VM, not this session's tools). Rounds 1-2 alone: baseline 116.6 117.2, cpu_governor 116.0 115.1, rest 117.7 116.4 -- all within 1.5%.",
+    "power-profiles-daemon-biglinux-cpufreq.service fires on every power profile change (a path unit on PPD's state.ini); on this amd-pstate-epp machine it does not touch the governor."
+  ]
+}

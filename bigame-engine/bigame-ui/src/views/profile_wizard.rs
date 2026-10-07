@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use adw::prelude::*;
+use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use bigame_core::graphics::config::Mode;
@@ -44,19 +45,40 @@ struct Step {
 /// Building a widget tree is inherently linear — splitting it yields helpers
 /// with a single caller and no independent meaning — so the length lint is
 /// allowed here rather than worked around.
-#[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 fn open_internal(
     parent: &impl IsA<gtk4::Widget>,
     suggested_name: Option<String>,
-    // Moved into the GTK closures that outlive this call.
     on_saved: impl Fn(GameProfile) + 'static,
 ) {
-    let parent_w: gtk4::Widget = parent.clone().upcast();
-    let m = Machine::detect();
+    // The machine is read off the main thread (the helper's file, sched-ext
+    // over D-Bus, `PATH`); the wizard opens when it is known.
+    let parent: gtk4::Widget = parent.clone().upcast();
+    glib::spawn_future_local(async move {
+        let process = suggested_name.clone().unwrap_or_default();
+        let read = gio::spawn_blocking(move || {
+            let game = ui::Game::detect(&process, "", None);
+            (Machine::detect(), game)
+        })
+        .await;
+        if let Ok((m, game)) = read {
+            open_detected(&parent, suggested_name, on_saved, &m, game);
+        }
+    });
+}
+
+#[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
+fn open_detected(
+    parent: &gtk4::Widget,
+    suggested_name: Option<String>,
+    // Moved into the GTK closures that outlive this call.
+    on_saved: impl Fn(GameProfile) + 'static,
+    m: &Machine,
+    game: ui::Game,
+) {
+    let parent_w = parent.clone();
     let process = suggested_name.clone().unwrap_or_default();
     let draft = GameOptimization::new(&process);
-    let game = ui::Game::detect(&process, "", None);
-    let fields = Rc::new(GameFields::build(&draft, &m, &game, false));
+    let fields = Rc::new(GameFields::build(&draft, m, &game, false));
     let draft = Rc::new(RefCell::new(draft));
     let on_saved = Rc::new(on_saved);
 

@@ -30,6 +30,10 @@ use crate::widgets::notice::{Kind, Notice};
 /// The desktop notification's id, so a newer one replaces it.
 const NOTIFICATION_ID: &str = "launcher-reopen";
 
+/// How a reopen went: an id of its own, so folding the notice away does not
+/// withdraw it with the question.
+const RESULT_ID: &str = "launcher-reopen-result";
+
 /// The notice, with what it is asking about.
 pub struct LauncherNotice {
     revealer: gtk4::Revealer,
@@ -190,14 +194,18 @@ impl LauncherNotice {
         self.set_actions(launcher);
         self.revealer.set_visible(true);
         self.revealer.set_reveal_child(true);
-        let window_shown = self
-            .revealer
-            .root()
-            .and_downcast::<gtk4::Window>()
-            .is_some_and(|w| w.is_visible());
-        if announce && !window_shown {
+        if announce && !self.window_shown() {
             notify_desktop(launcher);
         }
+    }
+
+    /// Whether the window is on screen; hidden in the tray, only the
+    /// desktop's notifications reach the user.
+    fn window_shown(&self) -> bool {
+        self.revealer
+            .root()
+            .and_downcast::<gtk4::Window>()
+            .is_some_and(|w| w.is_visible())
     }
 
     fn set_actions(self: &Rc<Self>, launcher: Launcher) {
@@ -236,6 +244,7 @@ impl LauncherNotice {
         }
         if let Some(app) = gio::Application::default() {
             app.withdraw_notification(NOTIFICATION_ID);
+            app.withdraw_notification(RESULT_ID);
         }
         self.notice.clear_actions();
         self.notice.set(
@@ -249,22 +258,27 @@ impl LauncherNotice {
             me.reopening.set(false);
             match done {
                 Ok(Ok(())) => {
-                    crate::widgets::toast::show(
-                        &me.revealer,
-                        &i18n("%s was reopened with the current settings")
-                            .replace("%s", launcher.name()),
-                    );
+                    let done = i18n("%s was reopened with the current settings")
+                        .replace("%s", launcher.name());
+                    // Started from the desktop's notification, with the
+                    // window hidden: the answer goes where the question was.
+                    if me.window_shown() {
+                        crate::widgets::toast::show(&me.revealer, &done);
+                    } else {
+                        notify_result(&done, None, None);
+                    }
                     me.queue.borrow_mut().retain(|l| *l != launcher);
                     me.show_first(false);
                 }
                 Ok(Err(e)) => {
                     // Said where it was asked, with the way to try again.
                     tracing::warn!(launcher = launcher.name(), error = %format!("{e:#}"), "could not reopen the launcher");
-                    me.notice.set(
-                        Kind::Error,
-                        &i18n("%s could not be opened again").replace("%s", launcher.name()),
-                        &error_text(&e),
-                    );
+                    let failed =
+                        i18n("%s could not be opened again").replace("%s", launcher.name());
+                    me.notice.set(Kind::Error, &failed, &error_text(&e));
+                    if !me.window_shown() {
+                        notify_result(&failed, Some(&error_text(&e)), Some(launcher));
+                    }
                     me.set_actions(launcher);
                     me.revealer.set_visible(true);
                     me.revealer.set_reveal_child(true);
@@ -289,6 +303,24 @@ fn notify_desktop(launcher: Launcher) {
         Some(&key(launcher).to_variant()),
     );
     app.send_notification(Some(NOTIFICATION_ID), &n);
+}
+
+/// How a reopen asked from the desktop's notification went, said there too;
+/// a failure keeps the button to try again.
+fn notify_result(title: &str, body: Option<&str>, retry: Option<Launcher>) {
+    let Some(app) = gio::Application::default() else {
+        return;
+    };
+    let n = gio::Notification::new(title);
+    n.set_body(body);
+    if let Some(launcher) = retry {
+        n.add_button_with_target_value(
+            &i18n("Reopen %s").replace("%s", launcher.name()),
+            "app.reopen-launcher",
+            Some(&key(launcher).to_variant()),
+        );
+    }
+    app.send_notification(Some(RESULT_ID), &n);
 }
 
 #[cfg(test)]

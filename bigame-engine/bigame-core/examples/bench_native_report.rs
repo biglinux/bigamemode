@@ -36,12 +36,13 @@ struct Run {
     gpu: Option<GpuSummary>,
 }
 
-/// Means over a run's telemetry, idle samples excluded.
+/// Means over a run's telemetry, idle samples excluded. A reading the card
+/// does not report (the GTX 1050 Ti Mobile has no power sensor) is `None`.
 #[derive(Debug, Clone, Serialize)]
 struct GpuSummary {
-    sclk_mhz: f64,
-    power_w: f64,
-    temp_c: f64,
+    sclk_mhz: Option<f64>,
+    power_w: Option<f64>,
+    temp_c: Option<f64>,
     busy_pct: f64,
     cpu_pct: Option<f64>,
 }
@@ -58,31 +59,44 @@ fn gpu_summary(csv: &Path) -> Option<GpuSummary> {
         col("busy_pct")?,
     );
     let cpu = col("cpu_pct");
-    let mut sums = [0.0_f64; 5];
+    // Per column: its sum and how many samples had it. Fields are kept by
+    // position, so an empty one (a sensor the card lacks) leaves the others.
+    let mut sums = [(0.0_f64, 0.0_f64); 5];
     let mut n = 0.0;
     for line in lines {
-        let v: Vec<f64> = line.split(',').filter_map(|x| x.parse().ok()).collect();
+        let v: Vec<Option<f64>> = line.split(',').map(|x| x.parse().ok()).collect();
         if v.len() != header.len() {
             continue;
         }
         // Samples from the moments between passes, with the GPU idle, would
         // describe the menu rather than the benchmark.
-        if v[busy] < 50.0 {
+        if !v[busy].is_some_and(|b| b >= 50.0) {
             continue;
         }
-        sums[0] += v[sclk] / 1e6;
-        sums[1] += v[power] / 1e6;
-        sums[2] += v[temp] / 1e3;
-        sums[3] += v[busy];
-        sums[4] += cpu.map_or(0.0, |i| v[i]);
         n += 1.0;
+        for (slot, (i, scale)) in [
+            (Some(sclk), 1e6),
+            (Some(power), 1e6),
+            (Some(temp), 1e3),
+            (Some(busy), 1.0),
+            (cpu, 1.0),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            if let Some(x) = i.and_then(|i| v[i]) {
+                sums[slot].0 += x / scale;
+                sums[slot].1 += 1.0;
+            }
+        }
     }
+    let mean = |slot: usize| (sums[slot].1 > 0.0).then(|| sums[slot].0 / sums[slot].1);
     (n > 0.0).then(|| GpuSummary {
-        sclk_mhz: sums[0] / n,
-        power_w: sums[1] / n,
-        temp_c: sums[2] / n,
-        busy_pct: sums[3] / n,
-        cpu_pct: cpu.map(|_| sums[4] / n),
+        sclk_mhz: mean(0),
+        power_w: mean(1),
+        temp_c: mean(2),
+        busy_pct: mean(3).unwrap_or_default(),
+        cpu_pct: mean(4),
     })
 }
 
@@ -122,12 +136,17 @@ fn read_run(dir: &Path) -> Result<Option<Run>> {
     }))
 }
 
-fn mean(values: impl Iterator<Item = f64>) -> f64 {
+/// A reading for the report: "—" where there is none.
+fn shown(value: Option<f64>, decimals: usize) -> String {
+    value.map_or_else(|| "—".into(), |v| format!("{v:.decimals$}"))
+}
+
+fn mean(values: impl Iterator<Item = f64>) -> Option<f64> {
     let v: Vec<f64> = values.collect();
     if v.is_empty() {
-        f64::NAN
+        None
     } else {
-        v.iter().sum::<f64>() / v.len() as f64
+        Some(v.iter().sum::<f64>() / v.len() as f64)
     }
 }
 
@@ -293,9 +312,9 @@ fn main() -> Result<()> {
                 r.stats.p99_ms,
                 r.stats.stutters,
                 r.native.transitions,
-                g.map_or("—".into(), |g| format!("{:.0}", g.sclk_mhz)),
-                g.map_or("—".into(), |g| format!("{:.0}", g.power_w)),
-                g.map_or("—".into(), |g| format!("{:.1}", g.temp_c)),
+                shown(g.and_then(|g| g.sclk_mhz), 0),
+                shown(g.and_then(|g| g.power_w), 0),
+                shown(g.and_then(|g| g.temp_c), 1),
                 g.map_or("—".into(), |g| format!("{:.0}%", g.busy_pct)),
             ));
         }
@@ -304,10 +323,10 @@ fn main() -> Result<()> {
     for (arm, runs) in &arms {
         let gs: Vec<&GpuSummary> = runs.iter().filter_map(|r| r.gpu.as_ref()).collect();
         md.push_str(&format!(
-            "| {arm} | {:.0} | {:.0} | {:.1} |\n",
-            mean(gs.iter().map(|g| g.sclk_mhz)),
-            mean(gs.iter().map(|g| g.power_w)),
-            mean(gs.iter().map(|g| g.temp_c)),
+            "| {arm} | {} | {} | {} |\n",
+            shown(mean(gs.iter().filter_map(|g| g.sclk_mhz)), 0),
+            shown(mean(gs.iter().filter_map(|g| g.power_w)), 0),
+            shown(mean(gs.iter().filter_map(|g| g.temp_c)), 1),
         ));
     }
     let mut reports = vec![MetricReport {

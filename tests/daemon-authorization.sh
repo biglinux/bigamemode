@@ -52,7 +52,13 @@ BUS_PID="$(cat "$WORK/bus.pid")"
 
 DBUS_SYSTEM_BUS_ADDRESS="$ADDR" "$DAEMON" > "$WORK/daemon.log" 2>&1 &
 DAEMON_PID=$!
-sleep 2
+# Wait for the name rather than a fixed time: a slow start would otherwise
+# fail every check, and a fast one wastes the wait.
+for _ in $(seq 50); do
+    busctl --address="$ADDR" status com.biglinux.BiGameMode >/dev/null 2>&1 && break
+    kill -0 "$DAEMON_PID" 2>/dev/null || break
+    sleep 0.1
+done
 
 fail=0
 check() {

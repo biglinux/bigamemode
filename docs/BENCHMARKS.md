@@ -2,10 +2,11 @@
 
 Big Game Mode claims a setting helps only when a measurement says so. This page
 describes how measurements are made and what they found on the reference
-machine. The raw data of every result (frame times, GPU telemetry, the
-games' result screens) is not shipped with the source; it is kept in the
-repository's history, [at commit `fbd0d56`](https://github.com/biglinux/bigamemode/tree/fbd0d56/bigame-engine/benchmarks), under the session
-names of the *Data* column below.
+machine. Each session in `bigame-engine/benchmarks/` keeps what its result
+rests on: the report, the metrics and verdicts, the machine and its state, and
+the game's own summary of every run. The per-frame captures, GPU samples and
+screenshots behind them are in the history, at the tag `benchmarks-raw-data`
+(`git checkout benchmarks-raw-data -- bigame-engine/benchmarks`).
 
 ## Method
 
@@ -51,22 +52,19 @@ names of the *Data* column below.
 
 | Tool | Use |
 |---|---|
-| `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a session of a game's built-in benchmark, in the layout the scripts write |
+| `cargo run -p bigame-core --example bench_native_report -- <session> [baseline] [--vary=KEY,…]` | verdicts for a session of a game's built-in benchmark, in the layout of `bigame-engine/benchmarks/` |
 | `cargo run -p bigame-core --example bench_report -- <session> <baseline>` | verdicts for a SuperTuxKart A/B session |
 | `cargo run -p bigame-core --example turbo_preset -- <id\|off>` and `--example launch_plan -- <executable>` | put a Turbo preset in force as Turbo does, and print the command Big Game Mode's launcher would run with it |
 | *Measure the difference* (a game card's menu) | the same A/B method for any game that starts directly, driven by the application |
-| `bigame-engine/scripts/bench-game.sh` | a session of a game's built-in benchmark, alternating the arms through the helper and pressing the game's `[R]` rerun key only while the game has focus |
-| `bigame-engine/scripts/bench-lab.sh` | an A/B session of SuperTuxKart's own `--benchmark`, its configuration backed up and put back |
-| `bigame-engine/scripts/gpu-telemetry.sh` | the GPU's clock, power, temperature and load beside a run, sampled with shell builtins only so that it does not perturb the run |
-| `bigame-engine/scripts/scx-switch.sh` | the root side of a scheduler session: one Polkit prompt, each scheduler applied through the game's falcond profile, the profile put back at the end |
 
-The scripts are run by hand, never by the application or the package; each
-explains its arguments at the top.
+The sessions are driven by the scripts in `bigame-engine/scripts/`:
+`bench-game.sh` (a game's built-in benchmark with its `[R]` rerun),
+`bench-lab.sh` (SuperTuxKart A/B sessions), `gpu-telemetry.sh` (a GPU
+sampler that forks nothing) and `scx-switch.sh` (the root side of scheduler
+sessions, one Polkit approval per session).
 
 Each session directory holds `system.json` (the machine, with no host name,
-user, home or address), the runs of every arm, and the report. Sessions are
-written under `benchmarks/`, which git ignores: raw data stays on the
-machine that measured it, and the results come here.
+user, home or address), the runs of every arm, and the report.
 
 ## Reference machine
 
@@ -110,6 +108,13 @@ user's machine.
 | Turbo off versus on (falcond per-game profile: power profile and governor performance, idle inhibit), on top of F, A B A B | same | rendered 40 / 36 vs 39 / 37; presented 43.0 / 39.2 vs 42.8 / 41.4; CPU package 87–88 vs 88–89 °C | no difference: GPU-bound at the GTX's power limit | `2026-09-25-sottr-gtx1050ti-turbo` |
 | sched-ext `lavd`, `bpfland` vs none, set in the game's falcond profile (falcond loads it at game start, unloads it after; checked in `/sys/kernel/sched_ext`), A B C C B A + A B C | SotTR, lab laptop, same settings | rendered frames 5863 ± 175 / 6097 ± 196 / 6136 ± 215 (+4.0 %, +4.7 %); Welch's t 1.5 and 1.7, under the 95 % critical value; every arm drifted up through the evening | no difference | `2026-09-25-sottr-gtx1050ti-scheduler` |
 | AI Graphics on a game that ships the FidelityFX API: the game's FSR 3.1 → the same with `FSR4_UPGRADE=1` (Proton's FSR 4 provider, verified mapped, `Replaced FSR3 with FSR4!` logged) → OptiScaler 0.9.4 FSR from the game's XeSS (`Fsr4Update`), two passes per arm | Cyberpunk 2077 2.3, RT Ultra, 3440×1440, upscaling Auto, RX 9060 XT | 38.4 → 38.2 fps (−0.6 %, Welch's t 1.9: no difference) → **36.0 fps (−6.4 %, t 24.7)**; lows too scattered over two runs to compare | FSR 4 through Proton costs nothing measurable; OptiScaler slower where the game's own FSR already reaches FSR 4 | `2026-09-26-cyberpunk-rx9060xt-native-vs-optiscaler` |
+| Lab laptop, Big Game Mode 2.2: no offload (the integrated GPU, as the game starts by itself) vs the launcher's NVIDIA PRIME render offload, 4 runs per arm alternated | SuperTuxKart 1.5 `--benchmark`, OpenGL, 1920×1080, vsync off, HD 630 / GTX 1050 Ti | 13.0 → **61.2 fps** (Welch's t 142), 1 % low 8.4 → 46.4; the game's log names the GPU in each arm | offload is what puts the game on the GTX: **4.7× faster** | `2026-09-28-supertuxkart-gtx1050ti-prime` |
+| the offloaded game inside nested Gamescope (the offload given to the game, not to Gamescope), a second session, 4 runs per arm alternated | same | 62.9 → **90.4 fps (+43.9 %, Welch's t 13.85)**, GPU busy 64 → 91 %; 1 % low 47.9 → 36.1, p99 19.8 → 26.9 ms, 142 frames per run over twice the median against 0 | more frames, worse pacing | `2026-09-28-supertuxkart-gtx1050ti-gamescope-mangohud` |
+| MangoHud Forced (its wrapper) on the offloaded game | same | 62.6 fps, lows and frame times unchanged; the game aborted at exit in 2 of 4 runs with the wrapper, after writing its results | no difference | same |
+| Turbo off vs on (falcond `SOTTR.exe` profile: performance, `lavd`), OptiScaler FSR 3.1 from XeSS Quality, A B A B rotated, one launch | SotTR, 1920×1080 Low, DX12, GTX 1050 Ti | 24.1 vs 24.1 fps, 1 % low 17.0 vs 17.3 (within the spread); GPU 100 % busy in both | no difference | `2026-09-28-sottr-gtx1050ti-turbo-2.2` |
+| AI Graphics' Recommended plan (OptiScaler 0.9.4 FSR 3.1 from XeSS Quality, frame generation off) vs the game's XeSS Quality, one launch per run, rotated | same | 24.2 → **29.0 fps (+20.1 %, t 8.76)**; lows inconclusive (runs varied over 5 %); more stutters with OptiScaler (3–8 against 1 per run) | faster on average | `2026-09-28-sottr-gtx1050ti-optiscaler-2.2` |
+| DX11 (DXVK) vs DX12 (VKD3D-Proton), no upscaler (1080p rendered), one launch per run, rotated | same | DX12 25.2 → DX11 **39.1 fps (+55.3 %, t 30.52)**, but about 200 frames per pass over twice the median against under 5, GPU 100 → 89 % busy; DX12 native (25.2) is faster than DX12 XeSS Quality (24.2) on this card | higher average in DX11, even pacing in DX12: neither wins every count | `2026-09-28-sottr-gtx1050ti-dx11-dx12` |
+| Nested Gamescope from Steam's launch options (the wrapper Big Game Mode writes) | same | the Wayland backend ended (SIGABRT, "protocol error 3 on xdg_surface") at the launcher's hand-over to the game, 2 of 2; `--backend sdl` ran once, at 1280×720, since fixed (below) | not measurable on this machine | `2026-09-28-sottr-gtx1050ti-gamescope` |
 
 What follows for the code:
 
@@ -122,9 +127,9 @@ What follows for the code:
 - AI Graphics is the first setting Big Game Mode applies that measurably moves the
   frame rate. This holds for OptiScaler 0.9.4, the tested release. The gain
   is larger where the game's XeSS runs on the slower DP4a path (the GTX).
-- The game list records Shadow of the Tomb Raider as faster with OptiScaler
-  on both machines (`prefer = "optiscaler"`), so it is Recommended there;
-  on the lab laptop the 1 % low could not be shown to be no worse.
+- On the lab laptop the planner, reading that session from the local
+  measurements, reports the gain but keeps the game's own XeSS as
+  Recommended: the 1 % low could not be shown to be no worse.
 - The session also found that OptiScaler's default configuration made the
   game exit at start on a GTX (its DLSS path on a card without DLSS); the
   configuration Big Game Mode writes turns that path off there.
@@ -177,7 +182,7 @@ throughput verdict: no arm was repeated.
   different frames.
 - Two machines and a handful of titles. Hybrid and multi-CCD CPUs, 3D
   V-Cache, RTX and Intel GPUs, and Gamescope native versus nested have not
-  been measured; NVIDIA only as the GTX above, for AI Graphics.
+  been measured; NVIDIA only as the GTX above, rendering for an Intel GPU that drives the panel.
 - At the lab laptop's ~16 fps the frame-time floor varies too much between
   runs to compare; averages are what those runs establish.
 - Presented frames on the reference desktop: with the system's lsfg-vk and

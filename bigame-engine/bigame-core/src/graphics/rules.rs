@@ -45,6 +45,20 @@ pub enum Tech {
     AntiCheat,
     /// DLSS-NR-on-AMD, the external neural-rendering proxy.
     AmdNeuralExternal,
+    /// Special K, in one of the game's DLL slots.
+    SpecialK,
+    /// Ultimate ASI Loader, in one of the game's DLL slots.
+    AsiLoader,
+    /// vkBasalt, the Vulkan post-processing layer (CAS sharpening, `ReShade`
+    /// effects).
+    VkBasalt,
+    /// The frame cap of DXVK or VKD3D-Proton (`DXVK_CONFIG`
+    /// `maxFrameRate`, `DXVK_FRAME_RATE`, `VKD3D_FRAME_RATE`).
+    ProtonFrameCap,
+    /// `MangoHud`'s frame cap (`fps_limit`).
+    MangoHudFrameCap,
+    /// Gamescope's frame limit (`-r`).
+    GamescopeFrameCap,
 }
 
 impl Tech {
@@ -67,6 +81,12 @@ impl Tech {
             Self::Hdr => N_("HDR output"),
             Self::AntiCheat => N_("anti-cheat"),
             Self::AmdNeuralExternal => N_("DLSS-NR-on-AMD neural rendering"),
+            Self::SpecialK => "Special K",
+            Self::AsiLoader => "Ultimate ASI Loader",
+            Self::VkBasalt => "vkBasalt",
+            Self::ProtonFrameCap => N_("the DXVK/VKD3D-Proton frame cap"),
+            Self::MangoHudFrameCap => N_("MangoHud's frame cap"),
+            Self::GamescopeFrameCap => N_("Gamescope's frame limit (-r)"),
         }
     }
 }
@@ -382,6 +402,24 @@ pub const RULES: &[Rule] = &[
     ),
     r(
         T::OptiScalerUpscaler,
+        T::SpecialK,
+        V::Experimental,
+        B::Principle,
+        N_(
+            "both hook the game's swap chain from a DLL slot; not established together — if the game misbehaves, take one out",
+        ),
+    ),
+    r(
+        T::OptiScalerUpscaler,
+        T::AsiLoader,
+        V::Experimental,
+        B::Principle,
+        N_(
+            "it loads the game's .asi mods into the same process; not established together with OptiScaler — if the game misbehaves, take one out",
+        ),
+    ),
+    r(
+        T::OptiScalerUpscaler,
         T::RenoDx,
         V::Experimental,
         B::None,
@@ -404,6 +442,87 @@ pub const RULES: &[Rule] = &[
         V::SupportedWithConditions,
         B::Upstream,
         N_("RenoDX needs ReShade 6.8+ with full add-on support"),
+    ),
+    // ── Frame limiters: one per game ───────────────────────────────────────
+    r(
+        T::ProtonFrameCap,
+        T::MangoHudFrameCap,
+        V::Conflict,
+        B::Principle,
+        N_(
+            "two frame limiters at the same rate each hold frames back on their own clock, which shows as uneven pacing; one is enough",
+        ),
+    ),
+    r(
+        T::ProtonFrameCap,
+        T::GamescopeFrameCap,
+        V::Conflict,
+        B::Principle,
+        N_(
+            "two frame limiters at the same rate each hold frames back on their own clock, which shows as uneven pacing; one is enough",
+        ),
+    ),
+    r(
+        T::MangoHudFrameCap,
+        T::GamescopeFrameCap,
+        V::Conflict,
+        B::Principle,
+        N_(
+            "two frame limiters at the same rate each hold frames back on their own clock, which shows as uneven pacing; one is enough",
+        ),
+    ),
+    r(
+        T::ProtonFrameCap,
+        T::OptiScalerFrameGen,
+        V::SupportedWithConditions,
+        B::TestedHere,
+        N_(
+            "OptiScaler's generated frames go through the game's own presentation, so the cap counts them: the game renders about half the cap (Shadow of the Tomb Raider: 62.5 → 30.0 FPS)",
+        ),
+    ),
+    r(
+        T::ProtonFrameCap,
+        T::LsfgVk,
+        V::SupportedWithConditions,
+        B::Principle,
+        N_(
+            "lsfg-vk adds its frames after DXVK's or VKD3D-Proton's cap: the game renders up to the cap and the screen shows the cap times the multiplier",
+        ),
+    ),
+    r(
+        T::GamescopeFrameCap,
+        T::LsfgVk,
+        V::SupportedWithConditions,
+        B::Principle,
+        N_(
+            "Gamescope's limit counts every frame it shows, generated ones included: the game renders the limit divided by the multiplier",
+        ),
+    ),
+    // ── vkBasalt ───────────────────────────────────────────────────────────
+    r(
+        T::VkBasalt,
+        T::GamescopeUpscaling,
+        V::SupportedWithConditions,
+        B::TestedHere,
+        N_(
+            "vkBasalt has to run in the game: loaded by Gamescope it sharpens Gamescope's already upscaled output a second time, and Gamescope takes it out of the game; Big Game Mode keeps it in the game",
+        ),
+    ),
+    r(
+        T::VkBasalt,
+        T::OptiScalerUpscaler,
+        V::SupportedWithConditions,
+        B::Principle,
+        N_(
+            "OptiScaler's FSR already sharpens its output; CAS on top sharpens it twice, so lower one of the two",
+        ),
+    ),
+    r(
+        T::VkBasalt,
+        T::ReShade,
+        V::Unknown,
+        B::None,
+        N_("two post-processing chains in one game; nobody has established how they combine"),
     ),
 ];
 
@@ -443,6 +562,28 @@ pub fn problems(active: &[Tech]) -> Vec<Rule> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_game_never_gets_two_frame_limiters() {
+        let caps = [T::ProtonFrameCap, T::MangoHudFrameCap, T::GamescopeFrameCap];
+        for a in caps {
+            for b in caps {
+                if a != b {
+                    assert_eq!(check(a, b).verdict, V::Conflict, "{a:?} + {b:?}");
+                }
+            }
+        }
+        // A cap with a frame generator means something different per
+        // generator, and says so.
+        assert_eq!(
+            check(T::LsfgVk, T::ProtonFrameCap).verdict,
+            V::SupportedWithConditions
+        );
+        assert_eq!(
+            check(T::OptiScalerFrameGen, T::ProtonFrameCap).basis,
+            B::TestedHere
+        );
+    }
 
     #[test]
     fn two_upscalers_or_two_frame_generators_never_pass() {

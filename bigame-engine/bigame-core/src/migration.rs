@@ -29,15 +29,20 @@ use serde::Serialize;
 use crate::games::DetectedGame;
 use crate::text::{N_, Text};
 
-/// The fields falcond 2.0.2 reads from a profile. Anything else is ignored by
-/// falcond, and is dropped on migration.
+/// The fields falcond reads from a profile (2.0.2's, then `dmem_protect`
+/// and `disable_split_lock`, which 2.0.8 and later read). Anything else is
+/// ignored by falcond, and is dropped on migration.
 pub const FALCOND_FIELDS: &[&str] = &[
     "name",
     "performance_mode",
     "scx_sched",
     "scx_sched_props",
     "vcache_mode",
+    "start_script",
+    "stop_script",
     "idle_inhibit",
+    "dmem_protect",
+    "disable_split_lock",
 ];
 
 /// Fields only an older Big Game Mode wrote, which nothing applies: their
@@ -188,11 +193,53 @@ pub fn plan(user_dir: &Path, installed: &[DetectedGame]) -> Vec<Action> {
         .filter(|p| p.extension().is_some_and(|e| e == "conf"))
         .collect();
     files.sort();
-    files
-        .iter()
+    let read: Vec<(PathBuf, String)> = files
+        .into_iter()
         .filter_map(|f| {
-            let content = std::fs::read_to_string(f).ok()?;
-            Some(plan_file(f, &content, installed))
+            let content = std::fs::read_to_string(&f).ok()?;
+            Some((f, content))
+        })
+        .collect();
+    let planned = read
+        .iter()
+        .map(|(f, content)| plan_file(f, content, installed))
+        .collect();
+    without_collisions(planned, &read)
+}
+
+/// `actions` with every re-key that would land on a profile already there
+/// kept as it is instead. falcond matches a process to one profile (by name,
+/// ignoring case): saving a re-keyed profile over another one, or two titles
+/// onto the same executable, would replace one with the other.
+fn without_collisions(actions: Vec<Action>, files: &[(PathBuf, String)]) -> Vec<Action> {
+    let name_of = |file: &Path, content: &str| {
+        crate::running::profile_name_field(content).unwrap_or_else(|| {
+            file.file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        })
+    };
+    let mut claimed: Vec<String> = Vec::new();
+    actions
+        .into_iter()
+        .map(|action| {
+            let Action::Rekey { file, from, to, .. } = &action else {
+                return action;
+            };
+            let taken_by_a_file = files.iter().any(|(other, content)| {
+                other != file && name_of(other, content).eq_ignore_ascii_case(to)
+            });
+            let taken_by_a_rekey = claimed.iter().any(|c| c.eq_ignore_ascii_case(to));
+            if taken_by_a_file || taken_by_a_rekey {
+                return Action::Keep {
+                    file: file.clone(),
+                    reason: format!(
+                        "another profile already matches {to}; {from} is left for you to merge"
+                    ),
+                };
+            }
+            claimed.push(to.clone());
+            action
         })
         .collect()
 }
@@ -359,6 +406,66 @@ mod tests {
     fn an_unmatched_title_is_reported_not_deleted() {
         let action = plan_file(Path::new("/p/u/x.conf"), ARC, &[]);
         assert!(matches!(action, Action::Unresolved { .. }), "{action:?}");
+    }
+
+    #[test]
+    fn falconds_newer_fields_and_scripts_survive_a_migration() {
+        let content = format!(
+            "{ARC}start_script = \"/home/u/start.sh\"\nstop_script = \"/home/u/stop.sh\"\n\
+             dmem_protect = true\ndisable_split_lock = true\n"
+        );
+        let installed = [game("ARC Raiders", "PioneerGame.exe")];
+        let Action::Rekey { content, .. } =
+            plan_file(Path::new("/p/user/Arc Raiders.conf"), &content, &installed)
+        else {
+            panic!("expected a rekey");
+        };
+        for kept in [
+            "start_script = \"/home/u/start.sh\"",
+            "stop_script = \"/home/u/stop.sh\"",
+            "dmem_protect = true",
+            "disable_split_lock = true",
+        ] {
+            assert!(content.contains(kept), "{kept} lost: {content}");
+        }
+    }
+
+    #[test]
+    fn a_rekey_never_lands_on_a_profile_already_there() {
+        let root = std::env::temp_dir().join(format!(
+            "bgm-mig-collide-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("Arc Raiders.conf"), ARC).unwrap();
+        // The user already has one for the executable, in another case.
+        std::fs::write(
+            root.join("pioneer.conf"),
+            "name = \"pioneergame.exe\"\nperformance_mode = false\n",
+        )
+        .unwrap();
+        let installed = [game("ARC Raiders", "PioneerGame.exe")];
+        let actions = plan(&root, &installed);
+        assert!(
+            !actions.iter().any(|a| matches!(a, Action::Rekey { .. })),
+            "{actions:?}"
+        );
+        // Two titles onto one executable: the first is re-keyed, not both.
+        std::fs::remove_file(root.join("pioneer.conf")).unwrap();
+        std::fs::write(
+            root.join("Arc Raiders 2.conf"),
+            ARC.replace("Arc Raiders", "ARC Raiders"),
+        )
+        .unwrap();
+        let actions = plan(&root, &installed);
+        let rekeys = actions
+            .iter()
+            .filter(|a| matches!(a, Action::Rekey { .. }))
+            .count();
+        assert_eq!(rekeys, 1, "{actions:?}");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

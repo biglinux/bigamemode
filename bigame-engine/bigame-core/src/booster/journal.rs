@@ -13,7 +13,8 @@
 //! * **Boot awareness.** Every record carries the kernel's boot id. sysfs knobs
 //!   (governor, DPM level, V-Cache) reset themselves at boot, so a journal from
 //!   a previous boot must not be replayed against them — only knobs whose state
-//!   genuinely survives a reboot are worth restoring from a stale record.
+//!   genuinely survives a reboot are worth restoring from a stale record
+//!   ([`carried_over`]).
 
 use std::io::Write;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -22,6 +23,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use super::knob::Knob;
 use super::plan::Plan;
 use super::snapshot::Snapshot;
 
@@ -189,6 +191,47 @@ impl Journal {
             self.applied.push(knob_id);
         }
     }
+}
+
+/// What of a previous boot's `record` is still in force in this one, as a
+/// record of this boot (`boot_id`): the applied knobs whose state survives a
+/// reboot ([`Knob::survives_reboot`]) and that `read` finds still at the
+/// value Booster wrote. `None` when there is none, and the record goes.
+///
+/// A value that moved since is someone else's choice now, and putting the
+/// baseline back over it would be a new change, not a restoration.
+pub fn carried_over(
+    record: &Journal,
+    boot_id: &str,
+    read: impl Fn(&Knob) -> Option<String>,
+) -> Option<Journal> {
+    let kept: Vec<String> = record
+        .applied
+        .iter()
+        .filter(|id| {
+            record.plan.changes.iter().any(|c| {
+                c.knob.id() == **id
+                    && c.knob.survives_reboot()
+                    && read(&c.knob).as_deref() == Some(c.to.as_str())
+            })
+        })
+        .cloned()
+        .collect();
+    if kept.is_empty() || boot_id.is_empty() {
+        return None;
+    }
+    let mut snapshot = record.snapshot.clone();
+    snapshot.entries.retain(|id, _| kept.contains(id));
+    let mut plan = record.plan.clone();
+    plan.changes.retain(|c| kept.contains(&c.knob.id()));
+    Some(Journal {
+        format: FORMAT,
+        boot_id: boot_id.to_owned(),
+        activated_at: record.activated_at,
+        snapshot,
+        plan,
+        applied: kept,
+    })
 }
 
 #[cfg(test)]
@@ -386,6 +429,75 @@ mod tests {
         let f = Fixture::new("clear_absent");
         Journal::clear_at(f.path());
         Journal::clear_at(f.path());
+    }
+
+    fn boosted(profile_to: &str) -> Journal {
+        use crate::booster::plan::{Change, Risk};
+        let mut snapshot = sample_snapshot();
+        snapshot.entries.insert(
+            Knob::CpuGovernor.id(),
+            Captured {
+                knob: Knob::CpuGovernor,
+                value: Some("powersave".into()),
+            },
+        );
+        snapshot
+            .entries
+            .get_mut(&Knob::PowerProfile.id())
+            .unwrap()
+            .value = Some("balanced".into());
+        let change = |knob: Knob, from: &str, to: &str| Change {
+            knob,
+            from: from.into(),
+            to: to.into(),
+            rationale: String::new(),
+            risk: Risk::Thermal,
+        };
+        Journal {
+            format: FORMAT,
+            boot_id: "previous-boot".into(),
+            activated_at: 1,
+            snapshot,
+            plan: Plan {
+                changes: vec![
+                    change(Knob::PowerProfile, "balanced", profile_to),
+                    change(Knob::CpuGovernor, "powersave", "performance"),
+                ],
+                skipped: Vec::new(),
+            },
+            applied: vec![Knob::PowerProfile.id(), Knob::CpuGovernor.id()],
+        }
+    }
+
+    #[test]
+    fn a_power_profile_still_boosted_after_a_reboot_is_still_put_back() {
+        let stale = boosted("performance");
+        // power-profiles-daemon kept `performance` across the reboot; the
+        // governor reset itself with the kernel.
+        let read = |k: &Knob| match k {
+            Knob::PowerProfile => Some("performance".to_owned()),
+            _ => Some("powersave".to_owned()),
+        };
+        let carried = carried_over(&stale, "this-boot", read).expect("carried over");
+        assert_eq!(carried.boot_id, "this-boot");
+        assert_eq!(carried.applied, [Knob::PowerProfile.id()]);
+        assert_eq!(
+            carried.snapshot.value_of(&Knob::PowerProfile),
+            Some("balanced"),
+            "the baseline to put back"
+        );
+        assert!(carried.snapshot.value_of(&Knob::CpuGovernor).is_none());
+        assert_eq!(carried.plan.changes.len(), 1);
+    }
+
+    #[test]
+    fn a_power_profile_changed_since_is_left_to_whoever_changed_it() {
+        let stale = boosted("performance");
+        let read = |_: &Knob| Some("power-saver".to_owned());
+        assert!(carried_over(&stale, "this-boot", read).is_none());
+        // Nothing readable or no boot id: nothing to carry either.
+        assert!(carried_over(&stale, "this-boot", |_: &Knob| None).is_none());
+        assert!(carried_over(&stale, "", |_: &Knob| Some("performance".into())).is_none());
     }
 
     #[test]

@@ -223,7 +223,9 @@ pub fn for_installed(cache: &Path, source: &Source) -> Result<Release> {
     ))
 }
 
-/// A newer release to offer for a game that has `installed`.
+/// A newer release to offer for a game that has `installed`: the newest
+/// one known that the game list does not record as broken for this game
+/// (`bad`).
 ///
 /// Nothing is offered to a pinned game (the user chose to keep a version),
 /// for a version the user skipped, or when nothing newer is known.
@@ -232,15 +234,16 @@ pub fn offer(
     installed: &str,
     policy: &VersionPolicy,
     skipped: Option<&str>,
+    bad: &[String],
     known: &Known,
 ) -> Option<Release> {
     if matches!(policy, VersionPolicy::Pinned(_)) {
         return None;
     }
-    let latest = known.latest()?;
-    (compare_versions(&latest.version, installed).is_gt()
-        && skipped != Some(latest.version.as_str()))
-    .then(|| latest.clone())
+    let newest = known.releases.iter().find(|r| !bad.contains(&r.version))?;
+    (compare_versions(&newest.version, installed).is_gt()
+        && skipped != Some(newest.version.as_str()))
+    .then(|| newest.clone())
 }
 
 /// What an update offer looks like for one game.
@@ -367,17 +370,46 @@ mod tests {
     fn a_newer_release_is_offered_unless_pinned_or_skipped() {
         let k = known(&["0.9.5", "0.9.4"]);
         let rec = VersionPolicy::Recommended;
-        assert_eq!(offer("0.9.4", &rec, None, &k).unwrap().version, "0.9.5");
-        assert!(offer("0.9.5", &rec, None, &k).is_none());
-        assert!(offer("0.9.4", &rec, Some("0.9.5"), &k).is_none());
-        assert!(offer("0.9.4", &VersionPolicy::Pinned("0.9.4".into()), None, &k).is_none());
+        assert_eq!(
+            offer("0.9.4", &rec, None, &[], &k).unwrap().version,
+            "0.9.5"
+        );
+        assert!(offer("0.9.5", &rec, None, &[], &k).is_none());
+        assert!(offer("0.9.4", &rec, Some("0.9.5"), &[], &k).is_none());
+        assert!(
+            offer(
+                "0.9.4",
+                &VersionPolicy::Pinned("0.9.4".into()),
+                None,
+                &[],
+                &k
+            )
+            .is_none()
+        );
         // A skipped version does not hide a newer one.
         let k2 = known(&["0.9.6", "0.9.5"]);
         assert_eq!(
-            offer("0.9.4", &rec, Some("0.9.5"), &k2).unwrap().version,
+            offer("0.9.4", &rec, Some("0.9.5"), &[], &k2)
+                .unwrap()
+                .version,
             "0.9.6"
         );
-        assert!(offer("0.9.4", &rec, None, &Known::default()).is_none());
+        assert!(offer("0.9.4", &rec, None, &[], &Known::default()).is_none());
+    }
+
+    #[test]
+    fn a_release_the_game_list_records_as_broken_is_never_offered() {
+        let rec = VersionPolicy::Recommended;
+        let k = known(&["0.9.6", "0.9.5", "0.9.4"]);
+        let bad = ["0.9.6".to_owned()];
+        // The newest that is not broken here, when it is newer.
+        assert_eq!(
+            offer("0.9.4", &rec, None, &bad, &k).unwrap().version,
+            "0.9.5"
+        );
+        assert!(offer("0.9.5", &rec, None, &bad, &k).is_none());
+        let all_bad = ["0.9.6".to_owned(), "0.9.5".to_owned()];
+        assert!(offer("0.9.4", &rec, None, &all_bad, &k).is_none());
     }
 
     #[test]

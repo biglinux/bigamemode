@@ -230,6 +230,14 @@ pub async fn run<F: FnMut(MeasureProgress)>(
         ))
     );
 
+    // Recorded before the first optimized arm, as an activation is: a crash
+    // or a kill minutes into the measurement still leaves the knobs to be
+    // put back by the next start or Turbo off.
+    let journal = crate::booster::journal::Journal::path();
+    let guard = guard(plan, snapshot, &journal).context(UserError::plain(N_(
+        "could not record the machine's state before measuring; nothing was changed",
+    )))?;
+
     let mut baseline: Vec<FrameStats> = Vec::new();
     let mut optimized: Vec<FrameStats> = Vec::new();
 
@@ -239,7 +247,11 @@ pub async fn run<F: FnMut(MeasureProgress)>(
             for arm in [Arm::Baseline, Arm::Optimized] {
                 progress(MeasureProgress::Switching { to: arm });
                 match arm {
-                    Arm::Baseline => restore(plan, snapshot).await,
+                    // A knob that would not come back between arms weakens
+                    // the comparison; the final restore decides the record.
+                    Arm::Baseline => {
+                        restore(plan, snapshot).await;
+                    }
                     Arm::Optimized => apply(plan).await,
                 }
 
@@ -281,7 +293,8 @@ pub async fn run<F: FnMut(MeasureProgress)>(
 
     // Whatever happened, put the machine back.
     progress(MeasureProgress::Switching { to: Arm::Baseline });
-    restore(plan, snapshot).await;
+    let restored = restore(plan, snapshot).await;
+    release(guard, &journal, restored);
     outcome?;
 
     progress(MeasureProgress::Analysing);
@@ -332,11 +345,14 @@ async fn apply(plan: &Plan) {
     }
 }
 
-/// Put every knob the plan touches back to its captured value.
-async fn restore(plan: &Plan, snapshot: &Snapshot) {
+/// Put every knob the plan touches back to its captured value. Returns
+/// whether every one of them holds it.
+async fn restore(plan: &Plan, snapshot: &Snapshot) -> bool {
     let ids: Vec<String> = plan.changes.iter().map(|c| c.knob.id()).collect();
+    let mut all = true;
     for outcome in snapshot.restore_applied(&ids).await {
         if !outcome.status.is_ok() {
+            all = false;
             tracing::warn!(
                 target: "booster",
                 knob = %outcome.knob.id(),
@@ -345,11 +361,191 @@ async fn restore(plan: &Plan, snapshot: &Snapshot) {
             );
         }
     }
+    all
+}
+
+/// How a measurement's knobs are in the crash-recovery journal.
+#[derive(Debug, PartialEq, Eq)]
+enum Guard {
+    /// In a journal of the measurement's own.
+    Own,
+    /// Added to the journal of a Booster activation in force: these ids.
+    Added(Vec<String>),
+}
+
+/// Put the knobs `plan` changes in the journal at `path` before any is
+/// written. A journal of a Booster activation in force (this boot's) keeps
+/// its own baseline, which is the machine before Turbo: the measurement's
+/// knobs are added to it, with the measurement's baseline for a knob it
+/// did not capture.
+fn guard(plan: &Plan, snapshot: &Snapshot, path: &Path) -> Result<Guard> {
+    use crate::booster::journal::Journal;
+    let ids: Vec<String> = plan.changes.iter().map(|c| c.knob.id()).collect();
+    let Some(mut record) = Journal::load_from(path)?.filter(Journal::is_current_boot) else {
+        let mut record = Journal::new(snapshot.clone(), plan.clone());
+        for id in ids {
+            record.mark_applied(id);
+        }
+        record.save_to(path)?;
+        return Ok(Guard::Own);
+    };
+    let added: Vec<String> = ids
+        .into_iter()
+        .filter(|id| !record.applied.contains(id))
+        .collect();
+    for id in &added {
+        if let Some(entry) = snapshot.entries.get(id) {
+            record
+                .snapshot
+                .entries
+                .entry(id.clone())
+                .or_insert_with(|| entry.clone());
+        }
+        record.mark_applied(id.clone());
+    }
+    record.save_to(path)?;
+    Ok(Guard::Added(added))
+}
+
+/// Take the measurement's knobs out of the journal at `path` once every one
+/// of them is back (`restored`); otherwise the record stays for the next
+/// start or Turbo off to finish.
+fn release(guard: Guard, path: &Path, restored: bool) {
+    use crate::booster::journal::Journal;
+    if !restored {
+        tracing::warn!(target: "booster", "keeping the journal: a knob could not be put back after measuring");
+        return;
+    }
+    match guard {
+        Guard::Own => Journal::clear_at(path),
+        Guard::Added(ids) => {
+            let updated = Journal::load_from(path).and_then(|record| {
+                let Some(mut record) = record else {
+                    return Ok(());
+                };
+                record.applied.retain(|id| !ids.contains(id));
+                record.save_to(path)
+            });
+            if let Err(e) = updated {
+                tracing::warn!(target: "booster", error = %format!("{e:#}"), "could not take the measured knobs out of the journal");
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::booster::journal::Journal;
+    use crate::booster::knob::Knob;
+    use crate::booster::plan::{Change, Risk};
+    use crate::booster::snapshot::Captured;
+
+    struct Scratch(std::path::PathBuf);
+
+    impl Scratch {
+        fn new(tag: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "bigame_measure_{tag}_{}_{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+
+        fn journal(&self) -> std::path::PathBuf {
+            self.0.join("booster-journal.json")
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn governor_plan() -> (Plan, Snapshot) {
+        let plan = Plan {
+            changes: vec![Change {
+                knob: Knob::CpuGovernor,
+                from: "powersave".into(),
+                to: "performance".into(),
+                rationale: "x".into(),
+                risk: Risk::Thermal,
+            }],
+            skipped: Vec::new(),
+        };
+        let mut snapshot = Snapshot::default();
+        snapshot.entries.insert(
+            Knob::CpuGovernor.id(),
+            Captured {
+                knob: Knob::CpuGovernor,
+                value: Some("powersave".into()),
+            },
+        );
+        (plan, snapshot)
+    }
+
+    #[test]
+    fn a_measurement_is_journalled_until_its_knobs_are_back() {
+        let dir = Scratch::new("own");
+        let (plan, snapshot) = governor_plan();
+        let guard = guard(&plan, &snapshot, &dir.journal()).unwrap();
+        assert_eq!(guard, Guard::Own);
+        let record = Journal::load_from(&dir.journal()).unwrap().unwrap();
+        assert_eq!(record.applied, [Knob::CpuGovernor.id()]);
+        assert_eq!(
+            record.snapshot.value_of(&Knob::CpuGovernor),
+            Some("powersave")
+        );
+        // A knob that did not come back keeps the record.
+        release(Guard::Own, &dir.journal(), false);
+        assert!(dir.journal().exists());
+        release(Guard::Own, &dir.journal(), true);
+        assert!(!dir.journal().exists());
+    }
+
+    #[test]
+    fn a_measurement_under_turbo_adds_to_its_journal_and_leaves_it_as_it_was() {
+        if Journal::current_boot_id().is_empty() {
+            return;
+        }
+        let dir = Scratch::new("added");
+        // Turbo's activation: the power profile, from balanced.
+        let mut turbo = Journal::new(Snapshot::default(), Plan::default());
+        turbo.snapshot.entries.insert(
+            Knob::PowerProfile.id(),
+            Captured {
+                knob: Knob::PowerProfile,
+                value: Some("balanced".into()),
+            },
+        );
+        turbo.mark_applied(Knob::PowerProfile.id());
+        turbo.save_to(&dir.journal()).unwrap();
+
+        let (plan, snapshot) = governor_plan();
+        let guard = guard(&plan, &snapshot, &dir.journal()).unwrap();
+        assert_eq!(guard, Guard::Added(vec![Knob::CpuGovernor.id()]));
+        let during = Journal::load_from(&dir.journal()).unwrap().unwrap();
+        assert_eq!(
+            during.applied,
+            [Knob::PowerProfile.id(), Knob::CpuGovernor.id()]
+        );
+        assert_eq!(
+            during.snapshot.value_of(&Knob::PowerProfile),
+            Some("balanced")
+        );
+
+        release(guard, &dir.journal(), true);
+        let after = Journal::load_from(&dir.journal()).unwrap().unwrap();
+        assert_eq!(
+            after.applied,
+            [Knob::PowerProfile.id()],
+            "Turbo's record as it was"
+        );
+    }
 
     fn stats(low: f64) -> FrameStats {
         FrameStats {
