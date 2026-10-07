@@ -4,7 +4,10 @@ target/
 # makepkg working directories and packages
 /src/
 /pkg/
-/pkgbuild/
+# makepkg run from pkgbuild/: its work trees and the source clone.
+/pkgbuild/src/
+/pkgbuild/pkg/
+/pkgbuild/bigame-mode/
 *.pkg.tar
 *.pkg.tar.*
 *.src.tar.gz
