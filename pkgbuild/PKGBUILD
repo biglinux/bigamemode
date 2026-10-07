@@ -82,7 +82,10 @@ sha256sums=('SKIP')
 _cargo_env() {
     export CARGO_HOME="${srcdir}/cargo-home"
     export CARGO_TARGET_DIR="${srcdir}/${pkgname}/bigame-engine/target"
-    export RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }--remap-path-prefix=${srcdir}=."
+    # The package runs on any x86-64 processor, as arch=('x86_64') promises:
+    # a builder whose makepkg.conf asks for its own CPU (target-cpu=native)
+    # must not make it need that CPU. The last -C target-cpu given wins.
+    export RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }--remap-path-prefix=${srcdir}=. -C target-cpu=x86-64"
 }
 
 prepare() {
