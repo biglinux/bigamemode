@@ -1,4 +1,8 @@
-name: Backend and GTK regression tests
+name: Backend tests
+
+# The code: formatting, Clippy, the workspace's tests, rustdoc links, the
+# privileged helper's authorization refusals and the translations. The
+# package itself is build-package.yml's. See docs/ci-workflows-audit.md.
 
 on:
   pull_request:
@@ -10,108 +14,180 @@ permissions:
   contents: read
 
 concurrency:
-  group: backend-tests-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: backend-tests-${{ github.ref }}
+  # A newer commit on a pull request makes the older run moot; every commit
+  # on main keeps its own result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  regression:
+  rust:
+    name: Rust workspace, helper authorization and translations
     runs-on: ubuntu-24.04
-    # Arch's own repositories, the ones the package is built from. --init: an
-    # init as PID 1 reaps orphans, as systemd does; the default `tail` does
-    # not, and a killed game's grandchild would linger as a zombie in its
-    # process group (launcher's terminate test).
+    # Arch's own repositories, the ones the package is built from.
     container:
       image: archlinux:base-devel
+      # An init as PID 1 reaps orphans, as systemd does; the default one does
+      # not, and a killed game's grandchild would linger as a zombie in its
+      # process group (launcher's terminate test).
       options: --init
     timeout-minutes: 30
     defaults:
       run:
+        # bash -eo pipefail: a failing command, or any stage of a pipe into
+        # tee, fails the step.
         shell: bash
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - name: Install test dependencies
+      - name: Prepare Arch environment
         run: |
+          set -Eeuo pipefail
+          # rust: cargo, rustfmt and Clippy. gtk4, libadwaita, glib2: what
+          # bigame-ui links and its build script runs (glib-compile-resources).
+          # dbus (and busctl, from the base image's systemd): the helper's
+          # authorization test. python, gettext: the translations.
           pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext
           useradd --create-home builder
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check out the commit under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # As an ordinary user, as makepkg runs check(): tests of permission
-      # refusals (a read-only directory, a file the user owns) pass under
-      # root for the wrong reason, or fail.
+
+      # Everything runs as an ordinary user, as makepkg's check() does: tests
+      # of permission refusals (a read-only directory, a file the user owns)
+      # pass under root for the wrong reason, or fail.
       - name: Hand the checkout to the build user
-        run: chown -R builder:builder "$GITHUB_WORKSPACE"
-      - name: Record the tested revision and installed versions
+        id: setup
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          set -Eeuo pipefail
+          chown -R builder:builder "$GITHUB_WORKSPACE"
           {
-            printf 'Checked-out commit: '; git rev-parse HEAD
-            printf 'Checked-out tree: '; git rev-parse 'HEAD^{tree}'
-            rustc --version
-            cargo --version
+            printf 'Commit: '; runuser -u builder -- git rev-parse HEAD
+            runuser -u builder -- rustc --version
+            runuser -u builder -- cargo --version
+            runuser -u builder -- cargo clippy --version
+            runuser -u builder -- rustfmt --version
+            echo
             pacman -Q
-          } 2>&1 | tee ci-versions.log
-      - name: Check formatting
+          } > ci-versions.log
+          head -n 5 ci-versions.log
+
+      # Each check below runs whenever the setup succeeded, so one run
+      # reports every failing check, not only the first. Any failure still
+      # fails the job.
+      - name: Check Rust formatting
+        id: fmt
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         working-directory: bigame-engine
         run: runuser -u builder -- cargo fmt --all --check
-      - name: Check with Clippy, warnings are errors
+
+      - name: Run Clippy
+        id: clippy
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         working-directory: bigame-engine
-        # assert_is_empty (Rust 1.99) would turn the tests' assert!(x.is_empty())
-        # into assert_eq!(x, [] as [String; 0]). It is allowed here rather than
-        # in Cargo.toml, where older toolchains would warn on every build.
-        run: runuser -u builder -- cargo clippy --locked --workspace --all-targets --all-features -- -D warnings -A clippy::assert_is_empty
-      - name: Test the backend, the helper and the interface
+        # clippy::assert_is_empty (new in Clippy 1.99) would turn the tests'
+        # assert!(x.is_empty()) into assert_eq!(x, [] as [String; 0]); the
+        # project keeps the former (README, Development). It is allowed here
+        # rather than in Cargo.toml, where an older Clippy rejects the unknown
+        # lint name. Arch's rust is the current stable release, so it exists.
+        run: >-
+          runuser -u builder -- cargo clippy --locked --workspace --all-targets --all-features
+          -- -D warnings -A clippy::assert_is_empty
+
+      - name: Run workspace tests
         id: tests
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         working-directory: bigame-engine
-        # Explicit bash uses -eo pipefail: tee cannot turn a test failure green.
+        # No display and no session bus: no test opens a GTK window or talks
+        # to D-Bus (the helper's bus test is the step after next).
         run: runuser -u builder -- cargo test --locked --workspace 2>&1 | tee ../cargo-test.log
-      - name: Check that every intra-doc link resolves
+
+      - name: Check Rust documentation
+        id: doc
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         working-directory: bigame-engine
-        env:
-          RUSTDOCFLAGS: -D warnings
-        run: runuser -u builder -- cargo doc --locked --workspace --no-deps
-      - name: Test that the helper refuses what it cannot authorize
+        # -D warnings: every intra-doc link must resolve.
+        run: runuser -u builder -- env RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --no-deps
+
+      - name: Test helper authorization
+        id: authorization
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
-          runuser -u builder -- cargo build --locked --manifest-path bigame-engine/Cargo.toml -p bigame-daemon
+          set -Eeuo pipefail
+          # --workspace: the feature set the tests were built with, so only
+          # the binary is linked, nothing rebuilt.
+          runuser -u builder -- cargo build --locked --manifest-path bigame-engine/Cargo.toml \
+            --workspace --bin bigame-daemon
+          # On a private bus, as an ordinary user, with no Polkit: every
+          # privileged method must be refused before it acts.
           runuser -u builder -- bash tests/daemon-authorization.sh \
-            "$GITHUB_WORKSPACE/bigame-engine/target/debug/bigame-daemon" 2>&1 | tee daemon-authorization.log
-      - name: Check the translation template and catalogues
+            bigame-engine/target/debug/bigame-daemon 2>&1 | tee daemon-authorization.log
+
+      - name: Validate translations
+        id: translations
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
-          python3 locale/extract-strings.py --check
+          set -Eeuo pipefail
+          # The template matches the sources, and LINGUAS lists every catalogue.
+          runuser -u builder -- python3 locale/extract-strings.py --check
+          count=0
           for po in locale/*.po; do
             msgfmt --check --check-format -o /dev/null "$po"
+            count=$((count + 1))
           done
-      - name: Report regression results
-        if: ${{ !cancelled() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+          echo "$count catalogues valid"
+
+      - name: Write test summary
+        if: ${{ !cancelled() }}
+        env:
+          FMT: ${{ steps.fmt.outcome }}
+          CLIPPY: ${{ steps.clippy.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          DOC: ${{ steps.doc.outcome }}
+          AUTHORIZATION: ${{ steps.authorization.outcome }}
+          TRANSLATIONS: ${{ steps.translations.outcome }}
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-          log = Path('cargo-test.log')
-          if not log.is_file():
-              raise SystemExit('Tests did not finish: inspect cargo-test.log.')
-          counts = {'passed': 0, 'failed': 0, 'ignored': 0}
-          for m in re.finditer(r'test result: \w+\. (\d+) passed; (\d+) failed; (\d+) ignored', log.read_text()):
-              for key, value in zip(counts, m.groups()):
-                  counts[key] += int(value)
-          print(json.dumps(counts, sort_keys=True))
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
-              f.write('### Backend / GTK regression results\n\n```json\n'
-                      + json.dumps(counts, indent=2) + '\n```\n')
-          if not counts['passed'] or counts['failed']:
-              raise SystemExit('Expected passing regressions with no failures.')
-          PY
-      - name: Preserve regression diagnostics
+          set -Eeuo pipefail
+          result() {
+            case "$1" in
+              success) echo PASS ;; failure) echo FAIL ;; *) echo "not run" ;;
+            esac
+          }
+          # Totals for the reader only: cargo's exit status is what passes or
+          # fails the tests, so a change in its output format cannot turn a
+          # run red or green here.
+          totals='not available'
+          if [[ -s cargo-test.log ]]; then
+            totals=$(sed 's/\x1b\[[0-9;]*m//g' cargo-test.log | grep -oE '[0-9]+ passed; [0-9]+ failed; [0-9]+ ignored' |
+              awk '{ p += $1; f += $3; i += $5; n++ } END { if (n) printf "%d passed, %d failed, %d ignored", p, f, i }')
+            totals=${totals:-not available}
+          fi
+          {
+            echo '## Big Game Mode backend tests'
+            echo
+            echo "Commit \`$GITHUB_SHA\`, $(sed -n 2p ci-versions.log 2>/dev/null)"
+            echo
+            echo '| Check | Result |'
+            echo '|---|---|'
+            echo "| Rustfmt | $(result "$FMT") |"
+            echo "| Clippy, warnings as errors | $(result "$CLIPPY") |"
+            echo "| Workspace tests ($totals) | $(result "$TESTS") |"
+            echo "| Rustdoc, warnings as errors | $(result "$DOC") |"
+            echo "| Helper authorization | $(result "$AUTHORIZATION") |"
+            echo "| Translations | $(result "$TRANSLATIONS") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: backend-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          name: backend-test-logs-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             cargo-test.log
             daemon-authorization.log
             ci-versions.log
+          # Logs are a help, not a check: an early failure leaves none, and
+          # that must not add an error of its own.
+          if-no-files-found: ignore
           retention-days: 14
-          if-no-files-found: warn
