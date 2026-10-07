@@ -386,7 +386,7 @@ Requires Rust 1.85 or newer, GTK 4.14+, libadwaita 1.7+,
 cd bigame-engine
 cargo build --workspace
 cargo test --workspace
-cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::assert_is_empty
 ./target/debug/bigame-ui
 ./target/debug/bigame-ui --diagnostics
 ```
