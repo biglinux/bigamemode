@@ -9,7 +9,7 @@ One switch for per-game performance, presets for what games should favour,
 AI Graphics with full backup and undo, and a page that shows — with evidence —
 what is really in effect.
 
-[![Version](https://img.shields.io/badge/version-2.3.0-6c5ce7?style=for-the-badge)](https://github.com/ruscher/bigamemode/releases)
+[![Version](https://img.shields.io/badge/version-2.3.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -222,7 +222,7 @@ Big Game Mode builds and installs from the official Arch repositories alone
 
 ```bash
 sudo pacman -S --needed base-devel git
-git clone https://github.com/ruscher/bigamemode.git
+git clone https://github.com/biglinux/bigamemode.git
 cd bigamemode
 makepkg -si
 ```

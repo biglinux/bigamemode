@@ -5,7 +5,7 @@ pkgver=2.3.0
 pkgrel=1
 pkgdesc="Big Game Mode, BigLinux's game mode: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets"
 arch=('x86_64')
-url="https://github.com/ruscher/bigamemode"
+url="https://github.com/biglinux/bigamemode"
 license=('GPL-3.0-or-later')
 # Every dependency is in Arch's own repositories (core, extra). What only
 # some distributions carry, and what only some features need, is optional:
