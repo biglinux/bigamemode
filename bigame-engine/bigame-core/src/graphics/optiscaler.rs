@@ -1517,9 +1517,20 @@ mod tests {
             prune_cache(p, &keep, std::time::Duration::from_secs(day)),
             0
         );
-        // Once the fetch lets go, the unused release goes too.
+        // Once the fetch lets go, the unused release goes too. A process
+        // another test starts at that moment shares the lock's descriptor
+        // until it executes (O_CLOEXEC closes it only then), so the lock can
+        // outlive drop() for an instant; a later prune takes the release.
         drop(held);
-        assert!(prune_cache(p, &keep, std::time::Duration::from_secs(day)) >= 110);
+        let mut freed = 0;
+        for _ in 0..200 {
+            freed = prune_cache(p, &keep, std::time::Duration::from_secs(day));
+            if freed > 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(freed >= 110, "{freed}");
         assert!(!p.join("0.9.2").exists());
     }
 

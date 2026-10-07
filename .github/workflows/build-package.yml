@@ -1,76 +1,354 @@
 name: Build Package
 
+# Builds the commit under test with pkgbuild/PKGBUILD, in Arch's own
+# container, validates the package and keeps it as an artifact. Pushes and
+# manual runs that ask for it then hand the branch to the BigLinux package
+# builders, only once that package has built and passed every check.
+# See docs/ci-workflows-audit.md.
+
 on:
-  workflow_dispatch:
   pull_request:
   push:
-    branches: ['**']
+    # '*' does not match '/': main, testing-*, stable-* and other plain
+    # branch names, which the BigLinux builders' hook has always covered.
+    # Topic branches (fix/…, feat/…) are built through their pull request.
+    branches: ['*']
+  workflow_dispatch:
+    inputs:
+      send-to-builders:
+        description: Hand this branch to the BigLinux package builders once the package passes
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+concurrency:
+  group: build-package-${{ github.ref }}
+  # A newer commit on a pull request makes the older build moot. Pushes are
+  # never cancelled: each one is handed to the package builders.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  build:
+  package:
+    name: Build and validate the Arch package
     runs-on: ubuntu-24.04
-    # --init: check() runs launcher's terminate test, which needs a PID 1 that
-    # reaps orphans, as systemd does; the container's default `tail` does not.
     container:
       image: archlinux:base-devel
+      # check() runs launcher's terminate test, which needs a PID 1 that
+      # reaps orphans, as systemd does; the container's default one does not.
       options: --init
-    timeout-minutes: 40
+    timeout-minutes: 45
     defaults:
       run:
+        # bash -eo pipefail: a failing command, or any stage of a pipe into
+        # tee, fails the step.
         shell: bash
     steps:
-      - name: Install package build dependencies
+      - name: Prepare Arch environment
         run: |
-          pacman -Syu --noconfirm --needed git sudo namcap desktop-file-utils gettext appstream
-          useradd -m builder
-          # makepkg --syncdeps installs the recipe's own depends and makedepends.
+          set -Eeuo pipefail
+          # git for a real checkout (git archive); the rest for the checks.
+          # makepkg --syncdeps installs the recipe's depends and makedepends.
+          pacman -Syu --noconfirm --needed git namcap desktop-file-utils appstream libxml2
+          useradd --create-home builder
+          # makepkg refuses root. The build user may run pacman, and only
+          # pacman, through sudo, which --syncdeps needs.
           echo 'builder ALL=(root) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          chmod 0440 /etc/sudoers.d/builder
+          visudo -cf /etc/sudoers.d/builder
+
+      - name: Check out the commit under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build the checked-out sources
+
+      - name: Prepare the PKGBUILD for this commit
+        id: source
         run: |
-          # pkgbuild/PKGBUILD fetches main from GitHub; here it builds this
-          # commit's files instead, everything else in the recipe unchanged.
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          mkdir package-build
-          git ls-files -z | tar --null --transform='s,^,bigame-mode/,' \
-            -T - -czf package-build/source.tar.gz
-          cp pkgbuild/PKGBUILD pkgbuild/bigame-mode.install package-build/
-          printf '\nsource=(source.tar.gz)\nsha256sums=(%s)\n' \
-            "$(sha256sum package-build/source.tar.gz | cut -d ' ' -f 1)" >> package-build/PKGBUILD
-          chown -R builder:builder package-build
-          runuser -u builder -- bash -c 'cd package-build && makepkg --syncdeps --cleanbuild --noconfirm'
-      - name: Validate the built package
+          set -Eeuo pipefail
+          # For a pull request, GITHUB_SHA is the merge commit actions/checkout
+          # checked out; for a push, the pushed commit.
+          head=$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)
+          if [[ "$head" != "$GITHUB_SHA" ]]; then
+            echo "::error::checked out $head, but this run is for $GITHUB_SHA"
+            exit 1
+          fi
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          # The recipe as committed, its git source replaced by this commit.
+          runuser -u builder -- .github/scripts/prepare-package-source.sh package-build
+
+      - name: Build Arch package
+        id: build
+        working-directory: package-build
+        # The recipe's own prepare(), build(), check() and package(): the LTO
+        # release build and the test suite in release mode, as the BigLinux
+        # builders run them. --log keeps each stage's output beside it.
+        run: runuser -u builder -- makepkg --syncdeps --cleanbuild --noconfirm --log
+
+      - name: Identify the built packages
+        id: packages
+        working-directory: package-build
         run: |
-          # The package itself: Arch's makepkg.conf also builds bigame-mode-debug.
-          package=$(find package-build -maxdepth 1 -name 'bigame-mode-[0-9]*.pkg.tar.zst' -print -quit)
-          test -n "$package"
-          namcap package-build/PKGBUILD "$package" | tee package-build/namcap.log
-          if grep -q ' E: ' package-build/namcap.log; then exit 1; fi
-          mkdir package-build/installed
-          tar -xf "$package" -C package-build/installed
-          desktop-file-validate package-build/installed/usr/share/applications/*.desktop
-          test -x package-build/installed/usr/bin/bigame-ui
-          test -x package-build/installed/usr/bin/bigame-daemon
-          test -s package-build/installed/usr/lib/systemd/system/bigame-daemon.service
-          test -s package-build/installed/usr/share/polkit-1/actions/com.biglinux.BiGameMode.policy
-          test -s package-build/installed/usr/share/locale/pt_BR/LC_MESSAGES/bigame-mode.mo
-          test -s package-build/installed/usr/share/licenses/bigame-mode/LICENSE
-          appstreamcli validate --no-net package-build/installed/usr/share/metainfo/*.xml
-          grep -q 'https://github.com/biglinux/bigamemode' package-build/installed/usr/share/metainfo/*.xml
-          version=$(grep -m1 '^version' bigame-engine/Cargo.toml | cut -d '"' -f 2)
-          test "$(pacman -Qp "$package" | cut -d ' ' -f 2)" = "$version-$(sed -n 's/^pkgrel=//p' pkgbuild/PKGBUILD)"
-          sha256sum "$package" > package-build/SHA256SUMS
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
+          set -Eeuo pipefail
+          pkgname=$(runuser -u builder -- makepkg --printsrcinfo | sed -n 's/^pkgname = //p')
+          # makepkg's own list rather than a glob: Arch's makepkg.conf also
+          # builds <pkgname>-debug, and a glob could take one for the other.
+          mapfile -t built < <(runuser -u builder -- makepkg --packagelist)
+          main='' debug=''
+          for path in "${built[@]}"; do
+            if [[ ! -f "$path" ]]; then
+              echo "::error::makepkg lists $path, but it was not built"
+              exit 1
+            fi
+            name=$(pacman -Qpq "$path")
+            case "$name" in
+              "$pkgname") main=$(basename "$path") ;;
+              "$pkgname-debug") debug=$(basename "$path") ;;
+              *) echo "::error::unexpected package $name"; exit 1 ;;
+            esac
+          done
+          if [[ -z "$main" ]]; then
+            echo "::error::no $pkgname package was built"
+            exit 1
+          fi
+          echo "Package:       $main"
+          echo "Debug package: ${debug:-none}"
+          {
+            echo "pkgname=$pkgname"
+            echo "main=$main"
+            echo "debug=$debug"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate package metadata
+        id: metadata
+        working-directory: package-build
+        env:
+          PACKAGE: ${{ steps.packages.outputs.main }}
+          PKGNAME: ${{ steps.packages.outputs.pkgname }}
+        run: |
+          set -Eeuo pipefail
+          LC_ALL=C pacman -Qip "$PACKAGE" | tee package-info.txt
+          pacman -Qlp "$PACKAGE" > package-files.txt
+          srcinfo=$(runuser -u builder -- makepkg --printsrcinfo)
+          field() { sed -n "s/^[[:space:]]$1 = //p" <<<"$srcinfo" | head -n 1; }
+          epoch=$(field epoch)
+          version="${epoch:+$epoch:}$(field pkgver)-$(field pkgrel)"
+          arch=$(field arch)
+          cargo=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^version *= *"\([^"]*\)".*/\1/p' ../bigame-engine/Cargo.toml)
+          appstream=$(grep -o -m 1 '<release version="[^"]*"' ../data/com.biglinux.BiGameMode.metainfo.xml | cut -d '"' -f 2)
+          built_arch=$(sed -n 's/^Architecture *: //p' package-info.txt)
+          failed=0
+          check() {
+            if [[ "$2" == "$3" ]]; then
+              printf '  ok    %-28s %s\n' "$1" "$2"
+            else
+              printf '  FAIL  %-28s %s, expected %s\n' "$1" "$2" "$3"
+              failed=1
+            fi
+          }
+          check 'package name and version' "$(pacman -Qp "$PACKAGE")" "$PKGNAME $version"
+          check 'architecture' "$built_arch" "$arch"
+          check 'Cargo workspace version' "$cargo" "$(field pkgver)"
+          check 'newest AppStream release' "$appstream" "$(field pkgver)"
+          echo "  $(wc -l < package-files.txt) entries in the package (package-files.txt)"
+          if (( failed )); then
+            echo "::error::the package's version or architecture disagrees with the sources"
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            # An artifact name cannot hold the ':' of an epoch.
+            echo "artifact=bigame-mode-${version//:/.}-${GITHUB_SHA:0:12}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate package contents
+        id: contents
+        env:
+          PACKAGE: ${{ steps.packages.outputs.main }}
+        run: .github/scripts/check-package-contents.sh "package-build/$PACKAGE" package-build/package-root
+
+      - name: Validate desktop entry
+        id: desktop
+        # The installed entry, with every catalogue merged in by msgfmt.
+        run: desktop-file-validate package-build/package-root/usr/share/applications/com.biglinux.BiGameMode.desktop
+
+      - name: Validate AppStream metadata
+        id: appstream
+        run: |
+          set -Eeuo pipefail
+          metainfo=package-build/package-root/usr/share/metainfo/com.biglinux.BiGameMode.metainfo.xml
+          appstreamcli validate --no-net --explain "$metainfo"
+          # Every project address is this repository, not a fork or an
+          # earlier home.
+          failed=0
+          while IFS= read -r url; do
+            if [[ "$url" == https://github.com/biglinux/bigamemode || "$url" == https://github.com/biglinux/bigamemode/* ]]; then
+              echo "  ok    $url"
+            else
+              echo "  FAIL  $url is not https://github.com/biglinux/bigamemode"
+              failed=1
+            fi
+          done < <(sed -n 's:.*<url type="[^"]*">\(.*\)</url>.*:\1:p' "$metainfo")
+          (( ! failed ))
+
+      - name: Run namcap
+        id: namcap
+        working-directory: package-build
+        env:
+          PACKAGE: ${{ steps.packages.outputs.main }}
+        run: |
+          set -Eeuo pipefail
+          # The real recipe, not the CI copy with its source override, and
+          # the package (not the debug package, whose build-id links point
+          # into the package by design).
+          namcap ../pkgbuild/PKGBUILD "$PACKAGE" | tee namcap.log
+          count() { awk -v tag=" $1: " 'index($0, tag) { n++ } END { print n + 0 }' namcap.log; }
+          errors=$(count E) warnings=$(count W)
+          echo "errors=$errors" >> "$GITHUB_OUTPUT"
+          echo "warnings=$warnings" >> "$GITHUB_OUTPUT"
+          # Errors fail the build. Warnings are reviewed in
+          # docs/ci-workflows-audit.md and shown in the run summary: the
+          # owned empty directories, libraries GTK already pulls in, and
+          # programs or services the package runs rather than links.
+          if (( errors )); then
+            echo "::error::namcap reported $errors error(s); see namcap.log"
+            exit 1
+          fi
+
+      - name: Write SHA256SUMS
+        id: checksums
+        working-directory: package-build
+        env:
+          PACKAGE: ${{ steps.packages.outputs.main }}
+          DEBUG_PACKAGE: ${{ steps.packages.outputs.debug }}
+        run: |
+          set -Eeuo pipefail
+          sha256sum -- "$PACKAGE" ${DEBUG_PACKAGE:+"$DEBUG_PACKAGE"} | tee SHA256SUMS
+
+      - name: Write build report
+        if: ${{ !cancelled() }}
+        env:
+          SOURCE: ${{ steps.source.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          PACKAGES: ${{ steps.packages.outcome }}
+          METADATA: ${{ steps.metadata.outcome }}
+          CONTENTS: ${{ steps.contents.outcome }}
+          DESKTOP: ${{ steps.desktop.outcome }}
+          APPSTREAM: ${{ steps.appstream.outcome }}
+          NAMCAP: ${{ steps.namcap.outcome }}
+          NAMCAP_ERRORS: ${{ steps.namcap.outputs.errors }}
+          NAMCAP_WARNINGS: ${{ steps.namcap.outputs.warnings }}
+          CHECKSUMS: ${{ steps.checksums.outcome }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          set -Eeuo pipefail
+          result() {
+            case "$1" in
+              success) echo PASS ;; failure) echo FAIL ;; *) echo "not run" ;;
+            esac
+          }
+          mkdir -p package-build
+          {
+            echo '## Big Game Mode package build'
+            echo
+            echo "Commit \`$GITHUB_SHA\`${VERSION:+, bigame-mode $VERSION}"
+            echo
+            echo '| Check | Result |'
+            echo '|---|---|'
+            echo "| PKGBUILD prepared for this commit | $(result "$SOURCE") |"
+            echo "| makepkg (build, check, package) | $(result "$BUILD") |"
+            echo "| Package and debug package identified | $(result "$PACKAGES") |"
+            echo "| Package metadata and versions | $(result "$METADATA") |"
+            echo "| Package contents | $(result "$CONTENTS") |"
+            echo "| Desktop entry | $(result "$DESKTOP") |"
+            echo "| AppStream metadata | $(result "$APPSTREAM") |"
+            echo "| namcap${NAMCAP_ERRORS:+ ($NAMCAP_ERRORS errors, $NAMCAP_WARNINGS warnings)} | $(result "$NAMCAP") |"
+            echo "| SHA256SUMS | $(result "$CHECKSUMS") |"
+            if [[ -s package-build/SHA256SUMS ]]; then
+              echo
+              echo '```'
+              cat package-build/SHA256SUMS
+              echo '```'
+            fi
+            if [[ -s package-build/namcap.log ]]; then
+              echo
+              echo '<details><summary>namcap</summary>'
+              echo
+              echo '```'
+              cat package-build/namcap.log
+              echo '```'
+              echo '</details>'
+            fi
+          } | tee package-build/build-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: package-${{ github.sha }}
+          name: ${{ steps.metadata.outputs.artifact }}
+          # The package and its debug package, their checksums, namcap's
+          # report, the package's file list and the makepkg logs.
           path: |
-            package-build/bigame-mode-*.pkg.tar.zst
-            package-build/namcap.log
+            package-build/*.pkg.tar.zst
             package-build/SHA256SUMS
+            package-build/package-info.txt
+            package-build/package-files.txt
+            package-build/build-report.md
+            package-build/*.log
           if-no-files-found: error
+          # A re-run of this job replaces the attempt before it.
+          overwrite: true
+          retention-days: 30
+
+      # Only after a failure, and never an error of its own: the step that
+      # failed is the one to read, whatever logs exist are kept to help.
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bigame-mode-build-logs-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            package-build/*.log
+            package-build/package-info.txt
+            package-build/build-report.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+  notify-builders:
+    name: Hand the branch to the BigLinux package builders
+    needs: package
+    # Every push to biglinux/bigamemode, as the builders' hook always did; a
+    # manual run only when asked to. Never a pull request: it has no secret,
+    # and its code is not the branch's yet.
+    if: >-
+      github.repository == 'biglinux/bigamemode' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.send-to-builders))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Uses only the organization's WEBHOOK_TOKEN; no GITHUB_TOKEN permission.
+    permissions: {}
+    steps:
+      - name: Send repository_dispatch to BigLinux-Package-Build
+        shell: bash
+        env:
+          WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "$WEBHOOK_TOKEN" ]]; then
+            echo "::error::the WEBHOOK_TOKEN secret is not available to this run"
+            exit 1
+          fi
+          # x86_64 only (arch=('x86_64') in pkgbuild/PKGBUILD): no ARM builder.
+          payload=$(jq -cn --arg repo "$GITHUB_REPOSITORY" --arg branch "$BRANCH" \
+            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            '{event_type: $repo, client_payload: {branch: $branch, url: $url}}')
+          echo "Dispatching: $payload"
+          # --fail-with-body: a refused token fails the run instead of passing.
+          curl --fail-with-body --silent --show-error --max-time 30 -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: token $WEBHOOK_TOKEN" \
+            --data "$payload" \
+            https://api.github.com/repos/BigLinux-Package-Build/build-package/dispatches
+          echo "Branch $BRANCH handed to the BigLinux package builders." >> "$GITHUB_STEP_SUMMARY"
