@@ -23,6 +23,7 @@ pub mod hardware;
 pub mod health;
 pub mod heroic_launch;
 pub mod inventory;
+pub mod isa;
 pub mod launcher;
 pub mod launchers;
 pub mod library;
