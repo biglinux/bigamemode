@@ -189,8 +189,18 @@ impl Problems {
         add(
             snap.turbo_state(),
             &i18n("Turbo"),
-            match snap.turbo_state() {
-                State::Error => {
+            match (snap.turbo_state(), &snap.backend_failure) {
+                // The cause systemd gives, explained: an illegal instruction
+                // is a package built for a newer CPU, which turning Turbo off
+                // and on again only repeats.
+                (State::Error, Some(failure)) => {
+                    let why = bigame_core::turbo::explain_backend_failure(
+                        failure,
+                        &bigame_core::isa::CpuIsa::detect(),
+                    );
+                    format!("{} {}", tr(&why.summary), tr(&why.advice))
+                }
+                (State::Error, None) => {
                     i18n("falcond's service failed; turn Turbo off and on again, and see Logs.")
                 }
                 _ => i18n("falcond is not installed, so there is no per-game optimization."),

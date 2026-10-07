@@ -130,6 +130,42 @@ fn date(when: libc::time_t) -> String {
     )
 }
 
+/// How falcond's service last ended, as systemd reports it, and the cause
+/// in plain words when it failed: the lines that answer a "Turbo does not
+/// stay on" report at once.
+fn falcond_exit_lines(unit: &crate::systemd::UnitState, isa: &crate::isa::CpuIsa) -> Vec<String> {
+    let Some(run) = &unit.service else {
+        return Vec::new();
+    };
+    let code = match run.main_code {
+        0 => "none".to_owned(),
+        1 => "exited".to_owned(),
+        2 => "killed".to_owned(),
+        3 => "dumped".to_owned(),
+        n => n.to_string(),
+    };
+    let mut lines = vec![format!(
+        "  falcond run  result {} · main process code={code} status={}",
+        run.result, run.main_status
+    )];
+    if let Some(failure) = run.failure() {
+        let mut line = format!("  last failure {}", failure.describe());
+        if run.start_limit_hit() {
+            line.push_str(" · systemd stopped restarting it (start-limit-hit)");
+        }
+        if failure == crate::systemd::Failure::IllegalInstruction && isa.below_v3() {
+            let _ = write!(
+                line,
+                " · this CPU is x86-64-v{} (no {}): falcond appears built for a newer level",
+                isa.level().unwrap_or(1),
+                isa.missing_for_v3().join("/")
+            );
+        }
+        lines.push(line);
+    }
+    lines
+}
+
 /// What Big Game Mode itself is doing: the first thing support asks.
 fn section_bigame(out: &mut String) {
     use crate::turbo::Section;
@@ -152,10 +188,13 @@ fn section_bigame(out: &mut String) {
                 "  falcond unit {} · {} · {} automatic restart(s)",
                 u.active_state,
                 u.unit_file_state,
-                reader
-                    .and_then(|r| r.restarts(crate::turbo::BACKEND_UNIT))
-                    .map_or_else(|| "unknown".to_owned(), |n| n.to_string())
+                u.service
+                    .as_ref()
+                    .map_or_else(|| "unknown".to_owned(), |s| s.restarts.to_string())
             );
+            for line in falcond_exit_lines(u, &crate::isa::CpuIsa::detect()) {
+                let _ = writeln!(out, "{line}");
+            }
         }
         Some(_) => {
             let _ = writeln!(out, "  falcond unit not installed");
@@ -280,6 +319,8 @@ fn section_cpu(out: &mut String, hw: &Hardware) {
     let cpu = &hw.cpu;
     let _ = writeln!(out, "── CPU ──");
     let _ = writeln!(out, "  model        {}", cpu.model);
+    let isa = crate::isa::CpuIsa::detect();
+    let _ = writeln!(out, "  {}", isa_line(&isa));
     let _ = writeln!(
         out,
         "  topology     {} cores / {} threads, SMT {}, hybrid {}",
@@ -320,6 +361,20 @@ fn section_cpu(out: &mut String, hw: &Hardware) {
         )
     );
     let _ = writeln!(out);
+}
+
+/// The x86-64 level and the extensions behind it, in one line:
+/// `ISA          x86-64-v2 · SSE2 yes · … · BMI2 no · FMA no`.
+fn isa_line(isa: &crate::isa::CpuIsa) -> String {
+    let level = isa
+        .level()
+        .map_or_else(|| "not x86-64".to_owned(), |l| format!("x86-64-v{l}"));
+    let flags: Vec<String> = isa
+        .summary()
+        .iter()
+        .map(|(name, has)| format!("{name} {}", if *has { "yes" } else { "no" }))
+        .collect();
+    format!("ISA          {level} · {}", flags.join(" · "))
 }
 
 fn section_gpu(out: &mut String, hw: &Hardware) {
@@ -905,6 +960,83 @@ mod tests {
         }
     }
 
+    fn sandy_bridge() -> crate::isa::CpuIsa {
+        crate::isa::CpuIsa {
+            sse2: true,
+            sse3: true,
+            ssse3: true,
+            sse4_1: true,
+            sse4_2: true,
+            popcnt: true,
+            cmpxchg16b: true,
+            avx: true,
+            ..crate::isa::CpuIsa::default()
+        }
+    }
+
+    fn falcond(active: &str, result: &str, code: i32, status: i32) -> crate::systemd::UnitState {
+        crate::systemd::UnitState {
+            unit_file_state: "enabled".into(),
+            active_state: active.into(),
+            service: Some(crate::systemd::ServiceRun {
+                result: result.into(),
+                main_code: code,
+                main_status: status,
+                restarts: 5,
+            }),
+        }
+    }
+
+    #[test]
+    fn a_falcond_dead_on_an_illegal_instruction_is_plain_in_the_report() {
+        // Issue #4: falcond 2.0.14 (x86-64-v3) on a Core i3-2120.
+        let lines = falcond_exit_lines(
+            &falcond("failed", "start-limit-hit", 3, libc::SIGILL),
+            &sandy_bridge(),
+        );
+        assert_eq!(
+            lines[0],
+            "  falcond run  result start-limit-hit · main process code=dumped status=4"
+        );
+        assert!(lines[1].starts_with("  last failure SIGILL (illegal instruction)"));
+        assert!(lines[1].contains("start-limit-hit"));
+        assert!(lines[1].contains("x86-64-v2"));
+        assert!(lines[1].contains("BMI2"));
+    }
+
+    #[test]
+    fn bmi2_is_not_blamed_without_evidence() {
+        // The same signal on a processor with all of x86-64-v3 is not a
+        // missing BMI2: the cause is named, no guess is added.
+        let modern = crate::isa::CpuIsa {
+            avx2: true,
+            bmi1: true,
+            bmi2: true,
+            fma: true,
+            f16c: true,
+            lzcnt: true,
+            movbe: true,
+            ..sandy_bridge()
+        };
+        let lines = falcond_exit_lines(&falcond("failed", "core-dump", 3, libc::SIGILL), &modern);
+        assert!(lines[1].starts_with("  last failure SIGILL"));
+        assert!(!lines[1].contains("BMI2") && !lines[1].contains("x86-64-v"));
+        // A clean run has no failure line; a reset one neither.
+        let ok = falcond_exit_lines(&falcond("active", "success", 0, 0), &modern);
+        assert_eq!(ok.len(), 1);
+        let reset = falcond_exit_lines(&falcond("inactive", "success", 3, libc::SIGILL), &modern);
+        assert_eq!(reset.len(), 1);
+    }
+
+    #[test]
+    fn the_isa_line_shows_the_level_and_what_is_missing() {
+        assert_eq!(
+            isa_line(&sandy_bridge()),
+            "ISA          x86-64-v2 · SSE2 yes · SSE4.1 yes · SSE4.2 yes · AVX yes · AVX2 no · BMI1 no · BMI2 no · FMA no"
+        );
+        assert!(isa_line(&crate::isa::CpuIsa::default()).contains("not x86-64"));
+    }
+
     #[test]
     fn the_report_answers_the_questions_support_asks() {
         let text = report(false);
@@ -925,6 +1057,10 @@ mod tests {
             assert!(text.contains(heading), "missing section {heading}");
         }
         assert!(text.contains("Big Game Mode diagnostics"));
+        assert!(
+            text.contains("  ISA          "),
+            "the CPU section names its ISA"
+        );
     }
 
     #[test]

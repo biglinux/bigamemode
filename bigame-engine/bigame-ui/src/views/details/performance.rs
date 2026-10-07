@@ -8,7 +8,7 @@ use libadwaita as adw;
 use bigame_core::capabilities::Support;
 use bigame_core::overview::{AppliedProfile, RequestedBy, Snapshot, State};
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::{i18n, ni18n, tr};
 use crate::widgets::status::{Body, StatusRow};
 
 /// The performance group.
@@ -88,13 +88,19 @@ impl Performance {
 
         // ── Turbo ───────────────────────────────────────────────────────
         let turbo_state = snap.turbo_state();
+        // Why falcond failed, explained, when systemd says.
+        let failure = snap.backend_failure.as_ref().map(|f| {
+            bigame_core::turbo::explain_backend_failure(f, &bigame_core::isa::CpuIsa::detect())
+        });
         self.turbo.set_state(
             turbo_state,
             None,
             &match turbo_state {
                 State::Active => i18n("On: falcond runs and applies each game's profile"),
                 State::Off => i18n("Off: Big Game Mode is not intervening in games"),
-                State::Error => i18n("falcond's service failed"),
+                State::Error => failure
+                    .as_ref()
+                    .map_or_else(|| i18n("falcond's service failed"), |f| tr(&f.title)),
                 State::Missing => i18n("falcond is not installed"),
                 _ => String::new(),
             },
@@ -211,10 +217,18 @@ impl Performance {
                 i18n("Not installed"),
                 Body::new().command("sudo pacman -S falcond falcond-profiles"),
             ),
-            (None, State::Error) => (
-                i18n("The service failed"),
-                Body::new().command("journalctl -u falcond -n 50"),
-            ),
+            (None, State::Error) => match &failure {
+                Some(f) => (
+                    tr(&f.title),
+                    Body::new()
+                        .note(&format!("{} {}", tr(&f.summary), tr(&f.advice)))
+                        .command("journalctl -u falcond -b"),
+                ),
+                None => (
+                    i18n("The service failed"),
+                    Body::new().command("journalctl -u falcond -n 50"),
+                ),
+            },
             (None, _) => (
                 i18n("Running, but its status could not be read"),
                 Body::new().note(&i18n(
