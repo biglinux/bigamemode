@@ -61,10 +61,11 @@ want_same() {
     fi
 }
 
-# An absolute path that is an executable file in the package.
+# An absolute path that is an executable file in the package. Its mode bits,
+# not test -x: that asks the kernel, which says no on a noexec mount (/tmp).
 want_executable() {
     local label="$1" path="$2"
-    if [[ "$path" == /* && -f "$root$path" && -x "$root$path" ]]; then
+    if [[ "$path" == /* && -f "$root$path" ]] && (( 8#$(stat -c %a -- "$root$path") & 8#111 )); then
         ok "$label -> $path"
     else
         fail "$label '$path' is not an executable in the package"
