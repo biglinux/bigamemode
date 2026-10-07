@@ -1,8 +1,8 @@
 //! Gamescope for a game the Steam client starts.
 //!
-//! BiGame-mode's own launch wraps a game in Gamescope itself, but a Steam
+//! Big Game Mode's own launch wraps a game in Gamescope itself, but a Steam
 //! game is started by the Steam client in its own process tree, which
-//! BiGame-mode cannot reach. What reaches it is the game's launch options, so
+//! Big Game Mode cannot reach. What reaches it is the game's launch options, so
 //! a profile's Gamescope choice is written there as a wrapper in front of
 //! `%command%` — the same way `MangoHud` is (`crate::mangohud`): only while
 //! Steam is closed (it keeps its configuration in memory), in every Steam
@@ -15,11 +15,11 @@
 //! owner too, whether Gamescope or `OptiScaler` upscales the game or AI
 //! Graphics switched Wine FSR off for it.
 //!
-//! BiGame-mode owns only the segment and the variables it wrote (kept in the
+//! Big Game Mode owns only the segment and the variables it wrote (kept in the
 //! game's settings); the user's own options are left alone. Where they run
-//! a Gamescope of the user's own, BiGame-mode's is not added: two nested
+//! a Gamescope of the user's own, Big Game Mode's is not added: two nested
 //! compositors would scale twice, or not start. vkBasalt, which Gamescope
-//! would otherwise load for itself, stays in the game (as BiGame-mode's own
+//! would otherwise load for itself, stays in the game (as Big Game Mode's own
 //! launch keeps it, `crate::launcher`). The Flatpak Steam finds `gamescope`
 //! only in a Flatpak extension: without it nothing is written, and the
 //! error names the command that installs it.
@@ -32,7 +32,7 @@ use crate::steam::{COMMAND, is_command, option_words};
 use crate::text::N_;
 
 /// `gamescope <args> --`, the wrapper for `cfg`, or `None` when Gamescope
-/// should not run for this game (the same decision BiGame-mode's own launch
+/// should not run for this game (the same decision Big Game Mode's own launch
 /// makes).
 #[must_use]
 pub fn segment(
@@ -86,7 +86,7 @@ fn joined(words: &[&str]) -> String {
     if rest == COMMAND { String::new() } else { rest }
 }
 
-/// `current` launch options with the segment BiGame-mode wrote before
+/// `current` launch options with the segment Big Game Mode wrote before
 /// (`previous`) taken out and `wanted` put in front of `%command%` — before a
 /// `mangohud` wrapper right in front of it, so the overlay stays inside
 /// Gamescope and `MangoHud`'s own setting still finds its word, and before a
@@ -127,7 +127,7 @@ pub fn launch_options(current: &str, previous: Option<&str>, wanted: Option<&str
 /// What writing the wrapper did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Applied {
-    /// Not a Steam game: BiGame-mode's own launch wraps it.
+    /// Not a Steam game: Big Game Mode's own launch wraps it.
     NotSteam,
     /// Nothing to change.
     Unchanged,
@@ -135,12 +135,12 @@ pub enum Applied {
     SteamRunning,
     /// The launch options now read this (read back).
     Written(String),
-    /// The launch options now read this (read back), without BiGame-mode's
+    /// The launch options now read this (read back), without Big Game Mode's
     /// Gamescope: they already run a Gamescope of the user's own.
     TheirGamescope(String),
 }
 
-/// `current` launch options with the variables BiGame-mode wrote before
+/// `current` launch options with the variables Big Game Mode wrote before
 /// (`previous`) taken out and `wanted` put in front of everything. Each
 /// variable is taken out once, wherever it is, so one that something else
 /// moved or removed does not keep the others in; variables already in front
@@ -171,7 +171,7 @@ pub fn env_options(current: &str, previous: Option<&str>, wanted: Option<&str>) 
         .join(" ")
 }
 
-/// What a game's launch options should hold from BiGame-mode: its
+/// What a game's launch options should hold from Big Game Mode: its
 /// Gamescope wrapper and its variables, each `None` for nothing.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Wanted {
@@ -192,7 +192,7 @@ pub struct Wanted {
 const WINE_FSR_OFF: &str = "WINE_FULLSCREEN_FSR=0";
 
 /// Put the Gamescope wrapper and the variables for the game whose process
-/// is `process` into its Steam launch options, or take BiGame-mode's out
+/// is `process` into its Steam launch options, or take Big Game Mode's out
 /// (`None`). Every account's new options are worked out before any is
 /// written.
 ///
@@ -324,7 +324,7 @@ fn steam_apps(process: &str) -> Vec<String> {
 
 /// Turn Wine FSR off for the game whose process is `process` in its Steam
 /// launch options (`off`, which also takes out a `WINE_FULLSCREEN_FSR=1` the
-/// user typed), or take BiGame-mode's switch out again. The switch is
+/// user typed), or take Big Game Mode's switch out again. The switch is
 /// written by the one owner of the game's variables
 /// ([`crate::game_launch::GameLaunch::steam_env`]), so it stays wherever
 /// Gamescope or `OptiScaler` still upscales the game.

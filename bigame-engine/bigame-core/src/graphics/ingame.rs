@@ -48,7 +48,7 @@ pub struct SettingChange {
     pub key: String,
     /// The value name.
     pub value: String,
-    /// What BiGame-mode wrote.
+    /// What Big Game Mode wrote.
     pub set: u32,
     /// What was there before; `None` when the value did not exist.
     pub original: Option<u32>,

@@ -18,7 +18,7 @@
 //! what this module recorded adding is ever removed ([`Added`]). A game Heroic starts gets it
 //! in its settings there (`crate::heroic_launch`), both names, since Heroic
 //! runs games with GE-Proton as often as with Valve's Proton: written with
-//! Heroic closed, and only what BiGame-mode wrote is ever removed. It is
+//! Heroic closed, and only what Big Game Mode wrote is ever removed. It is
 //! never applied by itself: the plan names it, Apply writes it.
 //!
 //! Verified, never assumed: the running game's environment holds the
@@ -34,7 +34,7 @@ pub const VARIABLE: &str = "FSR4_UPGRADE=1";
 /// The variable GE-Proton reads (it also fetches the provider itself).
 pub const GE_VARIABLE: &str = "PROTON_FSR4_UPGRADE=1";
 
-/// What BiGame-mode put into one Steam account's launch options for a
+/// What Big Game Mode put into one Steam account's launch options for a
 /// game, so that only that is taken out again.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Added {
@@ -105,7 +105,7 @@ pub enum Applied {
         /// It runs a game now, so it must not be closed for this.
         game_running: bool,
     },
-    /// Neither a Steam nor a Heroic game: BiGame-mode's own launch plan
+    /// Neither a Steam nor a Heroic game: Big Game Mode's own launch plan
     /// carries the variable.
     LaunchPlan,
 }

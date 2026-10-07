@@ -96,7 +96,7 @@ pub(crate) fn env_file_path() -> PathBuf {
         .join("bigame-mode.conf")
 }
 
-/// Every variable BiGame-mode puts in the session environment. One that is
+/// Every variable Big Game Mode puts in the session environment. One that is
 /// not wanted any more is removed from the running session, not only from
 /// the file: otherwise turning Wine FSR or vkBasalt off left it in force for
 /// every game until the next login.
@@ -226,7 +226,7 @@ fn user_manager(conn: &zbus::blocking::Connection) -> Result<zbus::blocking::Pro
     .context("systemd user manager")
 }
 
-/// What of BiGame-mode's variables ([`SESSION_KEYS`]) an environment really
+/// What of Big Game Mode's variables ([`SESSION_KEYS`]) an environment really
 /// puts in force, `get` reading one variable: a switch counts only at `1`
 /// (`0` and absent are both off), and a switch's detail only while its
 /// switch is on. Two environments that give games the same thing compare
@@ -386,7 +386,7 @@ mod tests {
         for key in crate::turbo_preset::PRESET_KEYS {
             assert!(SESSION_KEYS.contains(key), "{key}");
         }
-        // While a preset's record is there, its keys are BiGame-mode's.
+        // While a preset's record is there, its keys are Big Game Mode's.
         let (unset, _) = session_change(&HashMap::new(), true);
         assert!(unset.contains(&"DXVK_CONFIG".to_owned()));
     }

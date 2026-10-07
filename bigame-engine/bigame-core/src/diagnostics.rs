@@ -1,6 +1,6 @@
 //! Support diagnostics.
 //!
-//! One report that answers "what is this machine and what is BiGame-mode doing
+//! One report that answers "what is this machine and what is Big Game Mode doing
 //! on it", assembled from the detection that already exists rather than from a
 //! second set of probes. A support report built from its own parallel code
 //! would eventually disagree with the application, and then it would be worse
@@ -130,7 +130,7 @@ fn date(when: libc::time_t) -> String {
     )
 }
 
-/// What BiGame-mode itself is doing: the first thing support asks.
+/// What Big Game Mode itself is doing: the first thing support asks.
 fn section_bigame(out: &mut String) {
     use crate::turbo::Section;
 
@@ -762,7 +762,7 @@ fn section_conflicts(out: &mut String, caps: &Capabilities) {
     let _ = writeln!(out);
 }
 
-/// Where BiGame-mode keeps its files and where its logs go, so a supporter
+/// Where Big Game Mode keeps its files and where its logs go, so a supporter
 /// can ask for the right one.
 fn section_files(out: &mut String) {
     let _ = writeln!(out, "── Files and logs ──");

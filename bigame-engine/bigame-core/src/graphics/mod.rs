@@ -4,7 +4,7 @@
 //! This is not a performance daemon. CPU, scheduler and power policy belong to
 //! falcond (see [`crate::turbo`]); this module owns what happens *inside the
 //! game*: which upscaler and frame generator it uses, and any DLL or config
-//! file BiGame-mode places in its folder to get there.
+//! file Big Game Mode places in its folder to get there.
 
 pub mod backend;
 pub mod config;
@@ -46,7 +46,7 @@ enum ForProcess {
     /// placed nothing in the game, and is not this.
     Files(Box<manifest::Manifest>),
     /// A manifest that names that process and does not load (damaged, or
-    /// from a newer BiGame-mode).
+    /// from a newer Big Game Mode).
     Unreadable,
 }
 
@@ -67,7 +67,7 @@ fn record_for_process(state: &Path, process: &str) -> Option<ForProcess> {
     })
 }
 
-/// The process names, in lower case, of every game BiGame-mode has files
+/// The process names, in lower case, of every game Big Game Mode has files
 /// installed in: every manifest read once, for a whole library. A manifest
 /// that does not load counts, by the process its text names: it is still a
 /// game Restore has to be offered for.
@@ -138,7 +138,7 @@ fn optiscaler_frame_gen_on(m: &manifest::Manifest) -> bool {
         .is_some_and(|v| v.eq_ignore_ascii_case("true"))
 }
 
-/// Every game BiGame-mode has placed files in, as targets — a game whose
+/// Every game Big Game Mode has placed files in, as targets — a game whose
 /// manifest does not load included, by what its text says, so Restore is
 /// still offered for it.
 #[must_use]
@@ -233,7 +233,7 @@ fn record_in(state: &Path, key: &str, root: &Path) -> Record {
 /// game's folder, where removal still goes by the hashes. While the folder
 /// the record names is there (a copy of the game, or a record that is not
 /// this game's), it is not taken: only the game's folder as its launcher
-/// records it is trusted, and which copy holds BiGame-mode's files is not
+/// records it is trusted, and which copy holds Big Game Mode's files is not
 /// guessed.
 fn followed(m: &manifest::Manifest, root: &Path) -> Option<manifest::Manifest> {
     if m.install_root.exists() || !root.is_dir() {
@@ -323,7 +323,7 @@ pub struct Analysis {
     pub pending_changes: bool,
     /// `OptiScaler`'s frame generation is on in the game's own ini — what
     /// is installed, including a change made in its overlay. `None` when
-    /// BiGame-mode installed nothing.
+    /// Big Game Mode installed nothing.
     pub installed_frame_generation: Option<bool>,
     /// The Steam launch option `FSR4_UPGRADE=1` is set for this game.
     pub fsr4_upgrade_set: bool,
@@ -341,7 +341,7 @@ pub enum ChoiceState {
     NothingToApply,
     /// Chosen and not applied yet: Apply does it.
     Selected,
-    /// The choice needs nothing BiGame-mode installed here: Restore puts
+    /// The choice needs nothing Big Game Mode installed here: Restore puts
     /// the game's own files back.
     NeedsRestore,
     /// Applied; it takes effect when the game starts.
@@ -377,7 +377,7 @@ struct ChoiceFacts {
     upgrade_env: Option<bool>,
 }
 
-/// The runtime status of what BiGame-mode installed, in [`ChoiceState`]'s
+/// The runtime status of what Big Game Mode installed, in [`ChoiceState`]'s
 /// terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RuntimeStage {
@@ -457,7 +457,7 @@ fn choice_facts(a: &Analysis) -> ChoiceFacts {
     });
     ChoiceFacts {
         // A record that cannot be used stops every change until it is
-        // settled: an Apply over it would take BiGame-mode's own files for
+        // settled: an Apply over it would take Big Game Mode's own files for
         // the game's originals.
         blocked: a.plan.standing == plan::Standing::Blocked
             || matches!(a.status, S::Moved { .. } | S::Unreadable { .. }),
@@ -674,7 +674,7 @@ pub fn status(target: &Target) -> runtime::Status {
 }
 
 /// The status for a game that is running, from its identity — no process
-/// scan. `None` when BiGame-mode has installed nothing in it.
+/// scan. `None` when Big Game Mode has installed nothing in it.
 #[must_use]
 pub fn status_running(game: &crate::running::GameIdentity) -> Option<runtime::Status> {
     let root = game.install_path.as_ref()?;
@@ -768,7 +768,7 @@ pub fn is_running(target: &Target) -> bool {
 }
 
 /// A process listed under `proc` (`/proc`) that has a file under `root`
-/// mapped. The running game BiGame-mode identifies is only the busiest one,
+/// mapped. The running game Big Game Mode identifies is only the busiest one,
 /// and only by the names its launcher records; a game also counts when it
 /// runs under another name, or beside a busier one. Another user's maps
 /// cannot be read, and are not this user's game.
@@ -1021,8 +1021,8 @@ fn install_in(
 
 /// Whether what is installed in `target` differs from what `plan` would
 /// install: another file set (frame generation adds one), or another
-/// setting BiGame-mode writes in `OptiScaler.ini` (the output, the input,
-/// frame generation). The ini compared is BiGame-mode's own staged copy,
+/// setting Big Game Mode writes in `OptiScaler.ini` (the output, the input,
+/// frame generation). The ini compared is Big Game Mode's own staged copy,
 /// not the one in the game, which `OptiScaler` rewrites on every start and
 /// whose overlay changes are the user's.
 ///
@@ -1080,7 +1080,7 @@ fn differs(m: &manifest::Manifest, staged_ini: &str, o: &optiscaler::Options) ->
 
 /// What the user changed in `OptiScaler.ini` since it was installed: the
 /// copy a removal kept of the edited ini ([`transaction::FileOutcome::EditedCopyKept`]),
-/// against the ini BiGame-mode staged for it.
+/// against the ini Big Game Mode staged for it.
 fn user_ini_edits(
     staged: Option<&str>,
     removed: &[transaction::FileOutcome],
@@ -1111,7 +1111,7 @@ fn user_ini_edits(
     }
 }
 
-/// BiGame-mode's staged copy of the installed ini, read before a removal
+/// Big Game Mode's staged copy of the installed ini, read before a removal
 /// deletes it.
 fn staged_ini(state: &Path, key: &str) -> Option<String> {
     std::fs::read_to_string(state.join(key).join("staging").join("OptiScaler.ini")).ok()
@@ -1310,7 +1310,7 @@ pub fn go_back(target: &Target, plan: &plan::Plan) -> anyhow::Result<manifest::M
 /// The update offer for `target`: the version installed, a newer one if
 /// one is offered under `cfg`, and the version before the last update.
 /// Refreshes the release list when it is a day old — call it off the UI
-/// thread. `None` when BiGame-mode has installed nothing.
+/// thread. `None` when Big Game Mode has installed nothing.
 #[must_use]
 pub fn update_offer(target: &Target, cfg: &config::AiGraphicsConfig) -> Option<versions::Offer> {
     let Record::Installed(m, _) = record_in(&state_dir(), &target.key(), &target.install_root)
@@ -1353,7 +1353,7 @@ pub struct Restoration {
     pub settings_error: Option<text::Text>,
 }
 
-/// Remove everything BiGame-mode placed in `target`, restoring originals —
+/// Remove everything Big Game Mode placed in `target`, restoring originals —
 /// files, and the game's own settings Apply switched on — then the cached
 /// releases no game uses any more. The files are put back even when the
 /// settings cannot be (the prefix stays in use): that is said apart, and the

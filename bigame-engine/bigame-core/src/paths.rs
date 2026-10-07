@@ -1,6 +1,6 @@
 //! The user's directories, per the XDG Base Directory specification.
 //!
-//! One place, so every file BiGame-mode keeps for the user resolves the same
+//! One place, so every file Big Game Mode keeps for the user resolves the same
 //! way. With `HOME` unset the home directory comes from the password database,
 //! never from a shared location such as `/tmp`, where another user could have
 //! prepared the files this process then trusts.

@@ -148,7 +148,7 @@ pub(crate) fn write_atomic(path: &Path, content: &[u8]) -> std::io::Result<()> {
     }
 }
 
-/// The XDG autostart entry that starts BiGame-mode hidden at login.
+/// The XDG autostart entry that starts Big Game Mode hidden at login.
 fn autostart_path() -> Option<PathBuf> {
     let config = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -160,7 +160,7 @@ fn autostart_path() -> Option<PathBuf> {
     )
 }
 
-/// Whether BiGame-mode starts in the background at login.
+/// Whether Big Game Mode starts in the background at login.
 #[must_use]
 pub fn starts_at_login() -> bool {
     autostart_path().is_some_and(|p| p.exists())

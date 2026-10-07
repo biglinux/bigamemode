@@ -1,4 +1,4 @@
-//! Print the command BiGame-mode's launcher would run for an executable,
+//! Print the command Big Game Mode's launcher would run for an executable,
 //! with Tuning's settings and the Turbo preset in force.
 //!
 //! Usage: `launch_plan <executable> [args…]`

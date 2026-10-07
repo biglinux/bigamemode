@@ -13,10 +13,10 @@
 //! - a frame cap: DXVK reads `DXVK_CONFIG` (`dxgi.maxFrameRate` for D3D10/11,
 //!   `d3d9.maxFrameRate`), VKD3D-Proton reads `VKD3D_FRAME_RATE` (D3D12) —
 //!   both in Proton Experimental's DLLs; Gamescope takes `-r` for games
-//!   BiGame-mode starts itself. A native Linux game reads none of these;
+//!   Big Game Mode starts itself. A native Linux game reads none of these;
 //! - Wine FSR (`WINE_FULLSCREEN_FSR`): Wine scales a game running in
 //!   exclusive fullscreen below the display's resolution;
-//! - vkBasalt (`ENABLE_VKBASALT`) with BiGame-mode's own CAS-only file
+//! - vkBasalt (`ENABLE_VKBASALT`) with Big Game Mode's own CAS-only file
 //!   (`VKBASALT_CONFIG_FILE`, [`cas_config_path`]): the user's
 //!   `vkBasalt.conf` may hold any effect, and "sharper image" has to mean
 //!   sharpening;
@@ -28,7 +28,7 @@
 //! The variables go to the running `systemd --user` manager only, not to
 //! `environment.d`: what that file holds is set by systemd's generator at
 //! login and cannot be unset later (systemd 261), and a preset must go away
-//! completely when Turbo does. BiGame-mode puts them back when it starts with
+//! completely when Turbo does. Big Game Mode puts them back when it starts with
 //! Turbo on ([`resync`]).
 //!
 //! The user may have set a preset's variables too (a `DXVK_CONFIG` of their
@@ -180,7 +180,7 @@ pub fn levers(preset: Preset, machine: Machine) -> Levers {
     }
 }
 
-/// The variables only a preset sets among BiGame-mode's; BiGame-mode never
+/// The variables only a preset sets among Big Game Mode's; Big Game Mode never
 /// puts them in `environment.d`, though the user may have.
 pub const PRESET_KEYS: &[&str] = &[
     "DXVK_CONFIG",
@@ -220,7 +220,7 @@ pub fn merge_dxvk_config(user: Option<&str>, fps: u32) -> String {
     options.join("; ")
 }
 
-/// The variables a preset sets for `levers` in a game BiGame-mode starts:
+/// The variables a preset sets for `levers` in a game Big Game Mode starts:
 /// [`PRESET_KEYS`], and vkBasalt's CAS-only file when it turns vkBasalt on.
 #[must_use]
 pub fn preset_env(levers: Levers) -> HashMap<String, String> {
@@ -325,7 +325,7 @@ pub fn overlay_over<S: std::hash::BuildHasher>(
 
 // ── vkBasalt's sharpening ───────────────────────────────────────────────────
 
-/// BiGame-mode's own vkBasalt file for "Enhanced graphics": CAS and nothing
+/// Big Game Mode's own vkBasalt file for "Enhanced graphics": CAS and nothing
 /// else. Never the user's `~/.config/vkBasalt/vkBasalt.conf`, which can hold
 /// any look (or the Nara Linux style, whose shaders may be missing).
 #[must_use]
@@ -585,7 +585,7 @@ pub struct Layer {
     /// The user's own values of [`PRESET_KEYS`] before the first preset.
     pub before: BTreeMap<String, String>,
     /// Whether a preset's record is there, so [`PRESET_KEYS`] are
-    /// BiGame-mode's to set and unset. Without one they are the user's alone
+    /// Big Game Mode's to set and unset. Without one they are the user's alone
     /// and a session sync leaves them as they are.
     pub owns_preset_keys: bool,
 }
@@ -726,7 +726,7 @@ pub fn switch(preset: Preset) -> Result<Vec<String>> {
     }
 }
 
-/// Bring the session in line when BiGame-mode starts, and whenever Turbo is
+/// Bring the session in line when Big Game Mode starts, and whenever Turbo is
 /// found switched off from outside: the preset's variables live only in the
 /// running session, so after a login they are set again while Turbo is on,
 /// and a preset left behind by a Turbo switched off elsewhere (or a Turbo
@@ -770,7 +770,7 @@ pub fn session_holds<S: std::hash::BuildHasher>(
 
 /// The preset whose variables the running session really holds: the one in
 /// force by its record, read back from the user manager's environment. After
-/// a login without BiGame-mode running, the record says a preset the session
+/// a login without Big Game Mode running, the record says a preset the session
 /// no longer carries.
 ///
 /// # Errors
@@ -947,7 +947,7 @@ multiplier = 1
             !cas.ends_with("vkBasalt/vkBasalt.conf"),
             "never the user's own file: {cas}"
         );
-        // Games BiGame-mode starts get the same file.
+        // Games Big Game Mode starts get the same file.
         assert_eq!(
             preset_env(levers(Preset::Enhanced, DESKTOP))["VKBASALT_CONFIG_FILE"],
             cas

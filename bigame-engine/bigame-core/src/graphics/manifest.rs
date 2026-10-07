@@ -1,10 +1,10 @@
-//! The record of what BiGame-mode changed in one game's folder.
+//! The record of what Big Game Mode changed in one game's folder.
 //!
 //! Everything [`super::transaction`] places in a game is listed here with the
 //! hash of what was placed, and every file it replaced with the hash of the
 //! original and where the original was kept. Removal works from this record
 //! alone: a file is never removed because its *name* looks like a graphics
-//! mod, only because the manifest says BiGame-mode put it there and its hash
+//! mod, only because the manifest says Big Game Mode put it there and its hash
 //! says it is still what was put there.
 
 use std::io::{Read, Write};
@@ -40,7 +40,7 @@ pub enum FileKind {
     Binary,
     /// A configuration file. Tools rewrite their own settings (`OptiScaler`
     /// saves its overlay choices to its `.ini`), so a changed config is still
-    /// BiGame-mode's to remove — but the edited copy is kept first.
+    /// Big Game Mode's to remove — but the edited copy is kept first.
     Config,
 }
 
@@ -55,7 +55,7 @@ pub struct Backup {
     pub size: u64,
 }
 
-/// One file BiGame-mode placed.
+/// One file Big Game Mode placed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Entry {
     /// Path relative to the game's install folder.
@@ -125,10 +125,10 @@ pub struct Manifest {
     pub generated: Vec<PathBuf>,
     /// What was installed before the last update — the version "Go back"
     /// returns to. The originals of the game's files are those in `entries`,
-    /// never a previous BiGame-mode payload.
+    /// never a previous Big Game Mode payload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous: Option<Source>,
-    /// BiGame-mode placed these files and may remove them. Always true for
+    /// Big Game Mode placed these files and may remove them. Always true for
     /// a manifest of its own; a record of a component the user installed
     /// (an external backend) would be `false`, and nothing here removes
     /// files it does not manage.

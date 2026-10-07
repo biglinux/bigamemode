@@ -1,4 +1,4 @@
-//! BiGame-mode Libadwaita application entry point.
+//! Big Game Mode Libadwaita application entry point.
 
 mod app;
 mod game_watch;
@@ -29,7 +29,7 @@ fn main() -> libadwaita::glib::ExitCode {
     app::run()
 }
 
-/// Where BiGame-mode's own records go.
+/// Where Big Game Mode's own records go.
 ///
 /// To the journal, directly ([`bigame_core::logs::JournalSink`]), however the
 /// application was started: a menu entry some desktops launch as a systemd

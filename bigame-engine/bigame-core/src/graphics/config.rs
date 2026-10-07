@@ -17,7 +17,7 @@ pub enum Mode {
     /// Nothing is changed. The default: AI Graphics is opt-in per game.
     #[default]
     Off,
-    /// BiGame-mode picks the smallest combination that works for this game
+    /// Big Game Mode picks the smallest combination that works for this game
     /// and machine.
     Recommended,
     /// The user's own choices below.
@@ -117,7 +117,7 @@ pub enum Hdr {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "policy", content = "version")]
 pub enum VersionPolicy {
-    /// The release BiGame-mode was tested with.
+    /// The release Big Game Mode was tested with.
     #[default]
     Recommended,
     /// The newest stable release (never older than the tested one).

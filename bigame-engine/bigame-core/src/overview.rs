@@ -1,9 +1,9 @@
-//! One reading of what BiGame-mode is doing for the machine and the running
+//! One reading of what Big Game Mode is doing for the machine and the running
 //! game — the Details page's data, collected in one place.
 //!
 //! Every value here is read from the system that holds it (`turbo`,
 //! `status`, `/proc`, sysfs, power-profiles-daemon, the launch settings),
-//! never from what BiGame-mode last did. The page renders a [`Snapshot`];
+//! never from what Big Game Mode last did. The page renders a [`Snapshot`];
 //! the judgements it draws from one — *configured but not detected is a
 //! problem*, *hardware that is not there is not an error* — are pure
 //! functions with tests, so they cannot drift from the collection.
@@ -59,7 +59,7 @@ impl State {
 /// - `detected`: what the running game shows — `Some(true)` seen in the
 ///   game, `Some(false)` looked for and not found, `None` not readable.
 ///
-/// A feature seen in the game counts as active even when BiGame-mode did
+/// A feature seen in the game counts as active even when Big Game Mode did
 /// not ask for it (Steam's launch options can add `MangoHud`): the page
 /// reports what is, not what it did.
 #[must_use]
@@ -365,25 +365,25 @@ pub struct Snapshot {
     pub mangohud_for_game: crate::mangohud::Mode,
     /// lsfg-vk.
     pub lsfg: Lsfg,
-    /// AI Graphics in the running game, when BiGame-mode installed it.
+    /// AI Graphics in the running game, when Big Game Mode installed it.
     pub ai_graphics: Option<crate::graphics::runtime::Status>,
     /// `OptiScaler`'s frame generation is on for the running game (chosen on
     /// its page, or switched on from `OptiScaler`'s overlay).
     pub ai_frame_generation: bool,
     /// Whether the running game's profile asks Gamescope never / always.
     pub gamescope_mode: crate::gamescope::Mode,
-    /// The running game is started by the Steam client, and BiGame-mode's
+    /// The running game is started by the Steam client, and Big Game Mode's
     /// Gamescope reaches it only through its launch options: whether its
     /// profile put a wrapper there (`crate::steam_gamescope`).
     pub steam_launch: Option<bool>,
-    /// BiGame-mode switched Wine FSR off for the running game in its Steam
+    /// Big Game Mode switched Wine FSR off for the running game in its Steam
     /// launch options.
     pub wine_fsr_off_for_game: bool,
 }
 
 /// For a running Steam game, whether its profile put a Gamescope wrapper in
 /// its Steam launch options (`None` for a game Steam does not start), and
-/// whether BiGame-mode switched Wine FSR off for it there.
+/// whether Big Game Mode switched Wine FSR off for it there.
 /// The game's own profile, when falcond has one and, the game having
 /// settled, still applies another or none.
 fn profile_not_applied(
@@ -612,7 +612,7 @@ impl Snapshot {
     #[must_use]
     pub fn gamescope_state(&self) -> State {
         // A Steam game gets Gamescope only from its launch options: the
-        // general switch is for BiGame-mode's own launches.
+        // general switch is for Big Game Mode's own launches.
         let configured = self.steam_launch.unwrap_or(match self.gamescope_mode {
             crate::gamescope::Mode::Enabled => true,
             crate::gamescope::Mode::Disabled => false,
@@ -629,9 +629,9 @@ impl Snapshot {
     /// Wine FSR: the variable in the game's environment.
     #[must_use]
     pub fn wine_fsr_state(&self) -> State {
-        // Not asked for a game BiGame-mode switched it off for: one with AI
+        // Not asked for a game Big Game Mode switched it off for: one with AI
         // Graphics files (its own launch leaves it out) and one whose Steam
-        // launch options carry WINE_FULLSCREEN_FSR=0 from BiGame-mode.
+        // launch options carry WINE_FULLSCREEN_FSR=0 from Big Game Mode.
         let asked = self.video.upscaling.wine_fsr_enabled
             && !(self.game.is_some() && (self.ai_graphics.is_some() || self.wine_fsr_off_for_game));
         match feature_state(asked, true, self.game.is_some(), self.wine_fsr_in_game) {
@@ -734,7 +734,7 @@ impl Snapshot {
 
     /// A second upscaler seen in the running game next to `OptiScaler`'s.
     ///
-    /// BiGame-mode's own launches turn Wine FSR and Gamescope's scaling off
+    /// Big Game Mode's own launches turn Wine FSR and Gamescope's scaling off
     /// for a game with AI Graphics, but a game started by Steam gets Steam's
     /// launch options and the session environment: `WINE_FULLSCREEN_FSR=1`
     /// there puts Wine's upscaler in series with `OptiScaler`'s.
@@ -787,7 +787,7 @@ impl Snapshot {
 pub enum UpscalerConflict {
     /// Wine FSR, switched on in Tuning (the session environment).
     WineFsrFromTuning,
-    /// Wine FSR, from outside BiGame-mode: Steam's launch options for the
+    /// Wine FSR, from outside Big Game Mode: Steam's launch options for the
     /// game, most often.
     WineFsrFromElsewhere,
     /// Gamescope rendering below its output.
@@ -822,8 +822,8 @@ mod tests {
             State::Missing
         );
         assert_eq!(feature_state(true, false, false, None), State::Missing);
-        // Seen in the game although BiGame-mode did not ask (Steam's launch
-        // options): what is, not what BiGame-mode did.
+        // Seen in the game although Big Game Mode did not ask (Steam's launch
+        // options): what is, not what Big Game Mode did.
         assert_eq!(feature_state(false, true, true, Some(true)), State::Active);
     }
 

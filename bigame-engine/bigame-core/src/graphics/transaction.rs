@@ -17,12 +17,12 @@
 //! 6. **commit**: rewrite the manifest as [`State::Installed`].
 //!
 //! Any error in 4–5 rolls back at once. A manifest still in `Applying` when
-//! BiGame-mode starts means an apply was cut short; [`recover`] rolls it back.
+//! Big Game Mode starts means an apply was cut short; [`recover`] rolls it back.
 //!
 //! Removal trusts the manifest and the hashes, never file names: a file is
 //! taken out only if it is still exactly what was placed. A *binary* that has
 //! changed since belongs to whatever changed it and is left alone; a *config*
-//! that has changed is BiGame-mode's own file with the user's edits in it, so
+//! that has changed is Big Game Mode's own file with the user's edits in it, so
 //! the edited copy is kept before the file is removed.
 
 use std::path::{Path, PathBuf};
@@ -55,7 +55,7 @@ pub struct Game<'a> {
 pub struct PlannedFile {
     /// Target, relative to the game's install folder.
     pub path: PathBuf,
-    /// The file to copy there (in BiGame-mode's cache or a staging folder).
+    /// The file to copy there (in Big Game Mode's cache or a staging folder).
     pub source: PathBuf,
     /// Binary or configuration.
     pub kind: FileKind,
@@ -155,7 +155,7 @@ enum Found {
     File(String),
     /// A symlink, at the path or on the way to it, or something that is not
     /// a plain file: a mod manager deploys its files as links, or the user
-    /// moved a folder elsewhere. Not BiGame-mode's to follow or remove.
+    /// moved a folder elsewhere. Not Big Game Mode's to follow or remove.
     Foreign,
 }
 
@@ -310,7 +310,7 @@ fn dirs_to_create(install_root: &Path, files: &[PlannedFile]) -> Vec<PathBuf> {
 ///
 /// Refuses when the game already has files installed: an update is a
 /// removal followed by an apply, so the original of every file is always the
-/// file that was there before BiGame-mode, not a previous BiGame-mode
+/// file that was there before Big Game Mode, not a previous Big Game Mode
 /// payload. A manifest that only keeps the game's own settings (a removal
 /// that could not put them back yet) is taken over: the new journal carries
 /// them, so they are never without a record.
@@ -603,7 +603,7 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
     Ok(outcomes)
 }
 
-/// A copy BiGame-mode keeps after a removal: the original of a file someone
+/// A copy Big Game Mode keeps after a removal: the original of a file someone
 /// else changed since (nothing in the game refers to it any more), or a
 /// configuration with the user's edits.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -788,7 +788,7 @@ pub fn verify(m: &Manifest) -> Vec<(PathBuf, FileState)> {
 }
 
 /// Put back files of `m` that are missing, from `payload` (the same files the
-/// install used, from BiGame-mode's cache). Changed files are not touched:
+/// install used, from Big Game Mode's cache). Changed files are not touched:
 /// a changed binary has another owner now, and a changed config holds the
 /// user's settings.
 ///

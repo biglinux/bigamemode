@@ -219,7 +219,7 @@ pub fn diagnose(a: &Analysis) -> Vec<Finding> {
         ));
     }
 
-    // ── Installed by BiGame-mode ───────────────────────────────────────────
+    // ── Installed by Big Game Mode ───────────────────────────────────────────
     match &a.status {
         Status::NotInstalled => {
             if a.plan.optiscaler.is_some() {

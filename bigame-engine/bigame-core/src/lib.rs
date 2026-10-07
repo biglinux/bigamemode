@@ -1,4 +1,4 @@
-//! BiGame-mode core: system backend for gaming performance orchestration.
+//! Big Game Mode core: system backend for gaming performance orchestration.
 //!
 //! Separates all system-level logic (D-Bus, sysfs, process management)
 //! from the UI layer, enabling independent testing and headless operation.

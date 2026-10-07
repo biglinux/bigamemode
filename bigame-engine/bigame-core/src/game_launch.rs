@@ -4,14 +4,14 @@
 //! Gamescope filter, sharpness and sizes, Wine FSR and vkBasalt. A game's
 //! profile can set any of them for itself; every value it leaves unset
 //! follows Tuning, so changing Tuning still reaches the game. They are kept
-//! with BiGame-mode's other per-game settings (`crate::game_settings`), not
+//! with Big Game Mode's other per-game settings (`crate::game_settings`), not
 //! in falcond's profile: falcond does not read them, and they need no root.
 //!
-//! They reach a game the ways its other launch settings do: BiGame-mode's
+//! They reach a game the ways its other launch settings do: Big Game Mode's
 //! own launch (`crate::launcher`), a Steam game's launch options
 //! (`crate::steam_gamescope`), written with Steam closed, and a Heroic
 //! game's settings in Heroic (`crate::heroic_launch`), written with Heroic
-//! closed. A game Lutris or Flatpak starts gets them only when BiGame-mode
+//! closed. A game Lutris or Flatpak starts gets them only when Big Game Mode
 //! starts it.
 
 use serde::{Deserialize, Serialize};
@@ -223,7 +223,7 @@ impl GameLaunch {
     /// Whether Gamescope runs this game at a render size of its own, which
     /// it enlarges: the job Wine FSR would do a second time. `follows` says
     /// whether Automatic follows Tuning's Gamescope switch (a game
-    /// BiGame-mode starts) or runs only for the game's own values (a Steam
+    /// Big Game Mode starts) or runs only for the game's own values (a Steam
     /// game, whose launch options only the profile writes).
     #[must_use]
     pub fn upscales(&self, general: &UpscalingSettings, mode: Mode, follows: bool) -> bool {
@@ -243,7 +243,7 @@ impl GameLaunch {
     /// none gets Tuning's from the session). Where Gamescope or `OptiScaler`
     /// upscales the game, or Wine FSR is switched off for it
     /// (`wine_fsr_off`), Wine FSR is switched off whatever Tuning says: the
-    /// session can hold it on from a Turbo preset, or from before BiGame-mode
+    /// session can hold it on from a Turbo preset, or from before Big Game Mode
     /// started, and two upscalers never run in series.
     #[must_use]
     pub fn steam_env(
@@ -287,7 +287,7 @@ impl GameLaunch {
     /// itself: Heroic's own Wine FSR switch (`enableFSR`: Heroic sets
     /// `WINE_FULLSCREEN_FSR` from it over the game's variables) and the
     /// variables. Where Gamescope or `OptiScaler` upscales the game, Wine
-    /// FSR must be off, as BiGame-mode's own launch has it — never two
+    /// FSR must be off, as Big Game Mode's own launch has it — never two
     /// upscalers: no switch and no mode here, and the caller switches
     /// Heroic's off where it is on. `vkbasalt_config` is Tuning's vkBasalt
     /// file, for a Heroic that can read it.
@@ -479,7 +479,7 @@ mod tests {
             own.decide(g, mode, steam, Some(&caps), wayland)
                 .use_gamescope
         };
-        // Automatic follows Tuning's switch for a game BiGame-mode starts…
+        // Automatic follows Tuning's switch for a game Big Game Mode starts…
         assert!(!decide(&none, &g, Mode::Auto, false));
         g.gamescope_enabled = true;
         assert!(decide(&none, &g, Mode::Auto, false));

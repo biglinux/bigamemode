@@ -102,7 +102,7 @@ pub struct DetectedGame {
     /// features that require one are offered only where this is `Some`.
     pub launch_command: Option<Vec<String>>,
     /// Where the game's own launcher keeps its settings for it, when that
-    /// launcher has per-game settings BiGame-mode can write (`MangoHud`).
+    /// launcher has per-game settings Big Game Mode can write (`MangoHud`).
     pub launcher: Option<LauncherRef>,
 }
 
@@ -2572,7 +2572,7 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
     games
 }
 
-/// `argv` run in `dir` (`env -C`), so a game BiGame-mode starts finds what
+/// `argv` run in `dir` (`env -C`), so a game Big Game Mode starts finds what
 /// it opens relative to its working directory; `argv` alone without one.
 fn in_directory(dir: Option<&Path>, argv: Vec<String>) -> Vec<String> {
     match dir.filter(|d| d.is_absolute()) {

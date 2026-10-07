@@ -2,7 +2,7 @@
 //!
 //! One decision drives this view: a beginner should be able to open the
 //! application, press one thing, and go and play. Turbo is that one thing —
-//! the master switch. Off, BiGame-mode does not intervene in games; on, it
+//! the master switch. Off, Big Game Mode does not intervene in games; on, it
 //! detects them and optimizes them.
 //!
 //! Everything fits one window without scrolling: three live readings, the

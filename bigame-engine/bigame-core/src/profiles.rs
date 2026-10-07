@@ -385,7 +385,7 @@ fn parse_profile_otter_conf(content: &str) -> GameProfile {
 
 /// Serialize a game profile to `otter_conf` format (bare identifiers for enums).
 ///
-/// Emits falcond's fields, then BiGame-mode's own (`fg_*`, `gamescope_mode`),
+/// Emits falcond's fields, then Big Game Mode's own (`fg_*`, `gamescope_mode`),
 /// which `otter_conf` skips as unknown keys.
 fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let mut out = String::new();
@@ -409,7 +409,7 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
             let _ = writeln!(out, "stop_script = \"{s}\"");
         }
     }
-    // BiGame-mode's own per-game settings (otter_conf skips unknown keys).
+    // Big Game Mode's own per-game settings (otter_conf skips unknown keys).
     // `cpu_governor`, `scx_custom_flags` and `enabled` are not written: nothing
     // applies them, and their presence is how migration recognises a file an
     // older version wrote.

@@ -124,18 +124,18 @@ fi
 STK_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/supertuxkart/config-0.10"
 
 # How an arm may change the way the game starts, reset before every arm:
-# variables for it, or the whole command BiGame-mode's launcher would run
+# variables for it, or the whole command Big Game Mode's launcher would run
 # (see use_launch_plan). The product is what is measured.
 WORKLOAD_ENV=()
 WORKLOAD_PLAN=()
 
-# The command BiGame-mode's launcher builds for SuperTuxKart with the launch
+# The command Big Game Mode's launcher builds for SuperTuxKart with the launch
 # settings in <config-dir>/bigame-mode/video.toml -- render offload on a hybrid
 # laptop, Gamescope, vkBasalt -- printed by the launch_plan example.
 use_launch_plan() {
     local dir plan line
     # Absolute: a relative XDG_CONFIG_HOME is not one (the XDG rules), so
-    # BiGame-mode would read the user's own settings instead of the arm's.
+    # Big Game Mode would read the user's own settings instead of the arm's.
     dir=$(cd "$1" 2>/dev/null && pwd) || die "no configuration directory $1"
     plan="$(dirname "$0")/../target/release/examples/launch_plan"
     [ -x "$plan" ] || die "build the launch plan tool first: cargo build --release -p bigame-core --examples"

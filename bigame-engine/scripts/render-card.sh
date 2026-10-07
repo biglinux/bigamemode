@@ -2,7 +2,7 @@
 # Sourced by the session scripts: the DRM card games render on.
 #
 # A discrete card before an integrated one, the most VRAM among equals: the
-# order BiGame-mode's own hardware::pick_render_gpu uses. Each vendor needs its
+# order Big Game Mode's own hardware::pick_render_gpu uses. Each vendor needs its
 # own evidence of "discrete", because only amdgpu publishes its memory:
 #   - NVIDIA: every NVIDIA card on PCI is discrete, and the proprietary driver
 #     publishes no VRAM or DPM attribute at all;

@@ -22,7 +22,7 @@ const GRACE: Duration = Duration::from_secs(45);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "state")]
 pub enum Status {
-    /// BiGame-mode has placed nothing in this game.
+    /// Big Game Mode has placed nothing in this game.
     NotInstalled,
     /// Installed and intact; the game is not running.
     Configured,
@@ -66,7 +66,7 @@ pub enum Status {
     /// changed could not be yet (its Wine prefix was in use). Restore tries
     /// again.
     SettingsLeft,
-    /// BiGame-mode installed into another folder than the game's: the game
+    /// Big Game Mode installed into another folder than the game's: the game
     /// was moved since (and the files did not move with it), or the record
     /// is not this game's. Nothing is changed until that is settled.
     Moved {
@@ -74,7 +74,7 @@ pub enum Status {
         installed_in: PathBuf,
     },
     /// The record of what was installed cannot be read (damaged, or written
-    /// by a newer BiGame-mode). Apply is refused: it would take the
+    /// by a newer Big Game Mode). Apply is refused: it would take the
     /// game's files for originals.
     Unreadable {
         /// Why.

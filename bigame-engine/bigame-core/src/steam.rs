@@ -12,7 +12,7 @@
 //!   rewrites it on exit, so an edit made underneath a running client is simply
 //!   discarded — silently, which is worse than failing.
 //! * **A backup is written first**, beside the original, once: it stays the
-//!   file as it was before BiGame-mode's first change.
+//!   file as it was before Big Game Mode's first change.
 //! * **Only the one key is touched**, located by its full path rather than by
 //!   name. `LaunchOptions` appears at several nesting depths in a real file —
 //!   including inside `cloud` blocks — and editing the wrong one does nothing.
@@ -220,7 +220,7 @@ fn start_in_session(flatpak: bool) -> anyhow::Result<()> {
 /// `flatpak run` for the Flatpak), which lets it save its state; opened as
 /// a unit of the user's systemd manager, which is how the desktop's menu
 /// starts it (KDE Plasma: `app-…@.service`), so it inherits the manager's
-/// environment rather than BiGame-mode's own. The Steam that was open is
+/// environment rather than Big Game Mode's own. The Steam that was open is
 /// the one opened again.
 ///
 /// # Errors
@@ -494,7 +494,7 @@ fn finish_write(
     app_id: &str,
     value: &str,
 ) -> Result<()> {
-    // Keep a copy of the user's Steam configuration before BiGame-mode first
+    // Keep a copy of the user's Steam configuration before Big Game Mode first
     // touches it; a later write must not replace it with its own.
     let backup = config.with_extension("vdf.bigame-backup");
     if !backup.exists() {

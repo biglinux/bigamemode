@@ -1,5 +1,5 @@
 //! Write a Steam game's Gamescope wrapper into its launch options, as a
-//! profile saved with Gamescope "Always" does, or take BiGame-mode's out.
+//! profile saved with Gamescope "Always" does, or take Big Game Mode's out.
 //! Steam must be closed.
 //!
 //! `cargo run -p bigame-core --example steam_gamescope -- <process> <on|off>`

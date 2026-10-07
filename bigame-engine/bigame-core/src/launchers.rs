@@ -7,8 +7,8 @@
 //!   a `heroic://launch` link, `lutris:rungame/<slug>`, `flatpak run`. The
 //!   launcher starts the game in a process tree of its own, so the game gets
 //!   its falcond profile — falcond matches the game's process wherever it
-//!   comes from — but none of BiGame-mode's launch settings, which wrap a
-//!   process BiGame-mode starts itself.
+//!   comes from — but none of Big Game Mode's launch settings, which wrap a
+//!   process Big Game Mode starts itself.
 //! * **Opening a launcher again** ([`behind_the_session`], [`reopen`]). A
 //!   launcher keeps the environment it started with, and its games inherit
 //!   that, so a Turbo preset set in the session afterwards reaches them only
@@ -17,7 +17,7 @@
 //!   the way it closes itself, never while it runs a game — closing Heroic or
 //!   Lutris can take the game with it — and started again as a unit of the
 //!   user's systemd manager, as the desktop's menu starts applications, so it
-//!   inherits the session's environment rather than BiGame-mode's.
+//!   inherits the session's environment rather than Big Game Mode's.
 //!
 //! Every command is an argument vector, and every id that goes into one —
 //! Steam's app id, Heroic's app name and runner, a Lutris slug, a Flatpak

@@ -9,7 +9,7 @@
 //!
 //! Two kinds of settings live here, and each says which it is: falcond's
 //! (written through the privileged helper, which reloads falcond) and the
-//! launch settings in `video.toml` (read when BiGame-mode starts a game;
+//! launch settings in `video.toml` (read when Big Game Mode starts a game;
 //! Wine FSR and vkBasalt also go into the session environment). Every
 //! change is saved at once, off the main thread, one write at a time with
 //! the newest state last (a spin button or a typed path waits until it

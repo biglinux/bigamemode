@@ -16,7 +16,7 @@
 //! rests on.
 //!
 //! The profile contains **only falcond's fields**: falcond ignores anything
-//! else, and BiGame-mode's own per-game settings live in
+//! else, and Big Game Mode's own per-game settings live in
 //! [`crate::game_settings`].
 
 use std::fmt::Write as _;

@@ -14,7 +14,7 @@
 //! 3. Tuning's settings, for everything the game leaves to them.
 //!
 //! A frame cap has one limiter per launch ([`Cap`]), and the plan is
-//! authoritative for what it manages: the game inherits BiGame-mode's own
+//! authoritative for what it manages: the game inherits Big Game Mode's own
 //! environment, a snapshot of the session from when it started, and what a
 //! preset no longer in force left there is taken out.
 //!
@@ -47,7 +47,7 @@ struct Host {
     screen: Option<(u32, u32)>,
     /// `MangoHud`'s wrapper is installed, so it can hold a frame cap.
     mangohud: bool,
-    /// The environment a game started from here inherits: BiGame-mode's
+    /// The environment a game started from here inherits: Big Game Mode's
     /// own, taken from the session when it started, so it can hold what
     /// Tuning or a Turbo preset set then and no longer sets.
     env: HashMap<String, String>,
@@ -76,7 +76,7 @@ impl Host {
     }
 }
 
-/// Fully resolved plan to launch a game with all BiGame-mode video settings applied.
+/// Fully resolved plan to launch a game with all Big Game Mode video settings applied.
 #[derive(Debug, Clone)]
 pub struct LaunchPlan {
     /// Top-level executable (`"gamescope"` or game path).
@@ -191,7 +191,7 @@ impl LaunchPlan {
         );
         let own_gs = own.gamescope_override(&effective_video.upscaling);
         let gs_override = own_gs.as_ref().or(gs_override);
-        // A game BiGame-mode installed OptiScaler into already upscales;
+        // A game Big Game Mode installed OptiScaler into already upscales;
         // Gamescope and Wine FSR would be second upscalers.
         let disables = crate::graphics::launch_disables(
             &crate::graphics::state_dir(),
@@ -219,8 +219,8 @@ impl LaunchPlan {
                 "harmony: Wine FSR off for this launch — Gamescope already upscales"
             );
         }
-        // The game inherits BiGame-mode's own environment, which holds what
-        // the session held when BiGame-mode started (environment.d, a Turbo
+        // The game inherits Big Game Mode's own environment, which holds what
+        // the session held when Big Game Mode started (environment.d, a Turbo
         // preset then in force): a Wine FSR or a vkBasalt off for this
         // launch is switched off explicitly.
         let wine_fsr_suppressed = (video.upscaling.wine_fsr_enabled
@@ -641,7 +641,7 @@ fn is_a_presets(inherited: &HashMap<String, String>, key: &str) -> bool {
 }
 
 /// What of a Turbo preset the game would inherit and the plan does not set:
-/// a preset no longer in force (Turbo off since BiGame-mode started), whose
+/// a preset no longer in force (Turbo off since Big Game Mode started), whose
 /// cap or FSR 4 upgrade would otherwise reach every game started here.
 fn left_by_a_preset(
     inherited: &HashMap<String, String>,
@@ -667,7 +667,7 @@ fn with_fps_limit(config: &str, fps: u32) -> String {
         .join(",")
 }
 
-/// Whether BiGame-mode starts a native Linux program rather than a Windows
+/// Whether Big Game Mode starts a native Linux program rather than a Windows
 /// one through Wine or Proton.
 fn is_native(executable: &str, args: &[String]) -> bool {
     let exe = |s: &str| s.to_ascii_lowercase().ends_with(".exe");
@@ -1899,7 +1899,7 @@ mod tests {
     #[test]
     fn what_a_preset_no_longer_in_force_left_behind_does_not_reach_the_game() {
         use crate::turbo_preset::Preset;
-        // BiGame-mode started while Locked 60 and Tuning's Wine FSR were in
+        // Big Game Mode started while Locked 60 and Tuning's Wine FSR were in
         // the session; both are off now.
         let stale = Host {
             env: [

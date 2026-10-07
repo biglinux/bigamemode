@@ -35,7 +35,7 @@ pub enum Status {
 pub enum Fix {
     /// A command to copy and run. Never run for the user, never translated.
     Command(String),
-    /// Something to do in BiGame-mode or elsewhere, translatable.
+    /// Something to do in Big Game Mode or elsewhere, translatable.
     Advice(Text),
 }
 
@@ -423,7 +423,7 @@ pub fn restart_check(restarts: u32) -> Option<Check> {
 /// Nothing to report on a machine with one GPU, or where the games' GPU
 /// drives the display itself. On a laptop whose panel belongs to the
 /// integrated GPU, Proton games pick the discrete one on their own; an OpenGL
-/// game needs PRIME render offload, which BiGame-mode sets for games it
+/// game needs PRIME render offload, which Big Game Mode sets for games it
 /// starts but cannot set for a game Steam starts.
 #[must_use]
 pub fn hybrid_check(hw: &Hardware, prime_run: bool) -> Option<Check> {
@@ -849,7 +849,7 @@ pub fn collect() -> Vec<Check> {
 /// Access Memory"), from the size of its VRAM aperture (BAR 0 on amdgpu)
 /// against its VRAM. Only amdgpu discrete cards: NVIDIA and Intel put the
 /// aperture in another BAR. Firmware decides it (Above 4G Decoding and
-/// Re-Size BAR in the setup program); BiGame-mode only reports it.
+/// Re-Size BAR in the setup program); Big Game Mode only reports it.
 fn resizable_bar_of(gpu: &crate::hardware::Gpu) -> Option<Check> {
     if gpu.driver != "amdgpu" || !gpu.discrete || gpu.pci_slot.is_empty() {
         return None;

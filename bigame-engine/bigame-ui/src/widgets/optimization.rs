@@ -95,13 +95,13 @@ pub enum Reach {
         /// and vkBasalt.
         flatpak: bool,
     },
-    /// BiGame-mode starts it (Profiles → Launch).
+    /// Big Game Mode starts it (Profiles → Launch).
     Launch,
     /// Not known here (a profile with no game card, the wizard): whichever
     /// of them starts it.
     #[default]
     Unknown,
-    /// Its own launcher starts it, and BiGame-mode cannot.
+    /// Its own launcher starts it, and Big Game Mode cannot.
     Nothing,
 }
 

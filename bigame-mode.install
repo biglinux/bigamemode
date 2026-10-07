@@ -23,7 +23,7 @@ post_upgrade() {
 }
 
 pre_remove() {
-    # Give falcond back as it was before BiGame-mode first took charge of it
+    # Give falcond back as it was before Big Game Mode first took charge of it
     # (enabled or not, running or not). Does nothing if it never did.
     if ! busctl call --timeout=10 com.biglinux.BiGameMode /com/biglinux/BiGameMode \
         com.biglinux.BiGameMode ReleaseGameBackend >/dev/null 2>&1; then

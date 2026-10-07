@@ -1,4 +1,4 @@
-//! AI Graphics for one game: what was found, what BiGame-mode recommends,
+//! AI Graphics for one game: what was found, what Big Game Mode recommends,
 //! and — only when the user asks — doing it, repairing it, or undoing it.
 //!
 //! The page reads top to bottom as the questions a player has: can this
@@ -1068,7 +1068,7 @@ fn render_buttons(page: &Rc<Page>, a: &Analysis) {
     let installed = r.installed.is_some();
     let option_set = a.fsr4_upgrade_set;
     // A record of an install that cannot be used (another folder, or one
-    // that does not load) stops Apply: it would take BiGame-mode's own
+    // that does not load) stops Apply: it would take Big Game Mode's own
     // files in the game for its originals.
     let unusable = matches!(a.status, Status::Moved { .. } | Status::Unreadable { .. });
     page.apply.set_visible(
@@ -2060,7 +2060,7 @@ fn wire_choice(page: &Rc<Page>) {
 
 /// Whether Wine FSR would run next to `OptiScaler` in this Steam game: on in
 /// Tuning, in a Turbo preset, or in its own launch options, and not switched
-/// off for it by BiGame-mode. Blocking (it reads Steam's configuration).
+/// off for it by Big Game Mode. Blocking (it reads Steam's configuration).
 fn wine_fsr_second(target: &Target) -> bool {
     target.app_id.is_some()
         && !bigame_core::game_settings::load(&target.process).is_ok_and(|s| s.steam_wine_fsr_off)
@@ -2711,7 +2711,7 @@ fn open_with(
                         graphics::install(&target, &a.plan, &cfg.version)
                     }?;
                     // Two frame generators never run together — not even
-                    // for a launch BiGame-mode does not make (Steam's): with
+                    // for a launch Big Game Mode does not make (Steam's): with
                     // OptiScaler generating frames, the game's lsfg-vk entry
                     // goes, in lsfg-vk's own file.
                     let lsfg_removed = cfg.optiscaler_frame_generation()
@@ -2842,7 +2842,7 @@ fn open_with(
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || {
                     let out = graphics::restore(&target)?;
-                    // BiGame-mode's WINE_FULLSCREEN_FSR=0 went in with
+                    // Big Game Mode's WINE_FULLSCREEN_FSR=0 went in with
                     // OptiScaler, and goes with it (Steam closed; otherwise
                     // it stays, harmless, until the next Restore).
                     if bigame_core::game_settings::load(&target.process)
