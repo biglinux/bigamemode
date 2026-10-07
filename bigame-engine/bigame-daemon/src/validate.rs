@@ -165,7 +165,7 @@ fn assignment(line: &str, lists: bool) -> Result<Option<(&str, &str)>, String> {
     let value = rest.trim_start();
     let plain = |s: &str| !s.contains(['"', '\\', '#']);
     let ok = if let Some(inner) = value.strip_prefix('"') {
-        inner.strip_suffix('"').is_some_and(&plain)
+        inner.strip_suffix('"').is_some_and(plain)
     } else if let Some(items) = value.strip_prefix('[').filter(|_| lists) {
         items.strip_suffix(']').is_some_and(|items| {
             items.trim().is_empty()
@@ -173,7 +173,7 @@ fn assignment(line: &str, lists: bool) -> Result<Option<(&str, &str)>, String> {
                     item.trim()
                         .strip_prefix('"')
                         .and_then(|s| s.strip_suffix('"'))
-                        .is_some_and(&plain)
+                        .is_some_and(plain)
                 })
         })
     } else {
