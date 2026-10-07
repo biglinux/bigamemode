@@ -104,7 +104,7 @@ jobs:
       - name: Validate the built package
         run: |
           set -euo pipefail
-          package=$(find package-build -maxdepth 1 -name 'bigame-mode-*.pkg.tar*' -print -quit)
+          package=$(find package-build -maxdepth 1 -name 'bigame-mode-[0-9]*.pkg.tar*' -print -quit)
           test -n "$package"
           namcap package-build/PKGBUILD "$package" | tee package-build/namcap.log
           if grep -q ' E: ' package-build/namcap.log; then exit 1; fi
