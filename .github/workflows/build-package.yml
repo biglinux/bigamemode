@@ -156,7 +156,11 @@ jobs:
             echo "::error::the package's version or architecture disagrees with the sources"
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$version"
+            # An artifact name cannot hold the ':' of an epoch.
+            echo "artifact=bigame-mode-${version//:/.}-${GITHUB_SHA:0:12}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Validate package contents
         id: contents
@@ -221,7 +225,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           sha256sum -- "$PACKAGE" ${DEBUG_PACKAGE:+"$DEBUG_PACKAGE"} | tee SHA256SUMS
-          echo "short_sha=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
 
       - name: Write build report
         if: ${{ !cancelled() }}
@@ -282,7 +285,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: bigame-mode-${{ steps.metadata.outputs.version }}-${{ steps.checksums.outputs.short_sha }}
+          name: ${{ steps.metadata.outputs.artifact }}
           # The package and its debug package, their checksums, namcap's
           # report, the package's file list and the makepkg logs.
           path: |
