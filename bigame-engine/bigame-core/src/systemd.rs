@@ -39,6 +39,10 @@ pub trait Manager {
     fn load_unit(&self, name: &str) -> zbus::Result<OwnedObjectPath>;
     #[zbus(name = "KillUnit")]
     fn kill_unit(&self, name: &str, whom: &str, signal: i32) -> zbus::Result<()>;
+    /// Clear a unit's `failed` state and its start-rate counter, as
+    /// `systemctl reset-failed` does.
+    #[zbus(name = "ResetFailedUnit")]
+    fn reset_failed_unit(&self, name: &str) -> zbus::Result<()>;
 }
 
 #[zbus::proxy(
@@ -58,6 +62,107 @@ pub trait Service {
     /// Automatic restarts since the service was last started on request.
     #[zbus(property, name = "NRestarts")]
     fn n_restarts(&self) -> zbus::Result<u32>;
+    /// How the service last ended: `success`, `exit-code`, `signal`,
+    /// `core-dump`, `start-limit-hit`, `timeout`, …
+    #[zbus(property, name = "Result")]
+    fn result(&self) -> zbus::Result<String>;
+    /// How the main process last ended: a `waitid()` code, `CLD_*`.
+    #[zbus(property, name = "ExecMainCode")]
+    fn exec_main_code(&self) -> zbus::Result<i32>;
+    /// The main process's exit status, or the signal that ended it.
+    #[zbus(property, name = "ExecMainStatus")]
+    fn exec_main_status(&self) -> zbus::Result<i32>;
+}
+
+/// `waitid()` codes systemd reports in `ExecMainCode`.
+const CLD_EXITED: i32 = 1;
+const CLD_KILLED: i32 = 2;
+const CLD_DUMPED: i32 = 3;
+
+/// How a service's main process last ended, as systemd reports it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceRun {
+    /// `Result`: `success`, `exit-code`, `signal`, `core-dump`,
+    /// `start-limit-hit`, …
+    pub result: String,
+    /// `ExecMainCode`: `CLD_EXITED` (1), `CLD_KILLED` (2), `CLD_DUMPED` (3),
+    /// or 0 when no process has run.
+    pub main_code: i32,
+    /// `ExecMainStatus`: the exit status, or the signal for 2 and 3.
+    pub main_status: i32,
+    /// `NRestarts`: automatic restarts since the last start on request.
+    pub restarts: u32,
+}
+
+/// Why a service last failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Failure {
+    /// Ended by `SIGILL`: the processor met an instruction it does not have
+    /// (a binary built for a newer CPU), or, rarely, corrupt code.
+    IllegalInstruction,
+    /// Ended by another signal (`SIGSEGV`, `SIGABRT`, …).
+    Signal(i32),
+    /// Exited with a non-zero status.
+    ExitCode(i32),
+    /// Something else systemd names in `Result` (`timeout`, `resources`, …).
+    Other(String),
+}
+
+impl ServiceRun {
+    /// Why the service last failed, or `None` if its last run did not fail.
+    ///
+    /// `ExecMainCode` and `ExecMainStatus` outlive the failure they describe:
+    /// `systemctl reset-failed` sets `Result` back to `success` and leaves
+    /// them. Only a `Result` other than `success` makes them current.
+    #[must_use]
+    pub fn failure(&self) -> Option<Failure> {
+        if self.result.is_empty() || self.result == "success" {
+            return None;
+        }
+        Some(match self.main_code {
+            CLD_KILLED | CLD_DUMPED if self.main_status == libc::SIGILL => {
+                Failure::IllegalInstruction
+            }
+            CLD_KILLED | CLD_DUMPED => Failure::Signal(self.main_status),
+            CLD_EXITED if self.main_status != 0 => Failure::ExitCode(self.main_status),
+            _ => Failure::Other(self.result.clone()),
+        })
+    }
+
+    /// Whether systemd gave up restarting it: started too often too quickly.
+    #[must_use]
+    pub fn start_limit_hit(&self) -> bool {
+        self.result == "start-limit-hit"
+    }
+}
+
+impl Failure {
+    /// The failure in systemd's own terms, for reports and logs:
+    /// `SIGILL (illegal instruction)`, `SIGSEGV`, `exit status 1`, `timeout`.
+    #[must_use]
+    pub fn describe(&self) -> String {
+        match self {
+            Self::IllegalInstruction => "SIGILL (illegal instruction)".to_owned(),
+            Self::Signal(n) => signal_name(*n),
+            Self::ExitCode(n) => format!("exit status {n}"),
+            Self::Other(result) => result.clone(),
+        }
+    }
+}
+
+/// A signal's name, as systemd's journal prints it.
+fn signal_name(signal: i32) -> String {
+    match signal {
+        libc::SIGILL => "SIGILL".into(),
+        libc::SIGABRT => "SIGABRT".into(),
+        libc::SIGBUS => "SIGBUS".into(),
+        libc::SIGFPE => "SIGFPE".into(),
+        libc::SIGKILL => "SIGKILL".into(),
+        libc::SIGSEGV => "SIGSEGV".into(),
+        libc::SIGTERM => "SIGTERM".into(),
+        libc::SIGSYS => "SIGSYS".into(),
+        n => format!("signal {n}"),
+    }
 }
 
 /// A unit's state, as systemd reports it.
@@ -67,6 +172,9 @@ pub struct UnitState {
     pub unit_file_state: String,
     /// `active`, `inactive`, `failed`, `activating`, …
     pub active_state: String,
+    /// How its main process last ended, for a service whose state could be
+    /// read; `None` otherwise.
+    pub service: Option<ServiceRun>,
 }
 
 impl UnitState {
@@ -81,6 +189,27 @@ impl UnitState {
     pub fn is_installed(&self) -> bool {
         self.unit_file_state != "not-found"
     }
+
+    /// Whether the unit is in systemd's `failed` state.
+    #[must_use]
+    pub fn is_failed(&self) -> bool {
+        self.active_state == "failed"
+    }
+
+    /// Why the service last failed, if its last run failed.
+    #[must_use]
+    pub fn failure(&self) -> Option<Failure> {
+        self.service.as_ref().and_then(ServiceRun::failure)
+    }
+
+    /// A state for a unit systemd does not know.
+    fn not_found() -> Self {
+        Self {
+            unit_file_state: "not-found".into(),
+            active_state: "inactive".into(),
+            service: None,
+        }
+    }
 }
 
 /// Read a unit's state.
@@ -90,16 +219,34 @@ impl UnitState {
 pub async fn unit_state(connection: &zbus::Connection, unit: &str) -> zbus::Result<UnitState> {
     let manager = ManagerProxy::new(connection).await?;
     let Ok(unit_file_state) = manager.get_unit_file_state(unit).await else {
-        return Ok(UnitState {
-            unit_file_state: "not-found".into(),
-            active_state: "inactive".into(),
-        });
+        return Ok(UnitState::not_found());
     };
     let path = manager.load_unit(unit).await?;
-    let proxy = UnitProxy::builder(connection).path(path)?.build().await?;
+    let proxy = UnitProxy::builder(connection)
+        .path(path.clone())?
+        .build()
+        .await?;
+    let active_state = proxy.active_state().await?;
+    // Not every unit is a service, and the exit details only add to the
+    // state: one that cannot be read leaves them out.
+    let service = async {
+        let s = ServiceProxy::builder(connection)
+            .path(path)?
+            .build()
+            .await?;
+        zbus::Result::Ok(ServiceRun {
+            result: s.result().await?,
+            main_code: s.exec_main_code().await?,
+            main_status: s.exec_main_status().await?,
+            restarts: s.n_restarts().await?,
+        })
+    }
+    .await
+    .ok();
     Ok(UnitState {
         unit_file_state,
-        active_state: proxy.active_state().await?,
+        active_state,
+        service,
     })
 }
 
@@ -137,20 +284,35 @@ impl Reader {
     pub fn unit_state(&self, unit: &str) -> Option<UnitState> {
         let manager = ManagerProxyBlocking::new(&self.connection).ok()?;
         let Ok(unit_file_state) = manager.get_unit_file_state(unit) else {
-            return Some(UnitState {
-                unit_file_state: "not-found".into(),
-                active_state: "inactive".into(),
-            });
+            return Some(UnitState::not_found());
         };
         let path = manager.load_unit(unit).ok()?;
         let proxy = UnitProxyBlocking::builder(&self.connection)
+            .path(path.clone())
+            .ok()?
+            .build()
+            .ok()?;
+        let active_state = proxy.active_state().ok()?;
+        Some(UnitState {
+            unit_file_state,
+            active_state,
+            service: self.service_run(path),
+        })
+    }
+
+    /// How a service's main process last ended; `None` for a unit that is
+    /// not a service or whose properties could not be read.
+    fn service_run(&self, path: OwnedObjectPath) -> Option<ServiceRun> {
+        let s = ServiceProxyBlocking::builder(&self.connection)
             .path(path)
             .ok()?
             .build()
             .ok()?;
-        Some(UnitState {
-            unit_file_state,
-            active_state: proxy.active_state().ok()?,
+        Some(ServiceRun {
+            result: s.result().ok()?,
+            main_code: s.exec_main_code().ok()?,
+            main_status: s.exec_main_status().ok()?,
+            restarts: s.n_restarts().ok()?,
         })
     }
 
@@ -159,15 +321,98 @@ impl Reader {
     /// is not loaded or systemd could not be asked.
     #[must_use]
     pub fn restarts(&self, unit: &str) -> Option<u32> {
-        let manager = ManagerProxyBlocking::new(&self.connection).ok()?;
-        manager.get_unit_file_state(unit).ok()?;
-        let path = manager.load_unit(unit).ok()?;
-        ServiceProxyBlocking::builder(&self.connection)
-            .path(path)
-            .ok()?
-            .build()
-            .ok()?
-            .n_restarts()
-            .ok()
+        self.unit_state(unit)?.service.map(|s| s.restarts)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(result: &str, main_code: i32, main_status: i32) -> ServiceRun {
+        ServiceRun {
+            result: result.into(),
+            main_code,
+            main_status,
+            restarts: 0,
+        }
+    }
+
+    #[test]
+    fn a_crash_loop_on_an_illegal_instruction_is_named() {
+        // falcond 2.0.14 built for x86-64-v3 on a Sandy Bridge, as systemd
+        // 261 reports it once it gives up: start-limit-hit, the last run
+        // dumped core on signal 4.
+        let r = ServiceRun {
+            restarts: 5,
+            ..run("start-limit-hit", CLD_DUMPED, libc::SIGILL)
+        };
+        assert_eq!(r.failure(), Some(Failure::IllegalInstruction));
+        assert!(r.start_limit_hit());
+        // And between two restarts of that loop.
+        assert_eq!(
+            run("core-dump", CLD_DUMPED, libc::SIGILL).failure(),
+            Some(Failure::IllegalInstruction)
+        );
+        // Without a core dump (core dumps off) systemd says "killed".
+        assert_eq!(
+            run("signal", CLD_KILLED, libc::SIGILL).failure(),
+            Some(Failure::IllegalInstruction)
+        );
+    }
+
+    #[test]
+    fn other_failures_keep_their_own_cause() {
+        assert_eq!(
+            run("core-dump", CLD_DUMPED, libc::SIGSEGV).failure(),
+            Some(Failure::Signal(libc::SIGSEGV))
+        );
+        assert_eq!(
+            run("exit-code", CLD_EXITED, 1).failure(),
+            Some(Failure::ExitCode(1))
+        );
+        assert_eq!(
+            run("timeout", 0, 0).failure(),
+            Some(Failure::Other("timeout".into()))
+        );
+        assert!(!run("core-dump", CLD_DUMPED, libc::SIGSEGV).start_limit_hit());
+    }
+
+    #[test]
+    fn a_reset_or_a_clean_stop_is_not_a_failure() {
+        // After reset-failed, systemd 261 reports Result=success and keeps
+        // the old ExecMainCode=3, ExecMainStatus=4: not a current failure.
+        assert_eq!(run("success", CLD_DUMPED, libc::SIGILL).failure(), None);
+        // A stop on request ends the process with SIGTERM.
+        assert_eq!(run("success", CLD_KILLED, libc::SIGTERM).failure(), None);
+        // A service that never ran.
+        assert_eq!(run("success", 0, 0).failure(), None);
+        assert_eq!(run("", 0, 0).failure(), None);
+    }
+
+    #[test]
+    fn failures_read_as_systemd_prints_them() {
+        assert_eq!(
+            Failure::IllegalInstruction.describe(),
+            "SIGILL (illegal instruction)"
+        );
+        assert_eq!(Failure::Signal(libc::SIGSEGV).describe(), "SIGSEGV");
+        assert_eq!(Failure::Signal(64).describe(), "signal 64");
+        assert_eq!(Failure::ExitCode(3).describe(), "exit status 3");
+        assert_eq!(Failure::Other("timeout".into()).describe(), "timeout");
+    }
+
+    #[test]
+    fn a_unit_state_answers_from_its_service() {
+        let failed = UnitState {
+            unit_file_state: "enabled".into(),
+            active_state: "failed".into(),
+            service: Some(run("start-limit-hit", CLD_DUMPED, libc::SIGILL)),
+        };
+        assert!(failed.is_failed() && !failed.is_active());
+        assert_eq!(failed.failure(), Some(Failure::IllegalInstruction));
+        let missing = UnitState::not_found();
+        assert!(!missing.is_installed());
+        assert_eq!(missing.failure(), None);
     }
 }

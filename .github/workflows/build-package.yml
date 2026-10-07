@@ -50,7 +50,7 @@ jobs:
           set -Eeuo pipefail
           # git for a real checkout (git archive); the rest for the checks.
           # makepkg --syncdeps installs the recipe's depends and makedepends.
-          pacman -Syu --noconfirm --needed git namcap desktop-file-utils appstream libxml2
+          pacman -Syu --noconfirm --needed git namcap desktop-file-utils appstream libxml2 qemu-user
           useradd --create-home builder
           # makepkg refuses root. The build user may run pacman, and only
           # pacman, through sudo, which --syncdeps needs.
@@ -168,6 +168,22 @@ jobs:
           PACKAGE: ${{ steps.packages.outputs.main }}
         run: .github/scripts/check-package-contents.sh "package-build/$PACKAGE" package-build/package-root
 
+      - name: Check CPU compatibility (legacy x86-64)
+        id: cpu
+        run: |
+          set -Eeuo pipefail
+          root=package-build/package-root
+          # What the binaries could ask of a processor, for the log: Rust's
+          # std and memchr keep AVX2 paths they take only after a CPUID
+          # check, so newer instructions are expected here and decide nothing.
+          for bin in bigame-ui bigame-daemon; do
+            python3 .github/scripts/x86-64-isa-report.py "$root/usr/bin/$bin"
+          done
+          # What decides: the packaged binaries, run on emulated processors
+          # from the x86-64 baseline (2003) up to a current AMD part.
+          runuser -u builder -- .github/scripts/legacy-cpu-test.sh \
+            "$root/usr/bin/bigame-ui" "$root/usr/bin/bigame-daemon"
+
       - name: Validate desktop entry
         id: desktop
         # The installed entry, with every catalogue merged in by msgfmt.
@@ -234,6 +250,7 @@ jobs:
           PACKAGES: ${{ steps.packages.outcome }}
           METADATA: ${{ steps.metadata.outcome }}
           CONTENTS: ${{ steps.contents.outcome }}
+          CPU: ${{ steps.cpu.outcome }}
           DESKTOP: ${{ steps.desktop.outcome }}
           APPSTREAM: ${{ steps.appstream.outcome }}
           NAMCAP: ${{ steps.namcap.outcome }}
@@ -261,6 +278,7 @@ jobs:
             echo "| Package and debug package identified | $(result "$PACKAGES") |"
             echo "| Package metadata and versions | $(result "$METADATA") |"
             echo "| Package contents | $(result "$CONTENTS") |"
+            echo "| Runs on x86-64 baseline to v3 CPUs (QEMU) | $(result "$CPU") |"
             echo "| Desktop entry | $(result "$DESKTOP") |"
             echo "| AppStream metadata | $(result "$APPSTREAM") |"
             echo "| namcap${NAMCAP_ERRORS:+ ($NAMCAP_ERRORS errors, $NAMCAP_WARNINGS warnings)} | $(result "$NAMCAP") |"

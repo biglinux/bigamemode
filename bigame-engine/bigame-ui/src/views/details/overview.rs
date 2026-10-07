@@ -8,7 +8,7 @@ use libadwaita as adw;
 
 use bigame_core::overview::{AppliedProfile, Headline, Snapshot, State};
 
-use crate::i18n::{N_, i18n, ni18n};
+use crate::i18n::{N_, i18n, ni18n, tr};
 use crate::widgets::status::Chip;
 
 /// The overview group.
@@ -210,13 +210,26 @@ impl Overview {
                     "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing.",
                 ),
             ),
-            Headline::FalcondFailed => (
-                "dialog-error-symbolic",
-                i18n("falcond failed"),
-                i18n(
-                    "The per-game optimization service failed. Logs show why; turning Turbo off and on again restarts it.",
+            Headline::FalcondFailed => match &snap.backend_failure {
+                Some(failure) => {
+                    let why = bigame_core::turbo::explain_backend_failure(
+                        failure,
+                        &bigame_core::isa::CpuIsa::detect(),
+                    );
+                    (
+                        "dialog-error-symbolic",
+                        tr(&why.title),
+                        format!("{} {}", tr(&why.summary), tr(&why.advice)),
+                    )
+                }
+                None => (
+                    "dialog-error-symbolic",
+                    i18n("falcond failed"),
+                    i18n(
+                        "The per-game optimization service failed. Logs show why; turning Turbo off and on again restarts it.",
+                    ),
                 ),
-            ),
+            },
         };
         let attention = snap.attention_count();
         if attention > 0 {

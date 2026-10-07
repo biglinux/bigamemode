@@ -564,12 +564,28 @@ pub fn collect() -> Vec<Check> {
             N_("not installed: no per-game performance profiles; Turbo applies only the general settings"),
             install(&["falcond", "falcond-profiles"]),
         ),
-        (Some(u), true) if u.active_state == "failed" => check(
-            N_("falcond"),
-            Status::Error,
-            Text::with(N_("%s · the service failed; see Logs for why"), [v]),
-            cmd("journalctl -u falcond -n 50"),
-        ),
+        (Some(u), true) if u.is_failed() => match u.failure() {
+            // The specific cause, when systemd gives one: an illegal
+            // instruction is not fixed by restarting, and says so.
+            Some(failure) => {
+                let why = crate::turbo::explain_backend_failure(
+                    &failure,
+                    &crate::isa::CpuIsa::detect(),
+                );
+                Check {
+                    title: Text::plain(N_("falcond")),
+                    status: Status::Error,
+                    detail: Text::with(N_("%s · %s"), [Arg::Raw(v.to_owned()), Arg::Text(why.summary)]),
+                    fix: Some(Fix::Advice(why.advice)),
+                }
+            }
+            None => check(
+                N_("falcond"),
+                Status::Error,
+                Text::with(N_("%s · the service failed; see Logs for why"), [v]),
+                cmd("journalctl -u falcond -n 50"),
+            ),
+        },
         (Some(u), true) if u.is_active() => check(
             N_("falcond"),
             Status::Ok,

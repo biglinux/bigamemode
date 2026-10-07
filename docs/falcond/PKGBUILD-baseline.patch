@@ -1,0 +1,32 @@
+--- a/PKGBUILD (AUR falcond 2.0.14-1, commit 46d68e2)
++++ b/PKGBUILD (built for the x86-64 baseline)
+@@ -2,7 +2,7 @@
+ # Contributor: Sergey A <murlakatamenka@disroot.org>
+ pkgname=falcond
+ pkgver=2.0.14
+-pkgrel=1
++pkgrel=2
+ pkgdesc="Advanced Linux gaming performance daemon"
+ arch=('x86_64')
+ url="https://git.pika-os.com/general-packages/falcond"
+@@ -33,13 +33,19 @@
+   zig build --fetch
+ }
+ 
++# -Dcpu=baseline: the architecture's generic CPU (the x86-64 baseline here),
++# as arch=('x86_64') promises. Without it Zig builds for the build machine's
++# own CPU, and upstream's Debian rules ask for x86_64_v3; either way falcond
++# needs AVX2/BMI2 and dies with SIGILL on older processors (Sandy and Ivy
++# Bridge, older AMD parts). See biglinux/bigamemode#4.
+ build() {
+   cd "$pkgname-$pkgver/$pkgname"
+   export ZIG_GLOBAL_CACHE_DIR="$srcdir/zig-global-cache"
+   DESTDIR=build zig build \
+     --summary all \
+     --prefix /usr \
+-    -Doptimize=ReleaseFast
++    -Doptimize=ReleaseFast \
++    -Dcpu=baseline
+ }
+ 
+ package() {

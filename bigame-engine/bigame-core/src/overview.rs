@@ -333,6 +333,8 @@ pub struct Snapshot {
     pub turbo_unreadable: bool,
     /// falcond's unit failed (systemd `failed`).
     pub unit_failed: bool,
+    /// Why falcond's service last failed, when it did and systemd says why.
+    pub backend_failure: Option<crate::systemd::Failure>,
     /// falcond is installed.
     pub falcond_installed: bool,
     /// falcond's status, when its file is there and trusted.
@@ -458,19 +460,39 @@ fn steam_launch_facts(game: Option<&GameIdentity>) -> (Option<bool>, bool) {
     )
 }
 
-/// Turbo from falcond's unit: whether it is on, whether the unit failed,
-/// and whether systemd could not be asked at all. Without falcond, Turbo's
-/// own state (Booster only), as Home shows it.
-fn read_turbo() -> (bool, bool, bool) {
+/// Turbo as falcond's unit says it.
+struct TurboReading {
+    /// Turbo is on.
+    on: bool,
+    /// falcond's unit failed (systemd `failed`).
+    failed: bool,
+    /// Why, when it failed and systemd says.
+    failure: Option<crate::systemd::Failure>,
+    /// systemd could not be asked at all.
+    unreadable: bool,
+}
+
+/// Turbo from falcond's unit: whether it is on, whether the unit failed
+/// (and why), and whether systemd could not be asked at all. Without
+/// falcond, Turbo's own state (Booster only), as Home shows it.
+fn read_turbo() -> TurboReading {
     let unit = crate::systemd::Reader::shared()
         .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT))
         .filter(crate::systemd::UnitState::is_installed);
     if let Some(unit) = unit {
-        return (unit.is_active(), unit.active_state == "failed", false);
+        return TurboReading {
+            on: unit.is_active(),
+            failed: unit.is_failed(),
+            failure: unit.is_failed().then(|| unit.failure()).flatten(),
+            unreadable: false,
+        };
     }
-    match crate::turbo::state_blocking() {
-        Ok(state) => (state == crate::turbo::State::On, false, false),
-        Err(_) => (false, false, true),
+    let state = crate::turbo::state_blocking();
+    TurboReading {
+        on: state.as_ref().is_ok_and(|s| *s == crate::turbo::State::On),
+        failed: false,
+        failure: None,
+        unreadable: state.is_err(),
     }
 }
 
@@ -478,7 +500,12 @@ impl Snapshot {
     /// Read everything. Never fails: what cannot be read is `None`.
     #[must_use]
     pub fn collect(game: Option<GameIdentity>) -> Self {
-        let (turbo_on, unit_failed, turbo_unreadable) = read_turbo();
+        let TurboReading {
+            on: turbo_on,
+            failed: unit_failed,
+            failure: backend_failure,
+            unreadable: turbo_unreadable,
+        } = read_turbo();
         // A status file a stopped (or killed) falcond left behind still names
         // the profile it had active: believed only while falcond runs.
         let falcond = crate::status::live(crate::status::read(), turbo_on);
@@ -553,6 +580,7 @@ impl Snapshot {
             turbo_on,
             turbo_unreadable,
             unit_failed,
+            backend_failure,
             falcond_installed: capabilities::which("falcond").is_some(),
             profile,
             profile_not_applied,
@@ -1086,6 +1114,14 @@ mod tests {
             ..s
         };
         assert_eq!(s.turbo_state(), State::Error);
+        // Why it failed rides along, for the page to explain; the state is
+        // the same error.
+        let sigill = Snapshot {
+            backend_failure: Some(crate::systemd::Failure::IllegalInstruction),
+            ..s.clone()
+        };
+        assert_eq!(sigill.turbo_state(), State::Error);
+        assert_eq!(sigill.headline(), Headline::FalcondFailed);
         let s = Snapshot {
             falcond_installed: false,
             unit_failed: false,

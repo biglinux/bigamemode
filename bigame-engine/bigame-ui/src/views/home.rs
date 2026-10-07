@@ -29,7 +29,7 @@ use bigame_core::turbo::{self, Report, Section, Step};
 
 use bigame_core::turbo_preset;
 
-use crate::i18n::{error_text, i18n, ni18n};
+use crate::i18n::{error_text, i18n, ni18n, tr};
 use crate::widgets::booster_button::{self, BoosterButton, State};
 use crate::widgets::launcher_notice::LauncherNotice;
 use crate::widgets::sparkline::{self, SparkHandle};
@@ -763,10 +763,11 @@ fn finished_state(report: &Report, now: Option<bool>) -> (State, bool) {
 /// [`finished_state`] from the report alone.
 fn expected_state(report: &Report) -> (State, bool) {
     let failed = report.count(Section::Failed);
-    let backend_failed = report
+    let backend_item = report
         .items
         .iter()
-        .any(|i| i.section == Section::Failed && i.kind == turbo::Kind::GameBackend);
+        .find(|i| i.section == Section::Failed && i.kind == turbo::Kind::GameBackend);
+    let backend_failed = backend_item.is_some();
     if !report.turned_on {
         return if failed == 0 {
             (State::Off, false)
@@ -780,12 +781,12 @@ fn expected_state(report: &Report) -> (State, bool) {
         };
     }
     if backend_failed {
-        return (
-            State::Error {
-                detail: i18n("Per-game optimization could not be started"),
-            },
-            false,
-        );
+        // What is wrong, when systemd said why ("falcond is not compatible
+        // with this processor"); the report holds the rest.
+        let detail = backend_item
+            .and_then(|i| i.title.as_ref())
+            .map_or_else(|| i18n("Per-game optimization could not be started"), tr);
+        return (State::Error { detail }, false);
     }
     let state = if failed > 0 {
         State::Partial {
@@ -1509,6 +1510,31 @@ mod tests {
         let (state, on) = finished_state(&r, Some(true));
         assert!(on);
         assert!(matches!(state, State::Partial { .. }));
+    }
+
+    #[test]
+    fn a_falcond_that_cannot_run_here_says_why_on_home() {
+        // Issue #4: the report names the cause, and Home shows it rather
+        // than a generic failure.
+        let mut r = report(&[]);
+        r.items.push(turbo::Item {
+            kind: turbo::Kind::GameBackend,
+            section: Section::Failed,
+            owner: "falcond".into(),
+            detail: String::new(),
+            text: None,
+            title: Some(bigame_core::text::Text::plain(
+                "falcond is not compatible with this processor",
+            )),
+        });
+        let (state, on) = finished_state(&r, Some(false));
+        assert!(!on);
+        match state {
+            State::Error { detail } => {
+                assert_eq!(detail, "falcond is not compatible with this processor");
+            }
+            other => panic!("expected an error, got {other:?}"),
+        }
     }
 
     #[test]

@@ -46,6 +46,15 @@ pub const RELEASE_RECORD: &str = "/var/lib/bigame-mode/game-backend.released.jso
 /// How long to wait for systemd to report the state asked for.
 const SETTLE_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// How long a started falcond has to stay up to count as running.
+///
+/// systemd calls a `Type=simple` service active as soon as its process
+/// exists. falcond 2.0.14 built for x86-64-v3 was "active" on a Sandy Bridge
+/// for the few milliseconds before its first BMI2 instruction killed it;
+/// systemd restarted it every 100 ms and gave up after five tries, half a
+/// second in. Two seconds sees that loop through.
+const STARTUP_GRACE: Duration = Duration::from_secs(2);
+
 use bigame_core::systemd::ManagerProxy;
 
 /// The state falcond was in before Big Game Mode first changed it.
@@ -133,11 +142,40 @@ async fn settle(connection: &zbus::Connection, want: &str) -> anyhow::Result<Str
     }
 }
 
+/// Whether a just-started unit stays up for [`STARTUP_GRACE`]: active the
+/// whole time, and not restarted by systemd meanwhile. `None` when it did;
+/// otherwise the state it was found in.
+async fn stays_active(connection: &zbus::Connection) -> anyhow::Result<Option<String>> {
+    let deadline = tokio::time::Instant::now() + STARTUP_GRACE;
+    // NRestarts starts again from 0 at a start on request; read it anyway,
+    // so the check holds whatever systemd counted before.
+    let restarts = |s: &UnitState| s.service.as_ref().map_or(0, |r| r.restarts);
+    let first = restarts(&state(connection).await?);
+    loop {
+        let now = state(connection).await?;
+        if now.active_state != "active" || restarts(&now) > first {
+            return Ok(Some(now.active_state));
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Ok(None);
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
 /// Turn the backend on or off, persistently.
 ///
-/// On: enable the unit, then start it. Off: stop it — which restores any game
-/// profile it holds — then disable it. The state systemd reports afterwards is
-/// returned so the caller can verify rather than assume.
+/// On: enable the unit, then start it, and see that it stays up. Off: stop it
+/// — which restores any game profile it holds — then disable it. The state
+/// systemd reports afterwards is returned so the caller can verify rather
+/// than assume.
+///
+/// A unit left `failed` by an earlier run is reset first, both ways. On, so a
+/// fixed falcond starts at once instead of being refused for the earlier
+/// crashes (systemd's start limit). Off, because stopping a failed unit
+/// leaves it failed, and disabling has to happen all the same: left enabled,
+/// a falcond that crashes would crash again at every boot. Only ever on this
+/// request, never in a loop.
 ///
 /// # Errors
 /// Returns an error if systemd refuses the change or the unit does not reach
@@ -153,10 +191,36 @@ pub async fn set_enabled(
     take_ownership(connection).await?;
 
     let reached = if enabled {
+        let before = state(connection).await?;
+        if before.is_failed() {
+            info!(failure = ?before.failure(), "starting falcond again after a failure; clearing it first");
+            manager.reset_failed_unit(UNIT).await?;
+        }
         manager.enable_unit_files(&[UNIT], false, false).await?;
         manager.reload().await?;
         let started = match manager.start_unit(UNIT, "replace").await {
-            Ok(_) => settle(connection, "active").await,
+            Ok(_) => match settle(connection, "active").await {
+                Ok(reached) if reached == "active" => match stays_active(connection).await {
+                    Ok(None) => Ok(reached),
+                    Ok(Some(now)) => {
+                        // Let systemd finish its restarts: one that crashes
+                        // at once reaches the start limit within a second
+                        // and stays `failed` with the cause (the signal) for
+                        // the UI to explain. Stopped earlier, systemd forgets
+                        // it. One that is still restarting by then is stopped.
+                        let reached = settle(connection, "failed").await?;
+                        if reached != "failed" {
+                            manager.stop_unit(UNIT, "replace").await?;
+                            settle(connection, "inactive").await?;
+                        }
+                        let failure = state(connection).await?.failure();
+                        warn!(state = now, ?failure, "falcond started, then stopped");
+                        Ok("failed".to_owned())
+                    }
+                    Err(e) => Err(e),
+                },
+                other => other,
+            },
             Err(e) => Err(e.into()),
         };
         match started {
@@ -174,7 +238,13 @@ pub async fn set_enabled(
         }
     } else {
         manager.stop_unit(UNIT, "replace").await?;
-        let reached = settle(connection, "inactive").await?;
+        let mut reached = settle(connection, "inactive").await?;
+        if reached == "failed" {
+            let failure = state(connection).await?.failure();
+            info!(?failure, "falcond had failed; clearing it to turn it off");
+            manager.reset_failed_unit(UNIT).await?;
+            reached = settle(connection, "inactive").await?;
+        }
         // Still stopping (falcond restoring a game's profile): disabling now
         // would report a failure for a switch that is happening. The caller
         // sees the state and can ask again.

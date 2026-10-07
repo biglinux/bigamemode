@@ -311,8 +311,10 @@ pub struct Item {
     /// the report was translatable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<Text>,
-    /// A knob's title, translatable, for [`Kind::Knob`]; absent in older
-    /// reports and for the other kinds, which the UI titles itself.
+    /// A knob's title, translatable, for [`Kind::Knob`]; for a falcond that
+    /// did not start, what is wrong ("falcond is not compatible with this
+    /// processor") when systemd says why. Absent in older reports and
+    /// otherwise, where the UI titles the kind itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<Text>,
 }
@@ -547,6 +549,38 @@ fn hold_back(preset: crate::turbo_preset::Preset, booster: bool, report: &mut Re
     }
 }
 
+/// Why falcond's service failed, explained, if systemd says it did.
+async fn backend_failure() -> Option<BackendFailure> {
+    let connection = zbus::Connection::system().await.ok()?;
+    let unit = crate::systemd::unit_state(&connection, BACKEND_UNIT)
+        .await
+        .ok()?;
+    let failure = unit.failure()?;
+    Some(explain_backend_failure(
+        &failure,
+        &crate::isa::CpuIsa::detect(),
+    ))
+}
+
+/// A falcond that did not start, in the report: why, when systemd says so.
+async fn push_backend_failed(report: &mut Report, otherwise: Text) {
+    match backend_failure().await {
+        Some(f) => {
+            tracing::warn!(target: "turbo", failure = %f.summary.english(), "falcond did not start");
+            let detail = Text::with(N_("%s %s"), [Arg::Text(f.summary), Arg::Text(f.advice)]);
+            report.items.push(Item {
+                kind: Kind::GameBackend,
+                section: Section::Failed,
+                owner: "falcond".to_owned(),
+                detail: detail.english(),
+                text: Some(detail),
+                title: Some(f.title),
+            });
+        }
+        None => report.push(Kind::GameBackend, Section::Failed, "falcond", otherwise),
+    }
+}
+
 /// Whether falcond runs, as systemd reports it now. A unit that cannot be
 /// read is taken as not running: nothing of Turbo is applied on a guess.
 async fn backend_active() -> bool {
@@ -640,25 +674,22 @@ async fn enable_backend<F: FnMut(Step)>(
                     "running (systemd reports it active; falcond has not published its status yet)",
                 )),
             };
+            // Still running after the wait for its status: the helper has
+            // seen it stay up, and a crash since leaves Turbo off all the
+            // same, before the Booster or a preset is applied.
+            if !backend_active().await {
+                push_backend_failed(report, systemd_reports("failed".into())).await;
+                return false;
+            }
             report.push(Kind::GameBackend, Section::Verified, "falcond", detail);
             true
         }
         Ok(other) => {
-            report.push(
-                Kind::GameBackend,
-                Section::Failed,
-                "falcond",
-                systemd_reports(other),
-            );
+            push_backend_failed(report, systemd_reports(other)).await;
             backend_active().await
         }
         Err(e) => {
-            report.push(
-                Kind::GameBackend,
-                Section::Failed,
-                "falcond",
-                crate::error::describe(&e),
-            );
+            push_backend_failed(report, crate::error::describe(&e)).await;
             backend_active().await
         }
     }
@@ -753,6 +784,84 @@ fn desktop_set() -> Text {
 
 fn systemd_reports(state: String) -> Text {
     Text::with(N_("systemd reports it %s"), [state])
+}
+
+/// A failed falcond, said for the person in front of it: a title, what
+/// happened, and what to do about it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackendFailure {
+    /// A short title: what is wrong.
+    pub title: Text,
+    /// What happened, in one sentence.
+    pub summary: Text,
+    /// What to do.
+    pub advice: Text,
+    /// Whether turning Turbo off and on again can help. Not for an illegal
+    /// instruction: the same binary stops on the same instruction again.
+    pub retry_helps: bool,
+}
+
+/// Explain why falcond's service failed.
+///
+/// `SIGILL` is named a CPU incompatibility only with evidence: a processor
+/// below x86-64-v3 (no AVX2/BMI2…), the level falcond 2.0.14 was built for
+/// when it crashed this way on a Sandy Bridge. On a processor that has all of
+/// v3 the same signal means something else (newer extensions, or a damaged
+/// binary), and is said so.
+#[must_use]
+pub fn explain_backend_failure(
+    failure: &crate::systemd::Failure,
+    isa: &crate::isa::CpuIsa,
+) -> BackendFailure {
+    use crate::systemd::Failure;
+    match failure {
+        Failure::IllegalInstruction if isa.below_v3() => BackendFailure {
+            title: Text::plain(N_("falcond is not compatible with this processor")),
+            summary: Text::with(
+                N_(
+                    "falcond crashed on a CPU instruction this processor does not have \
+                     (illegal instruction). The installed falcond package appears to be built \
+                     for a newer x86-64 level: this processor is x86-64-v%s, without %s.",
+                ),
+                [
+                    isa.level().unwrap_or(1).to_string(),
+                    isa.missing_for_v3().join(", "),
+                ],
+            ),
+            advice: Text::plain(N_(
+                "Update or reinstall falcond with a build for this processor. Turning Turbo \
+                 off and on again does not help: the same package crashes the same way.",
+            )),
+            retry_helps: false,
+        },
+        Failure::IllegalInstruction => BackendFailure {
+            title: Text::plain(N_("falcond crashed on an illegal CPU instruction")),
+            summary: Text::plain(N_(
+                "falcond stopped on an instruction this processor rejected: a CPU \
+                 instruction-set incompatibility, or a damaged falcond binary.",
+            )),
+            advice: Text::plain(N_(
+                "Reinstall falcond. If it keeps happening, report it and include the Support report.",
+            )),
+            retry_helps: false,
+        },
+        Failure::Signal(_) => BackendFailure {
+            title: Text::plain(N_("falcond crashed")),
+            summary: Text::with(N_("falcond's service ended on %s."), [failure.describe()]),
+            advice: Text::plain(N_(
+                "Logs show why. Turning Turbo off and on again starts it again.",
+            )),
+            retry_helps: true,
+        },
+        Failure::ExitCode(_) | Failure::Other(_) => BackendFailure {
+            title: Text::plain(N_("falcond failed")),
+            summary: Text::with(N_("falcond's service failed (%s)."), [failure.describe()]),
+            advice: Text::plain(N_(
+                "Logs show why. Turning Turbo off and on again starts it again.",
+            )),
+            retry_helps: true,
+        },
+    }
 }
 
 /// falcond's status once it has been rewritten after `since`, or, if it is
@@ -1208,11 +1317,82 @@ mod tests {
         assert_eq!(scheduler_left(&Unknown, Some("lavd"), None), None);
     }
 
+    fn sandy_bridge() -> crate::isa::CpuIsa {
+        crate::isa::CpuIsa {
+            sse2: true,
+            sse3: true,
+            ssse3: true,
+            sse4_1: true,
+            sse4_2: true,
+            popcnt: true,
+            cmpxchg16b: true,
+            avx: true,
+            ..crate::isa::CpuIsa::default()
+        }
+    }
+
+    #[test]
+    fn an_illegal_instruction_on_an_older_cpu_is_called_an_incompatible_build() {
+        use crate::systemd::Failure;
+        let why = explain_backend_failure(&Failure::IllegalInstruction, &sandy_bridge());
+        assert_eq!(
+            why.title.english(),
+            "falcond is not compatible with this processor"
+        );
+        let summary = why.summary.english();
+        assert!(summary.contains("illegal instruction"), "{summary}");
+        assert!(summary.contains("x86-64-v2"), "{summary}");
+        assert!(
+            summary.contains("BMI2") && summary.contains("AVX2"),
+            "{summary}"
+        );
+        // Not "turn it off and on again": the same package fails the same way.
+        assert!(!why.retry_helps);
+        assert!(why.advice.english().contains("does not help"));
+    }
+
+    #[test]
+    fn an_illegal_instruction_on_a_v3_cpu_blames_no_extension() {
+        use crate::systemd::Failure;
+        let modern = crate::isa::CpuIsa {
+            avx2: true,
+            bmi1: true,
+            bmi2: true,
+            fma: true,
+            f16c: true,
+            lzcnt: true,
+            movbe: true,
+            ..sandy_bridge()
+        };
+        let why = explain_backend_failure(&Failure::IllegalInstruction, &modern);
+        assert!(why.title.english().contains("illegal CPU instruction"));
+        assert!(!why.summary.english().contains("BMI2"));
+        assert!(
+            why.summary
+                .english()
+                .contains("instruction-set incompatibility")
+        );
+        assert!(!why.retry_helps);
+    }
+
+    #[test]
+    fn other_falcond_failures_keep_the_restart_advice() {
+        use crate::systemd::Failure;
+        let crash = explain_backend_failure(&Failure::Signal(libc::SIGSEGV), &sandy_bridge());
+        assert_eq!(crash.title.english(), "falcond crashed");
+        assert!(crash.summary.english().contains("SIGSEGV"));
+        assert!(crash.retry_helps);
+        let exit = explain_backend_failure(&Failure::ExitCode(1), &sandy_bridge());
+        assert!(exit.summary.english().contains("exit status 1"));
+        assert!(exit.retry_helps);
+    }
+
     #[test]
     fn an_error_with_something_left_offers_turning_it_off() {
         let unit = |file: &str, active: &str| crate::systemd::UnitState {
             unit_file_state: file.into(),
             active_state: active.into(),
+            service: None,
         };
         // A failed start left falcond enabled: Turbo off disables it.
         assert!(something_left(

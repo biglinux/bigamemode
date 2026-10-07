@@ -46,7 +46,8 @@ jobs:
           # bigame-ui links and its build script runs (glib-compile-resources).
           # dbus (and busctl, from the base image's systemd): the helper's
           # authorization test. python, gettext: the translations.
-          pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext
+          # qemu-user: the tests again on an emulated baseline x86-64 CPU.
+          pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext qemu-user
           useradd --create-home builder
 
       - name: Check out the commit under test
@@ -103,6 +104,19 @@ jobs:
         # to D-Bus (the helper's bus test is the step after next).
         run: runuser -u builder -- cargo test --locked --workspace 2>&1 | tee ../cargo-test.log
 
+      - name: Run workspace tests on a baseline x86-64 CPU
+        id: legacy_tests
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        working-directory: bigame-engine
+        # The same tests, run by qemu-user as an AMD Opteron of 2003: SSE2
+        # and nothing newer, the least an x86_64 package may assume. Code
+        # that uses a newer instruction without checking for it (as falcond
+        # 2.0.14 built for x86-64-v3 did, issue #4) dies with SIGILL here,
+        # whatever the runner's own CPU has. Nothing is rebuilt.
+        run: >-
+          runuser -u builder -- env CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER='qemu-x86_64 -cpu Opteron_G1'
+          cargo test --locked --workspace
+
       - name: Check Rust documentation
         id: doc
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -144,6 +158,7 @@ jobs:
           FMT: ${{ steps.fmt.outcome }}
           CLIPPY: ${{ steps.clippy.outcome }}
           TESTS: ${{ steps.tests.outcome }}
+          LEGACY_TESTS: ${{ steps.legacy_tests.outcome }}
           DOC: ${{ steps.doc.outcome }}
           AUTHORIZATION: ${{ steps.authorization.outcome }}
           TRANSLATIONS: ${{ steps.translations.outcome }}
@@ -173,6 +188,7 @@ jobs:
             echo "| Rustfmt | $(result "$FMT") |"
             echo "| Clippy, warnings as errors | $(result "$CLIPPY") |"
             echo "| Workspace tests ($totals) | $(result "$TESTS") |"
+            echo "| Workspace tests on a baseline x86-64 CPU (QEMU Opteron G1) | $(result "$LEGACY_TESTS") |"
             echo "| Rustdoc, warnings as errors | $(result "$DOC") |"
             echo "| Helper authorization | $(result "$AUTHORIZATION") |"
             echo "| Translations | $(result "$TRANSLATIONS") |"

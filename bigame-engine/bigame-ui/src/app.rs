@@ -7,7 +7,7 @@ use adw::prelude::*;
 use gtk4::glib;
 use libadwaita as adw;
 
-use crate::i18n::i18n;
+use crate::i18n::{i18n, tr};
 use crate::style;
 use crate::tray;
 use crate::window;
@@ -467,8 +467,19 @@ fn show_status(
     tray_handle: &tray::TrayHandle,
     error_indicator: &crate::widgets::error_indicator::ErrorIndicator,
 ) {
-    let backend_failed = unit.is_some_and(|u| u.active_state == "failed");
-    let warning = if backend_failed {
+    let backend_failed = unit.is_some_and(bigame_core::systemd::UnitState::is_failed);
+    let failure = unit.and_then(bigame_core::systemd::UnitState::failure);
+    let warning = if let (true, Some(failure)) = (backend_failed, failure) {
+        // The cause systemd gives, explained: a crash on an illegal CPU
+        // instruction is not fixed by turning Turbo off and on again.
+        let why = bigame_core::turbo::explain_backend_failure(
+            &failure,
+            &bigame_core::isa::CpuIsa::detect(),
+        );
+        let title = tr(&why.title);
+        error_indicator.set_error(&title, &tr(&why.summary), &tr(&why.advice));
+        Some(title)
+    } else if backend_failed {
         error_indicator.set_error(
             &i18n("falcond stopped unexpectedly"),
             &i18n("The per-game optimization service failed, so games are not being optimized."),
