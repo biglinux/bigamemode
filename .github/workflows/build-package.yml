@@ -1,0 +1,31 @@
+name: Build Package
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [ "*" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # The organization's WEBHOOK_TOKEN exists only here, not in forks.
+    if: github.repository == 'biglinux/bigamemode'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Hooks BigLinux Build Package
+        shell: bash
+        env:
+          WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          body=$(printf '{"event_type": "%s", "client_payload": { "branch": "%s", "url": "https://github.com/%s"}}' \
+            "$GITHUB_REPOSITORY" "$BRANCH" "$GITHUB_REPOSITORY")
+          # x86_64 only (arch=('x86_64') in pkgbuild/PKGBUILD): no ARM builder.
+          # --fail-with-body: a refused token fails the run instead of passing.
+          curl --fail-with-body --silent --show-error --max-time 30 -X POST \
+            -H "Accept: application/json" -H "Authorization: token $WEBHOOK_TOKEN" \
+            --data "$body" https://api.github.com/repos/BigLinux-Package-Build/build-package/dispatches
