@@ -1,0 +1,117 @@
+name: Backend and GTK regression tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    # Arch's own repositories, the ones the package is built from. --init: an
+    # init as PID 1 reaps orphans, as systemd does; the default `tail` does
+    # not, and a killed game's grandchild would linger as a zombie in its
+    # process group (launcher's terminate test).
+    container:
+      image: archlinux:base-devel
+      options: --init
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Install test dependencies
+        run: |
+          pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext
+          useradd --create-home builder
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # As an ordinary user, as makepkg runs check(): tests of permission
+      # refusals (a read-only directory, a file the user owns) pass under
+      # root for the wrong reason, or fail.
+      - name: Hand the checkout to the build user
+        run: chown -R builder:builder "$GITHUB_WORKSPACE"
+      - name: Record the tested revision and installed versions
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          {
+            printf 'Checked-out commit: '; git rev-parse HEAD
+            printf 'Checked-out tree: '; git rev-parse 'HEAD^{tree}'
+            rustc --version
+            cargo --version
+            pacman -Q
+          } 2>&1 | tee ci-versions.log
+      - name: Check formatting
+        working-directory: bigame-engine
+        run: runuser -u builder -- cargo fmt --all --check
+      - name: Check with Clippy, warnings are errors
+        working-directory: bigame-engine
+        # assert_is_empty (Rust 1.99) would turn the tests' assert!(x.is_empty())
+        # into assert_eq!(x, [] as [String; 0]). It is allowed here rather than
+        # in Cargo.toml, where older toolchains would warn on every build.
+        run: runuser -u builder -- cargo clippy --locked --workspace --all-targets --all-features -- -D warnings -A clippy::assert_is_empty
+      - name: Test the backend, the helper and the interface
+        id: tests
+        working-directory: bigame-engine
+        # Explicit bash uses -eo pipefail: tee cannot turn a test failure green.
+        run: runuser -u builder -- cargo test --locked --workspace 2>&1 | tee ../cargo-test.log
+      - name: Check that every intra-doc link resolves
+        working-directory: bigame-engine
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: runuser -u builder -- cargo doc --locked --workspace --no-deps
+      - name: Test that the helper refuses what it cannot authorize
+        run: |
+          runuser -u builder -- cargo build --locked --manifest-path bigame-engine/Cargo.toml -p bigame-daemon
+          runuser -u builder -- bash tests/daemon-authorization.sh \
+            "$GITHUB_WORKSPACE/bigame-engine/target/debug/bigame-daemon" 2>&1 | tee daemon-authorization.log
+      - name: Check the translation template and catalogues
+        run: |
+          python3 locale/extract-strings.py --check
+          for po in locale/*.po; do
+            msgfmt --check --check-format -o /dev/null "$po"
+          done
+      - name: Report regression results
+        if: ${{ !cancelled() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          log = Path('cargo-test.log')
+          if not log.is_file():
+              raise SystemExit('Tests did not finish: inspect cargo-test.log.')
+          counts = {'passed': 0, 'failed': 0, 'ignored': 0}
+          for m in re.finditer(r'test result: \w+\. (\d+) passed; (\d+) failed; (\d+) ignored', log.read_text()):
+              for key, value in zip(counts, m.groups()):
+                  counts[key] += int(value)
+          print(json.dumps(counts, sort_keys=True))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+              f.write('### Backend / GTK regression results\n\n```json\n'
+                      + json.dumps(counts, indent=2) + '\n```\n')
+          if not counts['passed'] or counts['failed']:
+              raise SystemExit('Expected passing regressions with no failures.')
+          PY
+      - name: Preserve regression diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            cargo-test.log
+            daemon-authorization.log
+            ci-versions.log
+          retention-days: 14
+          if-no-files-found: warn
