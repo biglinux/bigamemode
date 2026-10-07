@@ -47,6 +47,18 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
+## Unreleased
+
+- **Fixed falcond compatibility handling on older x86-64 CPUs.** falcond 2.0.14
+  built for x86-64-v3 dies with an illegal instruction (SIGILL) on processors
+  without AVX2/BMI2, such as Sandy Bridge and Ivy Bridge
+  ([#4](https://github.com/biglinux/bigamemode/issues/4)); those processors
+  need a falcond built for the x86-64 baseline. Big Game Mode now names that
+  failure (Home, Details, the tray and the support report) instead of
+  suggesting a restart, keeps Turbo off and disables falcond when it crashes
+  right after starting, and can turn Turbo off again after such a failure.
+  See [docs/issue-4-falcond-sigill.md](docs/issue-4-falcond-sigill.md).
+
 ## What's new in 2.3.0
 
 - **Big Game Mode** is the name you see everywhere; package names, the
@@ -290,6 +302,7 @@ terminal without opening a window (`--network` adds the DNS measurements).
 | A frame generation option is disabled | lsfg-vk is not installed or your `Lossless.dll` is not usable by it; the row says which |
 | AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
+| "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turning Turbo off and on again does not help: update falcond once a build for the x86-64 baseline is available. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
 | Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
 
 ## How it works
@@ -344,6 +357,7 @@ Details in [docs/SECURITY.md](docs/SECURITY.md).
 | | |
 |---|---|
 | **System** | BigLinux and other Arch/Manjaro systems with systemd. falcond 2.0.3 or newer is recommended |
+| **CPU** | Any x86-64 processor: the package is built for the x86-64 baseline, and CI runs it on emulated processors from an AMD Opteron (2003) to current ones. falcond has to be built the same way ([CPU compatibility](docs/CPU-COMPATIBILITY.md)) |
 | **Desktop** | Tested on KDE Plasma (Wayland); X11 sessions are supported but less tested |
 | **Games** | Steam (including Proton), Heroic, Lutris and native games from the menu, native or Flatpak |
 | **GPUs** | AMD, NVIDIA and Intel, including hybrid laptops (the GPU a game renders on is identified, with PRIME offload) |

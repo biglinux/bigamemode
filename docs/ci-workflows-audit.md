@@ -77,6 +77,7 @@ of permission refusals pass under root for the wrong reason.
 | Check Rust formatting | `cargo fmt --all --check` |
 | Run Clippy | `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings -A clippy::assert_is_empty` |
 | Run workspace tests | `cargo test --locked --workspace` |
+| Run workspace tests on a baseline x86-64 CPU | the same tests, run by `qemu-x86_64 -cpu Opteron_G1` (SSE2 only): see [CPU-COMPATIBILITY.md](CPU-COMPATIBILITY.md) |
 | Check Rust documentation | `RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --no-deps` |
 | Test helper authorization | `tests/daemon-authorization.sh` on a private `dbus-daemon`, no Polkit: every privileged method must answer *Access denied* |
 | Validate translations | `locale/extract-strings.py --check` (template current, `LINGUAS` complete), `msgfmt --check --check-format` on every catalogue |
@@ -116,17 +117,20 @@ uses Arch's `rust`, always the current stable release.
    values is written into the workflow.
 5. **Validate package contents.** `.github/scripts/check-package-contents.sh`
    (see the table above).
-6. **Validate desktop entry.** `desktop-file-validate` on the installed entry,
+6. **Check CPU compatibility (legacy x86-64).** The packaged binaries, run by
+   `.github/scripts/legacy-cpu-test.sh` on emulated processors from the
+   x86-64 baseline up. See [CPU-COMPATIBILITY.md](CPU-COMPATIBILITY.md).
+7. **Validate desktop entry.** `desktop-file-validate` on the installed entry,
    with the catalogues merged in.
-7. **Validate AppStream metadata.** `appstreamcli validate --no-net`, and every
+8. **Validate AppStream metadata.** `appstreamcli validate --no-net`, and every
    `<url>` must be `https://github.com/biglinux/bigamemode[/…]`.
-8. **Run namcap.** On `pkgbuild/PKGBUILD` and the package. Errors fail the
+9. **Run namcap.** On `pkgbuild/PKGBUILD` and the package. Errors fail the
    build; warnings go to the summary (see the next section).
-9. **SHA256SUMS** for the package and the debug package.
-10. **Artifact** `bigame-mode-<pkgver>-<pkgrel>-<commit>`: the package, the
+10. **SHA256SUMS** for the package and the debug package.
+11. **Artifact** `bigame-mode-<pkgver>-<pkgrel>-<commit>`: the package, the
     debug package, `SHA256SUMS`, `namcap.log`, `package-info.txt`,
     `package-files.txt`, `build-report.md` and makepkg's logs per stage.
-11. **notify-builders.** Only after all of the above, only in
+12. **notify-builders.** Only after all of the above, only in
     biglinux/bigamemode, only for a push or a manual run that ticks
     *send-to-builders*. It sends the branch name to
     `BigLinux-Package-Build/build-package`. It never runs for a pull request,
