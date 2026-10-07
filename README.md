@@ -223,11 +223,11 @@ Big Game Mode builds and installs from the official Arch repositories alone
 ```bash
 sudo pacman -S --needed base-devel git
 git clone https://github.com/biglinux/bigamemode.git
-cd bigamemode
+cd bigamemode/pkgbuild
 makepkg -si
 ```
 
-`makepkg` installs what the build needs, builds the tagged release, checks the
+`makepkg` installs what the build needs, builds `main` from GitHub, checks the
 translation template, runs the tests and installs the package. Then open
 **Big Game Mode** from the application menu.
 
@@ -440,10 +440,17 @@ BIGAME_LOCALEDIR=/tmp/bgm-locale LANGUAGE=pt_BR bigame-engine/target/debug/bigam
 
 ### Packaging
 
-The `PKGBUILD` builds the tag `v${pkgver}` from GitHub with
+`pkgbuild/PKGBUILD` builds `main` from GitHub with
 `cargo build --release --frozen --workspace` (LTO), checks the translation
 template, compiles the catalogues and runs `cargo test --release --frozen
 --workspace` in `check()`.
+
+`.github/workflows/integration.yml` runs on every pull request and every push to
+`main`: formatting, Clippy with warnings as errors, the tests, `cargo doc` with
+warnings as errors, the helper's authorization test as an ordinary user, the
+translation template and catalogues, and a `makepkg` build of the checkout with
+`pkgbuild/PKGBUILD`, checked with namcap, `desktop-file-validate` and
+`appstreamcli`.
 
 ## Author
 

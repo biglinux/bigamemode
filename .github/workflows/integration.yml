@@ -1,0 +1,118 @@
+name: Rust and package integration
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    # Arch's own repositories, the ones the package is built from.
+    container: archlinux:base-devel
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Install Rust, GTK and the test tools from Arch's repositories
+        run: pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Formatting
+        working-directory: bigame-engine
+        run: cargo fmt --all --check
+      - name: Clippy, warnings are errors
+        working-directory: bigame-engine
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Tests
+        working-directory: bigame-engine
+        run: cargo test --locked --workspace
+      - name: Documentation, every intra-doc link resolves
+        working-directory: bigame-engine
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --workspace --no-deps
+      - name: The helper refuses what it cannot authorize, as an ordinary user
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path bigame-engine/Cargo.toml -p bigame-daemon
+          useradd --create-home bigame-test
+          chmod -R a+rX "$GITHUB_WORKSPACE"
+          runuser -u bigame-test -- bash tests/daemon-authorization.sh \
+            "$GITHUB_WORKSPACE/bigame-engine/target/debug/bigame-daemon"
+      - name: Translation template current, catalogues valid
+        run: |
+          set -euo pipefail
+          python3 locale/extract-strings.py --check
+          for po in locale/*.po; do
+            msgfmt --check --check-format -o /dev/null "$po"
+          done
+
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container: archlinux:base-devel
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install makepkg's helpers and the package checks
+        run: |
+          pacman -Syu --noconfirm --needed git sudo namcap appstream desktop-file-utils
+          useradd --create-home builder
+          echo 'builder ALL=(root) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build the checked-out sources with pkgbuild/PKGBUILD
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir package-build
+          git ls-files -z | tar --null --transform='s,^,bigame-mode/,' \
+            -T - -czf package-build/source.tar.gz
+          cp pkgbuild/PKGBUILD pkgbuild/bigame-mode.install package-build/
+          # The release recipe as it is, on this checkout rather than on main.
+          printf '\nsource=(source.tar.gz)\nsha256sums=(%s)\n' \
+            "$(sha256sum package-build/source.tar.gz | cut -d ' ' -f 1)" >> package-build/PKGBUILD
+          chown -R builder:builder package-build
+          runuser -u builder -- bash -c 'cd package-build && makepkg --syncdeps --cleanbuild --noconfirm'
+      - name: Validate the built package
+        run: |
+          set -euo pipefail
+          package=$(find package-build -maxdepth 1 -name 'bigame-mode-*.pkg.tar*' -print -quit)
+          test -n "$package"
+          namcap package-build/PKGBUILD "$package" | tee package-build/namcap.log
+          if grep -q ' E: ' package-build/namcap.log; then exit 1; fi
+          mkdir package-build/installed
+          tar -xf "$package" -C package-build/installed
+          root="package-build/installed"
+          test -x "$root/usr/bin/bigame-ui"
+          test -x "$root/usr/bin/bigame-daemon"
+          desktop-file-validate "$root"/usr/share/applications/*.desktop
+          appstreamcli validate --no-net "$root"/usr/share/metainfo/*.xml
+          test -s "$root/usr/share/licenses/bigame-mode/LICENSE"
+          test -s "$root/usr/share/locale/pt_BR/LC_MESSAGES/bigame-mode.mo"
+          grep -q 'https://github.com/biglinux/bigamemode' "$root"/usr/share/metainfo/*.xml
+          version=$(grep -m1 '^version' bigame-engine/Cargo.toml | cut -d '"' -f 2)
+          test "$(pacman -Qp "$package" | cut -d ' ' -f 2)" = "$version-$(sed -n 's/^pkgrel=//p' pkgbuild/PKGBUILD)"
+          sha256sum "$package" > package-build/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: package-${{ github.sha }}
+          path: |
+            package-build/*.pkg.tar*
+            package-build/namcap.log
+            package-build/SHA256SUMS
+          if-no-files-found: warn
+          retention-days: 14

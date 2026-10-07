@@ -74,7 +74,9 @@ optdepends=(
     'ntsync-autoload: load the NTSync driver at boot (Proton/Wine synchronisation)'
 )
 install="${pkgname}.install"
-source=("${pkgname}::git+${url}.git#tag=v${pkgver}")
+# The BigLinux package builders build main once its CI has passed
+# (.github/workflows), as for the other BigLinux packages.
+source=("${pkgname}::git+${url}.git")
 sha256sums=('SKIP')
 
 _cargo_env() {
