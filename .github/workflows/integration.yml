@@ -23,34 +23,39 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Install Rust, GTK and the test tools from Arch's repositories
-        run: pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext
+        run: |
+          pacman -Syu --noconfirm --needed git rust gtk4 libadwaita glib2 dbus python gettext
+          useradd --create-home builder
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      # As an ordinary user, as makepkg runs check(): tests of permission
+      # refusals (a read-only directory, a file the user owns) pass under
+      # root for the wrong reason, or fail.
+      - name: Hand the checkout to the build user
+        run: chown -R builder:builder "$GITHUB_WORKSPACE"
       - name: Formatting
         working-directory: bigame-engine
-        run: cargo fmt --all --check
+        run: runuser -u builder -- cargo fmt --all --check
       - name: Clippy, warnings are errors
         working-directory: bigame-engine
         # assert_is_empty (Rust 1.99) would turn the tests' assert!(x.is_empty())
         # into assert_eq!(x, [] as [String; 0]). It is allowed here rather than
         # in Cargo.toml, where older toolchains would warn on every build.
-        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings -A clippy::assert_is_empty
+        run: runuser -u builder -- cargo clippy --locked --workspace --all-targets --all-features -- -D warnings -A clippy::assert_is_empty
       - name: Tests
         working-directory: bigame-engine
-        run: cargo test --locked --workspace
+        run: runuser -u builder -- cargo test --locked --workspace
       - name: Documentation, every intra-doc link resolves
         working-directory: bigame-engine
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --locked --workspace --no-deps
+        run: runuser -u builder -- cargo doc --locked --workspace --no-deps
       - name: The helper refuses what it cannot authorize, as an ordinary user
         run: |
           set -euo pipefail
-          cargo build --locked --manifest-path bigame-engine/Cargo.toml -p bigame-daemon
-          useradd --create-home bigame-test
-          chmod -R a+rX "$GITHUB_WORKSPACE"
-          runuser -u bigame-test -- bash tests/daemon-authorization.sh \
+          runuser -u builder -- cargo build --locked --manifest-path bigame-engine/Cargo.toml -p bigame-daemon
+          runuser -u builder -- bash tests/daemon-authorization.sh \
             "$GITHUB_WORKSPACE/bigame-engine/target/debug/bigame-daemon"
       - name: Translation template current, catalogues valid
         run: |
