@@ -1,0 +1,28 @@
+{
+  "schema": "bigame.benchmark/1",
+  "workload": "2026-09-23-sottr-power-clean",
+  "metric": "avg_fps",
+  "date": "2026-09-23",
+  "fingerprint": "02db452880e054ab",
+  "arms": {
+    "gpu_dpm_level": [
+      82.1633273400312,
+      82.20920878679568,
+      82.22143761801335
+    ],
+    "rest": [
+      89.36831369738307,
+      89.42808137536936,
+      89.32000326624747
+    ]
+  },
+  "warmup_runs": 1,
+  "alternating": true,
+  "caveats": [
+    "Confirmation session for 2026-09-23-sottr-power, run with the lab VM idle and no other work on the machine; same launch, settings and method.",
+    "Shadow of the Tomb Raider (Windows build, Proton Experimental, DX12 via VKD3D-Proton), 3440x1440, preset High (AA=TAA), VSync off, in-game benchmark rerun with [R]; the game reports itself 99% GPU-bound.",
+    "User launch options unchanged: WINE_FULLSCREEN_FSR=1 ENABLE_VKBASALT=1 RADV_PERFTEST=afmf (vkBasalt CAS loaded; the other two inert here).",
+    "falcond's generic 'Proton' profile was active in both arms. big-screen-monitor-display.service used ~38% of one core throughout.",
+    "The 0.1% low rests on about 14 frames per run and varies 6-11% between runs of the same arm; it is reported, not judged."
+  ]
+}

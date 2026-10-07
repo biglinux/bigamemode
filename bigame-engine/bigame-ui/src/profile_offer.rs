@@ -59,18 +59,24 @@ fn declined() -> HashSet<String> {
         .unwrap_or_default()
 }
 
-fn decline_forever(process: &str) {
+fn decline_forever(process: &str) -> std::io::Result<()> {
     let mut set = declined();
     set.insert(process.to_owned());
-    if let Some(path) = never_path() {
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        if let Ok(json) = serde_json::to_vec_pretty(&set) {
-            let _ = std::fs::write(path, json);
-        }
-    }
+    let path = never_path().ok_or_else(|| {
+        std::io::Error::other(i18n("no home folder is set (HOME or XDG_STATE_HOME)"))
+    })?;
+    let json = serde_json::to_vec_pretty(&set).map_err(std::io::Error::other)?;
+    crate::settings::write_atomic(&path, &json)?;
     tracing::info!(process, "will not offer a profile for this game again");
+    Ok(())
+}
+
+/// Whether Turbo is on (falcond's unit is active). Asks systemd, so it runs
+/// off the main thread.
+fn turbo_is_on() -> bool {
+    bigame_core::systemd::Reader::shared()
+        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+        .is_some_and(|u| u.is_active())
 }
 
 /// Whether this game should be offered a profile now.
@@ -78,10 +84,7 @@ fn should_offer(game: &GameIdentity) -> bool {
     if !crate::settings::load().offer_profiles {
         return false;
     }
-    let turbo_on = bigame_core::systemd::Reader::shared()
-        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
-        .is_some_and(|u| u.is_active());
-    if !turbo_on {
+    if !turbo_is_on() {
         return false;
     }
     // A process that has only just started may be a helper that runs before
@@ -127,8 +130,16 @@ pub fn install(app: &adw::Application) {
         app,
         move |_, param| {
             if let Some(process) = param.and_then(glib::Variant::str) {
-                decline_forever(process);
                 app.withdraw_notification(NOTIFICATION_ID);
+                // Asked from a notification, often with the window hidden:
+                // a choice that was not kept is said there too.
+                if let Err(e) = decline_forever(process) {
+                    tracing::warn!(process, error = %e, "could not save \"Don't ask again\"");
+                    let n = gio::Notification::new(
+                        &i18n("Could not save: %s").replace("%s", &e.to_string()),
+                    );
+                    app.send_notification(Some(NOTIFICATION_ID), &n);
+                }
             }
         }
     ));
@@ -154,11 +165,19 @@ fn game_changed(app: &adw::Application, game: Option<&GameIdentity>) {
         app.withdraw_notification(NOTIFICATION_ID);
         if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take()) {
             if crate::settings::load().notifications_enabled {
-                let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
-                n.set_body(Some(&i18n(
-                    "Everything the game's profile changed has been put back.",
-                )));
-                app.send_notification(Some("game-exit"), &n);
+                // Only Turbo changes anything for a game: with it off there
+                // is nothing that was put back to announce.
+                let app = app.clone();
+                glib::spawn_future_local(async move {
+                    if !gio::spawn_blocking(turbo_is_on).await.unwrap_or(false) {
+                        return;
+                    }
+                    let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
+                    n.set_body(Some(&i18n(
+                        "Everything the game's profile changed has been put back.",
+                    )));
+                    app.send_notification(Some("game-exit"), &n);
+                });
             }
         }
         return;
@@ -227,10 +246,7 @@ fn notify_offer(app: &adw::Application, game: &GameIdentity) {
 /// `None` with Turbo off. Reads systemd and falcond's status, so it runs off
 /// the main thread.
 fn detected_profile() -> Option<String> {
-    let turbo_on = bigame_core::systemd::Reader::shared()
-        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
-        .is_some_and(|u| u.is_active());
-    if !turbo_on {
+    if !turbo_is_on() {
         return None;
     }
     Some(
@@ -486,9 +502,18 @@ fn present_review(
     dialog.set_close_response("later");
     let process = process.to_owned();
     let app = app.clone();
+    let anchor = window.clone();
     dialog.connect_response(None, move |_, response| {
         if never.is_active() {
-            decline_forever(&process);
+            if let Err(e) = decline_forever(&process) {
+                if let Some(w) = &anchor {
+                    crate::widgets::toast::error(
+                        w,
+                        &i18n("Could not save: %s").replace("%s", &e.to_string()),
+                        "",
+                    );
+                }
+            }
         }
         if response == "create" {
             create_for(&app, &process);

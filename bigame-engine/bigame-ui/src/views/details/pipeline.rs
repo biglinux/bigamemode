@@ -529,6 +529,15 @@ impl Pipeline {
         };
         if snap.ai_frame_generation {
             body = body.note(&i18n("OptiScaler generates this game's frames, so lsfg-vk is turned off for its launch: two frame generators never run in series."));
+            if matches!(
+                snap.ai_graphics,
+                Some(bigame_core::graphics::runtime::Status::Active {
+                    frame_generation: Some(false),
+                    ..
+                })
+            ) {
+                body = body.note(&i18n("OptiScaler's log says its frame generation did not start (\"Can't init FG Feature\"): the game shows only the frames it renders. Apply the game's AI Graphics again with frame generation on (that installs its runtime), or turn frame generation off."));
+            }
         }
         body = body.note(&i18n("Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."));
         self.framegen.set_body(body.build());

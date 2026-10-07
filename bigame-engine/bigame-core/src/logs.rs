@@ -137,10 +137,15 @@ pub struct Entry {
 // ── The journal ─────────────────────────────────────────────────────────────
 
 /// Kernel lines worth showing: graphics drivers and the scheduler.
+///
+/// `NVRM` is how the proprietary NVIDIA driver signs its lines, and its GPU
+/// errors (`NVRM: Xid (PCI:0000:01:00): 32, pid=…, name=SOTTR.exe`) carry
+/// none of the other words.
 const KERNEL_KEYWORDS: &[&str] = &[
     "amdgpu",
     "radeon",
     "nvidia",
+    "nvrm",
     "nouveau",
     "i915",
     " xe ",
@@ -295,6 +300,41 @@ const NOISE: &[&str] = &[
     "pam_unix(",
 ];
 
+/// What a sched-ext scheduler prints each time it starts, and what the
+/// kernel says about how it was built — shown as debug.
+///
+/// Each Turbo on starts one, and `scx_lavd` alone prints some 50 lines: its
+/// options one per line (`Opts {`, `    verbose: 0,` … `}`), its CPU layout
+/// and libbpf's notes on members this kernel lacks; the kernel adds a burst
+/// of "Writing directly to p->scx.slice… is deprecated". None is something
+/// to act on, and it buried the lines that are: the switch, "starts
+/// running", the kernel's "BPF scheduler … enabled/disabled".
+fn scheduler_chatter(source: Source, message: &str) -> bool {
+    match source {
+        Source::Scheduler => {
+            let text = message.trim_end();
+            text.starts_with(char::is_whitespace)
+                || text == "}"
+                || [
+                    "Opts {",
+                    "capacity bound:",
+                    "libbpf: struct_ops",
+                    "Performance mode is enabled",
+                    "Energy model won't be used",
+                    "Pinned task slice mode",
+                    "BPF stream dump unavailable",
+                ]
+                .iter()
+                .any(|m| text.contains(m))
+        }
+        Source::Kernel => {
+            message.contains("is deprecated, use scx_bpf_")
+                || message.contains("bpf_scx_btf_struct_access")
+        }
+        _ => false,
+    }
+}
+
 /// The severity of a message, from the journal priority and its wording.
 #[must_use]
 pub fn classify(priority: Option<u8>, message: &str) -> Level {
@@ -302,6 +342,11 @@ pub fn classify(priority: Option<u8>, message: &str) -> Level {
     let has = |words: &[&str]| words.iter().any(|w| lower.contains(w));
     if priority.is_none_or(|p| p > 3) && has(NOISE) {
         return Level::Debug;
+    }
+    // An Xid is the NVIDIA driver reporting a GPU error (a channel fault, a
+    // lost context, a hung engine); the kernel logs it at warning priority.
+    if lower.contains("nvrm: xid") {
+        return Level::Error;
     }
     if priority.is_some_and(|p| p <= 3)
         || has(&[
@@ -490,6 +535,7 @@ pub fn parse_journal(output: &str) -> (Vec<Entry>, Option<String>) {
             .and_then(|t| t.parse().ok())
             .unwrap_or(0);
         let (level, message) = match tracing_level(&message) {
+            _ if scheduler_chatter(source, &message) => (Level::Debug, message),
             // An ordinary line can still report a confirmation.
             Some((Level::Info, text)) => {
                 let level = if classify(None, text) == Level::Success {
@@ -587,8 +633,11 @@ fn log_files() -> Vec<(PathBuf, FileFormat)> {
             }
             let live = m.install_root.join(generated);
             let kept = state.join(&key).join("last-run").join(generated);
-            let path = if live.is_file() { live } else { kept };
-            if path.is_file() && seen.insert(path.clone()) {
+            // A link in the game's folder must not bring another of the
+            // user's files into the view and its export.
+            let plain = |p: &Path| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_file());
+            let path = if plain(&live) { live } else { kept };
+            if plain(&path) && seen.insert(path.clone()) {
                 out.push((path, FileFormat::OptiScaler(title.clone())));
             }
         }
@@ -936,26 +985,88 @@ impl JournalSink {
     /// # Errors
     /// Returns an error if journald does not take the datagram.
     pub fn send(&self, identifier: &str, priority: u8, message: &str) -> std::io::Result<()> {
+        self.send_with(identifier, priority, message, &[])
+    }
+
+    /// [`Self::send`] with fields of its own beside the message, such as
+    /// `BIGAME_GAME`, so `journalctl BIGAME_GAME=…` finds every record about a
+    /// game. Names must be journal field names (`[A-Z0-9_]`, not starting
+    /// with `_`); others are dropped rather than sent malformed.
+    ///
+    /// # Errors
+    /// Returns an error if journald does not take the datagram.
+    pub fn send_with(
+        &self,
+        identifier: &str,
+        priority: u8,
+        message: &str,
+        fields: &[(String, String)],
+    ) -> std::io::Result<()> {
         let mut end = message.len().min(MESSAGE_MAX);
         while !message.is_char_boundary(end) {
             end -= 1;
         }
         let priority = priority.to_string();
-        let record = native_record(&[
+        let mut all: Vec<(&str, &str)> = vec![
             ("MESSAGE", &message[..end]),
             ("PRIORITY", &priority),
             ("SYSLOG_IDENTIFIER", identifier),
-        ]);
+        ];
+        all.extend(
+            fields
+                .iter()
+                .filter(|(k, _)| journal_field_name(k))
+                .map(|(k, v)| (k.as_str(), v.as_str())),
+        );
+        let record = native_record(&all);
         self.socket.send_to(&record, JOURNAL_SOCKET).map(|_| ())
     }
 }
 
-/// Whether standard output already goes to the journal: systemd sets
-/// `JOURNAL_STREAM` to the device and inode of the stream it connected, and
-/// the variable is inherited, so the descriptor is compared, not just the
-/// variable read.
+/// A name journald accepts for a field of the caller's: upper-case letters,
+/// digits and `_`, not starting with `_` (those are journald's own) or a
+/// digit, at most 64 bytes.
+#[must_use]
+pub fn journal_field_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with(|c: char| c == '_' || c.is_ascii_digit())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+}
+
+/// The fields of a tracing event worth a journal field of their own, and
+/// the journal name each gets: who and what a record is about, so the
+/// records of one game, process or launcher can be selected.
+pub const STRUCTURED_FIELDS: &[(&str, &str)] = &[
+    ("game", "BIGAME_GAME"),
+    ("pid", "BIGAME_PID"),
+    ("process", "BIGAME_PROCESS"),
+    ("profile", "BIGAME_PROFILE"),
+    ("launcher", "BIGAME_LAUNCHER"),
+    ("app", "BIGAME_APP"),
+    ("preset", "BIGAME_PRESET"),
+    ("op", "BIGAME_OPERATION"),
+];
+
+/// Whether standard output already goes to the journal.
+///
+/// systemd sets `JOURNAL_STREAM` to the device and inode of the stream it
+/// connected, and the variable is inherited, so the descriptor is compared,
+/// not just the variable read. The variable can also be wrong: KDE Plasma
+/// starts an application as `app-…@….service` with the launcher's own
+/// environment in `Environment=`, which overrides the one systemd sets, so
+/// the application gets Plasma's `JOURNAL_STREAM` while its standard output
+/// is a stream of its own, and every record was written twice. A descriptor
+/// connected to journald's stdout socket is therefore the journal whatever the
+/// variable says.
 #[must_use]
 pub fn stdout_is_journal() -> bool {
+    connected_to_journal(libc::STDOUT_FILENO) || matches_journal_stream(libc::STDOUT_FILENO)
+}
+
+fn matches_journal_stream(fd: libc::c_int) -> bool {
     let Ok(stream) = std::env::var("JOURNAL_STREAM") else {
         return false;
     };
@@ -968,10 +1079,37 @@ pub fn stdout_is_journal() -> bool {
     // SAFETY: an all-zero `stat` is a valid value for fstat to overwrite.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     // SAFETY: fstat on a descriptor number writes only into `st`.
-    if unsafe { libc::fstat(libc::STDOUT_FILENO, &raw mut st) } != 0 {
+    if unsafe { libc::fstat(fd, &raw mut st) } != 0 {
         return false;
     }
     st.st_dev == dev && st.st_ino == ino
+}
+
+/// Whether `fd` is a Unix stream connected to journald's stdout socket.
+fn connected_to_journal(fd: libc::c_int) -> bool {
+    const STDOUT_SOCKET: &[u8] = b"/run/systemd/journal/stdout";
+    // SAFETY: an all-zero `sockaddr_un` is a valid value for getpeername to
+    // overwrite.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    let Ok(mut len) = libc::socklen_t::try_from(std::mem::size_of::<libc::sockaddr_un>()) else {
+        return false;
+    };
+    // SAFETY: getpeername writes at most `len` bytes into `addr` and stores
+    // the length it wrote in `len`; a descriptor that is not a connected
+    // socket makes it fail without writing.
+    if unsafe { libc::getpeername(fd, (&raw mut addr).cast(), &raw mut len) } != 0 {
+        return false;
+    }
+    if libc::c_int::from(addr.sun_family) != libc::AF_UNIX {
+        return false;
+    }
+    let path: Vec<u8> = addr
+        .sun_path
+        .iter()
+        .take_while(|c| **c != 0)
+        .map(|c| c.to_ne_bytes()[0])
+        .collect();
+    path == STDOUT_SOCKET
 }
 
 /// Mask personal data in text meant to leave the machine.
@@ -996,6 +1134,20 @@ pub fn redact(text: &str, home: &str, user: &str, host: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stream_connected_to_journald_is_the_journal_whatever_the_variable() {
+        use std::os::fd::AsRawFd as _;
+        // A descriptor that is not connected to journald is not.
+        let (a, _b) = std::os::unix::net::UnixStream::pair().unwrap();
+        assert!(!connected_to_journal(a.as_raw_fd()));
+        // One that is, is: what an application started by KDE Plasma has on
+        // standard output while its JOURNAL_STREAM names Plasma's stream.
+        // Only where journald runs (not in a build chroot).
+        if let Ok(stream) = std::os::unix::net::UnixStream::connect("/run/systemd/journal/stdout") {
+            assert!(connected_to_journal(stream.as_raw_fd()));
+        }
+    }
 
     #[test]
     fn a_tracing_line_keeps_its_own_level() {
@@ -1149,6 +1301,19 @@ mod tests {
         }
         // The client's own chatter belongs to none of them.
         assert_eq!(component_of("Manifest download: send request"), None);
+    }
+
+    #[test]
+    fn an_nvidia_xid_is_shown_as_an_error() {
+        // As the lab laptop's kernel logged them, both at warning priority.
+        let journal = r#"{"__CURSOR":"s=1","__REALTIME_TIMESTAMP":"1790200000000000","_TRANSPORT":"kernel","PRIORITY":"4","MESSAGE":"NVRM: GPU at PCI:0000:01:00: GPU-dbe116b8-a325-0daf-c382-c87c94a4bf0b"}
+{"__CURSOR":"s=2","__REALTIME_TIMESTAMP":"1790200000000001","_TRANSPORT":"kernel","PRIORITY":"4","MESSAGE":"NVRM: Xid (PCI:0000:01:00): 32, pid=177594, name=SOTTR.exe, channel 0x00000023 intr 00040000"}
+"#;
+        let (entries, _) = parse_journal(journal);
+        assert_eq!(entries.len(), 2, "{entries:#?}");
+        assert!(entries.iter().all(|e| e.source == Source::Kernel));
+        assert_eq!(entries[0].level, Level::Warning);
+        assert_eq!(entries[1].level, Level::Error);
     }
 
     #[test]
@@ -1372,6 +1537,55 @@ mod tests {
         want.extend_from_slice(&3u64.to_le_bytes());
         want.extend_from_slice(b"a\nb\n");
         assert_eq!(native_record(&[("MESSAGE", "a\nb")]), want);
+    }
+
+    #[test]
+    fn a_schedulers_start_up_dump_is_debug_and_its_events_are_not() {
+        for chatter in [
+            "Opts {",
+            "    verbose: 0,",
+            "}",
+            "  primary CPUs:  [0]",
+            "2026-10-06T12:26:21Z  INFO ThreadId(01) scx_lavd: main.rs:618: capacity bound:  1024 (6.7%)",
+            "libbpf: struct_ops lavd_ops: member init_cids not found in kernel, skipping it as it's set to zero",
+        ] {
+            assert!(scheduler_chatter(Source::Scheduler, chatter), "{chatter}");
+        }
+        assert!(scheduler_chatter(
+            Source::Kernel,
+            "sched_ext: Writing directly to p->scx.slice/dsq_vtime is deprecated, use scx_bpf_task_set_slice/dsq_vtime()"
+        ));
+        for event in [
+            "[INFO]: switching Lavd with mode Gaming..",
+            "scx_lavd scheduler starts running.",
+            "EXIT: unregistered from user space",
+        ] {
+            assert!(!scheduler_chatter(Source::Scheduler, event), "{event}");
+        }
+        assert!(!scheduler_chatter(
+            Source::Kernel,
+            "sched_ext: BPF scheduler \"lavd_1.1.3\" enabled"
+        ));
+        // Another source's indented line is not a scheduler's.
+        assert!(!scheduler_chatter(Source::Falcond, "    verbose: 0,"));
+    }
+
+    #[test]
+    fn only_valid_journal_field_names_are_sent() {
+        for ok in ["BIGAME_GAME", "BIGAME_PID", "X1"] {
+            assert!(journal_field_name(ok), "{ok}");
+        }
+        for bad in [
+            "",
+            "_PID",
+            "1X",
+            "bigame_game",
+            "BIGAME-GAME",
+            &"A".repeat(65),
+        ] {
+            assert!(!journal_field_name(bad), "{bad}");
+        }
+        assert!(STRUCTURED_FIELDS.iter().all(|(_, j)| journal_field_name(j)));
     }
 
     #[test]

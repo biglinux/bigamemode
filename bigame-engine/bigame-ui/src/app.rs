@@ -49,10 +49,88 @@ pub fn drain_tray_actions() {
                 tray::TrayAction::SetPreset(preset) => {
                     app.change_action_state("turbo-preset", &preset.id().to_variant());
                 }
-                tray::TrayAction::Quit => app.quit(),
+                tray::TrayAction::Quit => request_quit(&app),
             }
         }
     });
+}
+
+thread_local! {
+    /// Work that must finish once started (a measurement, a Turbo change):
+    /// how many are running, and whether Quit waits for them.
+    static BUSY: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    static QUIT_WHEN_DONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Held while work runs that quitting would leave half done; Quit then asks
+/// first and, if told to, waits for the last one to be dropped.
+#[must_use = "the work counts as running only while this is held"]
+pub struct Busy(());
+
+impl Busy {
+    /// Mark work as running until the returned value is dropped.
+    pub fn hold() -> Self {
+        BUSY.with(|b| b.set(b.get() + 1));
+        Self(())
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        let left = BUSY.with(|b| {
+            b.set(b.get().saturating_sub(1));
+            b.get()
+        });
+        if left == 0 && QUIT_WHEN_DONE.with(std::cell::Cell::get) {
+            // Out of the drop: quitting tears down what may be dropping us.
+            glib::idle_add_local_once(|| {
+                if let Some(app) = gtk4::gio::Application::default() {
+                    app.quit();
+                }
+            });
+        }
+    }
+}
+
+/// Quit, unless work is running that quitting would cut short: then ask,
+/// and quit once it has finished.
+fn request_quit(app: &adw::Application) {
+    if BUSY.with(std::cell::Cell::get) == 0 {
+        app.quit();
+        return;
+    }
+    let Some(win) = app
+        .active_window()
+        .or_else(|| app.windows().into_iter().next())
+    else {
+        QUIT_WHEN_DONE.with(|q| q.set(true));
+        return;
+    };
+    win.set_visible(true);
+    win.present();
+    let dialog = adw::AlertDialog::new(
+        Some(&i18n("Quit when finished?")),
+        Some(&i18n(
+            "Big Game Mode is in the middle of something it has to finish, such as a measurement or switching Turbo. Quitting now could leave a change applied.",
+        )),
+    );
+    dialog.add_response("cancel", &i18n("Cancel"));
+    dialog.add_response("quit", &i18n("Quit When Finished"));
+    dialog.set_default_response(Some("cancel"));
+    dialog.set_close_response("cancel");
+    dialog.connect_response(None, |_, response| {
+        if response != "quit" {
+            return;
+        }
+        if BUSY.with(std::cell::Cell::get) == 0 {
+            if let Some(app) = gtk4::gio::Application::default() {
+                app.quit();
+            }
+        } else {
+            QUIT_WHEN_DONE.with(|q| q.set(true));
+        }
+    });
+    dialog.present(Some(&win));
 }
 
 /// Reverse-domain application identifier.
@@ -78,6 +156,7 @@ pub fn run() -> adw::glib::ExitCode {
     // The name notifications and the desktop show; left unset, GLib uses the
     // program name and notifications are signed "bigame-ui".
     adw::glib::set_application_name(NAME);
+    replace_outdated_instance();
     let app = adw::Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|app| {
@@ -110,7 +189,7 @@ pub fn run() -> adw::glib::ExitCode {
         // An lsfg-vk file in the layout an earlier Big Game Mode wrote makes
         // lsfg-vk ignore it entirely; convert it before a game starts.
         std::thread::spawn(|| match bigame_core::fg::convert_legacy_file() {
-            Ok(true) => tracing::info!(target: "fg", "lsfg-vk configuration converted to the 1.x layout"),
+            Ok(true) => tracing::info!(target: "fg", "lsfg-vk configuration converted to the installed lsfg-vk's layout"),
             Ok(false) => {}
             Err(e) => tracing::warn!(target: "fg", error = %format!("{e:#}"), "could not convert the lsfg-vk configuration"),
         });
@@ -123,6 +202,9 @@ pub fn run() -> adw::glib::ExitCode {
             Err(e) => tracing::warn!(target: "turbo", error = %e, "could not check for left-over Booster changes"),
         });
 
+        // An autostart entry an older version wrote gets TryExec.
+        std::thread::spawn(crate::settings::refresh_autostart_entry);
+
         // Programs a previous run paused from Details and could not resume
         // (it was killed, or crashed) are resumed before anything else: a
         // program must never stay frozen because Big Game Mode went away.
@@ -132,7 +214,7 @@ pub fn run() -> adw::glib::ExitCode {
         }
 
         let quit = adw::gio::ActionEntry::builder("quit")
-            .activate(|app: &adw::Application, _, _| app.quit())
+            .activate(|app: &adw::Application, _, _| request_quit(app))
             .build();
 
         let about = adw::gio::ActionEntry::builder("about")
@@ -178,7 +260,7 @@ pub fn run() -> adw::glib::ExitCode {
 
             let tray_handle = std::rc::Rc::new(tray_handle);
             follow_turbo(app, &tray_handle);
-            start_status_loop(tray_handle, error_indicator);
+            start_status_loop(tray_handle, &error_indicator);
         }
     });
 
@@ -191,6 +273,82 @@ pub fn run() -> adw::glib::ExitCode {
     });
 
     app.run_with_args(&args)
+}
+
+/// Ask a running instance whose program was replaced on disk to quit, and
+/// wait for it to go.
+///
+/// `GApplication` is single-instance: opening Big Game Mode activates the one
+/// already running. After a package upgrade that is the tray instance the
+/// login started, still the old version, and it would stay what the user
+/// sees until the next login. Its executable then reads as `… (deleted)` in
+/// `/proc`; a build started from elsewhere next to an installed instance
+/// does not, and leaves it alone. It is asked through its own exported
+/// `quit` action, so it shuts down as from the tray (paused programs are
+/// resumed), and this process becomes the instance.
+fn replace_outdated_instance() {
+    use adw::gio;
+    use adw::glib::variant::ToVariant as _;
+
+    let Ok(bus) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else {
+        return;
+    };
+    let owner_pid = || {
+        bus.call_sync(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetConnectionUnixProcessID",
+            Some(&(APP_ID,).to_variant()),
+            Some(glib::VariantTy::new("(u)").expect("valid type string")),
+            gio::DBusCallFlags::NONE,
+            2000,
+            gio::Cancellable::NONE,
+        )
+        .ok()
+        .and_then(|v| v.get::<(u32,)>())
+        .map(|(pid,)| pid)
+    };
+    let Some(pid) = owner_pid() else {
+        return;
+    };
+    let replaced = std::fs::read_link(format!("/proc/{pid}/exe"))
+        .is_ok_and(|p| p.to_string_lossy().ends_with(" (deleted)"));
+    if pid == std::process::id() || !replaced {
+        return;
+    }
+    tracing::info!(
+        pid,
+        "an instance of an earlier version is running; asking it to quit"
+    );
+    let object_path = format!("/{}", APP_ID.replace('.', "/"));
+    let platform_data = std::collections::HashMap::<String, glib::Variant>::new();
+    if let Err(e) = bus.call_sync(
+        Some(APP_ID),
+        &object_path,
+        "org.gtk.Actions",
+        "Activate",
+        Some(&("quit", Vec::<glib::Variant>::new(), platform_data).to_variant()),
+        None,
+        gio::DBusCallFlags::NONE,
+        2000,
+        gio::Cancellable::NONE,
+    ) {
+        tracing::warn!(pid, error = %e, "the earlier instance did not take the request to quit");
+        return;
+    }
+    // Its shutdown resumes paused programs and releases the name; five
+    // seconds is far more than that takes.
+    for _ in 0..50 {
+        if owner_pid() != Some(pid) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    tracing::warn!(
+        pid,
+        "the earlier instance is still running; opening it instead"
+    );
 }
 
 /// Keep the tray's Turbo and preset in step with Home's `app.turbo` and
@@ -250,7 +408,7 @@ fn follow_turbo(app: &adw::Application, tray_handle: &std::rc::Rc<tray::TrayHand
 /// state.
 fn start_status_loop(
     tray_handle: std::rc::Rc<tray::TrayHandle>,
-    error_indicator: std::sync::Arc<crate::widgets::error_indicator::ErrorIndicator>,
+    error_indicator: &std::sync::Arc<crate::widgets::error_indicator::ErrorIndicator>,
 ) {
     // Tray and error indicator, from the systems that hold the state.
     //
@@ -260,32 +418,44 @@ fn start_status_loop(
     // is what Turbo off means. Only a unit systemd reports as failed is, and
     // nothing offered here deletes anything.
     let busy = std::rc::Rc::new(std::cell::Cell::new(false));
-    glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
-        if busy.replace(true) {
-            return glib::ControlFlow::Continue;
-        }
-        let (busy, tray_handle, error_indicator) = (
-            std::rc::Rc::clone(&busy),
-            std::rc::Rc::clone(&tray_handle),
-            std::sync::Arc::clone(&error_indicator),
-        );
-        glib::spawn_future_local(async move {
-            let reading = gtk4::gio::spawn_blocking(|| {
-                let unit = bigame_core::systemd::Reader::shared()
-                    .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
-                (unit, detect_missing_runtime_packages())
-            })
-            .await;
-            busy.set(false);
-            if let Ok((unit, missing_runtime)) = reading {
-                show_status(
-                    unit.as_ref(),
-                    &missing_runtime,
-                    &tray_handle,
-                    &error_indicator,
-                );
+    let read = std::rc::Rc::new({
+        let error_indicator = std::sync::Arc::clone(error_indicator);
+        move || {
+            if busy.replace(true) {
+                return;
             }
-        });
+            let (busy, tray_handle, error_indicator) = (
+                std::rc::Rc::clone(&busy),
+                std::rc::Rc::clone(&tray_handle),
+                std::sync::Arc::clone(&error_indicator),
+            );
+            glib::spawn_future_local(async move {
+                let reading = gtk4::gio::spawn_blocking(|| {
+                    let unit = bigame_core::systemd::Reader::shared()
+                        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
+                    (unit, detect_missing_runtime_packages())
+                })
+                .await;
+                busy.set(false);
+                if let Ok((unit, missing_runtime)) = reading {
+                    show_status(
+                        unit.as_ref(),
+                        &missing_runtime,
+                        &tray_handle,
+                        &error_indicator,
+                    );
+                }
+            });
+        }
+    });
+    // After "Install Missing Packages", read again at once rather than up
+    // to ten seconds later.
+    {
+        let read = std::rc::Rc::clone(&read);
+        error_indicator.connect_action_done(move || read());
+    }
+    glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+        read();
         glib::ControlFlow::Continue
     });
 }
@@ -307,8 +477,11 @@ fn show_status(
         Some(i18n("falcond stopped unexpectedly"))
     } else if !missing_runtime.is_empty() {
         let missing_csv = missing_runtime.join(", ");
-        let install_hint = install_missing_packages_hint(missing_runtime);
-        if let Some(cmd) = install_missing_packages_action(missing_runtime) {
+        let action = install_missing_packages_action(missing_runtime);
+        // The confirmation shows the very command the button runs.
+        let install_hint =
+            install_missing_packages_hint(missing_runtime, action.as_deref().map(|a| a.join(" ")));
+        if let Some(cmd) = action {
             let copy_cmd =
                 install_missing_packages_shell_command(missing_runtime).unwrap_or_default();
             error_indicator.set_error_with_action_and_copy(
@@ -361,8 +534,8 @@ fn detect_missing_runtime_packages() -> Vec<String> {
 }
 
 #[must_use]
-fn install_missing_packages_hint(missing: &[String]) -> String {
-    if let Some(cmd) = install_missing_packages_shell_command(missing) {
+fn install_missing_packages_hint(missing: &[String], runs: Option<String>) -> String {
+    if let Some(cmd) = runs.or_else(|| install_missing_packages_shell_command(missing)) {
         return format!(
             "{}\n1) {}\n2) {}\n3) {}\n\n{}\n{}",
             i18n("Troubleshooting"),
@@ -387,7 +560,13 @@ fn install_missing_packages_hint(missing: &[String]) -> String {
 
 #[must_use]
 fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
-    if missing.is_empty() {
+    // Offered only when every package installs from this system's
+    // repositories: otherwise the user is told to use their package manager.
+    if missing.is_empty()
+        || !missing
+            .iter()
+            .all(|p| bigame_core::capabilities::in_repositories(p))
+    {
         return None;
     }
     // Prefer pamac-installer (full GUI window with graphical polkit auth).
@@ -413,7 +592,13 @@ fn install_missing_packages_action(missing: &[String]) -> Option<Vec<String>> {
 
 #[must_use]
 fn install_missing_packages_shell_command(missing: &[String]) -> Option<String> {
-    if missing.is_empty() {
+    // Offered only when every package installs from this system's
+    // repositories: otherwise the user is told to use their package manager.
+    if missing.is_empty()
+        || !missing
+            .iter()
+            .all(|p| bigame_core::capabilities::in_repositories(p))
+    {
         return None;
     }
     if bigame_core::capabilities::which("pamac-installer").is_some() {

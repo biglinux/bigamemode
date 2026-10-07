@@ -191,9 +191,17 @@ pub fn ask_conflict(
                 .replace("%r", &requested)
                 .replace("%a", &active),
         )
-        .body(format!(
-            "{why}. {effect} {}",
-            i18n("Choose the one to keep; the other is turned off.")
+        // The reason is a clause; how it ends and joins the sentences after
+        // it is the language's, not English punctuation.
+        .body(bigame_core::text::Text::fill(
+            &i18n("%s. %s"),
+            &[
+                why,
+                format!(
+                    "{effect} {}",
+                    i18n("Choose the one to keep; the other is turned off.")
+                ),
+            ],
         ))
         .build();
     dialog.add_response("keep", &i18n("Keep %s").replace("%s", &active));

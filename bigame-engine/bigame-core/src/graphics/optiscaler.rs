@@ -203,6 +203,11 @@ pub struct Cached {
     /// License of `OptiScaler` itself; bundled components carry their own
     /// licenses in the release's `Licenses/` folder.
     pub license: String,
+    /// SHA-256 of every unpacked file, by its path in the release: checked
+    /// each time the copy is used, so a file deleted or damaged since is
+    /// unpacked again instead of being placed in a game, or missed for good.
+    #[serde(default)]
+    pub files: std::collections::BTreeMap<String, String>,
 }
 
 impl Cached {
@@ -219,16 +224,74 @@ impl Cached {
     }
 }
 
+/// Whether `name` is a plain file name: no directory part, not hidden, so
+/// joining it to a cache directory stays in that directory.
+fn plain_name(name: &str) -> bool {
+    !name.is_empty() && !name.starts_with('.') && !name.contains(['/', '\\'])
+}
+
 fn record_path(cache: &Path, release: &Release) -> PathBuf {
     cache.join(&release.version).join("release.json")
 }
 
-/// The cached copy of `release`, if it is there and is the same release.
+/// The cached copy of `release`, if it is there, is the same release, and
+/// every file in it is as it was unpacked.
 #[must_use]
 pub fn cached(cache: &Path, release: &Release) -> Option<Cached> {
     let text = std::fs::read_to_string(record_path(cache, release)).ok()?;
     let c: Cached = serde_json::from_str(&text).ok()?;
-    (c.release.sha256 == release.sha256 && c.dir.join("OptiScaler.dll").is_file()).then_some(c)
+    if c.release.sha256 != release.sha256 || !c.files.contains_key("OptiScaler.dll") {
+        return None;
+    }
+    let intact = c.files.iter().all(|(rel, sha)| {
+        let path = c.dir.join(rel);
+        std::fs::symlink_metadata(&path).is_ok_and(|m| m.is_file())
+            && sha256_file(&path).is_ok_and(|h| h == *sha)
+    });
+    if !intact {
+        tracing::warn!(target: "graphics", version = %release.version,
+            "the cached OptiScaler release changed since it was unpacked; unpacking it again");
+    }
+    intact.then_some(c)
+}
+
+/// SHA-256 of every file under `dir`, by its path relative to it.
+fn hash_tree(dir: &Path) -> Result<std::collections::BTreeMap<String, String>> {
+    let mut out = std::collections::BTreeMap::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d)? {
+            let e = e?;
+            let ft = e.file_type()?;
+            if ft.is_dir() {
+                stack.push(e.path());
+            } else if ft.is_file() {
+                let rel = e.path().strip_prefix(dir)?.to_string_lossy().into_owned();
+                out.insert(rel, sha256_file(&e.path())?);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Hold the lock of one release's cache folder until the file returned is
+/// dropped: two fetches of a release at once (two pages, a page and a
+/// profile) would share its download and its unpacked folder.
+fn lock(dir: &Path) -> Result<std::fs::File> {
+    use std::os::fd::AsRawFd;
+    let f = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(".lock"))
+        .with_context(|| format!("lock {}", dir.display()))?;
+    // SAFETY: flock on a descriptor this function owns, kept open by the
+    // file returned.
+    if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX) } != 0 {
+        return Err(std::io::Error::last_os_error())
+            .with_context(|| format!("lock {}", dir.display()));
+    }
+    Ok(f)
 }
 
 /// The cached copy of version `version`, whatever release it came from —
@@ -274,6 +337,15 @@ pub fn check_listing(verbose: &str, names: &str) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
+/// The total size `bsdtar -tvf` lists (its fifth column, as `ls -l`), or
+/// `None` when a line does not read as one.
+fn listed_size(verbose: &str) -> Option<u64> {
+    verbose
+        .lines()
+        .map(|l| l.split_whitespace().nth(4)?.parse::<u64>().ok())
+        .try_fold(0u64, |total, size| total.checked_add(size?))
+}
+
 pub(super) fn run(program: &str, args: &[&std::ffi::OsStr]) -> Result<String> {
     let out = std::process::Command::new(program)
         .args(args)
@@ -302,6 +374,11 @@ pub fn extract_safely(archive: &Path, dest: &Path) -> Result<()> {
     let verbose = run("bsdtar", &["-tvf".as_ref(), archive.as_os_str()])?;
     let names = run("bsdtar", &["-tf".as_ref(), archive.as_os_str()])?;
     check_listing(&verbose, &names)?;
+    // The sizes it lists, checked before anything is written; what was
+    // written is checked again after.
+    if let Some(listed) = listed_size(&verbose) {
+        ensure!(listed <= MAX_UNPACKED, "archive lists {listed} bytes");
+    }
     let tmp = dest.with_extension("unpacking");
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp)?;
@@ -361,11 +438,64 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
         "release asset is {} bytes",
         release.size
     );
+    ensure!(
+        plain_name(&release.version) && plain_name(&release.asset),
+        "release {:?} has an unusable name ({:?})",
+        release.tag,
+        release.asset
+    );
     let dir = cache.join(&release.version);
     std::fs::create_dir_all(&dir)?;
-    let part = dir.join("download.part");
-    let _ = std::fs::remove_file(&part);
+    let _lock = lock(&dir)?;
+    // Another fetch may have finished while this one waited.
+    if let Some(c) = cached(cache, release) {
+        return Ok(c);
+    }
     let url = release.url();
+    let archive = dir.join(&release.asset);
+    // The archive is kept beside what it unpacked to: a damaged copy is
+    // unpacked again from it, once it still hashes as published.
+    let kept = archive.is_file() && sha256_file(&archive)? == release.sha256;
+    if kept {
+        tracing::info!(target: "graphics", version = %release.version,
+            "unpacking the kept OptiScaler archive again");
+    } else {
+        download(release, &url, &dir, &archive)?;
+    }
+    let unpacked = dir.join("files");
+    match std::fs::remove_dir_all(&unpacked) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).with_context(|| format!("remove {}", unpacked.display())),
+    }
+    extract_safely(&archive, &unpacked)?;
+    let c = Cached {
+        release: release.clone(),
+        files: hash_tree(&unpacked)?,
+        dir: unpacked,
+        url,
+        downloaded_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs()),
+        license: "GPL-3.0".into(),
+    };
+    let record = record_path(cache, release);
+    let tmp = record.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_string_pretty(&c)?)?;
+    std::fs::rename(&tmp, &record)?;
+    tracing::info!(target: "graphics", version = %release.version, "OptiScaler downloaded and verified");
+    Ok(c)
+}
+
+/// Download `release` from `url` to `archive`, checked by its hash before
+/// it is given that name.
+fn download(release: &Release, url: &str, dir: &Path, archive: &Path) -> Result<()> {
+    let part = dir.join("download.part");
+    match std::fs::remove_file(&part) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).with_context(|| format!("remove {}", part.display())),
+    }
     tracing::info!(target: "graphics", %url, "downloading OptiScaler");
     run(
         "curl",
@@ -402,26 +532,79 @@ pub fn fetch(cache: &Path, release: &Release) -> Result<Cached> {
             [release.tag.clone(), got]
         ));
     }
-    let archive = dir.join(&release.asset);
-    std::fs::rename(&part, &archive)?;
-    let unpacked = dir.join("files");
-    let _ = std::fs::remove_dir_all(&unpacked);
-    extract_safely(&archive, &unpacked)?;
-    let c = Cached {
-        release: release.clone(),
-        dir: unpacked,
-        url,
-        downloaded_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs()),
-        license: "GPL-3.0".into(),
+    std::fs::rename(&part, archive)?;
+    Ok(())
+}
+
+/// Remove from the cache the releases no install needs, and return the bytes
+/// freed.
+///
+/// A release stays when its version is in `keep` (installed in a game, or
+/// the one Go back returns to) or it was downloaded less than `recent` ago
+/// (an Apply that has fetched it but not yet recorded it); it stays whole,
+/// archive included, which Repair unpacks again from. Every other complete
+/// release goes, unless a fetch holds its lock. A folder that is not a
+/// complete release (a download in progress) is left alone. Go back to a
+/// release removed here downloads it again and checks it, so pruning costs a
+/// download, never an install.
+#[must_use]
+pub fn prune_cache(cache: &Path, keep: &[String], recent: std::time::Duration) -> u64 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let Ok(dir) = std::fs::read_dir(cache) else {
+        return 0;
     };
-    std::fs::write(
-        record_path(cache, release),
-        serde_json::to_string_pretty(&c)?,
-    )?;
-    tracing::info!(target: "graphics", version = %release.version, "OptiScaler downloaded and verified");
-    Ok(c)
+    let mut freed = 0;
+    for e in dir.flatten() {
+        if !e.file_type().is_ok_and(|t| t.is_dir()) {
+            continue;
+        }
+        let version = e.file_name().to_string_lossy().into_owned();
+        let Some(c) = cached_version(cache, &version) else {
+            continue;
+        };
+        if keep.contains(&version) || now.saturating_sub(c.downloaded_at) < recent.as_secs() {
+            continue;
+        }
+        let Some(_lock) = try_lock(&e.path()) else {
+            continue;
+        };
+        let size = tree_size(&e.path());
+        if std::fs::remove_dir_all(e.path()).is_ok() {
+            freed += size;
+        }
+    }
+    freed
+}
+
+/// [`lock`] without waiting: `None` while a fetch holds the folder.
+fn try_lock(dir: &Path) -> Option<std::fs::File> {
+    use std::os::fd::AsRawFd;
+    let f = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(".lock"))
+        .ok()?;
+    // SAFETY: flock on a descriptor this function owns, kept open by the
+    // file returned.
+    (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0).then_some(f)
+}
+
+fn tree_size(dir: &Path) -> u64 {
+    let mut total = 0;
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+            match e.file_type() {
+                Ok(t) if t.is_dir() => stack.push(e.path()),
+                Ok(t) if t.is_file() => total += e.metadata().map_or(0, |m| m.len()),
+                _ => {}
+            }
+        }
+    }
+    total
 }
 
 /// The value of `key` in `[section]` of an ini text (the first uncommented
@@ -565,6 +748,8 @@ pub enum FrameGen {
 }
 
 /// How `OptiScaler` is set up for one game.
+// Independent facts about the GPU and the game, each read on its own.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Options {
     /// DLL slot it loads through (`dxgi.dll`).
@@ -589,6 +774,10 @@ pub struct Options {
     /// Show `OptiScaler`'s FSR 4 watermark, which says whether FSR 4 really
     /// runs or fell back to FSR 3 — for validation.
     pub watermark: bool,
+    /// The game ships its own `libxess.dll` beside the executable. It is
+    /// never replaced: `OptiScaler` runs `XeSS` with the game's copy.
+    #[serde(default)]
+    pub game_xess: bool,
 }
 
 /// The ini settings for `o`, as `(section, key, value)`.
@@ -607,9 +796,12 @@ pub fn ini_settings(o: &Options) -> Vec<(&'static str, &'static str, String)> {
     ];
     let backend = match o.output {
         Output::Fsr => match o.api {
-            Api::Dx12 => "fsr31",
-            // Through D3D12 interop, which is what reaches FSR 4.
-            Api::Dx11 | Api::Vulkan => "fsr31_12",
+            // Vulkan's own FSR 3.1 backend, with the runtime that is placed
+            // for it (`amd_fidelityfx_vk.dll`).
+            Api::Dx12 | Api::Vulkan => "fsr31",
+            // Through D3D12 interop, which is what reaches FSR 4; the DX12
+            // runtimes are placed for it.
+            Api::Dx11 => "fsr31_12",
         },
         Output::Xess => match o.api {
             Api::Dx11 => "xess_12",
@@ -634,9 +826,13 @@ pub fn ini_settings(o: &Options) -> Vec<(&'static str, &'static str, String)> {
     if o.watermark && o.output == Output::Fsr {
         s.push(("FSR", "Fsr4EnableWatermark", "true".to_owned()));
     }
-    match o.frame_gen {
-        FrameGen::Off => s.push(("FrameGen", "Enabled", "false".to_owned())),
-        FrameGen::OptiFgFsr => {
+    // OptiFG is a DirectX 12 frame generator: its runtime is placed only for
+    // a DX12 game, and it is switched on only there.
+    match (o.frame_gen, o.api) {
+        (FrameGen::Off, _) | (FrameGen::OptiFgFsr, Api::Dx11 | Api::Vulkan) => {
+            s.push(("FrameGen", "Enabled", "false".to_owned()));
+        }
+        (FrameGen::OptiFgFsr, Api::Dx12) => {
             s.push(("FrameGen", "Enabled", "true".to_owned()));
             s.push(("FrameGen", "FGInput", "upscaler".to_owned()));
             s.push(("FrameGen", "FGOutput", "fsrfg".to_owned()));
@@ -649,10 +845,12 @@ pub fn ini_settings(o: &Options) -> Vec<(&'static str, &'static str, String)> {
 ///
 /// The smallest set that works: the game's own upscaler DLLs are left alone
 /// unless the output needs a newer one (`OptiScaler` hooks whichever
-/// `libxess.dll` the game has loaded, so `XeSS` *input* needs none), and
-/// the `D3D12_Optiscaler` Agility SDK copy — licensed by Microsoft for
-/// Windows only, and of no use under VKD3D-Proton, which implements D3D12 —
-/// is never copied.
+/// `libxess.dll` the game has loaded, so `XeSS` *input* needs none), the
+/// game's own `libxess.dll` is never replaced (Intel's license allows no
+/// modification, and `OptiScaler` uses the game's), and the
+/// `D3D12_Optiscaler` Agility SDK copy — licensed by Microsoft for Windows
+/// only, and of no use under VKD3D-Proton, which implements D3D12 — is
+/// never copied.
 #[must_use]
 pub fn release_files(o: &Options) -> Vec<&'static str> {
     let mut f = Vec::new();
@@ -662,11 +860,13 @@ pub fn release_files(o: &Options) -> Vec<&'static str> {
             f.push("amd_fidelityfx_dx12.dll");
             f.push("amd_fidelityfx_upscaler_dx12.dll");
         }
+        (Output::Xess, Api::Dx11) if o.game_xess => f.push("libxess_dx11.dll"),
         (Output::Xess, Api::Dx11) => f.extend(["libxess.dll", "libxess_dx11.dll"]),
+        (Output::Xess, _) if o.game_xess => {}
         (Output::Xess, _) => f.push("libxess.dll"),
         (Output::Dlss, _) => {}
     }
-    if o.frame_gen == FrameGen::OptiFgFsr && o.api != Api::Vulkan {
+    if o.frame_gen == FrameGen::OptiFgFsr && o.api == Api::Dx12 {
         f.push("amd_fidelityfx_dx12.dll");
         f.push("amd_fidelityfx_framegeneration_dx12.dll");
     }
@@ -678,10 +878,55 @@ pub fn release_files(o: &Options) -> Vec<&'static str> {
     f
 }
 
+/// One `key = value` of an ini, with its section.
+pub type IniValue = (String, String, String);
+
+/// Every setting in an ini text, the first of each key in its section.
+fn ini_values(text: &str) -> Vec<IniValue> {
+    let mut out: Vec<IniValue> = Vec::new();
+    let mut section = String::new();
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(name) = t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+            name.trim().clone_into(&mut section);
+            continue;
+        }
+        if t.starts_with(';') || t.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = t.split_once('=') {
+            let (k, v) = (k.trim(), v.trim());
+            let seen = out
+                .iter()
+                .any(|(s, key, _)| s.eq_ignore_ascii_case(&section) && key.eq_ignore_ascii_case(k));
+            if !k.is_empty() && !seen {
+                out.push((section.clone(), k.to_owned(), v.to_owned()));
+            }
+        }
+    }
+    out
+}
+
+/// The settings `edited` (an `OptiScaler.ini` as the game left it) has that
+/// `installed` (the one Big Game Mode placed) does not have, or has with
+/// another value: what the user changed in `OptiScaler`'s overlay, which
+/// saves to its ini. Layout, comments and case are not changes.
+#[must_use]
+pub fn ini_edits(installed: &str, edited: &str) -> Vec<IniValue> {
+    ini_values(edited)
+        .into_iter()
+        .filter(|(s, k, v)| get_ini(installed, s, k).is_none_or(|old| !old.eq_ignore_ascii_case(v)))
+        .collect()
+}
+
 /// The files to place for `o` from a cached release: `OptiScaler.dll` under
 /// its slot name, a configured `OptiScaler.ini` (written to `staging`), and
 /// [`release_files`]. Paths are relative to the install folder, in
 /// `exe_dir_rel` (where the game's executable is).
+///
+/// `carry` is what the user changed in the ini that is being replaced
+/// ([`ini_edits`]): it is kept in the new one, except the settings
+/// Big Game Mode owns ([`ini_settings`]), which follow the choice.
 ///
 /// # Errors
 /// Returns an error if the release lacks a needed file or the ini cannot be
@@ -691,6 +936,7 @@ pub fn payload(
     o: &Options,
     exe_dir_rel: &Path,
     staging: &Path,
+    carry: &[IniValue],
 ) -> Result<Vec<PlannedFile>> {
     check_relative(&exe_dir_rel.join(&o.proxy))?;
     let mut files = vec![PlannedFile {
@@ -700,9 +946,18 @@ pub fn payload(
     }];
     let base = std::fs::read_to_string(cached.dir.join("OptiScaler.ini"))
         .context("the release's OptiScaler.ini")?;
-    let ini = ini_settings(o)
-        .into_iter()
-        .fold(base, |text, (sec, key, val)| set_ini(&text, sec, key, &val));
+    let owned = ini_settings(o);
+    let users = carry
+        .iter()
+        .filter(|(s, k, _)| {
+            !owned
+                .iter()
+                .any(|(os, ok, _)| os.eq_ignore_ascii_case(s) && ok.eq_ignore_ascii_case(k))
+        })
+        .fold(base, |text, (sec, key, val)| set_ini(&text, sec, key, val));
+    let ini = owned.into_iter().fold(users, |text, (sec, key, val)| {
+        set_ini(&text, sec, key, &val)
+    });
     std::fs::create_dir_all(staging)?;
     let ini_path = staging.join("OptiScaler.ini");
     std::fs::write(&ini_path, ini)?;
@@ -751,6 +1006,13 @@ pub struct LogFindings {
     pub amdxcffx64: Option<bool>,
     /// Lines that say something failed.
     pub errors: Vec<String>,
+    /// Whether its frame generation runs, from the latest line that says:
+    /// `Some(true)` when a frame generator worked on the game's frames
+    /// (`FSRFG_Dx12::…`, `XeFG_Dx12::…`), `Some(false)` when it could not
+    /// start one (`Can't init FG Feature`: on the lab laptop the user's ini
+    /// asked for FSR-FG with its runtime DLL not in the game folder), `None`
+    /// when the log says neither.
+    pub frame_generation: Option<bool>,
 }
 
 impl LogFindings {
@@ -820,6 +1082,11 @@ pub fn read_log(text: &str) -> LogFindings {
         if line.contains("amdxcffx64 loaded") {
             f.amdxcffx64 = Some(true);
         }
+        if line.contains("FSRFG_Dx12::") || line.contains("XeFG_Dx12::") {
+            f.frame_generation = Some(true);
+        } else if line.contains("Can't init FG Feature") {
+            f.frame_generation = Some(false);
+        }
         // A warning, not a failure: OptiScaler goes on with FSR 3.1. Under
         // Proton this is the usual case — the DLL comes with AMD's Windows
         // driver.
@@ -857,6 +1124,22 @@ pub fn read_log(text: &str) -> LogFindings {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_listed_size_is_summed_before_extracting() {
+        let verbose = "drwxr-xr-x  0 0      0           0 Jul 18 12:00 Licenses/\n\
+                       -rw-r--r--  0 0      0     1048576 Jul 18 12:00 OptiScaler.dll\n\
+                       -rw-r--r--  0 0      0        2048 Jul 18 12:00 OptiScaler.ini\n";
+        assert_eq!(listed_size(verbose), Some(1_050_624));
+        // A line that does not read as a size: no total, the result is
+        // checked after unpacking instead.
+        assert_eq!(listed_size("garbage line\n"), None);
+        assert_eq!(
+            listed_size(&format!("-r 0 0 0 {} x\n-r 0 0 0 1 y\n", u64::MAX)),
+            None
+        );
+    }
+
     use super::*;
 
     fn opts(input: Input, output: Output, api: Api) -> Options {
@@ -869,6 +1152,7 @@ mod tests {
             nvidia: false,
             dlss: false,
             watermark: false,
+            game_xess: false,
         }
     }
 
@@ -929,12 +1213,144 @@ mod tests {
     }
 
     #[test]
-    fn dx11_and_vulkan_reach_fsr_through_interop() {
-        let s = ini_settings(&opts(Input::Fsr, Output::Fsr, Api::Dx11));
-        assert!(s.contains(&("Upscalers", "Dx11Upscaler", "fsr31_12".into())));
+    fn the_ini_backend_matches_the_runtime_placed_for_it() {
+        // DX11 reaches FSR through D3D12 interop, with the DX12 runtimes.
+        let d = opts(Input::Fsr, Output::Fsr, Api::Dx11);
+        assert!(ini_settings(&d).contains(&("Upscalers", "Dx11Upscaler", "fsr31_12".into())));
+        assert!(release_files(&d).contains(&"amd_fidelityfx_upscaler_dx12.dll"));
+        // Vulkan's own FSR 3.1 backend, with the Vulkan runtime: no backend
+        // that needs a runtime that is not there.
         let v = opts(Input::Fsr, Output::Fsr, Api::Vulkan);
-        assert!(ini_settings(&v).contains(&("Upscalers", "VulkanUpscaler", "fsr31_12".into())));
+        assert!(ini_settings(&v).contains(&("Upscalers", "VulkanUpscaler", "fsr31".into())));
         assert_eq!(release_files(&v), ["amd_fidelityfx_vk.dll"]);
+        // OptiFG only in a DX12 game: elsewhere neither switched on nor placed.
+        for api in [Api::Dx11, Api::Vulkan] {
+            let fg = Options {
+                frame_gen: FrameGen::OptiFgFsr,
+                ..opts(Input::Fsr, Output::Fsr, api)
+            };
+            assert!(ini_settings(&fg).contains(&("FrameGen", "Enabled", "false".into())));
+            assert!(
+                !release_files(&fg)
+                    .iter()
+                    .any(|f| f.contains("framegeneration"))
+            );
+        }
+        // The game's own libxess.dll is never one of the files placed.
+        let x = Options {
+            game_xess: true,
+            ..opts(Input::Fsr, Output::Xess, Api::Dx12)
+        };
+        assert!(release_files(&x).is_empty());
+    }
+
+    #[test]
+    fn the_users_overlay_changes_are_carried_into_a_new_ini_but_not_over_ours() {
+        let installed = "[Upscalers]\nDx12Upscaler=fsr31\n[Menu]\nScale=auto\n[Log]\nLogLevel=2\n";
+        // As OptiScaler saves it: its own layout, the user's two changes.
+        let edited = "[Upscalers]\nDx12Upscaler = xess\n\n[Menu]\nScale = 1.5\n; comment\n[Log]\nLogLevel = 2\n";
+        let edits = ini_edits(installed, edited);
+        assert_eq!(
+            edits,
+            [
+                ("Upscalers".into(), "Dx12Upscaler".into(), "xess".into()),
+                ("Menu".into(), "Scale".into(), "1.5".into()),
+            ]
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let files = dir.path().join("files");
+        std::fs::create_dir(&files).unwrap();
+        std::fs::write(files.join("OptiScaler.dll"), b"MZ").unwrap();
+        std::fs::write(files.join("OptiScaler.ini"), installed).unwrap();
+        for f in [
+            "amd_fidelityfx_dx12.dll",
+            "amd_fidelityfx_upscaler_dx12.dll",
+        ] {
+            std::fs::write(files.join(f), b"MZ").unwrap();
+        }
+        let cached = Cached {
+            release: Release::recommended(),
+            dir: files,
+            url: String::new(),
+            downloaded_at: 0,
+            license: String::new(),
+            files: std::collections::BTreeMap::new(),
+        };
+        let o = opts(Input::Xess, Output::Fsr, Api::Dx12);
+        let staging = dir.path().join("staging");
+        let placed = payload(&cached, &o, Path::new(""), &staging, &edits).unwrap();
+        assert_eq!(placed.len(), 4);
+        let ini = std::fs::read_to_string(staging.join("OptiScaler.ini")).unwrap();
+        assert_eq!(
+            get_ini(&ini, "Menu", "Scale").as_deref(),
+            Some("1.5"),
+            "{ini}"
+        );
+        // The upscaler is Big Game Mode's to set: the choice, not the copy.
+        assert_eq!(
+            get_ini(&ini, "Upscalers", "Dx12Upscaler").as_deref(),
+            Some("fsr31")
+        );
+    }
+
+    #[test]
+    fn a_damaged_cached_release_is_unpacked_again_from_its_kept_archive() {
+        if std::process::Command::new("bsdtar")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            return; // bsdtar missing: nothing to test against
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("OptiScaler.dll"), b"MZ optiscaler").unwrap();
+        std::fs::write(src.join("OptiScaler.ini"), b"[Log]\n").unwrap();
+        let cache = dir.path().join("cache");
+        let version_dir = cache.join("9.9.9");
+        std::fs::create_dir_all(&version_dir).unwrap();
+        let archive = version_dir.join("Optiscaler_9.9.9.7z");
+        let st = std::process::Command::new("bsdtar")
+            .args(["--format", "zip", "-cf"])
+            .arg(&archive)
+            .arg("-C")
+            .arg(&src)
+            .args(["OptiScaler.dll", "OptiScaler.ini"])
+            .status()
+            .unwrap();
+        assert!(st.success());
+        let release = Release {
+            tag: "v9.9.9".into(),
+            version: "9.9.9".into(),
+            asset: "Optiscaler_9.9.9.7z".into(),
+            sha256: sha256_file(&archive).unwrap(),
+            size: std::fs::metadata(&archive).unwrap().len(),
+            published: String::new(),
+        };
+        // The kept archive is unpacked; nothing is downloaded.
+        let c = fetch(&cache, &release).unwrap();
+        assert_eq!(c.files.len(), 2);
+        assert!(cached(&cache, &release).is_some());
+        // A file damaged since: the copy is no longer taken, and the next
+        // fetch unpacks it again.
+        std::fs::write(c.dir.join("OptiScaler.dll"), b"damaged").unwrap();
+        assert!(cached(&cache, &release).is_none());
+        let c = fetch(&cache, &release).unwrap();
+        assert_eq!(
+            std::fs::read(c.dir.join("OptiScaler.dll")).unwrap(),
+            b"MZ optiscaler"
+        );
+        // One deleted: the same.
+        std::fs::remove_file(c.dir.join("OptiScaler.ini")).unwrap();
+        assert!(cached(&cache, &release).is_none());
+        assert!(
+            fetch(&cache, &release)
+                .unwrap()
+                .dir
+                .join("OptiScaler.ini")
+                .is_file()
+        );
     }
 
     #[test]
@@ -1036,6 +1452,112 @@ mod tests {
             "[09:11:09.465212] [E] UpdateFfxApiProviderEx for: SwapchainDX12, result: 0X80004002\n";
         assert!(read_log(swap).errors.is_empty());
         assert_eq!(read_log("[1] [E] f something broke\n").errors.len(), 1);
+    }
+
+    #[test]
+    fn the_cache_keeps_the_releases_in_use_and_drops_the_rest() {
+        let cache = tempfile::tempdir().unwrap();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let put = |version: &str, age: u64| {
+            let dir = cache.path().join(version);
+            std::fs::create_dir_all(dir.join("files")).unwrap();
+            std::fs::write(dir.join("files/OptiScaler.dll"), [0u8; 100]).unwrap();
+            let release = Release {
+                version: version.into(),
+                asset: format!("Optiscaler_{version}.7z"),
+                ..Release::recommended()
+            };
+            std::fs::write(dir.join(&release.asset), [0u8; 10]).unwrap();
+            let c = Cached {
+                release,
+                dir: dir.join("files"),
+                url: String::new(),
+                downloaded_at: now - age,
+                license: "GPL-3.0".into(),
+                files: std::collections::BTreeMap::new(),
+            };
+            std::fs::write(dir.join("release.json"), serde_json::to_string(&c).unwrap()).unwrap();
+        };
+        let day = 86_400;
+        // On the lab laptop: 0.9.4 installed, 0.9.3 left from an old test.
+        put("0.9.4", 30 * day);
+        put("0.9.3", 60 * day);
+        // Fetched a minute ago by an Apply that has not recorded it yet.
+        put("0.9.5", 60);
+        // Unused, but a fetch holds it.
+        put("0.9.2", 90 * day);
+        let held = lock(&cache.path().join("0.9.2")).unwrap();
+        // A download in progress: no release.json yet.
+        std::fs::create_dir_all(cache.path().join("0.9.6")).unwrap();
+        std::fs::write(cache.path().join("0.9.6/download.part"), b"x").unwrap();
+        std::fs::write(cache.path().join("releases.json"), b"[]").unwrap();
+
+        let keep = ["0.9.4".to_owned()];
+        let freed = prune_cache(cache.path(), &keep, std::time::Duration::from_secs(day));
+        let p = cache.path();
+        // Kept whole: Repair unpacks again from the archive.
+        assert!(p.join("0.9.4/files/OptiScaler.dll").is_file());
+        assert!(p.join("0.9.4/Optiscaler_0.9.4.7z").is_file());
+        assert!(p.join("0.9.5/Optiscaler_0.9.5.7z").is_file());
+        assert!(!p.join("0.9.3").exists());
+        assert!(p.join("0.9.2/files/OptiScaler.dll").is_file());
+        assert!(p.join("0.9.6/download.part").is_file());
+        assert!(p.join("releases.json").is_file());
+        // 0.9.3's dll, archive and record.
+        let record = std::fs::metadata(p.join("0.9.4/release.json"))
+            .unwrap()
+            .len();
+        assert!(freed >= 110 && freed <= 110 + record + 64, "{freed}");
+        // Still found where installs look for it.
+        assert!(cached_version(p, "0.9.4").is_some());
+        assert_eq!(
+            prune_cache(p, &keep, std::time::Duration::from_secs(day)),
+            0
+        );
+        // Once the fetch lets go, the unused release goes too.
+        drop(held);
+        assert!(prune_cache(p, &keep, std::time::Duration::from_secs(day)) >= 110);
+        assert!(!p.join("0.9.2").exists());
+    }
+
+    #[test]
+    fn a_release_name_with_a_path_in_it_is_refused() {
+        assert!(plain_name("Optiscaler_0.9.4-final.20260718._MM.7z"));
+        for bad in ["", "../x.7z", "a/b.7z", ".hidden", "a\\b"] {
+            assert!(!plain_name(bad), "{bad}");
+        }
+        let cache = tempfile::tempdir().unwrap();
+        let evil = Release {
+            asset: "../../escape.7z".into(),
+            ..Release::recommended()
+        };
+        assert!(fetch(cache.path(), &evil).is_err());
+        assert!(!cache.path().join("0.9.4").exists());
+    }
+
+    #[test]
+    fn the_log_says_whether_frame_generation_runs() {
+        assert_eq!(
+            read_log("[1] [I] f Creating new fsr31 upscaler\n").frame_generation,
+            None
+        );
+        // The lab laptop: the ini asked for FSR-FG, its DLL was not there.
+        let refused = "\
+[21:39:21.735502] [I] FfxApiProxy::InitFfxDx12_FG LoadResult: false
+[21:39:30.835071] [W] CheckForFGStatus FGOutput is not set to FSR-FG or XeFG
+[21:39:30.835124] [W] FGHooks::CreateSwapChainForHwnd Can't init FG Feature or invalid FGOutput setting!
+";
+        let f = read_log(refused);
+        assert_eq!(f.frame_generation, Some(false));
+        assert!(f.errors.is_empty(), "{:?}", f.errors);
+        // The reference desktop, generating.
+        let running = format!(
+            "{refused}[16:02:38.230586] [W] FSRFG_Dx12::DispatchCallback Dispatched with the same frame id! frameID: 23976\n"
+        );
+        assert_eq!(read_log(&running).frame_generation, Some(true));
     }
 
     #[test]

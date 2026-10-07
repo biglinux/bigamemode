@@ -30,37 +30,17 @@ die() { log "ERROR: $*"; exit 1; }
 
 # ── machine state ────────────────────────────────────────────────────────────
 
-# The discrete GPU, or the only one. Picked by asking which card is not the
-# integrated part of the CPU package, never by hardcoding a card number.
-render_card() {
-    local best="" card driver
-    for card in /sys/class/drm/card[0-9]*; do
-        [ -e "$card/device/power_dpm_force_performance_level" ] || continue
-        driver=$(basename "$(readlink -f "$card/device/driver" 2>/dev/null)" 2>/dev/null)
-        [ "$driver" = amdgpu ] || [ "$driver" = nvidia ] || [ "$driver" = i915 ] || \
-            [ "$driver" = xe ] || continue
-        # An integrated GPU sits on the CPU's own root complex; a discrete one
-        # sits behind a bridge. Prefer whichever has dedicated VRAM.
-        if [ -r "$card/device/mem_info_vram_total" ]; then
-            local vram; vram=$(cat "$card/device/mem_info_vram_total" 2>/dev/null || echo 0)
-            if [ -z "$best" ] || [ "$vram" -gt "${best_vram:-0}" ]; then
-                best=$(basename "$card"); best_vram=$vram
-            fi
-        elif [ -z "$best" ]; then
-            best=$(basename "$card")
-        fi
-    done
-    echo "$best"
-}
+# shellcheck source=render-card.sh
+. "$(dirname "$0")/render-card.sh"
+CARD=${CARD:-$(render_card)}
+[ -n "$CARD" ] || die "no GPU was found"
 
-CARD=$(render_card)
-[ -n "$CARD" ] || die "no GPU with a DPM control was found"
-
+# Quoted with %q: the state is put back with eval, and a value is never code.
 read_state() {
-    printf 'governor=%s\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo '')"
-    printf 'epp=%s\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo '')"
-    printf 'dpm=%s\n' "$(cat "/sys/class/drm/$CARD/device/power_dpm_force_performance_level" 2>/dev/null || echo '')"
-    printf 'profile=%s\n' "$(powerprofilesctl get 2>/dev/null || echo '')"
+    printf 'governor=%q\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo '')"
+    printf 'epp=%q\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo '')"
+    printf 'dpm=%q\n' "$(cat "/sys/class/drm/$CARD/device/power_dpm_force_performance_level" 2>/dev/null || echo '')"
+    printf 'profile=%q\n' "$(powerprofilesctl get 2>/dev/null || echo '')"
 }
 
 ORIGINAL=$(read_state)
@@ -85,17 +65,27 @@ restore_workload_config() {
 
 set_governor() { [ -n "$1" ] && "${BUS[@]}" SetCpuGovernor s "$1" >/dev/null 2>&1; }
 set_epp()      { [ -n "$1" ] && "${BUS[@]}" SetCpuEpp s "$1" >/dev/null 2>&1; }
-set_dpm()      { [ -n "$1" ] && "${BUS[@]}" SetGpuDpmLevel ss "$CARD" "$1" >/dev/null 2>&1; }
+set_dpm()      { [ -n "$1" ] && has_dpm "$CARD" && "${BUS[@]}" SetGpuDpmLevel ss "$CARD" "$1" >/dev/null 2>&1; }
 set_profile()  { [ -n "$1" ] && powerprofilesctl set "$1" >/dev/null 2>&1; }
 
 restore() {
     log "restoring the machine to how it was found"
     eval "$ORIGINAL"
-    set_governor "$governor"; set_epp "$epp"; set_dpm "$dpm"; set_profile "$profile"
+    # Assigned by the eval above, from read_state.
+    # shellcheck disable=SC2154
+    {
+        set_governor "$governor"
+        set_epp "$epp"
+        set_dpm "$dpm"
+        set_profile "$profile"
+    }
     read_state | sed 's/^/  /' >&2
     restore_workload_config
 }
-trap restore EXIT INT TERM
+trap restore EXIT
+# A trap that returns lets the session carry on: an interrupt ends it, and
+# the EXIT trap puts the machine back once.
+trap 'exit 130' INT TERM
 
 # ── arms ─────────────────────────────────────────────────────────────────────
 #
@@ -118,7 +108,10 @@ arm_booster() {
 
 # Single-knob arms, named for the knob.
 arm_cpu_governor()  { arm_baseline; set_governor performance; set_epp performance; }
-arm_gpu_dpm_level() { arm_baseline; set_dpm high; }
+arm_gpu_dpm_level() {
+    has_dpm "$CARD" || die "$CARD has no DPM level to force (its driver is not amdgpu)"
+    arm_baseline; set_dpm high
+}
 
 # ── workload ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +122,48 @@ if [ -z "$STK_ROOT" ]; then
     [ -n "$STK_ROOT" ] && STK_ROOT=$(dirname "$STK_ROOT")
 fi
 STK_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/supertuxkart/config-0.10"
+
+# How an arm may change the way the game starts, reset before every arm:
+# variables for it, or the whole command Big Game Mode's launcher would run
+# (see use_launch_plan). The product is what is measured.
+WORKLOAD_ENV=()
+WORKLOAD_PLAN=()
+
+# The command Big Game Mode's launcher builds for SuperTuxKart with the launch
+# settings in <config-dir>/bigame-mode/video.toml -- render offload on a hybrid
+# laptop, Gamescope, vkBasalt -- printed by the launch_plan example.
+use_launch_plan() {
+    local dir plan line
+    # Absolute: a relative XDG_CONFIG_HOME is not one (the XDG rules), so
+    # Big Game Mode would read the user's own settings instead of the arm's.
+    dir=$(cd "$1" 2>/dev/null && pwd) || die "no configuration directory $1"
+    plan="$(dirname "$0")/../target/release/examples/launch_plan"
+    [ -x "$plan" ] || die "build the launch plan tool first: cargo build --release -p bigame-core --examples"
+    [ -z "$STK_ROOT" ] || die "a launch plan needs the installed supertuxkart, not a build under $STK_ROOT"
+    WORKLOAD_ENV=() WORKLOAD_PLAN=()
+    while IFS= read -r line; do
+        case $line in
+            "env "*) WORKLOAD_ENV+=("${line#env }") ;;
+            "program "* | "arg "*) WORKLOAD_PLAN+=("${line#* }") ;;
+        esac
+    done < <(XDG_CONFIG_HOME=$dir "$plan" "$(command -v supertuxkart)" --benchmark)
+    [ ${#WORKLOAD_PLAN[@]} -gt 0 ] || die "the launch plan printed no command"
+    log "  starts as: ${WORKLOAD_PLAN[*]}"
+}
+
+start_workload() {
+    if [ ${#WORKLOAD_PLAN[@]} -gt 0 ]; then
+        env "${WORKLOAD_ENV[@]}" timeout 240 "${WORKLOAD_PLAN[@]}"
+    elif [ -n "$STK_ROOT" ]; then
+        ( cd "$STK_ROOT" && \
+          env LD_LIBRARY_PATH="$STK_ROOT/lib" \
+              SUPERTUXKART_DATADIR="$STK_ROOT" \
+              SUPERTUXKART_ASSETS_DIR="$STK_ROOT/data/" \
+              "${WORKLOAD_ENV[@]}" timeout 240 ./bin/supertuxkart --benchmark )
+    else
+        env "${WORKLOAD_ENV[@]}" timeout 240 supertuxkart --benchmark
+    fi
+}
 
 run_workload() {
     local dest=$1
@@ -141,11 +176,7 @@ run_workload() {
         "$(dirname "$0")/gpu-telemetry.sh" "$CARD" "$dest/gpu.csv" &
         telemetry_pid=$!
     fi
-    ( cd "$STK_ROOT" && \
-      LD_LIBRARY_PATH="$STK_ROOT/lib" \
-      SUPERTUXKART_DATADIR="$STK_ROOT" \
-      SUPERTUXKART_ASSETS_DIR="$STK_ROOT/data/" \
-      timeout 240 ./bin/supertuxkart --benchmark >/dev/null 2>&1 )
+    start_workload >/dev/null 2>&1
     [ -n "$telemetry_pid" ] && kill "$telemetry_pid" 2>/dev/null
     local summary
     summary=$(grep -a "Profiler: Frame count" "$STK_CONFIG/stdout.log" 2>/dev/null | tail -1)
@@ -165,7 +196,15 @@ run_workload() {
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
-[ -n "$STK_ROOT" ] && [ -x "$STK_ROOT/bin/supertuxkart" ] || die "SuperTuxKart was not found"
+{ [ -n "$STK_ROOT" ] && [ -x "$STK_ROOT/bin/supertuxkart" ]; } || command -v supertuxkart >/dev/null \
+    || die "SuperTuxKart was not found"
+
+# More arms, for a matrix of its own: a file of arm_<name> functions, which
+# may call use_launch_plan or set WORKLOAD_ENV.
+if [ -n "${ARMS_FILE:-}" ]; then
+    # shellcheck source=/dev/null
+    . "$ARMS_FILE" || die "could not read $ARMS_FILE"
+fi
 
 STAMP=$(date +%Y-%m-%d)
 # LABEL distinguishes sessions of the same workload on the same day -- a
@@ -173,7 +212,7 @@ STAMP=$(date +%Y-%m-%d)
 # must not overwrite each other's evidence.
 OUT="$OUT_ROOT/$STAMP-supertuxkart${LABEL:+-$LABEL}"
 mkdir -p "$OUT"
-log "render GPU: $CARD    workload: $STK_ROOT    output: $OUT"
+log "render GPU: $CARD    workload: ${STK_ROOT:-$(command -v supertuxkart)}    output: $OUT"
 back_up_workload_config
 
 declare -A RESULTS
@@ -183,6 +222,7 @@ ARMS=("$@")
 # Warm-up, discarded. Its only job is to populate the shader cache and bring
 # the GPU to a steady temperature.
 log "warm-up run (discarded)"
+WORKLOAD_ENV=() WORKLOAD_PLAN=()
 "arm_${ARMS[0]}"
 run_workload "$OUT/.warmup" >/dev/null || die "the warm-up run produced no result"
 rm -rf "$OUT/.warmup"
@@ -190,6 +230,7 @@ rm -rf "$OUT/.warmup"
 for i in $(seq 1 "$RUNS"); do
     for arm in "${ARMS[@]}"; do
         dir=$(printf '%s/%s/run-%02d' "$OUT" "$arm" "$i")
+        WORKLOAD_ENV=() WORKLOAD_PLAN=()
         "arm_$arm"
         sleep 3   # let the governor and DPM level settle before measuring
         fps=$(LC_ALL=C run_workload "$dir")

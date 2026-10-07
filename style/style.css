@@ -77,7 +77,10 @@
     opacity: 0.75;
 }
 
-/* A slow breath on the idle control, to draw the eye once without nagging.
+/* A slow breath on the idle control, to draw the eye once without nagging:
+ * a few breaths, then still. Never looping: a looping animation keeps the
+ * frame clock running, which wakes the application every frame for as
+ * long as it lasts — during a game included.
  * Applied through a class the widget only adds when GTK reports animations
  * are enabled, so the reduced-motion preference removes it entirely rather
  * than merely shortening it. */
@@ -88,7 +91,7 @@
 }
 
 .booster-button.booster-pulse {
-    animation: booster-breathe 3.2s ease-out infinite;
+    animation: booster-breathe 3.2s ease-out 3;
 }
 
 /* Belt and braces: if the platform exposes the media query, honour it here
@@ -191,7 +194,9 @@
     border-radius: 50%;
     margin-right: 8px;
     transition: all 0.3s ease;
-    animation: pulse-warning 2s infinite;
+    /* A few pulses when it appears, then still: shown on every page while
+     * the warning lasts, a looping one would keep the frame clock running. */
+    animation: pulse-warning 2s 3;
 }
 
 .error-indicator:hover {

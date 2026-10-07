@@ -183,9 +183,8 @@ fn busy_row(
     let row = adw::ActionRow::builder()
         .title(&process.name)
         .subtitle(format!(
-            "{:.0}% {} · {} MiB · {}",
-            process.cpu_percent,
-            i18n("of one CPU"),
+            "{} · {} MiB · {}",
+            i18n("%s% of one CPU").replace("%s", &format!("{:.0}", process.cpu_percent)),
             process.memory_mib,
             i18n(process.kind.describe())
         ))
@@ -524,30 +523,45 @@ fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {
     let config = entry.config.clone();
     let app_id = entry.app_id.clone();
     clear.connect_clicked(move |button| {
-        // Steam holds this file in memory and rewrites it on exit, so an edit
-        // made underneath a running client is silently discarded. Say so rather
-        // than appearing to work.
-        if bigame_core::steam::is_running() {
-            toast::show(
-                button,
-                &i18n("Close Steam first — it would overwrite this change when it exits."),
-            );
-            return;
-        }
-        match bigame_core::steam::set_launch_options(&config, &app_id, "") {
-            Ok(()) => {
-                toast::show(button, &i18n("Launch options cleared"));
-                STEAM_REFRESH.with(|cell| {
-                    if let Some(refresh) = cell.borrow().as_ref() {
-                        refresh();
-                    }
-                });
+        let (config, app_id, button) = (config.clone(), app_id.clone(), button.clone());
+        button.set_sensitive(false);
+        // Steam's file is parsed and rewritten off the main thread.
+        glib::spawn_future_local(async move {
+            let done = gio::spawn_blocking(move || {
+                // Steam holds this file in memory and rewrites it on exit, so
+                // an edit made underneath a running client is silently
+                // discarded. Say so rather than appearing to work.
+                if bigame_core::steam::is_running() {
+                    return None;
+                }
+                Some(bigame_core::steam::set_launch_options(&config, &app_id, ""))
+            })
+            .await;
+            button.set_sensitive(true);
+            match done {
+                Ok(None) => toast::show(
+                    &button,
+                    &i18n("Close Steam first — it would overwrite this change when it exits."),
+                ),
+                Ok(Some(Ok(()))) => {
+                    toast::show(&button, &i18n("Launch options cleared"));
+                    STEAM_REFRESH.with(|cell| {
+                        if let Some(refresh) = cell.borrow().as_ref() {
+                            refresh();
+                        }
+                    });
+                }
+                Ok(Some(Err(e))) => toast::show(
+                    &button,
+                    &i18n("Could not change it: %s").replace("%s", &error_text(&e)),
+                ),
+                Err(_) => toast::show(
+                    &button,
+                    &i18n("Could not change it: %s")
+                        .replace("%s", &i18n("the worker thread stopped")),
+                ),
             }
-            Err(e) => toast::show(
-                button,
-                &i18n("Could not change it: %s").replace("%s", &error_text(&e)),
-            ),
-        }
+        });
     });
     row.add_suffix(&clear);
     row
@@ -604,20 +618,26 @@ pub fn network_group() -> adw::PreferencesGroup {
                     link.mtu.map_or_else(|| "?".to_owned(), |m| m.to_string())
                 ));
 
-                let modern = link.has_modern_qdisc();
-                qdisc_row.set_subtitle(&format!(
-                    "{} — {}",
-                    link.qdisc.as_deref().unwrap_or(&i18n("unknown")),
-                    if modern {
-                        // Saying "already good" matters: offering to enable
-                        // something that is on would be a no-op reported as
-                        // an improvement.
-                        i18n("already manages latency under load; nothing to change")
-                    } else {
-                        i18n("does not actively manage latency under load")
-                    }
-                ));
-                qdisc_row.add_prefix(&status_icon(modern));
+                if let Some(qdisc) = link.qdisc.as_deref() {
+                    let modern = link.has_modern_qdisc();
+                    qdisc_row.set_subtitle(&format!(
+                        "{qdisc} — {}",
+                        if modern {
+                            // Saying "already good" matters: offering to
+                            // enable something that is on would be a no-op
+                            // reported as an improvement.
+                            i18n("already manages latency under load; nothing to change")
+                        } else {
+                            i18n("does not actively manage latency under load")
+                        }
+                    ));
+                    qdisc_row.add_prefix(&status_icon(modern));
+                } else {
+                    // No verdict on what could not be read.
+                    qdisc_row.set_subtitle(&i18n(
+                        "Unknown: tc (iproute2) could not read the interface's queue discipline",
+                    ));
+                }
             } else {
                 link_row.set_subtitle(&i18n("No default route — this machine is offline"));
                 qdisc_row.set_visible(false);

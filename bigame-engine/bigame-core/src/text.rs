@@ -102,20 +102,41 @@ impl Text {
         Self::with(N_("%s"), [Arg::Raw(s.into())])
     }
 
-    /// Fill `template`'s `%s` with `values`, in order. Extra placeholders stay
-    /// as they are; extra values are dropped.
+    /// Fill `template`'s `%s` with `values`, in order. A translation that has
+    /// to reorder them writes `%1$s`, `%2$s`… (numbered from 1, as in C's
+    /// printf); a numbered placeholder does not advance the plain ones. Extra
+    /// or out-of-range placeholders stay as they are; extra values are dropped.
     #[must_use]
     pub fn fill(template: &str, values: &[String]) -> String {
         let mut out = String::with_capacity(template.len());
-        let mut values = values.iter();
+        let mut next = values.iter();
         let mut rest = template;
-        while let Some(i) = rest.find("%s") {
+        while let Some(i) = rest.find('%') {
             out.push_str(&rest[..i]);
-            match values.next() {
-                Some(v) => out.push_str(v),
-                None => out.push_str("%s"),
+            let after = &rest[i + 1..];
+            if let Some(tail) = after.strip_prefix('s') {
+                match next.next() {
+                    Some(v) => out.push_str(v),
+                    None => out.push_str("%s"),
+                }
+                rest = tail;
+                continue;
             }
-            rest = &rest[i + 2..];
+            let digits = after.bytes().take_while(u8::is_ascii_digit).count();
+            let numbered = (digits > 0)
+                .then(|| after[digits..].strip_prefix("$s"))
+                .flatten()
+                .and_then(|tail| {
+                    let n: usize = after[..digits].parse().ok()?;
+                    Some((values.get(n.checked_sub(1)?)?, tail))
+                });
+            if let Some((v, tail)) = numbered {
+                out.push_str(v);
+                rest = tail;
+            } else {
+                out.push('%');
+                rest = after;
+            }
         }
         out.push_str(rest);
         out
@@ -167,6 +188,28 @@ mod tests {
         assert_eq!(t.english(), "choose XeSS in the game, FSR runs");
         assert_eq!(Text::fill("a %s b %s", &["1".into()]), "a 1 b %s");
         assert_eq!(Text::plain(N_("no values")).to_string(), "no values");
+    }
+
+    #[test]
+    fn a_translation_can_reorder_numbered_placeholders() {
+        let v = ["Steam".to_owned(), "Proton".to_owned()];
+        assert_eq!(Text::fill("%2$s for %1$s", &v), "Proton for Steam");
+        assert_eq!(Text::fill("%1$s, %1$s", &v), "Steam, Steam");
+        // A numbered placeholder leaves the plain ones where they were.
+        assert_eq!(Text::fill("%2$s %s %s", &v), "Proton Steam Proton");
+        // Out of range, zero or malformed: kept as written.
+        assert_eq!(Text::fill("%3$s %0$s %1$d", &v), "%3$s %0$s %1$d");
+        // What plain `%s` filling always did, unchanged.
+        assert_eq!(Text::fill("100% %s", &v), "100% Steam");
+        assert_eq!(Text::fill("%%s", &v), "%Steam");
+        assert_eq!(Text::fill("%", &v), "%");
+        assert_eq!(Text::fill("ação %s — é %s", &v), "ação Steam — é Proton");
+        let pt = |s: &str| match s {
+            "%s already has %s" => "%2$s já está em %1$s".to_owned(),
+            other => other.to_owned(),
+        };
+        let t = Text::with(N_("%s already has %s"), ["Steam", "OptiScaler"]);
+        assert_eq!(t.render(&pt), "OptiScaler já está em Steam");
     }
 
     #[test]

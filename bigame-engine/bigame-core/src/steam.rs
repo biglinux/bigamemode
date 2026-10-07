@@ -11,7 +11,8 @@
 //! * **Steam must not be running.** It holds `localconfig.vdf` in memory and
 //!   rewrites it on exit, so an edit made underneath a running client is simply
 //!   discarded — silently, which is worse than failing.
-//! * **A backup is written first**, beside the original.
+//! * **A backup is written first**, beside the original, once: it stays the
+//!   file as it was before Big Game Mode's first change.
 //! * **Only the one key is touched**, located by its full path rather than by
 //!   name. `LaunchOptions` appears at several nesting depths in a real file —
 //!   including inside `cloud` blocks — and editing the wrong one does nothing.
@@ -34,6 +35,67 @@ pub struct SteamUser {
     pub id: String,
     /// That account's `localconfig.vdf`.
     pub config: PathBuf,
+}
+
+impl SteamUser {
+    /// Whether the account is the Flatpak Steam's
+    /// (`~/.var/app/com.valvesoftware.Steam`), whose games run in its
+    /// sandbox and see only what its Flatpak extensions bring.
+    #[must_use]
+    pub fn flatpak(&self) -> bool {
+        self.config
+            .to_string_lossy()
+            .contains(&format!("/.var/app/{FLATPAK}/"))
+    }
+}
+
+/// The Flatpak Steam's application id.
+pub const FLATPAK: &str = "com.valvesoftware.Steam";
+
+/// The Flatpak Steam's own Gamescope extension, which Flathub keeps for
+/// older installs (`org.freedesktop.Platform.VulkanLayer.gamescope` replaced
+/// it).
+const FLATPAK_GAMESCOPE_UTILITY: &str = "com.valvesoftware.Steam.Utility.gamescope";
+
+/// Whether any of `users` is the Flatpak Steam's.
+#[must_use]
+pub fn any_flatpak(users: &[SteamUser]) -> bool {
+    users.iter().any(SteamUser::flatpak)
+}
+
+/// Whether every one of `users` is the Flatpak Steam's (and there is one).
+#[must_use]
+pub fn only_flatpak(users: &[SteamUser]) -> bool {
+    !users.is_empty() && users.iter().all(SteamUser::flatpak)
+}
+
+/// The command that installs Gamescope for the Flatpak Steam, when it has
+/// none: without it `gamescope` in a game's launch options is not found in
+/// the sandbox, and the game does not start.
+#[must_use]
+pub fn flatpak_gamescope_missing() -> Option<String> {
+    let missing =
+        crate::mangohud::missing_flatpak_layer(FLATPAK, crate::heroic_launch::GAMESCOPE_LAYER)?;
+    let home = crate::paths::home_dir();
+    let utility = [
+        PathBuf::from("/var/lib/flatpak"),
+        home.join(".local/share/flatpak"),
+    ]
+    .iter()
+    .any(|base| {
+        base.join("runtime")
+            .join(FLATPAK_GAMESCOPE_UTILITY)
+            .is_dir()
+    });
+    (!utility).then_some(missing)
+}
+
+/// The command that installs `MangoHud` for the Flatpak Steam, when it has
+/// none: without it the overlay cannot load, and `mangohud %command%` is not
+/// found in the sandbox.
+#[must_use]
+pub fn flatpak_mangohud_missing() -> Option<String> {
+    crate::mangohud::missing_flatpak_extension(FLATPAK)
 }
 
 /// Every local Steam account that has a `localconfig.vdf`.
@@ -63,19 +125,31 @@ pub fn users(home: &Path) -> Vec<SteamUser> {
 
 /// Whether a Steam client is currently running.
 ///
-/// Editing the configuration while it is would be discarded on exit.
+/// Editing the configuration while it is would be discarded on exit. Only
+/// this user's client counts: another user's Steam keeps another
+/// configuration, and cannot be closed from here.
 #[must_use]
 pub fn is_running() -> bool {
-    let Ok(entries) = std::fs::read_dir("/proc") else {
+    // SAFETY: getuid cannot fail and has no side effects.
+    running_in(std::path::Path::new("/proc"), unsafe { libc::getuid() })
+}
+
+/// Whether a process of `uid` in the `/proc`-like tree at `root` is called
+/// `steam`.
+fn running_in(root: &Path, uid: u32) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(entries) = std::fs::read_dir(root) else {
         return false;
     };
     entries.flatten().any(|entry| {
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if !name.chars().all(|c| c.is_ascii_digit()) {
+        if name.is_empty() || !name.chars().all(|c| c.is_ascii_digit()) {
             return false;
         }
-        std::fs::read_to_string(entry.path().join("comm")).is_ok_and(|comm| comm.trim() == "steam")
+        entry.metadata().is_ok_and(|m| m.uid() == uid)
+            && std::fs::read_to_string(entry.path().join("comm"))
+                .is_ok_and(|comm| comm.trim() == "steam")
     })
 }
 
@@ -92,24 +166,62 @@ pub fn restart_in_session() -> anyhow::Result<()> {
     if is_running() {
         while_closed(|| ())
     } else {
-        start_in_session()
+        start_in_session(installed_flatpak_only())
     }
+}
+
+/// Whether the Steam that runs now is the Flatpak: its processes see the
+/// sandbox's root, which has `/.flatpak-info`.
+fn running_flatpak() -> bool {
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        std::fs::read_to_string(entry.path().join("comm")).is_ok_and(|c| c.trim() == "steam")
+            && entry.path().join("root/.flatpak-info").exists()
+    })
+}
+
+/// Whether the only Steam installed is the Flatpak.
+fn installed_flatpak_only() -> bool {
+    crate::capabilities::which("steam").is_none()
+        && crate::capabilities::which("flatpak").is_some()
+        && [
+            PathBuf::from("/var/lib/flatpak"),
+            crate::paths::home_dir().join(".local/share/flatpak"),
+        ]
+        .iter()
+        .any(|root| root.join("app").join(FLATPAK).join("current").exists())
+}
+
+/// The command that runs the Steam client (`flatpak` for the Flatpak),
+/// then `extra`.
+fn client_command(flatpak: bool, extra: &[&str]) -> Vec<String> {
+    let mut argv: Vec<String> = if flatpak {
+        vec!["flatpak".into(), "run".into(), FLATPAK.into()]
+    } else {
+        vec!["steam".into()]
+    };
+    argv.extend(extra.iter().map(|s| (*s).to_owned()));
+    argv
 }
 
 /// Start the Steam client as a unit of the user's systemd manager, under a
 /// name no other start can have taken ([`crate::launchers`]).
-fn start_in_session() -> anyhow::Result<()> {
-    crate::launchers::start_in_session("steam", &["steam".to_owned()])
+fn start_in_session(flatpak: bool) -> anyhow::Result<()> {
+    crate::launchers::start_in_session("steam", &client_command(flatpak, &[]))
 }
 
 /// Run `f` with the Steam client closed — it keeps its configuration in
 /// memory and writes it back on exit, so a launch option changed while it
 /// runs is lost — and open Steam again afterwards if it was open.
 ///
-/// Closed the way Steam closes itself (`steam -shutdown`), which lets it
-/// save its state; opened as a unit of the user's systemd manager, which is
-/// how the desktop's menu starts it (KDE Plasma: `app-…@.service`), so it
-/// inherits the manager's environment rather than Big Game Mode's own.
+/// Closed the way Steam closes itself (`steam -shutdown`, through
+/// `flatpak run` for the Flatpak), which lets it save its state; opened as
+/// a unit of the user's systemd manager, which is how the desktop's menu
+/// starts it (KDE Plasma: `app-…@.service`), so it inherits the manager's
+/// environment rather than Big Game Mode's own. The Steam that was open is
+/// the one opened again.
 ///
 /// # Errors
 /// Returns an error when a Steam game is running, when Steam does not close
@@ -118,11 +230,13 @@ fn start_in_session() -> anyhow::Result<()> {
 pub fn while_closed<T>(f: impl FnOnce() -> T) -> anyhow::Result<T> {
     use anyhow::Context;
     let was_open = is_running();
+    let flatpak = was_open && running_flatpak();
     if was_open {
         // Closing the client would close a game it runs.
         crate::launchers::ensure_launcher_idle(crate::launchers::Launcher::Steam)?;
-        std::process::Command::new("steam")
-            .arg("-shutdown")
+        let argv = client_command(flatpak, &["-shutdown"]);
+        std::process::Command::new(&argv[0])
+            .args(&argv[1..])
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -132,14 +246,14 @@ pub fn while_closed<T>(f: impl FnOnce() -> T) -> anyhow::Result<T> {
         while is_running() {
             anyhow::ensure!(
                 std::time::Instant::now() < deadline,
-                "Steam did not close within a minute"
+                UserError::plain(N_("Steam did not close within a minute"))
             );
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
     }
     let result = f();
     if was_open {
-        start_in_session()?;
+        start_in_session(flatpak)?;
     }
     Ok(result)
 }
@@ -243,8 +357,47 @@ pub fn launch_options(config: &Path, app_id: &str) -> Option<String> {
     let app_depth = depth(lines[from]);
     lines[from..to].iter().find_map(|line| {
         (pair_key(line) == Some("LaunchOptions") && depth(line) == app_depth)
-            .then(|| pair_value(line).unwrap_or_default().to_owned())
+            .then(|| unescape(pair_value(line).unwrap_or_default()))
     })
+}
+
+/// A value as Steam's text format stores it, read: `\"`, `\\`, `\n` and
+/// `\t` are its escapes; any other backslash is kept as it is.
+fn unescape(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some(c @ ('"' | '\\')) => out.push(c),
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
+/// `value` in Steam's text format: the four characters it escapes, escaped.
+fn escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for c in value.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Set the launch options Steam stores for `app_id`.
@@ -271,15 +424,15 @@ pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()
 /// public entry point keeps the guard: a caller that skipped it would have its
 /// edit silently discarded when Steam next exits, which is worse than an error.
 fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> {
-    // Steam's own format has no escaping for these, and a stray quote or
-    // newline would corrupt the file for every game, not just this one.
+    // The id becomes a key of the file: anything but digits (from a crafted
+    // appmanifest in a shared library) could write a block for another game.
     anyhow::ensure!(
-        !value.contains('"') && !value.contains('\n') && !value.contains('\\'),
-        UserError::plain(N_(
-            "launch options may not contain quotes, backslashes or newlines"
-        ))
+        !app_id.is_empty() && app_id.bytes().all(|b| b.is_ascii_digit()),
+        UserError::with(N_("not a Steam app id: %s"), [app_id])
     );
-
+    // Written in Steam's escapes: a bare quote or newline would corrupt the
+    // file for every game, not just this one.
+    let stored = escape(value);
     let content =
         std::fs::read_to_string(config).with_context(|| format!("read {}", config.display()))?;
     let mut lines: Vec<String> = content.lines().map(str::to_owned).collect();
@@ -306,7 +459,7 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
             let block = [
                 format!("{child}\"{app_id}\""),
                 format!("{child}{{"),
-                format!("{child}\t\"LaunchOptions\"\t\t\"{value}\""),
+                format!("{child}\t\"LaunchOptions\"\t\t\"{stored}\""),
                 format!("{child}}}"),
             ];
             drop(borrowed);
@@ -320,7 +473,7 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
             pair_key(borrowed[*i]) == Some("LaunchOptions") && depth(borrowed[*i]) == app_depth
         });
         let indent = "\t".repeat(app_depth);
-        let line = format!("{indent}\"LaunchOptions\"\t\t\"{value}\"");
+        let line = format!("{indent}\"LaunchOptions\"\t\t\"{stored}\"");
         if let Some(i) = existing {
             lines[i] = line;
             i
@@ -341,9 +494,13 @@ fn finish_write(
     app_id: &str,
     value: &str,
 ) -> Result<()> {
-    // Keep a copy before touching the user's Steam configuration.
+    // Keep a copy of the user's Steam configuration before Big Game Mode first
+    // touches it; a later write must not replace it with its own.
     let backup = config.with_extension("vdf.bigame-backup");
-    std::fs::copy(config, &backup).with_context(|| format!("back up to {}", backup.display()))?;
+    if !backup.exists() {
+        std::fs::copy(config, &backup)
+            .with_context(|| format!("back up to {}", backup.display()))?;
+    }
 
     let mut out = lines.join("\n");
     if content.ends_with('\n') {
@@ -372,6 +529,60 @@ fn write_atomic(path: &Path, content: &[u8]) -> Result<()> {
         return Err(e).context("replace localconfig.vdf");
     }
     Ok(())
+}
+
+// ── Launch options as words ──────────────────────────────────────────────────
+
+/// The word Steam replaces with the game's command.
+pub const COMMAND: &str = "%command%";
+
+/// The words of launch options as the shell Steam runs them with reads
+/// them: split at blanks outside quotes, each word kept as typed (its quotes
+/// and inner spaces included), so the words joined again are the same text.
+#[must_use]
+pub fn option_words(options: &str) -> Vec<&str> {
+    let mut words = Vec::new();
+    let mut start = None;
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    for (i, c) in options.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match (quote, c) {
+            (Some('\''), '\'') | (Some('"'), '"') => quote = None,
+            (Some('\''), _) => {}
+            (_, '\\') => {
+                escaped = true;
+                start.get_or_insert(i);
+            }
+            (Some(_), _) => {}
+            (None, '"' | '\'') => {
+                quote = Some(c);
+                start.get_or_insert(i);
+            }
+            (None, c) if c.is_whitespace() => {
+                if let Some(s) = start.take() {
+                    words.push(&options[s..i]);
+                }
+            }
+            (None, _) => {
+                start.get_or_insert(i);
+            }
+        }
+    }
+    if let Some(s) = start {
+        words.push(&options[s..]);
+    }
+    words
+}
+
+/// Whether `word` is where Steam puts the game's command: `%command%`,
+/// quoted or not.
+#[must_use]
+pub fn is_command(word: &str) -> bool {
+    word.contains(COMMAND)
 }
 
 // ── Auditing what is already there ───────────────────────────────────────────
@@ -425,14 +636,14 @@ pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
         if depth(line) != app_depth + 1 || pair_key(line) != Some("LaunchOptions") {
             continue;
         }
-        let Some(options) = pair_value(line) else {
+        let Some(options) = pair_value(line).map(unescape) else {
             continue;
         };
         if options.trim().is_empty() {
             continue;
         }
         for wrapper in WRAPPERS {
-            if !mentions_wrapper(options, wrapper) {
+            if !mentions_wrapper(&options, wrapper) {
                 continue;
             }
             if crate::capabilities::which(wrapper).is_some() {
@@ -440,7 +651,7 @@ pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
             }
             out.push(BrokenLaunchOption {
                 app_id: current_app.clone().unwrap_or_default(),
-                options: options.to_owned(),
+                options: options.clone(),
                 missing: (*wrapper).to_owned(),
             });
         }
@@ -460,6 +671,17 @@ pub fn mentions_wrapper(options: &str, wrapper: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn an_app_id_that_is_not_a_number_is_refused_and_nothing_written() {
+        let path = write_temp("bad-id", VDF);
+        for bad in ["", "381210\"\n\"1", "1a", "-1"] {
+            assert!(write_launch_options(&path, bad, "mangohud %command%").is_err());
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), VDF);
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
     use super::*;
 
     /// Shaped like a real `localconfig.vdf`, including the `cloud` sub-block
@@ -506,6 +728,23 @@ mod tests {
         let path = dir.join("localconfig.vdf");
         std::fs::write(&path, content).unwrap();
         path
+    }
+
+    #[test]
+    fn only_this_users_steam_counts_as_running() {
+        use std::os::unix::fs::MetadataExt;
+        let root = std::env::temp_dir().join(format!("bigame_steam_proc_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("4242")).unwrap();
+        std::fs::write(root.join("4242/comm"), "steam\n").unwrap();
+        std::fs::create_dir_all(root.join("self")).unwrap();
+        let owner = std::fs::metadata(root.join("4242")).unwrap().uid();
+        assert!(running_in(&root, owner));
+        // The same process seen by another user is that user's Steam.
+        assert!(!running_in(&root, owner + 1));
+        std::fs::write(root.join("4242/comm"), "steamwebhelper\n").unwrap();
+        assert!(!running_in(&root, owner));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -603,15 +842,95 @@ mod tests {
     }
 
     #[test]
-    fn writing_refuses_characters_that_would_corrupt_the_file() {
+    fn quotes_and_backslashes_are_written_in_steams_escapes_and_read_back() {
+        // Steam stores `-name "My Game"` as `-name \"My Game\"`.
         let path = write_temp("quotes", VDF);
-        for bad in ["say \"hi\" %command%", "a\nb", "back\\slash"] {
-            assert!(
-                write_launch_options(&path, "381210", bad).is_err(),
-                "{bad:?}"
-            );
+        for value in [
+            "say \"hi\" %command%",
+            "%command% -path C:\\Games",
+            "a\nb",
+            "PROTON_LOG=1 %command% -name \"two  spaces\"",
+        ] {
+            write_launch_options(&path, "381210", value).unwrap();
+            assert_eq!(launch_options(&path, "381210").as_deref(), Some(value));
         }
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains(
+                "\"LaunchOptions\"\t\t\"PROTON_LOG=1 %command% -name \\\"two  spaces\\\"\""
+            ),
+            "{text}"
+        );
+        // Still one line per key, and the braces balance.
+        assert_eq!(text.matches('{').count(), VDF.matches('{').count());
+        assert_eq!(text.lines().count(), VDF.lines().count());
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn options_steam_wrote_with_escapes_are_read_as_the_user_typed_them() {
+        let vdf = VDF.replace(
+            "\"mangohud %command%\"",
+            "\"%command% -name \\\"A B\\\" -dir C:\\\\x\"",
+        );
+        let path = write_temp("escaped", &vdf);
+        assert_eq!(
+            launch_options(&path, "381210").as_deref(),
+            Some("%command% -name \"A B\" -dir C:\\x")
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn launch_options_split_into_words_as_the_shell_reads_them() {
+        assert_eq!(
+            option_words("A=1  gamemoderun \"%command%\" -name 'two  spaces' x\\ y"),
+            [
+                "A=1",
+                "gamemoderun",
+                "\"%command%\"",
+                "-name",
+                "'two  spaces'",
+                "x\\ y"
+            ]
+        );
+        assert!(is_command("\"%command%\"") && !is_command("-novid"));
+        assert!(option_words("   ").is_empty());
+    }
+
+    #[test]
+    fn the_backup_stays_the_file_before_the_first_change() {
+        let path = write_temp("backup_once", VDF);
+        write_launch_options(&path, "381210", "MANGOHUD=1 %command%").unwrap();
+        write_launch_options(&path, "381210", "gamescope -f -- %command%").unwrap();
+        let backup = path.with_extension("vdf.bigame-backup");
+        assert_eq!(std::fs::read_to_string(&backup).unwrap(), VDF);
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn an_account_of_the_flatpak_steam_is_told_apart() {
+        let user = |config: &str| SteamUser {
+            id: "1".into(),
+            config: PathBuf::from(config),
+        };
+        let flatpak = user(
+            "/home/u/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata/1/config/localconfig.vdf",
+        );
+        let native = user("/home/u/.local/share/Steam/userdata/1/config/localconfig.vdf");
+        assert!(flatpak.flatpak() && !native.flatpak());
+        assert!(any_flatpak(&[native.clone(), flatpak.clone()]));
+        assert!(!only_flatpak(&[native.clone(), flatpak.clone()]));
+        assert!(only_flatpak(std::slice::from_ref(&flatpak)));
+        assert!(!only_flatpak(&[]));
+        assert_eq!(
+            client_command(true, &["-shutdown"]),
+            ["flatpak", "run", "com.valvesoftware.Steam", "-shutdown"]
+        );
+        assert_eq!(
+            client_command(false, &["-shutdown"]),
+            ["steam", "-shutdown"]
+        );
     }
 
     #[test]

@@ -6,21 +6,26 @@ target/
 /pkg/
 /pkgbuild/
 *.pkg.tar
-*.pkg.tar.zst
-*.pkg.tar.xz
+*.pkg.tar.*
+*.src.tar.gz
 
-# Compiled translations (built by the PKGBUILD)
+# Compiled translations and the merged desktop/AppStream files (PKGBUILD)
 *.mo
+/locale/mo/
+/locale/merged/
 
-# Editors and local tools
+# Editors, local tools and leftovers
 *.swp
 *.swo
 *~
 *.bak
 *.old
+*.backup
 *.orig
 *.rej
 *.tmp
+*.temp
+*.log
 .idea/
 .vscode/
 *.iml
@@ -28,10 +33,36 @@ target/
 .claude/
 .DS_Store
 __pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Benchmark sessions written by bigame-engine/scripts: the raw data stays on
-# the machine that measured it; the results go to docs/BENCHMARKS.md.
-benchmarks/
+# Crash dumps and profiler output
+vgcore.*
+core.[0-9]*
+perf.data
+perf.data.old
+*.profraw
+*.profdata
+
+# A benchmark session keeps its report, metrics, verdicts, machine state and
+# the game's own summary of every run; the raw captures behind them (per-frame
+# profiles and frame times, GPU samples, run logs, screenshots, the HTML copy
+# of report.md) stay beside them, uncommitted. The ones from before
+# 2026-09-28 are at the tag benchmarks-raw-data.
+bigame-engine/benchmarks/**/stdout.log
+bigame-engine/benchmarks/**/stdout.log.*.csv
+bigame-engine/benchmarks/**/session.log
+bigame-engine/benchmarks/**/gpu.csv
+bigame-engine/benchmarks/**/gpu-samples.csv
+bigame-engine/benchmarks/**/nvidia.csv
+bigame-engine/benchmarks/**/frames.csv
+bigame-engine/benchmarks/**/*_frametimes_*.txt
+bigame-engine/benchmarks/**/*.png
+bigame-engine/benchmarks/**/report.html
+bigame-engine/benchmarks/**/workload-config.original.xml
+# OptiScaler's own log is the evidence a session cites; it stays.
+!bigame-engine/benchmarks/**/OptiScaler.log
 
 # Proprietary third-party binaries (Lossless.dll, DLSS/XeSS/FSR runtimes,
 # OptiScaler) are never part of this repository.

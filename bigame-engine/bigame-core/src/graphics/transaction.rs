@@ -28,6 +28,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
 
 use crate::error::UserError;
 use crate::text::N_;
@@ -146,6 +147,81 @@ fn hash_if_present(path: &Path) -> Result<Option<String>> {
     }
 }
 
+/// What is at one of a manifest's paths when it is taken out.
+enum Found {
+    /// Nothing.
+    Missing,
+    /// A plain file, with its hash.
+    File(String),
+    /// A symlink, at the path or on the way to it, or something that is not
+    /// a plain file: a mod manager deploys its files as links, or the user
+    /// moved a folder elsewhere. Not Big Game Mode's to follow or remove.
+    Foreign,
+}
+
+/// What is at `rel` under `root`, and the path it was looked for at.
+///
+/// # Errors
+/// Returns an error for a path that is not plain and relative (it could
+/// name something outside the game), or a file that cannot be read.
+fn found_at(root: &Path, rel: &Path) -> Result<(PathBuf, Found)> {
+    manifest::check_relative(rel)?;
+    let Ok(target) = resolve_inside(root, rel) else {
+        return Ok((root.join(rel), Found::Foreign));
+    };
+    let found = match std::fs::symlink_metadata(&target) {
+        Ok(m) if m.file_type().is_symlink() || !m.is_file() => Found::Foreign,
+        Ok(_) => Found::File(sha256_file(&target)?),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Found::Missing,
+        // A folder on the way is a file now: the game's, whatever it is.
+        Err(e) if e.raw_os_error() == Some(libc::ENOTDIR) => Found::Foreign,
+        Err(e) => return Err(e).with_context(|| format!("read {}", target.display())),
+    };
+    Ok((target, found))
+}
+
+/// Sync a folder, so the renames and deletions in it are on disk.
+fn sync_dir(dir: &Path) -> Result<()> {
+    std::fs::File::open(dir)
+        .and_then(|d| d.sync_all())
+        .with_context(|| format!("sync {}", dir.display()))
+}
+
+/// The name a file of `target`'s name already has on disk, when it is
+/// there in another letter case. Windows file names ignore case, so to the
+/// game `AMD_FidelityFX_DX12.dll` is the slot `amd_fidelityfx_dx12.dll`
+/// names: it is that file that is backed up and replaced, never a second one
+/// placed beside it (which of the two Wine would load is not defined).
+///
+/// # Errors
+/// Returns an error when the folder cannot be listed, or holds the name in
+/// more than one spelling.
+fn spelling_on_disk(target: &Path) -> Result<Option<std::ffi::OsString>> {
+    let (Some(dir), Some(name)) = (target.parent(), target.file_name()) else {
+        return Ok(None);
+    };
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e).with_context(|| format!("list {}", dir.display())),
+    };
+    let name = name.to_string_lossy();
+    let mut found: Vec<std::ffi::OsString> = entries
+        .flatten()
+        .map(|e| e.file_name())
+        .filter(|n| n.to_string_lossy().eq_ignore_ascii_case(&name))
+        .collect();
+    if found.len() > 1 {
+        bail!(UserError::with(
+            N_(
+                "%s is in the game's folder more than once, in different letter case; remove one of them first"
+            ),
+            [target.display().to_string()]
+        ));
+    }
+    Ok(found.pop())
+}
+
 /// Back up every file that `files` will replace, verified by hash.
 ///
 /// Every target is examined first, so a path that cannot be used fails here
@@ -172,13 +248,25 @@ fn back_up_originals(
                         .with_context(|| format!("back up {}", target.display()))?;
                     // On disk before the journal and the replacement: after a
                     // power cut the rename can persist while an unsynced
-                    // backup does not, and the original would be gone.
+                    // backup does not, and the original would be gone. The
+                    // folders it is in are new too (`backup/<time>/…`), and
+                    // each one's entry is in its parent.
                     std::fs::File::open(&copy)?.sync_all()?;
-                    if let Some(dir) = copy.parent() {
-                        std::fs::File::open(dir)?.sync_all()?;
+                    let game_dir = backup_root
+                        .parent()
+                        .and_then(Path::parent)
+                        .context("backup folder has no parent")?;
+                    for dir in copy.ancestors().skip(1) {
+                        sync_dir(dir)?;
+                        if dir == game_dir {
+                            break;
+                        }
                     }
                     if sha256_file(&copy)? != orig_sha {
-                        bail!("backup of {} does not match the original", target.display());
+                        bail!(UserError::with(
+                            N_("the backup of %s does not match the original"),
+                            [target.display().to_string()]
+                        ));
                     }
                     Some(Backup {
                         path: copy,
@@ -220,9 +308,12 @@ fn dirs_to_create(install_root: &Path, files: &[PlannedFile]) -> Vec<PathBuf> {
 
 /// Place `files` in `install_root` as one transaction.
 ///
-/// Refuses when the game already has a manifest: an update is a removal
-/// followed by an apply, so the original of every file is always the file
-/// that was there before Big Game Mode, not a previous Big Game Mode payload.
+/// Refuses when the game already has files installed: an update is a
+/// removal followed by an apply, so the original of every file is always the
+/// file that was there before Big Game Mode, not a previous Big Game Mode
+/// payload. A manifest that only keeps the game's own settings (a removal
+/// that could not put them back yet) is taken over: the new journal carries
+/// them, so they are never without a record.
 ///
 /// # Errors
 /// Returns an error — with the game folder as it was — when a check fails, a
@@ -235,8 +326,9 @@ pub fn apply(
     generated: &[PathBuf],
 ) -> Result<Manifest> {
     let (game_key, install_root) = (game.key, game.root);
-    if let Some(existing) = Manifest::load(state_dir, game_key)? {
-        bail!(UserError::with(
+    let settings = match Manifest::load(state_dir, game_key)? {
+        Some(left) if left.state == State::Installed && left.entries.is_empty() => left.settings,
+        Some(existing) => bail!(UserError::with(
             N_("%s already has %s %s installed (%s); remove it first"),
             [
                 game_key.to_owned(),
@@ -244,23 +336,33 @@ pub fn apply(
                 existing.source.version,
                 format!("{:?}", existing.state),
             ]
-        ));
-    }
+        )),
+        None => Vec::new(),
+    };
     if files.is_empty() {
-        bail!("nothing to install");
+        bail!(UserError::plain(N_("nothing to install")));
     }
     let started_at = crate::unix_now();
     let backup_root = Manifest::backup_dir(state_dir, game_key).join(started_at.to_string());
 
-    // 1. Check, and hash what will be placed.
+    // 1. Check, and hash what will be placed. A file already there under
+    // another letter case is the one replaced.
+    let mut files = files.to_vec();
     let mut targets = Vec::with_capacity(files.len());
-    for f in files {
-        let target = resolve_inside(install_root, &f.path)?;
+    for f in &mut files {
+        let mut target = resolve_inside(install_root, &f.path)?;
+        if let Some(name) = spelling_on_disk(&target)? {
+            if Some(name.as_os_str()) != target.file_name() {
+                f.path.set_file_name(&name);
+                target = resolve_inside(install_root, &f.path)?;
+            }
+        }
         if !f.source.is_file() {
             bail!("missing payload file {}", f.source.display());
         }
         targets.push((target, sha256_file(&f.source)?));
     }
+    let files = files.as_slice();
     let mut seen = std::collections::HashSet::new();
     for f in files {
         if !seen.insert(f.path.to_string_lossy().to_ascii_lowercase()) {
@@ -299,7 +401,7 @@ pub fn apply(
         generated: fresh,
         previous: None,
         managed: true,
-        settings: Vec::new(),
+        settings,
     };
     m.save(state_dir)?;
     tracing::info!(target: "graphics", game = game_key, files = files.len(), "backup created; applying");
@@ -315,7 +417,10 @@ pub fn apply(
         }
         for (e, (target, _)) in m.entries.iter().zip(&targets) {
             if sha256_file(target)? != e.sha256 {
-                bail!("{} does not match what was placed", target.display());
+                bail!(UserError::with(
+                    N_("%s does not match what was placed"),
+                    [target.display().to_string()]
+                ));
             }
         }
         Ok(())
@@ -341,24 +446,55 @@ pub fn apply(
 /// Used for failed and interrupted applies, and by [`remove`]. For each
 /// entry: a file that is exactly what was placed is taken out and the
 /// original put back; a missing file gets its original back; a changed
-/// binary is left alone; a changed config is kept as a copy first.
+/// binary — or a link, or anything that is not a plain file — is left
+/// alone; a changed config is kept as a copy first. What is left alone
+/// keeps its original's backup, listed in [`kept`].
+///
+/// The game's own settings the manifest records are not undone here
+/// ([`super::ingame::restore`] is the caller's): while there are any, the
+/// manifest is not deleted but kept with them alone, so they always have a
+/// record.
 ///
 /// # Errors
-/// Returns an error if a file cannot be restored or removed; the manifest is
-/// then kept so the attempt can be repeated.
+/// Returns an error if the game's folder is not there (it was moved, or its
+/// drive is not mounted: every file would read as missing, and nothing
+/// would be undone), or a file cannot be restored or removed; the manifest
+/// is then kept so the attempt can be repeated.
+// One entry after another, then what they leave; the order is the safety.
+#[allow(clippy::too_many_lines)]
 pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
+    if !m.install_root.is_dir() {
+        bail!(UserError::with(
+            N_("the game's folder %s is not there; nothing was changed"),
+            [m.install_root.display().to_string()]
+        ));
+    }
     let mut outcomes = Vec::new();
     let mut backups_still_needed = false;
+    let mut kept_now = Vec::new();
+    let mut touched = std::collections::BTreeSet::new();
     for e in &m.entries {
-        let target = resolve_inside(&m.install_root, &e.path)?;
+        let (target, found) = found_at(&m.install_root, &e.path)?;
+        let original = e.replaced.as_ref();
+        let current = match found {
+            Found::Foreign => {
+                backups_still_needed |= original.is_some();
+                if let Some(b) = original {
+                    kept_now.push((e.path.clone(), b.path.clone()));
+                }
+                tracing::warn!(target: "graphics", file = %target.display(),
+                    "a link or not a plain file now; left in place");
+                outcomes.push(FileOutcome::KeptChanged(e.path.clone()));
+                continue;
+            }
+            Found::Missing => None,
+            Found::File(h) => Some(h),
+        };
         // Leftover of an interrupted `place`.
-        let name = target.file_name().map(|n| n.to_string_lossy().into_owned());
-        if let Some(n) = name {
+        if let Some(n) = target.file_name().map(|n| n.to_string_lossy().into_owned()) {
             let _ = std::fs::remove_file(target.with_file_name(format!(".{n}.bigame-new")));
         }
-        let current = hash_if_present(&target)?;
         let ours = current.as_deref() == Some(e.sha256.as_str());
-        let original = e.replaced.as_ref();
         let still_original =
             original.is_some_and(|b| current.as_deref() == Some(b.sha256.as_str()));
         let outcome = if still_original {
@@ -377,6 +513,9 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
             match e.kind {
                 FileKind::Binary => {
                     backups_still_needed |= original.is_some();
+                    if let Some(b) = original {
+                        kept_now.push((e.path.clone(), b.path.clone()));
+                    }
                     tracing::warn!(target: "graphics", file = %target.display(),
                         "changed since it was installed; left in place");
                     FileOutcome::KeptChanged(e.path.clone())
@@ -388,10 +527,14 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
                     std::fs::create_dir_all(keep.parent().context("no parent")?)?;
                     std::fs::copy(&target, &keep)?;
                     restore_or_remove(&target, original)?;
+                    kept_now.push((e.path.clone(), keep.clone()));
                     FileOutcome::EditedCopyKept(e.path.clone(), keep)
                 }
             }
         };
+        if let Some(dir) = target.parent() {
+            touched.insert(dir.to_path_buf());
+        }
         outcomes.push(outcome);
     }
     for g in &m.generated {
@@ -408,6 +551,9 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
             let _ = std::fs::copy(&target, &keep);
             std::fs::remove_file(&target)
                 .with_context(|| format!("remove {}", target.display()))?;
+            if let Some(dir) = target.parent() {
+                touched.insert(dir.to_path_buf());
+            }
         }
     }
     for d in m.created_dirs.iter().rev() {
@@ -416,7 +562,32 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
             let _ = std::fs::remove_dir(dir);
         }
     }
-    Manifest::delete(state_dir, &m.game_key)?;
+    // The game's folder can be on another filesystem than the state: the
+    // originals put back are on disk before the record of them and their
+    // backups go.
+    for dir in touched.iter().filter(|d| d.is_dir()) {
+        sync_dir(dir)?;
+    }
+    if !kept_now.is_empty() {
+        if let Err(e) = remember_kept(state_dir, m, &kept_now) {
+            tracing::warn!(target: "graphics", game = %m.game_key, error = %format!("{e:#}"),
+                "the list of kept copies could not be written");
+        }
+    }
+    if m.settings.is_empty() {
+        Manifest::delete(state_dir, &m.game_key)?;
+    } else {
+        // Files gone, the game's own settings still to put back: the record
+        // stays, with nothing else in it.
+        Manifest {
+            state: State::Installed,
+            entries: Vec::new(),
+            created_dirs: Vec::new(),
+            generated: Vec::new(),
+            ..m.clone()
+        }
+        .save(state_dir)?;
+    }
     // The configured payload copies are only needed while installed.
     let _ = std::fs::remove_dir_all(state_dir.join(&m.game_key).join("staging"));
     if !backups_still_needed {
@@ -430,6 +601,59 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
     let _ = std::fs::remove_dir(state_dir.join(&m.game_key));
     tracing::info!(target: "graphics", game = %m.game_key, files = outcomes.len(), "graphics rollback completed");
     Ok(outcomes)
+}
+
+/// A copy Big Game Mode keeps after a removal: the original of a file someone
+/// else changed since (nothing in the game refers to it any more), or a
+/// configuration with the user's edits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Kept {
+    /// The game's key.
+    pub game_key: String,
+    /// The game's title, when known.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// The file in the game, relative to its folder.
+    pub file: PathBuf,
+    /// The copy, absolute.
+    pub copy: PathBuf,
+    /// Unix time of the removal.
+    pub at: u64,
+}
+
+fn kept_path(state_dir: &Path) -> PathBuf {
+    state_dir.join("kept.json")
+}
+
+/// Every copy kept after a removal, oldest first, whose copy is still there.
+#[must_use]
+pub fn kept(state_dir: &Path) -> Vec<Kept> {
+    std::fs::read_to_string(kept_path(state_dir))
+        .ok()
+        .and_then(|t| serde_json::from_str::<Vec<Kept>>(&t).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|k| k.copy.exists())
+        .collect()
+}
+
+fn remember_kept(state_dir: &Path, m: &Manifest, now: &[(PathBuf, PathBuf)]) -> Result<()> {
+    let mut all = kept(state_dir);
+    let at = crate::unix_now();
+    for (file, copy) in now {
+        all.push(Kept {
+            game_key: m.game_key.clone(),
+            title: m.title.clone(),
+            file: file.clone(),
+            copy: copy.clone(),
+            at,
+        });
+    }
+    let path = kept_path(state_dir);
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_string_pretty(&all)?)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(())
 }
 
 fn restore_or_remove(target: &Path, original: Option<&Backup>) -> Result<()> {
@@ -572,7 +796,14 @@ pub fn verify(m: &Manifest) -> Vec<(PathBuf, FileState)> {
 /// Returns an error if a missing file cannot be placed or its payload does
 /// not match the manifest.
 pub fn repair_missing(m: &Manifest, payload: &[PlannedFile]) -> Result<Vec<PathBuf>> {
-    let mut repaired = Vec::new();
+    if !m.install_root.is_dir() {
+        bail!(UserError::with(
+            N_("the game's folder %s is not there; nothing was changed"),
+            [m.install_root.display().to_string()]
+        ));
+    }
+    // Everything checked before anything is placed.
+    let mut todo = Vec::new();
     for (path, state) in verify(m) {
         if state != FileState::Missing {
             continue;
@@ -592,11 +823,34 @@ pub fn repair_missing(m: &Manifest, payload: &[PlannedFile]) -> Result<Vec<PathB
                 [path.display().to_string()]
             ));
         }
+        // Only a folder the install itself created is made again; any other
+        // is the game's, and its absence means the game is not what the
+        // manifest describes.
+        let rel_dir = path.parent().unwrap_or_else(|| Path::new(""));
+        let ours = |d: &PathBuf| rel_dir.starts_with(d);
         let target = resolve_inside(&m.install_root, &path)?;
-        if let Some(parent) = target.parent() {
-            std::fs::create_dir_all(parent)?;
+        let parent = target.parent().context("target has no folder")?;
+        if !parent.is_dir() && !m.created_dirs.iter().any(ours) {
+            bail!(UserError::with(
+                N_("the game's folder %s is not there; nothing was changed"),
+                [parent.display().to_string()]
+            ));
         }
-        place(&src.source, &target)?;
+        todo.push((path, target, src.source.clone()));
+    }
+    let mut repaired = Vec::new();
+    for (path, target, source) in todo {
+        for d in m
+            .created_dirs
+            .iter()
+            .filter(|d| path.parent().is_some_and(|p| p.starts_with(d)))
+        {
+            let dir = resolve_inside(&m.install_root, d)?;
+            if !dir.is_dir() {
+                std::fs::create_dir(&dir).with_context(|| format!("create {}", dir.display()))?;
+            }
+        }
+        place(&source, &target)?;
         repaired.push(path);
     }
     Ok(repaired)
@@ -938,5 +1192,156 @@ mod tests {
             Manifest::load(&fx.state, "g").unwrap().is_some(),
             "kept for a retry"
         );
+    }
+
+    #[test]
+    fn a_game_folder_that_is_not_there_is_never_read_as_all_files_missing() {
+        let fx = fixture();
+        std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
+        let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
+        apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        // The library's drive is not mounted, or the game moved away.
+        let away = fx.game.with_file_name("away");
+        std::fs::rename(&fx.game, &away).unwrap();
+        let err = remove(&fx.state, "g").unwrap_err();
+        assert!(format!("{err:#}").contains("is not there"), "{err:#}");
+        assert!(!fx.game.exists(), "nothing made where the game was");
+        assert!(Manifest::load(&fx.state, "g").unwrap().is_some(), "kept");
+        assert_eq!(read(&away.join("dxgi.dll")), b"ours");
+    }
+
+    #[test]
+    fn repair_makes_again_only_folders_the_install_created() {
+        let fx = fixture();
+        std::fs::create_dir(fx.game.join("bin")).unwrap();
+        let files = [
+            planned(&fx, "bin/dxgi.dll", b"ours", FileKind::Binary),
+            planned(&fx, "made/x.dll", b"x", FileKind::Binary),
+        ];
+        let m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        assert_eq!(m.created_dirs, [PathBuf::from("made")]);
+        // A folder of the game's gone: nothing is placed, nor made.
+        std::fs::remove_dir_all(fx.game.join("bin")).unwrap();
+        std::fs::remove_dir_all(fx.game.join("made")).unwrap();
+        assert!(repair_missing(&m, &files).is_err());
+        assert!(!fx.game.join("bin").exists() && !fx.game.join("made").exists());
+        // Its own folder is made again.
+        std::fs::create_dir(fx.game.join("bin")).unwrap();
+        repair_missing(&m, &files).unwrap();
+        assert_eq!(read(&fx.game.join("made/x.dll")), b"x");
+        assert_eq!(read(&fx.game.join("bin/dxgi.dll")), b"ours");
+    }
+
+    #[test]
+    fn a_file_already_there_in_another_letter_case_is_the_one_replaced() {
+        let fx = fixture();
+        std::fs::write(fx.game.join("AMD_FidelityFX_DX12.dll"), b"the game's").unwrap();
+        let files = [planned(
+            &fx,
+            "amd_fidelityfx_dx12.dll",
+            b"ours",
+            FileKind::Binary,
+        )];
+        let m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        let names: Vec<String> = std::fs::read_dir(&fx.game)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            names,
+            ["AMD_FidelityFX_DX12.dll"],
+            "no second file beside it"
+        );
+        assert_eq!(m.entries[0].path, PathBuf::from("AMD_FidelityFX_DX12.dll"));
+        assert!(m.entries[0].replaced.is_some(), "backed up");
+        remove(&fx.state, "g").unwrap();
+        assert_eq!(
+            read(&fx.game.join("AMD_FidelityFX_DX12.dll")),
+            b"the game's"
+        );
+
+        // Two spellings already: which one the game loads is not guessed.
+        std::fs::write(fx.game.join("amd_fidelityfx_dx12.dll"), b"another").unwrap();
+        assert!(apply(&fx.state, &g(&fx), src(), &files, &[]).is_err());
+        assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_link_where_a_file_was_placed_is_left_alone_and_the_rest_is_undone() {
+        let fx = fixture();
+        std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
+        std::fs::create_dir(fx.game.join("bin")).unwrap();
+        let files = [
+            planned(&fx, "bin/OptiScaler.ini", b"cfg", FileKind::Config),
+            planned(&fx, "dxgi.dll", b"ours", FileKind::Binary),
+        ];
+        apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        // A mod manager links the folder elsewhere.
+        let elsewhere = fx.payload.join("bin-elsewhere");
+        std::fs::rename(fx.game.join("bin"), &elsewhere).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, fx.game.join("bin")).unwrap();
+        let out = remove(&fx.state, "g").unwrap();
+        assert!(out.contains(&FileOutcome::KeptChanged("bin/OptiScaler.ini".into())));
+        assert!(out.contains(&FileOutcome::Restored("dxgi.dll".into())));
+        assert_eq!(read(&fx.game.join("dxgi.dll")), b"original");
+        assert_eq!(
+            read(&elsewhere.join("OptiScaler.ini")),
+            b"cfg",
+            "not followed"
+        );
+        assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
+    }
+
+    #[test]
+    fn what_is_kept_after_a_removal_is_listed() {
+        let fx = fixture();
+        std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
+        let files = [
+            planned(&fx, "dxgi.dll", b"ours", FileKind::Binary),
+            planned(&fx, "OptiScaler.ini", b"a=1", FileKind::Config),
+        ];
+        apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        std::fs::write(fx.game.join("dxgi.dll"), b"reshade").unwrap();
+        std::fs::write(fx.game.join("OptiScaler.ini"), b"a=2").unwrap();
+        remove(&fx.state, "g").unwrap();
+        let kept = kept(&fx.state);
+        assert_eq!(kept.len(), 2, "{kept:?}");
+        let original = kept
+            .iter()
+            .find(|k| k.file == Path::new("dxgi.dll"))
+            .unwrap();
+        assert_eq!(read(&original.copy), b"original");
+        assert_eq!(original.title.as_deref(), Some("Game"));
+        assert!(
+            kept.iter()
+                .any(|k| k.file == Path::new("OptiScaler.ini") && read(&k.copy) == b"a=2")
+        );
+    }
+
+    #[test]
+    fn the_games_own_settings_stay_recorded_until_they_are_put_back() {
+        let fx = fixture();
+        let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
+        let mut m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        let change = super::super::ingame::SettingChange {
+            file: fx.payload.join("pfx/user.reg"),
+            key: r"Software\Game".into(),
+            value: "XESS".into(),
+            set: 3,
+            original: Some(0),
+        };
+        m.settings = vec![change.clone()];
+        m.save(&fx.state).unwrap();
+        // An update's removal: the files go, the setting's record stays.
+        remove(&fx.state, "g").unwrap();
+        assert!(!fx.game.join("dxgi.dll").exists());
+        let left = Manifest::load(&fx.state, "g").unwrap().unwrap();
+        assert!(left.settings_only());
+        assert_eq!(left.settings, std::slice::from_ref(&change));
+        // The next apply takes the record over, settings and all.
+        let m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        assert_eq!(m.settings, [change]);
+        assert_eq!(read(&fx.game.join("dxgi.dll")), b"ours");
     }
 }

@@ -98,7 +98,10 @@ impl BoosterEngine {
     #[must_use]
     pub fn relevant_knobs(&self) -> Vec<Knob> {
         let mut knobs = vec![Knob::PowerProfile, Knob::CpuGovernor, Knob::CpuEpp];
-        if let Some(gpu) = self.hardware.render_gpu() {
+        // A GPU no DRM card stands for (NVIDIA without nvidia-drm) has no
+        // DPM file to read: its knob would be "GPU power level ()" reading
+        // `/sys/class/drm//device/...`.
+        if let Some(gpu) = self.hardware.render_gpu().filter(|g| !g.card.is_empty()) {
             knobs.push(Knob::GpuDpmLevel {
                 card: gpu.card.clone(),
             });
@@ -117,24 +120,48 @@ impl BoosterEngine {
 
     /// How many changes are currently in force, if Booster is active.
     ///
-    /// Also reconciles a stale record: a journal written during a previous boot
-    /// describes sysfs knobs that the kernel has already reset to their
-    /// defaults, so replaying or reporting it would be describing a state the
-    /// machine is not in. Such a record is discarded here rather than shown.
+    /// Also reconciles a stale record (`Self::current_journal`).
     ///
     /// Returns `None` when Booster is not active.
     #[must_use]
     pub fn active_summary() -> Option<usize> {
-        let record = Journal::load().ok().flatten()?;
-        if !record.is_current_boot() {
+        Self::current_journal()
+            .ok()
+            .flatten()
+            .map(|record| record.applied.len())
+    }
+
+    /// The journal, if it describes this boot.
+    ///
+    /// A journal written during a previous boot describes sysfs knobs that
+    /// the kernel has already reset, so replaying or reporting them would be
+    /// describing a state the machine is not in. The power profile is not one
+    /// of those: power-profiles-daemon keeps it across a reboot. A stale
+    /// record whose power profile still holds the value Booster wrote is
+    /// carried into this boot with that knob alone, so it is still put back;
+    /// anything else of it is discarded.
+    fn current_journal() -> Result<Option<Journal>> {
+        let Some(record) = Journal::load()? else {
+            return Ok(None);
+        };
+        if record.is_current_boot() {
+            return Ok(Some(record));
+        }
+        let carried = journal::carried_over(&record, &Journal::current_boot_id(), Knob::read);
+        let Some(carried) = carried else {
             tracing::info!(
                 target: "booster",
                 "discarding a journal from a previous boot; kernel state has already reset"
             );
             Journal::clear();
-            return None;
-        }
-        Some(record.applied.len())
+            return Ok(None);
+        };
+        tracing::info!(
+            target: "booster",
+            "a journal from a previous boot still has its power profile in force; keeping that"
+        );
+        carried.save()?;
+        Ok(Some(carried))
     }
 
     fn build_plan(&self, snapshot: &Snapshot) -> Plan {
@@ -173,11 +200,7 @@ impl BoosterEngine {
         // between the two). A snapshot now would record the boosted values as
         // the baseline and overwrite the real one, so those changes are put
         // back first; if they cannot be, nothing is overwritten.
-        if Journal::load()
-            .ok()
-            .flatten()
-            .is_some_and(|j| j.is_current_boot())
-        {
+        if Self::current_journal().ok().flatten().is_some() {
             tracing::info!(target: "booster", "a previous activation is still in force; restoring it first");
             let outcomes = Self::deactivate().await?;
             if !outcomes.iter().all(|o| o.status.is_ok()) {
@@ -206,6 +229,13 @@ impl BoosterEngine {
                 skipped = plan.skipped.len(),
                 "nothing to change; system already configured for gaming"
             );
+            // Without falcond the journal is Turbo's state: a record with
+            // nothing to put back keeps a Turbo switched on with nothing to
+            // change on, rather than reading off at once while its preset
+            // stays in force.
+            if !self.capabilities.falcond_installed {
+                Journal::new(snapshot, plan).save()?;
+            }
             progress(Progress::Finished);
             return Ok(report);
         }
@@ -303,6 +333,9 @@ impl BoosterEngine {
         log_dir: &std::path::Path,
         progress: F,
     ) -> Result<measure::Measurement> {
+        // A previous boot's record is settled first: the measurement adds to
+        // one of this boot, or writes its own.
+        Self::current_journal()?;
         let (snapshot, plan) = self.dry_run();
         measure::run(measurement, &plan, &snapshot, log_dir, progress).await
     }
@@ -316,22 +349,14 @@ impl BoosterEngine {
     /// # Errors
     /// Returns an error if the journal could not be read.
     pub async fn deactivate() -> Result<Vec<RestoreOutcome>> {
-        let Some(record) = Journal::load()? else {
-            return Ok(Vec::new());
-        };
-
         // sysfs knobs (governor, DPM level, V-Cache) reset themselves at boot,
         // so replaying a previous boot's values would be writing state that is
         // already correct — or worse, re-applying a value the user has since
-        // changed deliberately.
-        if !record.is_current_boot() {
-            tracing::info!(
-                target: "booster",
-                "journal is from a previous boot; kernel state has already reset"
-            );
-            Journal::clear();
+        // changed deliberately. Only a power profile still as Booster left it
+        // is carried over ([`Self::current_journal`]).
+        let Some(record) = Self::current_journal()? else {
             return Ok(Vec::new());
-        }
+        };
 
         // Only the knobs this run actually applied are put back. Writing a
         // knob we never wrote would be a fresh change, not a restoration.
@@ -382,6 +407,35 @@ mod tests {
                 card: gpu.card.clone()
             }));
         }
+    }
+
+    #[test]
+    fn a_gpu_without_a_drm_card_has_no_dpm_knob() {
+        let mut engine = BoosterEngine::detect();
+        engine.hardware.gpus = vec![crate::hardware::Gpu {
+            card: String::new(),
+            device_path: std::path::PathBuf::new(),
+            vendor: crate::hardware::GpuVendor::Nvidia,
+            pci_id: "10de:1c82".into(),
+            pci_slot: "0000:01:00.0".into(),
+            driver: "nvidia".into(),
+            hwmon: None,
+            connected_outputs: Vec::new(),
+            vram_total_bytes: None,
+            discrete: true,
+            dpm_level_path: None,
+        }];
+        engine.hardware.render_gpu = Some(0);
+        let knobs = engine.relevant_knobs();
+        assert!(
+            !knobs.iter().any(|k| matches!(k, Knob::GpuDpmLevel { .. })),
+            "{knobs:?}"
+        );
+        // A card that has a node still gets its knob.
+        engine.hardware.gpus[0].card = "card1".into();
+        assert!(engine.relevant_knobs().contains(&Knob::GpuDpmLevel {
+            card: "card1".into()
+        }));
     }
 
     #[test]

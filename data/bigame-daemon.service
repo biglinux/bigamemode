@@ -40,6 +40,15 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources @mount @debug @obsolete
 UMask=0022
+# Every file the helper writes is root's own (cpufreq, DRM and V-Cache
+# attributes, /etc/falcond, the profile directory, its state directory), so
+# uid 0 needs no capability to write it: DAC_OVERRIDE, PTRACE, NET_*, SETUID
+# and the rest go. CAP_SYS_ADMIN stays: systemd checks a uid-0 caller's
+# capabilities, not its uid, before it starts or stops falcond on its behalf.
+CapabilityBoundingSet=CAP_SYS_ADMIN
+# No PrivateNetwork: in its own network namespace the unit's sysfs showed no
+# cpufreq attributes (systemd 261, checked: SetCpuGovernor found none), and
+# RestrictAddressFamilies=AF_UNIX already leaves it no network socket.
 
 # Writes are confined to the locations the helper touches: the rest of the
 # filesystem is read-only. ProtectSystem=strict leaves /sys writable, and on
@@ -56,7 +65,19 @@ ReadOnlyPaths=-/sys/block -/sys/bus -/sys/class -/sys/dev -/sys/firmware -/sys/f
 # A path that does not exist makes systemd refuse to start the service at all
 # (226/NAMESPACE), so paths that depend on hardware or on falcond being
 # installed carry the "-" prefix: ignored when absent.
-ReadWritePaths=-/etc/falcond -/usr/share/falcond/profiles
+#
+# Only the user profiles: the system ones beside them may carry start
+# scripts falcond runs as root, so the helper cannot write there. The package
+# owns this directory, so it exists when the helper starts even if falcond is
+# installed later; an absent one would stay read-only until a restart.
+ReadWritePaths=-/usr/share/falcond/profiles/user
+#
+# falcond's global configuration. Its package ships no /etc/falcond, and an
+# absent path is ignored above, which left / read-only and every save of the
+# general configuration failing with EROFS; systemd creates it here and makes
+# it writable.
+ConfigurationDirectory=falcond
+ConfigurationDirectoryMode=0755
 
 # The record of how falcond was configured before Big Game Mode first took
 # charge of it, so it can be handed back exactly. Created by systemd and

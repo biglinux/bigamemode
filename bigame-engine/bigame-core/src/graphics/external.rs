@@ -26,16 +26,6 @@ use super::text::{N_, Text};
 /// The official release page — the only place the component comes from.
 pub const OFFICIAL_URL: &str = "https://github.com/danielblnc/DLSS-NR-on-AMD/releases";
 
-/// The proxy slots its documentation lists, its default first.
-pub const PROXY_SLOTS: &[&str] = &[
-    "version.dll",
-    "winmm.dll",
-    "dbghelp.dll",
-    "wininet.dll",
-    "winhttp.dll",
-    "dxgi.dll",
-];
-
 /// Its log beside the game.
 pub const LOG: &str = "dlssnr_on_amd.log";
 
@@ -108,19 +98,7 @@ pub enum Status {
     },
 }
 
-impl Status {
-    /// The files found, whatever the state.
-    #[must_use]
-    pub fn found(&self) -> Option<&Installed> {
-        match self {
-            Self::Installed { found }
-            | Self::Loaded { found }
-            | Self::Active { found, .. }
-            | Self::Failed { found, .. } => Some(found),
-            _ => None,
-        }
-    }
-}
+impl Status {}
 
 /// What the scan found of the component in `r`.
 #[must_use]

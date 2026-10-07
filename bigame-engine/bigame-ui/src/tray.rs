@@ -234,12 +234,15 @@ impl ksni::Tray for BiGameTray {
 /// Where the tray's state is kept in step, from the main thread.
 ///
 /// Every setter compares with what the tray already shows, so the ten-second
-/// status reading costs nothing when nothing changed.
+/// status reading costs nothing when nothing changed. What changed goes to
+/// the tray's own thread: ksni's blocking update waits for the tray's lock
+/// and for its D-Bus signals, which the GTK main loop must not.
 #[derive(Clone)]
 pub struct TrayHandle {
     shown: Rc<RefCell<Shown>>,
-    /// `None` when the tray service could not start (no session bus).
-    handle: Option<Rc<ksni::blocking::Handle<BiGameTray>>>,
+    /// To the tray's thread; it is gone when the tray service could not
+    /// start (no session bus).
+    updates: mpsc::Sender<Shown>,
 }
 
 impl TrayHandle {
@@ -253,8 +256,8 @@ impl TrayHandle {
             }
             shown.clone()
         };
-        if let Some(handle) = &self.handle {
-            handle.update(move |tray| tray.shown = new);
+        if self.updates.send(new).is_err() {
+            tracing::debug!("the tray is not running; its state is not updated");
         }
     }
 
@@ -330,25 +333,43 @@ fn source_tree_icons(_file: &str) -> String {
 /// step and a receiver for what it asks for.
 pub fn spawn() -> (TrayHandle, mpsc::Receiver<TrayAction>) {
     let (tx, rx) = mpsc::channel();
+    let (updates, pending) = mpsc::channel::<Shown>();
     let shown = Shown::default();
     let tray = BiGameTray {
         tx,
         shown: shown.clone(),
         theme_path: icon_theme_path(),
     };
-    // At login the panel may register its tray host after this runs, and a
-    // desktop may have none at all: waiting for one is not an error.
-    let handle = tray
-        .assume_sni_available(true)
-        .spawn()
-        .inspect_err(|e| tracing::warn!(error = %e, "no system tray"))
-        .ok()
-        .map(Rc::new);
+    let spawned = std::thread::Builder::new()
+        .name("bigame-tray".into())
+        .spawn(move || {
+            // At login the panel may register its tray host after this runs,
+            // and a desktop may have none at all: waiting for one is not an
+            // error.
+            let handle = match tray.assume_sni_available(true).spawn() {
+                Ok(handle) => handle,
+                Err(e) => {
+                    tracing::warn!(error = %e, "no system tray");
+                    return;
+                }
+            };
+            // Until the application drops its handle. A burst of changes
+            // becomes one update: only the last state is shown.
+            while let Ok(mut next) = pending.recv() {
+                while let Ok(later) = pending.try_recv() {
+                    next = later;
+                }
+                handle.update(move |tray| tray.shown = next);
+            }
+        });
+    if let Err(e) = spawned {
+        tracing::warn!(error = %e, "could not start the tray's thread");
+    }
 
     (
         TrayHandle {
             shown: Rc::new(RefCell::new(shown)),
-            handle,
+            updates,
         },
         rx,
     )

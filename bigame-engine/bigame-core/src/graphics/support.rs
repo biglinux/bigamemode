@@ -16,6 +16,8 @@ use super::{Analysis, Target, manifest::Manifest, state_dir};
 
 /// Lines of a log kept in the report: the end, which is the current run.
 const LOG_TAIL: usize = 3000;
+/// At most this much of a log is read for its last [`LOG_TAIL`] lines.
+const LOG_BYTES: u64 = 4 * 1024 * 1024;
 
 fn tail(text: &str, lines: usize) -> String {
     let all: Vec<&str> = text.lines().collect();
@@ -31,6 +33,37 @@ fn safe_name(name: &str) -> String {
         .filter(|p| !p.is_empty())
         .collect::<Vec<_>>()
         .join("-")
+}
+
+/// A plain file's text, never through a link: a link planted in a game's
+/// folder must not pull another of the user's files into a report they
+/// share.
+fn read_plain(path: &Path) -> std::io::Result<String> {
+    read_plain_tail(path, u64::MAX)
+}
+
+/// [`read_plain`], keeping only the last `max` bytes: a debug log can grow
+/// to gigabytes, and a report needs its end.
+fn read_plain_tail(path: &Path, max: u64) -> std::io::Result<String> {
+    use std::io::{Read as _, Seek as _};
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut f = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    if !f.metadata()?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("{} is not a plain file", path.display()),
+        ));
+    }
+    let len = f.metadata()?.len();
+    if len > max {
+        f.seek(std::io::SeekFrom::Start(len - max))?;
+    }
+    let mut bytes = Vec::new();
+    f.take(max).read_to_end(&mut bytes)?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// The identifiers masked in every file.
@@ -166,8 +199,15 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
     ));
     let state = state_dir();
     let key = target.key();
-    if let Some(m) = Manifest::load(&state, &key)? {
-        files.push(("manifest.json".into(), serde_json::to_string_pretty(&m)?));
+    match Manifest::load(&state, &key) {
+        Ok(Some(m)) => files.push(("manifest.json".into(), serde_json::to_string_pretty(&m)?)),
+        Ok(None) => {}
+        // A record that does not load is what the report is for: as it is.
+        Err(e) => {
+            let raw = read_plain(&Manifest::path(&state, &key)).unwrap_or_default();
+            files.push(("manifest.json".into(), raw));
+            files.push(("manifest-error.txt".into(), format!("{e:#}\n")));
+        }
     }
     let exe_dir = a
         .report
@@ -178,16 +218,28 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
             || target.install_root.clone(),
             |d| target.install_root.join(d),
         );
-    if let Ok(ini) = std::fs::read_to_string(exe_dir.join("OptiScaler.ini")) {
+    if let Ok(ini) = read_plain(&exe_dir.join("OptiScaler.ini")) {
         files.push(("OptiScaler.ini".into(), ini));
     }
-    let log = std::fs::read_to_string(exe_dir.join("OptiScaler.log"))
-        .or_else(|_| std::fs::read_to_string(state.join(&key).join("last-run/OptiScaler.log")));
+    let log = read_plain_tail(&exe_dir.join("OptiScaler.log"), LOG_BYTES)
+        .or_else(|_| read_plain_tail(&state.join(&key).join("last-run/OptiScaler.log"), LOG_BYTES));
     if let Ok(log) = log {
         files.push(("OptiScaler.log".into(), tail(&log, LOG_TAIL)));
     }
-    if let Ok(log) = std::fs::read_to_string(exe_dir.join(super::external::LOG)) {
+    if let Ok(log) = read_plain_tail(&exe_dir.join(super::external::LOG), LOG_BYTES) {
         files.push((super::external::LOG.into(), tail(&log, LOG_TAIL)));
+    }
+    // Copies kept after a removal: originals of files another program
+    // changed since, and configurations with the user's edits.
+    let mut kept = String::new();
+    for k in super::transaction::kept(&state)
+        .into_iter()
+        .filter(|k| k.game_key == key)
+    {
+        let _ = writeln!(kept, "{} → {}", k.file.display(), k.copy.display());
+    }
+    if !kept.is_empty() {
+        files.push(("kept-copies.txt".into(), kept));
     }
     if let Ok((entries, _)) = crate::logs::read(600, None) {
         let mut journal = String::new();
@@ -239,6 +291,19 @@ pub fn write_report(target: &Target, a: &Analysis, dest_dir: &Path) -> Result<Pa
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_log_is_read_from_its_end_and_never_through_a_link() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("OptiScaler.log");
+        std::fs::write(&log, "old\nmiddle\nnew\n").unwrap();
+        assert_eq!(read_plain_tail(&log, 4).unwrap(), "new\n");
+        assert_eq!(read_plain_tail(&log, 1000).unwrap(), "old\nmiddle\nnew\n");
+        let link = dir.path().join("link.log");
+        std::os::unix::fs::symlink(&log, &link).unwrap();
+        assert!(read_plain_tail(&link, 1000).is_err());
+    }
+
     use super::*;
 
     #[test]
@@ -259,6 +324,24 @@ mod tests {
         assert_eq!(
             safe_name("Shadow of the Tomb Raider!"),
             "Shadow-of-the-Tomb-Raider"
+        );
+    }
+
+    #[test]
+    fn a_link_in_the_game_folder_is_not_read_into_the_report() {
+        let dir = tempfile::tempdir().unwrap();
+        let secret = dir.path().join("secret.txt");
+        std::fs::write(&secret, "private").unwrap();
+        let game = dir.path().join("game");
+        std::fs::create_dir(&game).unwrap();
+        std::os::unix::fs::symlink(&secret, game.join("OptiScaler.log")).unwrap();
+        assert!(read_plain(&game.join("OptiScaler.log")).is_err());
+        std::fs::create_dir(game.join("OptiScaler.ini")).unwrap();
+        assert!(read_plain(&game.join("OptiScaler.ini")).is_err());
+        std::fs::write(game.join("dlssnr_on_amd.log"), "a log").unwrap();
+        assert_eq!(
+            read_plain(&game.join("dlssnr_on_amd.log")).unwrap(),
+            "a log"
         );
     }
 }

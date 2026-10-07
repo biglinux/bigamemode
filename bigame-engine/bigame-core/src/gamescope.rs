@@ -266,6 +266,23 @@ pub struct Args {
 }
 
 impl Config {
+    /// With no output size of its own, the main screen's (`screen`).
+    ///
+    /// Nested Gamescope given no output size offers the game a 1280×720
+    /// display: on the 1920×1080 lab laptop Shadow of the Tomb Raider went
+    /// fullscreen at 1280×720 inside it (and `OptiScaler` rendered 853×480 for
+    /// it), stretched to the panel, where without Gamescope it ran at
+    /// 1920×1080. The game's size follows the output unless a render size is
+    /// set, so a game Gamescope only wraps keeps its resolution.
+    #[must_use]
+    pub fn with_screen_output(mut self, screen: Option<(u32, u32)>) -> Self {
+        if let (0, 0, Some((w, h))) = (self.output_width, self.output_height, screen) {
+            self.output_width = w;
+            self.output_height = h;
+        }
+        self
+    }
+
     /// Clamp sharpness to the range Gamescope documents.
     #[must_use]
     pub fn clamped_sharpness(&self) -> u8 {
@@ -388,6 +405,26 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn with_no_output_size_the_screen_is_the_output() {
+        let screen = Some((1920, 1080));
+        let c = Config::default().with_screen_output(screen);
+        assert_eq!((c.output_width, c.output_height), (1920, 1080));
+        assert_eq!(
+            (c.render_width, c.render_height),
+            (0, 0),
+            "the game follows the output"
+        );
+        // One the user set is kept, and no screen changes nothing.
+        let own = Config {
+            output_width: 2560,
+            output_height: 1440,
+            ..Config::default()
+        };
+        assert_eq!(own.clone().with_screen_output(screen).output_width, 2560);
+        assert_eq!(Config::default().with_screen_output(None).output_width, 0);
+    }
 
     /// The flag set of a real Gamescope 3.16.28.
     fn modern() -> GamescopeCaps {

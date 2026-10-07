@@ -15,6 +15,9 @@ here: normal literals with escapes, and raw literals (`r"…"`, `r#"…"#`).
 Usage:
     locale/extract-strings.py                 # write locale/bigame-mode.pot
     locale/extract-strings.py --check         # exit 1 if the .pot is stale
+
+Both also check that locale/LINGUAS lists every catalogue: the package build
+merges those into the desktop entry and the AppStream file.
 """
 
 from __future__ import annotations
@@ -28,6 +31,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 POTFILES = ROOT / "locale" / "POTFILES.in"
 POT = ROOT / "locale" / "bigame-mode.pot"
+# The catalogues msgfmt merges into the desktop entry and the AppStream file.
+LINGUAS = ROOT / "locale" / "LINGUAS"
 
 # `i18n(` / `i18n (` followed by a string literal — and `N_(`, the no-op
 # marker bigame-core uses for text it builds for the UI to translate (core has
@@ -37,7 +42,7 @@ CALL = re.compile(r"\b(?:i18n|N_)\s*\(\s*")
 PLURAL_CALL = re.compile(r"\bni18n\s*\(\s*")
 # Desktop/AppStream files: Name=, Comment=, GenericName=, Keywords=
 DESKTOP_KEY = re.compile(r"^(Name|GenericName|Comment|Keywords)\s*=\s*(.+)$")
-XML_TAG = re.compile(r"<(name|summary|caption|p)>([^<]+)</\1>")
+XML_TAG = re.compile(r"<(name|summary|caption|p|li)>([^<]+)</\1>")
 
 
 def read_rust_literal(text: str, i: int) -> tuple[str, int] | None:
@@ -254,6 +259,16 @@ def main() -> int:
         "(ignoring its timestamp and source line references)",
     )
     args = parser.parse_args()
+
+    catalogues = sorted(p.stem for p in (ROOT / "locale").glob("*.po"))
+    listed = sorted(LINGUAS.read_text(encoding="utf-8").split()) if LINGUAS.is_file() else []
+    if listed != catalogues:
+        print(
+            "locale/LINGUAS must list every catalogue in locale/, and only those: "
+            + " ".join(catalogues),
+            file=sys.stderr,
+        )
+        return 1
 
     missing = unlisted_sources()
     if missing:

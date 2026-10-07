@@ -129,11 +129,62 @@ impl Entry {
 /// Process-wide texture cache, keyed by file path and display scale.
 ///
 /// Cards are rebuilt whenever the library changes, so without this every
-/// rebuild would re-decode every cover.
-type CoverCache = Rc<RefCell<HashMap<(PathBuf, i32), gdk::Texture>>>;
+/// rebuild would re-decode every cover. Bounded: a cover takes about 150 KB
+/// (600 KB at 2×), and a card on screen keeps its own texture anyway, so
+/// only the most recently used ones are kept beyond that.
+type CoverCache = Rc<RefCell<Recent<(PathBuf, i32), gdk::Texture>>>;
+
+/// How many covers the cache keeps.
+const COVER_CACHE: usize = 96;
 
 thread_local! {
-    static COVERS: CoverCache = Rc::new(RefCell::new(HashMap::new()));
+    static COVERS: CoverCache = Rc::new(RefCell::new(Recent::new(COVER_CACHE)));
+}
+
+/// A map that keeps only its `capacity` most recently used entries.
+struct Recent<K, V> {
+    entries: HashMap<K, (V, u64)>,
+    capacity: usize,
+    clock: u64,
+}
+
+impl<K: std::hash::Hash + Eq + Clone, V: Clone> Recent<K, V> {
+    fn new(capacity: usize) -> Self {
+        Self {
+            entries: HashMap::new(),
+            capacity,
+            clock: 0,
+        }
+    }
+
+    fn tick(&mut self) -> u64 {
+        self.clock += 1;
+        self.clock
+    }
+
+    fn get(&mut self, key: &K) -> Option<V> {
+        let now = self.tick();
+        self.entries.get_mut(key).map(|(v, used)| {
+            *used = now;
+            v.clone()
+        })
+    }
+
+    fn insert(&mut self, key: K, value: V) {
+        let now = self.tick();
+        self.entries.insert(key, (value, now));
+        while self.entries.len() > self.capacity {
+            let oldest = self
+                .entries
+                .iter()
+                .min_by_key(|(_, (_, used))| *used)
+                .map(|(k, _)| k.clone());
+            match oldest {
+                Some(k) => self.entries.remove(&k),
+                None => break,
+            };
+        }
+    }
 }
 
 /// Build a card for `entry`.
@@ -398,7 +449,7 @@ fn build_poster(entry: &Entry, actions: &gtk4::Box) -> gtk4::Widget {
 /// landscape capsule from being squashed or letterboxed.
 fn load_cover_async(path: PathBuf, picture: &gtk4::Picture) {
     let scale = picture.scale_factor().max(1);
-    if let Some(texture) = COVERS.with(|c| c.borrow().get(&(path.clone(), scale)).cloned()) {
+    if let Some(texture) = COVERS.with(|c| c.borrow_mut().get(&(path.clone(), scale))) {
         picture.set_paintable(Some(&texture));
         picture.set_visible(true);
         return;
@@ -480,6 +531,20 @@ mod tests {
             heroic: None,
             ai_installed: false,
         }
+    }
+
+    #[test]
+    fn the_cover_cache_keeps_the_most_recently_used() {
+        let mut c = Recent::new(2);
+        c.insert("a", 1);
+        c.insert("b", 2);
+        assert_eq!(c.get(&"a"), Some(1));
+        c.insert("c", 3);
+        assert_eq!(
+            (c.get(&"a"), c.get(&"b"), c.get(&"c")),
+            (Some(1), None, Some(3))
+        );
+        assert_eq!(c.entries.len(), 2);
     }
 
     #[test]

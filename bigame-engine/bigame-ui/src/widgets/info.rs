@@ -48,10 +48,9 @@ pub fn button(heading: &str, text: &str) -> gtk4::MenuButton {
         .css_classes(["flat", "circular"])
         .tooltip_text(i18n("More information"))
         .build();
-    button.update_property(&[gtk4::accessible::Property::Label(&format!(
-        "{} {heading}",
-        i18n("More information about")
-    ))]);
+    button.update_property(&[gtk4::accessible::Property::Label(
+        &i18n("More information about %s").replace("%s", heading),
+    )]);
     button
 }
 

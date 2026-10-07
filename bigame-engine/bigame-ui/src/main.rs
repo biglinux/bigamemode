@@ -76,6 +76,9 @@ fn init_tracing() {
     });
     let _ = tracing_subscriber::registry()
         .with(filter)
+        // Before the journal layer: it records the event's fields that the
+        // journal layer's record then sends as fields of their own.
+        .with(sink.is_some().then_some(FieldCapture))
         .with(journal)
         .with(coloured)
         .with(plain)
@@ -106,6 +109,54 @@ fn route_glib_to_journal() {
         }
         glib::log_writer_default(level, fields)
     });
+}
+
+thread_local! {
+    /// The structured fields of the event being formatted on this thread,
+    /// recorded by [`FieldCapture`] and taken by the [`JournalRecord`] that
+    /// sends it.
+    static EVENT_FIELDS: std::cell::RefCell<Vec<(String, String)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Records, for each event, the fields named in
+/// [`bigame_core::logs::STRUCTURED_FIELDS`], and its target as
+/// `BIGAME_SUBSYSTEM`. The text of the record stays what the Logs page reads;
+/// the fields let `journalctl BIGAME_GAME=…` select one game's records.
+struct FieldCapture;
+
+impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for FieldCapture {
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
+        struct Visit(Vec<(String, String)>);
+        impl tracing::field::Visit for Visit {
+            fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+                self.add(field, value.to_owned());
+            }
+            fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+                self.add(field, format!("{value:?}"));
+            }
+        }
+        impl Visit {
+            fn add(&mut self, field: &tracing::field::Field, value: String) {
+                if let Some((_, name)) = bigame_core::logs::STRUCTURED_FIELDS
+                    .iter()
+                    .find(|(f, _)| *f == field.name())
+                {
+                    self.0.push(((*name).to_owned(), value));
+                }
+            }
+        }
+        let mut visit = Visit(vec![(
+            "BIGAME_SUBSYSTEM".to_owned(),
+            event.metadata().target().to_owned(),
+        )]);
+        event.record(&mut visit);
+        EVENT_FIELDS.with(|f| *f.borrow_mut() = visit.0);
+    }
 }
 
 /// Makes one [`JournalRecord`] per event, at the event's priority.
@@ -164,9 +215,12 @@ impl Drop for JournalRecord {
     fn drop(&mut self) {
         let text = String::from_utf8_lossy(&self.line);
         let text = text.trim_end();
+        let fields = EVENT_FIELDS.with(|f| std::mem::take(&mut *f.borrow_mut()));
         if !text.is_empty() {
             // There is nowhere to report a failure to log.
-            let _ = self.sink.send("bigame-ui", self.priority, text);
+            let _ = self
+                .sink
+                .send_with("bigame-ui", self.priority, text, &fields);
         }
     }
 }

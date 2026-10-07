@@ -348,10 +348,25 @@ fn upscaler_name(id: &str) -> &'static str {
 }
 
 /// One state for frame generation: `OptiScaler`'s, then lsfg-vk.
+///
+/// `OptiScaler`'s is active only when its log shows a frame generator at
+/// work: asked for in its ini with the upscaler running is not enough (on the
+/// lab laptop it logged "Can't init FG Feature" and generated nothing).
 pub(crate) fn frame_generation_summary(snap: &Snapshot) -> (State, Option<String>) {
     use bigame_core::graphics::runtime::Status;
-    if snap.ai_frame_generation && matches!(snap.ai_graphics, Some(Status::Active { .. })) {
-        return (State::Active, Some("OptiScaler".to_owned()));
+    if let (
+        true,
+        Some(Status::Active {
+            frame_generation, ..
+        }),
+    ) = (snap.ai_frame_generation, &snap.ai_graphics)
+    {
+        let state = match frame_generation {
+            Some(true) => State::Active,
+            Some(false) => State::NotDetected,
+            None => State::Configured,
+        };
+        return (state, Some("OptiScaler".to_owned()));
     }
     if snap.ai_frame_generation
         && snap.game.is_some()
@@ -372,4 +387,32 @@ pub(crate) fn frame_generation_summary(snap: &Snapshot) -> (State, Option<String
         _ => Some("lsfg-vk".to_owned()),
     };
     (state, text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bigame_core::graphics::runtime::Status;
+
+    #[test]
+    fn optiscalers_frame_generation_is_active_only_when_its_log_shows_it() {
+        let with = |frame_generation| Snapshot {
+            ai_frame_generation: true,
+            ai_graphics: Some(Status::Active {
+                upscaler: "fsr31".into(),
+                version: None,
+                fsr4: None,
+                fsr_generation: Some(3),
+                frame_generation,
+            }),
+            ..Snapshot::default()
+        };
+        assert_eq!(frame_generation_summary(&with(Some(true))).0, State::Active);
+        // The lab laptop: asked for in the ini, "Can't init FG Feature".
+        assert_eq!(
+            frame_generation_summary(&with(Some(false))).0,
+            State::NotDetected
+        );
+        assert_eq!(frame_generation_summary(&with(None)).0, State::Configured);
+    }
 }

@@ -29,12 +29,6 @@ pub enum CpuVendor {
 /// AMD 3D V-Cache control device, when the platform driver bound one.
 #[derive(Debug, Clone)]
 pub struct VCacheDevice {
-    /// The `amd_x3d_mode` attribute to read and write.
-    ///
-    /// Discovered by globbing the driver directory — the ACPI instance id in
-    /// the path (`AMDI0101:00`, `AMDI0015:00`, …) is board-specific and must
-    /// never be hardcoded.
-    pub mode_path: PathBuf,
     /// Current mode as reported by the driver (`frequency` / `cache`).
     pub current_mode: Option<String>,
 }
@@ -81,14 +75,19 @@ impl Cpu {
 
     /// Whether the energy preference is what a power profile sets.
     ///
-    /// True for amd-pstate in active mode (`amd-pstate-epp`), where
-    /// power-profiles-daemon drives EPP and the governor is only the
-    /// `performance`/`powersave` pair. Forcing `performance` there overrides
-    /// the profile's choice rather than adding anything to it.
+    /// True for amd-pstate in active mode (`amd-pstate-epp`) and for
+    /// `intel_pstate` in active mode with HWP, where power-profiles-daemon
+    /// drives EPP and the governor is only the `performance`/`powersave`
+    /// pair. Forcing `performance` there overrides the profile's choice
+    /// rather than adding anything to it.
     #[must_use]
     pub fn epp_driven_by_power_profile(&self) -> bool {
-        self.scaling_driver.as_deref() == Some("amd-pstate-epp")
-            && self.amd_pstate_status.as_deref() == Some("active")
+        match self.scaling_driver.as_deref() {
+            Some("amd-pstate-epp") => self.amd_pstate_status.as_deref() == Some("active"),
+            // Passive mode is `intel_cpufreq`; only HWP publishes an EPP.
+            Some("intel_pstate") => self.current_epp.is_some(),
+            _ => false,
+        }
     }
 }
 
@@ -107,6 +106,32 @@ pub enum GpuVendor {
     /// Anything else.
     Other,
 }
+
+/// Drivers of firmware framebuffers: the boot display handed over by the
+/// firmware, kept until (or when no) real GPU driver takes over.
+const FIRMWARE_FRAMEBUFFERS: &[&str] = &[
+    "simple-framebuffer",
+    "simpledrm",
+    "efi-framebuffer",
+    "efidrm",
+    "vesa-framebuffer",
+    "vesadrm",
+    "ofdrm",
+];
+
+/// Drivers that reserve a device for a virtual machine.
+const HELD_FOR_GUESTS: &[&str] = &["vfio-pci", "pci-stub"];
+
+/// DRM drivers of 2D display controllers: BMC chips and emulated VGA.
+const DISPLAY_ONLY: &[&str] = &[
+    "ast",
+    "mgag200",
+    "bochs-drm",
+    "bochs",
+    "cirrus",
+    "cirrus-qemu",
+    "hibmc-drm",
+];
 
 /// One DRM card.
 #[derive(Debug, Clone)]
@@ -146,6 +171,42 @@ impl Gpu {
         } else {
             &self.card
         }
+    }
+
+    /// Whether the host can render on this device at all.
+    ///
+    /// A firmware framebuffer (simpledrm and its kin) is no GPU, and a device
+    /// bound to no driver, or held for a virtual machine (`vfio-pci`,
+    /// `pci-stub`), cannot be used by the host. They stay in the list so the
+    /// reports name them, and are never chosen for games.
+    #[must_use]
+    pub fn can_render(&self) -> bool {
+        !self.driver.is_empty()
+            && !FIRMWARE_FRAMEBUFFERS.contains(&self.driver.as_str())
+            && !HELD_FOR_GUESTS.contains(&self.driver.as_str())
+    }
+
+    /// Whether this is a 2D display controller with no 3D engine: a server's
+    /// BMC chip, or a VM's emulated VGA.
+    #[must_use]
+    pub fn display_only(&self) -> bool {
+        DISPLAY_ONLY.contains(&self.driver.as_str())
+    }
+
+    /// Whether the GPU drives a connected output someone looks at.
+    ///
+    /// A firmware framebuffer reports its stand-in connector (`Unknown-1`)
+    /// as connected whatever is plugged in, and a BMC's virtual connector
+    /// (`Virtual-1` on ast) is always connected for the remote console.
+    #[must_use]
+    pub fn drives_display(&self) -> bool {
+        if FIRMWARE_FRAMEBUFFERS.contains(&self.driver.as_str()) {
+            return false;
+        }
+        let bmc = matches!(self.driver.as_str(), "ast" | "mgag200");
+        self.connected_outputs
+            .iter()
+            .any(|c| !(bmc && c.starts_with("Virtual-")))
     }
 
     /// Read `power_dpm_force_performance_level`, if present.
@@ -188,12 +249,14 @@ pub struct Display {
     pub connector: String,
     /// DRM card the connector belongs to.
     pub card: String,
-    /// Highest resolution the connector advertises, as `(width, height)`.
+    /// The connector's preferred resolution, the first it lists (the
+    /// monitor's native one), as `(width, height)`.
     pub max_mode: Option<(u32, u32)>,
     /// Whether the kernel reports the connector as VRR-capable.
     ///
-    /// `None` means the `vrr_capable` attribute did not exist — which is common
-    /// and must not be read as "no VRR". It means "unknown from sysfs".
+    /// `None` means the `vrr_capable` attribute did not exist, which is the
+    /// rule: the kernel publishes VRR capability as a DRM connector property,
+    /// not in sysfs. It means "unknown", never "no VRR".
     pub vrr_capable: Option<bool>,
 }
 
@@ -457,13 +520,13 @@ fn detect_hybrid() -> bool {
 /// Locate the AMD 3D V-Cache control attribute by globbing the driver dir.
 pub(crate) fn detect_vcache() -> Option<VCacheDevice> {
     const DRIVER_DIR: &str = "/sys/bus/platform/drivers/amd_x3d_vcache";
+    // The ACPI instance id in the path (`AMDI0101:00`, `AMDI0015:00`, …) is
+    // board-specific: the attribute is found by listing the driver directory.
     for entry in std::fs::read_dir(DRIVER_DIR).ok()?.flatten() {
         let path = entry.path().join("amd_x3d_mode");
         if path.exists() {
-            let current_mode = read_trim(&path);
             return Some(VCacheDevice {
-                mode_path: path,
-                current_mode,
+                current_mode: read_trim(&path),
             });
         }
     }
@@ -471,7 +534,15 @@ pub(crate) fn detect_vcache() -> Option<VCacheDevice> {
 }
 
 fn detect_gpus() -> Vec<Gpu> {
-    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+    detect_gpus_in(Path::new(DRM_CLASS), Path::new("/sys/bus/pci/devices"))
+}
+
+const DRM_CLASS: &str = "/sys/class/drm";
+
+/// Every GPU under `drm` (`/sys/class/drm`), then the display controllers
+/// under `pci` (`/sys/bus/pci/devices`) no card stands for.
+fn detect_gpus_in(drm: &Path, pci: &Path) -> Vec<Gpu> {
+    let Ok(entries) = std::fs::read_dir(drm) else {
         return Vec::new();
     };
     let mut gpus = Vec::new();
@@ -483,24 +554,52 @@ fn detect_gpus() -> Vec<Gpu> {
         }
         let device_path = entry.path().join("device");
         let uevent = std::fs::read_to_string(device_path.join("uevent")).unwrap_or_default();
-        let pci_id = uevent_field(&uevent, "PCI_ID").unwrap_or_default();
         let driver = uevent_field(&uevent, "DRIVER").unwrap_or_default();
-        let slot = uevent_field(&uevent, "PCI_SLOT_NAME").unwrap_or_default();
+        let mut pci_id = uevent_field(&uevent, "PCI_ID").unwrap_or_default();
+        let mut slot = uevent_field(&uevent, "PCI_SLOT_NAME").unwrap_or_default();
+        // virtio-gpu's card hangs off `virtio0`, a child of the PCI device;
+        // without the address that device would be listed again as a second
+        // GPU with no card.
+        if slot.is_empty() {
+            if let Some(parent) = display_pci_ancestor(&device_path) {
+                if pci_id.is_empty() {
+                    pci_id = pci_id_of(&parent).unwrap_or_default();
+                }
+                slot = parent
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+            }
+        }
         let vram_total_bytes =
             read_trim(device_path.join("mem_info_vram_total")).and_then(|s| s.parse::<u64>().ok());
         // A dedicated memory vendor string is only populated for real VRAM;
         // APUs carve their aperture out of system RAM and leave it blank.
         let has_vram_vendor = read_trim(device_path.join("mem_info_vram_vendor")).is_some();
+        let hwmon = find_hwmon(&device_path);
+        // amdgpu publishes the northbridge rail (`vddnb`) on APUs only; the
+        // label is a constant string, read without waking the device.
+        let apu_rail = hwmon
+            .as_ref()
+            .filter(|_| driver == "amdgpu")
+            .map(|h| read_trim(h.join("in1_label")).as_deref() == Some("vddnb"));
         let vendor = gpu_vendor_from_pci_id(&pci_id);
-        let discrete = looks_discrete(vendor, &slot, has_vram_vendor, vram_total_bytes);
+        let discrete = looks_discrete(
+            vendor,
+            &driver,
+            &slot,
+            has_vram_vendor,
+            apu_rail,
+            vram_total_bytes,
+        );
         gpus.push(Gpu {
             discrete,
             vendor,
             pci_id,
             pci_slot: slot,
             driver,
-            hwmon: find_hwmon(&device_path),
-            connected_outputs: connected_outputs_for(&name),
+            hwmon,
+            connected_outputs: connected_outputs_for(drm, &name),
             vram_total_bytes,
             dpm_level_path: {
                 let p = device_path.join("power_dpm_force_performance_level");
@@ -510,17 +609,62 @@ fn detect_gpus() -> Vec<Gpu> {
             card: name,
         });
     }
-    gpus.sort_by(|a, b| a.card.cmp(&b.card));
-    gpus.extend(pci_display_devices(&gpus));
+    // By number: `card10` after `card2`.
+    gpus.sort_by_key(|g| card_number(&g.card));
+    gpus.extend(pci_display_devices(pci, &gpus));
     gpus
 }
 
+/// `2` for `card2`; cards without a number sort last.
+fn card_number(card: &str) -> u32 {
+    card.strip_prefix("card")
+        .and_then(|n| n.parse().ok())
+        .unwrap_or(u32::MAX)
+}
+
+/// Whether `name` is a PCI address, `0000:01:00.0`.
+fn is_pci_address(name: &str) -> bool {
+    let b = name.as_bytes();
+    b.len() == 12
+        && b[4] == b':'
+        && b[7] == b':'
+        && b[10] == b'.'
+        && name
+            .chars()
+            .enumerate()
+            .all(|(i, c)| matches!(i, 4 | 7 | 10) || c.is_ascii_hexdigit())
+}
+
+/// The PCI display controller a DRM device sits on, when the device is not
+/// the PCI function itself: the nearest PCI address among its ancestors,
+/// if that is a display controller (class 0x03). A USB display adapter's
+/// nearest PCI device is its USB controller, which is no GPU.
+fn display_pci_ancestor(device_path: &Path) -> Option<PathBuf> {
+    let real = std::fs::canonicalize(device_path).ok()?;
+    let pci = real.ancestors().find(|a| {
+        a.file_name()
+            .is_some_and(|n| is_pci_address(&n.to_string_lossy()))
+    })?;
+    read_trim(pci.join("class"))
+        .is_some_and(|c| c.starts_with("0x03"))
+        .then(|| pci.to_path_buf())
+}
+
+/// `VVVV:DDDD` from a PCI device directory's `vendor` and `device`.
+fn pci_id_of(pci_device: &Path) -> Option<String> {
+    let id = |f: &str| {
+        read_trim(pci_device.join(f)).map(|v| v.trim_start_matches("0x").to_ascii_uppercase())
+    };
+    Some(format!("{}:{}", id("vendor")?, id("device")?))
+}
+
 /// Display controllers on PCI that no DRM card stands for: an NVIDIA GPU
-/// whose driver runs without `nvidia-drm`, or a card no driver is bound to.
-/// They are still the machine's GPUs — named on Home and in the reports,
-/// and chosen for games when they are the discrete one — with no DRM node.
-fn pci_display_devices(known: &[Gpu]) -> Vec<Gpu> {
-    let Ok(entries) = std::fs::read_dir("/sys/bus/pci/devices") else {
+/// whose driver runs without `nvidia-drm`, or a card no driver is bound to
+/// (or one held for a virtual machine). They are still the machine's GPUs,
+/// named on Home and in the reports; only one a rendering driver is bound
+/// to can be chosen for games ([`Gpu::can_render`]).
+fn pci_display_devices(pci: &Path, known: &[Gpu]) -> Vec<Gpu> {
+    let Ok(entries) = std::fs::read_dir(pci) else {
         return Vec::new();
     };
     let mut out: Vec<Gpu> = entries
@@ -532,10 +676,7 @@ fn pci_display_devices(known: &[Gpu]) -> Vec<Gpu> {
             if !class.starts_with("0x03") || known.iter().any(|g| g.pci_slot == slot) {
                 return None;
             }
-            let id = |f: &str| {
-                read_trim(e.path().join(f)).map(|v| v.trim_start_matches("0x").to_ascii_uppercase())
-            };
-            let pci_id = format!("{}:{}", id("vendor")?, id("device")?);
+            let pci_id = pci_id_of(&e.path())?;
             let vendor = gpu_vendor_from_pci_id(&pci_id);
             let driver = std::fs::read_link(e.path().join("driver"))
                 .ok()
@@ -544,7 +685,7 @@ fn pci_display_devices(known: &[Gpu]) -> Vec<Gpu> {
             let device_path = e.path();
             Some(Gpu {
                 card: String::new(),
-                discrete: looks_discrete(vendor, &slot, false, None),
+                discrete: looks_discrete(vendor, &driver, &slot, false, None, None),
                 vendor,
                 pci_id,
                 hwmon: find_hwmon(&device_path),
@@ -569,26 +710,33 @@ fn pci_display_devices(known: &[Gpu]) -> Vec<Gpu> {
 ///   proprietary driver exposes no VRAM attributes at all, so a VRAM test
 ///   would call an NVIDIA card "integrated" and send a hybrid laptop's games to the
 ///   iGPU.
-/// - AMD: dedicated VRAM with a memory vendor (APUs carve theirs out of RAM
-///   and leave the vendor blank).
-/// - Intel: integrated graphics sit on the root bus (`0000:00:02.0`); an Arc
-///   card sits behind a PCI Express bridge, on another bus.
+/// - AMD on `amdgpu`: dedicated VRAM with a memory vendor, or a hwmon
+///   without the APU's northbridge rail (`apu_rail`: `Some(false)`). Older
+///   boards (GCN up to Polaris) publish no memory vendor; APUs carve their
+///   memory out of RAM, publish none either, and have the rail.
+/// - AMD on `radeon`, and Intel: integrated graphics sit on the root bus
+///   (`0000:00:01.0` on pre-Zen APUs, `0000:00:02.0` on Intel); a card sits
+///   behind a PCI Express bridge, on another bus. Zen APUs sit off the root
+///   bus, which is why `amdgpu` needs its own evidence.
 #[must_use]
 pub fn looks_discrete(
     vendor: GpuVendor,
+    driver: &str,
     pci_slot: &str,
     has_vram_vendor: bool,
+    apu_rail: Option<bool>,
     vram: Option<u64>,
 ) -> bool {
-    let big_vram = vram.is_some_and(|v| v > 1 << 30);
+    let off_root_bus = pci_slot
+        .split(':')
+        .nth(1)
+        .is_some_and(|bus| !bus.is_empty() && bus != "00");
     match vendor {
         GpuVendor::Nvidia => true,
-        GpuVendor::Amd => has_vram_vendor && big_vram,
-        GpuVendor::Intel => pci_slot
-            .split(':')
-            .nth(1)
-            .is_some_and(|bus| !bus.is_empty() && bus != "00"),
-        GpuVendor::Other => big_vram,
+        GpuVendor::Amd if driver == "radeon" => off_root_bus,
+        GpuVendor::Amd => has_vram_vendor || apu_rail == Some(false),
+        GpuVendor::Intel => off_root_bus,
+        GpuVendor::Other => vram.is_some_and(|v| v > 1 << 30),
     }
 }
 
@@ -634,9 +782,9 @@ fn find_hwmon(device_path: &Path) -> Option<PathBuf> {
 }
 
 /// Connector nodes for `card` whose `status` reads `connected`.
-fn connected_outputs_for(card: &str) -> Vec<String> {
+fn connected_outputs_for(drm: &Path, card: &str) -> Vec<String> {
     let prefix = format!("{card}-");
-    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+    let Ok(entries) = std::fs::read_dir(drm) else {
         return Vec::new();
     };
     let mut out: Vec<String> = entries
@@ -654,28 +802,41 @@ fn connected_outputs_for(card: &str) -> Vec<String> {
 
 /// Choose the card games will render on.
 ///
+/// Only a GPU the host can render on is a candidate ([`Gpu::can_render`]).
 /// Preference order, highest first:
-/// 1. a discrete card (dedicated VRAM) — on hybrid laptops the dGPU drives no
-///    connector at all, so "has outputs" alone would pick the wrong one;
-/// 2. among equals, the card with the most VRAM;
-/// 3. among equals, a card that actually drives a connected output;
-/// 4. the first card, so a single-GPU machine always gets an answer.
+/// 1. a GPU with a 3D engine over a 2D display controller (a BMC, emulated
+///    VGA);
+/// 2. a discrete card — on hybrid laptops the dGPU drives no connector at
+///    all, so "has outputs" alone would pick the wrong one;
+/// 3. among equals, the card with the most VRAM, when every one of them
+///    reports it: NVIDIA's driver, i915 and xe publish none, and an unknown
+///    amount is not zero;
+/// 4. among equals, a card that drives a connected output;
+/// 5. the first card, so a single-GPU machine always gets an answer.
 #[must_use]
 pub fn pick_render_gpu(gpus: &[Gpu]) -> Option<usize> {
-    gpus.iter()
-        .enumerate()
-        .max_by_key(|(_, g)| {
-            (
-                u8::from(g.discrete),
-                g.vram_total_bytes.unwrap_or(0),
-                u8::from(!g.connected_outputs.is_empty()),
-            )
-        })
-        .map(|(i, _)| i)
+    let rank = |g: &Gpu| (u8::from(!g.display_only()), u8::from(g.discrete));
+    let top = gpus.iter().filter(|g| g.can_render()).map(rank).max()?;
+    let group: Vec<usize> = (0..gpus.len())
+        .filter(|&i| gpus[i].can_render() && rank(&gpus[i]) == top)
+        .collect();
+    let vram_known = group.iter().all(|&i| gpus[i].vram_total_bytes.is_some());
+    // `max_by_key` keeps the last of equals; reversed, the first card wins.
+    group.into_iter().rev().max_by_key(|&i| {
+        let g = &gpus[i];
+        (
+            g.vram_total_bytes.filter(|_| vram_known),
+            u8::from(g.drives_display()),
+        )
+    })
 }
 
 fn detect_displays() -> Vec<Display> {
-    let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+    detect_displays_in(Path::new(DRM_CLASS))
+}
+
+fn detect_displays_in(drm: &Path) -> Vec<Display> {
+    let Ok(entries) = std::fs::read_dir(drm) else {
         return Vec::new();
     };
     let mut out = Vec::new();
@@ -693,7 +854,7 @@ fn detect_displays() -> Vec<Display> {
         out.push(Display {
             connector: connector.to_owned(),
             card: card.to_owned(),
-            max_mode: read_max_mode(&e.path().join("modes")),
+            max_mode: read_preferred_mode(&e.path().join("modes")),
             // Absent attribute means "sysfs does not say", not "no VRR".
             vrr_capable: read_trim(e.path().join("vrr_capable")).map(|v| v == "1"),
         });
@@ -709,9 +870,11 @@ fn detect_displays() -> Vec<Display> {
 ///
 /// Each driver stack has its own switch, and the wrong one half-works: on the
 /// NVIDIA proprietary driver `DRI_PRIME=1` gives OpenGL through zink on top of
-/// NVIDIA's Vulkan rather than NVIDIA's own OpenGL. Vulkan and DXVK/VKD3D
-/// games pick the discrete GPU by themselves; OpenGL games render on the GPU
-/// that drives the display unless told otherwise.
+/// NVIDIA's Vulkan rather than NVIDIA's own OpenGL. DXVK and VKD3D-Proton
+/// pick the discrete GPU by themselves; a native game renders on the GPU that
+/// drives the display unless told otherwise, OpenGL and Vulkan alike: on the
+/// GTX 1050 Ti laptop `SuperTuxKart`'s Vulkan renderer took the HD 630, listed
+/// first, until the Optimus layer filter put the GTX first.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Offload {
     /// NVIDIA proprietary driver: libglvnd's vendor selection plus the
@@ -751,15 +914,17 @@ impl Offload {
 ///
 /// Offload applies when the games' GPU drives no connected output while
 /// another GPU does: the laptop layout, where the integrated GPU owns the
-/// panel. A discrete card that drives a monitor itself needs nothing.
+/// panel. A discrete card that drives a monitor itself needs nothing, and a
+/// firmware framebuffer or a BMC's remote console is no display to offload
+/// for ([`Gpu::drives_display`]).
 #[must_use]
 pub fn offload_for(gpus: &[Gpu], render: usize) -> Option<Offload> {
     let g = gpus.get(render)?;
     let another_drives_display = gpus
         .iter()
         .enumerate()
-        .any(|(i, o)| i != render && !o.connected_outputs.is_empty());
-    if gpus.len() < 2 || !g.connected_outputs.is_empty() || !another_drives_display {
+        .any(|(i, o)| i != render && o.drives_display());
+    if !g.can_render() || g.drives_display() || !another_drives_display {
         return None;
     }
     if g.driver == "nvidia" {
@@ -775,13 +940,16 @@ pub fn offload_for(gpus: &[Gpu], render: usize) -> Option<Offload> {
     )))
 }
 
-/// Largest `WxH` listed in a DRM connector's `modes` file.
-fn read_max_mode(modes: &Path) -> Option<(u32, u32)> {
-    let content = std::fs::read_to_string(modes).ok()?;
-    content
-        .lines()
-        .filter_map(|l| parse_mode(l.trim()))
-        .max_by_key(|(w, h)| u64::from(*w) * u64::from(*h))
+/// The mode a DRM connector lists first: the monitor's preferred one, its
+/// native resolution. The largest listed is often a mode the monitor only
+/// accepts and scales (4096x2160 on a 2560x1080 panel).
+fn read_preferred_mode(modes: &Path) -> Option<(u32, u32)> {
+    preferred_mode(&std::fs::read_to_string(modes).ok()?)
+}
+
+/// The first `WxH` of a connector's `modes` text.
+fn preferred_mode(modes: &str) -> Option<(u32, u32)> {
+    modes.lines().find_map(|l| parse_mode(l.trim()))
 }
 
 /// Parse a DRM mode string such as `3440x1440`.
@@ -1105,37 +1273,382 @@ core id\t\t: 1
         // proprietary driver at 0000:01:00.0 with no VRAM attributes.
         assert!(looks_discrete(
             GpuVendor::Nvidia,
+            "nvidia",
             "0000:01:00.0",
             false,
+            None,
             None
         ));
         assert!(!looks_discrete(
             GpuVendor::Intel,
+            "i915",
             "0000:00:02.0",
             false,
+            None,
             None
         ));
         // Arc behind a PCIe bridge.
         assert!(looks_discrete(
             GpuVendor::Intel,
+            "xe",
             "0000:03:00.0",
             false,
+            None,
             None
         ));
-        // RX 9060 XT vs the Cezanne iGPU's 512 MiB carve-out.
+        // RX 9060 XT vs the Cezanne iGPU's 512 MiB carve-out, which sits off
+        // the root bus and has the northbridge rail.
         assert!(looks_discrete(
             GpuVendor::Amd,
+            "amdgpu",
             "0000:03:00.0",
             true,
+            Some(false),
             Some(17_095_983_104)
         ));
         assert!(!looks_discrete(
             GpuVendor::Amd,
-            "0000:07:00.0",
+            "amdgpu",
+            "0000:0a:00.0",
             false,
+            Some(true),
             Some(536_870_912)
         ));
-        assert!(!looks_discrete(GpuVendor::Intel, "", false, None));
+        assert!(!looks_discrete(
+            GpuVendor::Intel,
+            "i915",
+            "",
+            false,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn amd_boards_without_a_memory_vendor_are_told_apart_from_apus() {
+        // An RX 580 on amdgpu publishes no memory vendor; its hwmon has no
+        // northbridge rail.
+        assert!(looks_discrete(
+            GpuVendor::Amd,
+            "amdgpu",
+            "0000:01:00.0",
+            false,
+            Some(false),
+            Some(8 << 30)
+        ));
+        // An APU whose firmware reserves 4 GiB is still an APU.
+        assert!(!looks_discrete(
+            GpuVendor::Amd,
+            "amdgpu",
+            "0000:c4:00.0",
+            false,
+            Some(true),
+            Some(4 << 30)
+        ));
+        // `radeon` publishes neither: a Kaveri APU sits on the root bus, an
+        // HD 7850 behind a bridge.
+        assert!(!looks_discrete(
+            GpuVendor::Amd,
+            "radeon",
+            "0000:00:01.0",
+            false,
+            None,
+            None
+        ));
+        assert!(looks_discrete(
+            GpuVendor::Amd,
+            "radeon",
+            "0000:01:00.0",
+            false,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn an_rtx_driving_the_monitor_beats_a_spare_radeon_whose_vram_is_known() {
+        // NVIDIA's driver publishes no VRAM: an unknown is not 0 bytes, and
+        // the 4 GiB Radeon left in the second slot must not win on it.
+        let mut rtx = gpu("card0", true, None, &["DP-1"]);
+        rtx.driver = "nvidia".into();
+        rtx.vendor = GpuVendor::Nvidia;
+        rtx.pci_slot = "0000:01:00.0".into();
+        let mut radeon = gpu("card1", true, Some(4 << 30), &[]);
+        radeon.pci_slot = "0000:04:00.0".into();
+        let gpus = vec![rtx, radeon];
+        assert_eq!(pick_render_gpu(&gpus), Some(0));
+        assert_eq!(offload_for(&gpus, 0), None);
+        // Two cards that both report VRAM still compare on it.
+        let gpus = vec![
+            gpu("card0", true, Some(4 << 30), &["DP-1"]),
+            gpu("card1", true, Some(16 << 30), &[]),
+        ];
+        assert_eq!(pick_render_gpu(&gpus), Some(1));
+    }
+
+    #[test]
+    fn the_first_of_equal_cards_renders() {
+        let gpus = vec![
+            gpu("card0", true, Some(8 << 30), &["DP-1"]),
+            gpu("card1", true, Some(8 << 30), &["DP-2"]),
+        ];
+        assert_eq!(pick_render_gpu(&gpus), Some(0));
+        let headless = vec![gpu("card0", true, None, &[]), gpu("card1", true, None, &[])];
+        assert_eq!(pick_render_gpu(&headless), Some(0));
+    }
+
+    #[test]
+    fn a_firmware_framebuffer_is_neither_a_render_gpu_nor_a_display() {
+        // An NVIDIA desktop with `nvidia-drm.modeset=0`: simpledrm survives
+        // with its stand-in connector, the GeForce has no connector at all.
+        let mut fb = gpu("card0", false, None, &["Unknown-1"]);
+        fb.driver = "simple-framebuffer".into();
+        fb.vendor = GpuVendor::Other;
+        let mut nv = gpu("card1", true, None, &[]);
+        nv.driver = "nvidia".into();
+        nv.vendor = GpuVendor::Nvidia;
+        nv.pci_slot = "0000:01:00.0".into();
+        let gpus = vec![fb, nv];
+        assert_eq!(pick_render_gpu(&gpus), Some(1));
+        assert_eq!(offload_for(&gpus, 1), None, "no PRIME on a single GPU");
+        // Alone, it is still no GPU to render on.
+        assert_eq!(pick_render_gpu(&gpus[..1]), None);
+    }
+
+    #[test]
+    fn a_bmc_console_is_no_display_to_offload_for() {
+        // A server board: ast with its always-connected remote console, a
+        // GeForce with no connector (no nvidia-drm modeset).
+        let mut bmc = gpu("card0", false, None, &["Virtual-1"]);
+        bmc.driver = "ast".into();
+        bmc.vendor = GpuVendor::Other;
+        let mut nv = gpu("card1", true, None, &[]);
+        nv.driver = "nvidia".into();
+        nv.vendor = GpuVendor::Nvidia;
+        let gpus = vec![bmc.clone(), nv];
+        assert_eq!(pick_render_gpu(&gpus), Some(1));
+        assert_eq!(offload_for(&gpus, 1), None);
+        // A monitor on the BMC's VGA port is a display.
+        let mut vga = bmc.clone();
+        vga.connected_outputs.push("VGA-1".into());
+        let gpus = vec![vga, gpus[1].clone()];
+        assert_eq!(offload_for(&gpus, 1), Some(Offload::Nvidia));
+        // A 2D controller loses to a GPU with a 3D engine, outputs or not.
+        let mut igpu = gpu("card1", false, None, &[]);
+        igpu.driver = "i915".into();
+        let mut vga_bmc = bmc;
+        vga_bmc.connected_outputs = vec!["VGA-1".into()];
+        assert_eq!(pick_render_gpu(&[vga_bmc, igpu]), Some(1));
+    }
+
+    #[test]
+    fn a_gpu_held_for_a_guest_or_without_a_driver_is_never_the_games_gpu() {
+        // A VFIO host: the APU drives the display, the GeForce is reserved
+        // for a virtual machine.
+        let mut apu = gpu("card0", false, Some(512 << 20), &["HDMI-A-1"]);
+        apu.pci_slot = "0000:0a:00.0".into();
+        for driver in ["vfio-pci", "pci-stub", ""] {
+            let mut nv = gpu("", true, None, &[]);
+            nv.driver = driver.into();
+            nv.vendor = GpuVendor::Nvidia;
+            nv.pci_slot = "0000:01:00.0".into();
+            let gpus = vec![apu.clone(), nv];
+            assert_eq!(pick_render_gpu(&gpus), Some(0), "{driver:?}");
+            assert_eq!(offload_for(&gpus, 1), None, "{driver:?}");
+        }
+    }
+
+    #[test]
+    fn the_preferred_mode_is_the_first_listed_not_the_largest() {
+        // DP-2 of the reference desktop: a 2560x1080 panel that also accepts
+        // a 4096x2160 signal.
+        assert_eq!(
+            preferred_mode("2560x1080\n4096x2160\n2560x1080\n"),
+            Some((2560, 1080))
+        );
+        assert_eq!(preferred_mode(""), None);
+    }
+
+    /// A fake sysfs: `/sys/devices`, `/sys/class/drm` and
+    /// `/sys/bus/pci/devices`, linked as the kernel links them.
+    struct Sysfs {
+        dir: tempfile::TempDir,
+    }
+
+    impl Sysfs {
+        fn new() -> Self {
+            let s = Self {
+                dir: tempfile::tempdir().unwrap(),
+            };
+            std::fs::create_dir_all(s.drm()).unwrap();
+            std::fs::create_dir_all(s.pci()).unwrap();
+            s
+        }
+        fn drm(&self) -> PathBuf {
+            self.dir.path().join("class/drm")
+        }
+        fn pci(&self) -> PathBuf {
+            self.dir.path().join("bus/pci/devices")
+        }
+        fn put(&self, rel: &str, v: &str) {
+            let p = self.dir.path().join(rel);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, v).unwrap();
+        }
+        /// A PCI function at `devices/<path>`, listed on the PCI bus.
+        fn pci_device(&self, path: &str, class: &str, vendor: &str, device: &str) {
+            self.put(&format!("devices/{path}/class"), class);
+            self.put(&format!("devices/{path}/vendor"), vendor);
+            self.put(&format!("devices/{path}/device"), device);
+            let slot = path.rsplit('/').next().unwrap();
+            std::os::unix::fs::symlink(
+                self.dir.path().join("devices").join(path),
+                self.pci().join(slot),
+            )
+            .unwrap();
+        }
+        /// DRM `card` whose device is `devices/<path>`.
+        fn card(&self, card: &str, path: &str, uevent: &str) {
+            self.put(&format!("devices/{path}/uevent"), uevent);
+            std::fs::create_dir_all(self.drm().join(card)).unwrap();
+            std::os::unix::fs::symlink(
+                self.dir.path().join("devices").join(path),
+                self.drm().join(card).join("device"),
+            )
+            .unwrap();
+        }
+        fn connector(&self, name: &str, status: &str, modes: &str) {
+            self.put(&format!("class/drm/{name}/status"), status);
+            self.put(&format!("class/drm/{name}/modes"), modes);
+        }
+        fn detect(&self) -> Vec<Gpu> {
+            detect_gpus_in(&self.drm(), &self.pci())
+        }
+    }
+
+    #[test]
+    fn a_virtio_gpu_is_one_gpu_with_its_pci_address() {
+        // QEMU: the DRM card's device is `virtio0`, a child of the PCI
+        // function, and its uevent names no PCI slot.
+        let fs = Sysfs::new();
+        fs.pci_device("pci0000:00/0000:00:02.0", "0x030000", "0x1af4", "0x1050");
+        fs.card(
+            "card0",
+            "pci0000:00/0000:00:02.0/virtio0",
+            "DRIVER=virtio_gpu\nMODALIAS=virtio:d00000010v00001AF4\n",
+        );
+        fs.connector("card0-Virtual-1", "connected", "1280x800\n");
+        let gpus = fs.detect();
+        assert_eq!(gpus.len(), 1, "{gpus:#?}");
+        assert_eq!(gpus[0].pci_slot, "0000:00:02.0");
+        assert_eq!(gpus[0].pci_id, "1AF4:1050");
+        assert_eq!(gpus[0].connected_outputs, ["Virtual-1"]);
+        assert_eq!(pick_render_gpu(&gpus), Some(0));
+    }
+
+    #[test]
+    fn a_usb_display_adapter_does_not_borrow_its_controllers_address() {
+        let fs = Sysfs::new();
+        fs.pci_device("pci0000:00/0000:00:14.0", "0x0c0330", "0x8086", "0xa36d");
+        fs.card(
+            "card0",
+            "pci0000:00/0000:00:14.0/usb3/3-1/3-1:1.0",
+            "DRIVER=udl\n",
+        );
+        let gpus = fs.detect();
+        assert_eq!(gpus.len(), 1);
+        assert_eq!(gpus[0].pci_slot, "");
+    }
+
+    #[test]
+    fn cards_are_listed_by_number_and_the_apu_is_told_by_its_rail() {
+        let fs = Sysfs::new();
+        for (card, slot, vendor_attr, rail) in [
+            ("card10", "0000:03:00.0", true, false),
+            ("card2", "0000:0a:00.0", false, true),
+        ] {
+            let path = format!("pci0000:00/0000:00:01.1/{slot}");
+            fs.pci_device(&path, "0x030000", "0x1002", "0x7590");
+            fs.card(
+                card,
+                &path,
+                &format!("DRIVER=amdgpu\nPCI_ID=1002:7590\nPCI_SLOT_NAME={slot}\n"),
+            );
+            fs.put(&format!("devices/{path}/hwmon/hwmon1/temp1_input"), "40000");
+            fs.put(&format!("devices/{path}/hwmon/hwmon1/in0_label"), "vddgfx");
+            if rail {
+                fs.put(&format!("devices/{path}/hwmon/hwmon1/in1_label"), "vddnb");
+            }
+            if vendor_attr {
+                fs.put(&format!("devices/{path}/mem_info_vram_vendor"), "samsung");
+            }
+        }
+        let gpus = fs.detect();
+        let cards: Vec<&str> = gpus.iter().map(|g| g.card.as_str()).collect();
+        assert_eq!(cards, ["card2", "card10"]);
+        assert!(!gpus[0].discrete, "the APU has the northbridge rail");
+        assert!(gpus[1].discrete);
+    }
+
+    #[test]
+    fn a_firmware_framebuffer_and_a_device_on_vfio_are_listed_but_not_chosen() {
+        let fs = Sysfs::new();
+        fs.card(
+            "card0",
+            "platform/simple-framebuffer.0",
+            "DRIVER=simple-framebuffer\n",
+        );
+        fs.connector("card0-Unknown-1", "connected", "1920x1080\n");
+        fs.pci_device(
+            "pci0000:00/0000:00:01.0/0000:01:00.0",
+            "0x030000",
+            "0x10de",
+            "0x2684",
+        );
+        std::os::unix::fs::symlink(
+            fs.dir.path().join("bus/pci/drivers/vfio-pci"),
+            fs.dir
+                .path()
+                .join("devices/pci0000:00/0000:00:01.0/0000:01:00.0/driver"),
+        )
+        .unwrap();
+        let gpus = fs.detect();
+        assert_eq!(gpus.len(), 2, "both are named in the reports");
+        assert_eq!(gpus[1].driver, "vfio-pci");
+        assert_eq!(pick_render_gpu(&gpus), None);
+        let displays = detect_displays_in(&fs.drm());
+        assert_eq!(displays[0].max_mode, Some((1920, 1080)));
+        assert_eq!(displays[0].vrr_capable, None, "unknown, not \"no\"");
+    }
+
+    #[test]
+    fn intel_hwp_takes_its_energy_preference_from_the_power_profile() {
+        let cpu = |driver: &str, status: Option<&str>, epp: Option<&str>| Cpu {
+            vendor: CpuVendor::Intel,
+            model: String::new(),
+            physical_cores: 4,
+            logical_cpus: 8,
+            smt: true,
+            hybrid: false,
+            scaling_driver: Some(driver.into()),
+            available_governors: vec!["performance".into(), "powersave".into()],
+            current_governor: Some("powersave".into()),
+            available_epp: Vec::new(),
+            current_epp: epp.map(Into::into),
+            amd_pstate_status: status.map(Into::into),
+            vcache: None,
+        };
+        assert!(
+            cpu("intel_pstate", None, Some("balance_performance")).epp_driven_by_power_profile()
+        );
+        // Active without HWP, and passive mode, have no EPP to drive.
+        assert!(!cpu("intel_pstate", None, None).epp_driven_by_power_profile());
+        assert!(!cpu("intel_cpufreq", None, None).epp_driven_by_power_profile());
+        assert!(
+            cpu("amd-pstate-epp", Some("active"), Some("performance"))
+                .epp_driven_by_power_profile()
+        );
+        assert!(!cpu("amd-pstate", Some("passive"), None).epp_driven_by_power_profile());
     }
 
     #[test]
