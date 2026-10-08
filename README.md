@@ -472,8 +472,9 @@ Two workflows check every pull request (details in
   `testing-*` and `stable-*`: a `makepkg` build of that very commit with
   `pkgbuild/PKGBUILD`, checked with namcap, `desktop-file-validate`,
   `appstreamcli` and a look at every file it installs; the package is kept as
-  an artifact. On a push, once all of that passes, the branch is handed to the
-  BigLinux package builders.
+  an artifact. A successful run of it is what the BigLinux package builders
+  build. Pull requests run the same build as `package-check.yml`, which is
+  not handed to them.
 
 ## Author
 

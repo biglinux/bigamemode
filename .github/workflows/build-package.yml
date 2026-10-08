@@ -1,32 +1,35 @@
 name: Build Package
 
 # Builds the commit under test with pkgbuild/PKGBUILD, in Arch's own
-# container, validates the package and keeps it as an artifact. Pushes and
-# manual runs that ask for it then hand the branch to the BigLinux package
-# builders, only once that package has built and passed every check.
+# container, validates the package and keeps it as an artifact.
+#
+# This workflow's success is what the BigLinux package builders act on: when
+# a "Build Package" run of biglinux/bigamemode ends in success, they build
+# its branch (on GitLab, gitlab.bigib.org/builder/packagebuilder). So it runs
+# only for the branches they can build: pushes to main, testing-* and
+# stable-*, and manual runs of such a branch. A failed run is not built, and
+# a branch with '/' breaks their recipe, so pull requests are checked by
+# package-check.yml, which calls this workflow under another name.
 # See docs/ci-workflows-audit.md.
 
 on:
-  pull_request:
   push:
     # '*' does not match '/': main, testing-*, stable-* and other plain
-    # branch names, which the BigLinux builders' hook has always covered.
-    # Topic branches (fix/…, feat/…) are built through their pull request.
+    # branch names. Topic branches (fix/…, feat/…) go through their pull
+    # request, in package-check.yml.
     branches: ['*']
   workflow_dispatch:
-    inputs:
-      send-to-builders:
-        description: Hand this branch to the BigLinux package builders once the package passes
-        type: boolean
-        default: false
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-package-${{ github.ref }}
-  # A newer commit on a pull request makes the older build moot. Pushes are
-  # never cancelled: each one is handed to the package builders.
+  # github.workflow is the caller's name when package-check.yml calls this
+  # one, so a pull request's check never queues behind a push of its branch.
+  group: build-package-${{ github.workflow }}-${{ github.ref }}
+  # A newer commit on a pull request makes the older check moot. Pushes are
+  # never cancelled: each successful one is built by the BigLinux builders.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -45,6 +48,17 @@ jobs:
         # tee, fails the step.
         shell: bash
     steps:
+      - name: Refuse a branch the BigLinux builders cannot build
+        # A manual "Build Package" run that succeeds is built by them too,
+        # and their recipe breaks on '/' in a branch name. Run
+        # package-check.yml on such a branch instead.
+        if: github.workflow == 'Build Package' && contains(github.ref_name, '/')
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "::error::$BRANCH has '/' in its name: a successful Build Package run is handed to the BigLinux builders, which cannot build it. Run Package check on it instead."
+          exit 1
+
       - name: Prepare Arch environment
         run: |
           set -Eeuo pipefail
@@ -331,42 +345,3 @@ jobs:
             package-build/build-report.md
           if-no-files-found: ignore
           retention-days: 14
-
-  notify-builders:
-    name: Hand the branch to the BigLinux package builders
-    needs: package
-    # Every push to biglinux/bigamemode, as the builders' hook always did; a
-    # manual run only when asked to. Never a pull request: it has no secret,
-    # and its code is not the branch's yet.
-    if: >-
-      github.repository == 'biglinux/bigamemode' &&
-      (github.event_name == 'push' ||
-       (github.event_name == 'workflow_dispatch' && inputs.send-to-builders))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    # Uses only the organization's WEBHOOK_TOKEN; no GITHUB_TOKEN permission.
-    permissions: {}
-    steps:
-      - name: Send repository_dispatch to BigLinux-Package-Build
-        shell: bash
-        env:
-          WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }}
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          set -Eeuo pipefail
-          if [[ -z "$WEBHOOK_TOKEN" ]]; then
-            echo "::error::the WEBHOOK_TOKEN secret is not available to this run"
-            exit 1
-          fi
-          # x86_64 only (arch=('x86_64') in pkgbuild/PKGBUILD): no ARM builder.
-          payload=$(jq -cn --arg repo "$GITHUB_REPOSITORY" --arg branch "$BRANCH" \
-            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            '{event_type: $repo, client_payload: {branch: $branch, url: $url}}')
-          echo "Dispatching: $payload"
-          # --fail-with-body: a refused token fails the run instead of passing.
-          curl --fail-with-body --silent --show-error --max-time 30 -X POST \
-            -H 'Accept: application/vnd.github+json' \
-            -H "Authorization: token $WEBHOOK_TOKEN" \
-            --data "$payload" \
-            https://api.github.com/repos/BigLinux-Package-Build/build-package/dispatches
-          echo "Branch $BRANCH handed to the BigLinux package builders." >> "$GITHUB_STEP_SUMMARY"
