@@ -442,13 +442,16 @@ fn problem_row(title: &str, detail: &str, class: Class, command: Option<&str>) -
         Some(c) => format!("{detail}\n→ {c}"),
         None => detail.to_owned(),
     };
-    // Plain text: a command with `&&` is invalid Pango markup.
+    // Plain text: a command with `&&` is invalid Pango markup. The text is
+    // set after the build: construction sets `subtitle` while `use-markup`
+    // is still on, whatever the builder's order, and GTK logs the failed
+    // parse as an error.
     let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(&subtitle)
         .subtitle_lines(6)
         .use_markup(false)
         .build();
+    row.set_title(title);
+    row.set_subtitle(&subtitle);
     let icon = gtk4::Image::from_icon_name(match class {
         Class::Ok => "object-select-symbolic",
         Class::Fixable => "wrench-wide-symbolic",
