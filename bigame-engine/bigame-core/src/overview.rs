@@ -476,6 +476,18 @@ struct TurboReading {
 /// (and why), and whether systemd could not be asked at all. Without
 /// falcond, Turbo's own state (Booster only), as Home shows it.
 fn read_turbo() -> TurboReading {
+    // A build that crashed on this processor is not started again: Turbo is
+    // the Booster's, and falcond stays a failure to explain, after a reboot
+    // too, when systemd no longer says why.
+    if crate::falcond_compat::crashes_here() {
+        let state = crate::turbo::state_blocking();
+        return TurboReading {
+            on: state.as_ref().is_ok_and(|s| *s == crate::turbo::State::On),
+            failed: true,
+            failure: Some(crate::systemd::Failure::IllegalInstruction),
+            unreadable: state.is_err(),
+        };
+    }
     let unit = crate::systemd::Reader::shared()
         .and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT))
         .filter(crate::systemd::UnitState::is_installed);

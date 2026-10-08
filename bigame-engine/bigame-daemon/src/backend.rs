@@ -191,6 +191,13 @@ pub async fn set_enabled(
     take_ownership(connection).await?;
 
     let reached = if enabled {
+        // A build that crashed on this processor crashes again, the same way.
+        if bigame_core::falcond_compat::crashes_here() {
+            anyhow::bail!(
+                "this falcond build crashed on this processor (illegal instruction); \
+                 it is not started again until the package changes"
+            );
+        }
         let before = state(connection).await?;
         if before.is_failed() {
             info!(failure = ?before.failure(), "starting falcond again after a failure; clearing it first");
@@ -201,7 +208,10 @@ pub async fn set_enabled(
         let started = match manager.start_unit(UNIT, "replace").await {
             Ok(_) => match settle(connection, "active").await {
                 Ok(reached) if reached == "active" => match stays_active(connection).await {
-                    Ok(None) => Ok(reached),
+                    Ok(None) => {
+                        bigame_core::falcond_compat::forget();
+                        Ok(reached)
+                    }
                     Ok(Some(now)) => {
                         // Let systemd finish its restarts: one that crashes
                         // at once reaches the start limit within a second
@@ -215,6 +225,16 @@ pub async fn set_enabled(
                         }
                         let failure = state(connection).await?.failure();
                         warn!(state = now, ?failure, "falcond started, then stopped");
+                        if failure == Some(bigame_core::systemd::Failure::IllegalInstruction) {
+                            match bigame_core::falcond_compat::record() {
+                                Ok(()) => warn!(
+                                    "falcond's build cannot run on this processor; not starting it again until it changes"
+                                ),
+                                Err(e) => {
+                                    warn!(error = %format!("{e:#}"), "falcond's crash could not be recorded");
+                                }
+                            }
+                        }
                         Ok("failed".to_owned())
                     }
                     Err(e) => Err(e),

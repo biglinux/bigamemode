@@ -69,12 +69,19 @@ impl State {}
 pub async fn state() -> Result<State> {
     let connection = zbus::Connection::system().await?;
     let unit = crate::systemd::unit_state(&connection, BACKEND_UNIT).await?;
-    let on = if unit.is_installed() {
+    let on = if backend_governs(&unit) {
         unit.is_active()
     } else {
         BoosterEngine::is_active()
     };
     Ok(if on { State::On } else { State::Off })
+}
+
+/// Whether Turbo's state is falcond's: it is installed, and not a build that
+/// crashed on this processor. Otherwise Turbo is the Booster's, as without
+/// falcond.
+fn backend_governs(unit: &crate::systemd::UnitState) -> bool {
+    unit.is_installed() && !crate::falcond_compat::crashes_here()
 }
 
 /// Blocking variant, for the UI's worker threads.
@@ -102,7 +109,7 @@ pub async fn reconcile() -> Result<usize> {
     let connection = zbus::Connection::system().await?;
     let unit = crate::systemd::unit_state(&connection, BACKEND_UNIT).await?;
     // Without falcond the journal *is* Turbo's state; nothing to reconcile.
-    if !unit.is_installed() || unit.is_active() || !BoosterEngine::is_active() {
+    if !backend_governs(&unit) || unit.is_active() || !BoosterEngine::is_active() {
         return Ok(0);
     }
     tracing::info!(target: "turbo", "Turbo is off but Booster changes are in force; restoring them");
@@ -461,10 +468,21 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     }
 
     let mut running = true;
-    if caps.falcond_installed {
+    let mut backend = caps.falcond_usable;
+    if caps.falcond_usable {
         // What runs before Turbo, so Turbo off can tell what falcond left.
         remember_scheduler(current_scheduler().await.as_deref());
         running = enable_backend(&hardware, &mut report, &mut progress).await;
+        if !running && crate::falcond_compat::crashes_here() {
+            // It crashed on this processor just now, and the helper
+            // recorded it: Turbo goes on without it, as without falcond.
+            tracing::warn!(target: "turbo", "falcond cannot run on this processor; Turbo goes on without it");
+            push_cannot_run(&mut report);
+            running = true;
+            backend = false;
+        }
+    } else if caps.falcond_installed {
+        push_cannot_run(&mut report);
     } else {
         report.push(
             Kind::GameBackend,
@@ -509,7 +527,7 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
 
     // Without falcond Turbo is on while the Booster's record is there; a
     // preset with no Turbo to take it away would stay for the session.
-    if caps.falcond_installed || BoosterEngine::is_active() {
+    if backend || BoosterEngine::is_active() {
         apply_preset(preset, &mut report).await;
     } else {
         hold_back(preset, false, &mut report);
@@ -525,6 +543,21 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         "turbo on"
     );
     Ok(report)
+}
+
+/// A falcond build that crashed on this processor, in the report: Turbo goes
+/// on without it.
+fn push_cannot_run(report: &mut Report) {
+    report.push(
+        Kind::GameBackend,
+        Section::Unavailable,
+        "falcond",
+        Text::plain(N_(
+            "this falcond build crashed on this processor (illegal instruction), so it is \
+             not started again until the package changes; Turbo applies the general \
+             settings without per-game profiles",
+        )),
+    );
 }
 
 /// Turbo's parts that were not applied because Turbo did not come on: the
@@ -1237,7 +1270,7 @@ pub fn tidy_up_blocking() -> Result<()> {
     let unit = crate::systemd::Reader::shared()
         .and_then(|r| r.unit_state(BACKEND_UNIT))
         .ok_or_else(|| anyhow::anyhow!("systemd could not be asked about {BACKEND_UNIT}"))?;
-    if !unit.is_installed() || unit.is_active() {
+    if !backend_governs(&unit) || unit.is_active() {
         return Ok(());
     }
     let preset = crate::turbo_preset::resync(false);

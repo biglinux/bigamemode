@@ -245,6 +245,10 @@ pub struct Capabilities {
     pub mangoapp: bool,
     /// falcond binary present.
     pub falcond_installed: bool,
+    /// falcond installed and not a build recorded as crashing on this
+    /// processor ([`crate::falcond_compat`]): the game backend Turbo uses.
+    /// Otherwise the Booster owns what falcond would.
+    pub falcond_usable: bool,
     /// falcond currently running.
     pub falcond_running: bool,
     /// Feral `GameMode` present. Relevant because it and falcond contend for the
@@ -273,6 +277,7 @@ impl Capabilities {
             mangohud: which("mangohud").is_some(),
             mangoapp: which("mangoapp").is_some(),
             falcond_installed: which("falcond").is_some(),
+            falcond_usable: which("falcond").is_some() && !crate::falcond_compat::crashes_here(),
             falcond_running: falcond_running(),
             gamemode: which("gamemoderun").is_some() || which("gamemoded").is_some(),
             power_profiles: crate::dbus::power_profile_get().is_some(),
