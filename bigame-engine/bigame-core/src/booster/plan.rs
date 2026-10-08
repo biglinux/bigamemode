@@ -262,7 +262,7 @@ impl Plan {
         // dispatches the bus's change signals, so a profile chosen later is
         // still not seen. The report says so, because "restores it" reads as
         // "the one before the game".
-        if caps.falcond_installed {
+        if caps.falcond_usable {
             let detail = match owner {
                 PowerProfileOwner::Falcond { profile } => falcond_is_managing(profile),
                 PowerProfileOwner::Booster => Text::plain(N_(
@@ -483,7 +483,7 @@ impl Plan {
             });
             return;
         };
-        if caps.falcond_installed {
+        if caps.falcond_usable {
             self.skipped.push(Skipped::OwnedBy {
                 knob: knob.title_text(),
                 owner: "falcond".into(),
@@ -579,6 +579,7 @@ mod tests {
     fn caps(performance: bool, ppd: bool) -> Capabilities {
         Capabilities {
             falcond_installed: false,
+            falcond_usable: false,
             falcond_running: false,
             ..caps_with_falcond(performance, ppd)
         }
@@ -591,6 +592,7 @@ mod tests {
             mangohud: false,
             mangoapp: false,
             falcond_installed: true,
+            falcond_usable: true,
             falcond_running: true,
             gamemode: false,
             power_profiles: ppd,
@@ -1006,6 +1008,21 @@ mod tests {
             sk, Skipped::OwnedBy { knob, owner, .. }
             if knob.english().contains("Power profile") && owner == "falcond"
         )));
+    }
+
+    #[test]
+    fn a_falcond_that_cannot_run_here_leaves_the_power_profile_to_booster() {
+        // Ivy Bridge with falcond 2.0.14 built for x86-64-v3 (a user's
+        // report): installed, crashed, recorded, never started again.
+        let h = hw(PowerSource::Ac, vec![dgpu("card1", true)]);
+        let s = snap(&[(Knob::PowerProfile, Some("balanced"))]);
+        let crashes = Capabilities {
+            falcond_usable: false,
+            falcond_running: false,
+            ..caps_with_falcond(true, true)
+        };
+        let plan = Plan::build_with_owner(&h, &crashes, &s, &PowerProfileOwner::Booster);
+        assert!(plan.changes.iter().any(|c| c.knob == Knob::PowerProfile));
     }
 
     #[test]

@@ -272,6 +272,50 @@ levels with and without AVX2/BMI2, the explanations, the Support report and
 Home), the same tests on an emulated Opteron G1, rustdoc, translations (29
 catalogues, the 12 new messages translated) and the package build.
 
+## A second report: Ivy Bridge, and Turbo without falcond
+
+A second user reported the same crash on an Intel Xeon E3-1245 V2 (Ivy
+Bridge, 2012) with a Radeon RX 550: `status=4/ILL` five times, then
+`start-limit-hit`, and every Turbo off answered `falcond.service is still
+failed; not disabled yet`. Its CPU flags have AVX and F16C, and no AVX2,
+BMI1, BMI2, FMA, LZCNT (`abm`) or MOVBE: x86-64-v2. The packaged falcond
+dies the same way under `qemu-x86_64 -cpu IvyBridge` (exit 132, SIGILL) and
+runs under `-cpu Haswell`.
+
+The changes above stopped the crash from being hidden, but left Turbo off on
+such a machine for as long as the package is not rebuilt: Turbo's state was
+falcond's, and falcond never stays up. Each Turbo on also started it again,
+five crashes each time.
+
+**Now** a falcond that dies on an illegal instruction is recorded by the
+helper in `/var/lib/bigame-mode/game-backend.incompatible.json`: the
+binary's size and modification time (pacman sets it from the package, so it
+names the build), and the processor's x86-64 level
+([`falcond_compat`](../bigame-engine/bigame-core/src/falcond_compat.rs)).
+While both match:
+
+* the helper does not start falcond again;
+* Turbo goes on without it, as on a system without falcond: the Booster
+  applies the general settings and takes the power profile, and Turbo's
+  state is the Booster's;
+* the report, Details and the health check say why, after a reboot too, when
+  systemd no longer does.
+
+A package update changes the binary, the record no longer matches, and
+falcond is tried again; it is forgotten once falcond stays up. Reinstalling
+the same build keeps it: that build crashes the same way.
+
+Replayed in a container with systemd 261, the real helper, the client and
+falcond 2.0.14-1 (x86-64-v3) all under `qemu-x86_64 -cpu IvyBridge`:
+
+| Step | Result |
+|---|---|
+| Turbo on | falcond crashes (5 starts, `start-limit-hit`), recorded with `cpu_level: 2`, left disabled. Report: the illegal-instruction explanation, then "Turbo applies the general settings without per-game profiles". Turbo **on**. |
+| Turbo off, Turbo on | No new falcond start (still 5). Turbo on. |
+| Same build, new mtime (an update that is still v3) | Tried once more (10 starts), recorded again. Turbo on. |
+| A baseline build | Started, stays active, record removed, Turbo's state is falcond's again. Turbo off stops and disables it. |
+| Reboot with the v3 build recorded | Turbo still on (Booster), falcond disabled, `Result=success`; the health check still explains the crash and names the missing AVX2, BMI1, BMI2, FMA, LZCNT, MOVBE. |
+
 ## Limits
 
 * **No real Sandy Bridge was available.** The processor was emulated by QEMU
@@ -282,7 +326,7 @@ catalogues, the 12 new messages translated) and the package build.
 * **BigLinux's falcond recipe** has to receive the patch. Until a fixed
   falcond is published, Big Game Mode explains the failure but cannot make
   Turbo's per-game part run on those processors. The rest of Turbo, without
-  falcond, is what a system without falcond gets.
+  falcond, is what a system without falcond gets (see the second report).
 * A falcond that crashes later than the 2 s grace period is not caught when
   Turbo starts. It shows up as a failed service, with its cause, on the same
   pages.

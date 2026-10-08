@@ -225,6 +225,10 @@ const INFRASTRUCTURE: &[&str] = &[
     "python",
     "sh",
     "bash",
+    // pressure-vessel rebuilds the container's library cache with it before
+    // the game starts; Debian-based runtimes name the binary ldconfig.real.
+    "ldconfig",
+    "ldconfig.real",
     // Wine infrastructure
     "wineserver",
     "wine",
@@ -2011,6 +2015,35 @@ mod tests {
         assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
         assert!(!is_infrastructure("SOTTR.exe"));
         assert!(!is_infrastructure("supertuxkart"));
+    }
+
+    #[test]
+    fn the_containers_ldconfig_is_not_the_game() {
+        // BLOODSTRIKE on SteamLinuxRuntime_4 (a user's log): pressure-vessel
+        // rebuilds the container's library cache before Proton starts, and
+        // its ldconfig, waiting on a busy lock, was announced as the game.
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/h/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=3199170 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "/s/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap|--",
+                5,
+            ),
+            p(
+                3,
+                2,
+                "/sbin/ldconfig|-X -C /run/pressure-vessel/ldso/ld.so.cache",
+                80,
+            ),
+            p(4, 2, "/usr/sbin/ldconfig.real|-p", 20),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
     }
 
     #[test]

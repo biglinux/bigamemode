@@ -12,6 +12,7 @@ pub mod dbus_client;
 pub mod diagnostics;
 pub mod dns_config;
 pub mod error;
+pub mod falcond_compat;
 pub mod fg;
 pub mod game_launch;
 pub mod game_settings;

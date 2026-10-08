@@ -231,12 +231,14 @@ pub fn section(title: &str) -> adw::PreferencesGroup {
 /// it — in place of a control that could not work.
 #[must_use]
 pub fn missing_row(title: &str, what: &str, command: &str) -> adw::ActionRow {
+    // Set after the build, as plain text: a command with `&&` is invalid
+    // Pango markup, and construction applies `subtitle` before `use-markup`.
     let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(format!("{what}\n→ {command}"))
         .subtitle_lines(4)
         .use_markup(false)
         .build();
+    row.set_title(title);
+    row.set_subtitle(&format!("{what}\n→ {command}"));
     let chip = Chip::new(State::Missing);
     row.add_suffix(chip.widget());
     let copy = gtk4::Button::builder()

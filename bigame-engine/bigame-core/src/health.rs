@@ -558,6 +558,20 @@ pub fn collect() -> Vec<Check> {
     let version = package_version(db, "falcond");
     let v = version.as_deref().unwrap_or("?");
     out.push(match (&backend, caps.falcond_installed) {
+        // Recorded as crashing here: not started again, so systemd no longer
+        // says why after a reboot; the record does.
+        (_, true) if !caps.falcond_usable => {
+            let why = crate::turbo::explain_backend_failure(
+                &crate::systemd::Failure::IllegalInstruction,
+                &crate::isa::CpuIsa::detect(),
+            );
+            Check {
+                title: Text::plain(N_("falcond")),
+                status: Status::Warning,
+                detail: Text::with(N_("%s · %s"), [Arg::Raw(v.to_owned()), Arg::Text(why.summary)]),
+                fix: Some(Fix::Advice(why.advice)),
+            }
+        }
         (_, false) => check(
             N_("falcond"),
             Status::Warning,

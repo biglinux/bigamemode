@@ -233,7 +233,7 @@ impl BoosterEngine {
             // nothing to put back keeps a Turbo switched on with nothing to
             // change on, rather than reading off at once while its preset
             // stays in force.
-            if !self.capabilities.falcond_installed {
+            if !self.capabilities.falcond_usable {
                 Journal::new(snapshot, plan).save()?;
             }
             progress(Progress::Finished);
