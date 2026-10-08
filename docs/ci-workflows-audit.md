@@ -26,7 +26,7 @@ meant.
 
 | Problem | Root cause | Fix | How it is validated |
 |---|---|---|---|
-| Pushes to `main`, `testing-*` and `stable-*` no longer reached the BigLinux package builders. | `30cee92` replaced the hook with big-video-converter's CI build. | `notify-builders` job: on pushes to biglinux/bigamemode (or a manual run with *send-to-builders*), **after** the package has built and passed every check. Token via `env`, payload built by `jq`, `curl --fail-with-body`. | Not run from a branch on purpose; the first push to `main` after merging is the test. See *Pending*. |
+| ~~Pushes to `main`, `testing-*` and `stable-*` no longer reached the BigLinux package builders.~~ **Wrong**: see *How the BigLinux builders are triggered* below. | — | The `notify-builders` job added for it is removed. | |
 | `if: always()` with `if-no-files-found: error` on the package upload. | Copied pattern. | The package is uploaded only on success; after a failure a separate upload keeps whatever logs exist, with `if-no-files-found: ignore`. | A failure shows one error: the step that failed. |
 | A change in cargo's output format could fail the backend run. | The totals parser raised an error when it found no `test result:` line. | Totals are shown in the summary only; cargo's exit status decides. | |
 | The first failing check hid the others (rustfmt failing skipped Clippy and the tests). | Default step semantics. | Every check runs when the setup succeeded (`!cancelled() && steps.setup.outcome == 'success'`); any failure still fails the job. | |
@@ -59,12 +59,47 @@ outside CI is the test above, in `bigame-core/src/graphics/optiscaler.rs`.
 pull_request ─┬─► backend-tests ─── rust: fmt · clippy · test · doc · authorization · translations
 push main ────┤
               │
-              └─► build-package ─── package: prepare source of $GITHUB_SHA → makepkg -s
-push main,                                    → identify → metadata → contents → desktop
-testing-*, stable-* ─────────────►            → AppStream → namcap → SHA256SUMS → artifact
-                                         │
-                                         └─► notify-builders (push / opted-in manual run only)
+              └─► package-check ──┐
+                                   │ workflow_call
+push main,                         ▼
+testing-*, stable-* ──► build-package ─── package: prepare source of $GITHUB_SHA → makepkg -s
+                                              → identify → metadata → contents → desktop
+                                              → AppStream → namcap → SHA256SUMS → artifact
+                           │
+                           └─ a successful "Build Package" run: the BigLinux
+                              builders build its branch
 ```
+
+## How the BigLinux builders are triggered
+
+The BigLinux builders (GitLab, `gitlab.bigib.org/builder/packagebuilder`)
+build a branch of biglinux/bigamemode when a run of the workflow named
+**Build Package** ends in **success**, with that run's branch. No step of the
+workflow has to send anything. The builder's public job history against this
+repository's runs, 2026-10-07 and 08 (UTC):
+
+| Build Package run | Conclusion | Builder job |
+|---|---|---|
+| push `main`, `testing-2026-10-07` (`72fed17`, no dispatch step), ends 07:14 / 07:16 | success | `main` 07:14, `testing-2026-10-07` 07:16 |
+| push `stable-2026-10-07`, ends 12:34 | success | `stable-2026-10-07` 12:34 |
+| pull requests `fix/…` (4 runs), end 14:18, 14:32, 19:34, 19:05 | success | `fix/…` at the same minutes, failing at the recipe's `sed` (the `/` ends its `s/…/…/`) |
+| pushes `main`, `testing-2026-10-07-1`, `-4`, `testing-2026-10-08` | failure (`notify-builders`: 401) | none |
+
+So the `repository_dispatch` added on 2026-10-07 (`notify-builders`) did the
+opposite of its purpose: its token is refused (401), the failed job failed the
+run, and no push was built after it. Pull requests, built under the same
+workflow name, were handed over instead.
+
+Hence:
+
+- **build-package.yml** ("Build Package") runs only for branches the builders
+  can build: pushes to plain branch names (`main`, `testing-*`, `stable-*`;
+  `'*'` does not match `/`) and manual runs. A manual run of a branch with `/`
+  fails at once, before anything is built.
+- **package-check.yml** ("Package check") runs the same job for pull requests
+  and manual runs of any branch, through `workflow_call`. Under that name a
+  success is not handed over.
+- There is no dispatch step and no secret.
 
 ### backend-tests.yml: the code
 
@@ -130,11 +165,9 @@ uses Arch's `rust`, always the current stable release.
 11. **Artifact** `bigame-mode-<pkgver>-<pkgrel>-<commit>`: the package, the
     debug package, `SHA256SUMS`, `namcap.log`, `package-info.txt`,
     `package-files.txt`, `build-report.md` and makepkg's logs per stage.
-12. **notify-builders.** Only after all of the above, only in
-    biglinux/bigamemode, only for a push or a manual run that ticks
-    *send-to-builders*. It sends the branch name to
-    `BigLinux-Package-Build/build-package`. It never runs for a pull request,
-    which has no access to the secret.
+12. **Handing over.** None in the workflow: the run's success is what the
+    BigLinux builders act on (see *How the BigLinux builders are
+    triggered*).
 
 ### namcap: what it reports today
 
@@ -161,8 +194,7 @@ or added here.
   installed). A filter loose enough to be safe would save almost nothing.
 - **Tags and releases.** Nothing is published from CI. The BigLinux builders
   publish packages; the artifact is for testing.
-- **Permissions.** `contents: read` at workflow level; `notify-builders` has
-  `permissions: {}` and only the organization's `WEBHOOK_TOKEN`. No
+- **Permissions.** `contents: read` at workflow level, no secrets. No
   `pull_request_target`.
 - **Third-party actions.** Only `actions/checkout` (v7.0.1) and
   `actions/upload-artifact` (v7.0.1), pinned by commit. The pins were
@@ -282,11 +314,10 @@ check the workflows themselves.
   Tested while preparing this change: in a local replay of the job in
   `archlinux:base-devel`, it passed with `rust-version = "1.88"`;
   `cargo +1.85 check` fails as described above.
-- **The builders' hook runs only from `main`.** `notify-builders` cannot run
-  from a pull request (no secret, and on purpose). The first push to `main`
-  after merging is its first real run; its summary line, *Branch main handed
-  to the BigLinux package builders*, and the build on the BigLinux side
-  confirm it.
+- **The builders' trigger is seen from outside only.** It was read from the
+  builder's public job history, not from its configuration. The first push
+  to `main` after this change, a successful Build Package run followed by a
+  `main` job on the builder, confirms it.
 - **`check()` duration.** About 10 of the package job's ~18 minutes are
   `cargo test --release` linking every test binary with fat LTO
   (`[profile.release]`). Testing without `--release` in `check()` would be
