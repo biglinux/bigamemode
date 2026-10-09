@@ -9,7 +9,7 @@ One switch for per-game performance, presets for what games should favour,
 AI Graphics with full backup and undo, and a page that shows — with evidence —
 what is really in effect.
 
-[![Version](https://img.shields.io/badge/version-2.3.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
+[![Version](https://img.shields.io/badge/version-2.3.1-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -47,19 +47,28 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## Unreleased
+## What's new in 2.3.1
 
-- **Fixed falcond compatibility handling on older x86-64 CPUs.** falcond 2.0.14
-  built for x86-64-v3 dies with an illegal instruction (SIGILL) on processors
-  without AVX2/BMI2, such as Sandy Bridge and Ivy Bridge
-  ([#4](https://github.com/biglinux/bigamemode/issues/4)); those processors
-  need a falcond built for the x86-64 baseline. Big Game Mode now names that
-  failure (Home, Details, the tray and the support report) instead of
-  suggesting a restart, keeps Turbo off and disables falcond when it crashes
-  right after starting, and can turn Turbo off again after such a failure.
-  See [docs/issue-4-falcond-sigill.md](docs/issue-4-falcond-sigill.md).
+- **Processors without AVX2/BMI2** (Sandy Bridge, Ivy Bridge and older):
+  falcond 2.0.14 built for x86-64-v3 dies there with an illegal instruction
+  ([#4](https://github.com/biglinux/bigamemode/issues/4)). Big Game Mode now
+  names that failure (Home, Details, the tray and the support report) instead
+  of suggesting a restart, and **Turbo still comes on** with the general
+  settings, as on a system without falcond. That falcond build is not started
+  again until the package changes; a falcond built for the x86-64 baseline is
+  used as soon as it is installed. See
+  [docs/issue-4-falcond-sigill.md](docs/issue-4-falcond-sigill.md).
+- **A falcond that crashes at start** no longer stays enabled to crash again
+  at every boot, and Turbo can be turned off after it.
+- **Game detection:** the Steam runtime's library cache tool (`ldconfig`) is
+  no longer taken for the running game.
+- **Details:** fix commands with `&&` no longer log a markup error.
+- **Packaging:** the BigLinux package builders receive only the branches they
+  can build (`main`, `testing-*`, `stable-*`); pull requests are checked by a
+  separate workflow. See
+  [docs/ci-workflows-audit.md](docs/ci-workflows-audit.md).
 
-## What's new in 2.3.0
+### 2.3.0
 
 - **Big Game Mode** is the name you see everywhere; package names, the
   application id and file locations are unchanged.

@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-08 15:27-0300\n"
+"POT-Creation-Date: 2026-10-08 23:50-0300\n"
 "PO-Revision-Date: 2026-04-20 22:22\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Japanese <ja@li.org>\n"
@@ -563,6 +563,10 @@ msgstr "ビルドまたはコンパイルです。そのままにしておけば
 msgid "A change applies to the games started from now on."
 msgstr "変更は、これから起動するゲームに適用されます。"
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:51
+msgid "A falcond that crashes at start no longer stays enabled to crash again at every boot, and Turbo can be turned off after it"
+msgstr "起動時にクラッシュするfalcondが有効なまま残って起動のたびにクラッシュすることはなくなり、その後Turboをオフにできます"
+
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1621
 msgid "A game reads switches such as WINE_FULLSCREEN_FSR and ENABLE_VKBASALT from its environment, which it gets from whatever starts it. The file is read at login; the systemd user manager is updated at once, so a launcher opened afterwards passes them on. A launcher already open (Steam) keeps its old environment until it is reopened. A Turbo preset adds its own switches only while it is in force."
 msgstr "ゲームはWINE_FULLSCREEN_FSRやENABLE_VKBASALTなどのスイッチを環境から読み取ります。環境は、ゲームを起動したものから受け継がれます。このファイルはログイン時に読み込まれます。systemdのユーザーマネージャーはすぐに更新されるため、その後に開いたランチャーはこれらを引き継ぎます。すでに開いているランチャー（Steam）は、開き直すまで古い環境のままです。Turboプリセットは、有効な間だけ独自のスイッチを追加します。"
@@ -615,7 +619,7 @@ msgstr "sched-extスケジューラーを使うと、一部のゲームでフレ
 msgid "A scheduler tuned for games, loaded by falcond through scx_loader"
 msgstr "ゲーム向けに調整されたスケジューラー。falcondがscx_loader経由で読み込みます"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:56
+#: data/com.biglinux.BiGameMode.metainfo.xml:65
 msgid "A stricter privileged helper, and about 0.15 % of a CPU core when idle in the tray"
 msgstr "より厳格な特権ヘルパー、そしてトレイで待機中のCPU使用率はCPU 1コアの約0.15%"
 
@@ -635,7 +639,7 @@ msgstr "仮想マシンまたはコンテナーです。終了すると作業が
 msgid "A web browser. Tabs playing video or running scripts cost the most."
 msgstr "Webブラウザーです。動画を再生中のタブやスクリプトを実行中のタブが最も負荷をかけます。"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:63
+#: data/com.biglinux.BiGameMode.metainfo.xml:72
 msgid "A welcome screen, a rewritten About and Help; Tuning with Gamescope always in view, standard resolutions and the main screen's size, and vkBasalt looks (CAS or the Nara Linux style); game profiles with the same rows as Tuning, reaching Steam and Heroic games; Launch (Turbo) through every launcher and Reopen for one opened before the preset; a redesigned AI Graphics window that follows a game's launcher stub and sees upscalers built into the executable; background programs can be closed or paused, a measured DNS applied with a backup, and falcond handed back and taken again."
 msgstr "ようこそ画面、書き直した「このアプリについて」と「ヘルプ」。Gamescopeを常に表示し、標準解像度とメイン画面のサイズ、vkBasaltの見た目（CASまたはNara Linuxスタイル）を備えた「チューニング」。「チューニング」と同じ行を持ち、SteamとHeroicのゲームにも届くゲームプロファイル。あらゆるランチャー経由の「起動 (Turbo)」と、プリセットより前に開いたランチャーのための「開き直す」。ゲームのランチャーが起動する小さなプログラムを追跡し、実行ファイルに組み込まれたアップスケーラーも検出する、再設計した「AIグラフィックス」ウィンドウ。バックグラウンドのプログラムを終了または一時停止でき、計測したDNSをバックアップ付きで適用し、falcondを返却して再び引き継げます。"
 
@@ -682,7 +686,7 @@ msgstr "AIグラフィックスにはゲームのインストールフォルダ�
 msgid "AI Graphics: OptiScaler installed with verified backups, repair and restore"
 msgstr "AIグラフィックス: 検証済みのバックアップ、修復、復元を備えたOptiScalerのインストール"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:55
+#: data/com.biglinux.BiGameMode.metainfo.xml:64
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "AIグラフィックス: フレーム生成はOptiScalerのログで確認できた場合にのみ有効と表示、より安全な「元に戻す」と「修復」、ゲームが使用するリリースだけを保持するダウンロードキャッシュ"
 
@@ -2178,7 +2182,7 @@ msgstr "事実"
 msgid "Failed"
 msgstr "失敗"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:54
+#: data/com.biglinux.BiGameMode.metainfo.xml:63
 msgid "Faster, more accurate game detection for Steam, Heroic and Lutris"
 msgstr "Steam、Heroic、Lutrisのゲーム検出がより高速かつ正確に"
 
@@ -2794,7 +2798,7 @@ msgstr "ゲームの起動方法"
 msgid "How this is decided"
 msgstr "判定方法"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:52
+#: data/com.biglinux.BiGameMode.metainfo.xml:61
 msgid "Hybrid NVIDIA laptops: Gamescope no longer crashes, and nested Gamescope shows the game the screen's size"
 msgstr "ハイブリッドNVIDIAノートPC: Gamescopeがクラッシュしなくなり、ネストされたGamescopeでゲームが画面サイズで表示されるように"
 
@@ -2872,7 +2876,7 @@ msgstr "バックグラウンドでファイルのインデックスを作成し
 msgid "Information"
 msgstr "情報"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:83
+#: data/com.biglinux.BiGameMode.metainfo.xml:92
 msgid "Initial release with dashboard, profiles, tuning, and gamescope panels."
 msgstr "ダッシュボード、プロファイル、チューニング、Gamescopeパネルを備えた最初のリリース。"
 
@@ -3600,7 +3604,7 @@ msgstr "ガバナーを報告するcpufreqドライバーがありません"
 msgid "No default route — this machine is offline"
 msgstr "デフォルトルートがありません — このマシンはオフラインです"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:57
+#: data/com.biglinux.BiGameMode.metainfo.xml:66
 msgid "No extra repository needed: falcond, lsfg-vk, sched-ext, Gamescope, MangoHud and vkBasalt are optional, and what needs one says so and how to install it"
 msgstr "追加のリポジトリは不要: falcond、lsfg-vk、sched-ext、Gamescope、MangoHud、vkBasaltはオプションで、リポジトリが必要なものはその旨とインストール方法を表示"
 
@@ -4485,6 +4489,10 @@ msgstr "プロセス"
 msgid "Process Name"
 msgstr "プロセス名"
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:49
+msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
+msgstr "Sandy BridgeやIvy BridgeなどAVX2のないプロセッサー: インストールされたfalcondが動作できない場合でも、Turboは全般設定で有効になり、理由を示し、パッケージが変わるまでそのfalcondを再起動しません。"
+
 #: bigame-engine/bigame-ui/src/profile_offer.rs:267
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:33
 #: bigame-engine/bigame-ui/src/views/report.rs:181
@@ -5208,7 +5216,7 @@ msgstr "ゲームの上にウィンドウを出すことはなく、通知を表
 msgid "Similar to Chaos, it aggressively stress-tests the CPU by constantly migrating tasks between cores in the most unpredictable ways possible."
 msgstr "Chaosと同様に、予測不能な方法でタスクをコア間で絶えず移動させ、CPUに積極的に負荷をかけてテストします。"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:73
+#: data/com.biglinux.BiGameMode.metainfo.xml:82
 msgid "Six pages, with Details showing what is really in effect and the evidence for it; AI Graphics raises FSR 3.1 to FSR 4 through Proton and finds the upscalers Unreal Engine games ship as plugins; MangoHud per game for Steam, Heroic and Lutris; the Gamer theme; every text translated into 29 languages; a stricter sandbox for the privileged helper."
 msgstr "6つのページ。「詳細」では実際に有効になっているものとその根拠を表示。AIグラフィックスはProton経由でFSR 3.1をFSR 4に引き上げ、Unreal Engineのゲームがプラグインとして同梱するアップスケーラーも検出。Steam、Heroic、Lutris向けのゲームごとのMangoHud。Gamerテーマ。すべてのテキストを29言語に翻訳。特権ヘルパーのより厳格なサンドボックス。"
 
@@ -5494,6 +5502,10 @@ msgstr "デフォルトまたはゲーマーテーマ、ライト、ダーク、
 msgid "The MangoHud overlay, with styles inspired by the Steam Deck."
 msgstr "Steam Deckにインスパイアされたスタイルを備えたMangoHudオーバーレイ。"
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:52
+msgid "The Steam runtime's library cache tool is no longer taken for the running game"
+msgstr "Steamランタイムのライブラリキャッシュツールが実行中のゲームと誤認されなくなりました"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:273
 msgid "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
 msgstr "ホームと詳細ページのレイテンシー測定でpingを送るアドレス。選択肢はDNS比較で測定するリゾルバー（このコンピューターが使用しているものと、よく知られた公開リゾルバー）です。他のアドレスも入力できます。"
@@ -5711,7 +5723,7 @@ msgstr "以前のDNS設定に戻りました"
 msgid "The previous settings were saved, but NetworkManager could not apply them now"
 msgstr "以前の設定は保存されましたが、NetworkManagerは今すぐには適用できませんでした"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:49
+#: data/com.biglinux.BiGameMode.metainfo.xml:58
 msgid "The product is now called Big Game Mode. The tray is a quick control with Turbo, the four presets and its own symbolic icon. Steam, Heroic and Lutris opened before a preset can be reopened from a notice. A profile can be started from its editor with Turbo. Home names the CPU and every GPU on any machine."
 msgstr "製品名がBig Game Modeになりました。トレイはTurbo、4つのプリセット、専用のシンボリックアイコンを備えたクイックコントロールです。プリセットより前に開いていたSteam、Heroic、Lutrisは、通知から開き直せます。プロファイルはそのエディターからTurboとともに起動できます。ホームはどのマシンでもCPUとすべてのGPUの名前を表示します。"
 
@@ -5921,7 +5933,7 @@ msgstr "Turboを開始できませんでした"
 msgid "Turbo Mode"
 msgstr "Turboモード"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:78
+#: data/com.biglinux.BiGameMode.metainfo.xml:87
 msgid "Turbo as the master switch over falcond, per-game profiles offered when an unknown game starts, AI Graphics with OptiScaler (backup, repair and restore), a benchmark lab with A/B verdicts, diagnostics and a unified log view."
 msgstr "falcondのマスタースイッチとしてのTurbo、未知のゲーム起動時に提案されるゲームごとのプロファイル、OptiScalerによるAIグラフィックス（バックアップ、修復、復元）、A/B判定付きのベンチマークラボ、診断、統合ログビュー。"
 
@@ -5967,11 +5979,11 @@ msgstr "Turboモード無効"
 msgid "Turbo preset"
 msgstr "Turboプリセット"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:68
+#: data/com.biglinux.BiGameMode.metainfo.xml:77
 msgid "Turbo presets chosen before switching it on (More FPS, Locked 60 FPS, Enhanced graphics), a redrawn Home with a power button, live readings and the running game's features as coloured flags; Tuning, game profiles and the profile wizard on one model, with every conflict asked; Gamescope and Wine FSR reach Steam games through their launch options; launchers are no longer taken for the game; Details tells when falcond does not apply a game's profile, and why."
 msgstr "オンにする前に選べるTurboプリセット（FPS向上、60 FPS固定、画質向上）。電源ボタン、リアルタイムの測定値、実行中のゲームの機能を色付きのフラグで表示する、描き直した「ホーム」。「チューニング」、ゲームプロファイル、プロファイルウィザードを1つのモデルに統一し、競合はすべて確認。GamescopeとWine FSRを起動オプション経由でSteamのゲームに適用。ランチャーをゲームと誤認しなくなりました。「詳細」では、falcondがゲームのプロファイルを適用しない場合とその理由を表示。"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:53
+#: data/com.biglinux.BiGameMode.metainfo.xml:62
 msgid "Turbo rolls back cleanly when falcond fails to start, and presets leave nothing behind when switched off"
 msgstr "falcondの起動に失敗したときTurboはきれいに元に戻り、プリセットはオフにしても何も残しません"
 
@@ -7278,7 +7290,7 @@ msgstr "ゲーム内に読み込まれています (%s) が、アップスケー
 msgid "loaded into the game as a DLL: never for games with anti-cheat"
 msgstr "DLLとしてゲームに読み込まれます: アンチチートのあるゲームでは使用しません"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:51
+#: data/com.biglinux.BiGameMode.metainfo.xml:60
 msgid "lsfg-vk 2.x: its configuration format is read and written, and a Lossless.dll it cannot use is reported instead of breaking the game"
 msgstr "lsfg-vk 2.x: 設定形式の読み書きに対応し、使用できないLossless.dllはゲームを壊さずに報告"
 

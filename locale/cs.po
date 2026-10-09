@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-08 15:27-0300\n"
+"POT-Creation-Date: 2026-10-08 23:50-0300\n"
 "PO-Revision-Date: 2026-04-20 22:15\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Czech <cs@li.org>\n"
@@ -599,6 +599,10 @@ msgstr "Sestavování nebo kompilace. Skončí dřív, když ho necháte být."
 msgid "A change applies to the games started from now on."
 msgstr "Změna platí pro hry spuštěné od této chvíle."
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:51
+msgid "A falcond that crashes at start no longer stays enabled to crash again at every boot, and Turbo can be turned off after it"
+msgstr "falcond, který spadne při spuštění, už nezůstane povolený, aby padal při každém startu systému, a Turbo lze poté vypnout"
+
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1621
 msgid "A game reads switches such as WINE_FULLSCREEN_FSR and ENABLE_VKBASALT from its environment, which it gets from whatever starts it. The file is read at login; the systemd user manager is updated at once, so a launcher opened afterwards passes them on. A launcher already open (Steam) keeps its old environment until it is reopened. A Turbo preset adds its own switches only while it is in force."
 msgstr "Hra čte přepínače jako WINE_FULLSCREEN_FSR a ENABLE_VKBASALT ze svého prostředí, které dostane od toho, co ji spouští. Soubor se čte při přihlášení; uživatelský správce systemd se aktualizuje hned, takže spouštěč otevřený potom je předá dál. Spouštěč, který už je otevřený (Steam), si ponechá staré prostředí, dokud ho znovu neotevřete. Předvolba Turbo přidává vlastní přepínače jen po dobu, kdy platí."
@@ -651,7 +655,7 @@ msgstr "Plánovač sched-ext může v některých hrách vyhladit časy snímků
 msgid "A scheduler tuned for games, loaded by falcond through scx_loader"
 msgstr "Plánovač vyladěný pro hry, načítaný službou falcond přes scx_loader"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:56
+#: data/com.biglinux.BiGameMode.metainfo.xml:65
 msgid "A stricter privileged helper, and about 0.15 % of a CPU core when idle in the tray"
 msgstr "Přísnější privilegovaný pomocník a zhruba 0,15 % jádra CPU při nečinnosti v oznamovací oblasti"
 
@@ -671,7 +675,7 @@ msgstr "Virtuální stroj nebo kontejner. Jeho zavření může přerušit prác
 msgid "A web browser. Tabs playing video or running scripts cost the most."
 msgstr "Webový prohlížeč. Nejvíc stojí karty, které přehrávají video nebo spouštějí skripty."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:63
+#: data/com.biglinux.BiGameMode.metainfo.xml:72
 msgid "A welcome screen, a rewritten About and Help; Tuning with Gamescope always in view, standard resolutions and the main screen's size, and vkBasalt looks (CAS or the Nara Linux style); game profiles with the same rows as Tuning, reaching Steam and Heroic games; Launch (Turbo) through every launcher and Reopen for one opened before the preset; a redesigned AI Graphics window that follows a game's launcher stub and sees upscalers built into the executable; background programs can be closed or paused, a measured DNS applied with a backup, and falcond handed back and taken again."
 msgstr "Uvítací obrazovka, přepsané stránky O aplikaci a Nápověda; Ladění s Gamescope stále na očích, standardními rozlišeními a velikostí hlavní obrazovky a vzhledy vkBasalt (CAS nebo styl Nara Linux); herní profily se stejnými řádky jako Ladění, které se dostanou i ke hrám ze Steamu a Heroicu; Spustit (Turbo) přes každý spouštěč a Znovu otevřít pro spouštěč otevřený před předvolbou; přepracované okno AI grafika, které sleduje zaváděcí program spouštěče hry a vidí upscalery vestavěné ve spustitelném souboru; programy na pozadí lze zavřít nebo pozastavit, změřené DNS se použije se zálohou a falcond lze vrátit a znovu převzít."
 
@@ -718,7 +722,7 @@ msgstr "AI grafika potřebuje instalační složku hry a žádná nainstalovaná
 msgid "AI Graphics: OptiScaler installed with verified backups, repair and restore"
 msgstr "AI grafika: OptiScaler se instaluje s ověřenými zálohami, opravou a obnovením"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:55
+#: data/com.biglinux.BiGameMode.metainfo.xml:64
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "AI grafika: generování snímků se zobrazuje jako aktivní, jen když to dokazuje záznam OptiScaleru, bezpečnější Obnovit a Opravit a mezipaměť stahování, která uchovává jen vydání, jež hry používají"
 
@@ -2216,7 +2220,7 @@ msgstr "Fakt"
 msgid "Failed"
 msgstr "Selhalo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:54
+#: data/com.biglinux.BiGameMode.metainfo.xml:63
 msgid "Faster, more accurate game detection for Steam, Heroic and Lutris"
 msgstr "Rychlejší a přesnější rozpoznávání her pro Steam, Heroic a Lutris"
 
@@ -2832,7 +2836,7 @@ msgstr "Jak se hra spouští"
 msgid "How this is decided"
 msgstr "Jak se o tom rozhoduje"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:52
+#: data/com.biglinux.BiGameMode.metainfo.xml:61
 msgid "Hybrid NVIDIA laptops: Gamescope no longer crashes, and nested Gamescope shows the game the screen's size"
 msgstr "Hybridní notebooky s NVIDIA: Gamescope už nepadá a vnořený Gamescope zobrazí hru ve velikosti obrazovky"
 
@@ -2910,7 +2914,7 @@ msgstr "Indexuje soubory na pozadí. Obvykle je bezpečné ho pozastavit."
 msgid "Information"
 msgstr "Informace"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:83
+#: data/com.biglinux.BiGameMode.metainfo.xml:92
 msgid "Initial release with dashboard, profiles, tuning, and gamescope panels."
 msgstr "První vydání s panely přehledu, profilů, ladění a gamescope."
 
@@ -3638,7 +3642,7 @@ msgstr "Žádný ovladač cpufreq nehlásí governor"
 msgid "No default route — this machine is offline"
 msgstr "Žádná výchozí trasa — tento počítač je offline"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:57
+#: data/com.biglinux.BiGameMode.metainfo.xml:66
 msgid "No extra repository needed: falcond, lsfg-vk, sched-ext, Gamescope, MangoHud and vkBasalt are optional, and what needs one says so and how to install it"
 msgstr "Není potřeba žádný další repozitář: falcond, lsfg-vk, sched-ext, Gamescope, MangoHud a vkBasalt jsou volitelné a to, co některý z nich potřebuje, to sdělí i to, jak ho nainstalovat"
 
@@ -4523,6 +4527,10 @@ msgstr "Proces"
 msgid "Process Name"
 msgstr "Název procesu"
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:49
+msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
+msgstr "Procesory bez AVX2, například Sandy Bridge a Ivy Bridge: když na nich nainstalovaný falcond nemůže běžet, Turbo se přesto zapne s obecnými nastaveními, řekne proč a tento falcond znovu nespustí, dokud se balíček nezmění."
+
 #: bigame-engine/bigame-ui/src/profile_offer.rs:267
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:33
 #: bigame-engine/bigame-ui/src/views/report.rs:181
@@ -5246,7 +5254,7 @@ msgstr "Zobrazí oznámení, nikdy okno přes vaši hru. Profil je sestaven pro 
 msgid "Similar to Chaos, it aggressively stress-tests the CPU by constantly migrating tasks between cores in the most unpredictable ways possible."
 msgstr "Podobně jako Chaos agresivně zátěžově testuje CPU neustálým přesouváním úloh mezi jádry co nejnepředvídatelnějšími způsoby."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:73
+#: data/com.biglinux.BiGameMode.metainfo.xml:82
 msgid "Six pages, with Details showing what is really in effect and the evidence for it; AI Graphics raises FSR 3.1 to FSR 4 through Proton and finds the upscalers Unreal Engine games ship as plugins; MangoHud per game for Steam, Heroic and Lutris; the Gamer theme; every text translated into 29 languages; a stricter sandbox for the privileged helper."
 msgstr "Šest stránek, přičemž Podrobnosti ukazují, co skutečně platí, i s důkazy; AI grafika povyšuje FSR 3.1 na FSR 4 přes Proton a najde upscalery, které hry na Unreal Engine dodávají jako pluginy; MangoHud pro každou hru ve Steamu, Heroicu a Lutrisu; motiv Gamer; všechny texty přeložené do 29 jazyků; přísnější sandbox pro privilegovaného pomocníka."
 
@@ -5532,6 +5540,10 @@ msgstr "Motiv Výchozí nebo Herní, světlý, tmavý nebo podle pracovního pro
 msgid "The MangoHud overlay, with styles inspired by the Steam Deck."
 msgstr "Překryvná vrstva MangoHud se styly inspirovanými Steam Deckem."
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:52
+msgid "The Steam runtime's library cache tool is no longer taken for the running game"
+msgstr "Nástroj mezipaměti knihoven běhového prostředí Steam už není považován za běžící hru"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:273
 msgid "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
 msgstr "Adresa, na kterou se posílá ping pro údaje o latenci na stránkách Domů a Podrobnosti. Na výběr jsou resolvery, které měří porovnání DNS: ty, které tento počítač používá, a známé veřejné. Lze zadat i jakoukoli jinou adresu."
@@ -5749,7 +5761,7 @@ msgstr "Předchozí nastavení DNS jsou zpět"
 msgid "The previous settings were saved, but NetworkManager could not apply them now"
 msgstr "Předchozí nastavení byla uložena, ale NetworkManager je nyní nemohl použít"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:49
+#: data/com.biglinux.BiGameMode.metainfo.xml:58
 msgid "The product is now called Big Game Mode. The tray is a quick control with Turbo, the four presets and its own symbolic icon. Steam, Heroic and Lutris opened before a preset can be reopened from a notice. A profile can be started from its editor with Turbo. Home names the CPU and every GPU on any machine."
 msgstr "Produkt se nyní jmenuje Big Game Mode. Oznamovací oblast nabízí rychlé ovládání s Turbo, čtyřmi předvolbami a vlastní symbolickou ikonou. Steam, Heroic a Lutris otevřené před předvolbou lze znovu otevřít z upozornění. Profil lze spustit z jeho editoru s Turbo. Domů pojmenuje CPU a každou GPU na jakémkoli počítači."
 
@@ -5959,7 +5971,7 @@ msgstr "Turbo se nepodařilo spustit"
 msgid "Turbo Mode"
 msgstr "Režim Turbo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:78
+#: data/com.biglinux.BiGameMode.metainfo.xml:87
 msgid "Turbo as the master switch over falcond, per-game profiles offered when an unknown game starts, AI Graphics with OptiScaler (backup, repair and restore), a benchmark lab with A/B verdicts, diagnostics and a unified log view."
 msgstr "Turbo jako hlavní přepínač nad falcond, profily pro jednotlivé hry nabízené při spuštění neznámé hry, AI grafika s OptiScalerem (záloha, oprava a obnovení), benchmarková laboratoř s verdikty A/B, diagnostika a jednotný přehled záznamů."
 
@@ -6005,11 +6017,11 @@ msgstr "Režim Turbo neaktivní"
 msgid "Turbo preset"
 msgstr "Předvolba Turbo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:68
+#: data/com.biglinux.BiGameMode.metainfo.xml:77
 msgid "Turbo presets chosen before switching it on (More FPS, Locked 60 FPS, Enhanced graphics), a redrawn Home with a power button, live readings and the running game's features as coloured flags; Tuning, game profiles and the profile wizard on one model, with every conflict asked; Gamescope and Wine FSR reach Steam games through their launch options; launchers are no longer taken for the game; Details tells when falcond does not apply a game's profile, and why."
 msgstr "Předvolby Turbo vybírané před jeho zapnutím (Více FPS, Pevných 60 FPS, Lepší grafika), překreslená stránka Domů s tlačítkem napájení, živé údaje a funkce běžící hry jako barevné štítky; Ladění, herní profily a průvodce profilem na jednom modelu, s dotazem u každého konfliktu; Gamescope a Wine FSR se ke hrám ze Steamu dostanou přes jejich možnosti spuštění; spouštěče už nejsou považovány za hru; Podrobnosti řeknou, kdy falcond nepoužije profil hry, a proč."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:53
+#: data/com.biglinux.BiGameMode.metainfo.xml:62
 msgid "Turbo rolls back cleanly when falcond fails to start, and presets leave nothing behind when switched off"
 msgstr "Turbo se čistě vrátí zpět, když se falcond nepodaří spustit, a předvolby po vypnutí nic nezanechají"
 
@@ -7318,7 +7330,7 @@ msgstr "načteno ve hře (%s), ale nevytvořen žádný upscaler"
 msgid "loaded into the game as a DLL: never for games with anti-cheat"
 msgstr "načítá se do hry jako DLL: nikdy pro hry s anti-cheatem"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:51
+#: data/com.biglinux.BiGameMode.metainfo.xml:60
 msgid "lsfg-vk 2.x: its configuration format is read and written, and a Lossless.dll it cannot use is reported instead of breaking the game"
 msgstr "lsfg-vk 2.x: jeho formát konfigurace se čte i zapisuje a Lossless.dll, který nemůže použít, je ohlášen, místo aby hru rozbil"
 
