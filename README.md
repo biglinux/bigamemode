@@ -470,20 +470,22 @@ BIGAME_LOCALEDIR=/tmp/bgm-locale LANGUAGE=pt_BR bigame-engine/target/debug/bigam
 template, compiles the catalogues and runs `cargo test --release --frozen
 --workspace` in `check()`.
 
-Two workflows check every pull request (details in
-[`docs/ci-workflows-audit.md`](docs/ci-workflows-audit.md)):
+One run checks every pull request and every push (details in
+[`docs/ci-workflows-audit.md`](docs/ci-workflows-audit.md)), with two jobs in
+parallel:
 
-- `.github/workflows/backend-tests.yml`, also on every push to `main`:
-  formatting, Clippy with warnings as errors, the tests, `cargo doc` with
-  warnings as errors, the helper's authorization test as an ordinary user, the
-  translation template and catalogues.
-- `.github/workflows/build-package.yml`, also on every push to `main`,
-  `testing-*` and `stable-*`: a `makepkg` build of that very commit with
-  `pkgbuild/PKGBUILD`, checked with namcap, `desktop-file-validate`,
-  `appstreamcli` and a look at every file it installs; the package is kept as
-  an artifact. A successful run of it is what the BigLinux package builders
-  build. Pull requests run the same build as `package-check.yml`, which is
-  not handed to them.
+- the code (`.github/workflows/backend-tests.yml`): formatting, Clippy with
+  warnings as errors, the tests, `cargo doc` with warnings as errors, the
+  helper's authorization test as an ordinary user, the translation template
+  and catalogues;
+- the package (`.github/workflows/build-package.yml`): a `makepkg` build of
+  that very commit with `pkgbuild/PKGBUILD`, checked with namcap,
+  `desktop-file-validate`, `appstreamcli` and a look at every file it
+  installs; the package is kept as an artifact.
+
+Pushes to `main`, `testing-*` and `stable-*` run as *Build Package*; a
+successful one is what the BigLinux package builders build. Pull requests run
+as *Package check*, which is not handed to them.
 
 ## Author
 

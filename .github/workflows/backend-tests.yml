@@ -1,23 +1,18 @@
 name: Backend tests
 
 # The code: formatting, Clippy, the workspace's tests, rustdoc links, the
-# privileged helper's authorization refusals and the translations. The
-# package itself is build-package.yml's. See docs/ci-workflows-audit.md.
+# privileged helper's authorization refusals and the translations.
+#
+# Not run on its own for pushes or pull requests: build-package.yml calls it
+# beside the package, so each push or pull request is one run with both
+# jobs (see docs/ci-workflows-audit.md). A manual run checks any branch.
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: backend-tests-${{ github.ref }}
-  # A newer commit on a pull request makes the older run moot; every commit
-  # on main keeps its own result.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:

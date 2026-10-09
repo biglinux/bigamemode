@@ -1,9 +1,10 @@
 name: Package check
 
-# The package build and every check of build-package.yml, for pull requests
-# and manual runs of any branch. Under this name a successful run is not
-# handed to the BigLinux package builders, which act on "Build Package"
-# runs only (see build-package.yml). See docs/ci-workflows-audit.md.
+# Everything build-package.yml runs (the code's checks of backend-tests.yml
+# and the package), for pull requests and manual runs of any branch, as one
+# run. Under this name a successful run is not handed to the BigLinux package
+# builders, which act on "Build Package" runs only (see build-package.yml).
+# See docs/ci-workflows-audit.md.
 
 on:
   pull_request:
@@ -13,5 +14,5 @@ permissions:
   contents: read
 
 jobs:
-  package:
+  check:
     uses: ./.github/workflows/build-package.yml

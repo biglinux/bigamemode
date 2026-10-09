@@ -56,19 +56,25 @@ outside CI is the test above, in `bigame-core/src/graphics/optiscaler.rs`.
 ## Final architecture
 
 ```text
-pull_request ─┬─► backend-tests ─── rust: fmt · clippy · test · doc · authorization · translations
-push main ────┤
-              │
-              └─► package-check ──┐
-                                   │ workflow_call
-push main,                         ▼
-testing-*, stable-* ──► build-package ─── package: prepare source of $GITHUB_SHA → makepkg -s
-                                              → identify → metadata → contents → desktop
-                                              → AppStream → namcap → SHA256SUMS → artifact
-                           │
-                           └─ a successful "Build Package" run: the BigLinux
-                              builders build its branch
+pull_request ──► "Package check" (package-check.yml) ─┐
+                                                      │ workflow_call
+push main,                                            ▼
+testing-*, stable-* ──► "Build Package" (build-package.yml)
+                         ├─ rust (backend-tests.yml, workflow_call):
+                         │    fmt · clippy · test · doc · authorization · translations
+                         └─ package: prepare source of $GITHUB_SHA → makepkg -s
+                              → identify → metadata → contents → desktop
+                              → AppStream → namcap → SHA256SUMS → artifact
+
+A successful "Build Package" run (both jobs): the BigLinux builders build
+its branch.
 ```
+
+One run per push or pull request, with both jobs in parallel. Until
+2026-10-09 the code's checks were a workflow of their own, so every push
+and pull request showed two runs, and a push to `main` repeated, as two more
+runs, what its pull request had just run. `backend-tests.yml` now only runs
+when called (or by hand).
 
 ## How the BigLinux builders are triggered
 
