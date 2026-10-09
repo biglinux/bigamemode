@@ -1,7 +1,9 @@
 name: Build Package
 
 # Builds the commit under test with pkgbuild/PKGBUILD, in Arch's own
-# container, validates the package and keeps it as an artifact.
+# container, validates the package and keeps it as an artifact. Beside it,
+# backend-tests.yml checks the code: one run per push or pull request, with
+# both jobs.
 #
 # This workflow's success is what the BigLinux package builders act on: when
 # a "Build Package" run of biglinux/bigamemode ends in success, they build
@@ -33,6 +35,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The code's checks, in parallel with the package. A run is successful,
+  # and so handed to the BigLinux builders, only when both pass.
+  rust:
+    uses: ./.github/workflows/backend-tests.yml
+
   package:
     name: Build and validate the Arch package
     runs-on: ubuntu-24.04
