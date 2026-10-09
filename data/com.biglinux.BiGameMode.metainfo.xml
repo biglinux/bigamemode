@@ -44,6 +44,15 @@
   </recommends>
 
   <releases>
+    <release version="2.3.1" date="2026-10-08">
+      <description>
+        <p>Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes.</p>
+        <ul>
+          <li>A falcond that crashes at start no longer stays enabled to crash again at every boot, and Turbo can be turned off after it</li>
+          <li>The Steam runtime's library cache tool is no longer taken for the running game</li>
+        </ul>
+      </description>
+    </release>
     <release version="2.3.0" date="2026-10-06">
       <description>
         <p>The product is now called Big Game Mode. The tray is a quick control with Turbo, the four presets and its own symbolic icon. Steam, Heroic and Lutris opened before a preset can be reopened from a notice. A profile can be started from its editor with Turbo. Home names the CPU and every GPU on any machine.</p>
