@@ -57,7 +57,7 @@ a way back.
   settings, as on a system without falcond. That falcond build is not started
   again until the package changes; a falcond built for the x86-64 baseline is
   used as soon as it is installed. See
-  [docs/issue-4-falcond-sigill.md](docs/issue-4-falcond-sigill.md).
+  [docs/CPU-COMPATIBILITY.md](docs/CPU-COMPATIBILITY.md).
 - **A falcond that crashes at start** no longer stays enabled to crash again
   at every boot, and Turbo can be turned off after it.
 - **Game detection:** the Steam runtime's library cache tool (`ldconfig`) is
@@ -66,7 +66,7 @@ a way back.
 - **Packaging:** the BigLinux package builders receive only the branches they
   can build (`main`, `testing-*`, `stable-*`); pull requests are checked by a
   separate workflow. See
-  [docs/ci-workflows-audit.md](docs/ci-workflows-audit.md).
+  [docs/CI.md](docs/CI.md).
 
 ### 2.3.0
 
@@ -471,7 +471,7 @@ template, compiles the catalogues and runs `cargo test --release --frozen
 --workspace` in `check()`.
 
 One run checks every pull request and every push (details in
-[`docs/ci-workflows-audit.md`](docs/ci-workflows-audit.md)), with two jobs in
+[`docs/CI.md`](docs/CI.md)), with two jobs in
 parallel:
 
 - the code (`.github/workflows/backend-tests.yml`): formatting, Clippy with

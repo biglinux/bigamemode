@@ -16,7 +16,8 @@ same way.
 
 A program built for a level runs only where the CPU has *every* extension of
 that level. Otherwise it stops with SIGILL on the first instruction it lacks
-(falcond 2.0.14 built for v3, [issue #4](issue-4-falcond-sigill.md)), or,
+(falcond 2.0.14 built for v3,
+[issue #4](https://github.com/biglinux/bigamemode/issues/4)), or,
 for LZCNT/TZCNT, silently gets a wrong result.
 
 ## Why not `-march=native` or a newer level
@@ -47,6 +48,50 @@ The static report does not decide anything. Rust's std and `memchr` contain
 AVX2 code they run only after a CPUID check, so a newer instruction in the
 disassembly is not a bug by itself. Running the code on an old CPU is the
 test.
+
+## A falcond built for a newer level
+
+falcond comes from another recipe, so a falcond built for x86-64-v3 can reach
+an older processor. Zig's standard library uses `SHLX` (BMI2) while building
+the process environment, before any falcond code runs, so such a build dies
+at once and at every restart. systemd restarts it five times in about half a
+second and leaves the unit `failed` with `start-limit-hit`, main process
+`code=dumped, status=4/ILL`.
+
+What Big Game Mode does about it:
+
+| Where | Behaviour |
+|---|---|
+| Helper (`bigame-daemon/src/backend.rs`) | Turbo on resets a `failed` unit first (an explicit retry), then requires falcond to *stay* active, without restarts, for 2 s. If it does not, the unit is disabled, so it does not crash again at every boot. Turbo off resets a failed unit and still disables it. |
+| Crash record (`bigame-core/src/falcond_compat.rs`) | A death by illegal instruction is recorded in `/var/lib/bigame-mode/game-backend.incompatible.json`: the binary's size and modification time (set by pacman from the package, so they name the build) and the processor's x86-64 level. While both match, falcond is not started again. A package update changes the binary and falcond is tried again; reinstalling the same build does not. |
+| Turbo (`bigame-core/src/turbo.rs`) | With a recorded build, Turbo goes on without falcond, as on a system without it: the Booster applies the general settings and the power profile, and Turbo's state is the Booster's journal. Every surface that reads Turbo from falcond's unit asks `turbo::backend_governs` first. |
+| Explanations | Home, Details, the tray and the support report say that the falcond package is built for a newer level, name the extensions this processor lacks (`bigame-core/src/isa.rs`), and do not suggest turning Turbo off and on again. An illegal instruction on an x86-64-v3 processor is described as an incompatibility *or* a damaged binary. |
+
+A falcond that crashes later than the 2 s grace period is not caught when
+Turbo starts; it shows up as a failed service, with its cause, on the same
+pages.
+
+### Building falcond for the baseline
+
+Zig builds for the build machine's CPU unless told otherwise, and upstream's
+Debian rules ask for `x86_64_v3`. The AUR recipe needs one option:
+
+```diff
+   DESTDIR=build zig build \
+     --summary all \
+     --prefix /usr \
+-    -Doptimize=ReleaseFast
++    -Doptimize=ReleaseFast \
++    -Dcpu=baseline
+```
+
+`baseline` is Zig's name for the architecture's generic CPU, the x86-64
+baseline here (the same code as `-Dcpu=x86_64`). Nothing in falcond's
+dependencies forces another level, and its only SIMD (`isAllDigits` in the
+`/proc` scan) is sized at compile time. Measured on a Ryzen 7 5700G scanning
+2,000 processes every 50 ms (180 times the default rate), the baseline build
+costs 0.5 % more CPU time; at the default interval falcond uses about 0.24 %
+of one core either way.
 
 ## Checking by hand
 
