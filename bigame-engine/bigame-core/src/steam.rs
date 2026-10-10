@@ -471,7 +471,9 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
             }
             return finish_write(config, &content, &lines, app_id, value);
         };
-        let app_depth = depth(borrowed[from]);
+        // An empty block's first line is its own closing brace, one level
+        // out from the keys that belong inside.
+        let app_depth = depth(borrowed[from]) + usize::from(from == to);
         let existing = (from..to).find(|i| {
             pair_key(borrowed[*i]) == Some("LaunchOptions") && depth(borrowed[*i]) == app_depth
         });
@@ -798,6 +800,29 @@ mod tests {
         assert_eq!(
             launch_options(&path, "381210").as_deref(),
             Some("mangohud %command%")
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn an_empty_app_block_gets_the_key_inside_it() {
+        let vdf = VDF.replace(
+            "\t\t\t\t\t\"1808500\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"LastPlayed\"\t\t\"1789800000\"\n",
+            "\t\t\t\t\t\"1808500\"\n\t\t\t\t\t{\n",
+        );
+        assert_ne!(vdf, VDF);
+        let path = write_temp("empty-block", &vdf);
+        write_launch_options(&path, "1808500", "MANGOHUD=1 %command%").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains(
+                "\t\t\t\t\t\"1808500\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"LaunchOptions\"\t\t\"MANGOHUD=1 %command%\"\n\t\t\t\t\t}\n"
+            ),
+            "{text}"
+        );
+        assert_eq!(
+            launch_options(&path, "1808500").as_deref(),
+            Some("MANGOHUD=1 %command%")
         );
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
