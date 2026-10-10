@@ -17,7 +17,7 @@ Usage:
     locale/extract-strings.py --check         # exit 1 if the .pot is stale
 
 Both also check that locale/LINGUAS lists every catalogue: the package build
-merges those into the desktop entry and the AppStream file.
+merges those into the desktop entry, the AppStream file and the Polkit policy.
 """
 
 from __future__ import annotations
@@ -43,6 +43,10 @@ PLURAL_CALL = re.compile(r"\bni18n\s*\(\s*")
 # Desktop/AppStream files: Name=, Comment=, GenericName=, Keywords=
 DESKTOP_KEY = re.compile(r"^(Name|GenericName|Comment|Keywords)\s*=\s*(.+)$")
 XML_TAG = re.compile(r"<(name|summary|caption|p|li)>([^<]+)</\1>")
+# Polkit policy: what gettext's polkit.its translates, an action's
+# <description> and <message>. A tag with attributes (a hand-written
+# xml:lang twin) is not a source string, and does not match.
+POLICY_TAG = re.compile(r"<(description|message)>([^<]+)</\1>")
 
 
 def read_rust_literal(text: str, i: int) -> tuple[str, int] | None:
@@ -148,10 +152,10 @@ def extract_desktop(path: pathlib.Path) -> list[tuple[str, int]]:
     return found
 
 
-def extract_xml(path: pathlib.Path) -> list[tuple[str, int]]:
+def extract_xml(path: pathlib.Path, tag: re.Pattern[str] = XML_TAG) -> list[tuple[str, int]]:
     found = []
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        for m in XML_TAG.finditer(line):
+        for m in tag.finditer(line):
             value = m.group(2).strip()
             if value and not value.startswith("&"):
                 found.append((value, n))
@@ -172,6 +176,8 @@ def build_pot() -> str:
             found = [(v, None, n) for v, n in extract_desktop(path)]
         elif path.suffix == ".xml":
             found = [(v, None, n) for v, n in extract_xml(path)]
+        elif path.suffix == ".policy":
+            found = [(v, None, n) for v, n in extract_xml(path, POLICY_TAG)]
         else:
             continue
         for value, plural, line in found:

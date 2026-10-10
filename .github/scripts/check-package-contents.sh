@@ -3,7 +3,8 @@
 # Check what the built bigame-mode package installs: every file Big Game Mode
 # needs at runtime, with sane modes and owners, and the references between
 # them (desktop entry -> binary and icon, D-Bus activation -> systemd unit ->
-# binary, bus policy -> bus name, AppStream -> desktop entry).
+# binary, bus policy -> bus name, AppStream -> desktop entry, Polkit policy ->
+# its source with the translations merged in).
 #
 #   .github/scripts/check-package-contents.sh <package.pkg.tar.zst> <new-directory>
 #
@@ -160,6 +161,29 @@ if [[ -f "$bus_policy" ]]; then
         ok "bus policy lets the helper own $app_id"
     else
         fail "bus policy lets no one own $app_id"
+    fi
+fi
+
+polkit_policy="$root/usr/share/polkit-1/actions/${app_id}.policy"
+if [[ -f "$polkit_policy" ]]; then
+    # The installed policy is the source with the catalogues merged in: the
+    # same actions, each with its English description and message as written.
+    source_policy="$repo/data/${app_id}.policy"
+    if [[ "$(grep -o '<action id="[^"]*"' "$polkit_policy")" == "$(grep -o '<action id="[^"]*"' "$source_policy")" ]]; then
+        ok "Polkit policy has the actions of data/${app_id}.policy"
+    else
+        fail "Polkit policy's actions differ from data/${app_id}.policy"
+    fi
+    if [[ "$(grep -E '<(description|message)>' "$polkit_policy")" == "$(grep -E '<(description|message)>' "$source_policy")" ]]; then
+        ok "Polkit policy keeps every English description and message"
+    else
+        fail "Polkit policy's English descriptions or messages differ from the source"
+    fi
+    # polkit matches pt_BR, never msgfmt's pt-BR.
+    if grep -qE 'xml:lang="[a-z]{2,3}-[A-Z]{2}"' "$polkit_policy"; then
+        fail "Polkit policy has a translation tagged ll-CC, which polkit never serves"
+    else
+        ok "Polkit policy's translations are tagged as polkit looks them up"
     fi
 fi
 
