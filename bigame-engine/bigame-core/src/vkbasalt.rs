@@ -153,7 +153,7 @@ pub fn default_config() -> Option<PathBuf> {
 /// Which style is in place.
 #[must_use]
 pub fn current_style() -> StyleState {
-    state_of(std::fs::read_to_string(user_config()).ok().as_deref())
+    state_of(crate::mangohud::config_text(&user_config()).as_deref())
 }
 
 fn state_of(text: Option<&str>) -> StyleState {
@@ -296,16 +296,13 @@ pub fn set_style(style: Style) -> Result<()> {
 }
 
 fn set_style_at(style: Style, path: &Path, backup: &Path, dir: &Path) -> Result<()> {
-    let state = state_of(std::fs::read_to_string(path).ok().as_deref());
+    let state = state_of(crate::mangohud::config_text(path).as_deref());
     match style_config(style, dir) {
         None => {
             if !matches!(state, StyleState::Style(_)) {
                 return Ok(()); // Already the user's own.
             }
-            if backup.exists() {
-                std::fs::rename(backup, path)
-                    .with_context(|| format!("put back {}", path.display()))?;
-            } else {
+            if !crate::mangohud::put_back(backup, path)? {
                 std::fs::remove_file(path).with_context(|| format!("remove {}", path.display()))?;
             }
         }
@@ -317,17 +314,12 @@ fn set_style_at(style: Style, path: &Path, backup: &Path, dir: &Path) -> Result<
                 )));
             }
             if state == StyleState::Own {
-                if let Some(parent) = backup.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                std::fs::copy(path, backup).with_context(|| format!("keep {}", path.display()))?;
+                crate::mangohud::keep_aside(path, backup)?;
             }
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            let tmp = path.with_extension("conf.bigame-new");
-            std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
-            std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))?;
+            crate::mangohud::replace_file(path, text.as_bytes())?;
         }
     }
     Ok(())
@@ -413,6 +405,50 @@ mod tests {
         set_style_at(Style::Own, &path, &backup, &shaders).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "effects = smaa\n");
         assert!(!backup.exists());
+    }
+
+    #[test]
+    fn a_file_that_is_not_utf8_or_a_symlink_to_nothing_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vkBasalt/vkBasalt.conf");
+        let backup = dir.path().join("state/vkBasalt.conf.user");
+        let shaders = dir.path().join("reshade");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        let latin1 = b"# nitidez m\xe9dia\neffects = cas\n".to_vec();
+        std::fs::write(&path, &latin1).unwrap();
+        set_style_at(Style::Cas, &path, &backup, &shaders).unwrap();
+        assert_eq!(std::fs::read(&backup).unwrap(), latin1);
+        set_style_at(Style::Own, &path, &backup, &shaders).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), latin1);
+
+        std::fs::remove_file(&path).unwrap();
+        let gone = dir.path().join("unmounted/vkBasalt.conf");
+        std::os::unix::fs::symlink(&gone, &path).unwrap();
+        set_style_at(Style::Cas, &path, &backup, &shaders).unwrap();
+        assert_eq!(std::fs::read_link(&backup).unwrap(), gone);
+        set_style_at(Style::Own, &path, &backup, &shaders).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), gone);
+    }
+
+    #[test]
+    fn a_dotfile_managers_symlink_stays_a_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("dotfiles/vkBasalt.conf");
+        std::fs::create_dir_all(real.parent().unwrap()).unwrap();
+        std::fs::write(&real, "effects = smaa\n").unwrap();
+        let path = dir.path().join("vkBasalt/vkBasalt.conf");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&real, &path).unwrap();
+        let backup = dir.path().join("state/vkBasalt.conf.user");
+        let shaders = dir.path().join("reshade");
+
+        set_style_at(Style::Cas, &path, &backup, &shaders).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), real);
+        assert!(std::fs::read_to_string(&real).unwrap().starts_with(MARKER));
+        set_style_at(Style::Own, &path, &backup, &shaders).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), real);
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "effects = smaa\n");
     }
 
     #[test]

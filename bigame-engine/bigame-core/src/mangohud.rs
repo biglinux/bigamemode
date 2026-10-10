@@ -655,7 +655,7 @@ pub enum StyleState {
 /// Read which style is in place.
 #[must_use]
 pub fn current_style() -> StyleState {
-    style_state_of(std::fs::read_to_string(style_path()).ok().as_deref())
+    style_state_of(config_text(&style_path()).as_deref())
 }
 
 fn style_state_of(text: Option<&str>) -> StyleState {
@@ -683,35 +683,90 @@ pub fn set_style(style: Style) -> Result<()> {
 
 fn set_style_at(style: Style, path: &std::path::Path, backup: &std::path::Path) -> Result<()> {
     use anyhow::Context;
-    let state = style_state_of(std::fs::read_to_string(path).ok().as_deref());
+    let state = style_state_of(config_text(path).as_deref());
     match style_config(style) {
         None => {
             if !matches!(state, StyleState::Style(_)) {
                 return Ok(()); // Already the user's own.
             }
-            if backup.exists() {
-                std::fs::rename(backup, path)
-                    .with_context(|| format!("put back {}", path.display()))?;
-            } else {
+            if !put_back(backup, path)? {
                 std::fs::remove_file(path).with_context(|| format!("remove {}", path.display()))?;
             }
         }
         Some(text) => {
             if state == StyleState::Own {
-                if let Some(dir) = backup.parent() {
-                    std::fs::create_dir_all(dir)?;
-                }
-                std::fs::copy(path, backup).with_context(|| format!("keep {}", path.display()))?;
+                keep_aside(path, backup)?;
             }
             if let Some(dir) = path.parent() {
                 std::fs::create_dir_all(dir)?;
             }
-            let tmp = path.with_extension("conf.bigame-new");
-            std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
-            std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))?;
+            replace_file(path, text.as_bytes())?;
         }
     }
     Ok(())
+}
+
+// ── A configuration file that may be the user's ─────────────────────────────
+
+/// The text of the configuration file at `path`, to look for Big Game
+/// Mode's marker in its first line; `None` only when nothing is there. A
+/// file that is not UTF-8, cannot be read, or is a symlink to nothing is
+/// still something the user put there: it reads as text without the
+/// marker, so it is kept before anything replaces it.
+pub(crate) fn config_text(path: &std::path::Path) -> Option<String> {
+    match std::fs::read(path) {
+        Ok(bytes) => Some(String::from_utf8_lossy(&bytes).into_owned()),
+        Err(e)
+            if e.kind() == std::io::ErrorKind::NotFound
+                && std::fs::symlink_metadata(path).is_err() =>
+        {
+            None
+        }
+        Err(_) => Some(String::new()),
+    }
+}
+
+/// Keep the user's file at `path` in `backup` before Big Game Mode's
+/// replaces it: what it holds, byte for byte, or a symlink to nothing as
+/// that symlink.
+///
+/// # Errors
+/// Returns an error, and `path` must then not be replaced, when it cannot
+/// be kept.
+pub(crate) fn keep_aside(path: &std::path::Path, backup: &std::path::Path) -> Result<()> {
+    use anyhow::Context;
+    if let Some(dir) = backup.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    }
+    // Copying onto a symlink kept earlier would write where it points.
+    if std::fs::symlink_metadata(backup).is_ok_and(|m| m.file_type().is_symlink()) {
+        std::fs::remove_file(backup).with_context(|| format!("remove {}", backup.display()))?;
+    }
+    let dangling = std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink())
+        && std::fs::metadata(path).is_err();
+    if dangling {
+        let target =
+            std::fs::read_link(path).with_context(|| format!("read link {}", path.display()))?;
+        std::os::unix::fs::symlink(target, backup)
+    } else {
+        std::fs::copy(path, backup).map(drop)
+    }
+    .with_context(|| format!("keep {}", path.display()))
+}
+
+/// Put the file kept in `backup` back at `path`; whether one was kept. A
+/// symlink at `path` stays: the file it points to is the one put back.
+///
+/// # Errors
+/// Returns an error when the kept file cannot be moved back.
+pub(crate) fn put_back(backup: &std::path::Path, path: &std::path::Path) -> Result<bool> {
+    use anyhow::Context;
+    if std::fs::symlink_metadata(backup).is_err() {
+        return Ok(false);
+    }
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    std::fs::rename(backup, &path).with_context(|| format!("put back {}", path.display()))?;
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -830,6 +885,63 @@ mod tests {
         assert!(path.exists() && !backup.exists());
         set_style_at(Style::Own, &path, &backup).unwrap();
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn a_file_that_is_not_utf8_or_a_symlink_to_nothing_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("MangoHud/MangoHud.conf");
+        let backup = dir.path().join("state/MangoHud.conf.user");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        // Latin-1, as an old editor saved it.
+        let latin1 = b"# r\xe9glages\nfps\n".to_vec();
+        std::fs::write(&path, &latin1).unwrap();
+        assert_eq!(
+            style_state_of(config_text(&path).as_deref()),
+            StyleState::Own
+        );
+        set_style_at(Style::Basic, &path, &backup).unwrap();
+        assert_eq!(std::fs::read(&backup).unwrap(), latin1);
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), latin1);
+
+        // A link whose file is gone (an unmounted dotfiles folder).
+        std::fs::remove_file(&path).unwrap();
+        let gone = dir.path().join("unmounted/MangoHud.conf");
+        std::os::unix::fs::symlink(&gone, &path).unwrap();
+        assert_eq!(
+            style_state_of(config_text(&path).as_deref()),
+            StyleState::Own
+        );
+        set_style_at(Style::Full, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&backup).unwrap(), gone);
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), gone);
+        assert!(std::fs::symlink_metadata(&backup).is_err());
+    }
+
+    #[test]
+    fn a_dotfile_managers_symlink_stays_a_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("dotfiles/MangoHud.conf");
+        std::fs::create_dir_all(real.parent().unwrap()).unwrap();
+        std::fs::write(&real, "fps\n").unwrap();
+        let path = dir.path().join("MangoHud/MangoHud.conf");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&real, &path).unwrap();
+        let backup = dir.path().join("state/MangoHud.conf.user");
+
+        set_style_at(Style::Basic, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), real);
+        assert!(
+            std::fs::read_to_string(&real)
+                .unwrap()
+                .starts_with(STYLE_MARKER)
+        );
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), real);
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "fps\n");
     }
 
     /// `launch_options` as a chain of saves: what it added is what the next
