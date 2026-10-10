@@ -786,6 +786,8 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
 async fn remove_preset(report: &mut Report) {
     let preset = crate::turbo_preset::active();
     if preset == crate::turbo_preset::Preset::Standard {
+        // A launcher open when the last preset went may be closed now.
+        let _ = tokio::task::spawn_blocking(crate::turbo_preset::follow_owed).await;
         return;
     }
     let title = Text::plain(N_("Turbo preset"));

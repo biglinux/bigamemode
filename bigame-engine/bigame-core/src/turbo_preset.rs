@@ -642,19 +642,76 @@ pub fn activate(preset: Preset) -> Result<Vec<String>> {
     };
     write(&path, &Stored { preset, before })?;
     let set = crate::video_config::sync_session_env(&crate::video_config::load())?;
-    follow_in_steam();
+    follow_in_launchers();
     Ok(set)
 }
 
-/// Steam's launch options carry a game's vkBasalt switch, which follows the
-/// preset in force: they are brought in line with it. A game whose options
-/// cannot be written keeps the old ones, which is said in the log.
-fn follow_in_steam() {
-    for (game, result) in crate::optimization::refresh_steam_gamescope() {
-        if let Err(e) = result {
-            tracing::warn!(%game, error = %format!("{e:#}"), "Steam's launch options do not follow the Turbo preset");
+/// The mark that the launchers still owe the preset's change: an open
+/// launcher would write its own copy back over it, so it was not written.
+fn launchers_owed_path() -> PathBuf {
+    crate::paths::state_home()
+        .join("bigame-mode")
+        .join("turbo-preset-launchers-owed")
+}
+
+/// Steam's launch options and Heroic's settings carry a game's vkBasalt
+/// switch, which follows the preset in force: they are brought in line with
+/// it. While a launcher is open nothing is written to it (it would write its
+/// own copy back), so a Turbo off would leave the preset's vkBasalt in its
+/// games for good; the mark [`launchers_owed_path`] keeps that owed, and
+/// [`resync`] and the next Turbo switch try again until it is written.
+fn follow_in_launchers() {
+    follow_in_launchers_at(
+        &launchers_owed_path(),
+        crate::optimization::refresh_steam_gamescope,
+        crate::optimization::refresh_heroic,
+    );
+}
+
+/// [`follow_in_launchers`] with the mark at `owed` and the launchers
+/// refreshed by `steam` and `heroic`. Returns whether every game follows.
+/// A game whose settings cannot be written stays owed too: what failed may
+/// be fixed by the next try, and the mark goes only once nothing is left.
+fn follow_in_launchers_at(
+    owed: &Path,
+    steam: impl FnOnce() -> Vec<(String, Result<crate::steam_gamescope::Applied>)>,
+    heroic: impl FnOnce() -> Vec<(String, Result<crate::heroic_launch::Applied>)>,
+) -> bool {
+    let mut waiting: Vec<String> = Vec::new();
+    let mut failed = false;
+    for (game, result) in steam() {
+        match result {
+            Ok(crate::steam_gamescope::Applied::SteamRunning) => waiting.push(game),
+            Ok(_) => {}
+            Err(e) => {
+                failed = true;
+                tracing::warn!(%game, error = %format!("{e:#}"), "Steam's launch options do not follow the Turbo preset");
+            }
         }
     }
+    for (game, result) in heroic() {
+        match result {
+            Ok(crate::heroic_launch::Applied::HeroicRunning { .. }) => waiting.push(game),
+            Ok(_) => {}
+            Err(e) => {
+                failed = true;
+                tracing::warn!(%game, error = %format!("{e:#}"), "Heroic's settings do not follow the Turbo preset");
+            }
+        }
+    }
+    if !waiting.is_empty() {
+        tracing::warn!(games = %waiting.join(", "), "a launcher is open: these games follow the Turbo preset once it is closed");
+    }
+    let done = waiting.is_empty() && !failed;
+    let marked = if done {
+        remove_if_any(owed)
+    } else {
+        write_atomic(owed, "")
+    };
+    if let Err(e) = marked {
+        tracing::warn!(error = %format!("{e:#}"), "could not record whether the launchers follow the Turbo preset");
+    }
+    done
 }
 
 /// Take the preset away: the session goes back to Tuning's variables and
@@ -666,41 +723,51 @@ fn follow_in_steam() {
 /// Returns an error when the session's environment cannot be set or the
 /// record cannot be removed.
 pub fn deactivate() -> Result<Vec<String>> {
-    let path = active_path();
-    let Some(record) = read_stored(&path) else {
-        let unreadable = path.exists();
-        if unreadable {
-            // Unreadable: the user's values are lost with it, but a preset's
-            // variables must still go.
-            tracing::warn!(file = %path.display(), "the Turbo preset's record cannot be read; clearing its variables");
-        }
-        let set = crate::video_config::sync_session_env_with(
-            &crate::video_config::load(),
-            &Layer {
-                owns_preset_keys: unreadable,
-                ..Layer::default()
-            },
-        )?;
-        remove_record(&path)?;
-        if unreadable {
-            follow_in_steam();
-        }
-        return Ok(set);
-    };
-    let set = crate::video_config::sync_session_env_with(
-        &crate::video_config::load(),
-        &Layer {
+    deactivate_in(
+        &active_path(),
+        &launchers_owed_path(),
+        |layer| crate::video_config::sync_session_env_with(&crate::video_config::load(), layer),
+        follow_in_launchers,
+    )
+}
+
+/// [`deactivate`] with the record at `record` and the launchers' mark at
+/// `owed`; `sync` brings the session to a layer, `follow` brings the
+/// launchers along.
+fn deactivate_in(
+    record: &Path,
+    owed: &Path,
+    sync: impl FnOnce(&Layer) -> Result<Vec<String>>,
+    follow: impl FnOnce(),
+) -> Result<Vec<String>> {
+    let layer = if let Some(stored) = read_stored(record) {
+        Layer {
             levers: Levers::default(),
-            before: record.before,
+            before: stored.before,
             owns_preset_keys: true,
-        },
-    )?;
-    remove_record(&path)?;
-    follow_in_steam();
+        }
+    } else {
+        let unreadable = record.exists();
+        if unreadable {
+            // Unreadable: the user's values are lost with it, but a
+            // preset's variables must still go.
+            tracing::warn!(file = %record.display(), "the Turbo preset's record cannot be read; clearing its variables");
+        }
+        Layer {
+            owns_preset_keys: unreadable,
+            ..Layer::default()
+        }
+    };
+    let had_record = layer.owns_preset_keys;
+    let set = sync(&layer)?;
+    remove_if_any(record)?;
+    if had_record || owed.exists() {
+        follow();
+    }
     Ok(set)
 }
 
-fn remove_record(path: &Path) -> Result<()> {
+fn remove_if_any(path: &Path) -> Result<()> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -730,20 +797,32 @@ pub fn switch(preset: Preset) -> Result<Vec<String>> {
 /// found switched off from outside: the preset's variables live only in the
 /// running session, so after a login they are set again while Turbo is on,
 /// and a preset left behind by a Turbo switched off elsewhere (or a Turbo
-/// off whose undo failed) is taken away.
+/// off whose undo failed) is taken away. Launchers that were open when the
+/// preset last changed are brought along now ([`follow_owed`]).
 ///
 /// # Errors
 /// Returns an error when the session's environment cannot be set.
 pub fn resync(turbo_on: bool) -> Result<()> {
-    if !active_path().exists() {
-        return Ok(());
-    }
-    if turbo_on {
+    if active_path().exists() {
+        if !turbo_on {
+            // Brings the launchers along itself.
+            deactivate()?;
+            return Ok(());
+        }
         crate::video_config::sync_session_env(&crate::video_config::load())?;
-    } else {
-        deactivate()?;
     }
+    follow_owed();
     Ok(())
+}
+
+/// Bring along the launchers that were open when the preset last changed,
+/// if any: one may be closed by now. Steam's launch options and Heroic's
+/// settings carry a game's vkBasalt switch, which follows the preset in
+/// force, and an open launcher was left out then rather than written over.
+pub fn follow_owed() {
+    if launchers_owed_path().exists() {
+        follow_in_launchers();
+    }
 }
 
 /// Whether the session's environment `session` holds `layer`: every
@@ -979,6 +1058,130 @@ multiplier = 1
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .collect();
         assert_eq!(names, ["vkbasalt-cas.conf"]);
+    }
+
+    #[test]
+    fn an_open_launcher_leaves_the_preset_owed_until_it_follows() {
+        use crate::heroic_launch::Applied as Heroic;
+        use crate::steam_gamescope::Applied as Steam;
+        let dir = Scratch::new("owed");
+        let owed = dir
+            .0
+            .join("bigame-mode")
+            .join("turbo-preset-launchers-owed");
+        // Steam open: nothing written there, so the change stays owed.
+        let followed = follow_in_launchers_at(
+            &owed,
+            || vec![("SOTTR.exe".to_owned(), Ok(Steam::SteamRunning))],
+            Vec::new,
+        );
+        assert!(!followed);
+        assert!(owed.exists());
+        // Heroic open: owed as well, even with Steam's games written.
+        let followed = follow_in_launchers_at(
+            &owed,
+            || vec![("SOTTR.exe".to_owned(), Ok(Steam::Written(String::new())))],
+            || {
+                vec![(
+                    "Hades.exe".to_owned(),
+                    Ok(Heroic::HeroicRunning {
+                        launcher: crate::launchers::Launcher::Heroic { flatpak: false },
+                        game_running: false,
+                    }),
+                )]
+            },
+        );
+        assert!(!followed);
+        assert!(owed.exists());
+        // A game that could not be written is tried again too.
+        let followed = follow_in_launchers_at(
+            &owed,
+            || vec![("SOTTR.exe".to_owned(), Err(anyhow::anyhow!("read-only")))],
+            Vec::new,
+        );
+        assert!(!followed);
+        assert!(owed.exists());
+        // Everything in line: the mark goes.
+        let followed = follow_in_launchers_at(
+            &owed,
+            || vec![("SOTTR.exe".to_owned(), Ok(Steam::Unchanged))],
+            || vec![("Hades.exe".to_owned(), Ok(Heroic::Written))],
+        );
+        assert!(followed);
+        assert!(!owed.exists());
+    }
+
+    /// The files [`deactivate_in`] works on, in a scratch folder.
+    struct Files {
+        record: PathBuf,
+        owed: PathBuf,
+    }
+
+    impl Files {
+        fn in_(dir: &Scratch) -> Self {
+            Self {
+                record: dir.0.join("turbo-preset-active.toml"),
+                owed: dir.0.join("turbo-preset-launchers-owed"),
+            }
+        }
+    }
+
+    #[test]
+    fn taking_a_preset_away_brings_the_launchers_along() {
+        let dir = Scratch::new("deactivate");
+        let f = Files::in_(&dir);
+        write(
+            &f.record,
+            &Stored {
+                preset: Preset::Enhanced,
+                before: BTreeMap::from([("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned())]),
+            },
+        )
+        .unwrap();
+        let mut seen = None;
+        let mut followed = false;
+        deactivate_in(
+            &f.record,
+            &f.owed,
+            |layer| {
+                seen = Some(layer.clone());
+                Ok(Vec::new())
+            },
+            || followed = true,
+        )
+        .unwrap();
+        let layer = seen.unwrap();
+        assert_eq!(layer.levers, Levers::default());
+        assert_eq!(layer.before["PROTON_FSR4_UPGRADE"], "1");
+        assert!(layer.owns_preset_keys);
+        assert!(!f.record.exists());
+        // After the record: the launchers then read no preset in force.
+        assert!(followed);
+        // No record and nothing owed: the launchers are left alone.
+        let mut followed = false;
+        deactivate_in(&f.record, &f.owed, |_| Ok(Vec::new()), || followed = true).unwrap();
+        assert!(!followed);
+        // Still owed from an earlier Turbo off: tried again.
+        std::fs::write(&f.owed, "").unwrap();
+        deactivate_in(&f.record, &f.owed, |_| Ok(Vec::new()), || followed = true).unwrap();
+        assert!(followed);
+    }
+
+    #[test]
+    fn a_session_that_does_not_change_keeps_the_record() {
+        let dir = Scratch::new("deactivate_fails");
+        let f = Files::in_(&dir);
+        write(&f.record, &Stored::default()).unwrap();
+        let mut followed = false;
+        let result = deactivate_in(
+            &f.record,
+            &f.owed,
+            |_| anyhow::bail!("the session environment did not change"),
+            || followed = true,
+        );
+        assert!(result.is_err());
+        assert!(f.record.exists(), "kept to retry from");
+        assert!(!followed);
     }
 
     #[test]
