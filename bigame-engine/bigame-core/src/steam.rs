@@ -118,8 +118,11 @@ pub fn users(home: &Path) -> Vec<SteamUser> {
             }
         }
     }
-    out.sort_by(|a, b| a.id.cmp(&b.id));
-    out.dedup_by(|a, b| a.id == b.id);
+    // One account signed in to both the native Steam and the Flatpak has a
+    // `userdata/<id>` in each, and each client reads only its own: they are
+    // two configurations to write, told apart by their file, not by the id.
+    out.sort_by(|a, b| a.id.cmp(&b.id).then_with(|| a.config.cmp(&b.config)));
+    out.dedup_by(|a, b| a.config == b.config);
     out
 }
 
@@ -930,6 +933,34 @@ mod tests {
             client_command(false, &["-shutdown"]),
             ["steam", "-shutdown"]
         );
+    }
+
+    #[test]
+    fn one_account_in_the_native_and_the_flatpak_steam_is_two_configurations() {
+        let home = tempfile::tempdir().unwrap();
+        let account = |root: &str| {
+            let config = home
+                .path()
+                .join(root)
+                .join("userdata/1234/config/localconfig.vdf");
+            std::fs::create_dir_all(home.path().join(root).join("steamapps")).unwrap();
+            std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+            std::fs::write(&config, VDF).unwrap();
+        };
+        account(".local/share/Steam");
+        account(".var/app/com.valvesoftware.Steam/.local/share/Steam");
+        let found = users(home.path());
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.iter().all(|u| u.id == "1234"));
+        assert_eq!(found.iter().filter(|u| u.flatpak()).count(), 1);
+        // `~/.steam/steam`, a link to the native install, is not a third.
+        std::fs::create_dir_all(home.path().join(".steam")).unwrap();
+        std::os::unix::fs::symlink(
+            home.path().join(".local/share/Steam"),
+            home.path().join(".steam/steam"),
+        )
+        .unwrap();
+        assert_eq!(users(home.path()).len(), 2);
     }
 
     #[test]
