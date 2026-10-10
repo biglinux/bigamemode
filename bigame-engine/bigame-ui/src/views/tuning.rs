@@ -33,7 +33,7 @@ use bigame_core::optimization::{self as opt, Feature, PROFILE_SETS, VCACHE_MODES
 use bigame_core::overview::State;
 use bigame_core::video_config::{self, VideoConfig};
 
-use crate::i18n::{N_, error_text, i18n, tr};
+use crate::i18n::{N_, error_text, i18n, ni18n, tr};
 use crate::widgets::launch::{self, icon};
 use crate::widgets::notice::{self, Kind, Notice};
 use crate::widgets::optimization::{self as ui, Machine, Picker, Scope};
@@ -387,7 +387,7 @@ fn report_heroic(
         crate::widgets::toast::error(
             anchor,
             &i18n("Could not update Heroic's settings for a game"),
-            &format!("{name}: {}", error_text(e)),
+            &crate::i18n::labelled(name, &error_text(e)),
         );
     }
     if !written.is_empty() {
@@ -466,7 +466,7 @@ fn report_steam_gamescope(
         crate::widgets::toast::error(
             anchor,
             &i18n("Could not update Gamescope in Steam's launch options"),
-            &format!("{name}: {}", error_text(e)),
+            &crate::i18n::labelled(name, &error_text(e)),
         );
     }
     if !written.is_empty() {
@@ -1650,13 +1650,16 @@ fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup 
                 return;
             };
             gamescope_row.set_subtitle(
-                &i18n("Version %v — %n options detected from --help")
-                    .replace(
-                        "%v",
-                        &gs.version
-                            .map_or_else(|| i18n("unknown"), |v| v.to_string()),
-                    )
-                    .replace("%n", &gs.flags.len().to_string()),
+                &ni18n(
+                    "Version %v — %n option detected from --help",
+                    "Version %v — %n options detected from --help",
+                    gs.flags.len(),
+                )
+                .replace(
+                    "%v",
+                    &gs.version
+                        .map_or_else(|| i18n("unknown"), |v| v.to_string()),
+                ),
             );
             // The generated command line is the honest "advanced options"
             // box: the arguments come from capabilities.

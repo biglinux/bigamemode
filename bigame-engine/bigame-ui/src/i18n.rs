@@ -28,11 +28,7 @@ pub fn init() {
 
 /// Mark a string for translation without translating it here: for labels
 /// kept in constants and passed to [`i18n`] where they are shown.
-#[allow(non_snake_case)]
-#[must_use]
-pub const fn N_(s: &'static str) -> &'static str {
-    s
-}
+pub use bigame_core::text::N_;
 
 /// Translate a string via gettext.
 #[must_use]
@@ -45,6 +41,13 @@ pub fn i18n(s: &str) -> String {
 #[must_use]
 pub fn ni18n(singular: &str, plural: &str, n: usize) -> String {
     ngettext(singular, plural, u32::try_from(n).unwrap_or(u32::MAX)).replace("%n", &n.to_string())
+}
+
+/// "label: value" as the language writes it: French puts a space before the
+/// colon, Chinese uses a full-width one.
+#[must_use]
+pub fn labelled(label: &str, value: &str) -> String {
+    bigame_core::text::Text::fill(&i18n("%s: %s"), &[label.to_owned(), value.to_owned()])
 }
 
 /// A sentence from bigame-core, translated: its template and every

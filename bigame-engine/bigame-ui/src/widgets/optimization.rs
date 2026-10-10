@@ -657,10 +657,9 @@ pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
         problems.push(format!("lsfg-vk: {}", crate::i18n::error_text(e)));
     }
     if let Some(e) = &report.launch {
-        problems.push(format!(
-            "{}: {}",
-            i18n("Launch settings"),
-            crate::i18n::error_text(e)
+        problems.push(crate::i18n::labelled(
+            &i18n("Launch settings"),
+            &crate::i18n::error_text(e),
         ));
     }
     let mut note = None;
@@ -681,10 +680,9 @@ pub fn report_save(anchor: &impl IsA<gtk4::Widget>, report: &opt::SaveReport) {
                 );
             }
             Ok(_) => {}
-            Err(e) => problems.push(format!(
-                "{}: {}",
-                i18n("Launch options"),
-                crate::i18n::error_text(e)
+            Err(e) => problems.push(crate::i18n::labelled(
+                &i18n("Launch options"),
+                &crate::i18n::error_text(e),
             )),
         }
     }
@@ -763,10 +761,9 @@ fn heroic_outcome(
             return Some(*launcher);
         }
         Ok(_) => {}
-        Err(e) => problems.push(format!(
-            "{}: {}",
-            i18n("Heroic's settings"),
-            crate::i18n::error_text(e)
+        Err(e) => problems.push(crate::i18n::labelled(
+            &i18n("Heroic's settings"),
+            &crate::i18n::error_text(e),
         )),
     }
     None
