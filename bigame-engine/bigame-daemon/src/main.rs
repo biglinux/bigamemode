@@ -75,6 +75,8 @@ impl BiGameDaemon {
         validate::profile_name(name).map_err(invalid)?;
         validate::profile_payload(payload).map_err(invalid)?;
         validate::profile_name_matches(name, payload).map_err(invalid)?;
+        validate::not_a_root_process(name, &validate::root_process_names(Path::new("/proc")))
+            .map_err(invalid)?;
 
         let dir = Path::new(USER_PROFILES_DIR);
         std::fs::create_dir_all(dir)

@@ -111,30 +111,267 @@ const CONFIG_KEYS: &[&str] = &[
 ];
 
 /// Processes no game profile may name: falcond would apply a game's
-/// performance mode and scheduler to the session itself.
+/// performance mode, scheduler and the rest to the system itself. Exact
+/// names, compared without case as falcond compares them, so no game title
+/// is caught by a prefix. Kept to programs that are never a game: the
+/// service manager and its daemons, the bus and Polkit, login and privilege
+/// programs, display servers and compositors, the sound server, network
+/// and hardware daemons, shells, and Big Game Mode with what it drives.
+///
+/// falcond matches a profile against the name it takes from the command
+/// line and against `/proc/<pid>/comm`, which the kernel cuts to 15 bytes,
+/// so a name is also refused when it is that cut form of an entry here
+/// (`systemd-journal` for `systemd-journald`).
 const SYSTEM_PROCESSES: &[&str] = &[
+    // Service manager and its own daemons.
+    "systemd",
+    "init",
+    "(sd-pam)",
+    "systemd-executor",
+    "systemd-journald",
+    "systemd-logind",
+    "systemd-udevd",
+    "udevd",
+    "systemd-resolved",
+    "systemd-networkd",
+    "systemd-timesyncd",
+    "systemd-oomd",
+    "systemd-homed",
+    "systemd-userdbd",
+    "systemd-userwork",
+    "systemd-machined",
+    "systemd-swap",
+    // Bus, Polkit, accounts.
+    "dbus-daemon",
+    "dbus-broker",
+    "dbus-broker-launch",
+    "polkitd",
+    "polkit-agent-helper-1",
+    "accounts-daemon",
+    "rtkit-daemon",
+    // Logging in and gaining privileges.
+    "login",
+    "agetty",
+    "getty",
+    "sshd",
+    "sshd-session",
+    "sshd-auth",
+    "sudo",
+    "su",
+    "pkexec",
+    "doas",
+    "run0",
+    "passwd",
+    "unix_chkpwd",
+    "sddm",
+    "sddm-helper",
+    "gdm",
+    "gdm-session-worker",
+    "lightdm",
+    "greetd",
+    // Display servers, compositors and the desktop shell.
     "xorg",
     "xwayland",
     "kwin_wayland",
+    "kwin_wayland_wrapper",
     "kwin_x11",
     "gnome-shell",
     "plasmashell",
-    "systemd",
-    "init",
-    "sddm",
-    "gdm",
-    "dbus-daemon",
-    "dbus-broker",
-    "polkitd",
+    "ksmserver",
+    "kded5",
+    "kded6",
+    "gamescope",
+    "gamescope-wl",
+    "gamescopereaper",
+    "sway",
+    "hyprland",
+    "labwc",
+    "wayfire",
+    "niri",
+    "weston",
+    "cosmic-comp",
+    "xfwm4",
+    "openbox",
+    "picom",
+    // Sound.
     "pipewire",
+    "pipewire-pulse",
     "wireplumber",
-    "falcond",
-    "bigame-daemon",
-    "bigame-ui",
-    "sudo",
+    "pulseaudio",
+    "jackd",
+    "jackdbus",
+    // Network, devices, power, scheduling.
+    "networkmanager",
+    "nm-dispatcher",
+    "wpa_supplicant",
+    "iwd",
+    "dhcpcd",
+    "dhclient",
+    "connmand",
+    "modemmanager",
+    "bluetoothd",
+    "avahi-daemon",
+    "firewalld",
+    "chronyd",
+    "ntpd",
+    "crond",
+    "cron",
+    "atd",
+    "cupsd",
+    "udisksd",
+    "upowerd",
+    "colord",
+    "fwupd",
+    "boltd",
+    "switcheroo-control",
+    "power-profiles-daemon",
+    "tuned",
+    "tuned-ppd",
+    "thermald",
+    "irqbalance",
+    "ananicy-cpp",
+    "earlyoom",
+    "nvidia-persistenced",
+    "nvidia-powerd",
+    "packagekitd",
+    "pamac-daemon",
+    "scx_loader",
+    "auditd",
+    "rsyslogd",
+    "syslog-ng",
+    "dockerd",
+    "containerd",
+    "libvirtd",
+    "kthreadd",
+    // Shells: every script in the session, root's included, runs in one.
     "sh",
     "bash",
+    "zsh",
+    "fish",
+    "dash",
+    "ksh",
+    "mksh",
+    "tcsh",
+    "csh",
+    "busybox",
+    // Big Game Mode and what it drives.
+    "falcond",
+    "gamemoded",
+    "bigame-daemon",
+    "bigame-ui",
 ];
+
+/// The length the kernel cuts `/proc/<pid>/comm` to.
+const COMM_LEN: usize = 15;
+
+/// Whether `name` is one of `names`, or the `comm` form of one: what
+/// falcond would match a process of that name by.
+fn names_one_of<'a>(name: &str, names: impl IntoIterator<Item = &'a str>) -> bool {
+    let name = name.to_ascii_lowercase();
+    names.into_iter().any(|known| {
+        let known = known.to_ascii_lowercase();
+        known == name || (name.len() == COMM_LEN && known.starts_with(&name))
+    })
+}
+
+/// The names falcond could match each process running as root by, read
+/// from `proc` (normally `/proc`): its `comm`, and the name falcond takes
+/// from its command line. Lowercase.
+///
+/// Best effort, on top of [`SYSTEM_PROCESSES`]: a process started after the
+/// call is not seen, and under the unit's `ProtectProc=invisible` the helper
+/// (uid 0 with no `CAP_SYS_PTRACE`) sees only root processes whose ids are
+/// all 0 and that have not made themselves non-dumpable — which is most
+/// root services, and every kernel thread. Unreadable entries are skipped:
+/// the deny-list above is the guarantee, this only widens it.
+#[must_use]
+pub fn root_process_names(proc: &std::path::Path) -> std::collections::HashSet<String> {
+    let mut names = std::collections::HashSet::new();
+    let Ok(entries) = std::fs::read_dir(proc) else {
+        return names;
+    };
+    for entry in entries.flatten() {
+        let dir = entry.path();
+        let is_pid = entry
+            .file_name()
+            .to_str()
+            .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+        if !is_pid {
+            continue;
+        }
+        let Ok(status) = std::fs::read_to_string(dir.join("status")) else {
+            continue;
+        };
+        if !runs_as_root(&status) {
+            continue;
+        }
+        if let Ok(comm) = std::fs::read_to_string(dir.join("comm")) {
+            let comm = comm.trim_end_matches('\n');
+            if !comm.is_empty() {
+                names.insert(comm.to_ascii_lowercase());
+            }
+        }
+        if let Ok(cmdline) = std::fs::read(dir.join("cmdline")) {
+            let cmdline = String::from_utf8_lossy(&cmdline);
+            let name = name_from_cmdline(&cmdline);
+            if !name.is_empty() {
+                names.insert(name.to_ascii_lowercase());
+            }
+        }
+    }
+    names
+}
+
+/// Whether a `/proc/<pid>/status` text has a real or effective uid of 0.
+fn runs_as_root(status: &str) -> bool {
+    status
+        .lines()
+        .find_map(|l| l.strip_prefix("Uid:"))
+        .is_some_and(|uids| uids.split_whitespace().take(2).any(|u| u == "0"))
+}
+
+/// The process name falcond 2.0.x takes from a NUL-separated command line
+/// (`selectProcessNameFromCmdline`): the base name, after `/` or a backslash, of
+/// the first argument that ends in `.exe`, or else of the first non-empty
+/// one.
+fn name_from_cmdline(cmdline: &str) -> &str {
+    let mut fallback = "";
+    for arg in cmdline.split('\0').filter(|a| !a.is_empty()) {
+        let base = arg.rsplit(['/', '\\']).next().unwrap_or(arg);
+        if base.is_empty() {
+            continue;
+        }
+        if fallback.is_empty() {
+            fallback = base;
+        }
+        if base.len() >= 4
+            && base.is_char_boundary(base.len() - 4)
+            && base[base.len() - 4..].eq_ignore_ascii_case(".exe")
+        {
+            return base;
+        }
+    }
+    fallback
+}
+
+/// Refuse a profile name falcond would match against a process running as
+/// root now, whatever it is called: one in `root_names`, as
+/// [`root_process_names`] read them.
+///
+/// # Errors
+/// Returns an error naming the clash.
+pub fn not_a_root_process(
+    name: &str,
+    root_names: &std::collections::HashSet<String>,
+) -> Result<(), String> {
+    if names_one_of(name, root_names.iter().map(String::as_str)) {
+        Err(format!(
+            "{name:?} is the name of a process running as root, not a game: a profile may not name it"
+        ))
+    } else {
+        Ok(())
+    }
+}
 
 /// One `key = value` assignment of falcond's configuration format, read
 /// strictly: the key, then the value with its quotes removed.
@@ -385,7 +622,7 @@ pub fn profile_name_matches(name: &str, payload: &str) -> Result<(), String> {
     let field = assignments(payload, PROFILE_KEYS, false)?
         .into_iter()
         .find_map(|(k, v)| (k == "name").then(|| v.to_owned()));
-    if SYSTEM_PROCESSES.contains(&name.to_ascii_lowercase().as_str()) {
+    if names_one_of(name, SYSTEM_PROCESSES.iter().copied()) {
         return Err(format!(
             "{name:?} is a system process, not a game: a profile may not name it"
         ));
@@ -445,9 +682,114 @@ mod tests {
     #[test]
     fn a_profile_may_not_name_the_session_itself() {
         use super::profile_name_matches;
-        assert!(profile_name_matches("Xorg", "name = \"Xorg\"\n").is_err());
-        assert!(profile_name_matches("kwin_wayland", "name = \"kwin_wayland\"\n").is_err());
-        assert!(profile_name_matches("vkcube", "name = \"vkcube\"\n").is_ok());
+        let check = |name: &str| profile_name_matches(name, &format!("name = \"{name}\"\n"));
+        for name in [
+            "Xorg",
+            "kwin_wayland",
+            "systemd-logind",
+            "NetworkManager",
+            "sshd",
+            "zsh",
+            "fish",
+            "gamescope",
+            "Hyprland",
+            // `comm` cuts names to 15 bytes, and falcond matches that too.
+            "systemd-journal",
+            "systemd-journald",
+            "kwin_wayland_wr",
+            "dbus-broker-lau",
+        ] {
+            assert!(check(name).is_err(), "{name}");
+        }
+        // Real games, and names that merely start like a system process.
+        for name in [
+            "vkcube",
+            "Cyberpunk2077.exe",
+            "X4",
+            "sshd-simulator",
+            "Gamescope Demo.exe",
+            "systemd-journa",
+            "SOTTR.exe",
+            "factorio",
+            "Proton",
+        ] {
+            assert!(check(name).is_ok(), "{name}: {:?}", check(name));
+        }
+    }
+
+    #[test]
+    fn falcond_reads_the_process_name_from_the_command_line_as_here() {
+        use super::name_from_cmdline;
+        // falcond's own test cases (scanner.zig).
+        assert_eq!(
+            name_from_cmdline(
+                "/usr/bin/wine64\0C:\\Program Files\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe\0--fullscreen\0"
+            ),
+            "Cyberpunk2077.exe"
+        );
+        assert_eq!(
+            name_from_cmdline("/usr/bin/umu-run\0--gameid\x001234\0"),
+            "umu-run"
+        );
+        assert_eq!(
+            name_from_cmdline("/usr/lib/systemd/systemd-logind\0"),
+            "systemd-logind"
+        );
+        assert_eq!(name_from_cmdline("\0\0"), "");
+        assert_eq!(name_from_cmdline("GAME.EXE\0"), "GAME.EXE");
+    }
+
+    #[test]
+    fn a_profile_may_not_name_a_process_running_as_root() {
+        use super::{not_a_root_process, root_process_names};
+        // A /proc of three processes: a root daemon, a root process started
+        // through wine, and the user's game.
+        let proc =
+            std::env::temp_dir().join(format!("bigame-daemon-test-proc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&proc);
+        let process = |pid: u32, uid: u32, comm: &str, cmdline: &str| {
+            let dir = proc.join(pid.to_string());
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(
+                dir.join("status"),
+                format!("Name:\t{comm}\nUid:\t{uid}\t{uid}\t{uid}\t{uid}\n"),
+            )
+            .unwrap();
+            std::fs::write(dir.join("comm"), format!("{comm}\n")).unwrap();
+            std::fs::write(dir.join("cmdline"), cmdline).unwrap();
+        };
+        process(1, 0, "init-daemon", "/usr/lib/init-daemon\0--system\0");
+        process(
+            40,
+            0,
+            "RootTool.exe",
+            "/usr/bin/wine\0C:\\tools\\RootTool.exe\0",
+        );
+        process(41, 0, "very-long-servi", "/usr/bin/very-long-service\0");
+        process(
+            500,
+            1000,
+            "Cyberpunk2077.e",
+            "/usr/bin/wine64\0Z:\\games\\Cyberpunk2077.exe\0",
+        );
+        // Not a process directory.
+        std::fs::create_dir_all(proc.join("sys")).unwrap();
+
+        let root = root_process_names(&proc);
+        std::fs::remove_dir_all(&proc).unwrap();
+        for name in [
+            "init-daemon",
+            "INIT-DAEMON",
+            "RootTool.exe",
+            "very-long-servi",
+            "very-long-service",
+        ] {
+            assert!(not_a_root_process(name, &root).is_err(), "{name}");
+        }
+        assert!(not_a_root_process("Cyberpunk2077.exe", &root).is_ok());
+        assert!(not_a_root_process("vkcube", &root).is_ok());
+        // An unreadable /proc refuses nothing: the deny-list still holds.
+        assert!(root_process_names(std::path::Path::new("/nonexistent/proc")).is_empty());
     }
 
     #[test]
