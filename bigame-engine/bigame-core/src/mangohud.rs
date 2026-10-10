@@ -26,7 +26,8 @@
 //!   settings in memory and writes them back when one changes, so the file
 //!   is written with Heroic closed.
 //! * **Lutris** — the game's YAML: Lutris's own *FPS counter (`MangoHud`)*
-//!   option, `system: mangohud: true`, for On and Forced alike.
+//!   option, `system: mangohud: true`, for On and Forced alike. The line the
+//!   game had before is recorded, and Off puts it back.
 //!
 //! A launcher running as a Flatpak cannot see the system's `mangohud`: it
 //! needs Flathub's `org.freedesktop.Platform.VulkanLayer.MangoHud` for its
@@ -343,12 +344,14 @@ fn apply_to_launcher(
             }
         }
         LauncherRef::Lutris { config_file } => {
-            let current = std::fs::read_to_string(config_file)?;
-            let wanted = lutris_config(&current, mode);
-            if wanted != current {
-                write_keeping_backup(config_file, &wanted)?;
-            }
             let mut settings = crate::game_settings::load(process)?;
+            lutris_apply(
+                config_file,
+                &lutris_record_path(),
+                settings.mangohud,
+                mode,
+                &write_keeping_backup,
+            )?;
             settings.mangohud = mode;
             crate::game_settings::save(process, &settings)?;
         }
@@ -455,6 +458,98 @@ pub(crate) fn replace_file(path: &std::path::Path, content: &[u8]) -> Result<()>
     Ok(())
 }
 
+/// Where the `mangohud` line each Lutris game had before Big Game Mode first
+/// switched the option on is recorded, by the game's file (an empty line
+/// for none).
+fn lutris_record_path() -> std::path::PathBuf {
+    crate::paths::state_home().join("bigame-mode/mangohud/lutris-before.toml")
+}
+
+/// The line Big Game Mode writes for On and Forced.
+const LUTRIS_ON: &str = "  mangohud: true";
+
+/// Write `mode` into the Lutris game file `file`, with the game saved at
+/// `saved` until now. The first time the option goes on, the line the game
+/// had is recorded in `record`; Off puts that line back, and takes out
+/// only Big Game Mode's own `mangohud: true` — a value the user changed
+/// since in Lutris, or set before with nothing from Big Game Mode, stays.
+fn lutris_apply(
+    file: &std::path::Path,
+    record: &std::path::Path,
+    saved: Mode,
+    mode: Mode,
+    write: &dyn Fn(&std::path::Path, &str) -> Result<()>,
+) -> Result<()> {
+    let current = std::fs::read_to_string(file)?;
+    let mut before: std::collections::BTreeMap<String, String> = read_record(record)?;
+    let key = file.to_string_lossy().into_owned();
+    let wanted = if mode == Mode::Off {
+        match before.get(&key) {
+            Some(line) => lutris_off(&current, Some(line.as_str()).filter(|l| !l.is_empty())),
+            // An older version wrote the option and kept no record of it.
+            None if saved != Mode::Off => lutris_off(&current, None),
+            None => current.clone(),
+        }
+    } else {
+        if !before.contains_key(&key) {
+            // Recorded before the file changes: a failure between the two
+            // must not lose what the user had.
+            let line = lutris_line(&current).unwrap_or_default().to_owned();
+            before.insert(key.clone(), line);
+            write_record(record, &before)?;
+        }
+        lutris_config(&current, mode)
+    };
+    if wanted != current {
+        write(file, &wanted)?;
+    }
+    if mode == Mode::Off && before.remove(&key).is_some() {
+        write_record(record, &before)?;
+    }
+    Ok(())
+}
+
+/// Where the `mangohud` option of the `system:` section is in `lines`.
+fn lutris_line_at(lines: &[&str]) -> Option<usize> {
+    let header = lines
+        .iter()
+        .position(|l| *l == "system:" || l.starts_with("system: "))?;
+    (header + 1..lines.len())
+        .take_while(|&i| lines[i].is_empty() || lines[i].starts_with(' '))
+        .find(|&i| {
+            lines[i].starts_with("  ")
+                && !lines[i].starts_with("   ")
+                && lines[i].trim_start().starts_with("mangohud:")
+        })
+}
+
+/// The `mangohud` line of a Lutris game YAML's `system:` section.
+fn lutris_line(current: &str) -> Option<&str> {
+    let lines: Vec<&str> = current.lines().collect();
+    lutris_line_at(&lines).map(|i| lines[i])
+}
+
+/// A Lutris game YAML with Big Game Mode's `mangohud: true` taken out:
+/// `before`, the line the game had before it, put back, or the line
+/// removed when it had none. A `mangohud` line other than Big Game Mode's
+/// is the user's, and the file stays as it is.
+#[must_use]
+pub fn lutris_off(current: &str, before: Option<&str>) -> String {
+    let mut lines: Vec<&str> = current.lines().collect();
+    let Some(at) = lutris_line_at(&lines).filter(|&i| lines[i] == LUTRIS_ON) else {
+        return current.to_owned();
+    };
+    let Some(line) = before else {
+        return lutris_config(current, Mode::Off);
+    };
+    lines[at] = line;
+    let mut text = lines.join("\n");
+    if current.ends_with('\n') {
+        text.push('\n');
+    }
+    text
+}
+
 /// A Lutris game YAML with `mode` applied to its `system:` section's
 /// `mangohud` option. Only that line (and, when there was none, the section
 /// header) changes; comments, order and every other key stay byte for byte.
@@ -470,7 +565,7 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
         None if !on => return current.to_owned(),
         None => {
             out.push("system:".into());
-            out.push("  mangohud: true".into());
+            out.push(LUTRIS_ON.into());
         }
         Some(h) => {
             // `system: {}` or another flow value: make it a block.
@@ -485,7 +580,7 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
                 out[i].starts_with("  ") && !out[i].starts_with("   ") && t.starts_with("mangohud:")
             });
             match (found, on) {
-                (Some(i), true) => out[i] = "  mangohud: true".into(),
+                (Some(i), true) => LUTRIS_ON.clone_into(&mut out[i]),
                 (Some(i), false) => {
                     out.remove(i);
                     // A section left with nothing in it goes too.
@@ -493,7 +588,7 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
                         out.remove(h);
                     }
                 }
-                (None, true) => out.insert(h + 1, "  mangohud: true".into()),
+                (None, true) => out.insert(h + 1, LUTRIS_ON.into()),
                 (None, false) => {}
             }
         }
@@ -1336,6 +1431,52 @@ mod tests {
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .collect();
         assert_eq!(names, ["game.yml"]);
+    }
+
+    #[test]
+    fn lutris_off_puts_back_what_the_game_had() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("game.yml");
+        let record = dir.path().join("state/lutris-before.toml");
+        let write = |f: &std::path::Path, t: &str| replace_file(f, t.as_bytes());
+        let game = "game:\n  exe: /g/x\nsystem:\n  env:\n    LANG: C\n";
+        let run = |before: &str, saved, mode| {
+            std::fs::write(&file, before).unwrap();
+            lutris_apply(&file, &record, saved, mode, &write).unwrap();
+            std::fs::read_to_string(&file).unwrap()
+        };
+        for theirs in [
+            "  mangohud: true",
+            "  mangohud: false",
+            "  mangohud: false  # slow",
+        ] {
+            let mine = format!("{game}{theirs}\n");
+            let on = run(&mine, Mode::Off, Mode::On);
+            assert!(on.contains(&format!("\n{LUTRIS_ON}\n")), "{on}");
+            // Forced after On keeps the first record.
+            std::fs::write(&file, &on).unwrap();
+            lutris_apply(&file, &record, Mode::On, Mode::Forced, &write).unwrap();
+            assert_eq!(run(&on, Mode::Forced, Mode::Off), mine, "{theirs}");
+            assert!(
+                read_record::<std::collections::BTreeMap<String, String>>(&record)
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        // None before: the line goes, and the section it added with it.
+        let plain = "game:\n  exe: /g/x\n";
+        let on = run(plain, Mode::Off, Mode::On);
+        assert_eq!(run(&on, Mode::On, Mode::Off), plain);
+
+        // Set by the user, nothing from Big Game Mode: Off leaves it.
+        let theirs = format!("{game}  mangohud: true\n");
+        assert_eq!(run(&theirs, Mode::Off, Mode::Off), theirs);
+        // Changed since in Lutris: theirs now.
+        run(plain, Mode::Off, Mode::On);
+        let changed = "game:\n  exe: /g/x\nsystem:\n  mangohud: false\n";
+        assert_eq!(run(changed, Mode::On, Mode::Off), changed);
+        // An older version's `true`, with no record: it goes.
+        assert_eq!(run(&on, Mode::On, Mode::Off), plain);
     }
 
     #[test]
