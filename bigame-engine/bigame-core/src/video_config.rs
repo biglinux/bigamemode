@@ -201,8 +201,7 @@ fn session_env_with(
 /// # Errors
 /// Returns an error when the session bus or the manager cannot be reached.
 pub fn session_environment() -> Result<HashMap<String, String>> {
-    let conn = zbus::blocking::Connection::session().context("session bus")?;
-    let now: Vec<String> = user_manager(&conn)?
+    let now: Vec<String> = user_manager(session_bus()?)?
         .get_property("Environment")
         .context("read the session environment")?;
     Ok(now
@@ -212,14 +211,30 @@ pub fn session_environment() -> Result<HashMap<String, String>> {
         .collect())
 }
 
+/// One session bus connection for the whole process, opened on first use:
+/// Home reads the session's environment every few seconds, and a new
+/// connection each time is a new authentication with the bus. A failed
+/// connect is not remembered, so a later call tries again.
+fn session_bus() -> Result<&'static zbus::blocking::Connection> {
+    static SHARED: std::sync::OnceLock<zbus::blocking::Connection> = std::sync::OnceLock::new();
+    if let Some(conn) = SHARED.get() {
+        return Ok(conn);
+    }
+    let conn = zbus::blocking::Connection::session().context("session bus")?;
+    Ok(SHARED.get_or_init(|| conn))
+}
+
+/// The user manager, its properties read when asked: a caching proxy
+/// fetches every property of the manager (`GetAll`) to read one, and then
+/// follows their changes.
 fn user_manager(conn: &zbus::blocking::Connection) -> Result<zbus::blocking::Proxy<'static>> {
-    zbus::blocking::Proxy::new(
-        conn,
-        "org.freedesktop.systemd1",
-        "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager",
-    )
-    .context("systemd user manager")
+    zbus::blocking::proxy::Builder::new(conn)
+        .destination("org.freedesktop.systemd1")
+        .and_then(|b| b.path("/org/freedesktop/systemd1"))
+        .and_then(|b| b.interface("org.freedesktop.systemd1.Manager"))
+        .map(|b| b.cache_properties(zbus::proxy::CacheProperties::No))
+        .and_then(zbus::blocking::proxy::Builder::build)
+        .context("systemd user manager")
 }
 
 /// What of Big Game Mode's variables ([`SESSION_KEYS`]) an environment really
@@ -296,8 +311,7 @@ fn session_change(
 /// One `UnsetAndSetEnvironment` call on the user manager — no `systemctl`
 /// process — then a read-back of its environment to confirm it holds.
 fn sync_session(unset: &[String], set: &[String]) -> Result<()> {
-    let conn = zbus::blocking::Connection::session().context("session bus")?;
-    let manager = user_manager(&conn)?;
+    let manager = user_manager(session_bus()?)?;
     manager
         .call_method("UnsetAndSetEnvironment", &(unset, set))
         .context("UnsetAndSetEnvironment")?;
