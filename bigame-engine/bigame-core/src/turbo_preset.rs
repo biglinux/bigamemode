@@ -733,17 +733,19 @@ fn follow_in_launchers_at(
 pub fn deactivate() -> Result<Vec<String>> {
     deactivate_in(
         &active_path(),
+        &cas_config_path(),
         &launchers_owed_path(),
         |layer| crate::video_config::sync_session_env_with(&crate::video_config::load(), layer),
         follow_in_launchers,
     )
 }
 
-/// [`deactivate`] with the record at `record` and the launchers' mark at
-/// `owed`; `sync` brings the session to a layer, `follow` brings the
-/// launchers along.
+/// [`deactivate`] with the record at `record`, vkBasalt's CAS file at `cas`
+/// and the launchers' mark at `owed`; `sync` brings the session to a layer,
+/// `follow` brings the launchers along.
 fn deactivate_in(
     record: &Path,
+    cas: &Path,
     owed: &Path,
     sync: impl FnOnce(&Layer) -> Result<Vec<String>>,
     follow: impl FnOnce(),
@@ -769,6 +771,11 @@ fn deactivate_in(
     let had_record = layer.owns_preset_keys;
     let set = sync(&layer)?;
     remove_if_any(record)?;
+    // The session no longer names it, and nothing of Tuning's does: a
+    // preset leaves nothing behind once it is gone.
+    if let Err(e) = remove_if_any(cas) {
+        tracing::warn!(error = %format!("{e:#}"), "could not remove the Turbo preset's vkBasalt file");
+    }
     if had_record || owed.exists() {
         follow();
     }
@@ -1122,6 +1129,7 @@ multiplier = 1
     /// The files [`deactivate_in`] works on, in a scratch folder.
     struct Files {
         record: PathBuf,
+        cas: PathBuf,
         owed: PathBuf,
     }
 
@@ -1129,6 +1137,7 @@ multiplier = 1
         fn in_(dir: &Scratch) -> Self {
             Self {
                 record: dir.0.join("turbo-preset-active.toml"),
+                cas: dir.0.join("vkbasalt-cas.conf"),
                 owed: dir.0.join("turbo-preset-launchers-owed"),
             }
         }
@@ -1146,10 +1155,12 @@ multiplier = 1
             },
         )
         .unwrap();
+        write_cas_config(&f.cas).unwrap();
         let mut seen = None;
         let mut followed = false;
         deactivate_in(
             &f.record,
+            &f.cas,
             &f.owed,
             |layer| {
                 seen = Some(layer.clone());
@@ -1163,15 +1174,31 @@ multiplier = 1
         assert_eq!(layer.before["PROTON_FSR4_UPGRADE"], "1");
         assert!(layer.owns_preset_keys);
         assert!(!f.record.exists());
+        // vkBasalt's CAS file was the preset's alone.
+        assert!(!f.cas.exists());
         // After the record: the launchers then read no preset in force.
         assert!(followed);
         // No record and nothing owed: the launchers are left alone.
         let mut followed = false;
-        deactivate_in(&f.record, &f.owed, |_| Ok(Vec::new()), || followed = true).unwrap();
+        deactivate_in(
+            &f.record,
+            &f.cas,
+            &f.owed,
+            |_| Ok(Vec::new()),
+            || followed = true,
+        )
+        .unwrap();
         assert!(!followed);
         // Still owed from an earlier Turbo off: tried again.
         std::fs::write(&f.owed, "").unwrap();
-        deactivate_in(&f.record, &f.owed, |_| Ok(Vec::new()), || followed = true).unwrap();
+        deactivate_in(
+            &f.record,
+            &f.cas,
+            &f.owed,
+            |_| Ok(Vec::new()),
+            || followed = true,
+        )
+        .unwrap();
         assert!(followed);
     }
 
@@ -1185,6 +1212,7 @@ multiplier = 1
         let mut followed = false;
         deactivate_in(
             &f.record,
+            &f.cas,
             &f.owed,
             |layer| {
                 owned = layer.owns_preset_keys;
@@ -1204,15 +1232,19 @@ multiplier = 1
         let dir = Scratch::new("deactivate_fails");
         let f = Files::in_(&dir);
         write(&f.record, &Stored::default()).unwrap();
+        write_cas_config(&f.cas).unwrap();
         let mut followed = false;
         let result = deactivate_in(
             &f.record,
+            &f.cas,
             &f.owed,
             |_| anyhow::bail!("the session environment did not change"),
             || followed = true,
         );
         assert!(result.is_err());
         assert!(f.record.exists(), "kept to retry from");
+        // The session may still name it.
+        assert!(f.cas.exists());
         assert!(!followed);
     }
 
