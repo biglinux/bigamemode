@@ -30,7 +30,7 @@ use bigame_core::optimization::Feature;
 use bigame_core::overview::State;
 use bigame_core::text::Text;
 
-use crate::i18n::{error_text, i18n, ni18n, tr};
+use crate::i18n::{error_text, i18n, labelled, ni18n, tr};
 use crate::widgets::info::{self, Entry};
 use crate::widgets::notice::{self, Kind, Notice, sentence};
 use crate::widgets::status::Chip;
@@ -222,12 +222,6 @@ fn wrap_title(group: &adw::PreferencesGroup) {
         }
     }
     visit(group.upcast_ref::<gtk4::Widget>());
-}
-
-/// `label: value`, laid out as the translation of "%s: %s" says: French
-/// puts a space before the colon, and some languages another mark.
-fn labelled(label: &str, value: &str) -> String {
-    Text::fill(&i18n("%s: %s"), &[label.to_owned(), value.to_owned()])
 }
 
 fn row(title: &str, subtitle: &str) -> adw::ActionRow {
