@@ -14,8 +14,9 @@ const MAX_PROFILE_NAME: usize = 128;
 
 /// Largest accepted configuration or profile payload (64 KiB).
 ///
-/// Real profiles are a few hundred bytes; this only exists so an unauthenticated
-/// bus peer cannot make the helper write an unbounded file.
+/// Real profiles are a few hundred bytes. An unauthenticated peer never gets
+/// this far — authorization comes first — so this bounds what an authorized
+/// caller can make the helper write into a file falcond then parses as root.
 const MAX_PAYLOAD: usize = 64 * 1024;
 
 /// Validate a per-game profile name.

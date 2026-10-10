@@ -46,6 +46,13 @@ UMask=0022
 # and the rest go. CAP_SYS_ADMIN stays: systemd checks a uid-0 caller's
 # capabilities, not its uid, before it starts or stops falcond on its behalf.
 CapabilityBoundingSet=CAP_SYS_ADMIN
+# Resource ceilings, far above what the helper uses and far below what a leak
+# or a runaway loop in it could otherwise take: about 5 MiB resident (ps, and
+# systemd's MemoryPeak of 4.6 MiB, on 2.3.1), and the main thread plus four
+# runtime workers. A full cgroup makes an allocation or a thread fail inside
+# the helper instead of pressing on the rest of the machine.
+MemoryMax=64M
+TasksMax=64
 # No PrivateNetwork: in its own network namespace the unit's sysfs showed no
 # cpufreq attributes (systemd 261, checked: SetCpuGovernor found none), and
 # RestrictAddressFamilies=AF_UNIX already leaves it no network socket.

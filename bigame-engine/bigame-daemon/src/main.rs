@@ -405,7 +405,12 @@ fn find_vcache_attribute() -> Option<PathBuf> {
         .find(|p| p.exists())
 }
 
-#[tokio::main]
+// Four worker threads, not tokio's default of one per CPU: with that, the
+// helper's thread count followed the machine (17 tasks on 16 threads), and
+// the unit's `TasksMax=64` would stop it starting on a 64-thread processor.
+// Writing calls serialise on one lock anyway, and every wait — Polkit, a
+// password prompt, systemd settling — is asynchronous.
+#[tokio::main(worker_threads = 4)]
 async fn main() -> Result<()> {
     // Under systemd the output is the journal, which timestamps every line
     // itself and shows colour codes as `[2m…[0m` in `journalctl`.
