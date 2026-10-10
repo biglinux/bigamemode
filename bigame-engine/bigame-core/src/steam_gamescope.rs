@@ -418,7 +418,8 @@ pub fn current_options(process: &str) -> Option<String> {
     })
 }
 
-fn steam_apps(process: &str) -> Vec<String> {
+/// The app ids of the Steam games whose process is `process`.
+pub(crate) fn steam_apps(process: &str) -> Vec<String> {
     crate::games::detect_all()
         .into_iter()
         .filter(|g| g.profile_key() == process && g.source == crate::games::Source::Steam)
