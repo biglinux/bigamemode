@@ -358,16 +358,25 @@ fn write_cas_config(path: &Path) -> Result<()> {
 }
 
 /// Replace `path` with `text` in one rename: a reader sees the old file or
-/// the new one, never half of one.
-fn write_atomic(path: &Path, text: &str) -> Result<()> {
+/// the new one, never half of one, and a crash leaves one of them whole.
+pub(crate) fn write_atomic(path: &Path, text: &str) -> Result<()> {
     use std::io::Write as _;
+    static SEQUENCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    // A dotfile manager's symlink stays a symlink: the file it points to is
+    // the one replaced.
+    let path = &std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let dir = path.parent().context("path has no parent directory")?;
     std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let tmp = dir.join(format!(".{name}.{}", std::process::id()));
+    // A name of its own per write, so two writers never share a temporary.
+    let tmp = dir.join(format!(
+        ".{name}.{}-{}",
+        std::process::id(),
+        SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
     let written = (|| {
         let mut f = std::fs::File::create(&tmp)?;
         f.write_all(text.as_bytes())?;

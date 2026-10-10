@@ -79,14 +79,10 @@ pub fn save(cfg: &VideoConfig) -> Result<Option<anyhow::Error>> {
 /// # Errors
 /// Returns an error if directory creation or file write fails.
 pub fn save_to(cfg: &VideoConfig, path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("create config dir: {}", parent.display()))?;
-    }
     let content = toml::to_string_pretty(cfg).context("serialize video config")?;
-    std::fs::write(path, content)
-        .with_context(|| format!("write video config: {}", path.display()))?;
-    Ok(())
+    // Written in one rename: a file cut short by a crash or a full disk
+    // reads as no file, and every setting in it would fall back to default.
+    crate::turbo_preset::write_atomic(path, &content).context("write video config")
 }
 
 /// The session environment file: `~/.config/environment.d/bigame-mode.conf`.
@@ -124,34 +120,34 @@ pub const SESSION_KEYS: &[&str] = &[
 /// Returns error if directory creation or file I/O fails, or the running
 /// session's environment cannot be updated.
 pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
-    let path = env_file_path();
-    let env = crate::launcher::build_persistent_env(cfg);
-
-    if env.is_empty() {
-        if path.exists() {
-            std::fs::remove_file(&path)
-                .with_context(|| format!("remove env file: {}", path.display()))?;
-        }
-    } else {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("create env dir: {}", parent.display()))?;
-        }
-        let mut keys: Vec<&String> = env.keys().collect();
-        keys.sort();
-        let mut content = String::from("# Managed by BiGameMode. Do not edit manually.\n");
-        for k in keys {
-            // environment.d is KEY=VALUE per line, no quoting required for our values.
-            let _ = writeln!(content, "{}={}", k, env[k]);
-        }
-        std::fs::write(&path, content)
-            .with_context(|| format!("write env file: {}", path.display()))?;
-    }
-
+    write_env_file_at(
+        &env_file_path(),
+        &crate::launcher::build_persistent_env(cfg),
+    )?;
     sync_session_env(cfg).context(UserError::plain(N_(
         "could not update the running session's environment",
     )))?;
     Ok(())
+}
+
+/// The environment.d file at `path` holding `env`, or no file for none.
+fn write_env_file_at(path: &Path, env: &HashMap<String, String>) -> Result<()> {
+    if env.is_empty() {
+        if path.exists() {
+            std::fs::remove_file(path)
+                .with_context(|| format!("remove env file: {}", path.display()))?;
+        }
+        return Ok(());
+    }
+    let mut keys: Vec<&String> = env.keys().collect();
+    keys.sort();
+    let mut content = String::from("# Managed by BiGameMode. Do not edit manually.\n");
+    for k in keys {
+        // environment.d is KEY=VALUE per line, no quoting required for our values.
+        let _ = writeln!(content, "{}={}", k, env[k]);
+    }
+    // The next login reads it whole or not at all.
+    crate::turbo_preset::write_atomic(path, &content).context("write env file")
 }
 
 /// Bring the running session to `cfg`'s variables with the Turbo preset in
@@ -459,6 +455,48 @@ mod tests {
         assert!(loaded.frame_gen.enabled);
 
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn the_files_are_replaced_whole() {
+        let path = temp_config("atomic");
+        let dir = path.parent().unwrap().to_path_buf();
+        let mut cfg = VideoConfig::default();
+        save_to(&cfg, &path).unwrap();
+        cfg.upscaling.gamescope_sharpness = 9;
+        save_to(&cfg, &path).unwrap();
+        assert_eq!(load_from(&path).upscaling.gamescope_sharpness, 9);
+        let env_file = dir.join("environment.d").join("bigame-mode.conf");
+        let env = HashMap::from([
+            ("WINE_FULLSCREEN_FSR".to_owned(), "1".to_owned()),
+            ("ENABLE_VKBASALT".to_owned(), "1".to_owned()),
+        ]);
+        write_env_file_at(&env_file, &env).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&env_file).unwrap(),
+            "# Managed by BiGameMode. Do not edit manually.\nENABLE_VKBASALT=1\nWINE_FULLSCREEN_FSR=1\n"
+        );
+        // Each in one rename: no temporary file is left beside them.
+        for folder in [&dir, &dir.join("environment.d")] {
+            let left: Vec<String> = std::fs::read_dir(folder)
+                .unwrap()
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .filter(|n| n.starts_with('.'))
+                .collect();
+            assert!(left.is_empty(), "{left:?}");
+        }
+        // A dotfile manager's symlink stays one: its target is replaced.
+        let kept = dir.join("dotfiles-video.toml");
+        std::fs::rename(&path, &kept).unwrap();
+        std::os::unix::fs::symlink(&kept, &path).unwrap();
+        save_to(&cfg, &path).unwrap();
+        assert!(std::fs::symlink_metadata(&path).unwrap().is_symlink());
+        assert_eq!(load_from(&kept).upscaling.gamescope_sharpness, 9);
+        // Nothing to put in the session: no file at all.
+        write_env_file_at(&env_file, &HashMap::new()).unwrap();
+        assert!(!env_file.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
