@@ -89,7 +89,6 @@ pub fn present(parent: &impl IsA<gtk4::Widget>, title: &str, command: &[String])
 fn ask(parent: &gtk4::Widget, title: &str, command: &[String]) {
     let runs = RUNS_PER_ARM * 2;
     let per_run = u64::from(CAPTURE_SECONDS + START_DELAY_SECONDS) + 10;
-    #[allow(clippy::cast_possible_truncation)]
     let minutes = (per_run * runs as u64).div_ceil(60);
 
     let dialog = adw::AlertDialog::new(

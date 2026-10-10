@@ -234,7 +234,6 @@ impl Session {
 
     /// The report a person reads.
     #[must_use]
-    #[allow(clippy::too_many_lines)]
     pub fn to_markdown(&self, comparisons: &[Comparison]) -> String {
         let mut out = String::new();
         let _ = writeln!(out, "# {} — {}\n", self.workload, self.date);

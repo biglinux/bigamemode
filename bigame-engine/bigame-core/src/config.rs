@@ -73,7 +73,7 @@ impl Default for FalcondConfig {
 /// Read falcond config from disk.
 ///
 /// # Errors
-/// Returns error if file is unreadable or contains invalid TOML.
+/// Returns an error if the file cannot be read.
 pub fn read() -> Result<FalcondConfig> {
     read_from(Path::new(CONFIG_PATH))
 }
@@ -83,15 +83,15 @@ pub fn read() -> Result<FalcondConfig> {
 /// Supports both `otter_conf` (bare identifiers) and TOML (quoted strings) formats.
 ///
 /// # Errors
-/// Returns error if file is unreadable or unparseable.
+/// Returns an error if the file cannot be read; a file in neither format
+/// reads as falcond's defaults, as falcond itself treats it.
 pub fn read_from(path: &Path) -> Result<FalcondConfig> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("read falcond config: {}", path.display()))?;
-    // Try TOML first (backwards compat with old configs)
+    // A file in quoted TOML still reads; otherwise it is falcond's own format.
     if let Ok(cfg) = toml::from_str::<FalcondConfig>(&content) {
         return Ok(cfg);
     }
-    // Fall back to otter_conf key=value parsing (bare identifiers)
     Ok(parse_otter_conf(&content))
 }
 
@@ -108,7 +108,6 @@ fn parse_otter_conf(content: &str) -> FalcondConfig {
         };
         let key = key.trim();
         let val = val.trim();
-        // Strip optional quotes (handle both `"none"` and `none`)
         let val = val.trim_matches('"');
         match key {
             "enable_performance_mode" => cfg.enable_performance_mode = val == "true",
@@ -118,7 +117,6 @@ fn parse_otter_conf(content: &str) -> FalcondConfig {
             "profile_mode" => cfg.profile_mode = val.to_string(),
             "poll_interval_ms" => cfg.poll_interval_ms = val.parse().unwrap_or(9000),
             "system_processes" => {
-                // Parse ["str1", "str2"] array syntax
                 let inner = val.trim_start_matches('[').trim_end_matches(']');
                 if !inner.is_empty() {
                     cfg.system_processes = inner
@@ -128,7 +126,7 @@ fn parse_otter_conf(content: &str) -> FalcondConfig {
                         .collect();
                 }
             }
-            _ => {} // Ignore unknown fields
+            _ => {}
         }
     }
     cfg

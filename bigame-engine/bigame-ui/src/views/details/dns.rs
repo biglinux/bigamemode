@@ -147,7 +147,6 @@ impl ComputerDns {
         });
     }
 
-    #[allow(clippy::type_complexity)]
     fn show(
         &self,
         availability: Availability,

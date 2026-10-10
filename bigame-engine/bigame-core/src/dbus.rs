@@ -1,7 +1,5 @@
 //! D-Bus integration with `PowerProfiles` and falcond status daemons.
 
-#![allow(clippy::missing_errors_doc)]
-
 use std::sync::OnceLock;
 
 /// Cached system bus connection (for `PowerProfiles`).
