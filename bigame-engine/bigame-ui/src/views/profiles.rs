@@ -1586,16 +1586,14 @@ fn show_card_menu(
             let rescan = rescan.clone();
             glib::spawn_future_local(async move {
                 let t = target.clone();
-                let result = gio::spawn_blocking(move || bigame_core::graphics::remove(&t)).await;
+                // The page's Restore: Big Game Mode's Wine FSR switch goes
+                // too, and what was left alone is said, not a success.
+                let result = gio::spawn_blocking(move || bigame_core::graphics::restore(&t)).await;
                 RESTORING.with_borrow_mut(|r| r.remove(&key));
                 action.set_enabled(true);
                 toast::show(
                     &anchor,
-                    &match result {
-                        Ok(Ok(_)) => i18n("The game's files are as they were before"),
-                        Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
-                        Err(_) => i18n("Could not restore"),
-                    },
+                    &crate::views::ai_graphics::restoration_text(result),
                 );
                 rescan();
             });

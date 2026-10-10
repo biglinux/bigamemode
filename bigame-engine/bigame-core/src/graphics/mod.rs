@@ -1380,6 +1380,11 @@ pub struct Restoration {
 /// settings stay recorded for the next Restore. A prefix that is gone has no
 /// settings to put back.
 ///
+/// Big Game Mode's `WINE_FULLSCREEN_FSR=0` in the game's Steam launch options
+/// went in with `OptiScaler` (Apply), and goes with it — whichever Restore
+/// runs, the page's or the Profiles menu's. With Steam open nothing is
+/// written: the switch stays, harmless, until the next Restore.
+///
 /// # Errors
 /// Returns an error if the game is running, nothing is installed, the record
 /// is not this game's folder's, or a file cannot be restored.
@@ -1387,6 +1392,13 @@ pub fn restore(target: &Target) -> anyhow::Result<Restoration> {
     let state = state_dir();
     let done = locked(&state, target, || restore_in(&state, target));
     tidy_cache(&state, &optiscaler::cache_dir());
+    if done.is_ok()
+        && crate::game_settings::load(&target.process).is_ok_and(|s| s.steam_wine_fsr_off)
+        && let Err(e) = crate::steam_gamescope::set_wine_fsr_off(&target.process, false)
+    {
+        tracing::warn!(target: "graphics", game = %target.process, error = %format!("{e:#}"),
+            "Big Game Mode's Wine FSR switch could not be taken out of the launch options");
+    }
     done
 }
 

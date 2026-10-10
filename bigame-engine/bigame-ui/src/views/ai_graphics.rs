@@ -28,6 +28,7 @@ use bigame_core::graphics::versions::Offer;
 use bigame_core::graphics::{self, Analysis, ChoiceState, Target, backend, diagnose, external};
 use bigame_core::optimization::Feature;
 use bigame_core::overview::State;
+use bigame_core::text::Text;
 
 use crate::i18n::{error_text, i18n, ni18n, tr};
 use crate::widgets::info::{self, Entry};
@@ -2343,6 +2344,65 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
     });
 }
 
+/// What a Restore did ([`graphics::restore`]), as one toast — the page's and
+/// the Profiles menu's alike: files another program changed since and left
+/// alone, where the user's edited `OptiScaler` settings went, and a game
+/// setting that could not be put back yet are said, not hidden behind a
+/// success.
+pub(crate) fn restoration_text(
+    result: Result<anyhow::Result<graphics::Restoration>, Box<dyn std::any::Any + Send>>,
+) -> String {
+    use bigame_core::graphics::transaction::FileOutcome;
+    let done = match result {
+        Ok(Ok(done)) => done,
+        Ok(Err(e)) => {
+            return Text::fill(
+                &i18n("%s: %s"),
+                &[i18n("Could not restore"), error_text(&e)],
+            );
+        }
+        Err(_) => return i18n("Could not restore"),
+    };
+    let kept = done
+        .files
+        .iter()
+        .filter(|o| matches!(o, FileOutcome::KeptChanged(_)))
+        .count();
+    let mut text = if kept == 0 {
+        i18n("The game's files are as they were before")
+    } else {
+        format!(
+            "{} ({kept})",
+            i18n("Restored; files another program changed since were left alone")
+        )
+    };
+    // The user's OptiScaler settings went with its ini: where the copy is.
+    for o in &done.files {
+        if let FileOutcome::EditedCopyKept(_, copy) = o {
+            let _ = write!(
+                text,
+                " · {}",
+                i18n("your edited settings were kept in %s")
+                    .replace("%s", &copy.display().to_string())
+            );
+        }
+    }
+    if let Some(why) = &done.settings_error {
+        let _ = write!(
+            text,
+            " · {}",
+            Text::fill(
+                &i18n("%s: %s"),
+                &[
+                    i18n("The game's own setting could not be put back yet"),
+                    tr(why)
+                ]
+            )
+        );
+    }
+    text
+}
+
 /// Say what switching the FSR 4 upgrade `on` or off for the game whose
 /// process is `process` did; a Heroic that is open and runs no game is
 /// offered to be closed for it.
@@ -2900,64 +2960,9 @@ fn open_with(
                     return;
                 }
                 let target = page.target.clone();
-                let result = gio::spawn_blocking(move || {
-                    let out = graphics::restore(&target)?;
-                    // Big Game Mode's WINE_FULLSCREEN_FSR=0 went in with
-                    // OptiScaler, and goes with it (Steam closed; otherwise
-                    // it stays, harmless, until the next Restore).
-                    if bigame_core::game_settings::load(&target.process)
-                        .is_ok_and(|s| s.steam_wine_fsr_off)
-                    {
-                        let _ = bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, false);
-                    }
-                    anyhow::Ok(out)
-                })
-                .await;
+                let result = gio::spawn_blocking(move || graphics::restore(&target)).await;
                 end(&page);
-                let text = match result {
-                    Ok(Ok(done)) => {
-                        use bigame_core::graphics::transaction::FileOutcome;
-                        let kept = done
-                            .files
-                            .iter()
-                            .filter(|o| matches!(o, FileOutcome::KeptChanged(_)))
-                            .count();
-                        let mut text = if kept == 0 {
-                            i18n("The game's files are as they were before")
-                        } else {
-                            format!(
-                                "{} ({kept})",
-                                i18n(
-                                    "Restored; files another program changed since were left alone"
-                                )
-                            )
-                        };
-                        // The user's OptiScaler settings went with its ini:
-                        // where the copy is.
-                        for o in &done.files {
-                            if let FileOutcome::EditedCopyKept(_, copy) = o {
-                                let _ = write!(
-                                    text,
-                                    " · {}",
-                                    i18n("your edited settings were kept in %s")
-                                        .replace("%s", &copy.display().to_string())
-                                );
-                            }
-                        }
-                        if let Some(why) = &done.settings_error {
-                            let _ = write!(
-                                text,
-                                " · {}: {}",
-                                i18n("The game's own setting could not be put back yet"),
-                                tr(why)
-                            );
-                        }
-                        text
-                    }
-                    Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
-                    Err(_) => i18n("Could not restore"),
-                };
-                overlay.add_toast(adw::Toast::new(&text));
+                overlay.add_toast(adw::Toast::new(&restoration_text(result)));
                 refresh(&page);
             });
         });
