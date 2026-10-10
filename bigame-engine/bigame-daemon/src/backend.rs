@@ -163,12 +163,51 @@ async fn stays_active(connection: &zbus::Connection) -> anyhow::Result<Option<St
     }
 }
 
+/// Whether the unit is already in the state `enabled` asks for, so the
+/// request changes nothing: enabled and running, or disabled and stopped.
+///
+/// Running counts only if systemd has not had to restart it since it was
+/// last started on request. A unit that crashes and comes back is `active`
+/// between crashes; the full path watches it stay up, and turns it off if it
+/// does not.
+fn already_there(enabled: bool, now: &UnitState) -> bool {
+    if enabled {
+        now.unit_file_state == "enabled"
+            && now.active_state == "active"
+            && now.service.as_ref().is_none_or(|s| s.restarts == 0)
+    } else {
+        now.unit_file_state == "disabled" && now.active_state == "inactive"
+    }
+}
+
+/// Whether what `EnableUnitFiles`/`DisableUnitFiles` reported changed a link,
+/// so systemd has to reload its unit files. An unchanged unit needs no
+/// reload, and a reload is not free: it is PID 1 re-reading every unit.
+fn changed(changes: &[(String, String, String)]) -> bool {
+    !changes.is_empty()
+}
+
+/// Reload systemd's unit files if `changes` says a link changed.
+async fn reload_if_changed(
+    manager: &ManagerProxy<'_>,
+    changes: &[(String, String, String)],
+) -> zbus::Result<()> {
+    if changed(changes) {
+        manager.reload().await
+    } else {
+        Ok(())
+    }
+}
+
 /// Turn the backend on or off, persistently.
 ///
 /// On: enable the unit, then start it, and see that it stays up. Off: stop it
 /// — which restores any game profile it holds — then disable it. The state
 /// systemd reports afterwards is returned so the caller can verify rather
-/// than assume.
+/// than assume. A unit already in the state asked for is left alone, and
+/// systemd reloads its unit files only when a link actually changed: the
+/// method needs no password in an active session, so calling it in a loop
+/// must not keep PID 1 reloading.
 ///
 /// A unit left `failed` by an earlier run is reset first, both ways. On, so a
 /// fixed falcond starts at once instead of being refused for the earlier
@@ -188,23 +227,30 @@ pub async fn set_enabled(
     if manager.get_unit_file_state(UNIT).await.is_err() {
         anyhow::bail!("{UNIT} is not installed");
     }
+    // Also when nothing changes below: this is how control is taken back
+    // after a hand-back, by asking for the state falcond is already in.
     take_ownership(connection).await?;
 
+    // A build that crashed on this processor crashes again, the same way.
+    if enabled && bigame_core::falcond_compat::crashes_here() {
+        anyhow::bail!(
+            "this falcond build crashed on this processor (illegal instruction); \
+             it is not started again until the package changes"
+        );
+    }
+    let before = state(connection).await?;
+    if already_there(enabled, &before) {
+        info!(enabled, "game backend already in the state asked for");
+        return Ok(before);
+    }
+
     let reached = if enabled {
-        // A build that crashed on this processor crashes again, the same way.
-        if bigame_core::falcond_compat::crashes_here() {
-            anyhow::bail!(
-                "this falcond build crashed on this processor (illegal instruction); \
-                 it is not started again until the package changes"
-            );
-        }
-        let before = state(connection).await?;
         if before.is_failed() {
             info!(failure = ?before.failure(), "starting falcond again after a failure; clearing it first");
             manager.reset_failed_unit(UNIT).await?;
         }
-        manager.enable_unit_files(&[UNIT], false, false).await?;
-        manager.reload().await?;
+        let (_, changes) = manager.enable_unit_files(&[UNIT], false, false).await?;
+        reload_if_changed(&manager, &changes).await?;
         let started = match manager.start_unit(UNIT, "replace").await {
             Ok(_) => match settle(connection, "active").await {
                 Ok(reached) if reached == "active" => match stays_active(connection).await {
@@ -248,8 +294,8 @@ pub async fn set_enabled(
             // A unit left enabled after a failed start would bring Turbo
             // back on at the next boot, while the UI said it failed.
             failed => {
-                manager.disable_unit_files(&[UNIT], false).await?;
-                manager.reload().await?;
+                let changes = manager.disable_unit_files(&[UNIT], false).await?;
+                reload_if_changed(&manager, &changes).await?;
                 match failed {
                     Ok(reached) => reached,
                     Err(e) => return Err(e),
@@ -271,8 +317,8 @@ pub async fn set_enabled(
         if reached != "inactive" {
             anyhow::bail!("{UNIT} is still {reached}; not disabled yet");
         }
-        manager.disable_unit_files(&[UNIT], false).await?;
-        manager.reload().await?;
+        let changes = manager.disable_unit_files(&[UNIT], false).await?;
+        reload_if_changed(&manager, &changes).await?;
         reached
     };
     let now = state(connection).await?;
@@ -294,23 +340,20 @@ pub async fn release(connection: &zbus::Connection) -> anyhow::Result<Option<Own
         return Ok(None);
     };
     let manager = manager(connection).await?;
-    match record.unit_file_state.as_str() {
-        "enabled" => {
-            manager.enable_unit_files(&[UNIT], false, false).await?;
-        }
+    let changes = match record.unit_file_state.as_str() {
+        "enabled" => manager.enable_unit_files(&[UNIT], false, false).await?.1,
         // Enabled until the next boot only, as it was found.
-        "enabled-runtime" => {
-            manager.enable_unit_files(&[UNIT], true, false).await?;
+        "enabled-runtime" => manager.enable_unit_files(&[UNIT], true, false).await?.1,
+        "disabled" => manager.disable_unit_files(&[UNIT], false).await?,
+        other => {
+            warn!(
+                state = other,
+                "prior unit file state not restorable; left as is"
+            );
+            Vec::new()
         }
-        "disabled" => {
-            manager.disable_unit_files(&[UNIT], false).await?;
-        }
-        other => warn!(
-            state = other,
-            "prior unit file state not restorable; left as is"
-        ),
-    }
-    manager.reload().await?;
+    };
+    reload_if_changed(&manager, &changes).await?;
     if record.was_active {
         manager.start_unit(UNIT, "replace").await?;
     } else {
@@ -407,6 +450,72 @@ mod tests {
         };
         let json = serde_json::to_string(&note).unwrap();
         assert_eq!(serde_json::from_str::<Release>(&json).unwrap(), note);
+    }
+
+    fn unit(file: &str, active: &str, restarts: Option<u32>) -> UnitState {
+        UnitState {
+            unit_file_state: file.into(),
+            active_state: active.into(),
+            service: restarts.map(|restarts| bigame_core::systemd::ServiceRun {
+                result: "success".into(),
+                main_code: 0,
+                main_status: 0,
+                restarts,
+            }),
+        }
+    }
+
+    #[test]
+    fn a_unit_already_as_asked_is_left_alone() {
+        assert!(already_there(true, &unit("enabled", "active", Some(0))));
+        assert!(already_there(true, &unit("enabled", "active", None)));
+        assert!(already_there(false, &unit("disabled", "inactive", Some(3))));
+        assert!(already_there(false, &unit("disabled", "inactive", None)));
+    }
+
+    #[test]
+    fn anything_short_of_the_state_asked_for_takes_the_full_path() {
+        // On: not enabled, not running, failed, or restarted by systemd
+        // since it was started (possibly crashing in a loop).
+        for now in [
+            unit("disabled", "active", Some(0)),
+            unit("enabled-runtime", "active", Some(0)),
+            unit("enabled", "inactive", Some(0)),
+            unit("enabled", "activating", Some(0)),
+            unit("enabled", "failed", Some(0)),
+            unit("enabled", "active", Some(2)),
+            unit("masked", "inactive", None),
+        ] {
+            assert!(!already_there(true, &now), "{now:?}");
+        }
+        // Off: still enabled, still running or stopping, or failed (which
+        // has to be reset).
+        for now in [
+            unit("enabled", "inactive", Some(0)),
+            unit("enabled-runtime", "inactive", Some(0)),
+            unit("disabled", "active", Some(0)),
+            unit("disabled", "deactivating", Some(0)),
+            unit("disabled", "failed", Some(0)),
+            unit("masked", "inactive", None),
+            unit("static", "inactive", None),
+        ] {
+            assert!(!already_there(false, &now), "{now:?}");
+        }
+    }
+
+    #[test]
+    fn systemd_reloads_only_when_a_link_changed() {
+        assert!(!changed(&[]));
+        assert!(changed(&[(
+            "symlink".into(),
+            "/etc/systemd/system/multi-user.target.wants/falcond.service".into(),
+            "/usr/lib/systemd/system/falcond.service".into(),
+        )]));
+        assert!(changed(&[(
+            "unlink".into(),
+            "/etc/systemd/system/multi-user.target.wants/falcond.service".into(),
+            String::new(),
+        )]));
     }
 
     #[test]
