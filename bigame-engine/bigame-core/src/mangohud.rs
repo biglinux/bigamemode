@@ -15,8 +15,8 @@
 //!
 //! * **Steam** — the game's launch options, edited with Steam closed, backed
 //!   up and read back (`steam::set_launch_options`). Options the user wrote
-//!   stay; only the word this module added (recorded in Big Game Mode's state
-//!   directory) is ever removed.
+//!   stay; only the word this module added, in that account (recorded in
+//!   Big Game Mode's state directory), is ever removed.
 //! * **Heroic** — the game's `GamesConfig/<app>.json`, with the rest of the
 //!   game's launch settings (`crate::heroic_launch`): Forced is Heroic's own
 //!   `MangoHud` switch (`showMangohud`, its `mangohud --dlsym` wrapper), On
@@ -119,35 +119,97 @@ fn added_path() -> std::path::PathBuf {
     crate::paths::state_home().join("bigame-mode/mangohud/steam-added.toml")
 }
 
-/// The word recorded in `path` as added for `process`. With no record (an
-/// older version wrote the options), the word for the mode it saved
-/// (`saved`): it added that word whether or not the user had typed it.
-fn read_added(path: &std::path::Path, process: &str, saved: Mode) -> Result<Option<String>> {
-    let records = read_records(path)?;
-    Ok(match records.get(process) {
-        Some(word) => Some(word.clone()).filter(|w| !w.is_empty()),
-        None => legacy_added(saved),
-    })
+/// What is recorded of the words added for one game.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum SteamRecord {
+    /// The word in each account, by app (since 2.3.2).
+    Accounts(crate::steam::Inserted),
+    /// One word for every account, as versions before 2.3.2 recorded it.
+    Game(String),
 }
 
-fn read_records(path: &std::path::Path) -> Result<std::collections::BTreeMap<String, String>> {
+/// The word added for `process` in `account`'s options for `app`. With no
+/// record (an older version wrote the options), the word for the mode it
+/// saved (`saved`): it added that word whether or not the user had typed it.
+fn added_in(record: Option<&SteamRecord>, saved: Mode, account: &str, app: &str) -> Option<String> {
+    match record {
+        Some(SteamRecord::Accounts(by)) => by
+            .get(account)
+            .and_then(|apps| apps.get(app))
+            .filter(|w| !w.is_empty())
+            .cloned(),
+        Some(SteamRecord::Game(word)) => Some(word.clone()).filter(|w| !w.is_empty()),
+        None => legacy_added(saved),
+    }
+}
+
+/// A record file of Big Game Mode's state; empty when there is none.
+///
+/// # Errors
+/// Returns an error when it is there but cannot be read or parsed: a
+/// broken record is said, not taken for "nothing added".
+pub(crate) fn read_record<T: serde::de::DeserializeOwned + Default>(
+    path: &std::path::Path,
+) -> Result<T> {
     use anyhow::Context;
     match std::fs::read_to_string(path) {
         Ok(text) => toml::from_str(&text).with_context(|| format!("parse {}", path.display())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(std::collections::BTreeMap::new()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(T::default()),
         Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
     }
 }
 
-/// Record `word` as added for `process` in `path`.
-fn write_added(path: &std::path::Path, process: &str, word: Option<&str>) -> Result<()> {
+/// Write a record file of Big Game Mode's state.
+///
+/// # Errors
+/// Returns an error when it cannot be written.
+pub(crate) fn write_record<T: Serialize>(path: &std::path::Path, record: &T) -> Result<()> {
     use anyhow::Context;
-    let mut records = read_records(path)?;
-    records.insert(process.to_owned(), word.unwrap_or_default().to_owned());
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
     }
-    replace_file(path, toml::to_string(&records)?.as_bytes())
+    replace_file(path, toml::to_string(record)?.as_bytes())
+}
+
+/// Every account's new options for `mode` in the game's apps, worked out
+/// before any is written, with what to record and the last account's
+/// options. Each account takes out only the word recorded as added there.
+fn steam_plan(
+    accounts: &[std::path::PathBuf],
+    apps: &[String],
+    read: &dyn Fn(&std::path::Path, &str) -> Option<String>,
+    record: Option<&SteamRecord>,
+    saved: Mode,
+    mode: Mode,
+) -> (Vec<crate::steam::Change>, crate::steam::Inserted, String) {
+    let mut changes = Vec::new();
+    let mut added = crate::steam::Inserted::new();
+    let mut last = String::new();
+    for config in accounts {
+        let account = config.to_string_lossy().into_owned();
+        for app in apps {
+            let current = read(config, app).unwrap_or_default();
+            let before = added_in(record, saved, &account, app);
+            let (wanted, add) = launch_options(&current, before.as_deref(), mode);
+            if let Some(word) = add {
+                added
+                    .entry(account.clone())
+                    .or_default()
+                    .insert(app.clone(), word.to_owned());
+            }
+            if wanted != current {
+                changes.push(crate::steam::Change {
+                    config: config.clone(),
+                    app: app.clone(),
+                    before: current,
+                    after: wanted.clone(),
+                });
+            }
+            last = wanted;
+        }
+    }
+    (changes, added, last)
 }
 
 /// The word an older version added for a game saved at `mode`.
@@ -224,25 +286,23 @@ pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
     }
     let mut settings = crate::game_settings::load(process)?;
     let record = added_path();
-    let added = read_added(&record, process, settings.mangohud)?;
+    let mut records: std::collections::BTreeMap<String, SteamRecord> = read_record(&record)?;
     // The launch options first, the saved choice after: if Steam's file cannot
     // be written, the choice stays as it was instead of claiming a mode the
     // game will not get.
-    let mut last = String::new();
-    let mut now_added = None;
-    for user in &users {
-        for app in &apps {
-            let current = crate::steam::launch_options(&user.config, app).unwrap_or_default();
-            let (wanted, add) = launch_options(&current, added.as_deref(), mode);
-            if wanted != current {
-                crate::steam::set_launch_options(&user.config, app, &wanted)?;
-            }
-            now_added = now_added.or(add);
-            last = wanted;
-        }
-    }
+    let accounts: Vec<std::path::PathBuf> = users.into_iter().map(|u| u.config).collect();
+    let (changes, added, last) = steam_plan(
+        &accounts,
+        &apps,
+        &|config, app| crate::steam::launch_options(config, app),
+        records.get(process),
+        settings.mangohud,
+        mode,
+    );
+    crate::steam::set_all(&changes)?;
     if !apps.is_empty() {
-        write_added(&record, process, now_added)?;
+        records.insert(process.to_owned(), SteamRecord::Accounts(added));
+        write_record(&record, &records)?;
     }
     settings.mangohud = mode;
     crate::game_settings::save(process, &settings)?;
@@ -1024,27 +1084,82 @@ mod tests {
     fn the_record_of_added_words_reads_back() {
         let dir = crate::tests::tempdir("mangohud_added");
         let path = dir.join("state/steam-added.toml");
+        let records: std::collections::BTreeMap<String, SteamRecord> = read_record(&path).unwrap();
         // Nothing recorded: what an older version added for the saved mode.
         assert_eq!(
-            read_added(&path, "Game.exe", Mode::Forced)
-                .unwrap()
-                .as_deref(),
+            added_in(records.get("Game.exe"), Mode::Forced, "/a", "10").as_deref(),
             Some(WRAPPER)
         );
-        write_added(&path, "Game.exe", Some(LAYER)).unwrap();
-        write_added(&path, "Other.exe", None).unwrap();
+        // A record from before 2.3.2: one word for every account.
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            "\"Game.exe\" = \"MANGOHUD=1\"\n\"Other.exe\" = \"\"\n",
+        )
+        .unwrap();
+        let mut records: std::collections::BTreeMap<String, SteamRecord> =
+            read_record(&path).unwrap();
+        for account in ["/a", "/b"] {
+            assert_eq!(
+                added_in(records.get("Game.exe"), Mode::Forced, account, "10").as_deref(),
+                Some(LAYER)
+            );
+        }
         assert_eq!(
-            read_added(&path, "Game.exe", Mode::Forced)
-                .unwrap()
-                .as_deref(),
-            Some(LAYER)
+            added_in(records.get("Other.exe"), Mode::On, "/a", "10"),
+            None
         );
-        assert_eq!(read_added(&path, "Other.exe", Mode::On).unwrap(), None);
+        // By account now, next to the older records.
+        let mut by = crate::steam::Inserted::new();
+        by.entry("/a".into())
+            .or_default()
+            .insert("10".into(), LAYER.into());
+        records.insert("Game.exe".into(), SteamRecord::Accounts(by));
+        write_record(&path, &records).unwrap();
+        let records: std::collections::BTreeMap<String, SteamRecord> = read_record(&path).unwrap();
+        let game = records.get("Game.exe");
+        assert_eq!(added_in(game, Mode::On, "/a", "10").as_deref(), Some(LAYER));
+        assert_eq!(added_in(game, Mode::On, "/b", "10"), None);
+        assert_eq!(
+            added_in(records.get("Other.exe"), Mode::On, "/a", "10"),
+            None
+        );
         std::fs::write(&path, "not = [toml").unwrap();
         assert!(
-            read_added(&path, "Game.exe", Mode::Off).is_err(),
+            read_record::<std::collections::BTreeMap<String, SteamRecord>>(&path).is_err(),
             "a broken record is said"
         );
+    }
+
+    #[test]
+    fn each_account_takes_out_only_what_was_added_there() {
+        // The user typed MANGOHUD=1 in account "a"; "b" has nothing.
+        let store = std::cell::RefCell::new(std::collections::HashMap::from([
+            ("a".to_owned(), "MANGOHUD=1 %command%".to_owned()),
+            ("b".to_owned(), "-novid".to_owned()),
+        ]));
+        let read = |c: &std::path::Path, _: &str| {
+            store.borrow().get(c.to_string_lossy().as_ref()).cloned()
+        };
+        let accounts = [std::path::PathBuf::from("a"), "b".into()];
+        let apps = ["10".to_owned()];
+        let apply = |record: Option<&SteamRecord>, saved, mode| {
+            let (changes, added, _) = steam_plan(&accounts, &apps, &read, record, saved, mode);
+            for c in changes {
+                store
+                    .borrow_mut()
+                    .insert(c.config.to_string_lossy().into_owned(), c.after);
+            }
+            SteamRecord::Accounts(added)
+        };
+        let on = apply(None, Mode::Off, Mode::On);
+        assert_eq!(store.borrow()["a"], "MANGOHUD=1 %command%");
+        assert_eq!(store.borrow()["b"], "MANGOHUD=1 %command% -novid");
+        let off = apply(Some(&on), Mode::On, Mode::Off);
+        assert_eq!(store.borrow()["a"], "MANGOHUD=1 %command%", "theirs stays");
+        // Steam reads arguments alone as following the command.
+        assert_eq!(store.borrow()["b"], "%command% -novid");
+        assert_eq!(off, SteamRecord::Accounts(crate::steam::Inserted::new()));
     }
 
     #[test]

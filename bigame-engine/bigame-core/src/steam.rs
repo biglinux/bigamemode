@@ -535,6 +535,59 @@ fn finish_write(
     Ok(())
 }
 
+// ── Changing several accounts ────────────────────────────────────────────────
+
+/// Words Big Game Mode put into games' launch options, by account (its
+/// `localconfig.vdf`, as [`SteamUser::config`] names it) and then by app,
+/// so that exactly those come out again: a word the user typed in one
+/// account is theirs even where Big Game Mode added the same word in
+/// another.
+pub(crate) type Inserted =
+    std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>;
+
+/// One account's new launch options for one game, worked out before any
+/// account is written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Change {
+    /// The account's `localconfig.vdf`.
+    pub config: PathBuf,
+    /// The game's app id.
+    pub app: String,
+    /// The options as they read before.
+    pub before: String,
+    /// The options to write.
+    pub after: String,
+}
+
+/// Write every change, or none: an account that cannot be written puts
+/// back the ones written before it, so a failure half-way does not leave
+/// words in some accounts with no record of them.
+///
+/// # Errors
+/// Returns the first account's error (Steam running included).
+pub(crate) fn set_all(changes: &[Change]) -> Result<()> {
+    write_all(changes, &|config, app, value| {
+        set_launch_options(config, app, value)
+    })
+}
+
+fn write_all(changes: &[Change], write: &dyn Fn(&Path, &str, &str) -> Result<()>) -> Result<()> {
+    let mut written: Vec<&Change> = Vec::new();
+    for change in changes {
+        if let Err(e) = write(&change.config, &change.app, &change.after) {
+            for done in written.iter().rev() {
+                if let Err(undo) = write(&done.config, &done.app, &done.before) {
+                    tracing::warn!(target: "launch", app = %done.app, error = %format!("{undo:#}"),
+                        "a Steam account's launch options could not be put back");
+                }
+            }
+            return Err(e);
+        }
+        written.push(change);
+    }
+    Ok(())
+}
+
 // ── Launch options as words ──────────────────────────────────────────────────
 
 /// The word Steam replaces with the game's command.
@@ -858,6 +911,33 @@ mod tests {
             .collect();
         assert!(left.is_empty(), "{left:?}");
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn an_account_that_cannot_be_written_puts_back_the_ones_before_it() {
+        let store = std::cell::RefCell::new(std::collections::HashMap::from([
+            ("a".to_owned(), "-x".to_owned()),
+            ("b".to_owned(), "-y".to_owned()),
+        ]));
+        let change = |c: &str, before: &str| Change {
+            config: PathBuf::from(c),
+            app: "10".into(),
+            before: before.into(),
+            after: format!("MANGOHUD=1 %command% {before}"),
+        };
+        let changes = [change("a", "-x"), change("b", "-y")];
+        let write = |c: &Path, _: &str, v: &str| {
+            anyhow::ensure!(c != Path::new("b"), "read-only");
+            store
+                .borrow_mut()
+                .insert(c.to_string_lossy().into_owned(), v.to_owned());
+            Ok(())
+        };
+        assert!(write_all(&changes, &write).is_err());
+        assert_eq!(store.borrow()["a"], "-x", "put back");
+        assert_eq!(store.borrow()["b"], "-y");
+        assert!(write_all(&changes[..1], &write).is_ok());
+        assert_eq!(store.borrow()["a"], "MANGOHUD=1 %command% -x");
     }
 
     #[test]
