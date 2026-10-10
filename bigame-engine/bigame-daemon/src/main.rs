@@ -46,12 +46,18 @@ struct BiGameDaemon {
 
 impl BiGameDaemon {
     /// Reject the call unless Polkit authorizes this sender for `action`.
+    /// Polkit may prompt for a password only if the call says its sender can
+    /// wait for one (`ALLOW_INTERACTIVE_AUTHORIZATION` in the header).
     async fn authorize(
         &self,
         hdr: &zbus::message::Header<'_>,
         action: &str,
     ) -> Result<(), zbus::fdo::Error> {
-        polkit::check(&self.connection, hdr.sender(), action).await
+        let interactive = hdr
+            .primary()
+            .flags()
+            .contains(zbus::message::Flags::AllowInteractiveAuth);
+        polkit::check(&self.connection, hdr.sender(), action, interactive).await
     }
 }
 

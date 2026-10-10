@@ -49,10 +49,24 @@ trait Authority {
     ) -> zbus::Result<(bool, bool, HashMap<String, String>)>;
 }
 
-/// Allow Polkit to prompt the user. The helper is invoked from an interactive
-/// desktop application, so an authentication dialog is the expected behaviour
-/// rather than an outright denial.
+/// `CheckAuthorization` flag: Polkit may ask the user to authenticate.
 const ALLOW_USER_INTERACTION: u32 = 1;
+
+/// The `CheckAuthorization` flags for a call whose header did, or did not,
+/// carry D-Bus's `ALLOW_INTERACTIVE_AUTHORIZATION` flag.
+///
+/// The caller says whether it can wait for a password prompt: Big Game Mode's
+/// own client sets the flag on every call, and `busctl` sets it by default. A
+/// caller that did not set it gets Polkit's answer without a dialog — its
+/// cached or `yes` authorizations still pass — instead of a prompt it never
+/// asked for appearing on the user's screen.
+fn polkit_flags(interactive: bool) -> u32 {
+    if interactive {
+        ALLOW_USER_INTERACTION
+    } else {
+        0
+    }
+}
 
 /// Authorize `sender` for `action`, or return the D-Bus error to reply with.
 ///
@@ -66,6 +80,7 @@ pub async fn check(
     connection: &zbus::Connection,
     sender: Option<&zbus::names::UniqueName<'_>>,
     action: &str,
+    interactive: bool,
 ) -> Result<(), zbus::fdo::Error> {
     let Some(sender) = sender else {
         tracing::warn!(action, "refusing a request with no identifiable sender");
@@ -87,7 +102,7 @@ pub async fn check(
             &("system-bus-name", subject_details),
             action,
             HashMap::new(),
-            ALLOW_USER_INTERACTION,
+            polkit_flags(interactive),
             "",
         )
         .await
@@ -104,5 +119,16 @@ pub async fn check(
         Err(zbus::fdo::Error::AccessDenied(format!(
             "not authorized for {action}"
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::polkit_flags;
+
+    #[test]
+    fn polkit_prompts_only_a_caller_that_can_wait_for_it() {
+        assert_eq!(polkit_flags(true), 1);
+        assert_eq!(polkit_flags(false), 0);
     }
 }
