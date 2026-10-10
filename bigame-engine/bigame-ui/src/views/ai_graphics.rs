@@ -32,7 +32,7 @@ use bigame_core::text::Text;
 
 use crate::i18n::{error_text, i18n, ni18n, tr};
 use crate::widgets::info::{self, Entry};
-use crate::widgets::notice::{self, Kind, Notice};
+use crate::widgets::notice::{self, Kind, Notice, sentence};
 use crate::widgets::status::Chip;
 
 struct Page {
@@ -222,15 +222,6 @@ fn wrap_title(group: &adw::PreferencesGroup) {
         }
     }
     visit(group.upcast_ref::<gtk4::Widget>());
-}
-
-/// Start a sentence with a capital: core writes steps as clauses ("choose
-/// `XeSS` in the game's menu"), and a row title reads as a sentence.
-fn sentence(s: &str) -> String {
-    let mut c = s.chars();
-    c.next()
-        .map(|f| f.to_uppercase().chain(c).collect())
-        .unwrap_or_default()
 }
 
 /// `label: value`, laid out as the translation of "%s: %s" says: French

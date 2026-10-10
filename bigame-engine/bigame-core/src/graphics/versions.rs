@@ -84,12 +84,6 @@ fn save(cache: &Path, known: &Known) -> Result<()> {
     Ok(())
 }
 
-fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
 /// Fetch the release list from GitHub and save it.
 ///
 /// `curl` with an argument vector, no `~/.curlrc`, HTTPS only, size-capped,
@@ -131,7 +125,7 @@ pub fn refresh(cache: &Path) -> Result<Known> {
         ))
     );
     let known = Known {
-        fetched_at: now(),
+        fetched_at: crate::unix_now(),
         releases,
     };
     save(cache, &known)?;
@@ -145,7 +139,7 @@ pub fn refresh(cache: &Path) -> Result<Known> {
 #[must_use]
 pub fn load_fresh(cache: &Path) -> Known {
     let known = load(cache);
-    if !known.stale(now()) {
+    if !known.stale(crate::unix_now()) {
         return known;
     }
     match refresh(cache) {
