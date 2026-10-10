@@ -784,17 +784,21 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
 /// Take the Turbo preset away and say so in the report (on the blocking
 /// pool, as [`apply_preset`]).
 async fn remove_preset(report: &mut Report) {
-    let preset = crate::turbo_preset::active();
-    if preset == crate::turbo_preset::Preset::Standard {
+    // A record that cannot be read reads as Standard, yet its variables may
+    // still be in the session.
+    if !crate::turbo_preset::has_record() {
         // A launcher open when the last preset went may be closed now.
         let _ = tokio::task::spawn_blocking(crate::turbo_preset::follow_owed).await;
         return;
     }
+    let preset = crate::turbo_preset::active();
     let title = Text::plain(N_("Turbo preset"));
     let removed = tokio::task::spawn_blocking(crate::turbo_preset::deactivate)
         .await
         .unwrap_or_else(|e| Err(anyhow::anyhow!("{e}")));
     match removed {
+        // Unreadable, so no preset to name: the log says what was cleared.
+        Ok(_) if preset == crate::turbo_preset::Preset::Standard => {}
         Ok(_) => report.push_knob(
             title,
             Section::Restored,
@@ -1252,7 +1256,7 @@ pub fn something_left_blocking() -> bool {
     let unit = crate::systemd::Reader::shared().and_then(|r| r.unit_state(BACKEND_UNIT));
     something_left(
         unit.as_ref(),
-        crate::turbo_preset::active() != crate::turbo_preset::Preset::Standard,
+        crate::turbo_preset::has_record(),
         BoosterEngine::is_active(),
     )
 }

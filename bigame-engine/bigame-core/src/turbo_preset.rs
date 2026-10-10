@@ -646,6 +646,14 @@ pub fn activate(preset: Preset) -> Result<Vec<String>> {
     Ok(set)
 }
 
+/// Whether a preset's record is there, readable or not. [`active`] reads an
+/// unreadable one as Standard, yet its variables may still be in the
+/// session and [`deactivate`] must still run to take them away.
+#[must_use]
+pub fn has_record() -> bool {
+    active_path().exists()
+}
+
 /// The mark that the launchers still owe the preset's change: an open
 /// launcher would write its own copy back over it, so it was not written.
 fn launchers_owed_path() -> PathBuf {
@@ -803,7 +811,7 @@ pub fn switch(preset: Preset) -> Result<Vec<String>> {
 /// # Errors
 /// Returns an error when the session's environment cannot be set.
 pub fn resync(turbo_on: bool) -> Result<()> {
-    if active_path().exists() {
+    if has_record() {
         if !turbo_on {
             // Brings the launchers along itself.
             deactivate()?;
@@ -1165,6 +1173,30 @@ multiplier = 1
         std::fs::write(&f.owed, "").unwrap();
         deactivate_in(&f.record, &f.owed, |_| Ok(Vec::new()), || followed = true).unwrap();
         assert!(followed);
+    }
+
+    #[test]
+    fn an_unreadable_record_is_still_taken_away() {
+        let dir = Scratch::new("deactivate_unreadable");
+        let f = Files::in_(&dir);
+        std::fs::write(&f.record, "preset = [not toml").unwrap();
+        assert!(read_stored(&f.record).is_none());
+        let mut owned = false;
+        let mut followed = false;
+        deactivate_in(
+            &f.record,
+            &f.owed,
+            |layer| {
+                owned = layer.owns_preset_keys;
+                Ok(Vec::new())
+            },
+            || followed = true,
+        )
+        .unwrap();
+        // Its variables are Big Game Mode's to unset, and the launchers follow.
+        assert!(owned);
+        assert!(followed);
+        assert!(!f.record.exists());
     }
 
     #[test]
