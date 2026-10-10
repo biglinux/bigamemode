@@ -234,8 +234,8 @@ pub fn detect_all() -> Vec<DetectedGame> {
 /// hear of a change: the library and the number of its scan, when that is
 /// not `known`.
 ///
-/// Scanned again only when a watched file changed, never for age alone
-/// ([`LIBRARY_MAX_AGE`]): what the files do not record is not worth a walk
+/// Scanned again only when a watched file changed, never for age alone (as
+/// [`detect_all`] also does): what the files do not record is not worth a walk
 /// of every install folder every few minutes, all day, to a caller such as
 /// the running-game watch. Another caller's scan is a change here too.
 #[must_use]
