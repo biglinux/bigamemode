@@ -215,10 +215,14 @@ enum Found {
     Missing,
     /// A plain file, with its hash.
     File(String),
-    /// A symlink, at the path or on the way to it, or something that is not
-    /// a plain file: a mod manager deploys its files as links, or the user
-    /// moved a folder elsewhere. Not Big Game Mode's to follow or remove.
+    /// A symlink at the path, or something that is not a plain file: a mod
+    /// manager deploys its files as links. Not Big Game Mode's to follow or
+    /// remove, and nothing of Big Game Mode's is there any more.
     Foreign,
+    /// Behind a folder on the way that is a symlink now: what is there may
+    /// still be the file that was placed, and the link is not Big Game
+    /// Mode's to follow.
+    Unreachable,
 }
 
 /// What is at `rel` under `root`, and the path it was looked for at.
@@ -229,7 +233,16 @@ enum Found {
 fn found_at(root: &Path, rel: &Path) -> Result<(PathBuf, Found)> {
     manifest::check_relative(rel)?;
     let Ok(target) = resolve_inside(root, rel) else {
-        return Ok((root.join(rel), Found::Foreign));
+        let on_the_way = rel
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .is_some_and(|p| resolve_inside(root, p).is_err());
+        let found = if on_the_way {
+            Found::Unreachable
+        } else {
+            Found::Foreign
+        };
+        return Ok((root.join(rel), found));
     };
     let found = match std::fs::symlink_metadata(&target) {
         Ok(m) if m.file_type().is_symlink() || !m.is_file() => Found::Foreign,
@@ -513,7 +526,8 @@ pub fn apply(
 /// The game's own settings the manifest records are not undone here
 /// ([`super::ingame::restore`] is the caller's): while there are any, the
 /// manifest is not deleted but kept with them alone, so they always have a
-/// record.
+/// record. So are the entries behind a folder that became a symlink: the
+/// file there may still be the one placed.
 ///
 /// # Errors
 /// Returns an error if the game's folder is not there (it was moved, or its
@@ -533,6 +547,8 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
     let mut backups_still_needed = false;
     let mut kept_now = Vec::new();
     let mut touched = std::collections::BTreeSet::new();
+    // Entries still recorded after this rollback.
+    let mut unreachable = Vec::new();
     // One folder for every edited config this rollback keeps, named apart
     // from any other rollback's: two in the same second would otherwise
     // write over each other's copies.
@@ -543,6 +559,19 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
         let (target, found) = found_at(&m.install_root, &e.path)?;
         let original = e.replaced.as_ref();
         let current = match found {
+            Found::Unreachable => {
+                // Deleting the record would leave what may still be
+                // OptiScaler in the game with nothing that knows it: the
+                // entry stays recorded with its original's backup, the game
+                // still reads as changed, and Restore finishes once the
+                // folder is a folder again.
+                backups_still_needed |= original.is_some();
+                tracing::warn!(target: "graphics", file = %target.display(),
+                    "behind a link now; left in place and still recorded");
+                unreachable.push(e.clone());
+                outcomes.push(FileOutcome::KeptChanged(e.path.clone()));
+                continue;
+            }
             Found::Foreign => {
                 backups_still_needed |= original.is_some();
                 if let Some(b) = original {
@@ -638,22 +667,39 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
         tracing::warn!(target: "graphics", game = %m.game_key, error = %format!("{e:#}"),
                 "the list of kept copies could not be written");
     }
-    if m.settings.is_empty() {
+    let files_left = !unreachable.is_empty();
+    if m.settings.is_empty() && !files_left {
         Manifest::delete(state_dir, &m.game_key)?;
     } else {
-        // Files gone, the game's own settings still to put back: the record
-        // stays, with nothing else in it.
+        // The game's own settings still to put back, or files behind a
+        // link still in the game: the record stays, with only them in it —
+        // and the folders the install created around those files, removed
+        // with them later. An apply cut short stays one, for the recovery
+        // at the next start to try again.
+        let created_dirs = m
+            .created_dirs
+            .iter()
+            .filter(|d| unreachable.iter().any(|e| e.path.starts_with(d)))
+            .cloned()
+            .collect();
         Manifest {
-            state: State::Installed,
-            entries: Vec::new(),
-            created_dirs: Vec::new(),
+            state: if files_left {
+                m.state
+            } else {
+                State::Installed
+            },
+            entries: unreachable,
+            created_dirs,
             generated: Vec::new(),
             ..m.clone()
         }
         .save(state_dir)?;
     }
-    // The configured payload copies are only needed while installed.
-    let _ = std::fs::remove_dir_all(state_dir.join(&m.game_key).join("staging"));
+    // The configured payload copies are only needed while installed (Repair
+    // and Apply read the staged ini).
+    if !files_left {
+        let _ = std::fs::remove_dir_all(state_dir.join(&m.game_key).join("staging"));
+    }
     if !backups_still_needed {
         let _ = std::fs::remove_dir_all(
             Manifest::backup_dir(state_dir, &m.game_key).join(m.started_at.to_string()),
@@ -1367,6 +1413,41 @@ mod tests {
             read(&elsewhere.join("OptiScaler.ini")),
             b"cfg",
             "not followed"
+        );
+        // What is behind the link may still be OptiScaler: the game stays
+        // recorded as changed, with that file alone.
+        let left = Manifest::load(&fx.state, "g").unwrap().unwrap();
+        assert_eq!(left.state, State::Installed);
+        assert_eq!(
+            left.entries
+                .iter()
+                .map(|e| e.path.clone())
+                .collect::<Vec<_>>(),
+            [PathBuf::from("bin/OptiScaler.ini")]
+        );
+        // The folder is a folder again: the next Restore finishes.
+        std::fs::remove_file(fx.game.join("bin")).unwrap();
+        std::fs::rename(&elsewhere, fx.game.join("bin")).unwrap();
+        assert_eq!(
+            remove(&fx.state, "g").unwrap(),
+            [FileOutcome::Removed("bin/OptiScaler.ini".into())]
+        );
+        assert!(!fx.game.join("bin/OptiScaler.ini").exists());
+        assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_link_in_place_of_the_file_itself_ends_the_record() {
+        let fx = fixture();
+        let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
+        apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        // A mod manager deployed its own dxgi.dll as a link: nothing of
+        // Big Game Mode's is left there to keep a record of.
+        std::fs::remove_file(fx.game.join("dxgi.dll")).unwrap();
+        std::os::unix::fs::symlink(fx.payload.join("dxgi.dll"), fx.game.join("dxgi.dll")).unwrap();
+        assert_eq!(
+            remove(&fx.state, "g").unwrap(),
+            [FileOutcome::KeptChanged("dxgi.dll".into())]
         );
         assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
     }
