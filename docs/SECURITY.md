@@ -26,6 +26,12 @@ a path the caller assembled.
   recycled PID cannot inherit an authorization.
 - It fails closed: no identifiable sender, Polkit unreachable or a failed
   check means *access denied*. `Ping` is the only unauthenticated method.
+- Polkit may show a password prompt only for a call whose header carries
+  D-Bus's `ALLOW_INTERACTIVE_AUTHORIZATION` flag. Big Game Mode's client sets
+  it on every privileged method, and `busctl` by default; any other caller
+  gets Polkit's answer without a dialog appearing on the user's screen.
+- The Polkit texts are translated like the rest of the application: the
+  package build merges every catalogue into the policy with `msgfmt --xml`.
 - Method names are pinned explicitly, so renaming a Rust function cannot
   rename the D-Bus interface.
 
@@ -48,7 +54,7 @@ an administrator's password.
 | Input | Rule |
 |---|---|
 | Profile name | `[A-Za-z0-9 ._+-]`, 1–128 bytes, no leading `.`, no `..`, no leading or trailing space — a separator cannot be expressed |
-| Profile `name` field | must equal the name it is saved under, so a profile is always found, and removed, by the name it matches; and it may not be a process of the session itself (`Xorg`, `Xwayland`, `kwin_wayland`, `gnome-shell`, `plasmashell`, `systemd`, `dbus-daemon`, `pipewire`, `falcond`, `sh`, `bash`, `sudo`…), which falcond would otherwise treat as a game |
+| Profile `name` field | must equal the name it is saved under, so a profile is always found, and removed, by the name it matches. It may not name a system process, which falcond would otherwise treat as a game: an exact-name deny-list (service manager and its daemons, bus and Polkit, login and privilege programs, display managers, compositors, sound, network, hardware and power daemons, shells, Big Game Mode and falcond), compared without case and also in its 15-byte `comm` form, as falcond matches; and, when saving, no name falcond would match against a process running as root at that moment (its `comm`, or the name falcond takes from its command line). Under `ProtectProc=invisible` the helper sees root processes whose ids are all 0 and that are dumpable, and kernel threads; the deny-list is the guarantee, the `/proc` check widens it. Deleting is never restricted |
 | Profile content | ≤ 64 KiB; no NUL or other control characters (a bare `\r` is a line break to some parsers); **exactly one plain `key = value` per line**: falcond's parser (`otter_conf`) reads the next key on the same line after a value, so `idle_inhibit = true start_script = "…"` would hide a second assignment from a line-based check. Keys are `[a-z_][a-z0-9_]*`; a value is a bare word (`[A-Za-z0-9_.+-]`) or a quoted string with no quote, backslash or `#` inside, and nothing may follow it. Boolean settings take only `true` or `false`, and `poll_interval_ms` only 100–600000. Keys come from an allow-list — falcond's fields and Big Game Mode's own — and none is repeated (one parser keeps the first value, another the last); **no `start_script` / `stop_script`**: falcond runs them through `/bin/sh` (2.0.14: as the user that owns the matched process, which is root for a root process) |
 | falcond configuration | ≤ 64 KiB, the same one-assignment-per-line grammar (with one-line lists for `system_processes`) and only falcond's configuration keys; the settings that decide between a reload and a restart are read the same strict way |
 | Governor / EPP | `[a-z0-9_-]`, and one of the values the kernel lists in `scaling_available_governors` / `energy_performance_available_preferences` — an arbitrary governor name would make cpufreq load a `cpufreq_<name>` module |
@@ -63,6 +69,11 @@ an administrator's password.
   two writes of a file or two backend switches.
 - cpufreq values go to every online CPU; partial success is reported as
   failure.
+- `SetGameBackend` leaves a unit already in the state asked for alone
+  (enabled and running with no restart by systemd since it started, or
+  disabled and stopped), and has systemd reload its unit files only when
+  enabling or disabling changed a link: the method needs no password in an
+  active session, and in a loop it made PID 1 reload continuously.
 - falcond is reloaded with SIGHUP through systemd's `KillUnit`, and restarted
   only when a setting falcond reads at start-up changed: `enable_performance_mode`,
   the global `scx_sched`/`scx_sched_props` and `vcache_mode` (a reload re-reads
@@ -89,6 +100,9 @@ not use:
   `PrivateNetwork`: in its own network namespace the unit's sysfs showed no
   cpufreq attributes (systemd 261, checked), and `AF_UNIX` alone already
   leaves it no network socket.
+- `MemoryMax=64M` and `TasksMax=64`: the helper is about 5 MiB resident and
+  runs four runtime workers (fixed, not one per CPU), so a leak or a runaway
+  loop fails inside its own cgroup.
 - `CapabilityBoundingSet=CAP_SYS_ADMIN`: every file the helper writes is
   root's own, so uid 0 needs no capability to write it (`CAP_DAC_OVERRIDE`,
   `CAP_SYS_PTRACE`, `CAP_NET_*`, `CAP_SETUID` and the rest are gone);
@@ -101,7 +115,19 @@ not use:
   `/sys/module`, `/sys/power`, drivers' `bind`/`unbind` under `/sys/bus` and
   the rest are out of reach. The cpufreq, DRM and V-Cache attributes the
   helper writes live in `/sys/devices`; the `/sys/class` and `/sys/bus` paths
-  it names are symlinks into it. Also writable: `/etc/falcond`
+  it names are symlinks into it. Within it, `/sys/devices/system` (CPU
+  hotplug, SMT, microcode reload, pstate limits) and `/sys/devices/virtual`
+  (thermal trip points, powercap) are read-only too, with
+  `/sys/devices/system/cpu/cpufreq` mounted writable over the first: the
+  governor and EPP land there (`cpuN/cpufreq` is a symlink to
+  `cpufreq/policyN`), the DPM level in the card's PCI device under
+  `/sys/devices/pci*`, the V-Cache mode in the `AMDI0101` platform device
+  under `/sys/devices/platform`.
+- `/run` is read-only: `ProtectSystem=strict` left it writable on systemd 261
+  (`/run/systemd/system`, `/run/udev/rules.d`, removable media under
+  `/run/media`), and the helper writes nothing there; connecting to the bus
+  socket needs no write access to the mount.
+- Writable besides those sysfs attributes: `/etc/falcond`
   (`ConfigurationDirectory=falcond`: falcond's package does not ship it, and
   an absent `ReadWritePaths` entry is ignored, which left it read-only),
   `/usr/share/falcond/profiles/user` and `StateDirectory=bigame-mode`. Only
@@ -121,10 +147,15 @@ not use:
   stop a helper an older release let the bus start directly.
 
 `tests/daemon-authorization.sh` starts the real helper on a private bus as an
-ordinary user with no Polkit reachable, and checks that every privileged method
-is refused and that nothing is written. Because authorization comes first, its
-path-traversal payloads are refused there and never reach argument validation;
-that validation is covered by the unit tests in `bigame-daemon/src/validate.rs`.
+ordinary user with no Polkit reachable. The bus has the system bus's defaults
+with the shipped bus policy included as it is, so the test also checks that
+policy: the helper's interface, Introspectable and Peer get through, an
+unlisted interface is refused by the bus. Every privileged method must be
+refused by the helper's own Polkit denial, one Polkit check logged per call;
+invalid arguments (path traversal, a fixed DPM level, a script hook) get the
+same answer and the log shows no argument examined and nothing written, so
+authorization comes first. Argument validation itself is covered by the unit
+tests in `bigame-daemon/src/validate.rs`.
 
 ## Other inputs
 
@@ -281,6 +312,8 @@ paths exists here.
   file writes, but not what it can ask of other services: it is uid 0 on the
   system bus, which systemd authorises without Polkit, so code execution
   inside the helper could start a transient unit that runs unconfined. Within
-  `/sys/devices` the sandbox does not enforce the attribute list either. A
+  the writable parts of `/sys/devices` (devices under `pci*` and `platform`,
+  the cpufreq policies, `boost` included) the sandbox does not enforce the
+  attribute list either. A
   dedicated user with a Polkit rule limited to `falcond.service` would narrow
   this; the helper's defence today is its small, validated interface.
