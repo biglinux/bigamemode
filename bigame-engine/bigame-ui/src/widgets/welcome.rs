@@ -138,6 +138,10 @@ fn greeting() -> gtk4::Box {
     header
 }
 
+/// The dialog's width, and the margin either side of what it shows.
+const WIDTH: i32 = 900;
+const MARGIN: i32 = 20;
+
 /// Present the welcome screen over `parent`'s window.
 pub fn show(parent: &impl IsA<gtk4::Widget>) {
     // A grid rather than two boxes, so each pair lines up across the columns
@@ -147,12 +151,20 @@ pub fn show(parent: &impl IsA<gtk4::Widget>) {
         .column_spacing(28)
         .column_homogeneous(true)
         .margin_top(14)
-        .halign(gtk4::Align::Center)
         .hexpand(true)
         .build();
     for (i, (icon, title, text)) in (0i32..).zip(features()) {
         grid.attach(&feature_row(icon, &title, &text, 32), i % 2, i / 2, 1, 1);
     }
+    // Centred by a clamp, not by `halign`: a centred grid of wrapping labels
+    // is measured for its width at the height it was given, which on a short
+    // screen is less than it needs ("Trying to measure GtkGrid … for height
+    // of 464, but it needs at least 1299").
+    let features = adw::Clamp::builder()
+        .maximum_size(WIDTH - 2 * MARGIN)
+        .tightening_threshold(WIDTH - 2 * MARGIN)
+        .child(&grid)
+        .build();
 
     let tip = gtk4::Label::builder()
         .label(i18n(
@@ -165,12 +177,12 @@ pub fn show(parent: &impl IsA<gtk4::Widget>) {
         .build();
 
     let content = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
-    content.set_margin_start(20);
-    content.set_margin_end(20);
+    content.set_margin_start(MARGIN);
+    content.set_margin_end(MARGIN);
     content.set_margin_top(20);
     content.set_margin_bottom(12);
     content.append(&greeting());
-    content.append(&grid);
+    content.append(&features);
     content.append(&tip);
 
     let scrolled = gtk4::ScrolledWindow::builder()
@@ -222,7 +234,7 @@ pub fn show(parent: &impl IsA<gtk4::Widget>) {
 
     let dialog = adw::Dialog::builder()
         .title(i18n("Welcome to Big Game Mode"))
-        .content_width(900)
+        .content_width(WIDTH)
         .content_height(650)
         .child(&handle)
         .build();
