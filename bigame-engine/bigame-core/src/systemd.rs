@@ -212,6 +212,13 @@ impl UnitState {
     }
 }
 
+/// How the unit and service proxies read their properties: each one asked
+/// for, when read. zbus's default cache subscribes to the object's
+/// `PropertiesChanged` and fetches every property of the interface on the
+/// first read — hundreds for a service — for proxies that read five between
+/// them and are dropped, every ten seconds.
+const UNCACHED: zbus::proxy::CacheProperties = zbus::proxy::CacheProperties::No;
+
 /// Read a unit's state.
 ///
 /// # Errors
@@ -224,6 +231,7 @@ pub async fn unit_state(connection: &zbus::Connection, unit: &str) -> zbus::Resu
     let path = manager.load_unit(unit).await?;
     let proxy = UnitProxy::builder(connection)
         .path(path.clone())?
+        .cache_properties(UNCACHED)
         .build()
         .await?;
     let active_state = proxy.active_state().await?;
@@ -232,6 +240,7 @@ pub async fn unit_state(connection: &zbus::Connection, unit: &str) -> zbus::Resu
     let service = async {
         let s = ServiceProxy::builder(connection)
             .path(path)?
+            .cache_properties(UNCACHED)
             .build()
             .await?;
         zbus::Result::Ok(ServiceRun {
@@ -290,6 +299,7 @@ impl Reader {
         let proxy = UnitProxyBlocking::builder(&self.connection)
             .path(path.clone())
             .ok()?
+            .cache_properties(UNCACHED)
             .build()
             .ok()?;
         let active_state = proxy.active_state().ok()?;
@@ -306,6 +316,7 @@ impl Reader {
         let s = ServiceProxyBlocking::builder(&self.connection)
             .path(path)
             .ok()?
+            .cache_properties(UNCACHED)
             .build()
             .ok()?;
         Some(ServiceRun {
