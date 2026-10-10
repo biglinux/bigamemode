@@ -119,7 +119,7 @@ denied() {
 
 echo "Bus policy (the shipped file):"
 check "Ping is allowed (unauthenticated)" "('pong',)" "$NAME.Ping"
-check "Peer is allowed" "('" org.freedesktop.DBus.Peer.GetMachineId
+check "Peer is allowed" "()" org.freedesktop.DBus.Peer.Ping
 check "Introspectable is allowed" "<node" org.freedesktop.DBus.Introspectable.Introspect
 check "an unlisted interface is refused by the bus" \
       "AccessDenied: Rejected send message" org.example.NotListed.Anything
