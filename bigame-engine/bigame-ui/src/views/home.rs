@@ -504,22 +504,21 @@ pub fn build(
             );
             glib::spawn_future_local(async move {
                 let reading = gio::spawn_blocking(|| {
-                    (
-                        bigame_core::systemd::Reader::shared()
-                            .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT)),
-                        Report::load_last(),
-                    )
+                    // A falcond that crashed on this processor is not
+                    // Turbo's state: Turbo is the Booster's then, as without
+                    // falcond, and its unit staying inactive is not Turbo
+                    // going off.
+                    let governing = bigame_core::systemd::Reader::shared()
+                        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
+                        .map(|unit| turbo::backend_governs(&unit).then(|| unit.is_active()));
+                    (governing, Report::load_last())
                 })
                 .await;
                 busy.set(false);
-                let Ok((Some(unit), report)) = reading else {
+                let Ok((Some(governing), report)) = reading else {
                     return;
                 };
-                let on = if unit.is_installed() {
-                    unit.is_active()
-                } else {
-                    turbo_on.get()
-                };
+                let on = governing.unwrap_or_else(|| turbo_on.get());
                 // A launcher opened again, or closed, by hand leaves the
                 // notice.
                 if root.is_mapped() {

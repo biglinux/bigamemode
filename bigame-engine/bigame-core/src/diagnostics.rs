@@ -173,10 +173,10 @@ fn section_bigame(out: &mut String) {
     let _ = writeln!(out, "── Big Game Mode ──");
     let reader = crate::systemd::Reader::shared();
     let unit = reader.and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
-    // As Home reads it (turbo::state): falcond's unit when it is installed,
-    // Booster's journal without it.
+    // As Home reads it (turbo::state): falcond's unit when it governs Turbo,
+    // Booster's journal without it or with a build that crashed here.
     let turbo = match &unit {
-        Some(u) if u.is_installed() => on_off(u.is_active()),
+        Some(u) if crate::turbo::backend_governs(u) => on_off(u.is_active()),
         Some(_) => on_off(crate::booster::BoosterEngine::is_active()),
         None => "unknown (systemd did not answer)",
     };

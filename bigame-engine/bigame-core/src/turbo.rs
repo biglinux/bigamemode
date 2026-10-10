@@ -79,8 +79,10 @@ pub async fn state() -> Result<State> {
 
 /// Whether Turbo's state is falcond's: it is installed, and not a build that
 /// crashed on this processor. Otherwise Turbo is the Booster's, as without
-/// falcond.
-fn backend_governs(unit: &crate::systemd::UnitState) -> bool {
+/// falcond. Every surface that reads Turbo from falcond's unit asks this
+/// first: an inactive falcond that does not govern is not a Turbo off.
+#[must_use]
+pub fn backend_governs(unit: &crate::systemd::UnitState) -> bool {
     unit.is_installed() && !crate::falcond_compat::crashes_here()
 }
 
