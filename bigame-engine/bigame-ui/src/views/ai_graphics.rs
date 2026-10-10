@@ -145,23 +145,20 @@ pub fn status_text(s: &Status) -> String {
             upscaler_name(upscaler, *fsr_generation)
         ),
         Status::NotDetected => i18n("Installed, but the game did not load it"),
-        Status::Failed { errors } => format!(
-            "{}: {}",
-            i18n("Failed"),
-            errors.first().cloned().unwrap_or_default()
+        Status::Failed { errors } => labelled(
+            &i18n("Failed"),
+            &errors.first().cloned().unwrap_or_default(),
         ),
         Status::SettingsLeft => i18n(
             "Files put back; the game's own setting is still to be put back — press Restore again",
         ),
-        Status::Moved { installed_in } => format!(
-            "{}: {}",
-            i18n("Installed in another folder"),
-            installed_in.display()
+        Status::Moved { installed_in } => labelled(
+            &i18n("Installed in another folder"),
+            &installed_in.display().to_string(),
         ),
-        Status::Unreadable { error } => format!(
-            "{}: {}",
-            i18n("The record of what was installed cannot be read"),
-            tr(error)
+        Status::Unreadable { error } => labelled(
+            &i18n("The record of what was installed cannot be read"),
+            &tr(error),
         ),
     }
 }
@@ -234,6 +231,12 @@ fn sentence(s: &str) -> String {
     c.next()
         .map(|f| f.to_uppercase().chain(c).collect())
         .unwrap_or_default()
+}
+
+/// `label: value`, laid out as the translation of "%s: %s" says: French
+/// puts a space before the colon, and some languages another mark.
+fn labelled(label: &str, value: &str) -> String {
+    Text::fill(&i18n("%s: %s"), &[label.to_owned(), value.to_owned()])
 }
 
 fn row(title: &str, subtitle: &str) -> adw::ActionRow {
@@ -618,9 +621,11 @@ fn render_facts(page: &Rc<Page>, a: &Analysis) {
             .unwrap_or_default();
         facts.push(Fact {
             title: i18n("How the game starts"),
-            value: i18n("%s starts %s")
-                .replacen("%s", &stub.display().to_string(), 1)
-                .replacen("%s", &name, 1),
+            // A translation may name the game first (%2$s … %1$s).
+            value: Text::fill(
+                &i18n("%s starts %s"),
+                &[stub.display().to_string(), name],
+            ),
             info: Some(i18n(
                 "The launcher starts a small Unreal Engine bootstrap, which starts the real game. Big Game Mode looks at the game that runs — its folder is where OptiScaler would go, and its executable says which upscalers the game has — and knows it as running by either name.",
             )),
@@ -761,9 +766,8 @@ fn api_info(r: &Report) -> String {
     if !evidence.is_empty() {
         let _ = write!(
             s,
-            "\n\n{}: {}",
-            i18n("How it is known"),
-            evidence.join(" · ")
+            "\n\n{}",
+            labelled(&i18n("How it is known"), &evidence.join(" · "))
         );
     }
     s
@@ -830,7 +834,7 @@ fn changes(before: &[(String, String)], after: &[(String, String)]) -> Vec<Strin
         .iter()
         .filter_map(|(name, now)| {
             let was = before.iter().find(|(n, _)| n == name).map(|(_, v)| v)?;
-            (was != now).then(|| format!("{name}: {was} → {now}"))
+            (was != now).then(|| labelled(name, &format!("{was} → {now}")))
         })
         .collect()
 }
@@ -1144,7 +1148,7 @@ fn neural_words(s: &external::Status) -> (String, &'static str, String) {
                 i18n("Why it is unavailable here:"),
                 missing
                     .iter()
-                    .map(|m| format!("• {}: {}", i18n(m.what), tr(&m.detail)))
+                    .map(|m| format!("• {}", labelled(&i18n(m.what), &tr(&m.detail))))
                     .collect::<Vec<_>>()
                     .join("\n"),
                 i18n(
@@ -1498,21 +1502,25 @@ fn found_expander(r: &Report) -> adw::ExpanderRow {
         details.add_row(&row(
             "Proton",
             &format!(
-                "{} · Windows {} · {}: {} · {}: {}",
+                "{} · Windows {} · {} · {}",
                 p.tool.clone().unwrap_or_else(|| i18n("unknown build")),
                 p.windows_version.clone().unwrap_or_else(|| "?".into()),
-                i18n("FSR 4 provider"),
-                if p.fsr4_provider {
-                    i18n("yes")
-                } else {
-                    i18n("no")
-                },
-                i18n("AMD HIP runtime"),
-                if p.hip_runtime {
-                    i18n("yes")
-                } else {
-                    i18n("no")
-                },
+                labelled(
+                    &i18n("FSR 4 provider"),
+                    &if p.fsr4_provider {
+                        i18n("yes")
+                    } else {
+                        i18n("no")
+                    }
+                ),
+                labelled(
+                    &i18n("AMD HIP runtime"),
+                    &if p.hip_runtime {
+                        i18n("yes")
+                    } else {
+                        i18n("no")
+                    }
+                ),
             ),
         ));
     }
@@ -1590,10 +1598,9 @@ fn save_report(page: &Rc<Page>, button: &gtk4::Button, row: &adw::ActionRow) {
                 });
                 page.overlay.add_toast(toast);
             }
-            Ok(Err(e)) => page.overlay.add_toast(adw::Toast::new(&format!(
-                "{}: {}",
-                i18n("Could not write the report"),
-                error_text(&e)
+            Ok(Err(e)) => page.overlay.add_toast(adw::Toast::new(&labelled(
+                &i18n("Could not write the report"),
+                &error_text(&e),
             ))),
             Err(_) => page
                 .overlay
@@ -1911,10 +1918,9 @@ fn wire_choice(page: &Rc<Page>) {
                             Ok(()) => page2.overlay.add_toast(adw::Toast::new(&i18n(
                                 "lsfg-vk was turned off for this game",
                             ))),
-                            Err(e) => page2.overlay.add_toast(adw::Toast::new(&format!(
-                                "{}: {}",
-                                i18n("Could not turn lsfg-vk off"),
-                                error_text(&e)
+                            Err(e) => page2.overlay.add_toast(adw::Toast::new(&labelled(
+                                &i18n("Could not turn lsfg-vk off"),
+                                &error_text(&e),
                             ))),
                         }
                         choose_frame_generation(&page2, true);
@@ -1973,10 +1979,9 @@ fn wire_choice(page: &Rc<Page>) {
                     Ok(()) => page.overlay.add_toast(adw::Toast::new(&i18n(
                         "lsfg-vk was turned off for this game",
                     ))),
-                    Err(e) => page.overlay.add_toast(adw::Toast::new(&format!(
-                        "{}: {}",
-                        i18n("Could not turn lsfg-vk off"),
-                        error_text(&e)
+                    Err(e) => page.overlay.add_toast(adw::Toast::new(&labelled(
+                        &i18n("Could not turn lsfg-vk off"),
+                        &error_text(&e),
                     ))),
                 }
                 refresh(&page);
@@ -2014,9 +2019,7 @@ fn wire_choice(page: &Rc<Page>) {
                     end(&page);
                     let text = match result {
                         Ok(Ok(_)) => i18n("Switched back on in the game's settings"),
-                        Ok(Err(e)) => {
-                            format!("{}: {}", i18n("Nothing was changed"), error_text(&e))
-                        }
+                        Ok(Err(e)) => labelled(&i18n("Nothing was changed"), &error_text(&e)),
                         Err(_) => i18n("Nothing was changed"),
                     };
                     page.overlay.add_toast(adw::Toast::new(&text));
@@ -2044,7 +2047,7 @@ fn wire_choice(page: &Rc<Page>) {
                         Ok(Ok(bigame_core::steam_gamescope::Applied::Written(o))) => {
                             i18n("Steam launch options: %s").replace("%s", &o)
                         }
-                        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
+                        Ok(Err(e)) => labelled(&i18n("Nothing was changed"), &error_text(&e)),
                         Ok(Ok(_)) | Err(_) => i18n("Nothing was changed"),
                     };
                     page.overlay.add_toast(adw::Toast::new(&text));
@@ -2336,7 +2339,7 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
                 m.source.version,
                 i18n("installed; the previous version can be restored here")
             ),
-            Ok(Err(e)) => format!("{}: {}", i18n("Not updated"), error_text(&e)),
+            Ok(Err(e)) => labelled(&i18n("Not updated"), &error_text(&e)),
             Err(_) => i18n("Not updated"),
         };
         page.overlay.add_toast(adw::Toast::new(&text));
@@ -2355,12 +2358,7 @@ pub(crate) fn restoration_text(
     use bigame_core::graphics::transaction::FileOutcome;
     let done = match result {
         Ok(Ok(done)) => done,
-        Ok(Err(e)) => {
-            return Text::fill(
-                &i18n("%s: %s"),
-                &[i18n("Could not restore"), error_text(&e)],
-            );
-        }
+        Ok(Err(e)) => return labelled(&i18n("Could not restore"), &error_text(&e)),
         Err(_) => return i18n("Could not restore"),
     };
     let kept = done
@@ -2391,12 +2389,9 @@ pub(crate) fn restoration_text(
         let _ = write!(
             text,
             " · {}",
-            Text::fill(
-                &i18n("%s: %s"),
-                &[
-                    i18n("The game's own setting could not be put back yet"),
-                    tr(why)
-                ]
+            labelled(
+                &i18n("The game's own setting could not be put back yet"),
+                &tr(why)
             )
         );
     }
@@ -2415,10 +2410,7 @@ fn report_fsr4_upgrade(
     use graphics::fsr4_upgrade::Applied;
     let text = match result {
         Ok(Ok(Applied::SteamLaunchOptions(o))) if on => {
-            format!(
-                "{}: {o}",
-                i18n("Steam's launch options for this game now read")
-            )
+            labelled(&i18n("Steam's launch options for this game now read"), &o)
         }
         Ok(Ok(Applied::SteamLaunchOptions(_))) => {
             i18n("The launch option was removed; the game's own FSR runs as it did")
@@ -2454,7 +2446,7 @@ fn report_fsr4_upgrade(
         Ok(Ok(Applied::LaunchPlan)) => {
             i18n("Not a Steam game: the variable goes into Big Game Mode's own launch")
         }
-        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
+        Ok(Err(e)) => labelled(&i18n("Nothing was changed"), &error_text(&e)),
         Err(_) => i18n("Nothing was changed"),
     };
     overlay.add_toast(adw::Toast::new(&text));
@@ -2502,10 +2494,9 @@ fn save_version_choice(page: &Page, change: impl Fn(&mut AiGraphicsConfig)) -> b
         }
         Err(e) => {
             tracing::warn!(error = %e, "could not save the AI Graphics version choice");
-            page.overlay.add_toast(adw::Toast::new(&format!(
-                "{}: {}",
-                i18n("The choice was not saved"),
-                error_text(&e)
+            page.overlay.add_toast(adw::Toast::new(&labelled(
+                &i18n("The choice was not saved"),
+                &error_text(&e),
             )));
             false
         }
@@ -2526,10 +2517,9 @@ fn save_settings(page: &Page) -> bool {
         }
         Err(e) => {
             tracing::warn!(error = %e, "could not save AI Graphics settings");
-            page.overlay.add_toast(adw::Toast::new(&format!(
-                "{}: {}",
-                i18n("The choice was not saved"),
-                error_text(&e)
+            page.overlay.add_toast(adw::Toast::new(&labelled(
+                &i18n("The choice was not saved"),
+                &error_text(&e),
             )));
             false
         }
@@ -2880,7 +2870,7 @@ fn open_with(
                             Some(Applied::AlreadyOn(_)) | None => files,
                         }
                     }
-                    Ok(Err(e)) => format!("{}: {}", i18n("Could not apply"), error_text(&e)),
+                    Ok(Err(e)) => labelled(&i18n("Could not apply"), &error_text(&e)),
                     Err(_) => i18n("Could not apply"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
@@ -2908,7 +2898,7 @@ fn open_with(
                 let text = match result {
                     Ok(Ok(v)) if v.is_empty() => i18n("Every file is as it was installed"),
                     Ok(Ok(v)) => format!("{} ({})", i18n("Missing files put back"), v.len()),
-                    Ok(Err(e)) => format!("{}: {}", i18n("Could not repair"), error_text(&e)),
+                    Ok(Err(e)) => labelled(&i18n("Could not repair"), &error_text(&e)),
                     Err(_) => i18n("Could not repair"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
