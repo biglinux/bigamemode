@@ -616,13 +616,11 @@ pub fn collect() -> Vec<Check> {
     if backend
         .as_ref()
         .is_some_and(crate::systemd::UnitState::is_active)
-    {
-        if let Some(c) = crate::systemd::Reader::shared()
+        && let Some(c) = crate::systemd::Reader::shared()
             .and_then(|r| r.restarts(crate::turbo::BACKEND_UNIT))
             .and_then(restart_check)
-        {
-            out.push(c);
-        }
+    {
+        out.push(c);
     }
     if status.as_ref().is_some_and(|s| s.dmem_cgroup.is_none()) && caps.falcond_installed {
         let kernel_can = Path::new("/sys/fs/cgroup/dmem.capacity").exists();
@@ -637,15 +635,16 @@ pub fn collect() -> Vec<Check> {
             None,
         ));
     }
-    if let Some(s) = &status {
-        if s.profile_mode == "handheld" && !matches!(hw.chassis, Chassis::Handheld) {
-            out.push(check(
+    if let Some(s) = &status
+        && s.profile_mode == "handheld"
+        && !matches!(hw.chassis, Chassis::Handheld)
+    {
+        out.push(check(
                 N_("falcond profile set"),
                 Status::Warning,
                 N_("handheld profiles on a machine that is not a handheld: games run in power-saving mode"),
                 advice(N_("Turn Turbo on — or off and on again if it is already on — to switch falcond to its desktop profiles")),
             ));
-        }
     }
 
     // sched-ext

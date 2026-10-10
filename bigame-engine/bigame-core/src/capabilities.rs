@@ -149,12 +149,13 @@ impl GamescopeCaps {
                 let token = token.trim_end_matches(',');
                 let Some(name) = token.strip_prefix("--") else {
                     // Short options: `-F` in "  -F, --filter".
-                    if let Some(short) = token.strip_prefix('-') {
-                        if short.len() == 1 && short.chars().all(char::is_alphabetic) {
-                            let s = short.to_owned();
-                            if !flags.contains(&s) {
-                                flags.push(s);
-                            }
+                    if let Some(short) = token.strip_prefix('-')
+                        && short.len() == 1
+                        && short.chars().all(char::is_alphabetic)
+                    {
+                        let s = short.to_owned();
+                        if !flags.contains(&s) {
+                            flags.push(s);
                         }
                     }
                     continue;
@@ -352,10 +353,10 @@ pub fn gamescope_cached() -> Option<GamescopeCaps> {
     let mut cache = CACHE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some((k, caps)) = cache.as_ref() {
-        if *k == key {
-            return caps.clone();
-        }
+    if let Some((k, caps)) = cache.as_ref()
+        && *k == key
+    {
+        return caps.clone();
     }
     let caps = detect_gamescope();
     *cache = Some((key, caps.clone()));

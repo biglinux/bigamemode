@@ -260,10 +260,11 @@ pub fn build(
             else {
                 return;
             };
-            if let Some(presets) = presets.upgrade() {
-                if presets.is_open() && presets.shown() != preset {
-                    presets.select(preset);
-                }
+            if let Some(presets) = presets.upgrade()
+                && presets.is_open()
+                && presets.shown() != preset
+            {
+                presets.select(preset);
             }
         });
     }
@@ -416,10 +417,8 @@ pub fn build(
                             crate::game_watch::check();
                             // Open the report on its own only when something
                             // went wrong; a clean run is summarised on Home.
-                            if failed {
-                                if let Some(r) = last.borrow().as_ref() {
-                                    show(r);
-                                }
+                            if failed && let Some(r) = last.borrow().as_ref() {
+                                show(r);
                             }
                             return glib::ControlFlow::Break;
                         }
@@ -467,10 +466,10 @@ pub fn build(
         turbo_action.connect_change_state(move |_, value| {
             // A request, not the result: the state follows once Turbo has
             // really switched.
-            if let Some(wanted) = value.and_then(bool::from_variant) {
-                if wanted != button.state().is_on() {
-                    toggle();
-                }
+            if let Some(wanted) = value.and_then(bool::from_variant)
+                && wanted != button.state().is_on()
+            {
+                toggle();
             }
         });
     }
@@ -689,7 +688,7 @@ impl Refresh {
         let n = self.tick.get().wrapping_add(1);
         self.tick.set(n);
         let playing = crate::game_watch::current().is_some();
-        if !playing || n % IN_GAME_EVERY == 0 {
+        if !playing || n.is_multiple_of(IN_GAME_EVERY) {
             (self.update)(n);
         }
         glib::ControlFlow::Continue

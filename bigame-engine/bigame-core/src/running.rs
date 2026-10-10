@@ -570,14 +570,14 @@ impl Activity {
     /// The process being played among `pool`: the one drawing, then the
     /// busiest of late. The GPU is asked only when there is a choice.
     fn choose<'a>(&self, pool: Vec<&'a Proc>) -> Option<&'a Proc> {
-        if pool.len() > 1 {
-            if let Some(renders) = &self.renders {
-                return pool
-                    .into_iter()
-                    .map(|p| (renders(p.pid), self.recent(p), p))
-                    .max_by_key(|(drawing, recent, p)| (*drawing, *recent, p.cpu_ticks))
-                    .map(|(_, _, p)| p);
-            }
+        if pool.len() > 1
+            && let Some(renders) = &self.renders
+        {
+            return pool
+                .into_iter()
+                .map(|p| (renders(p.pid), self.recent(p), p))
+                .max_by_key(|(drawing, recent, p)| (*drawing, *recent, p.cpu_ticks))
+                .map(|(_, _, p)| p);
         }
         pool.into_iter()
             .max_by_key(|p| (self.recent(p), p.cpu_ticks))
@@ -709,10 +709,10 @@ pub fn known_native_games() -> HashMap<String, String> {
     let mut cache = CACHE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some((at, games)) = cache.as_ref() {
-        if at.elapsed() < Duration::from_secs(60) {
-            return games.clone();
-        }
+    if let Some((at, games)) = cache.as_ref()
+        && at.elapsed() < Duration::from_secs(60)
+    {
+        return games.clone();
     }
     let games = read_native_games();
     *cache = Some((Instant::now(), games.clone()));
@@ -838,10 +838,10 @@ fn graphics_of(pid: u32, executable: &str) -> Graphics {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let seen = seen.get_or_insert_with(HashMap::new);
-    if let Some((at, graphics)) = seen.get(&key) {
-        if now.saturating_duration_since(*at) < GRAPHICS_KEPT {
-            return *graphics;
-        }
+    if let Some((at, graphics)) = seen.get(&key)
+        && now.saturating_duration_since(*at) < GRAPHICS_KEPT
+    {
+        return *graphics;
     }
     let graphics = std::fs::read_to_string(format!("/proc/{pid}/maps"))
         .map_or(Graphics::Unknown, |maps| graphics_from_maps(&maps));
@@ -1109,27 +1109,26 @@ fn drop_enumerated_only(
 fn enrich(mut game: GameIdentity) -> GameIdentity {
     game.graphics = graphics_of(game.pid, &game.executable);
     game.render_card = render_card(game.pid);
-    if let Some(id) = game.steam_app_id.clone() {
-        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-            for library in crate::games::steam_libraries(&home) {
-                let steamapps = library.join("steamapps");
-                let Ok(text) =
-                    std::fs::read_to_string(steamapps.join(format!("appmanifest_{id}.acf")))
-                else {
-                    continue;
-                };
-                if let Some(name) = crate::games::acf_value(&text, "name") {
-                    game.display_name = name;
-                }
-                if let Some(dir) = crate::games::acf_value(&text, "installdir") {
-                    game.install_path = Some(steamapps.join("common").join(dir));
-                }
-                // The prefix beside the manifest, not the first compatdata/<id>
-                // found: Steam leaves stale ones behind when a game moves.
-                let prefix = steamapps.join("compatdata").join(&id);
-                game.compatdata_path = prefix.is_dir().then_some(prefix);
-                break;
+    if let Some(id) = game.steam_app_id.clone()
+        && let Some(home) = std::env::var_os("HOME").map(PathBuf::from)
+    {
+        for library in crate::games::steam_libraries(&home) {
+            let steamapps = library.join("steamapps");
+            let Ok(text) = std::fs::read_to_string(steamapps.join(format!("appmanifest_{id}.acf")))
+            else {
+                continue;
+            };
+            if let Some(name) = crate::games::acf_value(&text, "name") {
+                game.display_name = name;
             }
+            if let Some(dir) = crate::games::acf_value(&text, "installdir") {
+                game.install_path = Some(steamapps.join("common").join(dir));
+            }
+            // The prefix beside the manifest, not the first compatdata/<id>
+            // found: Steam leaves stale ones behind when a game moves.
+            let prefix = steamapps.join("compatdata").join(&id);
+            game.compatdata_path = prefix.is_dir().then_some(prefix);
+            break;
         }
     }
     game
@@ -1548,10 +1547,10 @@ fn matching_profile_in(
             let Ok(content) = std::fs::read_to_string(&path) else {
                 continue;
             };
-            if let Some(name) = profile_name_field(&content) {
-                if !name.eq_ignore_ascii_case("proton") {
-                    candidates.push(ProfileMatch { name, path, user });
-                }
+            if let Some(name) = profile_name_field(&content)
+                && !name.eq_ignore_ascii_case("proton")
+            {
+                candidates.push(ProfileMatch { name, path, user });
             }
         }
     }

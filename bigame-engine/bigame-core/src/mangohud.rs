@@ -213,15 +213,17 @@ pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
         return Ok(Applied::SteamRunning);
     }
     let users = crate::steam::users(&crate::paths::home_dir());
-    if !apps.is_empty() && mode != Mode::Off && crate::steam::any_flatpak(&users) {
-        if let Some(command) = crate::steam::flatpak_mangohud_missing() {
-            anyhow::bail!(UserError::with(
-                N_(
-                    "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
-                ),
-                [command]
-            ));
-        }
+    if !apps.is_empty()
+        && mode != Mode::Off
+        && crate::steam::any_flatpak(&users)
+        && let Some(command) = crate::steam::flatpak_mangohud_missing()
+    {
+        anyhow::bail!(UserError::with(
+            N_(
+                "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
+            ),
+            [command]
+        ));
     }
     let mut settings = crate::game_settings::load(process)?;
     let record = added_path();

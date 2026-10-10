@@ -113,10 +113,11 @@ fn merge(
     current: Option<&GameIdentity>,
     mut found: Option<GameIdentity>,
 ) -> (Option<GameIdentity>, bool) {
-    if let (Some(cur), Some(new)) = (current, found.as_mut()) {
-        if cur.pid == new.pid && new.render_card.is_none() {
-            new.render_card.clone_from(&cur.render_card);
-        }
+    if let (Some(cur), Some(new)) = (current, found.as_mut())
+        && cur.pid == new.pid
+        && new.render_card.is_none()
+    {
+        new.render_card.clone_from(&cur.render_card);
     }
     let key = |g: Option<&GameIdentity>| g.map(|g| (g.pid, g.graphics, g.render_card.clone()));
     let changed = key(current) != key(found.as_ref());

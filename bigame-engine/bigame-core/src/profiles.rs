@@ -182,15 +182,15 @@ pub fn validate(profile: &GameProfile) -> Vec<&'static str> {
         }
     }
     // Script paths: check they look like absolute paths
-    if let Some(ref s) = profile.start_script {
-        if !s.starts_with('/') {
-            warnings.push(N_("Start script should be an absolute path"));
-        }
+    if let Some(ref s) = profile.start_script
+        && !s.starts_with('/')
+    {
+        warnings.push(N_("Start script should be an absolute path"));
     }
-    if let Some(ref s) = profile.stop_script {
-        if !s.starts_with('/') {
-            warnings.push(N_("Stop script should be an absolute path"));
-        }
+    if let Some(ref s) = profile.stop_script
+        && !s.starts_with('/')
+    {
+        warnings.push(N_("Stop script should be an absolute path"));
     }
     warnings
 }
@@ -210,12 +210,11 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<&'static str> {
     if profile.name.contains(std::path::MAIN_SEPARATOR) || profile.name.contains("..") {
         errors.push(N_("Profile name contains invalid path characters"));
     }
-    if let Some(ref gs) = profile.gamescope {
-        if (gs.render_width == 0) != (gs.render_height == 0)
-            || (gs.output_width == 0) != (gs.output_height == 0)
-        {
-            errors.push(N_("Gamescope resolution needs both width and height"));
-        }
+    if let Some(ref gs) = profile.gamescope
+        && ((gs.render_width == 0) != (gs.render_height == 0)
+            || (gs.output_width == 0) != (gs.output_height == 0))
+    {
+        errors.push(N_("Gamescope resolution needs both width and height"));
     }
     errors
 }
@@ -399,15 +398,15 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let _ = writeln!(out, "vcache_mode = {}", profile.vcache_mode);
     let _ = writeln!(out, "idle_inhibit = {}", profile.idle_inhibit);
     // Strings: quoted
-    if let Some(ref s) = profile.start_script {
-        if !s.is_empty() {
-            let _ = writeln!(out, "start_script = \"{s}\"");
-        }
+    if let Some(ref s) = profile.start_script
+        && !s.is_empty()
+    {
+        let _ = writeln!(out, "start_script = \"{s}\"");
     }
-    if let Some(ref s) = profile.stop_script {
-        if !s.is_empty() {
-            let _ = writeln!(out, "stop_script = \"{s}\"");
-        }
+    if let Some(ref s) = profile.stop_script
+        && !s.is_empty()
+    {
+        let _ = writeln!(out, "stop_script = \"{s}\"");
     }
     // Big Game Mode's own per-game settings (otter_conf skips unknown keys).
     // `cpu_governor`, `scx_custom_flags` and `enabled` are not written: nothing

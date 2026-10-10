@@ -2723,14 +2723,13 @@ fn open_with(
                     // Turbo preset, the options themselves). One owner
                     // writes it, and writing it again changes nothing; with
                     // Steam open nothing is written, and the page offers it.
-                    if target.app_id.is_some() {
-                        if let Err(e) =
+                    if target.app_id.is_some()
+                        && let Err(e) =
                             bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true)
                         {
                             tracing::warn!(target: "graphics", game = %target.process,
                                 error = %format!("{e:#}"), "Wine FSR could not be turned off for the game");
                         }
-                    }
                     anyhow::Ok((done, lsfg_removed))
                 })
                 .await;

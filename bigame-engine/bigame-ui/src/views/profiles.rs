@@ -452,30 +452,30 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let view = Rc::clone(&view);
             let win = btn.root().and_downcast::<gtk4::Window>();
             dialog.open(win.as_ref(), gio::Cancellable::NONE, move |result| {
-                if let Ok(file) = result {
-                    if let Some(path) = file.path() {
-                        gtk4::glib::spawn_future_local(async move {
-                            // Saving goes through the helper and may wait on a
-                            // Polkit prompt: off the main thread.
-                            let result =
-                                gio::spawn_blocking(move || bigame_core::profiles::import(&path))
-                                    .await
-                                    .unwrap_or_else(|_| Err(anyhow::anyhow!("import panicked")));
-                            match result {
-                                Ok(name) => {
-                                    toast::show(&btn_ref, &i18n("Profile imported"));
-                                    refresh_library(&view);
-                                    view.nav.push(&build_detail_page(&name, None));
-                                }
-                                Err(e) => {
-                                    toast::show(
-                                        &btn_ref,
-                                        &i18n("Import failed: %s").replace("%s", &error_text(&e)),
-                                    );
-                                }
+                if let Ok(file) = result
+                    && let Some(path) = file.path()
+                {
+                    gtk4::glib::spawn_future_local(async move {
+                        // Saving goes through the helper and may wait on a
+                        // Polkit prompt: off the main thread.
+                        let result =
+                            gio::spawn_blocking(move || bigame_core::profiles::import(&path))
+                                .await
+                                .unwrap_or_else(|_| Err(anyhow::anyhow!("import panicked")));
+                        match result {
+                            Ok(name) => {
+                                toast::show(&btn_ref, &i18n("Profile imported"));
+                                refresh_library(&view);
+                                view.nav.push(&build_detail_page(&name, None));
                             }
-                        });
-                    }
+                            Err(e) => {
+                                toast::show(
+                                    &btn_ref,
+                                    &i18n("Import failed: %s").replace("%s", &error_text(&e)),
+                                );
+                            }
+                        }
+                    });
                 }
             });
         });
@@ -977,10 +977,11 @@ fn with_turbo(anchor: &gtk4::Widget, entry: game_card::Entry) {
     }
     // The request did not start a switch (it was refused): start anyway.
     glib::idle_add_local_once(move || {
-        if let Some(app) = gio::Application::default() {
-            if app.is_action_enabled("turbo") && pending.borrow().is_some() {
-                settle(&app);
-            }
+        if let Some(app) = gio::Application::default()
+            && app.is_action_enabled("turbo")
+            && pending.borrow().is_some()
+        {
+            settle(&app);
         }
     });
 }
@@ -1321,10 +1322,10 @@ fn card_entry(
 /// <id>`). `None` when there is neither, rather than guessing a program name
 /// and running whatever the PATH resolves it to.
 fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<game_card::Launch> {
-    if game.source != bigame_core::games::Source::Steam {
-        if let Some((program, args)) = game.launch_command.as_ref().and_then(|c| c.split_first()) {
-            return Some(game_card::Launch::Direct(program.clone(), args.to_vec()));
-        }
+    if game.source != bigame_core::games::Source::Steam
+        && let Some((program, args)) = game.launch_command.as_ref().and_then(|c| c.split_first())
+    {
+        return Some(game_card::Launch::Direct(program.clone(), args.to_vec()));
     }
     bigame_core::launchers::Start::for_game(game).map(game_card::Launch::Through)
 }

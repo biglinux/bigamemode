@@ -130,13 +130,13 @@ pub fn watch_file(path: &Path) -> Option<mpsc::Receiver<String>> {
                 // A zero-byte status file is never meaningful anyway: the next
                 // event carries the actual data.
                 let current = read_capped(&path).filter(|c| !c.is_empty());
-                if let Some(content) = current {
-                    if last.as_ref() != Some(&content) {
-                        if tx.send(content.clone()).is_err() {
-                            return; // receiver dropped
-                        }
-                        last = Some(content);
+                if let Some(content) = current
+                    && last.as_ref() != Some(&content)
+                {
+                    if tx.send(content.clone()).is_err() {
+                        return; // receiver dropped
                     }
+                    last = Some(content);
                 }
                 if !watch.wait() {
                     return;

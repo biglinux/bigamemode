@@ -643,38 +643,37 @@ async fn enable_backend<F: FnMut(Step)>(
 ) -> bool {
     // Profile set first, so falcond starts with the right one rather than
     // loading the wrong set and reloading.
-    if let Ok(mut config) = crate::config::read() {
-        if let Some(fixed) = corrected_profile_mode(hardware.chassis, &config.profile_mode) {
-            progress(Step::ConfiguringProfiles);
-            let before = config.profile_mode.clone();
-            config.profile_mode = fixed.to_owned();
-            match crate::config::write(&config).await {
-                Ok(()) if crate::config::read().is_ok_and(|c| c.profile_mode == fixed) => report
-                    .push(
-                        Kind::ProfileSet,
-                        Section::Verified,
-                        "Big Game Mode",
-                        Text::with(
-                            N_(
-                                "%s → %s: the handheld profiles run games in power-saving mode, \
+    if let Ok(mut config) = crate::config::read()
+        && let Some(fixed) = corrected_profile_mode(hardware.chassis, &config.profile_mode)
+    {
+        progress(Step::ConfiguringProfiles);
+        let before = config.profile_mode.clone();
+        config.profile_mode = fixed.to_owned();
+        match crate::config::write(&config).await {
+            Ok(()) if crate::config::read().is_ok_and(|c| c.profile_mode == fixed) => report.push(
+                Kind::ProfileSet,
+                Section::Verified,
+                "Big Game Mode",
+                Text::with(
+                    N_(
+                        "%s → %s: the handheld profiles run games in power-saving mode, \
                             and this machine is not a handheld",
-                            ),
-                            [Arg::Raw(before), Arg::Text(desktop_set())],
-                        ),
                     ),
-                Ok(()) => report.push(
-                    Kind::ProfileSet,
-                    Section::Failed,
-                    "Big Game Mode",
-                    Text::plain(N_("the configuration was written but reads back unchanged")),
+                    [Arg::Raw(before), Arg::Text(desktop_set())],
                 ),
-                Err(e) => report.push(
-                    Kind::ProfileSet,
-                    Section::Failed,
-                    "Big Game Mode",
-                    crate::error::describe(&e),
-                ),
-            }
+            ),
+            Ok(()) => report.push(
+                Kind::ProfileSet,
+                Section::Failed,
+                "Big Game Mode",
+                Text::plain(N_("the configuration was written but reads back unchanged")),
+            ),
+            Err(e) => report.push(
+                Kind::ProfileSet,
+                Section::Failed,
+                "Big Game Mode",
+                crate::error::describe(&e),
+            ),
         }
     }
 
@@ -908,10 +907,8 @@ async fn wait_for_fresh_status(
         let fresh = std::fs::metadata(crate::status::status_path())
             .and_then(|m| m.modified())
             .is_ok_and(|m| m >= since);
-        if fresh {
-            if let Some(s) = crate::status::read() {
-                return Some(s);
-            }
+        if fresh && let Some(s) = crate::status::read() {
+            return Some(s);
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
@@ -1223,10 +1220,10 @@ async fn note_scheduler_left(report: &mut Report) {
         );
     }
     let path = scheduler_record();
-    if let Err(e) = std::fs::remove_file(&path) {
-        if e.kind() != std::io::ErrorKind::NotFound {
-            tracing::warn!(target: "turbo", file = %path.display(), error = %e, "could not remove the scheduler note");
-        }
+    if let Err(e) = std::fs::remove_file(&path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        tracing::warn!(target: "turbo", file = %path.display(), error = %e, "could not remove the scheduler note");
     }
 }
 
@@ -1277,10 +1274,10 @@ pub fn tidy_up_blocking() -> Result<()> {
     }
     let preset = crate::turbo_preset::resync(false);
     let booster = reconcile_blocking();
-    if let Ok(n) = &booster {
-        if *n > 0 {
-            tracing::info!(target: "turbo", restored = n, "Booster changes put back after falcond stopped");
-        }
+    if let Ok(n) = &booster
+        && *n > 0
+    {
+        tracing::info!(target: "turbo", restored = n, "Booster changes put back after falcond stopped");
     }
     preset.context("take the Turbo preset away")?;
     booster.context("put the Booster's changes back")?;

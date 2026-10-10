@@ -621,10 +621,10 @@ pub fn get_ini(text: &str, section: &str, key: &str) -> Option<String> {
         if !inside || t.starts_with(';') || t.starts_with('#') {
             continue;
         }
-        if let Some((k, v)) = t.split_once('=') {
-            if k.trim().eq_ignore_ascii_case(key) {
-                return Some(v.trim().to_owned());
-            }
+        if let Some((k, v)) = t.split_once('=')
+            && k.trim().eq_ignore_ascii_case(key)
+        {
+            return Some(v.trim().to_owned());
         }
     }
     None
@@ -1054,10 +1054,11 @@ impl LogFindings {
 pub fn read_log(text: &str) -> LogFindings {
     let mut f = LogFindings::default();
     for line in text.lines() {
-        if let Some(rest) = line.split("OptiScaler v").nth(1) {
-            if line.contains(" loaded") && f.version.is_none() {
-                f.version = rest.split_whitespace().next().map(str::to_owned);
-            }
+        if let Some(rest) = line.split("OptiScaler v").nth(1)
+            && line.contains(" loaded")
+            && f.version.is_none()
+        {
+            f.version = rest.split_whitespace().next().map(str::to_owned);
         }
         if line.contains("Running on Wine") {
             f.wine = true;
@@ -1068,13 +1069,12 @@ pub fn read_log(text: &str) -> LogFindings {
                 .next()
                 .map(str::to_owned);
         }
-        if let Some(rest) = line.split("Creating new ").nth(1) {
-            if let Some(name) = rest
+        if let Some(rest) = line.split("Creating new ").nth(1)
+            && let Some(name) = rest
                 .strip_suffix(" upscaler")
                 .or_else(|| rest.split_once(" upscaler").map(|(n, _)| n))
-            {
-                f.upscalers.push(name.trim().to_owned());
-            }
+        {
+            f.upscalers.push(name.trim().to_owned());
         }
         if line.contains("Fsr4Update:") {
             f.fsr4 = line.find("RDNA4:").map(|i| line[i..].trim().to_owned());

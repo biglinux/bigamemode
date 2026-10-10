@@ -403,14 +403,13 @@ fn cached_scan(
     now: std::time::Instant,
 ) -> (Vec<DetectedGame>, bool) {
     let sources_stamp: Vec<_> = sources.watched().iter().map(|p| stamp(p)).collect();
-    if let Some(c) = cache.as_ref() {
-        if c.sources == *sources
-            && now.saturating_duration_since(c.at) < LIBRARY_MAX_AGE
-            && c.sources_stamp == sources_stamp
-            && c.games_stamp == games_stamp(&c.games)
-        {
-            return (c.games.clone(), false);
-        }
+    if let Some(c) = cache.as_ref()
+        && c.sources == *sources
+        && now.saturating_duration_since(c.at) < LIBRARY_MAX_AGE
+        && c.sources_stamp == sources_stamp
+        && c.games_stamp == games_stamp(&c.games)
+    {
+        return (c.games.clone(), false);
     }
     // Stamped before reading: a change during the scan shows on the next
     // call as a difference, never as a stale result kept for good.
@@ -1522,10 +1521,10 @@ fn find_file_named(dir: &Path, filename: &str, depth: u32) -> Option<PathBuf> {
     }
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let path = entry.path();
-        if path.is_dir() {
-            if let Some(found) = find_file_named(&path, filename, depth - 1) {
-                return Some(found);
-            }
+        if path.is_dir()
+            && let Some(found) = find_file_named(&path, filename, depth - 1)
+        {
+            return Some(found);
         }
     }
     None
@@ -1956,10 +1955,9 @@ fn executables_for_file(launch_file: &Path) -> Vec<String> {
     if let Some(name) = launch_file
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
+        && !names.contains(&name)
     {
-        if !names.contains(&name) {
-            names.push(name);
-        }
+        names.push(name);
     }
     names
 }
@@ -2558,10 +2556,10 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
             }
         }
         for mut entry in entries {
-            if entry.art.is_empty() {
-                if let Some(found) = entry.app_name.as_ref().and_then(|a| art.get(a)) {
-                    entry.art.clone_from(found);
-                }
+            if entry.art.is_empty()
+                && let Some(found) = entry.app_name.as_ref().and_then(|a| art.get(a))
+            {
+                entry.art.clone_from(found);
             }
             let Some(game) = heroic_game(base, entry) else {
                 continue;

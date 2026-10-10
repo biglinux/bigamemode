@@ -351,11 +351,11 @@ pub fn apply(
     let mut targets = Vec::with_capacity(files.len());
     for f in &mut files {
         let mut target = resolve_inside(install_root, &f.path)?;
-        if let Some(name) = spelling_on_disk(&target)? {
-            if Some(name.as_os_str()) != target.file_name() {
-                f.path.set_file_name(&name);
-                target = resolve_inside(install_root, &f.path)?;
-            }
+        if let Some(name) = spelling_on_disk(&target)?
+            && Some(name.as_os_str()) != target.file_name()
+        {
+            f.path.set_file_name(&name);
+            target = resolve_inside(install_root, &f.path)?;
         }
         if !f.source.is_file() {
             bail!("missing payload file {}", f.source.display());
@@ -568,11 +568,11 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
     for dir in touched.iter().filter(|d| d.is_dir()) {
         sync_dir(dir)?;
     }
-    if !kept_now.is_empty() {
-        if let Err(e) = remember_kept(state_dir, m, &kept_now) {
-            tracing::warn!(target: "graphics", game = %m.game_key, error = %format!("{e:#}"),
+    if !kept_now.is_empty()
+        && let Err(e) = remember_kept(state_dir, m, &kept_now)
+    {
+        tracing::warn!(target: "graphics", game = %m.game_key, error = %format!("{e:#}"),
                 "the list of kept copies could not be written");
-        }
     }
     if m.settings.is_empty() {
         Manifest::delete(state_dir, &m.game_key)?;
@@ -698,11 +698,11 @@ pub fn recover(state_dir: &Path) -> Result<Vec<(String, Result<Vec<FileOutcome>>
     };
     for d in dirs.flatten() {
         let key = d.file_name().to_string_lossy().into_owned();
-        if let Ok(Some(m)) = Manifest::load(state_dir, &key) {
-            if m.state == State::Applying {
-                tracing::warn!(target: "graphics", game = %key, "interrupted apply found; rolling back");
-                done.push((key, rollback(state_dir, &m)));
-            }
+        if let Ok(Some(m)) = Manifest::load(state_dir, &key)
+            && m.state == State::Applying
+        {
+            tracing::warn!(target: "graphics", game = %key, "interrupted apply found; rolling back");
+            done.push((key, rollback(state_dir, &m)));
         }
     }
     Ok(done)

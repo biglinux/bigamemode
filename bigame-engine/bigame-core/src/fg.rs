@@ -420,10 +420,11 @@ fn migrate_to_v2(t: &mut Table) {
                     .get("multiplier")
                     .and_then(Value::as_integer)
                     .is_some_and(|m| m < 2);
-                if p.contains_key("pacing") && p.contains_key("present_mode") {
-                    if let Some(f) = p.get("flow_scale").and_then(Value::as_float) {
-                        p.insert("flow_scale".into(), Value::Float(round_flow(f)));
-                    }
+                if p.contains_key("pacing")
+                    && p.contains_key("present_mode")
+                    && let Some(f) = p.get("flow_scale").and_then(Value::as_float)
+                {
+                    p.insert("flow_scale".into(), Value::Float(round_flow(f)));
                 }
                 p.retain(|k, _| V2_PROFILE.contains(&k));
                 !off

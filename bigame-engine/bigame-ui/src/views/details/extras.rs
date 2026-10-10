@@ -491,10 +491,10 @@ fn scan_broken_launch_options() -> Vec<BrokenOption> {
 fn steam_app_name(home: &std::path::Path, app_id: &str) -> String {
     for root in bigame_core::games::steam_libraries(home) {
         let manifest = root.join(format!("steamapps/appmanifest_{app_id}.acf"));
-        if let Ok(content) = std::fs::read_to_string(&manifest) {
-            if let Some(name) = bigame_core::games::acf_value(&content, "name") {
-                return name;
-            }
+        if let Ok(content) = std::fs::read_to_string(&manifest)
+            && let Some(name) = bigame_core::games::acf_value(&content, "name")
+        {
+            return name;
         }
     }
     i18n("Steam app %s").replace("%s", app_id)

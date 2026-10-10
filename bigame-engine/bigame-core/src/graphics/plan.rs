@@ -215,13 +215,15 @@ pub fn plan(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     let mut p = plan_for_gpu(r, cfg, ctx);
     // Two GPUs and the game not running: the plan is for the card games are
     // expected to use, which is only confirmed once the game has it open.
-    if cfg.mode != Mode::Off && r.gpus.len() > 1 && !r.gpus.iter().any(|g| g.renders_game) {
-        if let Some(g) = r.gpu() {
-            p.steps.push(Step::Note(Text::with(
+    if cfg.mode != Mode::Off
+        && r.gpus.len() > 1
+        && !r.gpus.iter().any(|g| g.renders_game)
+        && let Some(g) = r.gpu()
+    {
+        p.steps.push(Step::Note(Text::with(
                 N_("this computer has more than one GPU: the plan is for %s, the one DXVK and VKD3D-Proton pick for Windows games; it is confirmed when the game runs"),
                 [g.name.clone()],
             )));
-        }
     }
     p
 }

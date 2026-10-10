@@ -955,29 +955,28 @@ fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::Preference
                 return;
             }
             let upscales = opt::gamescope_upscales(&video.borrow().upscaling);
-            if on && upscales {
-                if let Some(c) = opt::conflict(Feature::WineFsr, Feature::GamescopeUpscaling) {
-                    let (turn_off, row2, quiet2) =
-                        (Rc::clone(&turn_off), row.clone(), Rc::clone(&quiet));
-                    let (video2, anchor) = (Rc::clone(&video), row.clone());
-                    notice::ask_conflict(row, &c, move |use_wine| {
-                        if use_wine {
-                            video2.borrow_mut().upscaling.wine_fsr_enabled = true;
-                            turn_off(Feature::GamescopeUpscaling);
-                            crate::widgets::toast::show(
-                                &anchor,
-                                &i18n(
-                                    "Wine FSR is on; Gamescope now renders at the game's own size",
-                                ),
-                            );
-                        } else {
-                            quiet2.set(true);
-                            row2.set_active(false);
-                            quiet2.set(false);
-                        }
-                    });
-                    return;
-                }
+            if on
+                && upscales
+                && let Some(c) = opt::conflict(Feature::WineFsr, Feature::GamescopeUpscaling)
+            {
+                let (turn_off, row2, quiet2) =
+                    (Rc::clone(&turn_off), row.clone(), Rc::clone(&quiet));
+                let (video2, anchor) = (Rc::clone(&video), row.clone());
+                notice::ask_conflict(row, &c, move |use_wine| {
+                    if use_wine {
+                        video2.borrow_mut().upscaling.wine_fsr_enabled = true;
+                        turn_off(Feature::GamescopeUpscaling);
+                        crate::widgets::toast::show(
+                            &anchor,
+                            &i18n("Wine FSR is on; Gamescope now renders at the game's own size"),
+                        );
+                    } else {
+                        quiet2.set(true);
+                        row2.set_active(false);
+                        quiet2.set(false);
+                    }
+                });
+                return;
             }
             video.borrow_mut().upscaling.wine_fsr_enabled = on;
             saver.save(row);
@@ -1003,35 +1002,38 @@ fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::Preference
                 }
                 let was = before.0 && before.1.0 > 0 && before.1.1 > 0;
                 let now = opt::gamescope_upscales(&video.borrow().upscaling);
-                if !quiet.get() && now && !was && wine.is_active() {
-                    if let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr) {
-                        let (turn_off, saver2, quiet2) =
-                            (Rc::clone(&turn_off), Rc::clone(&saver), Rc::clone(&quiet));
-                        let (switch2, render2) = (switch.clone(), Rc::clone(&render));
-                        notice::ask_conflict(&switch, &c, move |use_gamescope| {
-                            if use_gamescope {
-                                turn_off(Feature::WineFsr);
-                                crate::widgets::toast::show(
-                                    &switch2,
-                                    &i18n("Gamescope upscaling is on; Wine FSR was turned off"),
-                                );
-                            } else {
-                                quiet2.set(true);
-                                switch2.set_active(before.0);
-                                render2.set(before.1);
-                                quiet2.set(false);
-                                {
-                                    let mut v = saver2.shared().borrow_mut();
-                                    v.upscaling.gamescope_enabled = before.0;
-                                    (v.upscaling.base_width, v.upscaling.base_height) = before.1;
-                                }
-                                saver2.save(&switch2);
+                if !quiet.get()
+                    && now
+                    && !was
+                    && wine.is_active()
+                    && let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr)
+                {
+                    let (turn_off, saver2, quiet2) =
+                        (Rc::clone(&turn_off), Rc::clone(&saver), Rc::clone(&quiet));
+                    let (switch2, render2) = (switch.clone(), Rc::clone(&render));
+                    notice::ask_conflict(&switch, &c, move |use_gamescope| {
+                        if use_gamescope {
+                            turn_off(Feature::WineFsr);
+                            crate::widgets::toast::show(
+                                &switch2,
+                                &i18n("Gamescope upscaling is on; Wine FSR was turned off"),
+                            );
+                        } else {
+                            quiet2.set(true);
+                            switch2.set_active(before.0);
+                            render2.set(before.1);
+                            quiet2.set(false);
+                            {
+                                let mut v = saver2.shared().borrow_mut();
+                                v.upscaling.gamescope_enabled = before.0;
+                                (v.upscaling.base_width, v.upscaling.base_height) = before.1;
                             }
-                        });
-                        // Nothing is saved until one is chosen: the file never
-                        // holds both, even while the question is open.
-                        return;
-                    }
+                            saver2.save(&switch2);
+                        }
+                    });
+                    // Nothing is saved until one is chosen: the file never
+                    // holds both, even while the question is open.
+                    return;
                 }
                 saver.save(&switch);
                 refresh();

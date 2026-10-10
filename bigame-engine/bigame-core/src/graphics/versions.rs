@@ -206,10 +206,10 @@ pub fn for_installed(cache: &Path, source: &Source) -> Result<Release> {
                 .is_none_or(|h| h.eq_ignore_ascii_case(&r.sha256))
     };
     let recommended = Release::recommended();
-    if let Some(c) = optiscaler::cached_version(cache, &source.version) {
-        if same(&c.release) {
-            return Ok(c.release);
-        }
+    if let Some(c) = optiscaler::cached_version(cache, &source.version)
+        && same(&c.release)
+    {
+        return Ok(c.release);
     }
     if same(&recommended) {
         return Ok(recommended);

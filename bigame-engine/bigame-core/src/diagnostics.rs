@@ -30,10 +30,11 @@ use crate::hardware::{Chassis, Hardware, PowerSource, Session};
 #[must_use]
 pub fn redact_paths(text: &str) -> String {
     let mut out = text.to_owned();
-    if let Ok(home) = std::env::var("HOME") {
-        if !home.is_empty() && home != "/" {
-            out = out.replace(&home, "~");
-        }
+    if let Ok(home) = std::env::var("HOME")
+        && !home.is_empty()
+        && home != "/"
+    {
+        out = out.replace(&home, "~");
     }
     if let Ok(user) = std::env::var("USER") {
         // A very short username would match far too much unrelated text.
@@ -946,10 +947,10 @@ mod tests {
         if let Ok(home) = std::env::var("HOME") {
             assert!(!text.contains(&home), "home directory leaked");
         }
-        if let Ok(user) = std::env::var("USER") {
-            if user.len() >= 3 {
-                assert!(!text.contains(&user), "username leaked");
-            }
+        if let Ok(user) = std::env::var("USER")
+            && user.len() >= 3
+        {
+            assert!(!text.contains(&user), "username leaked");
         }
         // The hostname is never collected, so it must not appear either.
         if let Ok(host) = std::fs::read_to_string("/etc/hostname") {

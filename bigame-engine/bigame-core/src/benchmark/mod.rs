@@ -123,11 +123,11 @@ pub fn parse_mangohud_csv(content: &str) -> Result<Capture> {
         push_col(&mut capture.cpu_temp, &cols, index("cpu_temp"));
         push_col(&mut capture.gpu_power, &cols, index("gpu_power"));
 
-        if let Some(i) = i_elapsed {
-            if let Some(v) = cols.get(i).and_then(|c| c.parse::<f64>().ok()) {
-                first_elapsed.get_or_insert(v);
-                last_elapsed = Some(v);
-            }
+        if let Some(i) = i_elapsed
+            && let Some(v) = cols.get(i).and_then(|c| c.parse::<f64>().ok())
+        {
+            first_elapsed.get_or_insert(v);
+            last_elapsed = Some(v);
         }
     }
 

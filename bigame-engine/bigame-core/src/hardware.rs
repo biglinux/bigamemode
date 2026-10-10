@@ -560,16 +560,16 @@ fn detect_gpus_in(drm: &Path, pci: &Path) -> Vec<Gpu> {
         // virtio-gpu's card hangs off `virtio0`, a child of the PCI device;
         // without the address that device would be listed again as a second
         // GPU with no card.
-        if slot.is_empty() {
-            if let Some(parent) = display_pci_ancestor(&device_path) {
-                if pci_id.is_empty() {
-                    pci_id = pci_id_of(&parent).unwrap_or_default();
-                }
-                slot = parent
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
+        if slot.is_empty()
+            && let Some(parent) = display_pci_ancestor(&device_path)
+        {
+            if pci_id.is_empty() {
+                pci_id = pci_id_of(&parent).unwrap_or_default();
             }
+            slot = parent
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
         }
         let vram_total_bytes =
             read_trim(device_path.join("mem_info_vram_total")).and_then(|s| s.parse::<u64>().ok());

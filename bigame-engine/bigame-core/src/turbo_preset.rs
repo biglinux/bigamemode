@@ -375,10 +375,10 @@ fn write_atomic(path: &Path, text: &str) -> Result<()> {
         std::fs::rename(&tmp, path)
     })();
     if let Err(e) = written {
-        if let Err(cleanup) = std::fs::remove_file(&tmp) {
-            if cleanup.kind() != std::io::ErrorKind::NotFound {
-                tracing::warn!(file = %tmp.display(), error = %cleanup, "could not remove a temporary file");
-            }
+        if let Err(cleanup) = std::fs::remove_file(&tmp)
+            && cleanup.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::warn!(file = %tmp.display(), error = %cleanup, "could not remove a temporary file");
         }
         return Err(e).with_context(|| format!("write {}", path.display()));
     }

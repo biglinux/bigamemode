@@ -613,10 +613,10 @@ fn log_files() -> Vec<(PathBuf, FileFormat)> {
         home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
     ] {
         // ~/.steam/steam is normally a link to ~/.local/share/Steam.
-        if let Ok(path) = root.join("logs/console_log.txt").canonicalize() {
-            if seen.insert(path.clone()) {
-                out.push((path, FileFormat::SteamConsole));
-            }
+        if let Ok(path) = root.join("logs/console_log.txt").canonicalize()
+            && seen.insert(path.clone())
+        {
+            out.push((path, FileFormat::SteamConsole));
         }
     }
     let state = crate::graphics::state_dir();

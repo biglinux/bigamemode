@@ -626,12 +626,11 @@ pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
     let mut out = Vec::new();
     let mut current_app: Option<String> = None;
     for line in &lines[from..to] {
-        if depth(line) == app_depth {
-            if let Some(key) = block_key(line) {
-                if key.chars().all(|c| c.is_ascii_digit()) {
-                    current_app = Some(key.to_owned());
-                }
-            }
+        if depth(line) == app_depth
+            && let Some(key) = block_key(line)
+            && key.chars().all(|c| c.is_ascii_digit())
+        {
+            current_app = Some(key.to_owned());
         }
         if depth(line) != app_depth + 1 || pair_key(line) != Some("LaunchOptions") {
             continue;

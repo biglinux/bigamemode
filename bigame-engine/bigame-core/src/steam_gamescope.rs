@@ -229,15 +229,16 @@ pub fn apply(process: &str, wanted: Wanted) -> Result<Applied> {
         return Ok(Applied::SteamRunning);
     }
     let users = crate::steam::users(&crate::paths::home_dir());
-    if wanted.gamescope.is_some() && crate::steam::any_flatpak(&users) {
-        if let Some(command) = crate::steam::flatpak_gamescope_missing() {
-            anyhow::bail!(UserError::with(
-                N_(
-                    "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
-                ),
-                [command]
-            ));
-        }
+    if wanted.gamescope.is_some()
+        && crate::steam::any_flatpak(&users)
+        && let Some(command) = crate::steam::flatpak_gamescope_missing()
+    {
+        anyhow::bail!(UserError::with(
+            N_(
+                "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
+            ),
+            [command]
+        ));
     }
     let mut changes = Vec::new();
     let (mut segment_written, mut theirs) = (false, false);

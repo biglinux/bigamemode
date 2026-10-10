@@ -400,21 +400,20 @@ impl Report {
     /// running game shows, or its files say, is never replaced.
     #[must_use]
     pub fn with_listing(mut self, entry: Option<super::gamedb::Entry>) -> Self {
-        if let Some(e) = &entry {
-            if let Some(api) = e.api {
-                if self.api.confidence > Confidence::Detected {
-                    self.api.api = Some(api);
-                    self.api.confidence = Confidence::Detected;
-                    self.api.evidence.push(match e.origin {
-                        super::gamedb::Origin::Carried => Text::plain(N_(
-                            "Big Game Mode's game list names the API this game renders with by default",
-                        )),
-                        super::gamedb::Origin::User => Text::plain(N_(
-                            "your game list names the API this game renders with",
-                        )),
-                    });
+        if let Some(e) = &entry
+            && let Some(api) = e.api
+            && self.api.confidence > Confidence::Detected
+        {
+            self.api.api = Some(api);
+            self.api.confidence = Confidence::Detected;
+            self.api.evidence.push(match e.origin {
+                super::gamedb::Origin::Carried => Text::plain(N_(
+                    "Big Game Mode's game list names the API this game renders with by default",
+                )),
+                super::gamedb::Origin::User => {
+                    Text::plain(N_("your game list names the API this game renders with"))
                 }
-            }
+            });
         }
         self.listed = entry;
         self

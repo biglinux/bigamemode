@@ -1032,10 +1032,10 @@ fn with_paused<R>(f: impl FnOnce(&mut Vec<Target>) -> R) -> R {
     let list = guard.get_or_insert_with(|| load_paused(&path));
     let before = list.clone();
     let result = f(list);
-    if *list != before {
-        if let Err(e) = save_paused(&path, list) {
-            tracing::warn!(target: "processes", error = %format!("{e:#}"), "could not save the paused list");
-        }
+    if *list != before
+        && let Err(e) = save_paused(&path, list)
+    {
+        tracing::warn!(target: "processes", error = %format!("{e:#}"), "could not save the paused list");
     }
     result
 }
