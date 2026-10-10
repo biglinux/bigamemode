@@ -1147,7 +1147,7 @@ fn add_header_actions(header: &adw::HeaderBar, name: &str) {
             glib::spawn_future_local(async move {
                 let result = gio::spawn_blocking(move || bigame_core::profiles::delete(&n)).await;
                 match result {
-                    Ok(Ok(())) => toast::show(&feedback, &i18n("Profile deleted")),
+                    Ok(Ok(deleted)) => report_deleted(&feedback, &deleted),
                     Ok(Err(e)) => {
                         feedback.set_sensitive(true);
                         toast::show(
@@ -1165,6 +1165,29 @@ fn add_header_actions(header: &adw::HeaderBar, name: &str) {
         dialog.present(Some(btn));
     });
     header.pack_end(&delete_btn);
+}
+
+/// A deleted profile, as far as it went: the launchers that were open keep
+/// the launch options they read at start-up and would write them back, so the
+/// person is told to close them rather than told it is all done.
+fn report_deleted(anchor: &impl IsA<gtk4::Widget>, deleted: &bigame_core::profiles::Deleted) {
+    if deleted.complete() {
+        toast::show(anchor, &i18n("Profile deleted"));
+        return;
+    }
+    let mut details = Vec::new();
+    if deleted.steam_running() {
+        details.push(i18n(
+            "Launch options: close Steam first: it keeps them in memory and would overwrite the change.",
+        ));
+    }
+    if deleted.heroic_running().is_some() {
+        details.push(i18n(
+            "Launch settings: close Heroic first: it keeps this game's settings in memory and would overwrite the change.",
+        ));
+    }
+    details.extend(deleted.errors().into_iter().map(error_text));
+    toast::error(anchor, &i18n("Profile deleted"), &details.join("\n\n"));
 }
 
 /// Scan the machine off the main thread and show the result.
@@ -1663,8 +1686,8 @@ fn show_card_menu(
                     let result =
                         gio::spawn_blocking(move || bigame_core::profiles::delete(&stem)).await;
                     match result {
-                        Ok(Ok(())) => {
-                            toast::show(&anchor, &i18n("Profile deleted"));
+                        Ok(Ok(deleted)) => {
+                            report_deleted(&anchor, &deleted);
                             rescan();
                         }
                         Ok(Err(e)) => toast::show(

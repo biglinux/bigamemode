@@ -489,31 +489,6 @@ pub fn save_file(profile: &GameProfile) -> Result<()> {
     Ok(())
 }
 
-/// Delete a user profile by name via D-Bus, with what Big Game Mode wrote
-/// for the game into its launchers ([`delete_reporting`]); what could not
-/// be taken out is logged.
-///
-/// Synchronous for the same reason as [`save`].
-///
-/// # Errors
-/// Returns an error if the profile does not exist or the D-Bus call fails.
-pub fn delete(name: &str) -> Result<()> {
-    let deleted = delete_reporting(name)?;
-    if !deleted.complete() {
-        // Not the outcomes themselves: they carry the user's launch
-        // options, which stay out of the journal Logs exports.
-        let errors: Vec<String> = deleted.errors().iter().map(|e| format!("{e:#}")).collect();
-        tracing::warn!(
-            profile = %name,
-            steam_running = deleted.steam_running(),
-            heroic_running = deleted.heroic_running().is_some(),
-            errors = %errors.join("; "),
-            "the profile is deleted, but not all Big Game Mode wrote into the game's launchers is out"
-        );
-    }
-    Ok(())
-}
-
 /// What deleting a profile did in the game's launchers. `None` (or empty)
 /// for a part that had nothing to take out.
 #[derive(Debug, Default)]
@@ -586,14 +561,17 @@ impl Deleted {
     }
 }
 
-/// [`delete`], saying what was left in the game's launchers: with Steam or
-/// Heroic open, what Big Game Mode wrote there stays until the game's
-/// launch settings are written again with it closed.
+/// Delete a user profile by name via D-Bus, with what Big Game Mode wrote
+/// for the game into its launchers, and say what was left there: with Steam
+/// or Heroic open, it stays until the game's launch settings are written
+/// again with that launcher closed.
+///
+/// Synchronous for the same reason as [`save`].
 ///
 /// # Errors
 /// Returns an error if the profile does not exist or the D-Bus call fails;
 /// then nothing else is touched.
-pub fn delete_reporting(name: &str) -> Result<Deleted> {
+pub fn delete(name: &str) -> Result<Deleted> {
     let path = user_path(name);
     anyhow::ensure!(
         path.exists(),
@@ -896,7 +874,7 @@ some_future_falcond_key = 42
 
     #[test]
     fn deleting_a_profile_that_is_not_there_touches_nothing() {
-        let err = delete_reporting("bigame-test-no-such-profile-x").unwrap_err();
+        let err = delete("bigame-test-no-such-profile-x").unwrap_err();
         assert!(err.to_string().contains("profile not found"), "{err}");
     }
 
