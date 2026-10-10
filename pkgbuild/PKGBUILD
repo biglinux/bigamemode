@@ -15,8 +15,13 @@ depends=(
     'libgcc'
     'glibc'
     'glib2'
-    'gtk4'
+    'gtk4>=1:4.14'
     'libadwaita>=1:1.7'
+    # bigame-ui links these directly too, not only through gtk4.
+    'cairo'
+    'gdk-pixbuf2'
+    'graphene'
+    'pango'
     'hicolor-icon-theme'
 
     # The privileged helper: a system-bus service started by systemd, every
