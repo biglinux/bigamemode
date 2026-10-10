@@ -69,6 +69,13 @@ ProtectSystem=strict
 ProtectKernelTunables=yes
 ReadOnlyPaths=-/sys/block -/sys/bus -/sys/class -/sys/dev -/sys/firmware -/sys/fs -/sys/hypervisor -/sys/kernel -/sys/module -/sys/power
 #
+# /run too: on systemd 261 ProtectSystem=strict leaves it writable (the
+# helper's mountinfo showed /run rw, with /run/media, /run/systemd/system and
+# /run/udev/rules.d under it). The helper writes nothing there: it has no
+# RuntimeDirectory, and the system bus socket it connects to needs no write
+# access to the mount (connect() works on a read-only one).
+ReadOnlyPaths=/run
+#
 # A path that does not exist makes systemd refuse to start the service at all
 # (226/NAMESPACE), so paths that depend on hardware or on falcond being
 # installed carry the "-" prefix: ignored when absent.
