@@ -95,6 +95,68 @@ pub enum FileState {
     Edited,
 }
 
+/// Hold the lock of `game_key`'s changes until the file returned is dropped,
+/// waiting while another change holds it.
+///
+/// Every change to a game's files runs under it — apply, update, restore,
+/// repair, the recovery at start: two at once (a double click, the page and
+/// the Profiles menu, Restore while the recovery still runs) would each back
+/// up what the other had just placed as the game's original, and the real
+/// original would be gone with the first removal. A lock taken by `flock` is
+/// one per opening of the file, so it also keeps two threads of one process
+/// apart, and it goes with the process that holds it.
+///
+/// The lock files are kept apart from the games' folders, which a removal
+/// deletes once empty, and are never deleted: a waiter would go on to lock
+/// the deleted file while the next change locks a new one.
+///
+/// # Errors
+/// Returns an error if the lock file cannot be created or locked.
+pub fn lock(state_dir: &Path, game_key: &str) -> Result<std::fs::File> {
+    use std::os::fd::AsRawFd;
+    manifest::check_relative(Path::new(game_key))?;
+    let dir = state_dir.join(".locks");
+    std::fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
+    let path = dir.join(game_key);
+    let f = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&path)
+        .with_context(|| format!("lock {}", path.display()))?;
+    loop {
+        // SAFETY: flock on a descriptor this function owns, kept open by the
+        // file returned.
+        if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX) } == 0 {
+            return Ok(f);
+        }
+        let e = std::io::Error::last_os_error();
+        if e.kind() != std::io::ErrorKind::Interrupted {
+            return Err(e).with_context(|| format!("lock {}", path.display()));
+        }
+    }
+}
+
+/// Create a backup folder for an apply that starts at `now`, named after
+/// the second it starts in — which the manifest records to find it again —
+/// or the first later second whose folder is not there yet. A folder left
+/// from an earlier install in the same second holds originals a removal
+/// kept (files another program changed since); sharing it, this install's
+/// removal would delete them with its own backups.
+fn new_backup_root(state_dir: &Path, game_key: &str, now: u64) -> Result<(u64, PathBuf)> {
+    let parent = Manifest::backup_dir(state_dir, game_key);
+    std::fs::create_dir_all(&parent).with_context(|| format!("create {}", parent.display()))?;
+    for at in now..now.saturating_add(1000) {
+        let root = parent.join(at.to_string());
+        match std::fs::create_dir(&root) {
+            Ok(()) => return Ok((at, root)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e).with_context(|| format!("create {}", root.display())),
+        }
+    }
+    bail!("no free backup folder in {}", parent.display())
+}
+
 /// Copy `src` over `target` atomically: a temporary file in the target's own
 /// folder (same filesystem, so the rename is atomic), synced, then renamed.
 fn place(src: &Path, target: &Path) -> Result<()> {
@@ -342,9 +404,6 @@ pub fn apply(
     if files.is_empty() {
         bail!(UserError::plain(N_("nothing to install")));
     }
-    let started_at = crate::unix_now();
-    let backup_root = Manifest::backup_dir(state_dir, game_key).join(started_at.to_string());
-
     // 1. Check, and hash what will be placed. A file already there under
     // another letter case is the one replaced.
     let mut files = files.to_vec();
@@ -373,6 +432,7 @@ pub fn apply(
     }
 
     // 2. Back up originals, verified, before anything changes.
+    let (started_at, backup_root) = new_backup_root(state_dir, game_key, crate::unix_now())?;
     let entries = back_up_originals(files, &targets, &backup_root)?;
     let created_dirs = dirs_to_create(install_root, files);
 
@@ -473,6 +533,12 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
     let mut backups_still_needed = false;
     let mut kept_now = Vec::new();
     let mut touched = std::collections::BTreeSet::new();
+    // One folder for every edited config this rollback keeps, named apart
+    // from any other rollback's: two in the same second would otherwise
+    // write over each other's copies.
+    let edited_root = Manifest::backup_dir(state_dir, &m.game_key).join(manifest::unique_name(
+        &format!("edited-{}-", crate::unix_now()),
+    ));
     for e in &m.entries {
         let (target, found) = found_at(&m.install_root, &e.path)?;
         let original = e.replaced.as_ref();
@@ -521,9 +587,7 @@ pub fn rollback(state_dir: &Path, m: &Manifest) -> Result<Vec<FileOutcome>> {
                     FileOutcome::KeptChanged(e.path.clone())
                 }
                 FileKind::Config => {
-                    let keep = Manifest::backup_dir(state_dir, &m.game_key)
-                        .join(format!("edited-{}", crate::unix_now()))
-                        .join(&e.path);
+                    let keep = edited_root.join(&e.path);
                     std::fs::create_dir_all(keep.parent().context("no parent")?)?;
                     std::fs::copy(&target, &keep)?;
                     restore_or_remove(&target, original)?;
@@ -638,6 +702,10 @@ pub fn kept(state_dir: &Path) -> Vec<Kept> {
 }
 
 fn remember_kept(state_dir: &Path, m: &Manifest, now: &[(PathBuf, PathBuf)]) -> Result<()> {
+    // One list for every game, and a game's lock only keeps changes to that
+    // game apart: two games restored at once would each write the list
+    // without the other's copies.
+    let _list = lock(state_dir, ".kept")?;
     let mut all = kept(state_dir);
     let at = crate::unix_now();
     for (file, copy) in now {
@@ -650,7 +718,7 @@ fn remember_kept(state_dir: &Path, m: &Manifest, now: &[(PathBuf, PathBuf)]) -> 
         });
     }
     let path = kept_path(state_dir);
-    let tmp = path.with_extension("json.tmp");
+    let tmp = state_dir.join(manifest::unique_name("kept.json.tmp-"));
     std::fs::write(&tmp, serde_json::to_string_pretty(&all)?)?;
     std::fs::rename(&tmp, &path)?;
     Ok(())
@@ -698,6 +766,16 @@ pub fn recover(state_dir: &Path) -> Result<Vec<(String, Result<Vec<FileOutcome>>
     };
     for d in dirs.flatten() {
         let key = d.file_name().to_string_lossy().into_owned();
+        let applying =
+            |m: &Option<Manifest>| m.as_ref().is_some_and(|m| m.state == State::Applying);
+        if !Manifest::load(state_dir, &key).is_ok_and(|m| applying(&m)) {
+            continue;
+        }
+        // An apply of this process may be running (the page is open while
+        // this runs at start): read again once it is done, under the lock.
+        let Ok(_lock) = lock(state_dir, &key) else {
+            continue;
+        };
         if let Ok(Some(m)) = Manifest::load(state_dir, &key)
             && m.state == State::Applying
         {
@@ -1291,6 +1369,82 @@ mod tests {
             "not followed"
         );
         assert!(Manifest::load(&fx.state, "g").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_backup_folder_from_the_same_second_is_never_shared() {
+        let fx = fixture();
+        // Originals an earlier removal kept, in folders named after the
+        // seconds this apply may start in.
+        let now = crate::unix_now();
+        let backups = Manifest::backup_dir(&fx.state, "g");
+        for at in now..now + 10 {
+            std::fs::create_dir_all(backups.join(at.to_string())).unwrap();
+            std::fs::write(backups.join(at.to_string()).join("dxgi.dll"), b"kept").unwrap();
+        }
+        std::fs::write(fx.game.join("dxgi.dll"), b"original").unwrap();
+        let files = [planned(&fx, "dxgi.dll", b"ours", FileKind::Binary)];
+        let m = apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+        assert!(m.started_at >= now + 10, "{}", m.started_at);
+        let backup = m.entries[0].replaced.as_ref().unwrap();
+        assert!(
+            backup
+                .path
+                .starts_with(backups.join(m.started_at.to_string()))
+        );
+        remove(&fx.state, "g").unwrap();
+        assert_eq!(read(&fx.game.join("dxgi.dll")), b"original");
+        for at in now..now + 10 {
+            assert_eq!(
+                read(&backups.join(at.to_string()).join("dxgi.dll")),
+                b"kept"
+            );
+        }
+        assert!(!backups.join(m.started_at.to_string()).exists());
+    }
+
+    #[test]
+    fn edited_configs_two_removals_keep_are_never_written_over() {
+        let fx = fixture();
+        let files = [planned(&fx, "OptiScaler.ini", b"a=1", FileKind::Config)];
+        let mut copies = Vec::new();
+        for edit in [b"a=2", b"a=3"] {
+            apply(&fx.state, &g(&fx), src(), &files, &[]).unwrap();
+            std::fs::write(fx.game.join("OptiScaler.ini"), edit).unwrap();
+            let out = remove(&fx.state, "g").unwrap();
+            let [FileOutcome::EditedCopyKept(_, copy)] = out.as_slice() else {
+                panic!("{out:?}")
+            };
+            copies.push(copy.clone());
+        }
+        assert_ne!(copies[0], copies[1]);
+        assert_eq!(read(&copies[0]), b"a=2");
+        assert_eq!(read(&copies[1]), b"a=3");
+    }
+
+    #[test]
+    fn a_games_lock_keeps_a_second_change_waiting() {
+        let fx = fixture();
+        let first = lock(&fx.state, "g").unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let state = fx.state.clone();
+        let waiter = std::thread::spawn(move || {
+            let _second = lock(&state, "g").unwrap();
+            tx.send(()).unwrap();
+        });
+        // Another game is not held up.
+        drop(lock(&fx.state, "other").unwrap());
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_millis(200))
+                .is_err(),
+            "a second lock of one game was given while the first was held"
+        );
+        drop(first);
+        rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        waiter.join().unwrap();
+        // Not a folder a removal or the recovery takes for a game's.
+        assert!(Manifest::load(&fx.state, ".locks").unwrap().is_none());
+        assert!(lock(&fx.state, "../g").is_err());
     }
 
     #[test]
