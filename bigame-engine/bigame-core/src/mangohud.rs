@@ -147,10 +147,7 @@ fn write_added(path: &std::path::Path, process: &str, word: Option<&str>) -> Res
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
     }
-    let tmp = path.with_extension("toml.new");
-    std::fs::write(&tmp, toml::to_string(&records)?)
-        .with_context(|| format!("write {}", tmp.display()))?;
-    std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))
+    replace_file(path, toml::to_string(&records)?.as_bytes())
 }
 
 /// The word an older version added for a game saved at `mode`.
@@ -336,9 +333,66 @@ pub(crate) fn write_keeping_backup_in(
     } else if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let tmp = file.with_extension("bigame-new");
-    std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
-    std::fs::rename(&tmp, file).with_context(|| format!("replace {}", file.display()))
+    replace_file(file, text.as_bytes())
+}
+
+/// Replace `path` with `content`: written whole to a temporary of its own
+/// beside it, flushed, renamed over it and the folder flushed, so a crash
+/// leaves the old file or the new one, never half of either, and two
+/// writers never share a temporary. The file keeps its permissions, and a
+/// dotfile manager's symlink (stow, chezmoi) stays a symlink: the file it
+/// points to is the one replaced.
+pub(crate) fn replace_file(path: &std::path::Path, content: &[u8]) -> Result<()> {
+    use anyhow::Context;
+    use std::io::Write as _;
+    use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+    static SEQUENCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let dir = path.parent().context("path has no parent")?;
+    let name = path
+        .file_name()
+        .context("path has no file name")?
+        .to_string_lossy();
+    let tmp = dir.join(format!(
+        ".{name}.bigame-{}-{}.tmp",
+        std::process::id(),
+        SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let mode = std::fs::metadata(&path)
+        .ok()
+        .map(|m| m.permissions().mode() & 0o777);
+    let written = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .mode(mode.unwrap_or(0o644))
+        .open(&tmp)
+        .and_then(|mut f| {
+            // The umask narrowed the mode it was created with.
+            if let Some(mode) = mode {
+                f.set_permissions(std::fs::Permissions::from_mode(mode))?;
+            }
+            f.write_all(content)?;
+            f.sync_all()
+        });
+    let renamed = written
+        .with_context(|| format!("write {}", tmp.display()))
+        .and_then(|()| {
+            std::fs::rename(&tmp, &path).with_context(|| format!("replace {}", path.display()))
+        });
+    if let Err(e) = renamed {
+        if let Err(cleanup) = std::fs::remove_file(&tmp)
+            && cleanup.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::warn!(path = %tmp.display(), error = %cleanup, "could not remove a temporary file");
+        }
+        return Err(e);
+    }
+    // The file is in place; only the rename's durability is at stake.
+    if let Err(e) = std::fs::File::open(dir).and_then(|d| d.sync_all()) {
+        tracing::warn!(path = %dir.display(), error = %e, "could not flush a folder");
+    }
+    Ok(())
 }
 
 /// A Lutris game YAML with `mode` applied to its `system:` section's
@@ -981,6 +1035,80 @@ mod tests {
         );
         // Off with nothing to remove changes nothing.
         assert_eq!(lutris_config(plain, Mode::Off), plain);
+    }
+
+    #[test]
+    fn a_replaced_file_keeps_its_mode_its_symlink_and_leaves_no_temporary() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("dotfiles/game.yml");
+        std::fs::create_dir_all(real.parent().unwrap()).unwrap();
+        std::fs::write(&real, "old\n").unwrap();
+        std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let link = dir.path().join("game.yml");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        replace_file(&link, b"new\n").unwrap();
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "new\n");
+        assert_eq!(
+            std::fs::metadata(&real).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        // A file that was not there gets an ordinary one.
+        replace_file(&dir.path().join("fresh.yml"), b"x").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("fresh.yml")).unwrap(),
+            "x"
+        );
+
+        // Writers at once each use a temporary of their own.
+        std::thread::scope(|s| {
+            for i in 0..8 {
+                let real = &real;
+                s.spawn(move || replace_file(real, format!("{i}\n").as_bytes()).unwrap());
+            }
+        });
+        let last: u32 = std::fs::read_to_string(&real)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        assert!(last < 8);
+        for d in [dir.path(), real.parent().unwrap()] {
+            let names: Vec<String> = std::fs::read_dir(d)
+                .unwrap()
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect();
+            assert!(!names.iter().any(|n| n.starts_with('.')), "{names:?}");
+        }
+    }
+
+    #[test]
+    fn the_launchers_file_is_kept_once_and_then_replaced() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("lutris/games/game.yml");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "theirs\n").unwrap();
+        let backups = dir.path().join("backups");
+        write_keeping_backup_in(&file, "ours 1\n", &backups).unwrap();
+        write_keeping_backup_in(&file, "ours 2\n", &backups).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "ours 2\n");
+        let kept: Vec<_> = std::fs::read_dir(&backups).unwrap().flatten().collect();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(std::fs::read_to_string(kept[0].path()).unwrap(), "theirs\n");
+        let names: Vec<String> = std::fs::read_dir(file.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["game.yml"]);
     }
 
     #[test]

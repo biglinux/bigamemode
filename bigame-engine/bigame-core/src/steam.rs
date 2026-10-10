@@ -420,6 +420,12 @@ pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()
     write_launch_options(config, app_id, value)
 }
 
+/// One edit of a `localconfig.vdf` at a time in this process: two saves at
+/// once (a profile and AI Graphics) would each read the file, change their
+/// own game and write it back, and the second would put back the first
+/// one's old options.
+static EDIT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Write the launch options without checking whether Steam is running.
 ///
 /// Split out from [`set_launch_options`] so the file-editing logic can be
@@ -433,6 +439,10 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
         !app_id.is_empty() && app_id.bytes().all(|b| b.is_ascii_digit()),
         UserError::with(N_("not a Steam app id: %s"), [app_id])
     );
+    // Held through the read-back, so what is compared is this write.
+    let _edit = EDIT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     // Written in Steam's escapes: a bare quote or newline would corrupt the
     // file for every game, not just this one.
     let stored = escape(value);
@@ -511,7 +521,7 @@ fn finish_write(
     if content.ends_with('\n') {
         out.push('\n');
     }
-    write_atomic(config, out.as_bytes())?;
+    crate::mangohud::replace_file(config, out.as_bytes()).context("replace localconfig.vdf")?;
 
     // Read back rather than trusting the write.
     let readback = launch_options(config, app_id);
@@ -522,17 +532,6 @@ fn finish_write(
             [format!("{readback:?}")]
         )
     );
-    Ok(())
-}
-
-fn write_atomic(path: &Path, content: &[u8]) -> Result<()> {
-    let dir = path.parent().context("path has no parent")?;
-    let tmp = dir.join(format!(".localconfig.bigame.{}", std::process::id()));
-    std::fs::write(&tmp, content).with_context(|| format!("write {}", tmp.display()))?;
-    if let Err(e) = std::fs::rename(&tmp, path) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(e).context("replace localconfig.vdf");
-    }
     Ok(())
 }
 
@@ -823,6 +822,53 @@ mod tests {
         assert_eq!(
             launch_options(&path, "1808500").as_deref(),
             Some("MANGOHUD=1 %command%")
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn two_games_written_at_once_both_keep_their_options() {
+        let path = write_temp("concurrent", VDF);
+        std::thread::scope(|s| {
+            for (app, value) in [
+                ("381210", "MANGOHUD=1 %command%"),
+                ("1808500", "gamemoderun %command%"),
+            ] {
+                let path = &path;
+                s.spawn(move || {
+                    for _ in 0..20 {
+                        write_launch_options(path, app, value).unwrap();
+                    }
+                });
+            }
+        });
+        assert_eq!(
+            launch_options(&path, "381210").as_deref(),
+            Some("MANGOHUD=1 %command%")
+        );
+        assert_eq!(
+            launch_options(&path, "1808500").as_deref(),
+            Some("gamemoderun %command%")
+        );
+        let left: Vec<String> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with('.'))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn writing_keeps_the_files_permissions() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let path = write_temp("mode", VDF);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        write_launch_options(&path, "381210", "-novid").unwrap();
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
         );
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
