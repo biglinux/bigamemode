@@ -82,6 +82,8 @@ struct Page {
     status: Chip,
     /// Set while the page moves a control itself.
     quiet: Cell<bool>,
+    /// Set while a change to the game runs ([`begin`]).
+    working: Cell<bool>,
     /// Counts analyses, so only the latest one is shown.
     generation: Cell<u64>,
     /// The upscaler was changed since the last apply.
@@ -1994,18 +1996,21 @@ fn wire_choice(page: &Rc<Page>) {
         let page = Rc::clone(page);
         c.setting_off
             .add_action(&i18n("Switch it back on"), true, move |_| {
+                if !begin(&page, &i18n("Writing the game's settings…")) {
+                    return;
+                }
                 let page = Rc::clone(&page);
                 glib::spawn_future_local(async move {
                     if refuse_while_running(&page, &page.overlay).await {
+                        end(&page);
                         return;
                     }
-                    busy(&page, Some(&i18n("Writing the game's settings…")));
                     let target = page.target.clone();
                     let result = gio::spawn_blocking(move || {
                         graphics::switch_game_setting_on_again(&target)
                     })
                     .await;
-                    busy(&page, None);
+                    end(&page);
                     let text = match result {
                         Ok(Ok(_)) => i18n("Switched back on in the game's settings"),
                         Ok(Err(e)) => {
@@ -2104,7 +2109,17 @@ fn choose_frame_generation(page: &Rc<Page>, on: bool) {
     refresh(page);
 }
 
+/// Show the page as busy with `text`, or not busy. While a change to the
+/// game runs, only [`end`] ends it: an analysis started meanwhile (a choice
+/// changed during a download) would make the buttons usable again
+/// mid-change.
 fn busy(page: &Page, text: Option<&str>) {
+    if !page.working.get() {
+        show_busy(page, text);
+    }
+}
+
+fn show_busy(page: &Page, text: Option<&str>) {
     let on = text.is_some();
     page.spinner.set_visible(on);
     page.spinner.set_spinning(on);
@@ -2120,6 +2135,29 @@ fn busy(page: &Page, text: Option<&str>) {
     ] {
         b.set_sensitive(!on);
     }
+    // Update and Go back change the game's files too.
+    if let Some(versions) = page.versions.borrow().as_ref() {
+        versions.set_sensitive(!on);
+    }
+}
+
+/// Start a change to the game's files, showing `text`. Called in the click
+/// itself, before anything is awaited: the buttons are grey before a second
+/// click can start a second run beside the first. `false` while another
+/// change runs.
+fn begin(page: &Page, text: &str) -> bool {
+    if page.working.get() {
+        return false;
+    }
+    show_busy(page, Some(text));
+    page.working.set(true);
+    true
+}
+
+/// The change [`begin`] started is over.
+fn end(page: &Page) {
+    page.working.set(false);
+    show_busy(page, None);
 }
 
 /// *Check Again*: read the game's folder, the GPU, the running game and
@@ -2270,12 +2308,15 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
 
 /// Update to `to`, or go back to the previous version (`None`).
 fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler::Release>) {
+    if !begin(page, &i18n("Downloading, checking and installing…")) {
+        return;
+    }
     let page = page.clone();
     glib::spawn_future_local(async move {
         if refuse_while_running(&page, &page.overlay).await {
+            end(&page);
             return;
         }
-        busy(&page, Some(&i18n("Downloading, checking and installing…")));
         let target = page.target.clone();
         let cfg = page.cfg.borrow().clone();
         let result = gio::spawn_blocking(move || {
@@ -2286,7 +2327,7 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
             }
         })
         .await;
-        busy(&page, None);
+        end(&page);
         let text = match result {
             Ok(Ok(m)) => format!(
                 "{} {} — {}",
@@ -2635,6 +2676,7 @@ fn open_with(
         hint,
         status,
         quiet: Cell::new(false),
+        working: Cell::new(false),
         generation: Cell::new(0),
         upscaler_touched: Cell::new(false),
     });
@@ -2664,29 +2706,38 @@ fn open_with(
         let page = page.clone();
         let overlay = overlay.clone();
         apply.connect_clicked(move |_| {
+            let native_only = page
+                .analysis
+                .borrow()
+                .as_ref()
+                .is_some_and(|a| a.plan.optiscaler.is_none() && a.plan.native_action.is_some());
+            let doing = if native_only {
+                i18n("Writing the launch option…")
+            } else {
+                i18n("Downloading, checking and installing…")
+            };
+            if !begin(&page, &doing) {
+                return;
+            }
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay).await {
+                    end(&page);
                     return;
                 }
-                let native_only = page
-                    .analysis
-                    .borrow()
-                    .as_ref()
-                    .is_some_and(|a| a.plan.optiscaler.is_none() && a.plan.native_action.is_some());
                 if native_only {
                     // The Native backend's one action: a Steam launch option,
                     // written with Steam closed and read back, or the
                     // variables in a Heroic game's settings, written with
                     // Heroic closed. No game file.
                     if page.target.app_id.is_some() && bigame_core::steam::is_running() {
+                        end(&page);
                         overlay.add_toast(adw::Toast::new(&i18n(
                             "Close Steam first: it keeps its configuration in memory and would discard the launch option",
                         )));
                         return;
                     }
-                    busy(&page, Some(&i18n("Writing the launch option…")));
                     save_settings(&page);
                     let app = page.target.app_id.clone();
                     let process = page.target.process.clone();
@@ -2694,12 +2745,11 @@ fn open_with(
                         bigame_core::graphics::fsr4_upgrade::apply(&process, app.as_deref(), true)
                     })
                     .await;
-                    busy(&page, None);
+                    end(&page);
                     report_fsr4_upgrade(&overlay, &page.target.process, true, result);
                     refresh(&page);
                     return;
                 }
-                busy(&page, Some(&i18n("Downloading, checking and installing…")));
                 save_settings(&page);
                 let target = page.target.clone();
                 let cfg = page.cfg.borrow().clone();
@@ -2733,7 +2783,7 @@ fn open_with(
                     anyhow::Ok((done, lsfg_removed))
                 })
                 .await;
-                busy(&page, None);
+                end(&page);
                 let text = match result {
                     Ok(Ok((done, lsfg_removed))) => {
                         use bigame_core::graphics::ingame::Applied;
@@ -2782,16 +2832,19 @@ fn open_with(
         let page = page.clone();
         let overlay = overlay.clone();
         repair.connect_clicked(move |_| {
+            if !begin(&page, &i18n("Checking files…")) {
+                return;
+            }
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay).await {
+                    end(&page);
                     return;
                 }
-                busy(&page, Some(&i18n("Checking files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || graphics::repair(&target)).await;
-                busy(&page, None);
+                end(&page);
                 let text = match result {
                     Ok(Ok(v)) if v.is_empty() => i18n("Every file is as it was installed"),
                     Ok(Ok(v)) => format!("{} ({})", i18n("Missing files put back"), v.len()),
@@ -2807,37 +2860,45 @@ fn open_with(
         let page = page.clone();
         let overlay = overlay.clone();
         remove.connect_clicked(move |_| {
+            let installed = page
+                .analysis
+                .borrow()
+                .as_ref()
+                .is_some_and(|a| a.report.installed.is_some());
+            let doing = if installed {
+                i18n("Restoring the game's own files…")
+            } else {
+                i18n("Removing the launch option…")
+            };
+            if !begin(&page, &doing) {
+                return;
+            }
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay).await {
+                    end(&page);
                     return;
                 }
-                let installed = page
-                    .analysis
-                    .borrow()
-                    .as_ref()
-                    .is_some_and(|a| a.report.installed.is_some());
                 if !installed {
                     if page.target.app_id.is_some() && bigame_core::steam::is_running() {
+                        end(&page);
                         overlay.add_toast(adw::Toast::new(&i18n(
                             "Close Steam first: it keeps its configuration in memory and would discard the change",
                         )));
                         return;
                     }
-                    busy(&page, Some(&i18n("Removing the launch option…")));
                     let app = page.target.app_id.clone();
                     let process = page.target.process.clone();
                     let result = gio::spawn_blocking(move || {
                         bigame_core::graphics::fsr4_upgrade::apply(&process, app.as_deref(), false)
                     })
                     .await;
-                    busy(&page, None);
+                    end(&page);
                     report_fsr4_upgrade(&overlay, &page.target.process, false, result);
                     refresh(&page);
                     return;
                 }
-                busy(&page, Some(&i18n("Restoring the game's own files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || {
                     let out = graphics::restore(&target)?;
@@ -2852,7 +2913,7 @@ fn open_with(
                     anyhow::Ok(out)
                 })
                 .await;
-                busy(&page, None);
+                end(&page);
                 let text = match result {
                     Ok(Ok(done)) => {
                         use bigame_core::graphics::transaction::FileOutcome;

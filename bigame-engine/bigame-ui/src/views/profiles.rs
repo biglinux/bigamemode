@@ -1563,16 +1563,32 @@ fn show_card_menu(
     }
 
     if let Some(target) = entry.target.clone().filter(|_| entry.ai_installed) {
+        thread_local! {
+            /// Games whose Restore runs now. The menu and its actions are
+            /// made anew each time it opens, so an action's own state would
+            /// not keep a second Restore from starting beside the first.
+            static RESTORING: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+        }
+        let key = target.key();
         let restore = gio::SimpleAction::new("restore", None);
+        restore.set_enabled(!RESTORING.with_borrow(|r| r.contains(&key)));
         let anchor = anchor.clone();
         let rescan = rescan.clone();
-        restore.connect_activate(move |_, _| {
+        restore.connect_activate(move |action, _| {
+            if !RESTORING.with_borrow_mut(|r| r.insert(key.clone())) {
+                return;
+            }
+            action.set_enabled(false);
+            let action = action.clone();
+            let key = key.clone();
             let anchor = anchor.clone();
             let target = target.clone();
             let rescan = rescan.clone();
             glib::spawn_future_local(async move {
                 let t = target.clone();
                 let result = gio::spawn_blocking(move || bigame_core::graphics::remove(&t)).await;
+                RESTORING.with_borrow_mut(|r| r.remove(&key));
+                action.set_enabled(true);
                 toast::show(
                     &anchor,
                     &match result {
