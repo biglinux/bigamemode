@@ -631,9 +631,9 @@ fn show_about_dialog(app: &adw::Application) {
         .application_name(NAME)
         .application_icon(APP_ID)
         .version(env!("CARGO_PKG_VERSION"))
-        // The line under the name: what the product is. The people who make
-        // it are in the credits.
-        .developer_name(i18n("BigLinux's game mode."))
+        // The line under the name, as AppStream's <developer> names it: a
+        // person's name, not translated.
+        .developer_name("Rafael Ruscher")
         .website(WEBSITE)
         .issue_url(format!("{WEBSITE}/issues"))
         .license_type(gtk4::License::Gpl30)
