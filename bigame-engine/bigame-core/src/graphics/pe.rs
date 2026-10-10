@@ -220,7 +220,7 @@ fn parse_with(
 
     let mut imports = Vec::new();
     if let Some(t) = dir(1).and_then(|(rva, size)| table(rva, size, 20)) {
-        for desc in t.chunks_exact(20).take(MAX_DESCRIPTORS) {
+        for desc in t.as_chunks::<20>().0.iter().take(MAX_DESCRIPTORS) {
             if desc.iter().all(|&x| x == 0) {
                 break;
             }
@@ -232,7 +232,7 @@ fn parse_with(
 
     let mut delay_imports = Vec::new();
     if let Some(t) = dir(13).and_then(|(rva, size)| table(rva, size, 32)) {
-        for desc in t.chunks_exact(32).take(MAX_DESCRIPTORS) {
+        for desc in t.as_chunks::<32>().0.iter().take(MAX_DESCRIPTORS) {
             let (attributes, name_rva) = (u32_at(desc, 0)?, u32_at(desc, 4)?);
             if name_rva == 0 {
                 break;

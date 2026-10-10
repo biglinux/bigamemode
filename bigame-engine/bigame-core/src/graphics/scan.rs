@@ -708,8 +708,10 @@ fn wide_strings_with(bytes: &[u8], needle: &str) -> Vec<String> {
             end += 2;
         }
         let s: String = bytes[start..end]
-            .chunks_exact(2)
-            .map(|c| char::from(c[0]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[c, _]| char::from(*c))
             .collect();
         if !out.contains(&s) {
             out.push(s);
