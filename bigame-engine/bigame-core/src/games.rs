@@ -223,13 +223,32 @@ fn canonical(path: &Path) -> PathBuf {
 /// the same disk the game is loading from.
 #[must_use]
 pub fn detect_all() -> Vec<DetectedGame> {
-    static CACHE: std::sync::Mutex<Option<Cached>> = std::sync::Mutex::new(None);
     let sources = Sources::of_home(&crate::paths::home_dir());
-    let mut cache = CACHE
+    let mut cache = LIBRARY
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     cached_scan(&mut cache, &sources, std::time::Instant::now()).0
 }
+
+/// [`detect_all`] for a caller that looks every minute and only wants to
+/// hear of a change: the library and the number of its scan, when that is
+/// not `known`.
+///
+/// Scanned again only when a watched file changed, never for age alone
+/// ([`LIBRARY_MAX_AGE`]): what the files do not record is not worth a walk
+/// of every install folder every few minutes, all day, to a caller such as
+/// the running-game watch. Another caller's scan is a change here too.
+#[must_use]
+pub fn detect_all_changed(known: Option<u64>) -> Option<(u64, Vec<DetectedGame>)> {
+    let sources = Sources::of_home(&crate::paths::home_dir());
+    let mut cache = LIBRARY
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    changed_scan(&mut cache, &sources, std::time::Instant::now(), known)
+}
+
+/// The library as last scanned, for every caller.
+static LIBRARY: std::sync::Mutex<Option<Cached>> = std::sync::Mutex::new(None);
 
 /// Every game in `sources`, folded and sorted.
 fn detect_in(sources: &Sources) -> Vec<DetectedGame> {
@@ -372,6 +391,8 @@ const LIBRARY_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(300)
 
 /// A scan and what it was read from.
 struct Cached {
+    /// Counts the scans, so a caller can tell a new one from the one it has.
+    scan: u64,
     sources: Sources,
     /// The watched files' modification times, taken before the scan.
     sources_stamp: Vec<Option<std::time::SystemTime>>,
@@ -402,26 +423,55 @@ fn cached_scan(
     sources: &Sources,
     now: std::time::Instant,
 ) -> (Vec<DetectedGame>, bool) {
+    let scanned = refresh(cache, sources, now, true);
+    let games = cache.as_ref().map(|c| c.games.clone()).unwrap_or_default();
+    (games, scanned)
+}
+
+/// [`detect_all_changed`] over `cache`.
+fn changed_scan(
+    cache: &mut Option<Cached>,
+    sources: &Sources,
+    now: std::time::Instant,
+    known: Option<u64>,
+) -> Option<(u64, Vec<DetectedGame>)> {
+    refresh(cache, sources, now, false);
+    cache
+        .as_ref()
+        .filter(|c| Some(c.scan) != known)
+        .map(|c| (c.scan, c.games.clone()))
+}
+
+/// Scan `sources` again into `cache` unless the scan there is current: of
+/// the same sources, none of whose watched files changed since, and — when
+/// `expire` — younger than [`LIBRARY_MAX_AGE`]. `true` when it scanned.
+fn refresh(
+    cache: &mut Option<Cached>,
+    sources: &Sources,
+    now: std::time::Instant,
+    expire: bool,
+) -> bool {
     let sources_stamp: Vec<_> = sources.watched().iter().map(|p| stamp(p)).collect();
     if let Some(c) = cache.as_ref()
         && c.sources == *sources
-        && now.saturating_duration_since(c.at) < LIBRARY_MAX_AGE
+        && (!expire || now.saturating_duration_since(c.at) < LIBRARY_MAX_AGE)
         && c.sources_stamp == sources_stamp
         && c.games_stamp == games_stamp(&c.games)
     {
-        return (c.games.clone(), false);
+        return false;
     }
     // Stamped before reading: a change during the scan shows on the next
     // call as a difference, never as a stale result kept for good.
     let games = detect_in(sources);
     *cache = Some(Cached {
+        scan: cache.as_ref().map_or(0, |c| c.scan.wrapping_add(1)),
         sources: sources.clone(),
         sources_stamp,
         games_stamp: games_stamp(&games),
         at: now,
-        games: games.clone(),
+        games,
     });
-    (games, true)
+    true
 }
 
 /// Keep the first of every game, in the order given.
@@ -4255,6 +4305,44 @@ mod tests {
         // And whatever the files say, an old scan is not handed out.
         assert!(!cached_scan(&mut cache, &sources, now).1);
         assert!(cached_scan(&mut cache, &sources, now + LIBRARY_MAX_AGE).1);
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_caller_told_of_changes_hears_only_of_a_new_scan() {
+        let home = tempdir("changed");
+        let steamapps = home.join(".local/share/Steam/steamapps");
+        write(
+            &steamapps.join("appmanifest_1.acf"),
+            manifest("1", "One", "One", "4").as_bytes(),
+        );
+        write(&steamapps.join("common/One/One.exe"), &vec![0; BIG]);
+        let sources = Sources {
+            applications: Vec::new(),
+            path_dirs: Vec::new(),
+            flatpak: Vec::new(),
+            ..Sources::of_home(&home)
+        };
+        let mut cache = None;
+        let now = std::time::Instant::now();
+        let (scan, games) = changed_scan(&mut cache, &sources, now, None).unwrap();
+        assert_eq!(games.len(), 1);
+        // However old, an unchanged library is neither scanned nor news.
+        let later = now + LIBRARY_MAX_AGE * 3;
+        assert_eq!(changed_scan(&mut cache, &sources, later, Some(scan)), None);
+        assert_eq!(cache.as_ref().map(|c| c.at), Some(now));
+        // A scan another caller made for age is news.
+        assert!(cached_scan(&mut cache, &sources, later).1);
+        let (newer, _) = changed_scan(&mut cache, &sources, later, Some(scan)).unwrap();
+        assert_ne!(newer, scan);
+        // So is a change in what it is read from.
+        write(
+            &steamapps.join("appmanifest_2.acf"),
+            manifest("2", "Two", "Two", "4").as_bytes(),
+        );
+        write(&steamapps.join("common/Two/Two.exe"), &vec![0; BIG]);
+        let (_, games) = changed_scan(&mut cache, &sources, later, Some(newer)).unwrap();
+        assert_eq!(games.len(), 2);
         let _ = fs::remove_dir_all(&home);
     }
 

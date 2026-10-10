@@ -745,31 +745,54 @@ pub fn identify_ranked<S: std::hash::BuildHasher>(
 // ── Native games the machine knows about ─────────────────────────────────────
 
 /// Executable name → display name for every native game this machine lists:
-/// the menu entries in the `Game` category ([`crate::games::menu_games`]),
-/// and the process names falcond has a profile for — a profile is falcond's
-/// own statement that a process is a game.
+/// the games of the library ([`crate::games::detect_all`]) that run here
+/// directly, menu entries in the `Game` category among them, and the
+/// process names falcond has a profile for — a profile is falcond's own
+/// statement that a process is a game.
 ///
-/// Read at most once a minute: detection runs every few seconds, and a game
-/// installed meanwhile is picked up on the next read.
+/// Looked at most once a minute: detection runs every few seconds, and a
+/// game installed meanwhile is picked up on the next look. The library's
+/// part is worked out again only when the library was scanned again, which
+/// happens only when what it is read from changed
+/// ([`crate::games::detect_all_changed`]): a look at an unchanged library
+/// costs the stat of its files, not a walk of every install folder.
 #[must_use]
 pub fn known_native_games() -> HashMap<String, String> {
     use std::sync::Mutex;
     use std::time::{Duration, Instant};
-    static CACHE: Mutex<Option<(Instant, HashMap<String, String>)>> = Mutex::new(None);
+    #[derive(Default)]
+    struct Known {
+        at: Option<Instant>,
+        /// The library scan `library` was worked out from.
+        scan: Option<u64>,
+        library: HashMap<String, String>,
+        games: HashMap<String, String>,
+    }
+    static CACHE: Mutex<Option<Known>> = Mutex::new(None);
     let mut cache = CACHE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some((at, games)) = cache.as_ref()
-        && at.elapsed() < Duration::from_secs(60)
+    let known = cache.get_or_insert_with(Known::default);
+    if known
+        .at
+        .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
     {
-        return games.clone();
+        return known.games.clone();
     }
-    let games = read_native_games();
-    *cache = Some((Instant::now(), games.clone()));
+    if let Some((scan, library)) = crate::games::detect_all_changed(known.scan) {
+        known.scan = Some(scan);
+        known.library = native_games_from(&[], &library);
+    }
+    // The library's word over a profile's, as in [`native_games_from`].
+    let mut games = native_games_from(&profile_names(), &[]);
+    games.extend(known.library.iter().map(|(k, v)| (k.clone(), v.clone())));
+    known.games.clone_from(&games);
+    known.at = Some(Instant::now());
     games
 }
 
-fn read_native_games() -> HashMap<String, String> {
+/// The `name` of every falcond profile, the system's and the user's.
+fn profile_names() -> Vec<String> {
     let mut profiles = Vec::new();
     let base = Path::new(crate::profiles::SYSTEM_PROFILES_DIR);
     for dir in [base.to_path_buf(), base.join("user")] {
@@ -780,7 +803,7 @@ fn read_native_games() -> HashMap<String, String> {
             profiles.extend(profile_name_field(&content));
         }
     }
-    native_games_from(&profiles, &crate::games::detect_all())
+    profiles
 }
 
 /// Names too common among native programs to say which game runs: a
@@ -872,37 +895,68 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
     }
 }
 
-/// How long a game's graphics path, once told, is taken as known: its
-/// memory map is a large read, and the watcher asks every few seconds. A
-/// game that loads its renderer late is read again after this.
+/// How long what was learned of a game's process — its graphics path, the
+/// card it renders on — is taken as known: its memory map and its
+/// descriptors are large reads, the card may take a question to NVML, and
+/// the watcher asks every few seconds for as long as the game runs. A game
+/// that loads its renderer late is read again after this.
 const GRAPHICS_KEPT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// One fact learned of the process being watched, kept for a while: the
+/// watcher follows one game, so one process is kept.
+struct Kept<T>(Option<(u32, String, std::time::Instant, T)>);
+
+impl<T: Clone> Kept<T> {
+    const fn new() -> Self {
+        Self(None)
+    }
+
+    /// What `read` says of process `pid` running `executable`, read again
+    /// once `max_age` has passed. A `None` is not kept: what cannot be told
+    /// yet is asked again the next time.
+    fn get(
+        &mut self,
+        pid: u32,
+        executable: &str,
+        max_age: std::time::Duration,
+        read: impl FnOnce() -> Option<T>,
+    ) -> Option<T> {
+        let now = std::time::Instant::now();
+        if let Some((p, e, at, value)) = &self.0
+            && *p == pid
+            && e == executable
+            && now.saturating_duration_since(*at) < max_age
+        {
+            return Some(value.clone());
+        }
+        let value = read();
+        self.0 = value.clone().map(|v| (pid, executable.to_owned(), now, v));
+        value
+    }
+}
 
 /// [`graphics_from_maps`] of process `pid`, read again only after
 /// [`GRAPHICS_KEPT`] once it is known.
 fn graphics_of(pid: u32, executable: &str) -> Graphics {
-    type Seen = HashMap<(u32, String), (std::time::Instant, Graphics)>;
-    static SEEN: std::sync::Mutex<Option<Seen>> = std::sync::Mutex::new(None);
-    let key = (pid, executable.to_owned());
-    let now = std::time::Instant::now();
-    let mut seen = SEEN
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let seen = seen.get_or_insert_with(HashMap::new);
-    if let Some((at, graphics)) = seen.get(&key)
-        && now.saturating_duration_since(*at) < GRAPHICS_KEPT
-    {
-        return *graphics;
-    }
-    let graphics = std::fs::read_to_string(format!("/proc/{pid}/maps"))
-        .map_or(Graphics::Unknown, |maps| graphics_from_maps(&maps));
-    // Only the game being watched is kept.
-    seen.retain(|(p, _), _| *p == pid);
-    if graphics == Graphics::Unknown {
-        seen.remove(&key);
-    } else {
-        seen.insert(key, (now, graphics));
-    }
-    graphics
+    static KEPT: std::sync::Mutex<Kept<Graphics>> = std::sync::Mutex::new(Kept::new());
+    KEPT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(pid, executable, GRAPHICS_KEPT, || {
+            std::fs::read_to_string(format!("/proc/{pid}/maps"))
+                .map(|maps| graphics_from_maps(&maps))
+                .ok()
+                .filter(|g| *g != Graphics::Unknown)
+        })
+        .unwrap_or(Graphics::Unknown)
+}
+
+/// [`render_card`] of process `pid`, read again only after
+/// [`GRAPHICS_KEPT`] once it is known.
+fn render_card_of(pid: u32, executable: &str) -> Option<String> {
+    static KEPT: std::sync::Mutex<Kept<String>> = std::sync::Mutex::new(Kept::new());
+    KEPT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(pid, executable, GRAPHICS_KEPT, || render_card(pid))
 }
 
 /// A GPU a process has open.
@@ -1155,31 +1209,62 @@ fn drop_enumerated_only(
         .collect()
 }
 
+/// What Steam's manifest says of a game: its title, where it is installed,
+/// its Proton prefix.
+#[derive(Clone, Default)]
+struct SteamDetails {
+    name: Option<String>,
+    install_path: Option<PathBuf>,
+    compatdata_path: Option<PathBuf>,
+}
+
+/// [`SteamDetails`] of app `id`, from the manifest in the library that has
+/// it.
+fn steam_details(id: &str, home: &Path) -> SteamDetails {
+    for library in crate::games::steam_libraries(home) {
+        let steamapps = library.join("steamapps");
+        let Ok(text) = std::fs::read_to_string(steamapps.join(format!("appmanifest_{id}.acf")))
+        else {
+            continue;
+        };
+        // The prefix beside the manifest, not the first compatdata/<id>
+        // found: Steam leaves stale ones behind when a game moves.
+        let prefix = steamapps.join("compatdata").join(id);
+        return SteamDetails {
+            name: crate::games::acf_value(&text, "name"),
+            install_path: crate::games::acf_value(&text, "installdir")
+                .map(|dir| steamapps.join("common").join(dir)),
+            compatdata_path: prefix.is_dir().then_some(prefix),
+        };
+    }
+    SteamDetails::default()
+}
+
 /// Fill in what the launcher and the live process can say.
+///
+/// What was learned of the process is kept ([`Kept`]): the watcher asks
+/// again every few seconds for as long as the game runs, and the manifest
+/// of a running game does not change; its graphics and card are read again
+/// now and then, until they are known and then after [`GRAPHICS_KEPT`].
 fn enrich(mut game: GameIdentity) -> GameIdentity {
+    static STEAM: std::sync::Mutex<Kept<SteamDetails>> = std::sync::Mutex::new(Kept::new());
     game.graphics = graphics_of(game.pid, &game.executable);
-    game.render_card = render_card(game.pid);
+    game.render_card = render_card_of(game.pid, &game.executable);
     if let Some(id) = game.steam_app_id.clone()
         && let Some(home) = std::env::var_os("HOME").map(PathBuf::from)
     {
-        for library in crate::games::steam_libraries(&home) {
-            let steamapps = library.join("steamapps");
-            let Ok(text) = std::fs::read_to_string(steamapps.join(format!("appmanifest_{id}.acf")))
-            else {
-                continue;
-            };
-            if let Some(name) = crate::games::acf_value(&text, "name") {
-                game.display_name = name;
-            }
-            if let Some(dir) = crate::games::acf_value(&text, "installdir") {
-                game.install_path = Some(steamapps.join("common").join(dir));
-            }
-            // The prefix beside the manifest, not the first compatdata/<id>
-            // found: Steam leaves stale ones behind when a game moves.
-            let prefix = steamapps.join("compatdata").join(&id);
-            game.compatdata_path = prefix.is_dir().then_some(prefix);
-            break;
+        let details = STEAM
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(game.pid, &game.executable, std::time::Duration::MAX, || {
+                Some(steam_details(&id, &home))
+            })
+            .unwrap_or_default();
+        if let Some(name) = details.name {
+            game.display_name = name;
         }
+        game.install_path = details.install_path;
+        game.compatdata_path = details.compatdata_path;
     }
     game
 }
@@ -2455,6 +2540,30 @@ mod tests {
     }
 
     #[test]
+    fn what_is_learned_of_a_process_is_kept_while_it_is_known() {
+        let reads = std::cell::Cell::new(0);
+        let read = |value: Option<u32>| {
+            reads.set(reads.get() + 1);
+            value
+        };
+        let long = std::time::Duration::from_secs(60);
+        let mut kept = Kept::new();
+        // Not known yet: asked again.
+        assert_eq!(kept.get(7, "G.exe", long, || read(None)), None);
+        assert_eq!(kept.get(7, "G.exe", long, || read(Some(1))), Some(1));
+        assert_eq!(kept.get(7, "G.exe", long, || read(Some(2))), Some(1));
+        assert_eq!(reads.get(), 2);
+        // Another process, or the same pid running something else, is
+        // read anew.
+        assert_eq!(kept.get(8, "G.exe", long, || read(Some(3))), Some(3));
+        assert_eq!(kept.get(8, "H.exe", long, || read(Some(4))), Some(4));
+        // And once its time is up.
+        let none = std::time::Duration::ZERO;
+        assert_eq!(kept.get(8, "H.exe", none, || read(Some(5))), Some(5));
+        assert_eq!(reads.get(), 5);
+    }
+
+    #[test]
     fn this_process_has_been_running_a_short_while() {
         let secs = running_for(std::process::id()).expect("readable");
         assert!(secs < 3600, "{secs}");
@@ -2787,6 +2896,13 @@ mod tests {
             ]
         );
         assert_eq!(known["supertuxkart"], "SuperTuxKart");
+        // Built in two parts, as `known_native_games` keeps them, it is the
+        // same map: the library's word over a profile's.
+        let profiles = ["cs2".to_owned(), "supertuxkart".to_owned()];
+        let mut parts = native_games_from(&profiles, &[]);
+        parts.extend(native_games_from(&[], &library));
+        assert_eq!(parts, native_games_from(&profiles, &library));
+        assert_eq!(parts["supertuxkart"], "SuperTuxKart");
     }
 
     #[test]
