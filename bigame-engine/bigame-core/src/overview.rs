@@ -435,10 +435,10 @@ pub fn running_profile(game: &GameIdentity, mode: &str) -> Option<crate::running
 fn library_key(game: &GameIdentity) -> Option<String> {
     static CACHE: std::sync::Mutex<Option<(u32, Option<String>)>> = std::sync::Mutex::new(None);
     let mut cache = CACHE.lock().ok()?;
-    if let Some((pid, key)) = cache.as_ref() {
-        if *pid == game.pid {
-            return key.clone();
-        }
+    if let Some((pid, key)) = cache.as_ref()
+        && *pid == game.pid
+    {
+        return key.clone();
     }
     // The running game's own file, through its Wine prefix, before its name:
     // two library games can share a name such as `Game.exe`.

@@ -44,6 +44,19 @@
   </recommends>
 
   <releases>
+    <release version="2.3.2" date="2026-10-10">
+      <description>
+        <p>A stability release: Turbo stays on where falcond cannot run, Turbo and its presets leave nothing behind in Steam and Heroic, and your own launch options and configuration files are kept.</p>
+        <ul>
+          <li>Turbo no longer switches itself off a few seconds after it starts on processors the installed falcond cannot run on</li>
+          <li>Turning Turbo off or changing the preset reaches Steam and Heroic once they are closed, and deleting a profile takes its launch options out of Steam, Heroic and Lutris</li>
+          <li>Only what Big Game Mode added is removed, account by account; your own launch options, MangoHud and vkBasalt files and their symbolic links are kept</li>
+          <li>AI Graphics makes one change at a time to a game, and Restore from Profiles works as it does on the AI Graphics page</li>
+          <li>Less work in the background while the window is closed, and fewer helper programs taken for the running game</li>
+          <li>A stricter privileged helper, with its authentication messages translated</li>
+        </ul>
+      </description>
+    </release>
     <release version="2.3.1" date="2026-10-08">
       <description>
         <p>Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes.</p>

@@ -260,10 +260,11 @@ pub fn build(
             else {
                 return;
             };
-            if let Some(presets) = presets.upgrade() {
-                if presets.is_open() && presets.shown() != preset {
-                    presets.select(preset);
-                }
+            if let Some(presets) = presets.upgrade()
+                && presets.is_open()
+                && presets.shown() != preset
+            {
+                presets.select(preset);
             }
         });
     }
@@ -416,10 +417,8 @@ pub fn build(
                             crate::game_watch::check();
                             // Open the report on its own only when something
                             // went wrong; a clean run is summarised on Home.
-                            if failed {
-                                if let Some(r) = last.borrow().as_ref() {
-                                    show(r);
-                                }
+                            if failed && let Some(r) = last.borrow().as_ref() {
+                                show(r);
                             }
                             return glib::ControlFlow::Break;
                         }
@@ -467,10 +466,10 @@ pub fn build(
         turbo_action.connect_change_state(move |_, value| {
             // A request, not the result: the state follows once Turbo has
             // really switched.
-            if let Some(wanted) = value.and_then(bool::from_variant) {
-                if wanted != button.state().is_on() {
-                    toggle();
-                }
+            if let Some(wanted) = value.and_then(bool::from_variant)
+                && wanted != button.state().is_on()
+            {
+                toggle();
             }
         });
     }
@@ -478,8 +477,9 @@ pub fn build(
     // ── Turbo changed elsewhere ─────────────────────────────────────────
     // The command-line tool, systemctl, or another session can turn falcond
     // on or off; Home follows what systemd says rather than what it last did
-    // itself. One D-Bus read every 10 s, with the window hidden too, so the
-    // tray never shows a Turbo that is no longer so.
+    // itself. The application's status loop reads falcond's unit every 10 s,
+    // with the window hidden too, so the tray never shows a Turbo that is no
+    // longer so; Home takes the same reading.
     {
         let button = Rc::clone(&button);
         let turbo_on = Rc::clone(&turbo_on);
@@ -489,9 +489,14 @@ pub fn build(
         let switching = Rc::clone(&switching_preset);
         let root = scroll.clone();
         let busy = Rc::new(Cell::new(false));
-        glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+        crate::app::follow_backend_unit(move |unit| {
+            // No reading: systemd could not be asked, and saying "off"
+            // would be a guess.
+            let Some(unit) = unit.cloned() else {
+                return;
+            };
             if !button.state().is_interactive() || switching.get() || busy.replace(true) {
-                return glib::ControlFlow::Continue;
+                return;
             }
             let (button, turbo_on, last, card, busy, notice, root) = (
                 Rc::clone(&button),
@@ -503,34 +508,34 @@ pub fn build(
                 root.clone(),
             );
             glib::spawn_future_local(async move {
-                let reading = gio::spawn_blocking(|| {
-                    (
-                        bigame_core::systemd::Reader::shared()
-                            .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT)),
-                        Report::load_last(),
-                    )
+                let reading = gio::spawn_blocking(move || {
+                    // A falcond that crashed on this processor is not
+                    // Turbo's state: Turbo is the Booster's then, as without
+                    // falcond, and its unit staying inactive is not Turbo
+                    // going off.
+                    let governing = turbo::backend_governs(&unit).then(|| unit.is_active());
+                    (governing, Report::load_last())
                 })
                 .await;
                 busy.set(false);
-                let Ok((Some(unit), report)) = reading else {
+                let Ok((governing, report)) = reading else {
                     return;
                 };
-                let on = if unit.is_installed() {
-                    unit.is_active()
-                } else {
-                    turbo_on.get()
-                };
+                let on = governing.unwrap_or_else(|| turbo_on.get());
+                let switched = on != turbo_on.get();
                 // A launcher opened again, or closed, by hand leaves the
                 // notice.
                 if root.is_mapped() {
                     notice.recheck();
                 }
-                // The preset's flag follows what the session holds.
-                card.refresh_preset();
-                if on != turbo_on.get()
-                    || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
+                // The preset's flag follows what the session holds: read
+                // while it is on screen (and when the page is shown), or
+                // when Turbo went on or off.
+                if root.is_mapped() || switched {
+                    card.refresh_preset();
+                }
+                if switched || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
                 {
-                    let switched = on != turbo_on.get();
                     // falcond stopped without Big Game Mode (systemctl, a
                     // crash, Settings → Hand back): what Turbo laid over the
                     // session and the machine goes too, as Turbo off does.
@@ -553,8 +558,13 @@ pub fn build(
                     }
                 }
             });
-            glib::ControlFlow::Continue
         });
+    }
+    // The preset's flag, read again when the page is shown: the unit
+    // readings refresh it only while the page is on screen.
+    {
+        let card = card.clone();
+        scroll.connect_map(move |_| card.refresh_preset());
     }
 
     // ── Live readings ───────────────────────────────────────────────────
@@ -638,7 +648,15 @@ pub fn build(
                 refresh.force();
             });
         }
-        glib::timeout_add_local(TILE_REFRESH, move || refresh.tick());
+        // Nothing to do while the window is hidden or on another page: the
+        // loop waits for the page to be shown instead of waking to find out.
+        glib::spawn_future_local(async move {
+            loop {
+                crate::views::details::mapped(&refresh.root).await;
+                glib::timeout_future(TILE_REFRESH).await;
+                refresh.tick();
+            }
+        });
     }
 
     scroll.upcast()
@@ -682,18 +700,17 @@ impl Refresh {
         (self.update)(1);
     }
 
-    fn tick(&self) -> glib::ControlFlow {
-        // Nothing to do while the window is hidden or on another page.
+    fn tick(&self) {
+        // Hidden while the loop waited.
         if !self.root.is_mapped() {
-            return glib::ControlFlow::Continue;
+            return;
         }
         let n = self.tick.get().wrapping_add(1);
         self.tick.set(n);
         let playing = crate::game_watch::current().is_some();
-        if !playing || n % IN_GAME_EVERY == 0 {
+        if !playing || n.is_multiple_of(IN_GAME_EVERY) {
             (self.update)(n);
         }
-        glib::ControlFlow::Continue
     }
 }
 

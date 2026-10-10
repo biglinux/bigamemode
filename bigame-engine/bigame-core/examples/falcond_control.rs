@@ -9,14 +9,13 @@
 fn main() -> anyhow::Result<()> {
     use bigame_core::turbo;
     let what = std::env::args().nth(1).unwrap_or_else(|| "status".into());
-    if what != "status" {
-        if let Some(secs) = std::env::var("BIGAME_WAIT")
+    if what != "status"
+        && let Some(secs) = std::env::var("BIGAME_WAIT")
             .ok()
             .and_then(|s| s.parse().ok())
-        {
-            println!("pid {}", std::process::id());
-            std::thread::sleep(std::time::Duration::from_secs(secs));
-        }
+    {
+        println!("pid {}", std::process::id());
+        std::thread::sleep(std::time::Duration::from_secs(secs));
     }
     match what.as_str() {
         "release" => {

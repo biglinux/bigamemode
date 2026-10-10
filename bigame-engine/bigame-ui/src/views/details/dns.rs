@@ -147,7 +147,6 @@ impl ComputerDns {
         });
     }
 
-    #[allow(clippy::type_complexity)]
     fn show(
         &self,
         availability: Availability,
@@ -259,7 +258,9 @@ impl ComputerDns {
                     *this.note.borrow_mut() = Some(verified);
                     short
                 }
-                Ok(Err(e)) => format!("{}: {}", i18n("Could not change the DNS"), error_text(&e)),
+                Ok(Err(e)) => {
+                    crate::i18n::labelled(&i18n("Could not change the DNS"), &error_text(&e))
+                }
                 Err(_) => i18n("Could not change the DNS"),
             };
             toast::show(&feedback, &text);

@@ -46,6 +46,13 @@ UMask=0022
 # and the rest go. CAP_SYS_ADMIN stays: systemd checks a uid-0 caller's
 # capabilities, not its uid, before it starts or stops falcond on its behalf.
 CapabilityBoundingSet=CAP_SYS_ADMIN
+# Resource ceilings, far above what the helper uses and far below what a leak
+# or a runaway loop in it could otherwise take: about 5 MiB resident (ps, and
+# systemd's MemoryPeak of 4.6 MiB, on 2.3.1), and the main thread plus four
+# runtime workers. A full cgroup makes an allocation or a thread fail inside
+# the helper instead of pressing on the rest of the machine.
+MemoryMax=64M
+TasksMax=64
 # No PrivateNetwork: in its own network namespace the unit's sysfs showed no
 # cpufreq attributes (systemd 261, checked: SetCpuGovernor found none), and
 # RestrictAddressFamilies=AF_UNIX already leaves it no network socket.
@@ -61,6 +68,29 @@ CapabilityBoundingSet=CAP_SYS_ADMIN
 ProtectSystem=strict
 ProtectKernelTunables=yes
 ReadOnlyPaths=-/sys/block -/sys/bus -/sys/class -/sys/dev -/sys/firmware -/sys/fs -/sys/hypervisor -/sys/kernel -/sys/module -/sys/power
+#
+# /run too: on systemd 261 ProtectSystem=strict leaves it writable (the
+# helper's mountinfo showed /run rw, with /run/media, /run/systemd/system and
+# /run/udev/rules.d under it). The helper writes nothing there: it has no
+# RuntimeDirectory, and the system bus socket it connects to needs no write
+# access to the mount (connect() works on a read-only one).
+ReadOnlyPaths=/run
+#
+# Within /sys/devices, the two trees whose attributes act on the whole
+# machine rather than on one device: /sys/devices/system (CPU hotplug, SMT
+# control, microcode reload, intel_pstate and amd_pstate limits, clock
+# sources, memory hotplug) and /sys/devices/virtual (thermal trip points and
+# powercap limits, among others). What the helper writes, resolved:
+#   governor and EPP: cpuN/cpufreq is a symlink to cpufreq/policyN, so both
+#     land in /sys/devices/system/cpu/cpufreq/policyN, kept writable below
+#     (a more specific ReadWritePaths= is mounted over the read-only tree);
+#   GPU DPM level: /sys/class/drm/cardN/device resolves to the card's PCI
+#     device under /sys/devices/pci*;
+#   V-Cache mode: the amd_x3d_vcache driver's device is the ACPI platform
+#     device AMDI0101 under /sys/devices/platform.
+# The rest of /sys/devices (pci*, platform, …) stays writable for the last two.
+ReadOnlyPaths=/sys/devices/system -/sys/devices/virtual
+ReadWritePaths=-/sys/devices/system/cpu/cpufreq
 #
 # A path that does not exist makes systemd refuse to start the service at all
 # (226/NAMESPACE), so paths that depend on hardware or on falcond being

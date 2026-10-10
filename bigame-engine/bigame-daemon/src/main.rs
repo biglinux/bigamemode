@@ -46,12 +46,18 @@ struct BiGameDaemon {
 
 impl BiGameDaemon {
     /// Reject the call unless Polkit authorizes this sender for `action`.
+    /// Polkit may prompt for a password only if the call says its sender can
+    /// wait for one (`ALLOW_INTERACTIVE_AUTHORIZATION` in the header).
     async fn authorize(
         &self,
         hdr: &zbus::message::Header<'_>,
         action: &str,
     ) -> Result<(), zbus::fdo::Error> {
-        polkit::check(&self.connection, hdr.sender(), action).await
+        let interactive = hdr
+            .primary()
+            .flags()
+            .contains(zbus::message::Flags::AllowInteractiveAuth);
+        polkit::check(&self.connection, hdr.sender(), action, interactive).await
     }
 }
 
@@ -75,6 +81,8 @@ impl BiGameDaemon {
         validate::profile_name(name).map_err(invalid)?;
         validate::profile_payload(payload).map_err(invalid)?;
         validate::profile_name_matches(name, payload).map_err(invalid)?;
+        validate::not_a_root_process(name, &validate::root_process_names(Path::new("/proc")))
+            .map_err(invalid)?;
 
         let dir = Path::new(USER_PROFILES_DIR);
         std::fs::create_dir_all(dir)
@@ -405,7 +413,12 @@ fn find_vcache_attribute() -> Option<PathBuf> {
         .find(|p| p.exists())
 }
 
-#[tokio::main]
+// Four worker threads, not tokio's default of one per CPU: with that, the
+// helper's thread count followed the machine (17 tasks on 16 threads), and
+// the unit's `TasksMax=64` would stop it starting on a 64-thread processor.
+// Writing calls serialise on one lock anyway, and every wait — Polkit, a
+// password prompt, systemd settling — is asynchronous.
+#[tokio::main(worker_threads = 4)]
 async fn main() -> Result<()> {
     // Under systemd the output is the journal, which timestamps every line
     // itself and shows colour codes as `[2m…[0m` in `journalctl`.

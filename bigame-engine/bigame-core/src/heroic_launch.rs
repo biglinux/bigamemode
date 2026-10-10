@@ -416,10 +416,10 @@ fn undo(game: &mut Map<String, Value>, previous: &Written) {
         }
     }
     if let Some(gs) = game.get_mut(GAMESCOPE).and_then(Value::as_object_mut) {
-        if let Some(words) = &previous.options {
-            if let Some(Value::String(opts)) = gs.get_mut(OPTIONS) {
-                *opts = without_words(opts, words);
-            }
+        if let Some(words) = &previous.options
+            && let Some(Value::String(opts)) = gs.get_mut(OPTIONS)
+        {
+            *opts = without_words(opts, words);
         }
         undo_keys(gs, &previous.gamescope);
     }

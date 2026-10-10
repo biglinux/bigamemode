@@ -15,8 +15,8 @@
 //!
 //! * **Steam** — the game's launch options, edited with Steam closed, backed
 //!   up and read back (`steam::set_launch_options`). Options the user wrote
-//!   stay; only the word this module added (recorded in Big Game Mode's state
-//!   directory) is ever removed.
+//!   stay; only the word this module added, in that account (recorded in
+//!   Big Game Mode's state directory), is ever removed.
 //! * **Heroic** — the game's `GamesConfig/<app>.json`, with the rest of the
 //!   game's launch settings (`crate::heroic_launch`): Forced is Heroic's own
 //!   `MangoHud` switch (`showMangohud`, its `mangohud --dlsym` wrapper), On
@@ -26,7 +26,8 @@
 //!   settings in memory and writes them back when one changes, so the file
 //!   is written with Heroic closed.
 //! * **Lutris** — the game's YAML: Lutris's own *FPS counter (`MangoHud`)*
-//!   option, `system: mangohud: true`, for On and Forced alike.
+//!   option, `system: mangohud: true`, for On and Forced alike. The line the
+//!   game had before is recorded, and Off puts it back.
 //!
 //! A launcher running as a Flatpak cannot see the system's `mangohud`: it
 //! needs Flathub's `org.freedesktop.Platform.VulkanLayer.MangoHud` for its
@@ -119,38 +120,97 @@ fn added_path() -> std::path::PathBuf {
     crate::paths::state_home().join("bigame-mode/mangohud/steam-added.toml")
 }
 
-/// The word recorded in `path` as added for `process`. With no record (an
-/// older version wrote the options), the word for the mode it saved
-/// (`saved`): it added that word whether or not the user had typed it.
-fn read_added(path: &std::path::Path, process: &str, saved: Mode) -> Result<Option<String>> {
-    let records = read_records(path)?;
-    Ok(match records.get(process) {
-        Some(word) => Some(word.clone()).filter(|w| !w.is_empty()),
-        None => legacy_added(saved),
-    })
+/// What is recorded of the words added for one game.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum SteamRecord {
+    /// The word in each account, by app (since 2.3.2).
+    Accounts(crate::steam::Inserted),
+    /// One word for every account, as versions before 2.3.2 recorded it.
+    Game(String),
 }
 
-fn read_records(path: &std::path::Path) -> Result<std::collections::BTreeMap<String, String>> {
+/// The word added for `process` in `account`'s options for `app`. With no
+/// record (an older version wrote the options), the word for the mode it
+/// saved (`saved`): it added that word whether or not the user had typed it.
+fn added_in(record: Option<&SteamRecord>, saved: Mode, account: &str, app: &str) -> Option<String> {
+    match record {
+        Some(SteamRecord::Accounts(by)) => by
+            .get(account)
+            .and_then(|apps| apps.get(app))
+            .filter(|w| !w.is_empty())
+            .cloned(),
+        Some(SteamRecord::Game(word)) => Some(word.clone()).filter(|w| !w.is_empty()),
+        None => legacy_added(saved),
+    }
+}
+
+/// A record file of Big Game Mode's state; empty when there is none.
+///
+/// # Errors
+/// Returns an error when it is there but cannot be read or parsed: a
+/// broken record is said, not taken for "nothing added".
+pub(crate) fn read_record<T: serde::de::DeserializeOwned + Default>(
+    path: &std::path::Path,
+) -> Result<T> {
     use anyhow::Context;
     match std::fs::read_to_string(path) {
         Ok(text) => toml::from_str(&text).with_context(|| format!("parse {}", path.display())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(std::collections::BTreeMap::new()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(T::default()),
         Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
     }
 }
 
-/// Record `word` as added for `process` in `path`.
-fn write_added(path: &std::path::Path, process: &str, word: Option<&str>) -> Result<()> {
+/// Write a record file of Big Game Mode's state.
+///
+/// # Errors
+/// Returns an error when it cannot be written.
+pub(crate) fn write_record<T: Serialize>(path: &std::path::Path, record: &T) -> Result<()> {
     use anyhow::Context;
-    let mut records = read_records(path)?;
-    records.insert(process.to_owned(), word.unwrap_or_default().to_owned());
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
     }
-    let tmp = path.with_extension("toml.new");
-    std::fs::write(&tmp, toml::to_string(&records)?)
-        .with_context(|| format!("write {}", tmp.display()))?;
-    std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))
+    replace_file(path, toml::to_string(record)?.as_bytes())
+}
+
+/// Every account's new options for `mode` in the game's apps, worked out
+/// before any is written, with what to record and the last account's
+/// options. Each account takes out only the word recorded as added there.
+fn steam_plan(
+    accounts: &[std::path::PathBuf],
+    apps: &[String],
+    read: &dyn Fn(&std::path::Path, &str) -> Option<String>,
+    record: Option<&SteamRecord>,
+    saved: Mode,
+    mode: Mode,
+) -> (Vec<crate::steam::Change>, crate::steam::Inserted, String) {
+    let mut changes = Vec::new();
+    let mut added = crate::steam::Inserted::new();
+    let mut last = String::new();
+    for config in accounts {
+        let account = config.to_string_lossy().into_owned();
+        for app in apps {
+            let current = read(config, app).unwrap_or_default();
+            let before = added_in(record, saved, &account, app);
+            let (wanted, add) = launch_options(&current, before.as_deref(), mode);
+            if let Some(word) = add {
+                added
+                    .entry(account.clone())
+                    .or_default()
+                    .insert(app.clone(), word.to_owned());
+            }
+            if wanted != current {
+                changes.push(crate::steam::Change {
+                    config: config.clone(),
+                    app: app.clone(),
+                    before: current,
+                    after: wanted.clone(),
+                });
+            }
+            last = wanted;
+        }
+    }
+    (changes, added, last)
 }
 
 /// The word an older version added for a game saved at `mode`.
@@ -213,37 +273,37 @@ pub fn apply(process: &str, mode: Mode) -> Result<Applied> {
         return Ok(Applied::SteamRunning);
     }
     let users = crate::steam::users(&crate::paths::home_dir());
-    if !apps.is_empty() && mode != Mode::Off && crate::steam::any_flatpak(&users) {
-        if let Some(command) = crate::steam::flatpak_mangohud_missing() {
-            anyhow::bail!(UserError::with(
-                N_(
-                    "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
-                ),
-                [command]
-            ));
-        }
+    if !apps.is_empty()
+        && mode != Mode::Off
+        && crate::steam::any_flatpak(&users)
+        && let Some(command) = crate::steam::flatpak_mangohud_missing()
+    {
+        anyhow::bail!(UserError::with(
+            N_(
+                "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
+            ),
+            [command]
+        ));
     }
     let mut settings = crate::game_settings::load(process)?;
     let record = added_path();
-    let added = read_added(&record, process, settings.mangohud)?;
+    let mut records: std::collections::BTreeMap<String, SteamRecord> = read_record(&record)?;
     // The launch options first, the saved choice after: if Steam's file cannot
     // be written, the choice stays as it was instead of claiming a mode the
     // game will not get.
-    let mut last = String::new();
-    let mut now_added = None;
-    for user in &users {
-        for app in &apps {
-            let current = crate::steam::launch_options(&user.config, app).unwrap_or_default();
-            let (wanted, add) = launch_options(&current, added.as_deref(), mode);
-            if wanted != current {
-                crate::steam::set_launch_options(&user.config, app, &wanted)?;
-            }
-            now_added = now_added.or(add);
-            last = wanted;
-        }
-    }
+    let accounts: Vec<std::path::PathBuf> = users.into_iter().map(|u| u.config).collect();
+    let (changes, added, last) = steam_plan(
+        &accounts,
+        &apps,
+        &|config, app| crate::steam::launch_options(config, app),
+        records.get(process),
+        settings.mangohud,
+        mode,
+    );
+    crate::steam::set_all(&changes)?;
     if !apps.is_empty() {
-        write_added(&record, process, now_added)?;
+        records.insert(process.to_owned(), SteamRecord::Accounts(added));
+        write_record(&record, &records)?;
     }
     settings.mangohud = mode;
     crate::game_settings::save(process, &settings)?;
@@ -284,12 +344,14 @@ fn apply_to_launcher(
             }
         }
         LauncherRef::Lutris { config_file } => {
-            let current = std::fs::read_to_string(config_file)?;
-            let wanted = lutris_config(&current, mode);
-            if wanted != current {
-                write_keeping_backup(config_file, &wanted)?;
-            }
             let mut settings = crate::game_settings::load(process)?;
+            lutris_apply(
+                config_file,
+                &lutris_record_path(),
+                settings.mangohud,
+                mode,
+                &write_keeping_backup,
+            )?;
             settings.mangohud = mode;
             crate::game_settings::save(process, &settings)?;
         }
@@ -334,9 +396,158 @@ pub(crate) fn write_keeping_backup_in(
     } else if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let tmp = file.with_extension("bigame-new");
-    std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
-    std::fs::rename(&tmp, file).with_context(|| format!("replace {}", file.display()))
+    replace_file(file, text.as_bytes())
+}
+
+/// Replace `path` with `content`: written whole to a temporary of its own
+/// beside it, flushed, renamed over it and the folder flushed, so a crash
+/// leaves the old file or the new one, never half of either, and two
+/// writers never share a temporary. The file keeps its permissions, and a
+/// dotfile manager's symlink (stow, chezmoi) stays a symlink: the file it
+/// points to is the one replaced.
+pub(crate) fn replace_file(path: &std::path::Path, content: &[u8]) -> Result<()> {
+    use anyhow::Context;
+    use std::io::Write as _;
+    use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+    static SEQUENCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let dir = path.parent().context("path has no parent")?;
+    let name = path
+        .file_name()
+        .context("path has no file name")?
+        .to_string_lossy();
+    let tmp = dir.join(format!(
+        ".{name}.bigame-{}-{}.tmp",
+        std::process::id(),
+        SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let mode = std::fs::metadata(&path)
+        .ok()
+        .map(|m| m.permissions().mode() & 0o777);
+    let written = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .mode(mode.unwrap_or(0o644))
+        .open(&tmp)
+        .and_then(|mut f| {
+            // The umask narrowed the mode it was created with.
+            if let Some(mode) = mode {
+                f.set_permissions(std::fs::Permissions::from_mode(mode))?;
+            }
+            f.write_all(content)?;
+            f.sync_all()
+        });
+    let renamed = written
+        .with_context(|| format!("write {}", tmp.display()))
+        .and_then(|()| {
+            std::fs::rename(&tmp, &path).with_context(|| format!("replace {}", path.display()))
+        });
+    if let Err(e) = renamed {
+        if let Err(cleanup) = std::fs::remove_file(&tmp)
+            && cleanup.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::warn!(path = %tmp.display(), error = %cleanup, "could not remove a temporary file");
+        }
+        return Err(e);
+    }
+    // The file is in place; only the rename's durability is at stake.
+    if let Err(e) = std::fs::File::open(dir).and_then(|d| d.sync_all()) {
+        tracing::warn!(path = %dir.display(), error = %e, "could not flush a folder");
+    }
+    Ok(())
+}
+
+/// Where the `mangohud` line each Lutris game had before Big Game Mode first
+/// switched the option on is recorded, by the game's file (an empty line
+/// for none).
+fn lutris_record_path() -> std::path::PathBuf {
+    crate::paths::state_home().join("bigame-mode/mangohud/lutris-before.toml")
+}
+
+/// The line Big Game Mode writes for On and Forced.
+const LUTRIS_ON: &str = "  mangohud: true";
+
+/// Write `mode` into the Lutris game file `file`, with the game saved at
+/// `saved` until now. The first time the option goes on, the line the game
+/// had is recorded in `record`; Off puts that line back, and takes out
+/// only Big Game Mode's own `mangohud: true` — a value the user changed
+/// since in Lutris, or set before with nothing from Big Game Mode, stays.
+fn lutris_apply(
+    file: &std::path::Path,
+    record: &std::path::Path,
+    saved: Mode,
+    mode: Mode,
+    write: &dyn Fn(&std::path::Path, &str) -> Result<()>,
+) -> Result<()> {
+    let current = std::fs::read_to_string(file)?;
+    let mut before: std::collections::BTreeMap<String, String> = read_record(record)?;
+    let key = file.to_string_lossy().into_owned();
+    let wanted = if mode == Mode::Off {
+        match before.get(&key) {
+            Some(line) => lutris_off(&current, Some(line.as_str()).filter(|l| !l.is_empty())),
+            // An older version wrote the option and kept no record of it.
+            None if saved != Mode::Off => lutris_off(&current, None),
+            None => current.clone(),
+        }
+    } else {
+        if !before.contains_key(&key) {
+            // Recorded before the file changes: a failure between the two
+            // must not lose what the user had.
+            let line = lutris_line(&current).unwrap_or_default().to_owned();
+            before.insert(key.clone(), line);
+            write_record(record, &before)?;
+        }
+        lutris_config(&current, mode)
+    };
+    if wanted != current {
+        write(file, &wanted)?;
+    }
+    if mode == Mode::Off && before.remove(&key).is_some() {
+        write_record(record, &before)?;
+    }
+    Ok(())
+}
+
+/// Where the `mangohud` option of the `system:` section is in `lines`.
+fn lutris_line_at(lines: &[&str]) -> Option<usize> {
+    let header = lines
+        .iter()
+        .position(|l| *l == "system:" || l.starts_with("system: "))?;
+    (header + 1..lines.len())
+        .take_while(|&i| lines[i].is_empty() || lines[i].starts_with(' '))
+        .find(|&i| {
+            lines[i].starts_with("  ")
+                && !lines[i].starts_with("   ")
+                && lines[i].trim_start().starts_with("mangohud:")
+        })
+}
+
+/// The `mangohud` line of a Lutris game YAML's `system:` section.
+fn lutris_line(current: &str) -> Option<&str> {
+    let lines: Vec<&str> = current.lines().collect();
+    lutris_line_at(&lines).map(|i| lines[i])
+}
+
+/// A Lutris game YAML with Big Game Mode's `mangohud: true` taken out:
+/// `before`, the line the game had before it, put back, or the line
+/// removed when it had none. A `mangohud` line other than Big Game Mode's
+/// is the user's, and the file stays as it is.
+#[must_use]
+pub fn lutris_off(current: &str, before: Option<&str>) -> String {
+    let mut lines: Vec<&str> = current.lines().collect();
+    let Some(at) = lutris_line_at(&lines).filter(|&i| lines[i] == LUTRIS_ON) else {
+        return current.to_owned();
+    };
+    let Some(line) = before else {
+        return lutris_config(current, Mode::Off);
+    };
+    lines[at] = line;
+    let mut text = lines.join("\n");
+    if current.ends_with('\n') {
+        text.push('\n');
+    }
+    text
 }
 
 /// A Lutris game YAML with `mode` applied to its `system:` section's
@@ -354,7 +565,7 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
         None if !on => return current.to_owned(),
         None => {
             out.push("system:".into());
-            out.push("  mangohud: true".into());
+            out.push(LUTRIS_ON.into());
         }
         Some(h) => {
             // `system: {}` or another flow value: make it a block.
@@ -369,7 +580,7 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
                 out[i].starts_with("  ") && !out[i].starts_with("   ") && t.starts_with("mangohud:")
             });
             match (found, on) {
-                (Some(i), true) => out[i] = "  mangohud: true".into(),
+                (Some(i), true) => LUTRIS_ON.clone_into(&mut out[i]),
                 (Some(i), false) => {
                     out.remove(i);
                     // A section left with nothing in it goes too.
@@ -377,7 +588,7 @@ pub fn lutris_config(current: &str, mode: Mode) -> String {
                         out.remove(h);
                     }
                 }
-                (None, true) => out.insert(h + 1, "  mangohud: true".into()),
+                (None, true) => out.insert(h + 1, LUTRIS_ON.into()),
                 (None, false) => {}
             }
         }
@@ -599,7 +810,7 @@ pub enum StyleState {
 /// Read which style is in place.
 #[must_use]
 pub fn current_style() -> StyleState {
-    style_state_of(std::fs::read_to_string(style_path()).ok().as_deref())
+    style_state_of(config_text(&style_path()).as_deref())
 }
 
 fn style_state_of(text: Option<&str>) -> StyleState {
@@ -627,35 +838,90 @@ pub fn set_style(style: Style) -> Result<()> {
 
 fn set_style_at(style: Style, path: &std::path::Path, backup: &std::path::Path) -> Result<()> {
     use anyhow::Context;
-    let state = style_state_of(std::fs::read_to_string(path).ok().as_deref());
+    let state = style_state_of(config_text(path).as_deref());
     match style_config(style) {
         None => {
             if !matches!(state, StyleState::Style(_)) {
                 return Ok(()); // Already the user's own.
             }
-            if backup.exists() {
-                std::fs::rename(backup, path)
-                    .with_context(|| format!("put back {}", path.display()))?;
-            } else {
+            if !put_back(backup, path)? {
                 std::fs::remove_file(path).with_context(|| format!("remove {}", path.display()))?;
             }
         }
         Some(text) => {
             if state == StyleState::Own {
-                if let Some(dir) = backup.parent() {
-                    std::fs::create_dir_all(dir)?;
-                }
-                std::fs::copy(path, backup).with_context(|| format!("keep {}", path.display()))?;
+                keep_aside(path, backup)?;
             }
             if let Some(dir) = path.parent() {
                 std::fs::create_dir_all(dir)?;
             }
-            let tmp = path.with_extension("conf.bigame-new");
-            std::fs::write(&tmp, text).with_context(|| format!("write {}", tmp.display()))?;
-            std::fs::rename(&tmp, path).with_context(|| format!("replace {}", path.display()))?;
+            replace_file(path, text.as_bytes())?;
         }
     }
     Ok(())
+}
+
+// ── A configuration file that may be the user's ─────────────────────────────
+
+/// The text of the configuration file at `path`, to look for Big Game
+/// Mode's marker in its first line; `None` only when nothing is there. A
+/// file that is not UTF-8, cannot be read, or is a symlink to nothing is
+/// still something the user put there: it reads as text without the
+/// marker, so it is kept before anything replaces it.
+pub(crate) fn config_text(path: &std::path::Path) -> Option<String> {
+    match std::fs::read(path) {
+        Ok(bytes) => Some(String::from_utf8_lossy(&bytes).into_owned()),
+        Err(e)
+            if e.kind() == std::io::ErrorKind::NotFound
+                && std::fs::symlink_metadata(path).is_err() =>
+        {
+            None
+        }
+        Err(_) => Some(String::new()),
+    }
+}
+
+/// Keep the user's file at `path` in `backup` before Big Game Mode's
+/// replaces it: what it holds, byte for byte, or a symlink to nothing as
+/// that symlink.
+///
+/// # Errors
+/// Returns an error, and `path` must then not be replaced, when it cannot
+/// be kept.
+pub(crate) fn keep_aside(path: &std::path::Path, backup: &std::path::Path) -> Result<()> {
+    use anyhow::Context;
+    if let Some(dir) = backup.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    }
+    // Copying onto a symlink kept earlier would write where it points.
+    if std::fs::symlink_metadata(backup).is_ok_and(|m| m.file_type().is_symlink()) {
+        std::fs::remove_file(backup).with_context(|| format!("remove {}", backup.display()))?;
+    }
+    let dangling = std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink())
+        && std::fs::metadata(path).is_err();
+    if dangling {
+        let target =
+            std::fs::read_link(path).with_context(|| format!("read link {}", path.display()))?;
+        std::os::unix::fs::symlink(target, backup)
+    } else {
+        std::fs::copy(path, backup).map(drop)
+    }
+    .with_context(|| format!("keep {}", path.display()))
+}
+
+/// Put the file kept in `backup` back at `path`; whether one was kept. A
+/// symlink at `path` stays: the file it points to is the one put back.
+///
+/// # Errors
+/// Returns an error when the kept file cannot be moved back.
+pub(crate) fn put_back(backup: &std::path::Path, path: &std::path::Path) -> Result<bool> {
+    use anyhow::Context;
+    if std::fs::symlink_metadata(backup).is_err() {
+        return Ok(false);
+    }
+    let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    std::fs::rename(backup, &path).with_context(|| format!("put back {}", path.display()))?;
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -776,6 +1042,63 @@ mod tests {
         assert!(!path.exists());
     }
 
+    #[test]
+    fn a_file_that_is_not_utf8_or_a_symlink_to_nothing_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("MangoHud/MangoHud.conf");
+        let backup = dir.path().join("state/MangoHud.conf.user");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        // Latin-1, as an old editor saved it.
+        let latin1 = b"# r\xe9glages\nfps\n".to_vec();
+        std::fs::write(&path, &latin1).unwrap();
+        assert_eq!(
+            style_state_of(config_text(&path).as_deref()),
+            StyleState::Own
+        );
+        set_style_at(Style::Basic, &path, &backup).unwrap();
+        assert_eq!(std::fs::read(&backup).unwrap(), latin1);
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), latin1);
+
+        // A link whose file is gone (an unmounted dotfiles folder).
+        std::fs::remove_file(&path).unwrap();
+        let gone = dir.path().join("unmounted/MangoHud.conf");
+        std::os::unix::fs::symlink(&gone, &path).unwrap();
+        assert_eq!(
+            style_state_of(config_text(&path).as_deref()),
+            StyleState::Own
+        );
+        set_style_at(Style::Full, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&backup).unwrap(), gone);
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), gone);
+        assert!(std::fs::symlink_metadata(&backup).is_err());
+    }
+
+    #[test]
+    fn a_dotfile_managers_symlink_stays_a_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("dotfiles/MangoHud.conf");
+        std::fs::create_dir_all(real.parent().unwrap()).unwrap();
+        std::fs::write(&real, "fps\n").unwrap();
+        let path = dir.path().join("MangoHud/MangoHud.conf");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&real, &path).unwrap();
+        let backup = dir.path().join("state/MangoHud.conf.user");
+
+        set_style_at(Style::Basic, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), real);
+        assert!(
+            std::fs::read_to_string(&real)
+                .unwrap()
+                .starts_with(STYLE_MARKER)
+        );
+        set_style_at(Style::Own, &path, &backup).unwrap();
+        assert_eq!(std::fs::read_link(&path).unwrap(), real);
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "fps\n");
+    }
+
     /// `launch_options` as a chain of saves: what it added is what the next
     /// call takes out.
     fn steam(current: &str, added: Option<&str>, mode: Mode) -> (String, Option<String>) {
@@ -856,27 +1179,82 @@ mod tests {
     fn the_record_of_added_words_reads_back() {
         let dir = crate::tests::tempdir("mangohud_added");
         let path = dir.join("state/steam-added.toml");
+        let records: std::collections::BTreeMap<String, SteamRecord> = read_record(&path).unwrap();
         // Nothing recorded: what an older version added for the saved mode.
         assert_eq!(
-            read_added(&path, "Game.exe", Mode::Forced)
-                .unwrap()
-                .as_deref(),
+            added_in(records.get("Game.exe"), Mode::Forced, "/a", "10").as_deref(),
             Some(WRAPPER)
         );
-        write_added(&path, "Game.exe", Some(LAYER)).unwrap();
-        write_added(&path, "Other.exe", None).unwrap();
+        // A record from before 2.3.2: one word for every account.
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            "\"Game.exe\" = \"MANGOHUD=1\"\n\"Other.exe\" = \"\"\n",
+        )
+        .unwrap();
+        let mut records: std::collections::BTreeMap<String, SteamRecord> =
+            read_record(&path).unwrap();
+        for account in ["/a", "/b"] {
+            assert_eq!(
+                added_in(records.get("Game.exe"), Mode::Forced, account, "10").as_deref(),
+                Some(LAYER)
+            );
+        }
         assert_eq!(
-            read_added(&path, "Game.exe", Mode::Forced)
-                .unwrap()
-                .as_deref(),
-            Some(LAYER)
+            added_in(records.get("Other.exe"), Mode::On, "/a", "10"),
+            None
         );
-        assert_eq!(read_added(&path, "Other.exe", Mode::On).unwrap(), None);
+        // By account now, next to the older records.
+        let mut by = crate::steam::Inserted::new();
+        by.entry("/a".into())
+            .or_default()
+            .insert("10".into(), LAYER.into());
+        records.insert("Game.exe".into(), SteamRecord::Accounts(by));
+        write_record(&path, &records).unwrap();
+        let records: std::collections::BTreeMap<String, SteamRecord> = read_record(&path).unwrap();
+        let game = records.get("Game.exe");
+        assert_eq!(added_in(game, Mode::On, "/a", "10").as_deref(), Some(LAYER));
+        assert_eq!(added_in(game, Mode::On, "/b", "10"), None);
+        assert_eq!(
+            added_in(records.get("Other.exe"), Mode::On, "/a", "10"),
+            None
+        );
         std::fs::write(&path, "not = [toml").unwrap();
         assert!(
-            read_added(&path, "Game.exe", Mode::Off).is_err(),
+            read_record::<std::collections::BTreeMap<String, SteamRecord>>(&path).is_err(),
             "a broken record is said"
         );
+    }
+
+    #[test]
+    fn each_account_takes_out_only_what_was_added_there() {
+        // The user typed MANGOHUD=1 in account "a"; "b" has nothing.
+        let store = std::cell::RefCell::new(std::collections::HashMap::from([
+            ("a".to_owned(), "MANGOHUD=1 %command%".to_owned()),
+            ("b".to_owned(), "-novid".to_owned()),
+        ]));
+        let read = |c: &std::path::Path, _: &str| {
+            store.borrow().get(c.to_string_lossy().as_ref()).cloned()
+        };
+        let accounts = [std::path::PathBuf::from("a"), "b".into()];
+        let apps = ["10".to_owned()];
+        let apply = |record: Option<&SteamRecord>, saved, mode| {
+            let (changes, added, _) = steam_plan(&accounts, &apps, &read, record, saved, mode);
+            for c in changes {
+                store
+                    .borrow_mut()
+                    .insert(c.config.to_string_lossy().into_owned(), c.after);
+            }
+            SteamRecord::Accounts(added)
+        };
+        let on = apply(None, Mode::Off, Mode::On);
+        assert_eq!(store.borrow()["a"], "MANGOHUD=1 %command%");
+        assert_eq!(store.borrow()["b"], "MANGOHUD=1 %command% -novid");
+        let off = apply(Some(&on), Mode::On, Mode::Off);
+        assert_eq!(store.borrow()["a"], "MANGOHUD=1 %command%", "theirs stays");
+        // Steam reads arguments alone as following the command.
+        assert_eq!(store.borrow()["b"], "%command% -novid");
+        assert_eq!(off, SteamRecord::Accounts(crate::steam::Inserted::new()));
     }
 
     #[test]
@@ -979,6 +1357,126 @@ mod tests {
         );
         // Off with nothing to remove changes nothing.
         assert_eq!(lutris_config(plain, Mode::Off), plain);
+    }
+
+    #[test]
+    fn a_replaced_file_keeps_its_mode_its_symlink_and_leaves_no_temporary() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("dotfiles/game.yml");
+        std::fs::create_dir_all(real.parent().unwrap()).unwrap();
+        std::fs::write(&real, "old\n").unwrap();
+        std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let link = dir.path().join("game.yml");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        replace_file(&link, b"new\n").unwrap();
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read_to_string(&real).unwrap(), "new\n");
+        assert_eq!(
+            std::fs::metadata(&real).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        // A file that was not there gets an ordinary one.
+        replace_file(&dir.path().join("fresh.yml"), b"x").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("fresh.yml")).unwrap(),
+            "x"
+        );
+
+        // Writers at once each use a temporary of their own.
+        std::thread::scope(|s| {
+            for i in 0..8 {
+                let real = &real;
+                s.spawn(move || replace_file(real, format!("{i}\n").as_bytes()).unwrap());
+            }
+        });
+        let last: u32 = std::fs::read_to_string(&real)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        assert!(last < 8);
+        for d in [dir.path(), real.parent().unwrap()] {
+            let names: Vec<String> = std::fs::read_dir(d)
+                .unwrap()
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect();
+            assert!(!names.iter().any(|n| n.starts_with('.')), "{names:?}");
+        }
+    }
+
+    #[test]
+    fn the_launchers_file_is_kept_once_and_then_replaced() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("lutris/games/game.yml");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "theirs\n").unwrap();
+        let backups = dir.path().join("backups");
+        write_keeping_backup_in(&file, "ours 1\n", &backups).unwrap();
+        write_keeping_backup_in(&file, "ours 2\n", &backups).unwrap();
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "ours 2\n");
+        let kept: Vec<_> = std::fs::read_dir(&backups).unwrap().flatten().collect();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(std::fs::read_to_string(kept[0].path()).unwrap(), "theirs\n");
+        let names: Vec<String> = std::fs::read_dir(file.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["game.yml"]);
+    }
+
+    #[test]
+    fn lutris_off_puts_back_what_the_game_had() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("game.yml");
+        let record = dir.path().join("state/lutris-before.toml");
+        let write = |f: &std::path::Path, t: &str| replace_file(f, t.as_bytes());
+        let game = "game:\n  exe: /g/x\nsystem:\n  env:\n    LANG: C\n";
+        let run = |before: &str, saved, mode| {
+            std::fs::write(&file, before).unwrap();
+            lutris_apply(&file, &record, saved, mode, &write).unwrap();
+            std::fs::read_to_string(&file).unwrap()
+        };
+        for theirs in [
+            "  mangohud: true",
+            "  mangohud: false",
+            "  mangohud: false  # slow",
+        ] {
+            let mine = format!("{game}{theirs}\n");
+            let on = run(&mine, Mode::Off, Mode::On);
+            assert!(on.contains(&format!("\n{LUTRIS_ON}\n")), "{on}");
+            // Forced after On keeps the first record.
+            std::fs::write(&file, &on).unwrap();
+            lutris_apply(&file, &record, Mode::On, Mode::Forced, &write).unwrap();
+            assert_eq!(run(&on, Mode::Forced, Mode::Off), mine, "{theirs}");
+            assert!(
+                read_record::<std::collections::BTreeMap<String, String>>(&record)
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        // None before: the line goes, and the section it added with it.
+        let plain = "game:\n  exe: /g/x\n";
+        let on = run(plain, Mode::Off, Mode::On);
+        assert_eq!(run(&on, Mode::On, Mode::Off), plain);
+
+        // Set by the user, nothing from Big Game Mode: Off leaves it.
+        let theirs = format!("{game}  mangohud: true\n");
+        assert_eq!(run(&theirs, Mode::Off, Mode::Off), theirs);
+        // Changed since in Lutris: theirs now.
+        run(plain, Mode::Off, Mode::On);
+        let changed = "game:\n  exe: /g/x\nsystem:\n  mangohud: false\n";
+        assert_eq!(run(changed, Mode::On, Mode::Off), changed);
+        // An older version's `true`, with no record: it goes.
+        assert_eq!(run(&on, Mode::On, Mode::Off), plain);
     }
 
     #[test]

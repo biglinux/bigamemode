@@ -50,7 +50,6 @@ pub struct Proc {
 /// One directory walk, the owner from the directory itself, two small reads
 /// per process of the user's, no forks.
 #[must_use]
-#[allow(clippy::similar_names)] // pid and ppid are what /proc calls them
 pub fn snapshot() -> Vec<Proc> {
     snapshot_in(Path::new("/proc"))
 }
@@ -83,11 +82,7 @@ fn snapshot_in(root: &Path) -> Vec<Proc> {
                 return None;
             }
             let raw = std::fs::read(dir.join("cmdline")).ok()?;
-            let argv0 = raw
-                .split(|b| *b == 0)
-                .next()
-                .map(|a| String::from_utf8_lossy(a).into_owned())
-                .unwrap_or_default();
+            let argv0 = argv0_of(&raw);
             // No command line: a kernel thread, or a process on its way
             // out. Neither is a game, and an exiting one in a game's tree
             // was once reported as the game, with no name.
@@ -110,6 +105,36 @@ fn snapshot_in(root: &Path) -> Vec<Proc> {
             })
         })
         .collect()
+}
+
+/// `argv[0]` of a raw `/proc/<pid>/cmdline`.
+///
+/// Chromium, Electron and CEF helpers rewrite their command line as one
+/// space-joined string (`/opt/Heroic/heroic --type=gpu-process …`), so the
+/// first NUL-separated field is the whole line and its basename is no
+/// program's name. For such a line `argv[0]` ends where the switches begin.
+fn argv0_of(raw: &[u8]) -> String {
+    let first = raw.split(|b| *b == 0).next().unwrap_or_default();
+    let joined = !raw
+        .iter()
+        .rposition(|b| *b != 0)
+        .is_some_and(|end| raw[..end].contains(&0));
+    let first = String::from_utf8_lossy(first);
+    if joined
+        && first.contains(" --type=")
+        && let Some(cut) = first.find(" --")
+    {
+        return first[..cut].to_owned();
+    }
+    first.into_owned()
+}
+
+/// Whether a process is a helper of a Chromium-based program (its GPU
+/// process, a renderer, a utility): never the game. A Heroic or Electron
+/// game's `--type=gpu-process` submits GPU work, and would be chosen over
+/// the program itself.
+fn is_chromium_helper(p: &Proc) -> bool {
+    p.cmdline.contains(" --type=")
 }
 
 /// `(ppid, state, utime + stime)` from `/proc/<pid>/stat`.
@@ -229,6 +254,16 @@ const INFRASTRUCTURE: &[&str] = &[
     // the game starts; Debian-based runtimes name the binary ldconfig.real.
     "ldconfig",
     "ldconfig.real",
+    // Short-lived programs the container, Proton and launch scripts run
+    // before the game: generating locales, parsing options, waiting, asking
+    // in a dialog.
+    "localedef",
+    "getopt",
+    "env",
+    "sleep",
+    "timeout",
+    "zenity",
+    "yad",
     // Wine infrastructure
     "wineserver",
     "wine",
@@ -251,6 +286,11 @@ const INFRASTRUCTURE: &[&str] = &[
     "xalia.exe",
     "iexplore.exe",
     "d3ddriverquery64.exe",
+    // Installing a game's redistributables and compiling its .NET
+    // assemblies in the prefix, on a first launch.
+    "msiexec.exe",
+    "mscorsvw.exe",
+    "ngen.exe",
     // Steam's installer-script runner: it runs inside the game's Proton tree
     // on a first launch, before the game itself, and must not be offered a
     // profile.
@@ -417,9 +457,13 @@ pub fn is_infrastructure(name: &str) -> bool {
         || STEAM_RUNTIME_PREFIXES.iter().any(|p| lower.starts_with(p))
         // Crash handlers by their usual names -- not any name containing
         // "crash", which would also exclude Crash Bandicoot.
-        || ["crashhandler", "crash_handler", "crashreport", "crashpad", "crashsender"]
+        // BugSplat's reporter is BsSndRpt.exe.
+        || ["crashhandler", "crash_handler", "crashreport", "crashpad", "crashsender", "bssndrpt", "bugsplat"]
             .iter()
             .any(|n| lower.contains(n))
+        // python3.12: the interpreter Proton's script runs under, by its
+        // versioned name.
+        || crate::games::is_versioned(&lower, "python")
         || lower.contains("launcher")
         // REDupdater.exe, EA's EADesktopUpdater…: they update, they do not play.
         || lower.contains("updater")
@@ -432,14 +476,15 @@ pub fn is_infrastructure(name: &str) -> bool {
 /// The processes of a Steam tree the game can be, out of `candidates`.
 fn game_pool<'a>(candidates: Vec<&'a &'a Proc>, proton: bool) -> Vec<&'a &'a Proc> {
     // In a Proton tree the game is a Windows binary. A Linux helper inside
-    // the container -- an overlay, a wrapper -- must not outrank a game
-    // that is still loading and has burned little CPU yet.
+    // the container -- an overlay, a wrapper, a program the launch scripts
+    // run for a moment -- must not outrank a game that is still loading and
+    // has burned little CPU yet, nor be taken for it before it starts.
     let windows: Vec<&&Proc> = candidates
         .iter()
         .copied()
         .filter(|p| p.argv0.to_ascii_lowercase().ends_with(".exe"))
         .collect();
-    if proton && !windows.is_empty() {
+    if proton {
         // Steam runs its games from the library. A launcher the game
         // installed in the prefix (CD Projekt's REDlauncher, in
         // C:\users\…\AppData) runs beside it, and its web page
@@ -520,18 +565,8 @@ pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
     identify_with(procs, &HashMap::new())
 }
 
-/// Find the running games in a process list.
-///
-/// Steam games are found from their reaper, which names the app id; within
-/// that tree the game is the busiest process that is not machinery — a
-/// launcher can briefly be the only candidate, and it is excluded by name.
-/// Wine games outside Steam are found as busy `.exe` processes under Wine.
-///
-/// `native` maps the executable names of games this machine knows about
-/// ([`known_native_games`]) to their display names. Without it a native
-/// game started from the application menu (`SuperTuxKart` from the
-/// repositories, say) is never taken for a game: Home keeps saying *waiting
-/// for games* and no profile is offered.
+/// [`identify_ranked`] with nothing known of the processes' activity.
+#[cfg(test)]
 #[must_use]
 pub fn identify_with<S: std::hash::BuildHasher>(
     procs: &[Proc],
@@ -570,21 +605,33 @@ impl Activity {
     /// The process being played among `pool`: the one drawing, then the
     /// busiest of late. The GPU is asked only when there is a choice.
     fn choose<'a>(&self, pool: Vec<&'a Proc>) -> Option<&'a Proc> {
-        if pool.len() > 1 {
-            if let Some(renders) = &self.renders {
-                return pool
-                    .into_iter()
-                    .map(|p| (renders(p.pid), self.recent(p), p))
-                    .max_by_key(|(drawing, recent, p)| (*drawing, *recent, p.cpu_ticks))
-                    .map(|(_, _, p)| p);
-            }
+        if pool.len() > 1
+            && let Some(renders) = &self.renders
+        {
+            return pool
+                .into_iter()
+                .map(|p| (renders(p.pid), self.recent(p), p))
+                .max_by_key(|(drawing, recent, p)| (*drawing, *recent, p.cpu_ticks))
+                .map(|(_, _, p)| p);
         }
         pool.into_iter()
             .max_by_key(|p| (self.recent(p), p.cpu_ticks))
     }
 }
 
-/// [`identify_with`], choosing within a tree by [`Activity`].
+/// Find the running games in a process list.
+///
+/// Steam games are found from their reaper, which names the app id; within
+/// that tree the game is the process that is not machinery chosen by
+/// [`Activity`] — a launcher can briefly be the only candidate, and it is
+/// excluded by name. Wine games outside Steam are found as busy `.exe`
+/// processes under Wine.
+///
+/// `native` maps the executable names of games this machine knows about
+/// ([`known_native_games`]) to their display names. Without it a native
+/// game started from the application menu (`SuperTuxKart` from the
+/// repositories, say) is never taken for a game: Home keeps saying *waiting
+/// for games* and no profile is offered.
 #[must_use]
 pub fn identify_ranked<S: std::hash::BuildHasher>(
     procs: &[Proc],
@@ -604,7 +651,11 @@ pub fn identify_ranked<S: std::hash::BuildHasher>(
         let proton = proton_tool(&tree);
         let candidates: Vec<&&Proc> = tree
             .iter()
-            .filter(|p| !p.argv0.is_empty() && !is_infrastructure(falcond_name(&p.argv0)))
+            .filter(|p| {
+                !p.argv0.is_empty()
+                    && !is_infrastructure(falcond_name(&p.argv0))
+                    && !is_chromium_helper(p)
+            })
             .collect();
         let pool = game_pool(candidates, proton.is_some());
         let Some(game) = activity.choose(pool.into_iter().copied().collect()) else {
@@ -695,31 +746,54 @@ pub fn identify_ranked<S: std::hash::BuildHasher>(
 // ── Native games the machine knows about ─────────────────────────────────────
 
 /// Executable name → display name for every native game this machine lists:
-/// the menu entries in the `Game` category ([`crate::games::menu_games`]),
-/// and the process names falcond has a profile for — a profile is falcond's
-/// own statement that a process is a game.
+/// the games of the library ([`crate::games::detect_all`]) that run here
+/// directly, menu entries in the `Game` category among them, and the
+/// process names falcond has a profile for — a profile is falcond's own
+/// statement that a process is a game.
 ///
-/// Read at most once a minute: detection runs every few seconds, and a game
-/// installed meanwhile is picked up on the next read.
+/// Looked at most once a minute: detection runs every few seconds, and a
+/// game installed meanwhile is picked up on the next look. The library's
+/// part is worked out again only when the library was scanned again, which
+/// happens only when what it is read from changed
+/// ([`crate::games::detect_all_changed`]): a look at an unchanged library
+/// costs the stat of its files, not a walk of every install folder.
 #[must_use]
 pub fn known_native_games() -> HashMap<String, String> {
     use std::sync::Mutex;
     use std::time::{Duration, Instant};
-    static CACHE: Mutex<Option<(Instant, HashMap<String, String>)>> = Mutex::new(None);
+    #[derive(Default)]
+    struct Known {
+        at: Option<Instant>,
+        /// The library scan `library` was worked out from.
+        scan: Option<u64>,
+        library: HashMap<String, String>,
+        games: HashMap<String, String>,
+    }
+    static CACHE: Mutex<Option<Known>> = Mutex::new(None);
     let mut cache = CACHE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some((at, games)) = cache.as_ref() {
-        if at.elapsed() < Duration::from_secs(60) {
-            return games.clone();
-        }
+    let known = cache.get_or_insert_with(Known::default);
+    if known
+        .at
+        .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
+    {
+        return known.games.clone();
     }
-    let games = read_native_games();
-    *cache = Some((Instant::now(), games.clone()));
+    if let Some((scan, library)) = crate::games::detect_all_changed(known.scan) {
+        known.scan = Some(scan);
+        known.library = native_games_from(&[], &library);
+    }
+    // The library's word over a profile's, as in [`native_games_from`].
+    let mut games = native_games_from(&profile_names(), &[]);
+    games.extend(known.library.iter().map(|(k, v)| (k.clone(), v.clone())));
+    known.games.clone_from(&games);
+    known.at = Some(Instant::now());
     games
 }
 
-fn read_native_games() -> HashMap<String, String> {
+/// The `name` of every falcond profile, the system's and the user's.
+fn profile_names() -> Vec<String> {
     let mut profiles = Vec::new();
     let base = Path::new(crate::profiles::SYSTEM_PROFILES_DIR);
     for dir in [base.to_path_buf(), base.join("user")] {
@@ -730,7 +804,7 @@ fn read_native_games() -> HashMap<String, String> {
             profiles.extend(profile_name_field(&content));
         }
     }
-    native_games_from(&profiles, &crate::games::detect_all())
+    profiles
 }
 
 /// Names too common among native programs to say which game runs: a
@@ -822,37 +896,68 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
     }
 }
 
-/// How long a game's graphics path, once told, is taken as known: its
-/// memory map is a large read, and the watcher asks every few seconds. A
-/// game that loads its renderer late is read again after this.
+/// How long what was learned of a game's process — its graphics path, the
+/// card it renders on — is taken as known: its memory map and its
+/// descriptors are large reads, the card may take a question to NVML, and
+/// the watcher asks every few seconds for as long as the game runs. A game
+/// that loads its renderer late is read again after this.
 const GRAPHICS_KEPT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// One fact learned of the process being watched, kept for a while: the
+/// watcher follows one game, so one process is kept.
+struct Kept<T>(Option<(u32, String, std::time::Instant, T)>);
+
+impl<T: Clone> Kept<T> {
+    const fn new() -> Self {
+        Self(None)
+    }
+
+    /// What `read` says of process `pid` running `executable`, read again
+    /// once `max_age` has passed. A `None` is not kept: what cannot be told
+    /// yet is asked again the next time.
+    fn get(
+        &mut self,
+        pid: u32,
+        executable: &str,
+        max_age: std::time::Duration,
+        read: impl FnOnce() -> Option<T>,
+    ) -> Option<T> {
+        let now = std::time::Instant::now();
+        if let Some((p, e, at, value)) = &self.0
+            && *p == pid
+            && e == executable
+            && now.saturating_duration_since(*at) < max_age
+        {
+            return Some(value.clone());
+        }
+        let value = read();
+        self.0 = value.clone().map(|v| (pid, executable.to_owned(), now, v));
+        value
+    }
+}
 
 /// [`graphics_from_maps`] of process `pid`, read again only after
 /// [`GRAPHICS_KEPT`] once it is known.
 fn graphics_of(pid: u32, executable: &str) -> Graphics {
-    type Seen = HashMap<(u32, String), (std::time::Instant, Graphics)>;
-    static SEEN: std::sync::Mutex<Option<Seen>> = std::sync::Mutex::new(None);
-    let key = (pid, executable.to_owned());
-    let now = std::time::Instant::now();
-    let mut seen = SEEN
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let seen = seen.get_or_insert_with(HashMap::new);
-    if let Some((at, graphics)) = seen.get(&key) {
-        if now.saturating_duration_since(*at) < GRAPHICS_KEPT {
-            return *graphics;
-        }
-    }
-    let graphics = std::fs::read_to_string(format!("/proc/{pid}/maps"))
-        .map_or(Graphics::Unknown, |maps| graphics_from_maps(&maps));
-    // Only the game being watched is kept.
-    seen.retain(|(p, _), _| *p == pid);
-    if graphics == Graphics::Unknown {
-        seen.remove(&key);
-    } else {
-        seen.insert(key, (now, graphics));
-    }
-    graphics
+    static KEPT: std::sync::Mutex<Kept<Graphics>> = std::sync::Mutex::new(Kept::new());
+    KEPT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(pid, executable, GRAPHICS_KEPT, || {
+            std::fs::read_to_string(format!("/proc/{pid}/maps"))
+                .map(|maps| graphics_from_maps(&maps))
+                .ok()
+                .filter(|g| *g != Graphics::Unknown)
+        })
+        .unwrap_or(Graphics::Unknown)
+}
+
+/// [`render_card`] of process `pid`, read again only after
+/// [`GRAPHICS_KEPT`] once it is known.
+fn render_card_of(pid: u32, executable: &str) -> Option<String> {
+    static KEPT: std::sync::Mutex<Kept<String>> = std::sync::Mutex::new(Kept::new());
+    KEPT.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(pid, executable, GRAPHICS_KEPT, || render_card(pid))
 }
 
 /// A GPU a process has open.
@@ -1105,32 +1210,62 @@ fn drop_enumerated_only(
         .collect()
 }
 
+/// What Steam's manifest says of a game: its title, where it is installed,
+/// its Proton prefix.
+#[derive(Clone, Default)]
+struct SteamDetails {
+    name: Option<String>,
+    install_path: Option<PathBuf>,
+    compatdata_path: Option<PathBuf>,
+}
+
+/// [`SteamDetails`] of app `id`, from the manifest in the library that has
+/// it.
+fn steam_details(id: &str, home: &Path) -> SteamDetails {
+    for library in crate::games::steam_libraries(home) {
+        let steamapps = library.join("steamapps");
+        let Ok(text) = std::fs::read_to_string(steamapps.join(format!("appmanifest_{id}.acf")))
+        else {
+            continue;
+        };
+        // The prefix beside the manifest, not the first compatdata/<id>
+        // found: Steam leaves stale ones behind when a game moves.
+        let prefix = steamapps.join("compatdata").join(id);
+        return SteamDetails {
+            name: crate::games::acf_value(&text, "name"),
+            install_path: crate::games::acf_value(&text, "installdir")
+                .map(|dir| steamapps.join("common").join(dir)),
+            compatdata_path: prefix.is_dir().then_some(prefix),
+        };
+    }
+    SteamDetails::default()
+}
+
 /// Fill in what the launcher and the live process can say.
+///
+/// What was learned of the process is kept ([`Kept`]): the watcher asks
+/// again every few seconds for as long as the game runs, and the manifest
+/// of a running game does not change; its graphics and card are read again
+/// now and then, until they are known and then after [`GRAPHICS_KEPT`].
 fn enrich(mut game: GameIdentity) -> GameIdentity {
+    static STEAM: std::sync::Mutex<Kept<SteamDetails>> = std::sync::Mutex::new(Kept::new());
     game.graphics = graphics_of(game.pid, &game.executable);
-    game.render_card = render_card(game.pid);
-    if let Some(id) = game.steam_app_id.clone() {
-        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-            for library in crate::games::steam_libraries(&home) {
-                let steamapps = library.join("steamapps");
-                let Ok(text) =
-                    std::fs::read_to_string(steamapps.join(format!("appmanifest_{id}.acf")))
-                else {
-                    continue;
-                };
-                if let Some(name) = crate::games::acf_value(&text, "name") {
-                    game.display_name = name;
-                }
-                if let Some(dir) = crate::games::acf_value(&text, "installdir") {
-                    game.install_path = Some(steamapps.join("common").join(dir));
-                }
-                // The prefix beside the manifest, not the first compatdata/<id>
-                // found: Steam leaves stale ones behind when a game moves.
-                let prefix = steamapps.join("compatdata").join(&id);
-                game.compatdata_path = prefix.is_dir().then_some(prefix);
-                break;
-            }
+    game.render_card = render_card_of(game.pid, &game.executable);
+    if let Some(id) = game.steam_app_id.clone()
+        && let Some(home) = std::env::var_os("HOME").map(PathBuf::from)
+    {
+        let details = STEAM
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(game.pid, &game.executable, std::time::Duration::MAX, || {
+                Some(steam_details(&id, &home))
+            })
+            .unwrap_or_default();
+        if let Some(name) = details.name {
+            game.display_name = name;
         }
+        game.install_path = details.install_path;
+        game.compatdata_path = details.compatdata_path;
     }
     game
 }
@@ -1471,11 +1606,7 @@ pub fn running_for(pid: u32) -> Option<u64> {
     if hz <= 0 {
         return None;
     }
-    #[allow(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
+    #[allow(clippy::cast_precision_loss)]
     let started = start_ticks as f64 / hz as f64;
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     Some((uptime - started).max(0.0) as u64)
@@ -1548,10 +1679,10 @@ fn matching_profile_in(
             let Ok(content) = std::fs::read_to_string(&path) else {
                 continue;
             };
-            if let Some(name) = profile_name_field(&content) {
-                if !name.eq_ignore_ascii_case("proton") {
-                    candidates.push(ProfileMatch { name, path, user });
-                }
+            if let Some(name) = profile_name_field(&content)
+                && !name.eq_ignore_ascii_case("proton")
+            {
+                candidates.push(ProfileMatch { name, path, user });
             }
         }
     }
@@ -2047,6 +2178,110 @@ mod tests {
     }
 
     #[test]
+    fn what_runs_before_a_proton_game_is_not_the_game() {
+        // A Proton tree before the game starts: the container generating
+        // locales, a launch script parsing options and waiting, a dialog,
+        // Proton's interpreter by its versioned name, a Linux helper of
+        // nobody's list. None of them is the Windows game.
+        let mut tree = vec![
+            reaper(1, "1245620"),
+            p(
+                2,
+                1,
+                "python3|/s/steamapps/common/Proton - Experimental/proton waitforexitandrun x",
+                5,
+            ),
+            p(3, 2, "/usr/bin/localedef|--add-to-archive", 300),
+            p(4, 2, "/usr/bin/getopt|-o h", 2),
+            p(5, 2, "/usr/bin/env|FOO=1 sleep 1", 1),
+            p(6, 2, "/usr/bin/sleep|1", 1),
+            p(7, 2, "/usr/bin/timeout|5 true", 1),
+            p(8, 2, "/usr/bin/zenity|--info", 40),
+            p(9, 2, "/usr/bin/yad|--text=x", 40),
+            p(10, 2, "/usr/bin/python3.12|/s/script.py", 90),
+            p(11, 2, "/s/steamapps/common/G/tools/helper|", 700),
+            p(
+                12,
+                2,
+                "C:\\windows\\system32\\msiexec.exe|/i vcredist.msi",
+                900,
+            ),
+            p(
+                13,
+                2,
+                "C:\\windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorsvw.exe|",
+                900,
+            ),
+            p(
+                14,
+                2,
+                "C:\\windows\\Microsoft.NET\\Framework64\\v4.0.30319\\ngen.exe|update",
+                900,
+            ),
+            p(15, 2, "S:\\steamapps\\common\\G\\BsSndRpt64.exe|", 900),
+            p(16, 2, "S:\\steamapps\\common\\G\\BugSplatHD64.exe|", 900),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
+        // The game starts: it is the game, however busy the rest are.
+        tree.push(p(17, 2, "S:\\steamapps\\common\\G\\ELDENRING.exe|", 50));
+        let games = identify(&tree);
+        assert_eq!(games.len(), 1, "{games:?}");
+        assert_eq!(games[0].pid, 17);
+        assert!(!is_infrastructure("Bugsnax.exe"));
+        assert!(!is_infrastructure("python-game"));
+    }
+
+    #[test]
+    fn a_chromium_helpers_joined_command_line_names_its_program() {
+        // Electron's GPU process, as /proc shows it: one string, no NUL
+        // between the arguments.
+        assert_eq!(
+            argv0_of(
+                b"/opt/Heroic/heroic --type=gpu-process --user-data-dir=/home/u/.config/heroic\0"
+            ),
+            "/opt/Heroic/heroic"
+        );
+        // Arguments NUL-separated as usual are left alone, switches or not.
+        assert_eq!(
+            argv0_of(b"/g/My --type=Game/run\0--type=renderer\0"),
+            "/g/My --type=Game/run"
+        );
+        assert_eq!(
+            argv0_of(b"C:\\Program Files\\G\\Game.exe\0-dx12\0"),
+            "C:\\Program Files\\G\\Game.exe"
+        );
+        assert_eq!(argv0_of(b"/g/Game --fullscreen\0"), "/g/Game --fullscreen");
+        assert_eq!(argv0_of(b""), "");
+    }
+
+    #[test]
+    fn an_electron_games_helpers_are_not_the_game() {
+        // An Electron game on Steam: its GPU process submits the GPU work,
+        // its renderer burns the CPU; the game is the program itself.
+        let game = "/g/steamapps/common/G/G";
+        let tree = vec![
+            reaper(1, "4242"),
+            p(2, 1, &format!("{game}|--no-sandbox"), 300),
+            p(
+                3,
+                2,
+                &format!("{game}|--type=gpu-process --field-trial-handle=1"),
+                900,
+            ),
+            p(4, 2, &format!("{game}|--type=renderer --lang=en"), 5_000),
+            p(5, 2, &format!("{game}|--type=utility"), 50),
+        ];
+        let drawing = Activity {
+            previous: HashMap::new(),
+            renders: Some(Box::new(|pid| pid == 3)),
+        };
+        let found = identify_ranked(&tree, &HashMap::<String, String>::new(), &drawing);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].pid, 2);
+        assert_eq!(found[0].process_name, "G");
+    }
+
+    #[test]
     fn a_process_without_a_command_line_is_not_the_game() {
         // A process on its way out has an empty cmdline. Left in the pool it
         // was once chosen, and Home announced a game with no name.
@@ -2299,6 +2534,30 @@ mod tests {
             graphics_from_maps("7f00 r-xp 0 00:00 1 /usr/lib/libGLX_mesa.so.0\n"),
             Graphics::OpenGl
         );
+    }
+
+    #[test]
+    fn what_is_learned_of_a_process_is_kept_while_it_is_known() {
+        let reads = std::cell::Cell::new(0);
+        let read = |value: Option<u32>| {
+            reads.set(reads.get() + 1);
+            value
+        };
+        let long = std::time::Duration::from_secs(60);
+        let mut kept = Kept::new();
+        // Not known yet: asked again.
+        assert_eq!(kept.get(7, "G.exe", long, || read(None)), None);
+        assert_eq!(kept.get(7, "G.exe", long, || read(Some(1))), Some(1));
+        assert_eq!(kept.get(7, "G.exe", long, || read(Some(2))), Some(1));
+        assert_eq!(reads.get(), 2);
+        // Another process, or the same pid running something else, is
+        // read anew.
+        assert_eq!(kept.get(8, "G.exe", long, || read(Some(3))), Some(3));
+        assert_eq!(kept.get(8, "H.exe", long, || read(Some(4))), Some(4));
+        // And once its time is up.
+        let none = std::time::Duration::ZERO;
+        assert_eq!(kept.get(8, "H.exe", none, || read(Some(5))), Some(5));
+        assert_eq!(reads.get(), 5);
     }
 
     #[test]
@@ -2560,6 +2819,24 @@ mod tests {
         assert_eq!(procs[0].ppid, 4000);
         assert_eq!(procs[0].cpu_ticks, 1570);
         assert_eq!(procs[0].cmdline, "C:\\g\\Game.exe -dx12");
+        // A Chromium helper that rewrote its command line as one string.
+        let helper = root.join("4243");
+        std::fs::create_dir_all(&helper).unwrap();
+        std::fs::write(
+            helper.join("stat"),
+            "4243 (heroic) S 4000 4243 0 0 -1 0 0 0 0 0 10 5 0 0 20 0 60 0 99",
+        )
+        .unwrap();
+        std::fs::write(
+            helper.join("cmdline"),
+            b"/opt/Heroic/heroic --type=gpu-process --user-data-dir=/h/.config/heroic\0",
+        )
+        .unwrap();
+        let procs = snapshot_in(&root);
+        let helper = procs.iter().find(|p| p.pid == 4243).unwrap();
+        assert_eq!(helper.argv0, "/opt/Heroic/heroic");
+        assert_eq!(falcond_name(&helper.argv0), "heroic");
+        assert!(is_chromium_helper(helper));
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -2616,6 +2893,13 @@ mod tests {
             ]
         );
         assert_eq!(known["supertuxkart"], "SuperTuxKart");
+        // Built in two parts, as `known_native_games` keeps them, it is the
+        // same map: the library's word over a profile's.
+        let profiles = ["cs2".to_owned(), "supertuxkart".to_owned()];
+        let mut parts = native_games_from(&profiles, &[]);
+        parts.extend(native_games_from(&[], &library));
+        assert_eq!(parts, native_games_from(&profiles, &library));
+        assert_eq!(parts["supertuxkart"], "SuperTuxKart");
     }
 
     #[test]

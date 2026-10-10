@@ -182,15 +182,15 @@ pub fn validate(profile: &GameProfile) -> Vec<&'static str> {
         }
     }
     // Script paths: check they look like absolute paths
-    if let Some(ref s) = profile.start_script {
-        if !s.starts_with('/') {
-            warnings.push(N_("Start script should be an absolute path"));
-        }
+    if let Some(ref s) = profile.start_script
+        && !s.starts_with('/')
+    {
+        warnings.push(N_("Start script should be an absolute path"));
     }
-    if let Some(ref s) = profile.stop_script {
-        if !s.starts_with('/') {
-            warnings.push(N_("Stop script should be an absolute path"));
-        }
+    if let Some(ref s) = profile.stop_script
+        && !s.starts_with('/')
+    {
+        warnings.push(N_("Stop script should be an absolute path"));
     }
     warnings
 }
@@ -210,12 +210,11 @@ pub fn critical_errors(profile: &GameProfile) -> Vec<&'static str> {
     if profile.name.contains(std::path::MAIN_SEPARATOR) || profile.name.contains("..") {
         errors.push(N_("Profile name contains invalid path characters"));
     }
-    if let Some(ref gs) = profile.gamescope {
-        if (gs.render_width == 0) != (gs.render_height == 0)
-            || (gs.output_width == 0) != (gs.output_height == 0)
-        {
-            errors.push(N_("Gamescope resolution needs both width and height"));
-        }
+    if let Some(ref gs) = profile.gamescope
+        && ((gs.render_width == 0) != (gs.render_height == 0)
+            || (gs.output_width == 0) != (gs.output_height == 0))
+    {
+        errors.push(N_("Gamescope resolution needs both width and height"));
     }
     errors
 }
@@ -399,15 +398,15 @@ fn serialize_profile_otter_conf(profile: &GameProfile) -> String {
     let _ = writeln!(out, "vcache_mode = {}", profile.vcache_mode);
     let _ = writeln!(out, "idle_inhibit = {}", profile.idle_inhibit);
     // Strings: quoted
-    if let Some(ref s) = profile.start_script {
-        if !s.is_empty() {
-            let _ = writeln!(out, "start_script = \"{s}\"");
-        }
+    if let Some(ref s) = profile.start_script
+        && !s.is_empty()
+    {
+        let _ = writeln!(out, "start_script = \"{s}\"");
     }
-    if let Some(ref s) = profile.stop_script {
-        if !s.is_empty() {
-            let _ = writeln!(out, "stop_script = \"{s}\"");
-        }
+    if let Some(ref s) = profile.stop_script
+        && !s.is_empty()
+    {
+        let _ = writeln!(out, "stop_script = \"{s}\"");
     }
     // Big Game Mode's own per-game settings (otter_conf skips unknown keys).
     // `cpu_governor`, `scx_custom_flags` and `enabled` are not written: nothing
@@ -490,18 +489,101 @@ pub fn save_file(profile: &GameProfile) -> Result<()> {
     Ok(())
 }
 
-/// Delete a user profile by name via D-Bus.
+/// What deleting a profile did in the game's launchers. `None` (or empty)
+/// for a part that had nothing to take out.
+#[derive(Debug, Default)]
+pub struct Deleted {
+    /// The game's own launch settings could not be cleared, so a later
+    /// change in Tuning would write them back into its launchers.
+    pub settings: Option<anyhow::Error>,
+    /// `MangoHud`, wherever the game's launcher keeps it.
+    pub mangohud: Option<Result<crate::mangohud::Applied>>,
+    /// Gamescope and the game's variables in its Steam launch options.
+    pub steam_launch: Option<Result<crate::steam_gamescope::Applied>>,
+    /// Proton's FSR 4 upgrade in its Steam launch options, one per app.
+    pub fsr4: Vec<Result<crate::graphics::fsr4_upgrade::Applied>>,
+    /// Everything Big Game Mode wrote into its settings in Heroic.
+    pub heroic: Option<Result<crate::heroic_launch::Applied>>,
+}
+
+impl Deleted {
+    /// Steam was running, and kept the game's launch options as they were:
+    /// they still hold what Big Game Mode wrote.
+    #[must_use]
+    pub fn steam_running(&self) -> bool {
+        use crate::graphics::fsr4_upgrade::Applied as Fsr4;
+        matches!(
+            self.mangohud,
+            Some(Ok(crate::mangohud::Applied::SteamRunning))
+        ) || matches!(
+            self.steam_launch,
+            Some(Ok(crate::steam_gamescope::Applied::SteamRunning))
+        ) || self
+            .fsr4
+            .iter()
+            .any(|r| matches!(r, Ok(Fsr4::SteamRunning)))
+    }
+
+    /// The Heroic that was open, and kept the game's settings there as
+    /// they were.
+    #[must_use]
+    pub fn heroic_running(&self) -> Option<crate::launchers::Launcher> {
+        match &self.heroic {
+            Some(Ok(crate::heroic_launch::Applied::HeroicRunning { launcher, .. })) => {
+                Some(*launcher)
+            }
+            _ => None,
+        }
+    }
+
+    /// What failed outright.
+    #[must_use]
+    pub fn errors(&self) -> Vec<&anyhow::Error> {
+        self.settings
+            .iter()
+            .chain(self.mangohud.iter().filter_map(|r| r.as_ref().err()))
+            .chain(self.steam_launch.iter().filter_map(|r| r.as_ref().err()))
+            .chain(self.fsr4.iter().filter_map(|r| r.as_ref().err()))
+            .chain(self.heroic.iter().filter_map(|r| r.as_ref().err()))
+            .collect()
+    }
+
+    /// Whether everything Big Game Mode wrote for the game is out.
+    #[must_use]
+    pub fn complete(&self) -> bool {
+        !self.steam_running()
+            && self.heroic_running().is_none()
+            && !matches!(
+                self.mangohud,
+                Some(Ok(crate::mangohud::Applied::LauncherRunning(_)))
+            )
+            && self.errors().is_empty()
+    }
+}
+
+/// Delete a user profile by name via D-Bus, with what Big Game Mode wrote
+/// for the game into its launchers, and say what was left there: with Steam
+/// or Heroic open, it stays until the game's launch settings are written
+/// again with that launcher closed.
 ///
 /// Synchronous for the same reason as [`save`].
 ///
 /// # Errors
-/// Returns an error if the profile does not exist or the D-Bus call fails.
-pub fn delete(name: &str) -> Result<()> {
+/// Returns an error if the profile does not exist or the D-Bus call fails;
+/// then nothing else is touched.
+pub fn delete(name: &str) -> Result<Deleted> {
     let path = user_path(name);
     anyhow::ensure!(
         path.exists(),
         UserError::with(N_("profile not found: %s"), [path.display().to_string()])
     );
+    // The game's settings and its launchers know it by the process the
+    // profile is for, which the file's name need not be.
+    let process = load(name)
+        .ok()
+        .map(|p| p.name)
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| name.to_owned());
 
     let proxy = crate::dbus_client::daemon_proxy_blocking()?;
     // The helper reloads falcond itself, through systemd.
@@ -513,7 +595,55 @@ pub fn delete(name: &str) -> Result<()> {
         tracing::warn!(profile = %name, error = %format!("{e:#}"), "the profile is deleted, but its lsfg-vk entry is still there");
     }
 
-    Ok(())
+    Ok(remove_from_launchers(&process))
+}
+
+/// Take out of the game's launchers what Big Game Mode wrote there for it,
+/// through the paths that write it, each asked for nothing. Only what Big
+/// Game Mode recorded writing comes out; the user's own options stay.
+fn remove_from_launchers(process: &str) -> Deleted {
+    let mut deleted = Deleted::default();
+    let mut mangohud = crate::mangohud::Mode::Off;
+    let mut fsr4 = false;
+    match crate::game_settings::load(process) {
+        Ok(mut settings) => {
+            mangohud = settings.mangohud;
+            fsr4 = settings
+                .steam_fsr4_upgrade
+                .as_ref()
+                .is_some_and(|added| !added.is_empty());
+            // Cleared first: Heroic's path writes what is saved for the
+            // game, and Tuning's refresh would put them back into Steam's
+            // and Heroic's settings for a game with no profile.
+            if !settings.launch.is_empty() || settings.heroic_fsr4_upgrade {
+                settings.launch = crate::game_launch::GameLaunch::default();
+                settings.heroic_fsr4_upgrade = false;
+                if let Err(e) = crate::game_settings::save(process, &settings) {
+                    deleted.settings = Some(e);
+                }
+            }
+        }
+        Err(e) => deleted.settings = Some(e),
+    }
+    if mangohud != crate::mangohud::Mode::Off {
+        deleted.mangohud = Some(crate::mangohud::apply(process, crate::mangohud::Mode::Off));
+    }
+    deleted.steam_launch = Some(crate::steam_gamescope::apply(
+        process,
+        crate::steam_gamescope::Wanted::default(),
+    ));
+    // Only where it recorded adding it: with no record, a variable in the
+    // options may be the user's own.
+    if fsr4 {
+        deleted.fsr4 = crate::steam_gamescope::steam_apps(process)
+            .iter()
+            .map(|app| crate::graphics::fsr4_upgrade::apply(process, Some(app), false))
+            .collect();
+    }
+    deleted.heroic = Some(crate::heroic_launch::apply(process, |_| {
+        crate::heroic_launch::Wanted::default()
+    }));
+    deleted
 }
 
 /// Resolve profile path: user dir first, then system.
@@ -704,6 +834,48 @@ some_future_falcond_key = 42
             std::fs::write(dir.join(file), content).unwrap();
         }
         dir
+    }
+
+    #[test]
+    fn a_delete_says_what_its_launchers_kept() {
+        use crate::launchers::Launcher;
+        let nothing = Deleted::default();
+        assert!(nothing.complete());
+
+        let steam = Deleted {
+            steam_launch: Some(Ok(crate::steam_gamescope::Applied::Unchanged)),
+            fsr4: vec![Ok(crate::graphics::fsr4_upgrade::Applied::SteamRunning)],
+            ..Deleted::default()
+        };
+        assert!(steam.steam_running() && !steam.complete());
+        assert_eq!(steam.heroic_running(), None);
+
+        let heroic = Deleted {
+            heroic: Some(Ok(crate::heroic_launch::Applied::HeroicRunning {
+                launcher: Launcher::Heroic { flatpak: true },
+                game_running: false,
+            })),
+            ..Deleted::default()
+        };
+        assert_eq!(
+            heroic.heroic_running(),
+            Some(Launcher::Heroic { flatpak: true })
+        );
+        assert!(!heroic.steam_running() && !heroic.complete());
+
+        let failed = Deleted {
+            mangohud: Some(Err(anyhow::anyhow!("read-only"))),
+            heroic: Some(Ok(crate::heroic_launch::Applied::Written)),
+            ..Deleted::default()
+        };
+        assert_eq!(failed.errors().len(), 1);
+        assert!(!failed.complete());
+    }
+
+    #[test]
+    fn deleting_a_profile_that_is_not_there_touches_nothing() {
+        let err = delete("bigame-test-no-such-profile-x").unwrap_err();
+        assert!(err.to_string().contains("profile not found"), "{err}");
     }
 
     #[test]

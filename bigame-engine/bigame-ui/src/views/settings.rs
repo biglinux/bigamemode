@@ -210,7 +210,7 @@ fn falcond_row() -> adw::ActionRow {
                     ),
                     Ok(Ok((false, _))) => i18n("There was nothing to hand back"),
                     Ok(Err(e)) => {
-                        format!("{}: {}", i18n("Could not hand it back"), error_text(&e))
+                        crate::i18n::labelled(&i18n("Could not hand it back"), &error_text(&e))
                     }
                     Err(_) => i18n("Could not hand it back"),
                 };
@@ -227,11 +227,9 @@ fn falcond_row() -> adw::ActionRow {
             let result = gio::spawn_blocking(bigame_core::turbo::take_back_blocking).await;
             let text = match result {
                 Ok(Ok(_)) => i18n("Big Game Mode manages falcond again"),
-                Ok(Err(e)) => format!(
-                    "{}: {}",
-                    i18n("Could not take control back"),
-                    error_text(&e)
-                ),
+                Ok(Err(e)) => {
+                    crate::i18n::labelled(&i18n("Could not take control back"), &error_text(&e))
+                }
                 Err(_) => i18n("Could not take control back"),
             };
             crate::widgets::toast::show(&b, &text);
@@ -312,7 +310,10 @@ fn on_switch(row: &adw::SwitchRow, apply: impl Fn(bool) -> Result<(), String> + 
             return;
         }
         if let Err(e) = apply(row.is_active()) {
-            crate::widgets::toast::show(row, &format!("{}: {e}", i18n("Could not change it")));
+            crate::widgets::toast::show(
+                row,
+                &crate::i18n::labelled(&i18n("Could not change it"), &e),
+            );
             reverting.set(true);
             row.set_active(!row.is_active());
             reverting.set(false);
@@ -465,10 +466,9 @@ pub fn build() -> adw::PreferencesPage {
                             b.set_visible(false);
                         }
                         Ok(Err(e)) => {
-                            migrate.set_subtitle(&format!(
-                                "{}: {}",
-                                i18n("Could not fix them"),
-                                error_text(&e)
+                            migrate.set_subtitle(&crate::i18n::labelled(
+                                &i18n("Could not fix them"),
+                                &error_text(&e),
                             ));
                             b.set_sensitive(true);
                         }

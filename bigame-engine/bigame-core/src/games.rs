@@ -223,13 +223,32 @@ fn canonical(path: &Path) -> PathBuf {
 /// the same disk the game is loading from.
 #[must_use]
 pub fn detect_all() -> Vec<DetectedGame> {
-    static CACHE: std::sync::Mutex<Option<Cached>> = std::sync::Mutex::new(None);
     let sources = Sources::of_home(&crate::paths::home_dir());
-    let mut cache = CACHE
+    let mut cache = LIBRARY
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     cached_scan(&mut cache, &sources, std::time::Instant::now()).0
 }
+
+/// [`detect_all`] for a caller that looks every minute and only wants to
+/// hear of a change: the library and the number of its scan, when that is
+/// not `known`.
+///
+/// Scanned again only when a watched file changed, never for age alone (as
+/// [`detect_all`] also does): what the files do not record is not worth a walk
+/// of every install folder every few minutes, all day, to a caller such as
+/// the running-game watch. Another caller's scan is a change here too.
+#[must_use]
+pub fn detect_all_changed(known: Option<u64>) -> Option<(u64, Vec<DetectedGame>)> {
+    let sources = Sources::of_home(&crate::paths::home_dir());
+    let mut cache = LIBRARY
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    changed_scan(&mut cache, &sources, std::time::Instant::now(), known)
+}
+
+/// The library as last scanned, for every caller.
+static LIBRARY: std::sync::Mutex<Option<Cached>> = std::sync::Mutex::new(None);
 
 /// Every game in `sources`, folded and sorted.
 fn detect_in(sources: &Sources) -> Vec<DetectedGame> {
@@ -372,6 +391,8 @@ const LIBRARY_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(300)
 
 /// A scan and what it was read from.
 struct Cached {
+    /// Counts the scans, so a caller can tell a new one from the one it has.
+    scan: u64,
     sources: Sources,
     /// The watched files' modification times, taken before the scan.
     sources_stamp: Vec<Option<std::time::SystemTime>>,
@@ -402,27 +423,55 @@ fn cached_scan(
     sources: &Sources,
     now: std::time::Instant,
 ) -> (Vec<DetectedGame>, bool) {
+    let scanned = refresh(cache, sources, now, true);
+    let games = cache.as_ref().map(|c| c.games.clone()).unwrap_or_default();
+    (games, scanned)
+}
+
+/// [`detect_all_changed`] over `cache`.
+fn changed_scan(
+    cache: &mut Option<Cached>,
+    sources: &Sources,
+    now: std::time::Instant,
+    known: Option<u64>,
+) -> Option<(u64, Vec<DetectedGame>)> {
+    refresh(cache, sources, now, false);
+    cache
+        .as_ref()
+        .filter(|c| Some(c.scan) != known)
+        .map(|c| (c.scan, c.games.clone()))
+}
+
+/// Scan `sources` again into `cache` unless the scan there is current: of
+/// the same sources, none of whose watched files changed since, and — when
+/// `expire` — younger than [`LIBRARY_MAX_AGE`]. `true` when it scanned.
+fn refresh(
+    cache: &mut Option<Cached>,
+    sources: &Sources,
+    now: std::time::Instant,
+    expire: bool,
+) -> bool {
     let sources_stamp: Vec<_> = sources.watched().iter().map(|p| stamp(p)).collect();
-    if let Some(c) = cache.as_ref() {
-        if c.sources == *sources
-            && now.saturating_duration_since(c.at) < LIBRARY_MAX_AGE
-            && c.sources_stamp == sources_stamp
-            && c.games_stamp == games_stamp(&c.games)
-        {
-            return (c.games.clone(), false);
-        }
+    if let Some(c) = cache.as_ref()
+        && c.sources == *sources
+        && (!expire || now.saturating_duration_since(c.at) < LIBRARY_MAX_AGE)
+        && c.sources_stamp == sources_stamp
+        && c.games_stamp == games_stamp(&c.games)
+    {
+        return false;
     }
     // Stamped before reading: a change during the scan shows on the next
     // call as a difference, never as a stale result kept for good.
     let games = detect_in(sources);
     *cache = Some(Cached {
+        scan: cache.as_ref().map_or(0, |c| c.scan.wrapping_add(1)),
         sources: sources.clone(),
         sources_stamp,
         games_stamp: games_stamp(&games),
         at: now,
-        games: games.clone(),
+        games,
     });
-    (games, true)
+    true
 }
 
 /// Keep the first of every game, in the order given.
@@ -502,12 +551,16 @@ pub fn is_generic_program(name: &str) -> bool {
     GENERIC_PROGRAMS.contains(&lower.as_str())
         || lower.starts_with("google-chrome")
         || lower.starts_with("electron")
-        // python3, python3.13, perl5.40: versioned interpreters.
-        || ["python", "pypy", "ruby", "perl", "lua", "luajit"].iter().any(|p| {
-            lower
-                .strip_prefix(p)
-                .is_some_and(|v| v.chars().all(|c| c.is_ascii_digit() || c == '.'))
-        })
+        || ["python", "pypy", "ruby", "perl", "lua", "luajit"]
+            .iter()
+            .any(|p| is_versioned(&lower, p))
+}
+
+/// Whether lowercase `name` is `program` by a versioned name: python3,
+/// python3.13, perl5.40.
+pub(crate) fn is_versioned(name: &str, program: &str) -> bool {
+    name.strip_prefix(program)
+        .is_some_and(|v| v.chars().all(|c| c.is_ascii_digit() || c == '.'))
 }
 
 /// Main categories an entry cannot carry and be a game, whatever else it
@@ -529,9 +582,9 @@ pub struct MenuGame {
     pub name: String,
     /// The process name falcond will see (the basename of the program).
     ///
-    /// For a Flatpak this is the application's `command`, which
-    /// [`menu_game`] can only take from an explicit `--command=`; otherwise
-    /// it is empty until [`menu_games_in`] reads the application's metadata.
+    /// For a Flatpak this is the application's `command`, which the entry's
+    /// `Exec` names only in an explicit `--command=`; otherwise it is empty
+    /// until [`menu_games_in`] reads the application's metadata.
     pub program: String,
     /// `Exec` as an argument vector, field codes (`%U`, `%f`, …) removed.
     pub argv: Vec<String>,
@@ -578,13 +631,8 @@ impl From<MenuGame> for DetectedGame {
 /// a launcher (`steam steam://rungameid/…`) are not games here: their process
 /// is the launcher, and Steam's are found by their tree. A `flatpak run`
 /// entry is a game whose process is the Flatpak's own command; whether the
-/// Flatpak is installed is for [`menu_games_in`] to check.
-#[must_use]
-pub fn menu_game(content: &str) -> Option<MenuGame> {
-    menu_game_at(content, None)
-}
-
-/// [`menu_game`] for the entry at `location`, which `%k` stands for.
+/// Flatpak is installed is for [`menu_games_in`] to check. `location` is
+/// where the entry is, which `%k` stands for.
 fn menu_game_at(content: &str, location: Option<&Path>) -> Option<MenuGame> {
     let mut in_entry = false;
     let (mut exec, mut name, mut categories, mut icon) = (None, None, None, None);
@@ -945,15 +993,6 @@ fn flatpak_command(app_id: &str, installations: &[PathBuf]) -> Option<String> {
         // installed; its process is then whatever `--command=` said.
         Some(command.unwrap_or_default())
     })
-}
-
-/// Every game in the application menu: `XDG_DATA_HOME` and each of
-/// `XDG_DATA_DIRS`, the first entry of a name winning, as the menu does;
-/// each checked to exist (see [`menu_games_in`]).
-#[must_use]
-pub fn menu_games() -> Vec<MenuGame> {
-    let sources = Sources::of_home(&crate::paths::home_dir());
-    menu_games_in(&sources.applications, &sources.path_dirs, &sources.flatpak)
 }
 
 /// The games among the `.desktop` entries of `applications`, keeping only
@@ -1385,22 +1424,14 @@ pub fn acf_value(content: &str, key: &str) -> Option<String> {
     vdf::first_value(content, key).filter(|v| !v.is_empty())
 }
 
-/// The installed game a running process belongs to, from any launcher: the
-/// game whose install folder holds the process, else the one game that
-/// lists its executable. What names it and shows its cover when the process
-/// alone says neither.
-#[must_use]
-pub fn installed_game_for_process(
-    process_name: &str,
-    install_path: Option<&Path>,
-) -> Option<DetectedGame> {
-    game_among(&detect_all(), process_name, install_path).cloned()
-}
-
-/// [`installed_game_for_process`] for a running game, also by where its
-/// executable is: a Wine game's `Z:\…` or `C:\…` path is mapped to the
-/// file in its prefix, so two games that both run as `Game.exe` (RPG Maker)
-/// are told apart by folder rather than guessed by name.
+/// The installed game a running game belongs to, from any launcher: what
+/// names it and shows its cover when the process alone says neither.
+///
+/// First by where its executable is: a Wine game's `Z:\…` or `C:\…` path is
+/// mapped to the file in its prefix, so two games that both run as
+/// `Game.exe` (RPG Maker) are told apart by folder rather than guessed by
+/// name. Then the game installed where the running game's launcher says it
+/// is, else the one game that lists its executable.
 #[must_use]
 pub fn installed_game_for_running(game: &crate::running::GameIdentity) -> Option<DetectedGame> {
     let games = detect_all();
@@ -1522,10 +1553,10 @@ fn find_file_named(dir: &Path, filename: &str, depth: u32) -> Option<PathBuf> {
     }
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let path = entry.path();
-        if path.is_dir() {
-            if let Some(found) = find_file_named(&path, filename, depth - 1) {
-                return Some(found);
-            }
+        if path.is_dir()
+            && let Some(found) = find_file_named(&path, filename, depth - 1)
+        {
+            return Some(found);
         }
     }
     None
@@ -1956,10 +1987,9 @@ fn executables_for_file(launch_file: &Path) -> Vec<String> {
     if let Some(name) = launch_file
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
+        && !names.contains(&name)
     {
-        if !names.contains(&name) {
-            names.push(name);
-        }
+        names.push(name);
     }
     names
 }
@@ -2558,10 +2588,10 @@ pub fn heroic_games(configs: &[PathBuf]) -> Vec<DetectedGame> {
             }
         }
         for mut entry in entries {
-            if entry.art.is_empty() {
-                if let Some(found) = entry.app_name.as_ref().and_then(|a| art.get(a)) {
-                    entry.art.clone_from(found);
-                }
+            if entry.art.is_empty()
+                && let Some(found) = entry.app_name.as_ref().and_then(|a| art.get(a))
+            {
+                entry.art.clone_from(found);
             }
             let Some(game) = heroic_game(base, entry) else {
                 continue;
@@ -2814,6 +2844,11 @@ mod tests {
     use super::*;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
+
+    /// [`menu_game_at`] for an entry read from nowhere in particular.
+    fn menu_game(content: &str) -> Option<MenuGame> {
+        menu_game_at(content, None)
+    }
 
     const STK_DESKTOP: &str = "[Desktop Entry]\nName=SuperTuxKart\nName[pt_BR]=SuperTuxKart\nExec=supertuxkart\nIcon=supertuxkart\nType=Application\nCategories=Game;ArcadeGame;\nActions=SoftwareRender;\n\n[Desktop Action SoftwareRender]\nName=Software Render\nExec=SoftwareRender supertuxkart\n";
 
@@ -4253,6 +4288,44 @@ mod tests {
         // And whatever the files say, an old scan is not handed out.
         assert!(!cached_scan(&mut cache, &sources, now).1);
         assert!(cached_scan(&mut cache, &sources, now + LIBRARY_MAX_AGE).1);
+        let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_caller_told_of_changes_hears_only_of_a_new_scan() {
+        let home = tempdir("changed");
+        let steamapps = home.join(".local/share/Steam/steamapps");
+        write(
+            &steamapps.join("appmanifest_1.acf"),
+            manifest("1", "One", "One", "4").as_bytes(),
+        );
+        write(&steamapps.join("common/One/One.exe"), &vec![0; BIG]);
+        let sources = Sources {
+            applications: Vec::new(),
+            path_dirs: Vec::new(),
+            flatpak: Vec::new(),
+            ..Sources::of_home(&home)
+        };
+        let mut cache = None;
+        let now = std::time::Instant::now();
+        let (scan, games) = changed_scan(&mut cache, &sources, now, None).unwrap();
+        assert_eq!(games.len(), 1);
+        // However old, an unchanged library is neither scanned nor news.
+        let later = now + LIBRARY_MAX_AGE * 3;
+        assert_eq!(changed_scan(&mut cache, &sources, later, Some(scan)), None);
+        assert_eq!(cache.as_ref().map(|c| c.at), Some(now));
+        // A scan another caller made for age is news.
+        assert!(cached_scan(&mut cache, &sources, later).1);
+        let (newer, _) = changed_scan(&mut cache, &sources, later, Some(scan)).unwrap();
+        assert_ne!(newer, scan);
+        // So is a change in what it is read from.
+        write(
+            &steamapps.join("appmanifest_2.acf"),
+            manifest("2", "Two", "Two", "4").as_bytes(),
+        );
+        write(&steamapps.join("common/Two/Two.exe"), &vec![0; BIG]);
+        let (_, games) = changed_scan(&mut cache, &sources, later, Some(newer)).unwrap();
+        assert_eq!(games.len(), 2);
         let _ = fs::remove_dir_all(&home);
     }
 

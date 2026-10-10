@@ -352,10 +352,11 @@ impl Config {
             }
         }
 
-        if let FrameLimit::NestedRefresh(hz) = self.frame_limit {
-            if hz > 0 && want("r", N_("frame rate not limited"), &mut unsupported) {
-                args.extend(["-r".into(), hz.to_string()]);
-            }
+        if let FrameLimit::NestedRefresh(hz) = self.frame_limit
+            && hz > 0
+            && want("r", N_("frame rate not limited"), &mut unsupported)
+        {
+            args.extend(["-r".into(), hz.to_string()]);
         }
 
         if self.mangoapp && want("mangoapp", N_("overlay not shown"), &mut unsupported) {

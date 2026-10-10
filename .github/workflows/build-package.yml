@@ -12,7 +12,7 @@ name: Build Package
 # stable-*, and manual runs of such a branch. A failed run is not built, and
 # a branch with '/' breaks their recipe, so pull requests are checked by
 # package-check.yml, which calls this workflow under another name.
-# See docs/ci-workflows-audit.md.
+# See docs/CI.md.
 
 on:
   push:
@@ -245,7 +245,7 @@ jobs:
           echo "errors=$errors" >> "$GITHUB_OUTPUT"
           echo "warnings=$warnings" >> "$GITHUB_OUTPUT"
           # Errors fail the build. Warnings are reviewed in
-          # docs/ci-workflows-audit.md and shown in the run summary: the
+          # docs/CI.md and shown in the run summary: the
           # owned empty directories, libraries GTK already pulls in, and
           # programs or services the package runs rather than links.
           if (( errors )); then

@@ -24,6 +24,11 @@
     process, so it is held to a root-level bar.
 
   Remote and inactive sessions must always authenticate.
+
+  Descriptions and messages are written in English only. They are in
+  locale/bigame-mode.pot (locale/extract-strings.py), and the package build
+  merges every catalogue into the installed copy with msgfmt (gettext's
+  polkit.its rules), as it does for the desktop entry and AppStream file.
 -->
 <policyconfig>
   <vendor>BigLinux</vendor>
@@ -31,10 +36,8 @@
   <icon_name>com.biglinux.BiGameMode</icon_name>
 
   <action id="com.biglinux.bigamemode.control-backend">
-    <description>Turn Turbo Mode on or off</description>
-    <description xml:lang="pt_BR">Ligar ou desligar o Modo Turbo</description>
-    <message>Authentication is required to turn Turbo Mode on or off</message>
-    <message xml:lang="pt_BR">É necessário autenticar-se para ligar ou desligar o Modo Turbo</message>
+    <description>Turn Turbo on or off</description>
+    <message>Authentication is required to turn Turbo on or off</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -44,9 +47,7 @@
 
   <action id="com.biglinux.bigamemode.set-cpu">
     <description>Change CPU performance settings</description>
-    <description xml:lang="pt_BR">Alterar configurações de desempenho da CPU</description>
     <message>Authentication is required to change CPU performance settings</message>
-    <message xml:lang="pt_BR">É necessário autenticar-se para alterar as configurações de desempenho da CPU</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -56,9 +57,7 @@
 
   <action id="com.biglinux.bigamemode.set-gpu">
     <description>Change GPU performance settings</description>
-    <description xml:lang="pt_BR">Alterar configurações de desempenho da GPU</description>
     <message>Authentication is required to change GPU performance settings</message>
-    <message xml:lang="pt_BR">É necessário autenticar-se para alterar as configurações de desempenho da GPU</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -68,9 +67,7 @@
 
   <action id="com.biglinux.bigamemode.set-vcache">
     <description>Change AMD 3D V-Cache mode</description>
-    <description xml:lang="pt_BR">Alterar o modo do AMD 3D V-Cache</description>
     <message>Authentication is required to change the 3D V-Cache mode</message>
-    <message xml:lang="pt_BR">É necessário autenticar-se para alterar o modo do 3D V-Cache</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -84,9 +81,7 @@
   -->
   <action id="com.biglinux.bigamemode.write-config">
     <description>Write the falcond system configuration</description>
-    <description xml:lang="pt_BR">Gravar a configuração de sistema do falcond</description>
     <message>Authentication is required to modify the system gaming configuration</message>
-    <message xml:lang="pt_BR">É necessário autenticar-se para modificar a configuração de jogos do sistema</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -101,9 +96,7 @@
   -->
   <action id="com.biglinux.bigamemode.manage-profiles">
     <description>Create or delete game profiles</description>
-    <description xml:lang="pt_BR">Criar ou excluir perfis de jogos</description>
     <message>Authentication is required to change game profiles</message>
-    <message xml:lang="pt_BR">É necessário autenticar-se para alterar os perfis de jogos</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

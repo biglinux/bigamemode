@@ -29,12 +29,13 @@ fn main() {
             "         outputs={:?} hwmon={:?}",
             g.connected_outputs, g.hwmon
         );
+        let sample = bigame_core::gpu_telemetry::sample(g);
         println!(
-            "         dpm={:?} busy={:?} temp={:?} power_uw={:?}",
+            "         dpm={:?} busy={:?} temp_c={:?} power_w={:?}",
             g.dpm_level(),
-            g.busy_percent(),
-            g.hwmon_u64("temp1_input"),
-            g.hwmon_u64("power1_average")
+            sample.busy_pct,
+            sample.temp_c,
+            sample.power_w
         );
     }
     println!("render   {:?}", hw.render_gpu().map(|g| &g.card));

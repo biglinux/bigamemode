@@ -35,9 +35,11 @@ pub struct GameSettings {
     /// upscaler (`crate::steam_gamescope::set_wine_fsr_off`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub steam_wine_fsr_off: bool,
-    /// The variables Big Game Mode put in front of the game's Steam launch
-    /// options for its own launch settings, so it can replace or remove
-    /// exactly those (`crate::steam_gamescope`).
+    /// The variables last asked for in front of the game's Steam launch
+    /// options for its own launch settings (`crate::steam_gamescope`). What
+    /// really went in, account by account, is recorded in the state
+    /// directory's `steam/env-added.toml`; this field stands for every
+    /// account only for a game set up before that record existed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub steam_env: Option<String>,
     /// The game's own launch settings (Gamescope, Wine FSR, vkBasalt), over

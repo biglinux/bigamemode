@@ -28,6 +28,8 @@ const EVENTS: u32 = libc::IN_CLOSE_WRITE | libc::IN_MOVED_TO | libc::IN_CREATE |
 /// A directory watch that reports when one named file changes.
 pub struct FileWatch {
     fd: i32,
+    /// The watched file's name in the directory.
+    name: Vec<u8>,
 }
 
 impl FileWatch {
@@ -38,6 +40,7 @@ impl FileWatch {
     #[must_use]
     pub fn new(path: &Path) -> Option<Self> {
         let dir = path.parent()?;
+        let name = path.file_name()?.as_bytes().to_vec();
         let mut c_dir = dir.as_os_str().as_bytes().to_vec();
         c_dir.push(0);
 
@@ -55,27 +58,67 @@ impl FileWatch {
             unsafe { libc::close(fd) };
             return None;
         }
-        Some(Self { fd })
+        Some(Self { fd, name })
     }
 
-    /// Block until the kernel reports an event, then drain the queue.
+    /// Block until the kernel reports an event on the file, draining the
+    /// queue as it goes.
     ///
     /// Returns `false` when the descriptor fails, which tells the caller to
     /// stop watching rather than spin.
     ///
-    /// Events are not filtered by name here. Draining and letting the caller
-    /// re-read is simpler than parsing variable-length records, and the caller
-    /// compares contents anyway — a spurious wakeup costs one file read, while
-    /// a missed one costs a stale UI.
+    /// Events on the directory's other files are passed over: falcond 2.0.2
+    /// writes to `/tmp`, where every program's temporary file would
+    /// otherwise wake the watcher for a read of an unchanged status.
     #[must_use]
     pub fn wait(&self) -> bool {
         // Large enough for many queued records; a short read is fine.
         let mut buf = [0u8; 4096];
-        // SAFETY: `self.fd` is a live inotify descriptor and `buf` is a valid
-        // writable region of the stated length.
-        let n = unsafe { libc::read(self.fd, buf.as_mut_ptr().cast::<libc::c_void>(), buf.len()) };
-        n > 0
+        loop {
+            // SAFETY: `self.fd` is a live inotify descriptor and `buf` is a
+            // valid writable region of the stated length.
+            let n =
+                unsafe { libc::read(self.fd, buf.as_mut_ptr().cast::<libc::c_void>(), buf.len()) };
+            let Ok(n) = usize::try_from(n) else {
+                return false;
+            };
+            if n == 0 {
+                return false;
+            }
+            if concerns(&buf[..n], &self.name) {
+                return true;
+            }
+        }
     }
+}
+
+/// Whether the inotify records in `events` concern the file `name`, or may:
+/// a queue overflow lost events, and a watch the kernel removed (the
+/// directory went away) will report nothing again.
+fn concerns(events: &[u8], name: &[u8]) -> bool {
+    // struct inotify_event: wd (i32), mask, cookie, len (u32), then `len`
+    // bytes of NUL-padded name.
+    const HEADER: usize = 16;
+    let mut rest = events;
+    while rest.len() >= HEADER {
+        let field =
+            |at: usize| u32::from_ne_bytes([rest[at], rest[at + 1], rest[at + 2], rest[at + 3]]);
+        let mask = field(4);
+        let len = usize::try_from(field(12)).unwrap_or(usize::MAX);
+        let Some(record) = rest.get(HEADER..HEADER.saturating_add(len)) else {
+            // A record cut short: say yes rather than miss a change.
+            return true;
+        };
+        if mask & (libc::IN_Q_OVERFLOW | libc::IN_IGNORED) != 0 {
+            return true;
+        }
+        let event_name = record.split(|b| *b == 0).next().unwrap_or_default();
+        if event_name == name {
+            return true;
+        }
+        rest = &rest[HEADER + len..];
+    }
+    false
 }
 
 impl Drop for FileWatch {
@@ -88,8 +131,8 @@ impl Drop for FileWatch {
 /// Watch `path` on a background thread, sending its contents on every change.
 ///
 /// The current contents are sent immediately, then again on each change.
-/// Identical consecutive contents are suppressed, because a directory watch
-/// sees writes to neighbouring files too.
+/// Identical consecutive contents are suppressed: a rewrite that changes
+/// nothing, or the several events of one rename into place, is no change.
 ///
 /// Returns `None` when a watch could not be established.
 #[must_use]
@@ -130,13 +173,13 @@ pub fn watch_file(path: &Path) -> Option<mpsc::Receiver<String>> {
                 // A zero-byte status file is never meaningful anyway: the next
                 // event carries the actual data.
                 let current = read_capped(&path).filter(|c| !c.is_empty());
-                if let Some(content) = current {
-                    if last.as_ref() != Some(&content) {
-                        if tx.send(content.clone()).is_err() {
-                            return; // receiver dropped
-                        }
-                        last = Some(content);
+                if let Some(content) = current
+                    && last.as_ref() != Some(&content)
+                {
+                    if tx.send(content.clone()).is_err() {
+                        return; // receiver dropped
                     }
+                    last = Some(content);
                 }
                 if !watch.wait() {
                     return;
@@ -240,6 +283,58 @@ mod tests {
         std::fs::write(&file, "real").unwrap();
         assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), "real");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_the_watched_file_wakes_the_watch() {
+        let dir = tempdir("neighbours");
+        let file = dir.join("status");
+        let watch = FileWatch::new(&file).expect("watch should start");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(watch.wait());
+        });
+        std::thread::sleep(Duration::from_millis(50));
+        // Another program's files in the same directory.
+        std::fs::write(dir.join("status.other"), "x").unwrap();
+        std::fs::write(dir.join("sta"), "x").unwrap();
+        std::fs::remove_file(dir.join("sta")).unwrap();
+        assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+        std::fs::write(&file, "now").unwrap();
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)), Ok(true));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn inotify_records_are_matched_by_name() {
+        let record = |mask: u32, name: &[u8], padded: usize| {
+            let mut r = Vec::new();
+            r.extend_from_slice(&1i32.to_ne_bytes());
+            r.extend_from_slice(&mask.to_ne_bytes());
+            r.extend_from_slice(&0u32.to_ne_bytes());
+            r.extend_from_slice(&u32::try_from(padded).unwrap().to_ne_bytes());
+            r.extend_from_slice(name);
+            r.resize(16 + padded, 0);
+            r
+        };
+        let other = record(libc::IN_CLOSE_WRITE, b"falcond_status.tmp", 32);
+        let ours = record(libc::IN_MOVED_TO, b"falcond_status", 16);
+        assert!(!concerns(&other, b"falcond_status"));
+        assert!(concerns(&[other.clone(), ours].concat(), b"falcond_status"));
+        assert!(!concerns(
+            &record(libc::IN_CREATE, b"falcond", 16),
+            b"falcond_status"
+        ));
+        // Events lost, or the watch gone: the file may have changed.
+        assert!(concerns(
+            &record(libc::IN_Q_OVERFLOW, b"", 0),
+            b"falcond_status"
+        ));
+        assert!(concerns(
+            &record(libc::IN_IGNORED, b"", 0),
+            b"falcond_status"
+        ));
+        assert!(!concerns(&[], b"falcond_status"));
     }
 
     #[test]

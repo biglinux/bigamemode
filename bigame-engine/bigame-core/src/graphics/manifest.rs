@@ -281,7 +281,7 @@ impl Manifest {
             // The game's folder entry must survive a crash too.
             std::fs::File::open(state_dir)?.sync_all()?;
         }
-        let tmp = dir.join("manifest.json.tmp");
+        let tmp = dir.join(unique_name("manifest.json.tmp-"));
         {
             let mut f =
                 std::fs::File::create(&tmp).with_context(|| format!("create {}", tmp.display()))?;
@@ -345,6 +345,17 @@ impl Manifest {
             .map(str::to_owned);
         Some((process, root))
     }
+}
+
+/// `prefix` followed by a name no other change running now uses: this
+/// process's id and a count. A temporary file or folder two changes at once
+/// named alike (two Big Game Mode processes, or two threads of one) would be
+/// written, renamed or deleted by each under the other.
+#[must_use]
+pub(crate) fn unique_name(prefix: &str) -> String {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{prefix}{}-{n}", std::process::id())
 }
 
 /// Whether `a` and `b` name the same folder, links resolved. A folder that
@@ -481,6 +492,36 @@ mod tests {
         let m = Manifest::load(dir.path(), "steam-1").unwrap().unwrap();
         assert_eq!(m.source.backend, "optiscaler");
         assert!(m.managed);
+    }
+
+    #[test]
+    fn saves_at_once_never_share_a_temporary_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Manifest::path(dir.path(), "steam-1");
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(
+            &p,
+            r#"{"schema":1,"game_key":"steam-1","install_root":"/g","source":{"component":"optiscaler","version":"1","url":null,"archive_sha256":null},"started_at":0,"state":"installed","entries":[]}"#,
+        )
+        .unwrap();
+        let m = Manifest::load(dir.path(), "steam-1").unwrap().unwrap();
+        // One shared temporary name: one thread's rename takes the file the
+        // other is about to rename, which then fails.
+        std::thread::scope(|s| {
+            for _ in 0..4 {
+                s.spawn(|| {
+                    for _ in 0..25 {
+                        m.save(dir.path()).unwrap();
+                    }
+                });
+            }
+        });
+        let left: Vec<_> = std::fs::read_dir(p.parent().unwrap())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(left, ["manifest.json"]);
+        assert_eq!(Manifest::load(dir.path(), "steam-1").unwrap(), Some(m));
     }
 
     #[test]

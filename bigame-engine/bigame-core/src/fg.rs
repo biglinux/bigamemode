@@ -261,7 +261,11 @@ fn write_table(path: &Path, table: &Table) -> Result<()> {
 
 /// lsfg-vk's file in `format`, with anything in another layout converted.
 fn read_config_as(format: Format) -> Result<Table> {
-    let mut t = read_table(&config_path())?;
+    read_config_at(&config_path(), format)
+}
+
+fn read_config_at(path: &Path, format: Format) -> Result<Table> {
+    let mut t = read_table(path)?;
     migrate(format, &mut t);
     Ok(t)
 }
@@ -271,7 +275,11 @@ fn read_config() -> Result<Table> {
 }
 
 fn write_config(format: Format, t: &Table) -> Result<()> {
-    write_table(&config_path(), &finished(format, t.clone()))
+    write_config_at(&config_path(), format, t)
+}
+
+fn write_config_at(path: &Path, format: Format, t: &Table) -> Result<()> {
+    write_table(path, &finished(format, t.clone()))
 }
 
 /// `t` as the file lsfg-vk reads: its version, and for 2.x the `[global]`
@@ -420,10 +428,11 @@ fn migrate_to_v2(t: &mut Table) {
                     .get("multiplier")
                     .and_then(Value::as_integer)
                     .is_some_and(|m| m < 2);
-                if p.contains_key("pacing") && p.contains_key("present_mode") {
-                    if let Some(f) = p.get("flow_scale").and_then(Value::as_float) {
-                        p.insert("flow_scale".into(), Value::Float(round_flow(f)));
-                    }
+                if p.contains_key("pacing")
+                    && p.contains_key("present_mode")
+                    && let Some(f) = p.get("flow_scale").and_then(Value::as_float)
+                {
+                    p.insert("flow_scale".into(), Value::Float(round_flow(f)));
                 }
                 p.retain(|k, _| V2_PROFILE.contains(&k));
                 !off
@@ -514,7 +523,11 @@ struct State {
 }
 
 fn read_state() -> State {
-    let t = read_table(&state_path()).unwrap_or_default();
+    read_state_at(&state_path())
+}
+
+fn read_state_at(path: &Path) -> State {
+    let t = read_table(path).unwrap_or_default();
     State {
         managed: t
             .get("managed")
@@ -535,13 +548,17 @@ fn read_state() -> State {
 }
 
 fn write_state(s: &State) -> Result<()> {
+    write_state_at(&state_path(), s)
+}
+
+fn write_state_at(path: &Path, s: &State) -> Result<()> {
     let mut t = Table::new();
     t.insert(
         "managed".into(),
         Value::Array(s.managed.iter().map(|m| Value::String(m.clone())).collect()),
     );
     t.insert("paused".into(), Value::Array(s.paused.clone()));
-    write_table(&state_path(), &t)
+    write_table(path, &t)
 }
 
 fn paused_exe(g: &Value) -> Option<&str> {
@@ -750,10 +767,10 @@ pub fn write_profile(
         (25..=100).contains(&flow_scale_pct),
         UserError::plain(N_("flow_scale_pct must be 25–100"))
     );
-    let mut t = read_config_as(format)?;
-    upsert(
+    put_in_force(
         format,
-        &mut t,
+        &config_path(),
+        &state_path(),
         name,
         Values {
             multiplier: multiplier.clamp(2, 20),
@@ -762,14 +779,30 @@ pub fn write_profile(
             hdr,
             present: present_mode,
         },
-    )?;
-    write_config(format, &t)?;
-    let mut s = read_state();
+    )
+}
+
+/// Write `name`'s entry into lsfg-vk's file at `config`, managed by
+/// Big Game Mode in the state at `state`. The state is written first: an
+/// entry in lsfg-vk's file that the state does not list is one the general
+/// switch would never set aside, while a name listed without an entry is
+/// passed over.
+fn put_in_force(
+    format: Format,
+    config: &Path,
+    state: &Path,
+    name: &str,
+    values: Values,
+) -> Result<()> {
+    let mut t = read_config_at(config, format)?;
+    upsert(format, &mut t, name, values)?;
+    let mut s = read_state_at(state);
     if !s.managed.iter().any(|m| m == name) {
         s.managed.push(name.to_owned());
     }
     s.paused.retain(|g| paused_exe(g) != Some(name));
-    write_state(&s)
+    write_state_at(state, &s)?;
+    write_config_at(config, format, &t)
 }
 
 /// Write `name`'s entry where it belongs: in lsfg-vk's file when the general
@@ -1194,9 +1227,14 @@ pub fn is_active_for_game(name: &str) -> bool {
 /// # Errors
 /// Returns error if the files cannot be read or written.
 pub fn disable_all_profiles() -> Result<bool> {
-    let format = read_format();
-    let mut t = read_config_as(format)?;
-    let mut s = read_state();
+    disable_all_at(read_format(), &config_path(), &state_path())
+}
+
+/// [`disable_all_profiles`] on lsfg-vk's file at `config` and the state at
+/// `state`.
+fn disable_all_at(format: Format, config: &Path, state: &Path) -> Result<bool> {
+    let mut t = read_config_at(config, format)?;
+    let mut s = read_state_at(state);
     let mut changed = false;
     for name in s.managed.clone() {
         if let Some(g) = take(format, &mut t, &name) {
@@ -1205,13 +1243,20 @@ pub fn disable_all_profiles() -> Result<bool> {
                 Format::V1 => g,
                 Format::V2 => entry_table(Format::V1, &name, values_of(Format::V2, &g)),
             };
+            // Set aside by an earlier try whose write of lsfg-vk's file
+            // failed: replaced, not kept twice.
+            s.paused.retain(|p| paused_exe(p) != Some(name.as_str()));
             s.paused.push(Value::Table(kept));
             changed = true;
         }
     }
     if changed {
-        write_config(format, &t)?;
-        write_state(&s)?;
+        // The entries are kept before they leave lsfg-vk's file: written the
+        // other way round, a failed state write lost them. Left in the file
+        // after a failed write, they are still in force, and putting them
+        // back passes over an entry that is already there.
+        write_state_at(state, &s)?;
+        write_config_at(config, format, &t)?;
     }
     Ok(changed)
 }
@@ -1605,6 +1650,86 @@ multiplier = 4
                 String::from_utf8_lossy(&out.stderr)
             );
         }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A private folder per test, with the paths of lsfg-vk's file and of
+    /// Big Game Mode's state in folders of their own.
+    fn fg_files(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let dir = std::env::temp_dir().join(format!(
+            "bgm-fg-{tag}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("lsfg-vk")).unwrap();
+        std::fs::create_dir_all(dir.join("bigame-mode")).unwrap();
+        let config = dir.join("lsfg-vk").join("conf.toml");
+        let state = dir.join("bigame-mode").join("lsfg-vk.toml");
+        (dir, config, state)
+    }
+
+    /// `path`'s folder read-only (`true`) or writable again.
+    fn read_only(path: &Path, on: bool) {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = if on { 0o555 } else { 0o755 };
+        std::fs::set_permissions(
+            path.parent().unwrap(),
+            std::fs::Permissions::from_mode(mode),
+        )
+        .unwrap();
+    }
+
+    fn in_file(config: &Path, exe: &str) -> bool {
+        find(
+            Format::V1,
+            &read_config_at(config, Format::V1).unwrap(),
+            exe,
+        )
+        .is_some()
+    }
+
+    #[test]
+    fn an_entry_is_listed_before_it_is_in_force() {
+        let (dir, config, state) = fg_files("in-force");
+        put_in_force(Format::V1, &config, &state, "SOTTR.exe", values(2, 70, 0)).unwrap();
+        assert!(in_file(&config, "SOTTR.exe"));
+        assert_eq!(read_state_at(&state).managed, ["SOTTR.exe"]);
+        // The state cannot be written: lsfg-vk's file does not get an entry
+        // the general switch would never set aside.
+        read_only(&state, true);
+        let failed = put_in_force(Format::V1, &config, &state, "Hades.exe", values(2, 70, 0));
+        read_only(&state, false);
+        assert!(failed.is_err());
+        assert!(!in_file(&config, "Hades.exe"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn entries_are_kept_before_they_leave_lsfg_vks_file() {
+        let (dir, config, state) = fg_files("set-aside");
+        put_in_force(Format::V1, &config, &state, "SOTTR.exe", values(2, 70, 0)).unwrap();
+        // The state cannot be written: the entry stays in force, not lost.
+        read_only(&state, true);
+        let failed = disable_all_at(Format::V1, &config, &state);
+        read_only(&state, false);
+        assert!(failed.is_err());
+        assert!(in_file(&config, "SOTTR.exe"));
+        assert!(read_state_at(&state).paused.is_empty());
+        // lsfg-vk's file cannot be written: the entry is kept in the state
+        // and still in force there.
+        read_only(&config, true);
+        let failed = disable_all_at(Format::V1, &config, &state);
+        read_only(&config, false);
+        assert!(failed.is_err());
+        assert!(in_file(&config, "SOTTR.exe"));
+        assert_eq!(read_state_at(&state).paused.len(), 1);
+        // Tried again: set aside once, not twice, and out of lsfg-vk's file.
+        assert!(disable_all_at(Format::V1, &config, &state).unwrap());
+        assert!(!in_file(&config, "SOTTR.exe"));
+        let s = read_state_at(&state);
+        assert_eq!(s.paused.len(), 1);
+        assert_eq!(paused_exe(&s.paused[0]), Some("SOTTR.exe"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

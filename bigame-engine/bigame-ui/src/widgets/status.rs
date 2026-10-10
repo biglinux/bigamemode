@@ -10,8 +10,6 @@ use adw::prelude::*;
 use bigame_core::overview::State;
 use libadwaita as adw;
 
-use bigame_core::text::Text;
-
 use crate::i18n::i18n;
 
 /// The label people read.
@@ -114,10 +112,9 @@ impl Chip {
         // A short text ("Turbo", "vkBasalt") says what, not how it stands:
         // the state is read with it, not left to the colour and the icon.
         self.text
-            .update_property(&[gtk4::accessible::Property::Label(&text.map_or_else(
-                || label(state),
-                |t| Text::fill(&i18n("%s: %s"), &[t.to_owned(), label(state)]),
-            ))]);
+            .update_property(&[gtk4::accessible::Property::Label(
+                &text.map_or_else(|| label(state), |t| crate::i18n::labelled(t, &label(state))),
+            )]);
     }
 }
 

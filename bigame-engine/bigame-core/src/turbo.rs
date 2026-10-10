@@ -79,8 +79,10 @@ pub async fn state() -> Result<State> {
 
 /// Whether Turbo's state is falcond's: it is installed, and not a build that
 /// crashed on this processor. Otherwise Turbo is the Booster's, as without
-/// falcond.
-fn backend_governs(unit: &crate::systemd::UnitState) -> bool {
+/// falcond. Every surface that reads Turbo from falcond's unit asks this
+/// first: an inactive falcond that does not govern is not a Turbo off.
+#[must_use]
+pub fn backend_governs(unit: &crate::systemd::UnitState) -> bool {
     unit.is_installed() && !crate::falcond_compat::crashes_here()
 }
 
@@ -641,38 +643,37 @@ async fn enable_backend<F: FnMut(Step)>(
 ) -> bool {
     // Profile set first, so falcond starts with the right one rather than
     // loading the wrong set and reloading.
-    if let Ok(mut config) = crate::config::read() {
-        if let Some(fixed) = corrected_profile_mode(hardware.chassis, &config.profile_mode) {
-            progress(Step::ConfiguringProfiles);
-            let before = config.profile_mode.clone();
-            config.profile_mode = fixed.to_owned();
-            match crate::config::write(&config).await {
-                Ok(()) if crate::config::read().is_ok_and(|c| c.profile_mode == fixed) => report
-                    .push(
-                        Kind::ProfileSet,
-                        Section::Verified,
-                        "Big Game Mode",
-                        Text::with(
-                            N_(
-                                "%s → %s: the handheld profiles run games in power-saving mode, \
+    if let Ok(mut config) = crate::config::read()
+        && let Some(fixed) = corrected_profile_mode(hardware.chassis, &config.profile_mode)
+    {
+        progress(Step::ConfiguringProfiles);
+        let before = config.profile_mode.clone();
+        config.profile_mode = fixed.to_owned();
+        match crate::config::write(&config).await {
+            Ok(()) if crate::config::read().is_ok_and(|c| c.profile_mode == fixed) => report.push(
+                Kind::ProfileSet,
+                Section::Verified,
+                "Big Game Mode",
+                Text::with(
+                    N_(
+                        "%s → %s: the handheld profiles run games in power-saving mode, \
                             and this machine is not a handheld",
-                            ),
-                            [Arg::Raw(before), Arg::Text(desktop_set())],
-                        ),
                     ),
-                Ok(()) => report.push(
-                    Kind::ProfileSet,
-                    Section::Failed,
-                    "Big Game Mode",
-                    Text::plain(N_("the configuration was written but reads back unchanged")),
+                    [Arg::Raw(before), Arg::Text(desktop_set())],
                 ),
-                Err(e) => report.push(
-                    Kind::ProfileSet,
-                    Section::Failed,
-                    "Big Game Mode",
-                    crate::error::describe(&e),
-                ),
-            }
+            ),
+            Ok(()) => report.push(
+                Kind::ProfileSet,
+                Section::Failed,
+                "Big Game Mode",
+                Text::plain(N_("the configuration was written but reads back unchanged")),
+            ),
+            Err(e) => report.push(
+                Kind::ProfileSet,
+                Section::Failed,
+                "Big Game Mode",
+                crate::error::describe(&e),
+            ),
         }
     }
 
@@ -783,15 +784,21 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
 /// Take the Turbo preset away and say so in the report (on the blocking
 /// pool, as [`apply_preset`]).
 async fn remove_preset(report: &mut Report) {
-    let preset = crate::turbo_preset::active();
-    if preset == crate::turbo_preset::Preset::Standard {
+    // A record that cannot be read reads as Standard, yet its variables may
+    // still be in the session.
+    if !crate::turbo_preset::has_record() {
+        // A launcher open when the last preset went may be closed now.
+        let _ = tokio::task::spawn_blocking(crate::turbo_preset::follow_owed).await;
         return;
     }
+    let preset = crate::turbo_preset::active();
     let title = Text::plain(N_("Turbo preset"));
     let removed = tokio::task::spawn_blocking(crate::turbo_preset::deactivate)
         .await
         .unwrap_or_else(|e| Err(anyhow::anyhow!("{e}")));
     match removed {
+        // Unreadable, so no preset to name: the log says what was cleared.
+        Ok(_) if preset == crate::turbo_preset::Preset::Standard => {}
         Ok(_) => report.push_knob(
             title,
             Section::Restored,
@@ -906,10 +913,8 @@ async fn wait_for_fresh_status(
         let fresh = std::fs::metadata(crate::status::status_path())
             .and_then(|m| m.modified())
             .is_ok_and(|m| m >= since);
-        if fresh {
-            if let Some(s) = crate::status::read() {
-                return Some(s);
-            }
+        if fresh && let Some(s) = crate::status::read() {
+            return Some(s);
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
@@ -1221,10 +1226,10 @@ async fn note_scheduler_left(report: &mut Report) {
         );
     }
     let path = scheduler_record();
-    if let Err(e) = std::fs::remove_file(&path) {
-        if e.kind() != std::io::ErrorKind::NotFound {
-            tracing::warn!(target: "turbo", file = %path.display(), error = %e, "could not remove the scheduler note");
-        }
+    if let Err(e) = std::fs::remove_file(&path)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        tracing::warn!(target: "turbo", file = %path.display(), error = %e, "could not remove the scheduler note");
     }
 }
 
@@ -1251,7 +1256,7 @@ pub fn something_left_blocking() -> bool {
     let unit = crate::systemd::Reader::shared().and_then(|r| r.unit_state(BACKEND_UNIT));
     something_left(
         unit.as_ref(),
-        crate::turbo_preset::active() != crate::turbo_preset::Preset::Standard,
+        crate::turbo_preset::has_record(),
         BoosterEngine::is_active(),
     )
 }
@@ -1275,10 +1280,10 @@ pub fn tidy_up_blocking() -> Result<()> {
     }
     let preset = crate::turbo_preset::resync(false);
     let booster = reconcile_blocking();
-    if let Ok(n) = &booster {
-        if *n > 0 {
-            tracing::info!(target: "turbo", restored = n, "Booster changes put back after falcond stopped");
-        }
+    if let Ok(n) = &booster
+        && *n > 0
+    {
+        tracing::info!(target: "turbo", restored = n, "Booster changes put back after falcond stopped");
     }
     preset.context("take the Turbo preset away")?;
     booster.context("put the Booster's changes back")?;

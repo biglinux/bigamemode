@@ -506,16 +506,16 @@ impl GameOptimization {
     /// game's own values when it has none yet; the table itself goes, so
     /// there is one place they live.
     fn take_legacy_gamescope(&mut self) {
-        if let Some(old) = self.profile.gamescope.take() {
-            if !self.launch.sets_gamescope() {
-                let moved = crate::game_launch::GameLaunch::from_legacy(&old);
-                self.launch = crate::game_launch::GameLaunch {
-                    wine_fsr: self.launch.wine_fsr,
-                    wine_fsr_mode: self.launch.wine_fsr_mode,
-                    vkbasalt: self.launch.vkbasalt,
-                    ..moved
-                };
-            }
+        if let Some(old) = self.profile.gamescope.take()
+            && !self.launch.sets_gamescope()
+        {
+            let moved = crate::game_launch::GameLaunch::from_legacy(&old);
+            self.launch = crate::game_launch::GameLaunch {
+                wine_fsr: self.launch.wine_fsr,
+                wine_fsr_mode: self.launch.wine_fsr_mode,
+                vkbasalt: self.launch.vkbasalt,
+                ..moved
+            };
         }
     }
 

@@ -512,13 +512,13 @@ fn anti_cheat_near(root: &Path, exe: Option<&Path>) -> Vec<AntiCheat> {
             let Ok(ft) = entry.file_type() else { continue };
             let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
             let child = rel.join(entry.file_name());
-            if let Some(ac) = anti_cheat_marker(&name, ft.is_dir()) {
-                if !found.iter().any(|a| a.name == ac) {
-                    found.push(AntiCheat {
-                        name: ac.to_owned(),
-                        evidence: child.clone(),
-                    });
-                }
+            if let Some(ac) = anti_cheat_marker(&name, ft.is_dir())
+                && !found.iter().any(|a| a.name == ac)
+            {
+                found.push(AntiCheat {
+                    name: ac.to_owned(),
+                    evidence: child.clone(),
+                });
             }
             if ft.is_dir() {
                 stack.push((child, left - 1));
@@ -598,10 +598,10 @@ fn choose_executable(
         .filter(|(p, dir)| !dir && has_ext(&lower_name(p), "exe"))
         .map(|(p, _)| p)
         .collect();
-    if let Some(hint) = hint.map(str::to_ascii_lowercase) {
-        if let Some(e) = exes.iter().find(|e| lower_name(e) == hint) {
-            return Some((*e).clone());
-        }
+    if let Some(hint) = hint.map(str::to_ascii_lowercase)
+        && let Some(e) = exes.iter().find(|e| lower_name(e) == hint)
+    {
+        return Some((*e).clone());
     }
     // Unreal's crash reporter is a `-Win64-Shipping.exe` too.
     if let Some(e) = exes.iter().find(|e| {
@@ -708,8 +708,10 @@ fn wide_strings_with(bytes: &[u8], needle: &str) -> Vec<String> {
             end += 2;
         }
         let s: String = bytes[start..end]
-            .chunks_exact(2)
-            .map(|c| char::from(c[0]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[c, _]| char::from(*c))
             .collect();
         if !out.contains(&s) {
             out.push(s);
@@ -792,10 +794,9 @@ pub fn runs_as(root: &Path, process: &str) -> Vec<String> {
     if let Some(real) = resolve_ci(root, process)
         .and_then(|exe| follow_bootstrap(root, &exe))
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+        && !real.eq_ignore_ascii_case(process)
     {
-        if !real.eq_ignore_ascii_case(process) {
-            names.push(real);
-        }
+        names.push(real);
     }
     names
 }
@@ -930,13 +931,13 @@ fn scan_limited(root: &Path, exe_hint: Option<&str>, max_entries: usize) -> Game
     let mut exe_dir_dlls = Vec::new();
     for (rel, is_dir) in &files {
         let name = lower_name(rel);
-        if let Some(ac) = anti_cheat_marker(&name, *is_dir) {
-            if !anti_cheat.iter().any(|a: &AntiCheat| a.name == ac) {
-                anti_cheat.push(AntiCheat {
-                    name: ac.to_owned(),
-                    evidence: rel.clone(),
-                });
-            }
+        if let Some(ac) = anti_cheat_marker(&name, *is_dir)
+            && !anti_cheat.iter().any(|a: &AntiCheat| a.name == ac)
+        {
+            anti_cheat.push(AntiCheat {
+                name: ac.to_owned(),
+                evidence: rel.clone(),
+            });
         }
         if *is_dir {
             continue;
@@ -994,13 +995,12 @@ fn scan_limited(root: &Path, exe_hint: Option<&str>, max_entries: usize) -> Game
     if let Some(ac) = executable
         .as_ref()
         .and_then(|e| known_protected_executable(&lower_name(e)))
+        && !anti_cheat.iter().any(|a| a.name == ac)
     {
-        if !anti_cheat.iter().any(|a| a.name == ac) {
-            anti_cheat.push(AntiCheat {
-                name: ac.to_owned(),
-                evidence: executable.clone().unwrap_or_default(),
-            });
-        }
+        anti_cheat.push(AntiCheat {
+            name: ac.to_owned(),
+            evidence: executable.clone().unwrap_or_default(),
+        });
     }
     components.sort_by(|a, b| a.kind.cmp(&b.kind).then_with(|| a.path.cmp(&b.path)));
     proxies.sort_by(|a, b| a.slot.cmp(&b.slot));

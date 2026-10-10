@@ -770,12 +770,12 @@ fn ask_to_close(open: &Open) {
     }
     // Only the process that was found, if it is still that process.
     let comm = std::fs::read_to_string(format!("/proc/{}/comm", open.main)).unwrap_or_default();
-    if ["heroic", "heroic-run", "lutris"].contains(&comm.trim()) {
-        if let Ok(pid) = libc::pid_t::try_from(open.main) {
-            // SAFETY: kill has no memory effects; the pid was checked above.
-            unsafe {
-                libc::kill(pid, libc::SIGTERM);
-            }
+    if ["heroic", "heroic-run", "lutris"].contains(&comm.trim())
+        && let Ok(pid) = libc::pid_t::try_from(open.main)
+    {
+        // SAFETY: kill has no memory effects; the pid was checked above.
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
         }
     }
 }

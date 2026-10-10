@@ -404,6 +404,50 @@ fn follow_turbo(app: &adw::Application, tray_handle: &std::rc::Rc<tray::TrayHand
     });
 }
 
+/// Listens to every reading of Turbo's backend unit; `None` when systemd
+/// could not be asked.
+type UnitListener = Box<dyn Fn(Option<&bigame_core::systemd::UnitState>)>;
+
+thread_local! {
+    /// What else follows the status loop's readings of falcond's unit.
+    static UNIT_LISTENERS: std::cell::RefCell<Vec<UnitListener>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Be given every reading of Turbo's backend unit the status loop takes:
+/// every ten seconds, with the window hidden too. Home follows Turbo
+/// changed elsewhere from the very reading the tray's warning comes from,
+/// so systemd is asked once per tick, not once per surface.
+pub(crate) fn follow_backend_unit(
+    listener: impl Fn(Option<&bigame_core::systemd::UnitState>) + 'static,
+) {
+    UNIT_LISTENERS.with(|l| l.borrow_mut().push(Box::new(listener)));
+}
+
+/// What the status loop reads on its worker.
+struct StatusReading {
+    unit: Option<bigame_core::systemd::UnitState>,
+    missing_runtime: Vec<String>,
+    /// How to install `missing_runtime`, worked out on the worker: asking
+    /// whether the repositories have them runs pacman.
+    install: Option<Vec<String>>,
+    install_shell_command: Option<String>,
+}
+
+impl StatusReading {
+    fn read() -> Self {
+        let unit = bigame_core::systemd::Reader::shared()
+            .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
+        let missing_runtime = detect_missing_runtime_packages();
+        Self {
+            unit,
+            install: install_missing_packages_action(&missing_runtime),
+            install_shell_command: install_missing_packages_shell_command(&missing_runtime),
+            missing_runtime,
+        }
+    }
+}
+
 /// Keep the tray's warning and the error indicator in step with the real
 /// state.
 fn start_status_loop(
@@ -430,20 +474,15 @@ fn start_status_loop(
                 std::sync::Arc::clone(&error_indicator),
             );
             glib::spawn_future_local(async move {
-                let reading = gtk4::gio::spawn_blocking(|| {
-                    let unit = bigame_core::systemd::Reader::shared()
-                        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT));
-                    (unit, detect_missing_runtime_packages())
-                })
-                .await;
+                let reading = gtk4::gio::spawn_blocking(StatusReading::read).await;
                 busy.set(false);
-                if let Ok((unit, missing_runtime)) = reading {
-                    show_status(
-                        unit.as_ref(),
-                        &missing_runtime,
-                        &tray_handle,
-                        &error_indicator,
-                    );
+                if let Ok(reading) = reading {
+                    show_status(&reading, &tray_handle, &error_indicator);
+                    UNIT_LISTENERS.with(|l| {
+                        for listener in l.borrow().iter() {
+                            listener(reading.unit.as_ref());
+                        }
+                    });
                 }
             });
         }
@@ -462,11 +501,12 @@ fn start_status_loop(
 
 /// Put one reading on the tray and the error indicator.
 fn show_status(
-    unit: Option<&bigame_core::systemd::UnitState>,
-    missing_runtime: &[String],
+    reading: &StatusReading,
     tray_handle: &tray::TrayHandle,
     error_indicator: &crate::widgets::error_indicator::ErrorIndicator,
 ) {
+    let unit = reading.unit.as_ref();
+    let missing_runtime = &reading.missing_runtime;
     let backend_failed = unit.is_some_and(bigame_core::systemd::UnitState::is_failed);
     let failure = unit.and_then(bigame_core::systemd::UnitState::failure);
     let warning = if let (true, Some(failure)) = (backend_failed, failure) {
@@ -488,13 +528,17 @@ fn show_status(
         Some(i18n("falcond stopped unexpectedly"))
     } else if !missing_runtime.is_empty() {
         let missing_csv = missing_runtime.join(", ");
-        let action = install_missing_packages_action(missing_runtime);
+        let action = reading.install.clone();
         // The confirmation shows the very command the button runs.
-        let install_hint =
-            install_missing_packages_hint(missing_runtime, action.as_deref().map(|a| a.join(" ")));
+        let install_hint = install_missing_packages_hint(
+            missing_runtime,
+            action
+                .as_deref()
+                .map(|a| a.join(" "))
+                .or_else(|| reading.install_shell_command.clone()),
+        );
         if let Some(cmd) = action {
-            let copy_cmd =
-                install_missing_packages_shell_command(missing_runtime).unwrap_or_default();
+            let copy_cmd = reading.install_shell_command.clone().unwrap_or_default();
             error_indicator.set_error_with_action_and_copy(
                 &i18n("Missing Runtime Dependencies"),
                 &format!(
@@ -544,9 +588,11 @@ fn detect_missing_runtime_packages() -> Vec<String> {
     missing
 }
 
+/// What to do about the missing packages; `runs` is the command that
+/// installs them here, if one does.
 #[must_use]
 fn install_missing_packages_hint(missing: &[String], runs: Option<String>) -> String {
-    if let Some(cmd) = runs.or_else(|| install_missing_packages_shell_command(missing)) {
+    if let Some(cmd) = runs {
         return format!(
             "{}\n1) {}\n2) {}\n3) {}\n\n{}\n{}",
             i18n("Troubleshooting"),
@@ -631,9 +677,9 @@ fn show_about_dialog(app: &adw::Application) {
         .application_name(NAME)
         .application_icon(APP_ID)
         .version(env!("CARGO_PKG_VERSION"))
-        // The line under the name: what the product is. The people who make
-        // it are in the credits.
-        .developer_name(i18n("BigLinux's game mode."))
+        // The line under the name, as AppStream's <developer> names it: a
+        // person's name, not translated.
+        .developer_name("Rafael Ruscher")
         .website(WEBSITE)
         .issue_url(format!("{WEBSITE}/issues"))
         .license_type(gtk4::License::Gpl30)

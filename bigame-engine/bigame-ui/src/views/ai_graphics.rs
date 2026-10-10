@@ -28,10 +28,11 @@ use bigame_core::graphics::versions::Offer;
 use bigame_core::graphics::{self, Analysis, ChoiceState, Target, backend, diagnose, external};
 use bigame_core::optimization::Feature;
 use bigame_core::overview::State;
+use bigame_core::text::Text;
 
-use crate::i18n::{error_text, i18n, ni18n, tr};
+use crate::i18n::{error_text, i18n, labelled, ni18n, tr};
 use crate::widgets::info::{self, Entry};
-use crate::widgets::notice::{self, Kind, Notice};
+use crate::widgets::notice::{self, Kind, Notice, sentence};
 use crate::widgets::status::Chip;
 
 struct Page {
@@ -82,6 +83,8 @@ struct Page {
     status: Chip,
     /// Set while the page moves a control itself.
     quiet: Cell<bool>,
+    /// Set while a change to the game runs ([`begin`]).
+    working: Cell<bool>,
     /// Counts analyses, so only the latest one is shown.
     generation: Cell<u64>,
     /// The upscaler was changed since the last apply.
@@ -142,23 +145,20 @@ pub fn status_text(s: &Status) -> String {
             upscaler_name(upscaler, *fsr_generation)
         ),
         Status::NotDetected => i18n("Installed, but the game did not load it"),
-        Status::Failed { errors } => format!(
-            "{}: {}",
-            i18n("Failed"),
-            errors.first().cloned().unwrap_or_default()
+        Status::Failed { errors } => labelled(
+            &i18n("Failed"),
+            &errors.first().cloned().unwrap_or_default(),
         ),
         Status::SettingsLeft => i18n(
             "Files put back; the game's own setting is still to be put back — press Restore again",
         ),
-        Status::Moved { installed_in } => format!(
-            "{}: {}",
-            i18n("Installed in another folder"),
-            installed_in.display()
+        Status::Moved { installed_in } => labelled(
+            &i18n("Installed in another folder"),
+            &installed_in.display().to_string(),
         ),
-        Status::Unreadable { error } => format!(
-            "{}: {}",
-            i18n("The record of what was installed cannot be read"),
-            tr(error)
+        Status::Unreadable { error } => labelled(
+            &i18n("The record of what was installed cannot be read"),
+            &tr(error),
         ),
     }
 }
@@ -222,15 +222,6 @@ fn wrap_title(group: &adw::PreferencesGroup) {
         }
     }
     visit(group.upcast_ref::<gtk4::Widget>());
-}
-
-/// Start a sentence with a capital: core writes steps as clauses ("choose
-/// `XeSS` in the game's menu"), and a row title reads as a sentence.
-fn sentence(s: &str) -> String {
-    let mut c = s.chars();
-    c.next()
-        .map(|f| f.to_uppercase().chain(c).collect())
-        .unwrap_or_default()
 }
 
 fn row(title: &str, subtitle: &str) -> adw::ActionRow {
@@ -615,9 +606,11 @@ fn render_facts(page: &Rc<Page>, a: &Analysis) {
             .unwrap_or_default();
         facts.push(Fact {
             title: i18n("How the game starts"),
-            value: i18n("%s starts %s")
-                .replacen("%s", &stub.display().to_string(), 1)
-                .replacen("%s", &name, 1),
+            // A translation may name the game first (%2$s … %1$s).
+            value: Text::fill(
+                &i18n("%s starts %s"),
+                &[stub.display().to_string(), name],
+            ),
             info: Some(i18n(
                 "The launcher starts a small Unreal Engine bootstrap, which starts the real game. Big Game Mode looks at the game that runs — its folder is where OptiScaler would go, and its executable says which upscalers the game has — and knows it as running by either name.",
             )),
@@ -758,9 +751,8 @@ fn api_info(r: &Report) -> String {
     if !evidence.is_empty() {
         let _ = write!(
             s,
-            "\n\n{}: {}",
-            i18n("How it is known"),
-            evidence.join(" · ")
+            "\n\n{}",
+            labelled(&i18n("How it is known"), &evidence.join(" · "))
         );
     }
     s
@@ -827,7 +819,7 @@ fn changes(before: &[(String, String)], after: &[(String, String)]) -> Vec<Strin
         .iter()
         .filter_map(|(name, now)| {
             let was = before.iter().find(|(n, _)| n == name).map(|(_, v)| v)?;
-            (was != now).then(|| format!("{name}: {was} → {now}"))
+            (was != now).then(|| labelled(name, &format!("{was} → {now}")))
         })
         .collect()
 }
@@ -1141,7 +1133,7 @@ fn neural_words(s: &external::Status) -> (String, &'static str, String) {
                 i18n("Why it is unavailable here:"),
                 missing
                     .iter()
-                    .map(|m| format!("• {}: {}", i18n(m.what), tr(&m.detail)))
+                    .map(|m| format!("• {}", labelled(&i18n(m.what), &tr(&m.detail))))
                     .collect::<Vec<_>>()
                     .join("\n"),
                 i18n(
@@ -1495,21 +1487,25 @@ fn found_expander(r: &Report) -> adw::ExpanderRow {
         details.add_row(&row(
             "Proton",
             &format!(
-                "{} · Windows {} · {}: {} · {}: {}",
+                "{} · Windows {} · {} · {}",
                 p.tool.clone().unwrap_or_else(|| i18n("unknown build")),
                 p.windows_version.clone().unwrap_or_else(|| "?".into()),
-                i18n("FSR 4 provider"),
-                if p.fsr4_provider {
-                    i18n("yes")
-                } else {
-                    i18n("no")
-                },
-                i18n("AMD HIP runtime"),
-                if p.hip_runtime {
-                    i18n("yes")
-                } else {
-                    i18n("no")
-                },
+                labelled(
+                    &i18n("FSR 4 provider"),
+                    &if p.fsr4_provider {
+                        i18n("yes")
+                    } else {
+                        i18n("no")
+                    }
+                ),
+                labelled(
+                    &i18n("AMD HIP runtime"),
+                    &if p.hip_runtime {
+                        i18n("yes")
+                    } else {
+                        i18n("no")
+                    }
+                ),
             ),
         ));
     }
@@ -1587,10 +1583,9 @@ fn save_report(page: &Rc<Page>, button: &gtk4::Button, row: &adw::ActionRow) {
                 });
                 page.overlay.add_toast(toast);
             }
-            Ok(Err(e)) => page.overlay.add_toast(adw::Toast::new(&format!(
-                "{}: {}",
-                i18n("Could not write the report"),
-                error_text(&e)
+            Ok(Err(e)) => page.overlay.add_toast(adw::Toast::new(&labelled(
+                &i18n("Could not write the report"),
+                &error_text(&e),
             ))),
             Err(_) => page
                 .overlay
@@ -1908,10 +1903,9 @@ fn wire_choice(page: &Rc<Page>) {
                             Ok(()) => page2.overlay.add_toast(adw::Toast::new(&i18n(
                                 "lsfg-vk was turned off for this game",
                             ))),
-                            Err(e) => page2.overlay.add_toast(adw::Toast::new(&format!(
-                                "{}: {}",
-                                i18n("Could not turn lsfg-vk off"),
-                                error_text(&e)
+                            Err(e) => page2.overlay.add_toast(adw::Toast::new(&labelled(
+                                &i18n("Could not turn lsfg-vk off"),
+                                &error_text(&e),
                             ))),
                         }
                         choose_frame_generation(&page2, true);
@@ -1970,10 +1964,9 @@ fn wire_choice(page: &Rc<Page>) {
                     Ok(()) => page.overlay.add_toast(adw::Toast::new(&i18n(
                         "lsfg-vk was turned off for this game",
                     ))),
-                    Err(e) => page.overlay.add_toast(adw::Toast::new(&format!(
-                        "{}: {}",
-                        i18n("Could not turn lsfg-vk off"),
-                        error_text(&e)
+                    Err(e) => page.overlay.add_toast(adw::Toast::new(&labelled(
+                        &i18n("Could not turn lsfg-vk off"),
+                        &error_text(&e),
                     ))),
                 }
                 refresh(&page);
@@ -1994,23 +1987,24 @@ fn wire_choice(page: &Rc<Page>) {
         let page = Rc::clone(page);
         c.setting_off
             .add_action(&i18n("Switch it back on"), true, move |_| {
+                if !begin(&page, &i18n("Writing the game's settings…")) {
+                    return;
+                }
                 let page = Rc::clone(&page);
                 glib::spawn_future_local(async move {
                     if refuse_while_running(&page, &page.overlay).await {
+                        end(&page);
                         return;
                     }
-                    busy(&page, Some(&i18n("Writing the game's settings…")));
                     let target = page.target.clone();
                     let result = gio::spawn_blocking(move || {
                         graphics::switch_game_setting_on_again(&target)
                     })
                     .await;
-                    busy(&page, None);
+                    end(&page);
                     let text = match result {
                         Ok(Ok(_)) => i18n("Switched back on in the game's settings"),
-                        Ok(Err(e)) => {
-                            format!("{}: {}", i18n("Nothing was changed"), error_text(&e))
-                        }
+                        Ok(Err(e)) => labelled(&i18n("Nothing was changed"), &error_text(&e)),
                         Err(_) => i18n("Nothing was changed"),
                     };
                     page.overlay.add_toast(adw::Toast::new(&text));
@@ -2038,7 +2032,7 @@ fn wire_choice(page: &Rc<Page>) {
                         Ok(Ok(bigame_core::steam_gamescope::Applied::Written(o))) => {
                             i18n("Steam launch options: %s").replace("%s", &o)
                         }
-                        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
+                        Ok(Err(e)) => labelled(&i18n("Nothing was changed"), &error_text(&e)),
                         Ok(Ok(_)) | Err(_) => i18n("Nothing was changed"),
                     };
                     page.overlay.add_toast(adw::Toast::new(&text));
@@ -2104,7 +2098,17 @@ fn choose_frame_generation(page: &Rc<Page>, on: bool) {
     refresh(page);
 }
 
+/// Show the page as busy with `text`, or not busy. While a change to the
+/// game runs, only [`end`] ends it: an analysis started meanwhile (a choice
+/// changed during a download) would make the buttons usable again
+/// mid-change.
 fn busy(page: &Page, text: Option<&str>) {
+    if !page.working.get() {
+        show_busy(page, text);
+    }
+}
+
+fn show_busy(page: &Page, text: Option<&str>) {
     let on = text.is_some();
     page.spinner.set_visible(on);
     page.spinner.set_spinning(on);
@@ -2120,6 +2124,29 @@ fn busy(page: &Page, text: Option<&str>) {
     ] {
         b.set_sensitive(!on);
     }
+    // Update and Go back change the game's files too.
+    if let Some(versions) = page.versions.borrow().as_ref() {
+        versions.set_sensitive(!on);
+    }
+}
+
+/// Start a change to the game's files, showing `text`. Called in the click
+/// itself, before anything is awaited: the buttons are grey before a second
+/// click can start a second run beside the first. `false` while another
+/// change runs.
+fn begin(page: &Page, text: &str) -> bool {
+    if page.working.get() {
+        return false;
+    }
+    show_busy(page, Some(text));
+    page.working.set(true);
+    true
+}
+
+/// The change [`begin`] started is over.
+fn end(page: &Page) {
+    page.working.set(false);
+    show_busy(page, None);
 }
 
 /// *Check Again*: read the game's folder, the GPU, the running game and
@@ -2270,12 +2297,15 @@ fn render_versions(page: &Rc<Page>, offer: &Offer) {
 
 /// Update to `to`, or go back to the previous version (`None`).
 fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler::Release>) {
+    if !begin(page, &i18n("Downloading, checking and installing…")) {
+        return;
+    }
     let page = page.clone();
     glib::spawn_future_local(async move {
         if refuse_while_running(&page, &page.overlay).await {
+            end(&page);
             return;
         }
-        busy(&page, Some(&i18n("Downloading, checking and installing…")));
         let target = page.target.clone();
         let cfg = page.cfg.borrow().clone();
         let result = gio::spawn_blocking(move || {
@@ -2286,7 +2316,7 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
             }
         })
         .await;
-        busy(&page, None);
+        end(&page);
         let text = match result {
             Ok(Ok(m)) => format!(
                 "{} {} — {}",
@@ -2294,12 +2324,63 @@ fn change_version(page: &Rc<Page>, to: Option<bigame_core::graphics::optiscaler:
                 m.source.version,
                 i18n("installed; the previous version can be restored here")
             ),
-            Ok(Err(e)) => format!("{}: {}", i18n("Not updated"), error_text(&e)),
+            Ok(Err(e)) => labelled(&i18n("Not updated"), &error_text(&e)),
             Err(_) => i18n("Not updated"),
         };
         page.overlay.add_toast(adw::Toast::new(&text));
         refresh(&page);
     });
+}
+
+/// What a Restore did ([`graphics::restore`]), as one toast — the page's and
+/// the Profiles menu's alike: files another program changed since and left
+/// alone, where the user's edited `OptiScaler` settings went, and a game
+/// setting that could not be put back yet are said, not hidden behind a
+/// success.
+pub(crate) fn restoration_text(
+    result: Result<anyhow::Result<graphics::Restoration>, Box<dyn std::any::Any + Send>>,
+) -> String {
+    use bigame_core::graphics::transaction::FileOutcome;
+    let done = match result {
+        Ok(Ok(done)) => done,
+        Ok(Err(e)) => return labelled(&i18n("Could not restore"), &error_text(&e)),
+        Err(_) => return i18n("Could not restore"),
+    };
+    let kept = done
+        .files
+        .iter()
+        .filter(|o| matches!(o, FileOutcome::KeptChanged(_)))
+        .count();
+    let mut text = if kept == 0 {
+        i18n("The game's files are as they were before")
+    } else {
+        format!(
+            "{} ({kept})",
+            i18n("Restored; files another program changed since were left alone")
+        )
+    };
+    // The user's OptiScaler settings went with its ini: where the copy is.
+    for o in &done.files {
+        if let FileOutcome::EditedCopyKept(_, copy) = o {
+            let _ = write!(
+                text,
+                " · {}",
+                i18n("your edited settings were kept in %s")
+                    .replace("%s", &copy.display().to_string())
+            );
+        }
+    }
+    if let Some(why) = &done.settings_error {
+        let _ = write!(
+            text,
+            " · {}",
+            labelled(
+                &i18n("The game's own setting could not be put back yet"),
+                &tr(why)
+            )
+        );
+    }
+    text
 }
 
 /// Say what switching the FSR 4 upgrade `on` or off for the game whose
@@ -2314,10 +2395,7 @@ fn report_fsr4_upgrade(
     use graphics::fsr4_upgrade::Applied;
     let text = match result {
         Ok(Ok(Applied::SteamLaunchOptions(o))) if on => {
-            format!(
-                "{}: {o}",
-                i18n("Steam's launch options for this game now read")
-            )
+            labelled(&i18n("Steam's launch options for this game now read"), &o)
         }
         Ok(Ok(Applied::SteamLaunchOptions(_))) => {
             i18n("The launch option was removed; the game's own FSR runs as it did")
@@ -2353,7 +2431,7 @@ fn report_fsr4_upgrade(
         Ok(Ok(Applied::LaunchPlan)) => {
             i18n("Not a Steam game: the variable goes into Big Game Mode's own launch")
         }
-        Ok(Err(e)) => format!("{}: {}", i18n("Nothing was changed"), error_text(&e)),
+        Ok(Err(e)) => labelled(&i18n("Nothing was changed"), &error_text(&e)),
         Err(_) => i18n("Nothing was changed"),
     };
     overlay.add_toast(adw::Toast::new(&text));
@@ -2401,10 +2479,9 @@ fn save_version_choice(page: &Page, change: impl Fn(&mut AiGraphicsConfig)) -> b
         }
         Err(e) => {
             tracing::warn!(error = %e, "could not save the AI Graphics version choice");
-            page.overlay.add_toast(adw::Toast::new(&format!(
-                "{}: {}",
-                i18n("The choice was not saved"),
-                error_text(&e)
+            page.overlay.add_toast(adw::Toast::new(&labelled(
+                &i18n("The choice was not saved"),
+                &error_text(&e),
             )));
             false
         }
@@ -2425,10 +2502,9 @@ fn save_settings(page: &Page) -> bool {
         }
         Err(e) => {
             tracing::warn!(error = %e, "could not save AI Graphics settings");
-            page.overlay.add_toast(adw::Toast::new(&format!(
-                "{}: {}",
-                i18n("The choice was not saved"),
-                error_text(&e)
+            page.overlay.add_toast(adw::Toast::new(&labelled(
+                &i18n("The choice was not saved"),
+                &error_text(&e),
             )));
             false
         }
@@ -2635,6 +2711,7 @@ fn open_with(
         hint,
         status,
         quiet: Cell::new(false),
+        working: Cell::new(false),
         generation: Cell::new(0),
         upscaler_touched: Cell::new(false),
     });
@@ -2664,29 +2741,38 @@ fn open_with(
         let page = page.clone();
         let overlay = overlay.clone();
         apply.connect_clicked(move |_| {
+            let native_only = page
+                .analysis
+                .borrow()
+                .as_ref()
+                .is_some_and(|a| a.plan.optiscaler.is_none() && a.plan.native_action.is_some());
+            let doing = if native_only {
+                i18n("Writing the launch option…")
+            } else {
+                i18n("Downloading, checking and installing…")
+            };
+            if !begin(&page, &doing) {
+                return;
+            }
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay).await {
+                    end(&page);
                     return;
                 }
-                let native_only = page
-                    .analysis
-                    .borrow()
-                    .as_ref()
-                    .is_some_and(|a| a.plan.optiscaler.is_none() && a.plan.native_action.is_some());
                 if native_only {
                     // The Native backend's one action: a Steam launch option,
                     // written with Steam closed and read back, or the
                     // variables in a Heroic game's settings, written with
                     // Heroic closed. No game file.
                     if page.target.app_id.is_some() && bigame_core::steam::is_running() {
+                        end(&page);
                         overlay.add_toast(adw::Toast::new(&i18n(
                             "Close Steam first: it keeps its configuration in memory and would discard the launch option",
                         )));
                         return;
                     }
-                    busy(&page, Some(&i18n("Writing the launch option…")));
                     save_settings(&page);
                     let app = page.target.app_id.clone();
                     let process = page.target.process.clone();
@@ -2694,12 +2780,11 @@ fn open_with(
                         bigame_core::graphics::fsr4_upgrade::apply(&process, app.as_deref(), true)
                     })
                     .await;
-                    busy(&page, None);
+                    end(&page);
                     report_fsr4_upgrade(&overlay, &page.target.process, true, result);
                     refresh(&page);
                     return;
                 }
-                busy(&page, Some(&i18n("Downloading, checking and installing…")));
                 save_settings(&page);
                 let target = page.target.clone();
                 let cfg = page.cfg.borrow().clone();
@@ -2723,18 +2808,17 @@ fn open_with(
                     // Turbo preset, the options themselves). One owner
                     // writes it, and writing it again changes nothing; with
                     // Steam open nothing is written, and the page offers it.
-                    if target.app_id.is_some() {
-                        if let Err(e) =
+                    if target.app_id.is_some()
+                        && let Err(e) =
                             bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, true)
                         {
                             tracing::warn!(target: "graphics", game = %target.process,
                                 error = %format!("{e:#}"), "Wine FSR could not be turned off for the game");
                         }
-                    }
                     anyhow::Ok((done, lsfg_removed))
                 })
                 .await;
-                busy(&page, None);
+                end(&page);
                 let text = match result {
                     Ok(Ok((done, lsfg_removed))) => {
                         use bigame_core::graphics::ingame::Applied;
@@ -2771,7 +2855,7 @@ fn open_with(
                             Some(Applied::AlreadyOn(_)) | None => files,
                         }
                     }
-                    Ok(Err(e)) => format!("{}: {}", i18n("Could not apply"), error_text(&e)),
+                    Ok(Err(e)) => labelled(&i18n("Could not apply"), &error_text(&e)),
                     Err(_) => i18n("Could not apply"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
@@ -2783,20 +2867,23 @@ fn open_with(
         let page = page.clone();
         let overlay = overlay.clone();
         repair.connect_clicked(move |_| {
+            if !begin(&page, &i18n("Checking files…")) {
+                return;
+            }
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay).await {
+                    end(&page);
                     return;
                 }
-                busy(&page, Some(&i18n("Checking files…")));
                 let target = page.target.clone();
                 let result = gio::spawn_blocking(move || graphics::repair(&target)).await;
-                busy(&page, None);
+                end(&page);
                 let text = match result {
                     Ok(Ok(v)) if v.is_empty() => i18n("Every file is as it was installed"),
                     Ok(Ok(v)) => format!("{} ({})", i18n("Missing files put back"), v.len()),
-                    Ok(Err(e)) => format!("{}: {}", i18n("Could not repair"), error_text(&e)),
+                    Ok(Err(e)) => labelled(&i18n("Could not repair"), &error_text(&e)),
                     Err(_) => i18n("Could not repair"),
                 };
                 overlay.add_toast(adw::Toast::new(&text));
@@ -2808,96 +2895,49 @@ fn open_with(
         let page = page.clone();
         let overlay = overlay.clone();
         remove.connect_clicked(move |_| {
+            let installed = page
+                .analysis
+                .borrow()
+                .as_ref()
+                .is_some_and(|a| a.report.installed.is_some());
+            let doing = if installed {
+                i18n("Restoring the game's own files…")
+            } else {
+                i18n("Removing the launch option…")
+            };
+            if !begin(&page, &doing) {
+                return;
+            }
             let page = page.clone();
             let overlay = overlay.clone();
             glib::spawn_future_local(async move {
                 if refuse_while_running(&page, &overlay).await {
+                    end(&page);
                     return;
                 }
-                let installed = page
-                    .analysis
-                    .borrow()
-                    .as_ref()
-                    .is_some_and(|a| a.report.installed.is_some());
                 if !installed {
                     if page.target.app_id.is_some() && bigame_core::steam::is_running() {
+                        end(&page);
                         overlay.add_toast(adw::Toast::new(&i18n(
                             "Close Steam first: it keeps its configuration in memory and would discard the change",
                         )));
                         return;
                     }
-                    busy(&page, Some(&i18n("Removing the launch option…")));
                     let app = page.target.app_id.clone();
                     let process = page.target.process.clone();
                     let result = gio::spawn_blocking(move || {
                         bigame_core::graphics::fsr4_upgrade::apply(&process, app.as_deref(), false)
                     })
                     .await;
-                    busy(&page, None);
+                    end(&page);
                     report_fsr4_upgrade(&overlay, &page.target.process, false, result);
                     refresh(&page);
                     return;
                 }
-                busy(&page, Some(&i18n("Restoring the game's own files…")));
                 let target = page.target.clone();
-                let result = gio::spawn_blocking(move || {
-                    let out = graphics::restore(&target)?;
-                    // Big Game Mode's WINE_FULLSCREEN_FSR=0 went in with
-                    // OptiScaler, and goes with it (Steam closed; otherwise
-                    // it stays, harmless, until the next Restore).
-                    if bigame_core::game_settings::load(&target.process)
-                        .is_ok_and(|s| s.steam_wine_fsr_off)
-                    {
-                        let _ = bigame_core::steam_gamescope::set_wine_fsr_off(&target.process, false);
-                    }
-                    anyhow::Ok(out)
-                })
-                .await;
-                busy(&page, None);
-                let text = match result {
-                    Ok(Ok(done)) => {
-                        use bigame_core::graphics::transaction::FileOutcome;
-                        let kept = done
-                            .files
-                            .iter()
-                            .filter(|o| matches!(o, FileOutcome::KeptChanged(_)))
-                            .count();
-                        let mut text = if kept == 0 {
-                            i18n("The game's files are as they were before")
-                        } else {
-                            format!(
-                                "{} ({kept})",
-                                i18n(
-                                    "Restored; files another program changed since were left alone"
-                                )
-                            )
-                        };
-                        // The user's OptiScaler settings went with its ini:
-                        // where the copy is.
-                        for o in &done.files {
-                            if let FileOutcome::EditedCopyKept(_, copy) = o {
-                                let _ = write!(
-                                    text,
-                                    " · {}",
-                                    i18n("your edited settings were kept in %s")
-                                        .replace("%s", &copy.display().to_string())
-                                );
-                            }
-                        }
-                        if let Some(why) = &done.settings_error {
-                            let _ = write!(
-                                text,
-                                " · {}: {}",
-                                i18n("The game's own setting could not be put back yet"),
-                                tr(why)
-                            );
-                        }
-                        text
-                    }
-                    Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
-                    Err(_) => i18n("Could not restore"),
-                };
-                overlay.add_toast(adw::Toast::new(&text));
+                let result = gio::spawn_blocking(move || graphics::restore(&target)).await;
+                end(&page);
+                overlay.add_toast(adw::Toast::new(&restoration_text(result)));
                 refresh(&page);
             });
         });

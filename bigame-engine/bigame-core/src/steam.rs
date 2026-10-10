@@ -118,8 +118,11 @@ pub fn users(home: &Path) -> Vec<SteamUser> {
             }
         }
     }
-    out.sort_by(|a, b| a.id.cmp(&b.id));
-    out.dedup_by(|a, b| a.id == b.id);
+    // One account signed in to both the native Steam and the Flatpak has a
+    // `userdata/<id>` in each, and each client reads only its own: they are
+    // two configurations to write, told apart by their file, not by the id.
+    out.sort_by(|a, b| a.id.cmp(&b.id).then_with(|| a.config.cmp(&b.config)));
+    out.dedup_by(|a, b| a.config == b.config);
     out
 }
 
@@ -417,6 +420,12 @@ pub fn set_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()
     write_launch_options(config, app_id, value)
 }
 
+/// One edit of a `localconfig.vdf` at a time in this process: two saves at
+/// once (a profile and AI Graphics) would each read the file, change their
+/// own game and write it back, and the second would put back the first
+/// one's old options.
+static EDIT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Write the launch options without checking whether Steam is running.
 ///
 /// Split out from [`set_launch_options`] so the file-editing logic can be
@@ -430,6 +439,10 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
         !app_id.is_empty() && app_id.bytes().all(|b| b.is_ascii_digit()),
         UserError::with(N_("not a Steam app id: %s"), [app_id])
     );
+    // Held through the read-back, so what is compared is this write.
+    let _edit = EDIT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     // Written in Steam's escapes: a bare quote or newline would corrupt the
     // file for every game, not just this one.
     let stored = escape(value);
@@ -468,7 +481,9 @@ fn write_launch_options(config: &Path, app_id: &str, value: &str) -> Result<()> 
             }
             return finish_write(config, &content, &lines, app_id, value);
         };
-        let app_depth = depth(borrowed[from]);
+        // An empty block's first line is its own closing brace, one level
+        // out from the keys that belong inside.
+        let app_depth = depth(borrowed[from]) + usize::from(from == to);
         let existing = (from..to).find(|i| {
             pair_key(borrowed[*i]) == Some("LaunchOptions") && depth(borrowed[*i]) == app_depth
         });
@@ -506,7 +521,7 @@ fn finish_write(
     if content.ends_with('\n') {
         out.push('\n');
     }
-    write_atomic(config, out.as_bytes())?;
+    crate::mangohud::replace_file(config, out.as_bytes()).context("replace localconfig.vdf")?;
 
     // Read back rather than trusting the write.
     let readback = launch_options(config, app_id);
@@ -520,13 +535,55 @@ fn finish_write(
     Ok(())
 }
 
-fn write_atomic(path: &Path, content: &[u8]) -> Result<()> {
-    let dir = path.parent().context("path has no parent")?;
-    let tmp = dir.join(format!(".localconfig.bigame.{}", std::process::id()));
-    std::fs::write(&tmp, content).with_context(|| format!("write {}", tmp.display()))?;
-    if let Err(e) = std::fs::rename(&tmp, path) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(e).context("replace localconfig.vdf");
+// ── Changing several accounts ────────────────────────────────────────────────
+
+/// Words Big Game Mode put into games' launch options, by account (its
+/// `localconfig.vdf`, as [`SteamUser::config`] names it) and then by app,
+/// so that exactly those come out again: a word the user typed in one
+/// account is theirs even where Big Game Mode added the same word in
+/// another.
+pub(crate) type Inserted =
+    std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>;
+
+/// One account's new launch options for one game, worked out before any
+/// account is written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Change {
+    /// The account's `localconfig.vdf`.
+    pub config: PathBuf,
+    /// The game's app id.
+    pub app: String,
+    /// The options as they read before.
+    pub before: String,
+    /// The options to write.
+    pub after: String,
+}
+
+/// Write every change, or none: an account that cannot be written puts
+/// back the ones written before it, so a failure half-way does not leave
+/// words in some accounts with no record of them.
+///
+/// # Errors
+/// Returns the first account's error (Steam running included).
+pub(crate) fn set_all(changes: &[Change]) -> Result<()> {
+    write_all(changes, &|config, app, value| {
+        set_launch_options(config, app, value)
+    })
+}
+
+fn write_all(changes: &[Change], write: &dyn Fn(&Path, &str, &str) -> Result<()>) -> Result<()> {
+    let mut written: Vec<&Change> = Vec::new();
+    for change in changes {
+        if let Err(e) = write(&change.config, &change.app, &change.after) {
+            for done in written.iter().rev() {
+                if let Err(undo) = write(&done.config, &done.app, &done.before) {
+                    tracing::warn!(target: "launch", app = %done.app, error = %format!("{undo:#}"),
+                        "a Steam account's launch options could not be put back");
+                }
+            }
+            return Err(e);
+        }
+        written.push(change);
     }
     Ok(())
 }
@@ -626,12 +683,11 @@ pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
     let mut out = Vec::new();
     let mut current_app: Option<String> = None;
     for line in &lines[from..to] {
-        if depth(line) == app_depth {
-            if let Some(key) = block_key(line) {
-                if key.chars().all(|c| c.is_ascii_digit()) {
-                    current_app = Some(key.to_owned());
-                }
-            }
+        if depth(line) == app_depth
+            && let Some(key) = block_key(line)
+            && key.chars().all(|c| c.is_ascii_digit())
+        {
+            current_app = Some(key.to_owned());
         }
         if depth(line) != app_depth + 1 || pair_key(line) != Some("LaunchOptions") {
             continue;
@@ -801,6 +857,103 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_app_block_gets_the_key_inside_it() {
+        let vdf = VDF.replace(
+            "\t\t\t\t\t\"1808500\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"LastPlayed\"\t\t\"1789800000\"\n",
+            "\t\t\t\t\t\"1808500\"\n\t\t\t\t\t{\n",
+        );
+        assert_ne!(vdf, VDF);
+        let path = write_temp("empty-block", &vdf);
+        write_launch_options(&path, "1808500", "MANGOHUD=1 %command%").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains(
+                "\t\t\t\t\t\"1808500\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"LaunchOptions\"\t\t\"MANGOHUD=1 %command%\"\n\t\t\t\t\t}\n"
+            ),
+            "{text}"
+        );
+        assert_eq!(
+            launch_options(&path, "1808500").as_deref(),
+            Some("MANGOHUD=1 %command%")
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn two_games_written_at_once_both_keep_their_options() {
+        let path = write_temp("concurrent", VDF);
+        std::thread::scope(|s| {
+            for (app, value) in [
+                ("381210", "MANGOHUD=1 %command%"),
+                ("1808500", "gamemoderun %command%"),
+            ] {
+                let path = &path;
+                s.spawn(move || {
+                    for _ in 0..20 {
+                        write_launch_options(path, app, value).unwrap();
+                    }
+                });
+            }
+        });
+        assert_eq!(
+            launch_options(&path, "381210").as_deref(),
+            Some("MANGOHUD=1 %command%")
+        );
+        assert_eq!(
+            launch_options(&path, "1808500").as_deref(),
+            Some("gamemoderun %command%")
+        );
+        let left: Vec<String> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with('.'))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn an_account_that_cannot_be_written_puts_back_the_ones_before_it() {
+        let store = std::cell::RefCell::new(std::collections::HashMap::from([
+            ("a".to_owned(), "-x".to_owned()),
+            ("b".to_owned(), "-y".to_owned()),
+        ]));
+        let change = |c: &str, before: &str| Change {
+            config: PathBuf::from(c),
+            app: "10".into(),
+            before: before.into(),
+            after: format!("MANGOHUD=1 %command% {before}"),
+        };
+        let changes = [change("a", "-x"), change("b", "-y")];
+        let write = |c: &Path, _: &str, v: &str| {
+            anyhow::ensure!(c != Path::new("b"), "read-only");
+            store
+                .borrow_mut()
+                .insert(c.to_string_lossy().into_owned(), v.to_owned());
+            Ok(())
+        };
+        assert!(write_all(&changes, &write).is_err());
+        assert_eq!(store.borrow()["a"], "-x", "put back");
+        assert_eq!(store.borrow()["b"], "-y");
+        assert!(write_all(&changes[..1], &write).is_ok());
+        assert_eq!(store.borrow()["a"], "MANGOHUD=1 %command% -x");
+    }
+
+    #[test]
+    fn writing_keeps_the_files_permissions() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let path = write_temp("mode", VDF);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        write_launch_options(&path, "381210", "-novid").unwrap();
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
     fn writing_leaves_a_backup() {
         let path = write_temp("backup", VDF);
         write_launch_options(&path, "381210", "mangohud %command%").unwrap();
@@ -931,6 +1084,34 @@ mod tests {
             client_command(false, &["-shutdown"]),
             ["steam", "-shutdown"]
         );
+    }
+
+    #[test]
+    fn one_account_in_the_native_and_the_flatpak_steam_is_two_configurations() {
+        let home = tempfile::tempdir().unwrap();
+        let account = |root: &str| {
+            let config = home
+                .path()
+                .join(root)
+                .join("userdata/1234/config/localconfig.vdf");
+            std::fs::create_dir_all(home.path().join(root).join("steamapps")).unwrap();
+            std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+            std::fs::write(&config, VDF).unwrap();
+        };
+        account(".local/share/Steam");
+        account(".var/app/com.valvesoftware.Steam/.local/share/Steam");
+        let found = users(home.path());
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.iter().all(|u| u.id == "1234"));
+        assert_eq!(found.iter().filter(|u| u.flatpak()).count(), 1);
+        // `~/.steam/steam`, a link to the native install, is not a third.
+        std::fs::create_dir_all(home.path().join(".steam")).unwrap();
+        std::os::unix::fs::symlink(
+            home.path().join(".local/share/Steam"),
+            home.path().join(".steam/steam"),
+        )
+        .unwrap();
+        assert_eq!(users(home.path()).len(), 2);
     }
 
     #[test]

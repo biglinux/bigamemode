@@ -260,16 +260,16 @@ pub fn check(backend: Backend, r: &Report) -> Availability {
             detail: Text::plain(N_("a 64-bit game; this one is 32-bit")),
         });
     }
-    if let Some(api) = r.api.api {
-        if !c.apis.contains(&api) {
-            missing.push(Missing {
-                what: N_("Graphics API"),
-                detail: Text::with(
-                    N_("needs %s; this game renders with %s"),
-                    [apis(c.apis), api_name(api).to_owned()],
-                ),
-            });
-        }
+    if let Some(api) = r.api.api
+        && !c.apis.contains(&api)
+    {
+        missing.push(Missing {
+            what: N_("Graphics API"),
+            detail: Text::with(
+                N_("needs %s; this game renders with %s"),
+                [apis(c.apis), api_name(api).to_owned()],
+            ),
+        });
     }
     if c.needs_ffx_api && r.native.ffx_api.is_none() {
         missing.push(Missing {

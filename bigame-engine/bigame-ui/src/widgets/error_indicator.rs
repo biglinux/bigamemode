@@ -91,12 +91,11 @@ impl ErrorIndicator {
                         if let Some((_, cmd)) = &act {
                             run_action(&anchor, cmd.clone(), done.borrow().clone());
                         }
-                    } else if response == "copy" {
-                        if let Some((_, text)) = &copy_act {
-                            if let Some(display) = gtk4::gdk::Display::default() {
-                                display.clipboard().set_text(text);
-                            }
-                        }
+                    } else if response == "copy"
+                        && let Some((_, text)) = &copy_act
+                        && let Some(display) = gtk4::gdk::Display::default()
+                    {
+                        display.clipboard().set_text(text);
                     }
                 });
             }

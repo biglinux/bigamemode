@@ -79,14 +79,10 @@ pub fn save(cfg: &VideoConfig) -> Result<Option<anyhow::Error>> {
 /// # Errors
 /// Returns an error if directory creation or file write fails.
 pub fn save_to(cfg: &VideoConfig, path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("create config dir: {}", parent.display()))?;
-    }
     let content = toml::to_string_pretty(cfg).context("serialize video config")?;
-    std::fs::write(path, content)
-        .with_context(|| format!("write video config: {}", path.display()))?;
-    Ok(())
+    // Written in one rename: a file cut short by a crash or a full disk
+    // reads as no file, and every setting in it would fall back to default.
+    crate::turbo_preset::write_atomic(path, &content).context("write video config")
 }
 
 /// The session environment file: `~/.config/environment.d/bigame-mode.conf`.
@@ -124,34 +120,34 @@ pub const SESSION_KEYS: &[&str] = &[
 /// Returns error if directory creation or file I/O fails, or the running
 /// session's environment cannot be updated.
 pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
-    let path = env_file_path();
-    let env = crate::launcher::build_persistent_env(cfg);
-
-    if env.is_empty() {
-        if path.exists() {
-            std::fs::remove_file(&path)
-                .with_context(|| format!("remove env file: {}", path.display()))?;
-        }
-    } else {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("create env dir: {}", parent.display()))?;
-        }
-        let mut keys: Vec<&String> = env.keys().collect();
-        keys.sort();
-        let mut content = String::from("# Managed by BiGameMode. Do not edit manually.\n");
-        for k in keys {
-            // environment.d is KEY=VALUE per line, no quoting required for our values.
-            let _ = writeln!(content, "{}={}", k, env[k]);
-        }
-        std::fs::write(&path, content)
-            .with_context(|| format!("write env file: {}", path.display()))?;
-    }
-
+    write_env_file_at(
+        &env_file_path(),
+        &crate::launcher::build_persistent_env(cfg),
+    )?;
     sync_session_env(cfg).context(UserError::plain(N_(
         "could not update the running session's environment",
     )))?;
     Ok(())
+}
+
+/// The environment.d file at `path` holding `env`, or no file for none.
+fn write_env_file_at(path: &Path, env: &HashMap<String, String>) -> Result<()> {
+    if env.is_empty() {
+        if path.exists() {
+            std::fs::remove_file(path)
+                .with_context(|| format!("remove env file: {}", path.display()))?;
+        }
+        return Ok(());
+    }
+    let mut keys: Vec<&String> = env.keys().collect();
+    keys.sort();
+    let mut content = String::from("# Managed by BiGameMode. Do not edit manually.\n");
+    for k in keys {
+        // environment.d is KEY=VALUE per line, no quoting required for our values.
+        let _ = writeln!(content, "{}={}", k, env[k]);
+    }
+    // The next login reads it whole or not at all.
+    crate::turbo_preset::write_atomic(path, &content).context("write env file")
 }
 
 /// Bring the running session to `cfg`'s variables with the Turbo preset in
@@ -205,8 +201,7 @@ fn session_env_with(
 /// # Errors
 /// Returns an error when the session bus or the manager cannot be reached.
 pub fn session_environment() -> Result<HashMap<String, String>> {
-    let conn = zbus::blocking::Connection::session().context("session bus")?;
-    let now: Vec<String> = user_manager(&conn)?
+    let now: Vec<String> = user_manager(session_bus()?)?
         .get_property("Environment")
         .context("read the session environment")?;
     Ok(now
@@ -216,14 +211,30 @@ pub fn session_environment() -> Result<HashMap<String, String>> {
         .collect())
 }
 
+/// One session bus connection for the whole process, opened on first use:
+/// Home reads the session's environment every few seconds, and a new
+/// connection each time is a new authentication with the bus. A failed
+/// connect is not remembered, so a later call tries again.
+fn session_bus() -> Result<&'static zbus::blocking::Connection> {
+    static SHARED: std::sync::OnceLock<zbus::blocking::Connection> = std::sync::OnceLock::new();
+    if let Some(conn) = SHARED.get() {
+        return Ok(conn);
+    }
+    let conn = zbus::blocking::Connection::session().context("session bus")?;
+    Ok(SHARED.get_or_init(|| conn))
+}
+
+/// The user manager, its properties read when asked: a caching proxy
+/// fetches every property of the manager (`GetAll`) to read one, and then
+/// follows their changes.
 fn user_manager(conn: &zbus::blocking::Connection) -> Result<zbus::blocking::Proxy<'static>> {
-    zbus::blocking::Proxy::new(
-        conn,
-        "org.freedesktop.systemd1",
-        "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager",
-    )
-    .context("systemd user manager")
+    zbus::blocking::proxy::Builder::new(conn)
+        .destination("org.freedesktop.systemd1")
+        .and_then(|b| b.path("/org/freedesktop/systemd1"))
+        .and_then(|b| b.interface("org.freedesktop.systemd1.Manager"))
+        .map(|b| b.cache_properties(zbus::proxy::CacheProperties::No))
+        .and_then(zbus::blocking::proxy::Builder::build)
+        .context("systemd user manager")
 }
 
 /// What of Big Game Mode's variables ([`SESSION_KEYS`]) an environment really
@@ -300,53 +311,93 @@ fn session_change(
 /// One `UnsetAndSetEnvironment` call on the user manager — no `systemctl`
 /// process — then a read-back of its environment to confirm it holds.
 fn sync_session(unset: &[String], set: &[String]) -> Result<()> {
-    let conn = zbus::blocking::Connection::session().context("session bus")?;
-    let manager = user_manager(&conn)?;
+    let manager = user_manager(session_bus()?)?;
     manager
         .call_method("UnsetAndSetEnvironment", &(unset, set))
         .context("UnsetAndSetEnvironment")?;
     let now: Vec<String> = manager
         .get_property("Environment")
         .context("read the session environment back")?;
-    let missing: Vec<&String> = set.iter().filter(|a| !now.contains(a)).collect();
-    // A detail of a switch that is off (Wine FSR's mode with
-    // WINE_FULLSCREEN_FSR=0) may stay: the login put it there and systemd
-    // keeps it, and with its switch at 0 nothing reads it.
-    let harmless = |k: &str| {
-        DETAILS
-            .iter()
-            .any(|(detail, switch)| *detail == k && set.iter().any(|a| *a == format!("{switch}=0")))
-    };
-    let left: Vec<&String> = unset
-        .iter()
-        .filter(|k| !harmless(k))
-        .filter(|k| {
-            now.iter()
-                .any(|a| a.split_once('=').is_some_and(|(n, _)| n == k.as_str()))
-        })
-        .collect();
-    if !missing.is_empty() || !left.is_empty() {
+    let held = read_back(unset, set, &now);
+    if !held.kept_details.is_empty() {
+        tracing::warn!(
+            variables = %held.kept_details.join(", "),
+            "systemd keeps what the login set; these stay until the next login"
+        );
+    }
+    if !held.missing.is_empty() || !held.left.is_empty() {
         anyhow::bail!(UserError::with(
             N_("the session environment did not change: missing %s, still set %s"),
-            [
-                missing
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                left.iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ]
+            [held.missing.join(", "), held.left.join(", ")]
         ));
     }
     Ok(())
 }
 
+/// What a read-back of the session (`now`) says of a change that asked to
+/// unset `unset` and set `set`.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct ReadBack {
+    /// Assignments the session does not hold.
+    missing: Vec<String>,
+    /// Variables still set that change what a game gets.
+    left: Vec<String>,
+    /// A switch's detail (Wine FSR's mode, vkBasalt's file) still set. The
+    /// login put it there from environment.d, and systemd keeps a value its
+    /// generator gave (checked on systemd 261); it only tunes a feature the
+    /// switch turns on or off, so it waits for the next login rather than
+    /// failing every change until then.
+    kept_details: Vec<String>,
+}
+
+fn read_back(unset: &[String], set: &[String], now: &[String]) -> ReadBack {
+    let is_set = |k: &str| {
+        now.iter()
+            .any(|a| a.split_once('=').is_some_and(|(n, _)| n == k))
+    };
+    let (kept_details, left) = unset
+        .iter()
+        .filter(|k| is_set(k))
+        .cloned()
+        .partition(|k| DETAILS.iter().any(|(detail, _)| detail == k));
+    ReadBack {
+        missing: set.iter().filter(|a| !now.contains(a)).cloned().collect(),
+        left,
+        kept_details,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_detail_the_login_left_waits_for_the_next_login() {
+        let strings = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+        // More FPS turns Wine FSR on without a mode; the login gave one, and
+        // systemd keeps it.
+        let held = read_back(
+            &strings(&["WINE_FULLSCREEN_FSR_MODE", "DXVK_CONFIG"]),
+            &strings(&["WINE_FULLSCREEN_FSR=1"]),
+            &strings(&["WINE_FULLSCREEN_FSR=1", "WINE_FULLSCREEN_FSR_MODE=balanced"]),
+        );
+        assert_eq!(
+            held,
+            ReadBack {
+                kept_details: strings(&["WINE_FULLSCREEN_FSR_MODE"]),
+                ..ReadBack::default()
+            }
+        );
+        // A frame cap that stays, or an assignment that did not take, is not
+        // waved through.
+        let held = read_back(
+            &strings(&["DXVK_CONFIG"]),
+            &strings(&["ENABLE_VKBASALT=0"]),
+            &strings(&["DXVK_CONFIG=dxgi.maxFrameRate = 60", "ENABLE_VKBASALT=1"]),
+        );
+        assert_eq!(held.left, strings(&["DXVK_CONFIG"]));
+        assert_eq!(held.missing, strings(&["ENABLE_VKBASALT=0"]));
+    }
     use crate::models::{FrameGenBackend, GamescopeFilter};
 
     #[test]
@@ -459,6 +510,48 @@ mod tests {
         assert!(loaded.frame_gen.enabled);
 
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn the_files_are_replaced_whole() {
+        let path = temp_config("atomic");
+        let dir = path.parent().unwrap().to_path_buf();
+        let mut cfg = VideoConfig::default();
+        save_to(&cfg, &path).unwrap();
+        cfg.upscaling.gamescope_sharpness = 9;
+        save_to(&cfg, &path).unwrap();
+        assert_eq!(load_from(&path).upscaling.gamescope_sharpness, 9);
+        let env_file = dir.join("environment.d").join("bigame-mode.conf");
+        let env = HashMap::from([
+            ("WINE_FULLSCREEN_FSR".to_owned(), "1".to_owned()),
+            ("ENABLE_VKBASALT".to_owned(), "1".to_owned()),
+        ]);
+        write_env_file_at(&env_file, &env).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&env_file).unwrap(),
+            "# Managed by BiGameMode. Do not edit manually.\nENABLE_VKBASALT=1\nWINE_FULLSCREEN_FSR=1\n"
+        );
+        // Each in one rename: no temporary file is left beside them.
+        for folder in [&dir, &dir.join("environment.d")] {
+            let left: Vec<String> = std::fs::read_dir(folder)
+                .unwrap()
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .filter(|n| n.starts_with('.'))
+                .collect();
+            assert!(left.is_empty(), "{left:?}");
+        }
+        // A dotfile manager's symlink stays one: its target is replaced.
+        let kept = dir.join("dotfiles-video.toml");
+        std::fs::rename(&path, &kept).unwrap();
+        std::os::unix::fs::symlink(&kept, &path).unwrap();
+        save_to(&cfg, &path).unwrap();
+        assert!(std::fs::symlink_metadata(&path).unwrap().is_symlink());
+        assert_eq!(load_from(&kept).upscaling.gamescope_sharpness, 9);
+        // Nothing to put in the session: no file at all.
+        write_env_file_at(&env_file, &HashMap::new()).unwrap();
+        assert!(!env_file.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -30,10 +30,11 @@ use crate::hardware::{Chassis, Hardware, PowerSource, Session};
 #[must_use]
 pub fn redact_paths(text: &str) -> String {
     let mut out = text.to_owned();
-    if let Ok(home) = std::env::var("HOME") {
-        if !home.is_empty() && home != "/" {
-            out = out.replace(&home, "~");
-        }
+    if let Ok(home) = std::env::var("HOME")
+        && !home.is_empty()
+        && home != "/"
+    {
+        out = out.replace(&home, "~");
     }
     if let Ok(user) = std::env::var("USER") {
         // A very short username would match far too much unrelated text.
@@ -173,10 +174,10 @@ fn section_bigame(out: &mut String) {
     let _ = writeln!(out, "── Big Game Mode ──");
     let reader = crate::systemd::Reader::shared();
     let unit = reader.and_then(|r| r.unit_state(crate::turbo::BACKEND_UNIT));
-    // As Home reads it (turbo::state): falcond's unit when it is installed,
-    // Booster's journal without it.
+    // As Home reads it (turbo::state): falcond's unit when it governs Turbo,
+    // Booster's journal without it or with a build that crashed here.
     let turbo = match &unit {
-        Some(u) if u.is_installed() => on_off(u.is_active()),
+        Some(u) if crate::turbo::backend_governs(u) => on_off(u.is_active()),
         Some(_) => on_off(crate::booster::BoosterEngine::is_active()),
         None => "unknown (systemd did not answer)",
     };
@@ -946,10 +947,10 @@ mod tests {
         if let Ok(home) = std::env::var("HOME") {
             assert!(!text.contains(&home), "home directory leaked");
         }
-        if let Ok(user) = std::env::var("USER") {
-            if user.len() >= 3 {
-                assert!(!text.contains(&user), "username leaked");
-            }
+        if let Ok(user) = std::env::var("USER")
+            && user.len() >= 3
+        {
+            assert!(!text.contains(&user), "username leaked");
         }
         // The hostname is never collected, so it must not appear either.
         if let Ok(host) = std::fs::read_to_string("/etc/hostname") {

@@ -163,22 +163,22 @@ pub fn install(app: &adw::Application) {
 fn game_changed(app: &adw::Application, game: Option<&GameIdentity>) {
     let Some(game) = game.cloned() else {
         app.withdraw_notification(NOTIFICATION_ID);
-        if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take()) {
-            if crate::settings::load().notifications_enabled {
-                // Only Turbo changes anything for a game: with it off there
-                // is nothing that was put back to announce.
-                let app = app.clone();
-                glib::spawn_future_local(async move {
-                    if !gio::spawn_blocking(turbo_is_on).await.unwrap_or(false) {
-                        return;
-                    }
-                    let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
-                    n.set_body(Some(&i18n(
-                        "Everything the game's profile changed has been put back.",
-                    )));
-                    app.send_notification(Some("game-exit"), &n);
-                });
-            }
+        if let Some(name) = LAST_GAME.with(|g| g.borrow_mut().take())
+            && crate::settings::load().notifications_enabled
+        {
+            // Only Turbo changes anything for a game: with it off there
+            // is nothing that was put back to announce.
+            let app = app.clone();
+            glib::spawn_future_local(async move {
+                if !gio::spawn_blocking(turbo_is_on).await.unwrap_or(false) {
+                    return;
+                }
+                let n = gio::Notification::new(&i18n("%s closed").replace("%s", &name));
+                n.set_body(Some(&i18n(
+                    "Everything the game's profile changed has been put back.",
+                )));
+                app.send_notification(Some("game-exit"), &n);
+            });
         }
         return;
     };
@@ -504,16 +504,15 @@ fn present_review(
     let app = app.clone();
     let anchor = window.clone();
     dialog.connect_response(None, move |_, response| {
-        if never.is_active() {
-            if let Err(e) = decline_forever(&process) {
-                if let Some(w) = &anchor {
-                    crate::widgets::toast::error(
-                        w,
-                        &i18n("Could not save: %s").replace("%s", &e.to_string()),
-                        "",
-                    );
-                }
-            }
+        if never.is_active()
+            && let Err(e) = decline_forever(&process)
+            && let Some(w) = &anchor
+        {
+            crate::widgets::toast::error(
+                w,
+                &i18n("Could not save: %s").replace("%s", &e.to_string()),
+                "",
+            );
         }
         if response == "create" {
             create_for(&app, &process);

@@ -11,7 +11,7 @@
 //! job.
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -88,13 +88,30 @@ impl Knob {
     pub fn read(&self) -> Option<String> {
         match self {
             Self::PowerProfile => crate::dbus::power_profile_get(),
-            Self::CpuGovernor => read_sysfs(&cpu_attr_path(0, "scaling_governor")),
-            Self::CpuEpp => read_sysfs(&cpu_attr_path(0, "energy_performance_preference")),
+            Self::CpuGovernor | Self::CpuEpp => self.read_cpus().uniform(),
             Self::GpuDpmLevel { card } => read_sysfs(&PathBuf::from(format!(
                 "/sys/class/drm/{card}/device/power_dpm_force_performance_level"
             ))),
             Self::VCacheMode => crate::hardware::Hardware::detect().cpu.vcache?.current_mode,
         }
+    }
+
+    /// The sysfs attribute of a knob set on every online CPU.
+    fn per_cpu_attr(&self) -> Option<&'static str> {
+        match self {
+            Self::CpuGovernor => Some("scaling_governor"),
+            Self::CpuEpp => Some("energy_performance_preference"),
+            _ => None,
+        }
+    }
+
+    /// A per-CPU knob as every online CPU holds it. cpu0 alone is not the
+    /// knob: a write that failed on some CPUs leaves the others changed,
+    /// and reading cpu0 back at its baseline would call that restored.
+    fn read_cpus(&self) -> CpuValues {
+        self.per_cpu_attr().map_or(CpuValues::Unreadable, |attr| {
+            read_cpus(Path::new(CPU_ROOT), attr)
+        })
     }
 
     /// Values this knob will accept on this machine.
@@ -226,7 +243,16 @@ impl Knob {
     /// changed", and it is mandatory for every applied change.
     #[must_use]
     pub fn verify(&self, expected: &str) -> Verification {
-        match self.read() {
+        let read = if self.per_cpu_attr().is_some() {
+            match self.read_cpus() {
+                CpuValues::Uniform(v) => Some(v),
+                CpuValues::Mixed(actual) => return Verification::Mismatch { actual },
+                CpuValues::Unreadable => None,
+            }
+        } else {
+            self.read()
+        };
+        match read {
             Some(actual) if actual == expected => Verification::Confirmed,
             Some(actual) => Verification::Mismatch { actual },
             None => Verification::Unreadable,
@@ -281,8 +307,64 @@ impl Verification {
 
 // ── sysfs helpers ────────────────────────────────────────────────────────────
 
+const CPU_ROOT: &str = "/sys/devices/system/cpu";
+
 fn cpu_attr_path(cpu: u32, attr: &str) -> PathBuf {
-    PathBuf::from(format!("/sys/devices/system/cpu/cpu{cpu}/cpufreq/{attr}"))
+    PathBuf::from(format!("{CPU_ROOT}/cpu{cpu}/cpufreq/{attr}"))
+}
+
+/// What the online CPUs hold for one cpufreq attribute.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CpuValues {
+    /// Every CPU that has the attribute holds this value.
+    Uniform(String),
+    /// They disagree: each distinct value, in CPU order, for the report.
+    Mixed(String),
+    /// No CPU has it, or one that has it could not be read.
+    Unreadable,
+}
+
+impl CpuValues {
+    /// The one value, if there is one. Mixed values are no baseline (one
+    /// write cannot put them back) and never "already restored".
+    fn uniform(self) -> Option<String> {
+        match self {
+            Self::Uniform(v) => Some(v),
+            Self::Mixed(_) | Self::Unreadable => None,
+        }
+    }
+}
+
+/// `attr` on every CPU under `root` that has it, as the daemon writes it:
+/// a CPU without the attribute is offline or not driven by cpufreq.
+fn read_cpus(root: &Path, attr: &str) -> CpuValues {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return CpuValues::Unreadable;
+    };
+    let mut cpus: Vec<(u32, PathBuf)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name();
+            let index = name.to_str()?.strip_prefix("cpu")?.parse().ok()?;
+            let path = e.path().join("cpufreq").join(attr);
+            path.exists().then_some((index, path))
+        })
+        .collect();
+    cpus.sort_by_key(|(index, _)| *index);
+    let mut values: Vec<String> = Vec::new();
+    for (_, path) in &cpus {
+        let Some(value) = read_sysfs(path) else {
+            return CpuValues::Unreadable;
+        };
+        if !values.contains(&value) {
+            values.push(value);
+        }
+    }
+    match values.len() {
+        0 => CpuValues::Unreadable,
+        1 => CpuValues::Uniform(values.remove(0)),
+        _ => CpuValues::Mixed(values.join(", ")),
+    }
 }
 
 fn read_sysfs(path: &PathBuf) -> Option<String> {
@@ -409,6 +491,74 @@ mod tests {
             refused.0.template,
             "%s does not accept %s on this machine (accepted: %s)"
         );
+    }
+
+    /// A sysfs CPU tree in a private folder: `cpus` as (directory, value of
+    /// `scaling_governor`, `None` for a CPU without cpufreq).
+    fn cpu_tree(tag: &str, cpus: &[(&str, Option<&str>)]) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "bigame_knob_{tag}_{}_{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("cpufreq")).unwrap();
+        std::fs::create_dir_all(root.join("cpuidle")).unwrap();
+        for (cpu, value) in cpus {
+            let dir = root.join(cpu);
+            std::fs::create_dir_all(&dir).unwrap();
+            if let Some(v) = value {
+                std::fs::create_dir_all(dir.join("cpufreq")).unwrap();
+                std::fs::write(dir.join("cpufreq/scaling_governor"), format!("{v}\n")).unwrap();
+            }
+        }
+        root
+    }
+
+    #[test]
+    fn a_per_cpu_knob_is_read_on_every_cpu() {
+        let root = cpu_tree(
+            "uniform",
+            &[
+                ("cpu0", Some("powersave")),
+                ("cpu1", Some("powersave")),
+                ("cpu10", Some("powersave")),
+                // Offline: no cpufreq, as the daemon skips it too.
+                ("cpu2", None),
+            ],
+        );
+        assert_eq!(
+            read_cpus(&root, "scaling_governor"),
+            CpuValues::Uniform("powersave".into())
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_write_that_failed_on_some_cpus_is_not_a_baseline() {
+        // cpu0 refused the write, the others took it: cpu0 alone reads as
+        // restored while the rest stay at performance.
+        let root = cpu_tree(
+            "mixed",
+            &[
+                ("cpu0", Some("powersave")),
+                ("cpu1", Some("performance")),
+                ("cpu2", Some("performance")),
+            ],
+        );
+        let values = read_cpus(&root, "scaling_governor");
+        assert_eq!(values, CpuValues::Mixed("powersave, performance".into()));
+        // Never captured, and never "already correct": restore writes it.
+        assert_eq!(values.uniform(), None);
+        assert_eq!(
+            read_cpus(&root, "energy_performance_preference"),
+            CpuValues::Unreadable
+        );
+        assert_eq!(
+            read_cpus(&root.join("absent"), "scaling_governor"),
+            CpuValues::Unreadable
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

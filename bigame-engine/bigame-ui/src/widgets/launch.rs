@@ -219,11 +219,7 @@ fn wine_fsr_info(main: Option<(u32, u32)>) -> (String, String, Vec<Entry>) {
         .into_iter()
         .map(|(name, factor, what)| {
             let size = main.map(|(w, h)| {
-                #[allow(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    clippy::cast_precision_loss
-                )]
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let scaled = |n: u32| (f64::from(n) / factor).round() as u32;
                 i18n("On your main screen: about %s.")
                     .replace("%s", &format!("{} × {}", scaled(w), scaled(h)))

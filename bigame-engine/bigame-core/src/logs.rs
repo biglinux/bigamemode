@@ -293,11 +293,20 @@ pub fn tracing_level(message: &str) -> Option<(Level, &str)> {
 /// gvfs, inside the UI, reports each volume monitor the system has masked or
 /// not installed, every time GIO starts, with "failed" in the wording.
 /// Wine's `fixme:` lines are notes to Wine's developers. falcond's `sudo`
-/// calls open and close a PAM session each time.
+/// calls open and close a PAM session each time. The kernel's DRM drivers
+/// note at every boot that their planes can show a kernel panic ("Registered
+/// 5 planes with drm panic"): a capability, not a panic. lsfg-vk 2's layer
+/// is implicit and stands aside in every process without a profile, the UI
+/// included; the Vulkan loader reports each time that it skipped it. KDE
+/// writes `gtk-application-prefer-dark-theme` into GTK's settings, which
+/// libadwaita ignores, and says so at every start.
 const NOISE: &[&str] = &[
     "for remote volume monitor with dbus name",
     ":fixme:",
     "pam_unix(",
+    "planes with drm panic",
+    "failed to find 'vkgetinstanceprocaddr' in layer \"liblsfg-vk-layer.so\"",
+    "gtk-application-prefer-dark-theme with libadwaita is unsupported",
 ];
 
 /// What a sched-ext scheduler prints each time it starts, and what the
@@ -604,10 +613,10 @@ fn log_files() -> Vec<(PathBuf, FileFormat)> {
         home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
     ] {
         // ~/.steam/steam is normally a link to ~/.local/share/Steam.
-        if let Ok(path) = root.join("logs/console_log.txt").canonicalize() {
-            if seen.insert(path.clone()) {
-                out.push((path, FileFormat::SteamConsole));
-            }
+        if let Ok(path) = root.join("logs/console_log.txt").canonicalize()
+            && seen.insert(path.clone())
+        {
+            out.push((path, FileFormat::SteamConsole));
         }
     }
     let state = crate::graphics::state_dir();
@@ -1223,6 +1232,52 @@ mod tests {
         );
         assert_eq!(
             classify(Some(6), "thread 'main' panicked at src/x.rs:1:1"),
+            Level::Error
+        );
+    }
+
+    #[test]
+    fn a_driver_that_can_show_a_panic_is_not_a_panic() {
+        // Real lines, printed by the kernel at every boot at priority 6.
+        for line in [
+            "amdgpu 0000:01:00.0: [drm] Registered 5 planes with drm panic",
+            "simple-framebuffer simple-framebuffer.0: [drm] Registered 1 planes with drm panic",
+        ] {
+            assert_eq!(classify(Some(6), line), Level::Debug, "{line}");
+        }
+        assert_eq!(
+            classify(Some(0), "Kernel panic - not syncing: Fatal exception"),
+            Level::Error
+        );
+    }
+
+    #[test]
+    fn what_other_components_say_at_every_start_is_not_a_problem() {
+        // Real lines, from bigame-ui's own output, at the priority the
+        // journal gave them.
+        assert_eq!(
+            classify(
+                Some(4),
+                "Vulkan: Loader Message: loader_create_device_chain: Failed to find \
+                 'vkGetInstanceProcAddr' in layer \"liblsfg-vk-layer.so\".  Skipping layer."
+            ),
+            Level::Debug
+        );
+        assert_eq!(
+            classify(
+                Some(4),
+                "Using GtkSettings:gtk-application-prefer-dark-theme with libadwaita is \
+                 unsupported. Please use AdwStyleManager:color-scheme instead."
+            ),
+            Level::Debug
+        );
+        // Another layer the loader cannot load is still an error.
+        assert_eq!(
+            classify(
+                Some(4),
+                "Vulkan: Loader Message: loader_create_device_chain: Failed to find \
+                 'vkGetInstanceProcAddr' in layer \"libVkLayer_other.so\".  Skipping layer."
+            ),
             Level::Error
         );
     }

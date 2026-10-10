@@ -15,8 +15,10 @@
 //! owner too, whether Gamescope or `OptiScaler` upscales the game or AI
 //! Graphics switched Wine FSR off for it.
 //!
-//! Big Game Mode owns only the segment and the variables it wrote (kept in the
-//! game's settings); the user's own options are left alone. Where they run
+//! Big Game Mode owns only the segment and the variables it wrote (the
+//! segment kept in the game's settings, the variables by account in its
+//! state directory); the user's own options are left alone, a variable
+//! they set already included. Where they run
 //! a Gamescope of the user's own, Big Game Mode's is not added: two nested
 //! compositors would scale twice, or not start. vkBasalt, which Gamescope
 //! would otherwise load for itself, stays in the game (as Big Game Mode's own
@@ -28,7 +30,7 @@ use anyhow::Result;
 
 use crate::error::UserError;
 use crate::gamescope::{Config, Mode};
-use crate::steam::{COMMAND, is_command, option_words};
+use crate::steam::{COMMAND, Inserted, is_command, option_words};
 use crate::text::N_;
 
 /// `gamescope <args> --`, the wrapper for `cfg`, or `None` when Gamescope
@@ -140,35 +142,56 @@ pub enum Applied {
     TheirGamescope(String),
 }
 
+/// Whether `word` sets a variable (`NAME=value`).
+fn is_assignment(word: &str) -> bool {
+    word.split_once('=').is_some_and(|(name, _)| {
+        name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
+}
+
 /// `current` launch options with the variables Big Game Mode wrote before
-/// (`previous`) taken out and `wanted` put in front of everything. Each
-/// variable is taken out once, wherever it is, so one that something else
-/// moved or removed does not keep the others in; variables already in front
-/// are not put there twice.
+/// (`previous`) taken out and `wanted` put in front of everything, and the
+/// variables it put in, to record. Each variable is taken out once,
+/// wherever it is, so one that something else moved or removed does not
+/// keep the others in. A variable the options already set in front — the
+/// user's own `ENABLE_VKBASALT=1` — is neither set twice nor recorded: it
+/// is not Big Game Mode's to take out later.
 #[must_use]
-pub fn env_options(current: &str, previous: Option<&str>, wanted: Option<&str>) -> String {
+pub fn env_options(
+    current: &str,
+    previous: Option<&str>,
+    wanted: Option<&str>,
+) -> (String, String) {
     let mut words = option_words(current);
     for old in option_words(previous.unwrap_or_default()) {
         if let Some(at) = words.iter().position(|w| *w == old) {
             words.remove(at);
         }
     }
-    let wanted = option_words(wanted.unwrap_or_default());
-    if wanted.is_empty() {
-        return joined(&words);
-    }
-    if words.starts_with(&wanted) {
-        return words.join(" ");
+    let set: Vec<&str> = words
+        .iter()
+        .take_while(|w| is_assignment(w))
+        .copied()
+        .collect();
+    let added: Vec<&str> = option_words(wanted.unwrap_or_default())
+        .into_iter()
+        .filter(|w| !set.contains(w))
+        .collect();
+    if added.is_empty() {
+        return (joined(&words), String::new());
     }
     if !words.iter().any(|w| is_command(w)) {
         // Plain arguments: they follow the command.
         words.insert(0, COMMAND);
     }
-    wanted
-        .into_iter()
+    let options = added
+        .iter()
+        .copied()
         .chain(words)
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(" ");
+    (options, added.join(" "))
 }
 
 /// What a game's launch options should hold from Big Game Mode: its
@@ -229,62 +252,143 @@ pub fn apply(process: &str, wanted: Wanted) -> Result<Applied> {
         return Ok(Applied::SteamRunning);
     }
     let users = crate::steam::users(&crate::paths::home_dir());
-    if wanted.gamescope.is_some() && crate::steam::any_flatpak(&users) {
-        if let Some(command) = crate::steam::flatpak_gamescope_missing() {
-            anyhow::bail!(UserError::with(
-                N_(
-                    "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
-                ),
-                [command]
-            ));
-        }
+    if wanted.gamescope.is_some()
+        && crate::steam::any_flatpak(&users)
+        && let Some(command) = crate::steam::flatpak_gamescope_missing()
+    {
+        anyhow::bail!(UserError::with(
+            N_(
+                "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
+            ),
+            [command]
+        ));
     }
-    let mut changes = Vec::new();
-    let (mut segment_written, mut theirs) = (false, false);
-    let mut last = String::new();
-    for user in &users {
-        for app in &apps {
-            let current = crate::steam::launch_options(&user.config, app).unwrap_or_default();
-            let mut with_env =
-                env_options(&current, previous_env.as_deref(), wanted.env.as_deref());
+    let record = env_record_path();
+    let mut records: std::collections::BTreeMap<String, Inserted> =
+        crate::mangohud::read_record(&record)?;
+    let accounts: Vec<std::path::PathBuf> = users.into_iter().map(|u| u.config).collect();
+    let plan = plan(
+        &accounts,
+        &apps,
+        &|config, app| crate::steam::launch_options(config, app),
+        &Previous {
+            gamescope: settings.steam_gamescope.as_deref(),
+            env: records.get(process),
+            legacy_env: previous_env.as_deref(),
+        },
+        &wanted,
+    );
+    crate::steam::set_all(&plan.changes)?;
+    if records.get(process) != Some(&plan.env) {
+        records.insert(process.to_owned(), plan.env);
+        crate::mangohud::write_record(&record, &records)?;
+    }
+    settings.steam_gamescope = wanted.gamescope.filter(|_| plan.segment_written);
+    settings.steam_env = wanted.env;
+    settings.steam_wine_fsr_off = wanted.wine_fsr_off;
+    crate::game_settings::save(process, &settings)?;
+    Ok(if plan.theirs {
+        Applied::TheirGamescope(plan.last)
+    } else {
+        Applied::Written(plan.last)
+    })
+}
+
+/// Where the variables put into each account's launch options are
+/// recorded, by game.
+fn env_record_path() -> std::path::PathBuf {
+    crate::paths::state_home().join("bigame-mode/steam/env-added.toml")
+}
+
+/// What Big Game Mode wrote into a game's launch options before.
+struct Previous<'a> {
+    /// Its Gamescope segment.
+    gamescope: Option<&'a str>,
+    /// The variables it put into each account, since 2.3.2.
+    env: Option<&'a Inserted>,
+    /// With no record by account, the variables an older version wrote,
+    /// taken for every account's.
+    legacy_env: Option<&'a str>,
+}
+
+/// Every account's new launch options, worked out before any is written.
+struct Plan {
+    changes: Vec<crate::steam::Change>,
+    /// The variables put in, to record.
+    env: Inserted,
+    /// Big Game Mode's Gamescope is in some account's options.
+    segment_written: bool,
+    /// Some account runs a Gamescope of the user's own instead.
+    theirs: bool,
+    /// The last account's options.
+    last: String,
+}
+
+fn plan(
+    accounts: &[std::path::PathBuf],
+    apps: &[String],
+    read: &dyn Fn(&std::path::Path, &str) -> Option<String>,
+    previous: &Previous,
+    wanted: &Wanted,
+) -> Plan {
+    let mut plan = Plan {
+        changes: Vec::new(),
+        env: Inserted::new(),
+        segment_written: false,
+        theirs: false,
+        last: String::new(),
+    };
+    for config in accounts {
+        let account = config.to_string_lossy().into_owned();
+        for app in apps {
+            let current = read(config, app).unwrap_or_default();
+            let previous_env = match previous.env {
+                Some(by) => by
+                    .get(&account)
+                    .and_then(|a| a.get(app))
+                    .map(String::as_str),
+                None => previous.legacy_env,
+            };
+            let (mut with_env, mut added) =
+                env_options(&current, previous_env, wanted.env.as_deref());
             if wanted.drop_their_wine_fsr_on {
+                let drop = |w: &&str| *w != "WINE_FULLSCREEN_FSR=1";
                 let mut words = option_words(&with_env);
-                words.retain(|w| *w != "WINE_FULLSCREEN_FSR=1");
+                words.retain(drop);
                 with_env = joined(&words);
+                let mut mine = option_words(&added);
+                mine.retain(drop);
+                added = mine.join(" ");
             }
-            let next = launch_options(
-                &with_env,
-                settings.steam_gamescope.as_deref(),
-                wanted.gamescope.as_deref(),
-            );
+            if !added.is_empty() {
+                plan.env
+                    .entry(account.clone())
+                    .or_default()
+                    .insert(app.clone(), added);
+            }
+            let next = launch_options(&with_env, previous.gamescope, wanted.gamescope.as_deref());
             if let Some(seg) = wanted.gamescope.as_deref() {
                 if option_words(&next)
                     .windows(option_words(seg).len())
                     .any(|w| w == option_words(seg))
                 {
-                    segment_written = true;
+                    plan.segment_written = true;
                 } else {
-                    theirs = true;
+                    plan.theirs = true;
                 }
             }
             if next != current {
-                changes.push((user.config.clone(), app.clone(), next.clone()));
+                plan.changes.push(crate::steam::Change {
+                    config: config.clone(),
+                    app: app.clone(),
+                    before: current,
+                    after: next.clone(),
+                });
             }
-            last = next;
+            plan.last = next;
         }
     }
-    for (config, app, next) in &changes {
-        crate::steam::set_launch_options(config, app, next)?;
-    }
-    settings.steam_gamescope = wanted.gamescope.filter(|_| segment_written);
-    settings.steam_env = wanted.env;
-    settings.steam_wine_fsr_off = wanted.wine_fsr_off;
-    crate::game_settings::save(process, &settings)?;
-    Ok(if theirs {
-        Applied::TheirGamescope(last)
-    } else {
-        Applied::Written(last)
-    })
+    plan
 }
 
 // ── Wine FSR off for one game ───────────────────────────────────────────────
@@ -314,7 +418,8 @@ pub fn current_options(process: &str) -> Option<String> {
     })
 }
 
-fn steam_apps(process: &str) -> Vec<String> {
+/// The app ids of the Steam games whose process is `process`.
+pub(crate) fn steam_apps(process: &str) -> Vec<String> {
     crate::games::detect_all()
         .into_iter()
         .filter(|g| g.profile_key() == process && g.source == crate::games::Source::Steam)
@@ -346,6 +451,120 @@ mod tests {
 
     const SEG: &str = "gamescope -w 1280 -h 720 -F fsr -f --";
 
+    /// The options [`env_options`] gives, without what it put in.
+    fn env_only(current: &str, previous: Option<&str>, wanted: Option<&str>) -> String {
+        env_options(current, previous, wanted).0
+    }
+
+    #[test]
+    fn a_variable_the_user_set_is_not_recorded_and_stays() {
+        for mine in [
+            "ENABLE_VKBASALT=1 %command%",
+            "WINE_FULLSCREEN_FSR=0 %command% -dx12",
+            "WINE_FULLSCREEN_FSR=1 WINE_FULLSCREEN_FSR_MODE=quality %command%",
+        ] {
+            let (on, added) = env_options(mine, None, Some(mine.split(" %").next().unwrap()));
+            assert_eq!((on.as_str(), added.as_str()), (mine, ""), "{mine}");
+        }
+        // Only the missing one goes in, and only it is recorded.
+        let (on, added) = env_options(
+            "ENABLE_VKBASALT=1 %command%",
+            None,
+            Some("WINE_FULLSCREEN_FSR=0 ENABLE_VKBASALT=1"),
+        );
+        assert_eq!(on, "WINE_FULLSCREEN_FSR=0 ENABLE_VKBASALT=1 %command%");
+        assert_eq!(added, "WINE_FULLSCREEN_FSR=0");
+        assert_eq!(
+            env_only(&on, Some(&added), None),
+            "ENABLE_VKBASALT=1 %command%"
+        );
+        // After a wrapper it is no variable of the game's: ours goes in front.
+        let (on, added) = env_options(
+            "gamemoderun ENABLE_VKBASALT=1",
+            None,
+            Some("ENABLE_VKBASALT=1"),
+        );
+        assert_eq!(
+            on,
+            "ENABLE_VKBASALT=1 %command% gamemoderun ENABLE_VKBASALT=1"
+        );
+        assert_eq!(added, "ENABLE_VKBASALT=1");
+        assert!(is_assignment("_A1=x") && !is_assignment("1A=x") && !is_assignment("-x=1"));
+    }
+
+    #[test]
+    fn each_account_takes_out_only_the_variables_put_into_it() {
+        // One account in two Steam installs: the user typed vkBasalt's
+        // variable in the Flatpak's options themselves.
+        let store = std::cell::RefCell::new(std::collections::HashMap::from([
+            ("/native".to_owned(), "-novid".to_owned()),
+            (
+                "/flatpak".to_owned(),
+                "ENABLE_VKBASALT=1 %command%".to_owned(),
+            ),
+        ]));
+        let read = |c: &std::path::Path, _: &str| {
+            store.borrow().get(c.to_string_lossy().as_ref()).cloned()
+        };
+        let accounts = [std::path::PathBuf::from("/native"), "/flatpak".into()];
+        let apps = ["10".to_owned()];
+        let run = |previous: &Previous, wanted: &Wanted| {
+            let plan = plan(&accounts, &apps, &read, previous, wanted);
+            for c in &plan.changes {
+                store
+                    .borrow_mut()
+                    .insert(c.config.to_string_lossy().into_owned(), c.after.clone());
+            }
+            plan.env
+        };
+        let on = Wanted {
+            env: Some("ENABLE_VKBASALT=1".into()),
+            ..Wanted::default()
+        };
+        let none = Previous {
+            gamescope: None,
+            env: None,
+            legacy_env: None,
+        };
+        let record = run(&none, &on);
+        assert_eq!(
+            store.borrow()["/native"],
+            "ENABLE_VKBASALT=1 %command% -novid"
+        );
+        assert_eq!(store.borrow()["/flatpak"], "ENABLE_VKBASALT=1 %command%");
+        assert_eq!(record.len(), 1);
+        assert_eq!(record["/native"]["10"], "ENABLE_VKBASALT=1");
+
+        let record = run(
+            &Previous {
+                env: Some(&record),
+                ..none
+            },
+            &Wanted::default(),
+        );
+        assert_eq!(store.borrow()["/native"], "%command% -novid");
+        assert_eq!(
+            store.borrow()["/flatpak"],
+            "ENABLE_VKBASALT=1 %command%",
+            "the user's own stays"
+        );
+        assert!(record.is_empty());
+
+        // An older version's record stands for every account, as it did.
+        store
+            .borrow_mut()
+            .insert("/native".into(), "ENABLE_VKBASALT=1 %command%".into());
+        run(
+            &Previous {
+                legacy_env: Some("ENABLE_VKBASALT=1"),
+                ..none
+            },
+            &Wanted::default(),
+        );
+        assert_eq!(store.borrow()["/native"], "");
+        assert_eq!(store.borrow()["/flatpak"], "");
+    }
+
     #[test]
     fn the_wrapper_goes_in_front_of_the_command_and_the_users_options_stay() {
         assert_eq!(
@@ -367,27 +586,24 @@ mod tests {
     #[test]
     fn a_games_variables_go_in_front_of_everything_and_come_out_again() {
         let env = "WINE_FULLSCREEN_FSR=0 ENABLE_VKBASALT=1";
-        assert_eq!(env_options("", None, Some(env)), format!("{env} %command%"));
+        assert_eq!(env_only("", None, Some(env)), format!("{env} %command%"));
         let mine = "MANGOHUD=1 gamemoderun %command% -dx12";
-        let on = env_options(mine, None, Some(env));
+        let on = env_only(mine, None, Some(env));
         assert_eq!(on, format!("{env} {mine}"));
-        assert_eq!(env_options(&on, Some(env), None), mine);
+        assert_eq!(env_only(&on, Some(env), None), mine);
         // Replaced, not added twice.
         assert_eq!(
-            env_options(&on, Some(env), Some("ENABLE_VKBASALT=0")),
+            env_only(&on, Some(env), Some("ENABLE_VKBASALT=0")),
             format!("ENABLE_VKBASALT=0 {mine}")
         );
-        assert_eq!(
-            env_options(&format!("{env} %command%"), Some(env), None),
-            ""
-        );
+        assert_eq!(env_only(&format!("{env} %command%"), Some(env), None), "");
         // One variable removed by something else: the other still goes.
         let moved = on.replacen("WINE_FULLSCREEN_FSR=0 ", "", 1);
-        assert_eq!(env_options(&moved, Some(env), None), mine);
+        assert_eq!(env_only(&moved, Some(env), None), mine);
         // Written already (a write that stopped half-way): not twice.
-        assert_eq!(env_options(&on, None, Some(env)), on);
+        assert_eq!(env_only(&on, None, Some(env)), on);
         // With the Gamescope wrapper, each in its place.
-        let both = launch_options(&env_options(mine, None, Some(env)), None, Some(SEG));
+        let both = launch_options(&env_only(mine, None, Some(env)), None, Some(SEG));
         assert_eq!(
             both,
             format!("{env} MANGOHUD=1 gamemoderun {SEG} %command% -dx12")
@@ -511,7 +727,7 @@ mod tests {
     fn a_quoted_command_is_the_command() {
         let mine = "gamemoderun \"%command%\" -name 'A  B'";
         assert_eq!(
-            env_options(mine, None, Some("ENABLE_VKBASALT=1")),
+            env_only(mine, None, Some("ENABLE_VKBASALT=1")),
             format!("ENABLE_VKBASALT=1 {mine}")
         );
         assert_eq!(

@@ -338,10 +338,10 @@ impl LaunchPlan {
             // it, and DXVK takes the last value.
             if let (Some(theirs), Some(ours)) =
                 (host.env.get("DXVK_CONFIG"), env.get_mut("DXVK_CONFIG"))
+                && !is_a_presets(&host.env, "DXVK_CONFIG")
+                && !theirs.trim().is_empty()
             {
-                if !is_a_presets(&host.env, "DXVK_CONFIG") && !theirs.trim().is_empty() {
-                    *ours = format!("{}; {ours}", theirs.trim().trim_end_matches(';'));
-                }
+                *ours = format!("{}; {ours}", theirs.trim().trim_end_matches(';'));
             }
         }
 
@@ -996,10 +996,11 @@ fn collect_upscaling_env(upscaling: &UpscalingSettings, env: &mut HashMap<String
 
     if upscaling.vkbasalt_enabled {
         env.insert("ENABLE_VKBASALT".into(), "1".into());
-        if let Some(path) = &upscaling.vkbasalt_config_path {
-            if !path.is_empty() && std::path::Path::new(path).is_file() {
-                env.insert("VKBASALT_CONFIG_FILE".into(), path.clone());
-            }
+        if let Some(path) = &upscaling.vkbasalt_config_path
+            && !path.is_empty()
+            && std::path::Path::new(path).is_file()
+        {
+            env.insert("VKBASALT_CONFIG_FILE".into(), path.clone());
         }
     }
 }

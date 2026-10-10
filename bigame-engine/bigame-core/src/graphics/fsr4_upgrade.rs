@@ -38,7 +38,9 @@ pub const GE_VARIABLE: &str = "PROTON_FSR4_UPGRADE=1";
 /// game, so that only that is taken out again.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Added {
-    /// The account (its `userdata` id).
+    /// The account: its `localconfig.vdf`. A record from before 2.3.2 holds
+    /// its `userdata` id, which stands for that id's account in every Steam
+    /// install (the native and the Flatpak each have their own).
     pub account: String,
     /// `%command%` went in with the variable: the options had none.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -163,6 +165,14 @@ pub fn apply(process: &str, app_id: Option<&str>, on: bool) -> Result<Applied> {
     Ok(Applied::SteamLaunchOptions(last))
 }
 
+impl Added {
+    /// Whether this record is of the account `id` whose configuration is
+    /// `config`.
+    fn names(&self, id: &str, config: &std::path::Path) -> bool {
+        self.account == id || std::path::Path::new(&self.account) == config
+    }
+}
+
 /// The launch option switched in every account it belongs in, as one
 /// change: every account's new options are worked out before any is
 /// written, and an account that cannot be written puts back the ones
@@ -190,7 +200,7 @@ fn apply_to_accounts(
         (false, None) => accounts.iter().collect(),
         (false, Some(list)) => accounts
             .iter()
-            .filter(|(id, _)| list.iter().any(|a| a.account == *id))
+            .filter(|(id, config)| list.iter().any(|a| a.names(id, config)))
             .collect(),
     };
     // Every account's new options first.
@@ -203,7 +213,7 @@ fn apply_to_accounts(
             match with_upgrade(&current) {
                 Some((options, command)) => {
                     now_added.push(Added {
-                        account: id.clone(),
+                        account: config.to_string_lossy().into_owned(),
                         command,
                     });
                     options
@@ -212,7 +222,7 @@ fn apply_to_accounts(
             }
         } else {
             let command =
-                added.is_none_or(|list| list.iter().any(|a| a.account == *id && a.command));
+                added.is_none_or(|list| list.iter().any(|a| a.names(id, config) && a.command));
             without_upgrade(&current, command)
         };
         if wanted != current {
@@ -401,6 +411,51 @@ mod tests {
         apply_to_accounts(&ids(&["a", "b"]), false, record.as_deref(), &read, &write).unwrap();
         assert_eq!(store.get("a").as_deref(), Some(""));
         assert_eq!(store.get("b").as_deref(), Some("FSR4_UPGRADE=1 %command%"));
+    }
+
+    #[test]
+    fn one_account_in_two_steam_installs_is_recorded_by_its_file() {
+        // The same account id in the native Steam and in the Flatpak; the
+        // user typed the variable in the Flatpak's options themselves.
+        let store = Accounts::new(&[("/native", "-x"), ("/flatpak", "FSR4_UPGRADE=1 %command%")]);
+        let read = |c: &std::path::Path| store.0.borrow().get(c).cloned();
+        let write = |c: &std::path::Path, v: &str| {
+            store.0.borrow_mut().insert(c.to_path_buf(), v.to_owned());
+            Ok(())
+        };
+        let accounts = vec![
+            ("1234".to_owned(), std::path::PathBuf::from("/native")),
+            ("1234".to_owned(), std::path::PathBuf::from("/flatpak")),
+        ];
+        let (_, record) = apply_to_accounts(&accounts, true, None, &read, &write).unwrap();
+        assert_eq!(
+            record,
+            Some(vec![Added {
+                account: "/native".into(),
+                command: true
+            }])
+        );
+        apply_to_accounts(&accounts, false, record.as_deref(), &read, &write).unwrap();
+        assert_eq!(store.get("/native").as_deref(), Some("-x"));
+        assert_eq!(
+            store.get("/flatpak").as_deref(),
+            Some("FSR4_UPGRADE=1 %command%"),
+            "the user's own, in the other install, stays"
+        );
+
+        // A record from before names the id: both installs' accounts.
+        write(
+            std::path::Path::new("/native"),
+            "FSR4_UPGRADE=1 %command% -x",
+        )
+        .unwrap();
+        let old = [Added {
+            account: "1234".into(),
+            command: false,
+        }];
+        apply_to_accounts(&accounts, false, Some(&old), &read, &write).unwrap();
+        assert_eq!(store.get("/native").as_deref(), Some("%command% -x"));
+        assert_eq!(store.get("/flatpak").as_deref(), Some("%command%"));
     }
 
     #[test]

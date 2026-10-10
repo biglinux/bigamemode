@@ -175,22 +175,21 @@ fn contents(target: &Target, a: &Analysis, masks: &Masks) -> Result<Vec<(String,
     // through which translation layer. Only library paths, nothing else.
     if let Some(g) =
         crate::running::detect().filter(|g| g.process_name.eq_ignore_ascii_case(&target.process))
+        && let Ok(maps) = std::fs::read_to_string(format!("/proc/{}/maps", g.pid))
     {
-        if let Ok(maps) = std::fs::read_to_string(format!("/proc/{}/maps", g.pid)) {
-            let mut modules = String::new();
-            for p in super::runtime::mapped_paths(&maps) {
-                let name = p.to_string_lossy();
-                if name.ends_with(".dll")
-                    || name.ends_with(".so")
-                    || name.contains(".so.")
-                    || name.contains("/proton")
-                    || name.contains("/Proton")
-                {
-                    let _ = writeln!(modules, "{name}");
-                }
+        let mut modules = String::new();
+        for p in super::runtime::mapped_paths(&maps) {
+            let name = p.to_string_lossy();
+            if name.ends_with(".dll")
+                || name.ends_with(".so")
+                || name.contains(".so.")
+                || name.contains("/proton")
+                || name.contains("/Proton")
+            {
+                let _ = writeln!(modules, "{name}");
             }
-            files.push(("loaded-modules.txt".into(), modules));
         }
+        files.push(("loaded-modules.txt".into(), modules));
     }
     files.push(("plan.json".into(), serde_json::to_string_pretty(&a.plan)?));
     files.push((

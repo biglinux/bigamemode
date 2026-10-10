@@ -22,6 +22,12 @@ use bigame_core::running::GameIdentity;
 /// How often to look when nothing has signalled a change.
 const POLL: std::time::Duration = std::time::Duration::from_secs(5);
 
+/// How often to look while a game is known: the game should have the
+/// machine, a look walks `/proc` and asks what the game renders with, and
+/// its exit is mostly caught at once by falcond dropping its profile. A
+/// game falcond has no profile for is seen gone up to this much later.
+const POLL_PLAYING: std::time::Duration = std::time::Duration::from_secs(15);
+
 /// Returns [`glib::ControlFlow::Break`] to stop listening.
 type Listener = Box<dyn Fn(Option<&GameIdentity>) -> glib::ControlFlow>;
 
@@ -57,11 +63,21 @@ pub fn start() {
             });
             *watch.monitor.borrow_mut() = Some(monitor);
         }
-        glib::timeout_add_local(POLL, || {
-            check();
-            glib::ControlFlow::Continue
-        });
+        schedule();
         glib::idle_add_local_once(check);
+    });
+}
+
+/// Look again after [`POLL`], or [`POLL_PLAYING`] while a game is known.
+fn schedule() {
+    let wait = if current().is_some() {
+        POLL_PLAYING
+    } else {
+        POLL
+    };
+    glib::timeout_add_local_once(wait, || {
+        check();
+        schedule();
     });
 }
 
@@ -113,10 +129,11 @@ fn merge(
     current: Option<&GameIdentity>,
     mut found: Option<GameIdentity>,
 ) -> (Option<GameIdentity>, bool) {
-    if let (Some(cur), Some(new)) = (current, found.as_mut()) {
-        if cur.pid == new.pid && new.render_card.is_none() {
-            new.render_card.clone_from(&cur.render_card);
-        }
+    if let (Some(cur), Some(new)) = (current, found.as_mut())
+        && cur.pid == new.pid
+        && new.render_card.is_none()
+    {
+        new.render_card.clone_from(&cur.render_card);
     }
     let key = |g: Option<&GameIdentity>| g.map(|g| (g.pid, g.graphics, g.render_card.clone()));
     let changed = key(current) != key(found.as_ref());

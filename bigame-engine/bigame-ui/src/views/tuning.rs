@@ -33,7 +33,7 @@ use bigame_core::optimization::{self as opt, Feature, PROFILE_SETS, VCACHE_MODES
 use bigame_core::overview::State;
 use bigame_core::video_config::{self, VideoConfig};
 
-use crate::i18n::{N_, error_text, i18n, tr};
+use crate::i18n::{N_, error_text, i18n, ni18n, tr};
 use crate::widgets::launch::{self, icon};
 use crate::widgets::notice::{self, Kind, Notice};
 use crate::widgets::optimization::{self as ui, Machine, Picker, Scope};
@@ -387,7 +387,7 @@ fn report_heroic(
         crate::widgets::toast::error(
             anchor,
             &i18n("Could not update Heroic's settings for a game"),
-            &format!("{name}: {}", error_text(e)),
+            &crate::i18n::labelled(name, &error_text(e)),
         );
     }
     if !written.is_empty() {
@@ -466,7 +466,7 @@ fn report_steam_gamescope(
         crate::widgets::toast::error(
             anchor,
             &i18n("Could not update Gamescope in Steam's launch options"),
-            &format!("{name}: {}", error_text(e)),
+            &crate::i18n::labelled(name, &error_text(e)),
         );
     }
     if !written.is_empty() {
@@ -955,29 +955,28 @@ fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::Preference
                 return;
             }
             let upscales = opt::gamescope_upscales(&video.borrow().upscaling);
-            if on && upscales {
-                if let Some(c) = opt::conflict(Feature::WineFsr, Feature::GamescopeUpscaling) {
-                    let (turn_off, row2, quiet2) =
-                        (Rc::clone(&turn_off), row.clone(), Rc::clone(&quiet));
-                    let (video2, anchor) = (Rc::clone(&video), row.clone());
-                    notice::ask_conflict(row, &c, move |use_wine| {
-                        if use_wine {
-                            video2.borrow_mut().upscaling.wine_fsr_enabled = true;
-                            turn_off(Feature::GamescopeUpscaling);
-                            crate::widgets::toast::show(
-                                &anchor,
-                                &i18n(
-                                    "Wine FSR is on; Gamescope now renders at the game's own size",
-                                ),
-                            );
-                        } else {
-                            quiet2.set(true);
-                            row2.set_active(false);
-                            quiet2.set(false);
-                        }
-                    });
-                    return;
-                }
+            if on
+                && upscales
+                && let Some(c) = opt::conflict(Feature::WineFsr, Feature::GamescopeUpscaling)
+            {
+                let (turn_off, row2, quiet2) =
+                    (Rc::clone(&turn_off), row.clone(), Rc::clone(&quiet));
+                let (video2, anchor) = (Rc::clone(&video), row.clone());
+                notice::ask_conflict(row, &c, move |use_wine| {
+                    if use_wine {
+                        video2.borrow_mut().upscaling.wine_fsr_enabled = true;
+                        turn_off(Feature::GamescopeUpscaling);
+                        crate::widgets::toast::show(
+                            &anchor,
+                            &i18n("Wine FSR is on; Gamescope now renders at the game's own size"),
+                        );
+                    } else {
+                        quiet2.set(true);
+                        row2.set_active(false);
+                        quiet2.set(false);
+                    }
+                });
+                return;
             }
             video.borrow_mut().upscaling.wine_fsr_enabled = on;
             saver.save(row);
@@ -1003,35 +1002,38 @@ fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::Preference
                 }
                 let was = before.0 && before.1.0 > 0 && before.1.1 > 0;
                 let now = opt::gamescope_upscales(&video.borrow().upscaling);
-                if !quiet.get() && now && !was && wine.is_active() {
-                    if let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr) {
-                        let (turn_off, saver2, quiet2) =
-                            (Rc::clone(&turn_off), Rc::clone(&saver), Rc::clone(&quiet));
-                        let (switch2, render2) = (switch.clone(), Rc::clone(&render));
-                        notice::ask_conflict(&switch, &c, move |use_gamescope| {
-                            if use_gamescope {
-                                turn_off(Feature::WineFsr);
-                                crate::widgets::toast::show(
-                                    &switch2,
-                                    &i18n("Gamescope upscaling is on; Wine FSR was turned off"),
-                                );
-                            } else {
-                                quiet2.set(true);
-                                switch2.set_active(before.0);
-                                render2.set(before.1);
-                                quiet2.set(false);
-                                {
-                                    let mut v = saver2.shared().borrow_mut();
-                                    v.upscaling.gamescope_enabled = before.0;
-                                    (v.upscaling.base_width, v.upscaling.base_height) = before.1;
-                                }
-                                saver2.save(&switch2);
+                if !quiet.get()
+                    && now
+                    && !was
+                    && wine.is_active()
+                    && let Some(c) = opt::conflict(Feature::GamescopeUpscaling, Feature::WineFsr)
+                {
+                    let (turn_off, saver2, quiet2) =
+                        (Rc::clone(&turn_off), Rc::clone(&saver), Rc::clone(&quiet));
+                    let (switch2, render2) = (switch.clone(), Rc::clone(&render));
+                    notice::ask_conflict(&switch, &c, move |use_gamescope| {
+                        if use_gamescope {
+                            turn_off(Feature::WineFsr);
+                            crate::widgets::toast::show(
+                                &switch2,
+                                &i18n("Gamescope upscaling is on; Wine FSR was turned off"),
+                            );
+                        } else {
+                            quiet2.set(true);
+                            switch2.set_active(before.0);
+                            render2.set(before.1);
+                            quiet2.set(false);
+                            {
+                                let mut v = saver2.shared().borrow_mut();
+                                v.upscaling.gamescope_enabled = before.0;
+                                (v.upscaling.base_width, v.upscaling.base_height) = before.1;
                             }
-                        });
-                        // Nothing is saved until one is chosen: the file never
-                        // holds both, even while the question is open.
-                        return;
-                    }
+                            saver2.save(&switch2);
+                        }
+                    });
+                    // Nothing is saved until one is chosen: the file never
+                    // holds both, even while the question is open.
+                    return;
                 }
                 saver.save(&switch);
                 refresh();
@@ -1648,13 +1650,16 @@ fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup 
                 return;
             };
             gamescope_row.set_subtitle(
-                &i18n("Version %v — %n options detected from --help")
-                    .replace(
-                        "%v",
-                        &gs.version
-                            .map_or_else(|| i18n("unknown"), |v| v.to_string()),
-                    )
-                    .replace("%n", &gs.flags.len().to_string()),
+                &ni18n(
+                    "Version %v — %n option detected from --help",
+                    "Version %v — %n options detected from --help",
+                    gs.flags.len(),
+                )
+                .replace(
+                    "%v",
+                    &gs.version
+                        .map_or_else(|| i18n("unknown"), |v| v.to_string()),
+                ),
             );
             // The generated command line is the honest "advanced options"
             // box: the arguments come from capabilities.

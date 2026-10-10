@@ -608,9 +608,25 @@ pub fn analyze(target: &Target, cfg: &config::AiGraphicsConfig) -> Analysis {
 /// Returns an error when the game runs, nothing is installed, or the
 /// registry cannot be written.
 pub fn switch_game_setting_on_again(target: &Target) -> anyhow::Result<usize> {
-    ensure_closed(target)?;
-    let m = installed_manifest(&state_dir(), target)?;
-    ingame::switch_on_again(&m.settings)
+    let state = state_dir();
+    locked(&state, target, || {
+        ensure_closed(target)?;
+        let m = installed_manifest(&state, target)?;
+        ingame::switch_on_again(&m.settings)
+    })
+}
+
+/// Run `change` to `target`'s files or record under the game's lock
+/// ([`transaction::lock`]), so a second change to the game — a double click,
+/// the page and the Profiles menu at once — waits for the first and then
+/// finds what it left, instead of backing up its files as the originals.
+fn locked<R>(
+    state: &Path,
+    target: &Target,
+    change: impl FnOnce() -> anyhow::Result<R>,
+) -> anyhow::Result<R> {
+    let _lock = transaction::lock(state, &target.key())?;
+    change()
 }
 
 fn status_of(
@@ -876,9 +892,7 @@ fn apply_release(
 ) -> anyhow::Result<manifest::Manifest> {
     let key = target.key();
     let staging = state.join(&key).join("staging");
-    let next = state
-        .join(&key)
-        .join(format!("staging-{}", std::process::id()));
+    let next = state.join(&key).join(manifest::unique_name("staging-"));
     remove_dir_if_there(&next)?;
     let applied = optiscaler::payload(cached, o, exe_dir, &next, carry).and_then(|files| {
         transaction::apply(
@@ -952,15 +966,17 @@ pub fn install(
     version: &config::VersionPolicy,
 ) -> anyhow::Result<Installed> {
     let (state, cache) = (state_dir(), optiscaler::cache_dir());
-    let done = install_in(
-        &state,
-        &cache,
-        &gamedb::GameDb::load(),
-        target,
-        plan,
-        version,
-        &[],
-    );
+    let done = locked(&state, target, || {
+        install_in(
+            &state,
+            &cache,
+            &gamedb::GameDb::load(),
+            target,
+            plan,
+            version,
+            &[],
+        )
+    });
     tidy_cache(&state, &cache);
     done
 }
@@ -1135,14 +1151,16 @@ pub fn reinstall(
     let (state, cache) = (state_dir(), optiscaler::cache_dir());
     // Once at the end: between its restore and its install no game names
     // the release it is about to install again.
-    let done = reinstall_in(
-        &state,
-        &cache,
-        &gamedb::GameDb::load(),
-        target,
-        plan,
-        version,
-    );
+    let done = locked(&state, target, || {
+        reinstall_in(
+            &state,
+            &cache,
+            &gamedb::GameDb::load(),
+            target,
+            plan,
+            version,
+        )
+    });
     tidy_cache(&state, &cache);
     done
 }
@@ -1212,7 +1230,9 @@ pub fn update(
     to: &optiscaler::Release,
 ) -> anyhow::Result<manifest::Manifest> {
     let (state, cache) = (state_dir(), optiscaler::cache_dir());
-    let done = update_in(&state, &cache, &gamedb::GameDb::load(), target, plan, to);
+    let done = locked(&state, target, || {
+        update_in(&state, &cache, &gamedb::GameDb::load(), target, plan, to)
+    });
     tidy_cache(&state, &cache);
     done
 }
@@ -1360,13 +1380,25 @@ pub struct Restoration {
 /// settings stay recorded for the next Restore. A prefix that is gone has no
 /// settings to put back.
 ///
+/// Big Game Mode's `WINE_FULLSCREEN_FSR=0` in the game's Steam launch options
+/// went in with `OptiScaler` (Apply), and goes with it — whichever Restore
+/// runs, the page's or the Profiles menu's. With Steam open nothing is
+/// written: the switch stays, harmless, until the next Restore.
+///
 /// # Errors
 /// Returns an error if the game is running, nothing is installed, the record
 /// is not this game's folder's, or a file cannot be restored.
 pub fn restore(target: &Target) -> anyhow::Result<Restoration> {
     let state = state_dir();
-    let done = restore_in(&state, target);
+    let done = locked(&state, target, || restore_in(&state, target));
     tidy_cache(&state, &optiscaler::cache_dir());
+    if done.is_ok()
+        && crate::game_settings::load(&target.process).is_ok_and(|s| s.steam_wine_fsr_off)
+        && let Err(e) = crate::steam_gamescope::set_wine_fsr_off(&target.process, false)
+    {
+        tracing::warn!(target: "graphics", game = %target.process, error = %format!("{e:#}"),
+            "Big Game Mode's Wine FSR switch could not be taken out of the launch options");
+    }
     done
 }
 
@@ -1433,7 +1465,7 @@ fn restore_in(state: &Path, target: &Target) -> anyhow::Result<Restoration> {
 /// As [`restore`], and when the game's own settings could not be put back.
 pub fn remove(target: &Target) -> anyhow::Result<Vec<transaction::FileOutcome>> {
     let state = state_dir();
-    let done = remove_in(&state, target);
+    let done = locked(&state, target, || remove_in(&state, target));
     tidy_cache(&state, &optiscaler::cache_dir());
     done
 }
@@ -1459,12 +1491,15 @@ fn remove_in(state: &Path, target: &Target) -> anyhow::Result<Vec<transaction::F
 /// Returns an error if nothing is installed, the game is running or may not
 /// be injected into now, or a file cannot be restored.
 pub fn repair(target: &Target) -> anyhow::Result<Vec<PathBuf>> {
-    repair_in(
-        &state_dir(),
-        &optiscaler::cache_dir(),
-        &gamedb::GameDb::load(),
-        target,
-    )
+    let state = state_dir();
+    locked(&state, target, || {
+        repair_in(
+            &state,
+            &optiscaler::cache_dir(),
+            &gamedb::GameDb::load(),
+            target,
+        )
+    })
 }
 
 fn repair_in(
@@ -1893,6 +1928,44 @@ mod tests {
     }
 
     #[test]
+    fn two_applies_at_once_never_take_ours_for_the_games_original() {
+        let dir = tempfile::tempdir().unwrap();
+        let (state, cache) = (dir.path().join("state"), dir.path().join("cache"));
+        cached_release(&cache, "1.0.0");
+        let game = steam_game(dir.path(), "library/Game");
+        std::fs::write(game.install_root.join("dxgi.dll"), b"the game's own").unwrap();
+        let db = gamedb::GameDb::from_texts(None);
+        let plan = optiscaler_plan();
+        let version = config::VersionPolicy::Pinned("1.0.0".into());
+        // A double click: two Apply runs of one game, side by side.
+        let done: Vec<bool> = std::thread::scope(|s| {
+            let runs: Vec<_> = (0..2)
+                .map(|_| {
+                    s.spawn(|| {
+                        locked(&state, &game, || {
+                            install_in(&state, &cache, &db, &game, &plan, &version, &[])
+                        })
+                        .is_ok()
+                    })
+                })
+                .collect();
+            runs.into_iter().map(|r| r.join().unwrap()).collect()
+        });
+        // The second waits, finds the first's install and is refused.
+        assert_eq!(done.iter().filter(|ok| **ok).count(), 1, "{done:?}");
+        restore_in(&state, &game).unwrap();
+        assert_eq!(
+            std::fs::read(game.install_root.join("dxgi.dll")).unwrap(),
+            b"the game's own"
+        );
+        assert!(
+            manifest::Manifest::load(&state, &game.key())
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
     fn a_game_moved_to_another_library_is_restored_where_it_is_now() {
         let s = installed_game();
         let moved = Target {
@@ -2089,12 +2162,12 @@ mod tests {
         // Something is installed: the transaction refuses.
         assert!(apply_release(&s.state, &s.game, &other, &cached, Path::new(""), &[]).is_err());
         assert_eq!(std::fs::read_to_string(&staged).unwrap(), before);
-        assert!(
-            !s.state
-                .join(&key)
-                .join(format!("staging-{}", std::process::id()))
-                .exists()
-        );
+        let left: Vec<_> = std::fs::read_dir(s.state.join(&key))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with("staging-"))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
     }
 
     #[test]

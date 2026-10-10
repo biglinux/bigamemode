@@ -452,30 +452,30 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             let view = Rc::clone(&view);
             let win = btn.root().and_downcast::<gtk4::Window>();
             dialog.open(win.as_ref(), gio::Cancellable::NONE, move |result| {
-                if let Ok(file) = result {
-                    if let Some(path) = file.path() {
-                        gtk4::glib::spawn_future_local(async move {
-                            // Saving goes through the helper and may wait on a
-                            // Polkit prompt: off the main thread.
-                            let result =
-                                gio::spawn_blocking(move || bigame_core::profiles::import(&path))
-                                    .await
-                                    .unwrap_or_else(|_| Err(anyhow::anyhow!("import panicked")));
-                            match result {
-                                Ok(name) => {
-                                    toast::show(&btn_ref, &i18n("Profile imported"));
-                                    refresh_library(&view);
-                                    view.nav.push(&build_detail_page(&name, None));
-                                }
-                                Err(e) => {
-                                    toast::show(
-                                        &btn_ref,
-                                        &i18n("Import failed: %s").replace("%s", &error_text(&e)),
-                                    );
-                                }
+                if let Ok(file) = result
+                    && let Some(path) = file.path()
+                {
+                    gtk4::glib::spawn_future_local(async move {
+                        // Saving goes through the helper and may wait on a
+                        // Polkit prompt: off the main thread.
+                        let result =
+                            gio::spawn_blocking(move || bigame_core::profiles::import(&path))
+                                .await
+                                .unwrap_or_else(|_| Err(anyhow::anyhow!("import panicked")));
+                        match result {
+                            Ok(name) => {
+                                toast::show(&btn_ref, &i18n("Profile imported"));
+                                refresh_library(&view);
+                                view.nav.push(&build_detail_page(&name, None));
                             }
-                        });
-                    }
+                            Err(e) => {
+                                toast::show(
+                                    &btn_ref,
+                                    &i18n("Import failed: %s").replace("%s", &error_text(&e)),
+                                );
+                            }
+                        }
+                    });
                 }
             });
         });
@@ -977,10 +977,11 @@ fn with_turbo(anchor: &gtk4::Widget, entry: game_card::Entry) {
     }
     // The request did not start a switch (it was refused): start anyway.
     glib::idle_add_local_once(move || {
-        if let Some(app) = gio::Application::default() {
-            if app.is_action_enabled("turbo") && pending.borrow().is_some() {
-                settle(&app);
-            }
+        if let Some(app) = gio::Application::default()
+            && app.is_action_enabled("turbo")
+            && pending.borrow().is_some()
+        {
+            settle(&app);
         }
     });
 }
@@ -1146,7 +1147,7 @@ fn add_header_actions(header: &adw::HeaderBar, name: &str) {
             glib::spawn_future_local(async move {
                 let result = gio::spawn_blocking(move || bigame_core::profiles::delete(&n)).await;
                 match result {
-                    Ok(Ok(())) => toast::show(&feedback, &i18n("Profile deleted")),
+                    Ok(Ok(deleted)) => report_deleted(&feedback, &deleted),
                     Ok(Err(e)) => {
                         feedback.set_sensitive(true);
                         toast::show(
@@ -1164,6 +1165,29 @@ fn add_header_actions(header: &adw::HeaderBar, name: &str) {
         dialog.present(Some(btn));
     });
     header.pack_end(&delete_btn);
+}
+
+/// A deleted profile, as far as it went: the launchers that were open keep
+/// the launch options they read at start-up and would write them back, so the
+/// person is told to close them rather than told it is all done.
+fn report_deleted(anchor: &impl IsA<gtk4::Widget>, deleted: &bigame_core::profiles::Deleted) {
+    if deleted.complete() {
+        toast::show(anchor, &i18n("Profile deleted"));
+        return;
+    }
+    let mut details = Vec::new();
+    if deleted.steam_running() {
+        details.push(i18n(
+            "Launch options: close Steam first: it keeps them in memory and would overwrite the change.",
+        ));
+    }
+    if deleted.heroic_running().is_some() {
+        details.push(i18n(
+            "Launch settings: close Heroic first: it keeps this game's settings in memory and would overwrite the change.",
+        ));
+    }
+    details.extend(deleted.errors().into_iter().map(error_text));
+    toast::error(anchor, &i18n("Profile deleted"), &details.join("\n\n"));
 }
 
 /// Scan the machine off the main thread and show the result.
@@ -1321,10 +1345,10 @@ fn card_entry(
 /// <id>`). `None` when there is neither, rather than guessing a program name
 /// and running whatever the PATH resolves it to.
 fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<game_card::Launch> {
-    if game.source != bigame_core::games::Source::Steam {
-        if let Some((program, args)) = game.launch_command.as_ref().and_then(|c| c.split_first()) {
-            return Some(game_card::Launch::Direct(program.clone(), args.to_vec()));
-        }
+    if game.source != bigame_core::games::Source::Steam
+        && let Some((program, args)) = game.launch_command.as_ref().and_then(|c| c.split_first())
+    {
+        return Some(game_card::Launch::Direct(program.clone(), args.to_vec()));
     }
     bigame_core::launchers::Start::for_game(game).map(game_card::Launch::Through)
 }
@@ -1562,23 +1586,37 @@ fn show_card_menu(
     }
 
     if let Some(target) = entry.target.clone().filter(|_| entry.ai_installed) {
+        thread_local! {
+            /// Games whose Restore runs now. The menu and its actions are
+            /// made anew each time it opens, so an action's own state would
+            /// not keep a second Restore from starting beside the first.
+            static RESTORING: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+        }
+        let key = target.key();
         let restore = gio::SimpleAction::new("restore", None);
+        restore.set_enabled(!RESTORING.with_borrow(|r| r.contains(&key)));
         let anchor = anchor.clone();
         let rescan = rescan.clone();
-        restore.connect_activate(move |_, _| {
+        restore.connect_activate(move |action, _| {
+            if !RESTORING.with_borrow_mut(|r| r.insert(key.clone())) {
+                return;
+            }
+            action.set_enabled(false);
+            let action = action.clone();
+            let key = key.clone();
             let anchor = anchor.clone();
             let target = target.clone();
             let rescan = rescan.clone();
             glib::spawn_future_local(async move {
                 let t = target.clone();
-                let result = gio::spawn_blocking(move || bigame_core::graphics::remove(&t)).await;
+                // The page's Restore: Big Game Mode's Wine FSR switch goes
+                // too, and what was left alone is said, not a success.
+                let result = gio::spawn_blocking(move || bigame_core::graphics::restore(&t)).await;
+                RESTORING.with_borrow_mut(|r| r.remove(&key));
+                action.set_enabled(true);
                 toast::show(
                     &anchor,
-                    &match result {
-                        Ok(Ok(_)) => i18n("The game's files are as they were before"),
-                        Ok(Err(e)) => format!("{}: {}", i18n("Could not restore"), error_text(&e)),
-                        Err(_) => i18n("Could not restore"),
-                    },
+                    &crate::views::ai_graphics::restoration_text(result),
                 );
                 rescan();
             });
@@ -1648,8 +1686,8 @@ fn show_card_menu(
                     let result =
                         gio::spawn_blocking(move || bigame_core::profiles::delete(&stem)).await;
                     match result {
-                        Ok(Ok(())) => {
-                            toast::show(&anchor, &i18n("Profile deleted"));
+                        Ok(Ok(deleted)) => {
+                            report_deleted(&anchor, &deleted);
                             rescan();
                         }
                         Ok(Err(e)) => toast::show(

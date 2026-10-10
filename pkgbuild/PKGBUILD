@@ -1,7 +1,7 @@
 # Maintainer: Rafael Ruscher <rruscher@gmail.com>
 
 pkgname=bigame-mode
-pkgver=2.3.1
+pkgver=2.3.2
 pkgrel=1
 pkgdesc="Big Game Mode, BigLinux's game mode: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets"
 arch=('x86_64')
@@ -15,8 +15,13 @@ depends=(
     'libgcc'
     'glibc'
     'glib2'
-    'gtk4'
+    'gtk4>=1:4.14'
     'libadwaita>=1:1.7'
+    # bigame-ui links these directly too, not only through gtk4.
+    'cairo'
+    'gdk-pixbuf2'
+    'graphene'
+    'pango'
     'hicolor-icon-theme'
 
     # The privileged helper: a system-bus service started by systemd, every
@@ -118,13 +123,22 @@ build() {
         msgfmt --check "${po}" -o "locale/mo/${lang}/LC_MESSAGES/${pkgname}.mo"
     done
 
-    # The desktop entry and the AppStream file with every catalogue in
-    # locale/LINGUAS merged in, by gettext's own rules for both formats.
+    # The desktop entry, the AppStream file and the Polkit policy with every
+    # catalogue in locale/LINGUAS merged in, by gettext's own rules for each
+    # format. The policy's rules (polkit.its) come with polkit, a dependency.
     install -d locale/merged
     msgfmt --desktop -d locale --template=data/com.biglinux.BiGameMode.desktop \
         -o locale/merged/com.biglinux.BiGameMode.desktop
     msgfmt --xml -d locale --template=data/com.biglinux.BiGameMode.metainfo.xml \
         -o locale/merged/com.biglinux.BiGameMode.metainfo.xml
+    msgfmt --xml -d locale --template=data/com.biglinux.BiGameMode.policy \
+        -o locale/merged/com.biglinux.BiGameMode.policy
+    # msgfmt tags a translation with a BCP 47 name (pt-BR). polkit looks one
+    # up by the POSIX locale name (pt_BR), then by the language alone (pt),
+    # and never matches pt-BR: asked for pt_BR, polkit 127 served another
+    # policy's pt text over its pt-BR one. Back to the POSIX form.
+    sed -E -i 's/xml:lang="([a-z]{2,3})-([A-Z]{2})"/xml:lang="\1_\2"/g' \
+        locale/merged/com.biglinux.BiGameMode.policy
 }
 
 check() {
@@ -152,7 +166,7 @@ package() {
 
     # Root helper: Polkit actions, system-bus policy, systemd unit and the
     # D-Bus activation file that starts it through that unit.
-    install -Dm644 data/com.biglinux.BiGameMode.policy \
+    install -Dm644 locale/merged/com.biglinux.BiGameMode.policy \
         "${pkgdir}/usr/share/polkit-1/actions/com.biglinux.BiGameMode.policy"
     install -Dm644 data/com.biglinux.BiGameMode.conf \
         "${pkgdir}/usr/share/dbus-1/system.d/com.biglinux.BiGameMode.conf"
