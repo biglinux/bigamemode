@@ -501,12 +501,16 @@ pub fn is_generic_program(name: &str) -> bool {
     GENERIC_PROGRAMS.contains(&lower.as_str())
         || lower.starts_with("google-chrome")
         || lower.starts_with("electron")
-        // python3, python3.13, perl5.40: versioned interpreters.
-        || ["python", "pypy", "ruby", "perl", "lua", "luajit"].iter().any(|p| {
-            lower
-                .strip_prefix(p)
-                .is_some_and(|v| v.chars().all(|c| c.is_ascii_digit() || c == '.'))
-        })
+        || ["python", "pypy", "ruby", "perl", "lua", "luajit"]
+            .iter()
+            .any(|p| is_versioned(&lower, p))
+}
+
+/// Whether lowercase `name` is `program` by a versioned name: python3,
+/// python3.13, perl5.40.
+pub(crate) fn is_versioned(name: &str, program: &str) -> bool {
+    name.strip_prefix(program)
+        .is_some_and(|v| v.chars().all(|c| c.is_ascii_digit() || c == '.'))
 }
 
 /// Main categories an entry cannot carry and be a game, whatever else it

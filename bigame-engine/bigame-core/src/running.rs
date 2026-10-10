@@ -83,11 +83,7 @@ fn snapshot_in(root: &Path) -> Vec<Proc> {
                 return None;
             }
             let raw = std::fs::read(dir.join("cmdline")).ok()?;
-            let argv0 = raw
-                .split(|b| *b == 0)
-                .next()
-                .map(|a| String::from_utf8_lossy(a).into_owned())
-                .unwrap_or_default();
+            let argv0 = argv0_of(&raw);
             // No command line: a kernel thread, or a process on its way
             // out. Neither is a game, and an exiting one in a game's tree
             // was once reported as the game, with no name.
@@ -110,6 +106,36 @@ fn snapshot_in(root: &Path) -> Vec<Proc> {
             })
         })
         .collect()
+}
+
+/// `argv[0]` of a raw `/proc/<pid>/cmdline`.
+///
+/// Chromium, Electron and CEF helpers rewrite their command line as one
+/// space-joined string (`/opt/Heroic/heroic --type=gpu-process …`), so the
+/// first NUL-separated field is the whole line and its basename is no
+/// program's name. For such a line `argv[0]` ends where the switches begin.
+fn argv0_of(raw: &[u8]) -> String {
+    let first = raw.split(|b| *b == 0).next().unwrap_or_default();
+    let joined = !raw
+        .iter()
+        .rposition(|b| *b != 0)
+        .is_some_and(|end| raw[..end].contains(&0));
+    let first = String::from_utf8_lossy(first);
+    if joined
+        && first.contains(" --type=")
+        && let Some(cut) = first.find(" --")
+    {
+        return first[..cut].to_owned();
+    }
+    first.into_owned()
+}
+
+/// Whether a process is a helper of a Chromium-based program (its GPU
+/// process, a renderer, a utility): never the game. A Heroic or Electron
+/// game's `--type=gpu-process` submits GPU work, and would be chosen over
+/// the program itself.
+fn is_chromium_helper(p: &Proc) -> bool {
+    p.cmdline.contains(" --type=")
 }
 
 /// `(ppid, state, utime + stime)` from `/proc/<pid>/stat`.
@@ -229,6 +255,16 @@ const INFRASTRUCTURE: &[&str] = &[
     // the game starts; Debian-based runtimes name the binary ldconfig.real.
     "ldconfig",
     "ldconfig.real",
+    // Short-lived programs the container, Proton and launch scripts run
+    // before the game: generating locales, parsing options, waiting, asking
+    // in a dialog.
+    "localedef",
+    "getopt",
+    "env",
+    "sleep",
+    "timeout",
+    "zenity",
+    "yad",
     // Wine infrastructure
     "wineserver",
     "wine",
@@ -251,6 +287,11 @@ const INFRASTRUCTURE: &[&str] = &[
     "xalia.exe",
     "iexplore.exe",
     "d3ddriverquery64.exe",
+    // Installing a game's redistributables and compiling its .NET
+    // assemblies in the prefix, on a first launch.
+    "msiexec.exe",
+    "mscorsvw.exe",
+    "ngen.exe",
     // Steam's installer-script runner: it runs inside the game's Proton tree
     // on a first launch, before the game itself, and must not be offered a
     // profile.
@@ -417,9 +458,13 @@ pub fn is_infrastructure(name: &str) -> bool {
         || STEAM_RUNTIME_PREFIXES.iter().any(|p| lower.starts_with(p))
         // Crash handlers by their usual names -- not any name containing
         // "crash", which would also exclude Crash Bandicoot.
-        || ["crashhandler", "crash_handler", "crashreport", "crashpad", "crashsender"]
+        // BugSplat's reporter is BsSndRpt.exe.
+        || ["crashhandler", "crash_handler", "crashreport", "crashpad", "crashsender", "bssndrpt", "bugsplat"]
             .iter()
             .any(|n| lower.contains(n))
+        // python3.12: the interpreter Proton's script runs under, by its
+        // versioned name.
+        || crate::games::is_versioned(&lower, "python")
         || lower.contains("launcher")
         // REDupdater.exe, EA's EADesktopUpdater…: they update, they do not play.
         || lower.contains("updater")
@@ -432,14 +477,15 @@ pub fn is_infrastructure(name: &str) -> bool {
 /// The processes of a Steam tree the game can be, out of `candidates`.
 fn game_pool<'a>(candidates: Vec<&'a &'a Proc>, proton: bool) -> Vec<&'a &'a Proc> {
     // In a Proton tree the game is a Windows binary. A Linux helper inside
-    // the container -- an overlay, a wrapper -- must not outrank a game
-    // that is still loading and has burned little CPU yet.
+    // the container -- an overlay, a wrapper, a program the launch scripts
+    // run for a moment -- must not outrank a game that is still loading and
+    // has burned little CPU yet, nor be taken for it before it starts.
     let windows: Vec<&&Proc> = candidates
         .iter()
         .copied()
         .filter(|p| p.argv0.to_ascii_lowercase().ends_with(".exe"))
         .collect();
-    if proton && !windows.is_empty() {
+    if proton {
         // Steam runs its games from the library. A launcher the game
         // installed in the prefix (CD Projekt's REDlauncher, in
         // C:\users\…\AppData) runs beside it, and its web page
@@ -604,7 +650,11 @@ pub fn identify_ranked<S: std::hash::BuildHasher>(
         let proton = proton_tool(&tree);
         let candidates: Vec<&&Proc> = tree
             .iter()
-            .filter(|p| !p.argv0.is_empty() && !is_infrastructure(falcond_name(&p.argv0)))
+            .filter(|p| {
+                !p.argv0.is_empty()
+                    && !is_infrastructure(falcond_name(&p.argv0))
+                    && !is_chromium_helper(p)
+            })
             .collect();
         let pool = game_pool(candidates, proton.is_some());
         let Some(game) = activity.choose(pool.into_iter().copied().collect()) else {
@@ -2046,6 +2096,110 @@ mod tests {
     }
 
     #[test]
+    fn what_runs_before_a_proton_game_is_not_the_game() {
+        // A Proton tree before the game starts: the container generating
+        // locales, a launch script parsing options and waiting, a dialog,
+        // Proton's interpreter by its versioned name, a Linux helper of
+        // nobody's list. None of them is the Windows game.
+        let mut tree = vec![
+            reaper(1, "1245620"),
+            p(
+                2,
+                1,
+                "python3|/s/steamapps/common/Proton - Experimental/proton waitforexitandrun x",
+                5,
+            ),
+            p(3, 2, "/usr/bin/localedef|--add-to-archive", 300),
+            p(4, 2, "/usr/bin/getopt|-o h", 2),
+            p(5, 2, "/usr/bin/env|FOO=1 sleep 1", 1),
+            p(6, 2, "/usr/bin/sleep|1", 1),
+            p(7, 2, "/usr/bin/timeout|5 true", 1),
+            p(8, 2, "/usr/bin/zenity|--info", 40),
+            p(9, 2, "/usr/bin/yad|--text=x", 40),
+            p(10, 2, "/usr/bin/python3.12|/s/script.py", 90),
+            p(11, 2, "/s/steamapps/common/G/tools/helper|", 700),
+            p(
+                12,
+                2,
+                "C:\\windows\\system32\\msiexec.exe|/i vcredist.msi",
+                900,
+            ),
+            p(
+                13,
+                2,
+                "C:\\windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorsvw.exe|",
+                900,
+            ),
+            p(
+                14,
+                2,
+                "C:\\windows\\Microsoft.NET\\Framework64\\v4.0.30319\\ngen.exe|update",
+                900,
+            ),
+            p(15, 2, "S:\\steamapps\\common\\G\\BsSndRpt64.exe|", 900),
+            p(16, 2, "S:\\steamapps\\common\\G\\BugSplatHD64.exe|", 900),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
+        // The game starts: it is the game, however busy the rest are.
+        tree.push(p(17, 2, "S:\\steamapps\\common\\G\\ELDENRING.exe|", 50));
+        let games = identify(&tree);
+        assert_eq!(games.len(), 1, "{games:?}");
+        assert_eq!(games[0].pid, 17);
+        assert!(!is_infrastructure("Bugsnax.exe"));
+        assert!(!is_infrastructure("python-game"));
+    }
+
+    #[test]
+    fn a_chromium_helpers_joined_command_line_names_its_program() {
+        // Electron's GPU process, as /proc shows it: one string, no NUL
+        // between the arguments.
+        assert_eq!(
+            argv0_of(
+                b"/opt/Heroic/heroic --type=gpu-process --user-data-dir=/home/u/.config/heroic\0"
+            ),
+            "/opt/Heroic/heroic"
+        );
+        // Arguments NUL-separated as usual are left alone, switches or not.
+        assert_eq!(
+            argv0_of(b"/g/My --type=Game/run\0--type=renderer\0"),
+            "/g/My --type=Game/run"
+        );
+        assert_eq!(
+            argv0_of(b"C:\\Program Files\\G\\Game.exe\0-dx12\0"),
+            "C:\\Program Files\\G\\Game.exe"
+        );
+        assert_eq!(argv0_of(b"/g/Game --fullscreen\0"), "/g/Game --fullscreen");
+        assert_eq!(argv0_of(b""), "");
+    }
+
+    #[test]
+    fn an_electron_games_helpers_are_not_the_game() {
+        // An Electron game on Steam: its GPU process submits the GPU work,
+        // its renderer burns the CPU; the game is the program itself.
+        let game = "/g/steamapps/common/G/G";
+        let tree = vec![
+            reaper(1, "4242"),
+            p(2, 1, &format!("{game}|--no-sandbox"), 300),
+            p(
+                3,
+                2,
+                &format!("{game}|--type=gpu-process --field-trial-handle=1"),
+                900,
+            ),
+            p(4, 2, &format!("{game}|--type=renderer --lang=en"), 5_000),
+            p(5, 2, &format!("{game}|--type=utility"), 50),
+        ];
+        let drawing = Activity {
+            previous: HashMap::new(),
+            renders: Some(Box::new(|pid| pid == 3)),
+        };
+        let found = identify_ranked(&tree, &HashMap::<String, String>::new(), &drawing);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].pid, 2);
+        assert_eq!(found[0].process_name, "G");
+    }
+
+    #[test]
     fn a_process_without_a_command_line_is_not_the_game() {
         // A process on its way out has an empty cmdline. Left in the pool it
         // was once chosen, and Home announced a game with no name.
@@ -2559,6 +2713,24 @@ mod tests {
         assert_eq!(procs[0].ppid, 4000);
         assert_eq!(procs[0].cpu_ticks, 1570);
         assert_eq!(procs[0].cmdline, "C:\\g\\Game.exe -dx12");
+        // A Chromium helper that rewrote its command line as one string.
+        let helper = root.join("4243");
+        std::fs::create_dir_all(&helper).unwrap();
+        std::fs::write(
+            helper.join("stat"),
+            "4243 (heroic) S 4000 4243 0 0 -1 0 0 0 0 0 10 5 0 0 20 0 60 0 99",
+        )
+        .unwrap();
+        std::fs::write(
+            helper.join("cmdline"),
+            b"/opt/Heroic/heroic --type=gpu-process --user-data-dir=/h/.config/heroic\0",
+        )
+        .unwrap();
+        let procs = snapshot_in(&root);
+        let helper = procs.iter().find(|p| p.pid == 4243).unwrap();
+        assert_eq!(helper.argv0, "/opt/Heroic/heroic");
+        assert_eq!(falcond_name(&helper.argv0), "heroic");
+        assert!(is_chromium_helper(helper));
         let _ = std::fs::remove_dir_all(&root);
     }
 
