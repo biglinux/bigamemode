@@ -50,7 +50,6 @@ pub struct Proc {
 /// One directory walk, the owner from the directory itself, two small reads
 /// per process of the user's, no forks.
 #[must_use]
-#[allow(clippy::similar_names)] // pid and ppid are what /proc calls them
 pub fn snapshot() -> Vec<Proc> {
     snapshot_in(Path::new("/proc"))
 }
@@ -566,18 +565,8 @@ pub fn identify(procs: &[Proc]) -> Vec<GameIdentity> {
     identify_with(procs, &HashMap::new())
 }
 
-/// Find the running games in a process list.
-///
-/// Steam games are found from their reaper, which names the app id; within
-/// that tree the game is the busiest process that is not machinery — a
-/// launcher can briefly be the only candidate, and it is excluded by name.
-/// Wine games outside Steam are found as busy `.exe` processes under Wine.
-///
-/// `native` maps the executable names of games this machine knows about
-/// ([`known_native_games`]) to their display names. Without it a native
-/// game started from the application menu (`SuperTuxKart` from the
-/// repositories, say) is never taken for a game: Home keeps saying *waiting
-/// for games* and no profile is offered.
+/// [`identify_ranked`] with nothing known of the processes' activity.
+#[cfg(test)]
 #[must_use]
 pub fn identify_with<S: std::hash::BuildHasher>(
     procs: &[Proc],
@@ -630,7 +619,19 @@ impl Activity {
     }
 }
 
-/// [`identify_with`], choosing within a tree by [`Activity`].
+/// Find the running games in a process list.
+///
+/// Steam games are found from their reaper, which names the app id; within
+/// that tree the game is the process that is not machinery chosen by
+/// [`Activity`] — a launcher can briefly be the only candidate, and it is
+/// excluded by name. Wine games outside Steam are found as busy `.exe`
+/// processes under Wine.
+///
+/// `native` maps the executable names of games this machine knows about
+/// ([`known_native_games`]) to their display names. Without it a native
+/// game started from the application menu (`SuperTuxKart` from the
+/// repositories, say) is never taken for a game: Home keeps saying *waiting
+/// for games* and no profile is offered.
 #[must_use]
 pub fn identify_ranked<S: std::hash::BuildHasher>(
     procs: &[Proc],
@@ -1605,11 +1606,7 @@ pub fn running_for(pid: u32) -> Option<u64> {
     if hz <= 0 {
         return None;
     }
-    #[allow(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
+    #[allow(clippy::cast_precision_loss)]
     let started = start_ticks as f64 / hz as f64;
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     Some((uptime - started).max(0.0) as u64)

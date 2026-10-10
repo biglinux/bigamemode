@@ -217,27 +217,6 @@ impl Gpu {
             .ok()
             .map(|s| s.trim().to_owned())
     }
-
-    /// Read an integer from this card's hwmon directory.
-    #[must_use]
-    pub fn hwmon_u64(&self, attr: &str) -> Option<u64> {
-        let dir = self.hwmon.as_ref()?;
-        std::fs::read_to_string(dir.join(attr))
-            .ok()?
-            .trim()
-            .parse()
-            .ok()
-    }
-
-    /// Current GPU utilisation percentage (`gpu_busy_percent`), AMD only.
-    #[must_use]
-    pub fn busy_percent(&self) -> Option<u8> {
-        std::fs::read_to_string(self.device_path.join("gpu_busy_percent"))
-            .ok()?
-            .trim()
-            .parse()
-            .ok()
-    }
 }
 
 // ── Display ──────────────────────────────────────────────────────────────────

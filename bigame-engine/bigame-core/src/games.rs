@@ -582,9 +582,9 @@ pub struct MenuGame {
     pub name: String,
     /// The process name falcond will see (the basename of the program).
     ///
-    /// For a Flatpak this is the application's `command`, which
-    /// [`menu_game`] can only take from an explicit `--command=`; otherwise
-    /// it is empty until [`menu_games_in`] reads the application's metadata.
+    /// For a Flatpak this is the application's `command`, which the entry's
+    /// `Exec` names only in an explicit `--command=`; otherwise it is empty
+    /// until [`menu_games_in`] reads the application's metadata.
     pub program: String,
     /// `Exec` as an argument vector, field codes (`%U`, `%f`, …) removed.
     pub argv: Vec<String>,
@@ -631,13 +631,8 @@ impl From<MenuGame> for DetectedGame {
 /// a launcher (`steam steam://rungameid/…`) are not games here: their process
 /// is the launcher, and Steam's are found by their tree. A `flatpak run`
 /// entry is a game whose process is the Flatpak's own command; whether the
-/// Flatpak is installed is for [`menu_games_in`] to check.
-#[must_use]
-pub fn menu_game(content: &str) -> Option<MenuGame> {
-    menu_game_at(content, None)
-}
-
-/// [`menu_game`] for the entry at `location`, which `%k` stands for.
+/// Flatpak is installed is for [`menu_games_in`] to check. `location` is
+/// where the entry is, which `%k` stands for.
 fn menu_game_at(content: &str, location: Option<&Path>) -> Option<MenuGame> {
     let mut in_entry = false;
     let (mut exec, mut name, mut categories, mut icon) = (None, None, None, None);
@@ -998,15 +993,6 @@ fn flatpak_command(app_id: &str, installations: &[PathBuf]) -> Option<String> {
         // installed; its process is then whatever `--command=` said.
         Some(command.unwrap_or_default())
     })
-}
-
-/// Every game in the application menu: `XDG_DATA_HOME` and each of
-/// `XDG_DATA_DIRS`, the first entry of a name winning, as the menu does;
-/// each checked to exist (see [`menu_games_in`]).
-#[must_use]
-pub fn menu_games() -> Vec<MenuGame> {
-    let sources = Sources::of_home(&crate::paths::home_dir());
-    menu_games_in(&sources.applications, &sources.path_dirs, &sources.flatpak)
 }
 
 /// The games among the `.desktop` entries of `applications`, keeping only
@@ -1438,22 +1424,14 @@ pub fn acf_value(content: &str, key: &str) -> Option<String> {
     vdf::first_value(content, key).filter(|v| !v.is_empty())
 }
 
-/// The installed game a running process belongs to, from any launcher: the
-/// game whose install folder holds the process, else the one game that
-/// lists its executable. What names it and shows its cover when the process
-/// alone says neither.
-#[must_use]
-pub fn installed_game_for_process(
-    process_name: &str,
-    install_path: Option<&Path>,
-) -> Option<DetectedGame> {
-    game_among(&detect_all(), process_name, install_path).cloned()
-}
-
-/// [`installed_game_for_process`] for a running game, also by where its
-/// executable is: a Wine game's `Z:\…` or `C:\…` path is mapped to the
-/// file in its prefix, so two games that both run as `Game.exe` (RPG Maker)
-/// are told apart by folder rather than guessed by name.
+/// The installed game a running game belongs to, from any launcher: what
+/// names it and shows its cover when the process alone says neither.
+///
+/// First by where its executable is: a Wine game's `Z:\…` or `C:\…` path is
+/// mapped to the file in its prefix, so two games that both run as
+/// `Game.exe` (RPG Maker) are told apart by folder rather than guessed by
+/// name. Then the game installed where the running game's launcher says it
+/// is, else the one game that lists its executable.
 #[must_use]
 pub fn installed_game_for_running(game: &crate::running::GameIdentity) -> Option<DetectedGame> {
     let games = detect_all();
@@ -2866,6 +2844,11 @@ mod tests {
     use super::*;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
+
+    /// [`menu_game_at`] for an entry read from nowhere in particular.
+    fn menu_game(content: &str) -> Option<MenuGame> {
+        menu_game_at(content, None)
+    }
 
     const STK_DESKTOP: &str = "[Desktop Entry]\nName=SuperTuxKart\nName[pt_BR]=SuperTuxKart\nExec=supertuxkart\nIcon=supertuxkart\nType=Application\nCategories=Game;ArcadeGame;\nActions=SoftwareRender;\n\n[Desktop Action SoftwareRender]\nName=Software Render\nExec=SoftwareRender supertuxkart\n";
 
