@@ -477,8 +477,9 @@ pub fn build(
     // ── Turbo changed elsewhere ─────────────────────────────────────────
     // The command-line tool, systemctl, or another session can turn falcond
     // on or off; Home follows what systemd says rather than what it last did
-    // itself. One D-Bus read every 10 s, with the window hidden too, so the
-    // tray never shows a Turbo that is no longer so.
+    // itself. The application's status loop reads falcond's unit every 10 s,
+    // with the window hidden too, so the tray never shows a Turbo that is no
+    // longer so; Home takes the same reading.
     {
         let button = Rc::clone(&button);
         let turbo_on = Rc::clone(&turbo_on);
@@ -488,9 +489,14 @@ pub fn build(
         let switching = Rc::clone(&switching_preset);
         let root = scroll.clone();
         let busy = Rc::new(Cell::new(false));
-        glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+        crate::app::follow_backend_unit(move |unit| {
+            // No reading: systemd could not be asked, and saying "off"
+            // would be a guess.
+            let Some(unit) = unit.cloned() else {
+                return;
+            };
             if !button.state().is_interactive() || switching.get() || busy.replace(true) {
-                return glib::ControlFlow::Continue;
+                return;
             }
             let (button, turbo_on, last, card, busy, notice, root) = (
                 Rc::clone(&button),
@@ -502,33 +508,34 @@ pub fn build(
                 root.clone(),
             );
             glib::spawn_future_local(async move {
-                let reading = gio::spawn_blocking(|| {
+                let reading = gio::spawn_blocking(move || {
                     // A falcond that crashed on this processor is not
                     // Turbo's state: Turbo is the Booster's then, as without
                     // falcond, and its unit staying inactive is not Turbo
                     // going off.
-                    let governing = bigame_core::systemd::Reader::shared()
-                        .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))
-                        .map(|unit| turbo::backend_governs(&unit).then(|| unit.is_active()));
+                    let governing = turbo::backend_governs(&unit).then(|| unit.is_active());
                     (governing, Report::load_last())
                 })
                 .await;
                 busy.set(false);
-                let Ok((Some(governing), report)) = reading else {
+                let Ok((governing, report)) = reading else {
                     return;
                 };
                 let on = governing.unwrap_or_else(|| turbo_on.get());
+                let switched = on != turbo_on.get();
                 // A launcher opened again, or closed, by hand leaves the
                 // notice.
                 if root.is_mapped() {
                     notice.recheck();
                 }
-                // The preset's flag follows what the session holds.
-                card.refresh_preset();
-                if on != turbo_on.get()
-                    || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
+                // The preset's flag follows what the session holds: read
+                // while it is on screen (and when the page is shown), or
+                // when Turbo went on or off.
+                if root.is_mapped() || switched {
+                    card.refresh_preset();
+                }
+                if switched || report.as_ref().map(|r| r.at) != last.borrow().as_ref().map(|r| r.at)
                 {
-                    let switched = on != turbo_on.get();
                     // falcond stopped without Big Game Mode (systemctl, a
                     // crash, Settings → Hand back): what Turbo laid over the
                     // session and the machine goes too, as Turbo off does.
@@ -551,8 +558,13 @@ pub fn build(
                     }
                 }
             });
-            glib::ControlFlow::Continue
         });
+    }
+    // The preset's flag, read again when the page is shown: the unit
+    // readings refresh it only while the page is on screen.
+    {
+        let card = card.clone();
+        scroll.connect_map(move |_| card.refresh_preset());
     }
 
     // ── Live readings ───────────────────────────────────────────────────
