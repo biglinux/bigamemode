@@ -9,9 +9,9 @@ One switch for per-game performance, presets for what games should favour,
 AI Graphics with full backup and undo, and a page that shows — with evidence —
 what is really in effect.
 
-[![Version](https://img.shields.io/badge/version-2.3.1-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
+[![Version](https://img.shields.io/badge/version-2.3.2-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-1.85%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.88%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
 [![Languages](https://img.shields.io/badge/languages-29-f39c12?style=for-the-badge)](#languages)
 
@@ -47,26 +47,48 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## What's new in 2.3.1
+## What's new in 2.3.2
 
-- **Processors without AVX2/BMI2** (Sandy Bridge, Ivy Bridge and older):
-  falcond 2.0.14 built for x86-64-v3 dies there with an illegal instruction
-  ([#4](https://github.com/biglinux/bigamemode/issues/4)). Big Game Mode now
-  names that failure (Home, Details, the tray and the support report) instead
-  of suggesting a restart, and **Turbo still comes on** with the general
-  settings, as on a system without falcond. That falcond build is not started
-  again until the package changes; a falcond built for the x86-64 baseline is
-  used as soon as it is installed. See
-  [docs/CPU-COMPATIBILITY.md](docs/CPU-COMPATIBILITY.md).
-- **A falcond that crashes at start** no longer stays enabled to crash again
-  at every boot, and Turbo can be turned off after it.
-- **Game detection:** the Steam runtime's library cache tool (`ldconfig`) is
-  no longer taken for the running game.
-- **Details:** fix commands with `&&` no longer log a markup error.
-- **Packaging:** the BigLinux package builders receive only the branches they
-  can build (`main`, `testing-*`, `stable-*`); pull requests are checked by a
-  separate workflow. See
-  [docs/CI.md](docs/CI.md).
+A stability release, from a full review of the code, the helper and the
+package.
+
+- **Turbo on processors falcond cannot run on** (Sandy Bridge, Ivy Bridge and
+  older with a falcond built for x86-64-v3) no longer switches itself off a
+  few seconds after it starts, while the power profile stayed at performance.
+  See [CPU compatibility](docs/CPU-COMPATIBILITY.md).
+- **Nothing left behind:** turning Turbo off or changing the preset reaches
+  Steam and Heroic once they are closed, and deleting a profile takes its
+  launch options out of Steam, Heroic and Lutris. Profiles says which launcher
+  to close when one was open.
+- **Your settings stay yours:** only what Big Game Mode added is removed,
+  account by account (a native and a Flatpak Steam are two installs); your
+  own launch options, Lutris' MangoHud line, and MangoHud and vkBasalt files
+  (also ones that are not UTF-8, and dotfile-manager symlinks) are kept.
+- **AI Graphics** makes one change at a time to a game, so a double click can
+  no longer mix two installs' backups; Restore from Profiles works as on the
+  AI Graphics page.
+- **Idle cost:** one systemd reading for the tray and Home, no property cache
+  traffic, slower polling while a game runs, and nothing woken while the
+  window is hidden.
+- **Game detection:** Electron/Chromium helpers, the Steam runtime's locale
+  tools, Windows installers (`msiexec`, .NET) and crash reporters are not
+  taken for the game.
+- **A stricter helper:** `/run` and the machine-wide `/sys` trees read-only,
+  memory and task limits, no systemd reload when nothing changes, profiles
+  named after system processes refused. Its Polkit messages are now
+  translated with the rest of the application.
+- **Quality:** Rust 1.88 declared (the real minimum), French, Chinese and
+  other languages get their own "label: value" punctuation, and the About
+  dialog names the developer.
+
+### 2.3.1
+
+- Processors without AVX2/BMI2: a falcond built for x86-64-v3 is named as
+  the cause instead of a retry being suggested, and Turbo comes on with the
+  general settings
+  ([#4](https://github.com/biglinux/bigamemode/issues/4)).
+- A falcond that crashes at start no longer stays enabled; the Steam
+  runtime's `ldconfig` is not taken for the game.
 
 ### 2.3.0
 
@@ -311,7 +333,7 @@ terminal without opening a window (`--network` adds the DNS measurements).
 | A frame generation option is disabled | lsfg-vk is not installed or your `Lossless.dll` is not usable by it; the row says which |
 | AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
-| "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turning Turbo off and on again does not help: update falcond once a build for the x86-64 baseline is available. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
+| "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turbo still comes on with the general settings; per-game profiles need a falcond built for the x86-64 baseline. Turning Turbo off and on again does not help. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
 | Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
 
 ## How it works
@@ -350,8 +372,9 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ```
 
 - **The interface never runs as root.** Only a small helper on the system bus
-  is privileged, confined by systemd (`ProtectSystem=strict`, `/sys` read-only
-  except `/sys/devices`, one capability).
+  is privileged, confined by systemd (`ProtectSystem=strict`, `/run` and `/sys`
+  read-only except the CPU frequency and device attributes it sets, one
+  capability, memory and task limits).
 - **Every privileged method is authorised by Polkit first** (without Polkit,
   access is denied) and every argument is validated on the root side.
 - **Narrow, atomic writes** to one known place each, never through a path the
@@ -402,7 +425,7 @@ languages are welcome.
 
 ## Development
 
-Requires Rust 1.85 or newer, GTK 4.14+, libadwaita 1.7+,
+Requires Rust 1.88 or newer, GTK 4.14+, libadwaita 1.7+,
 `glib-compile-resources` (glib2) and, for the catalogues, gettext and Python 3.
 
 ```bash
@@ -489,7 +512,7 @@ as *Package check*, which is not handed to them.
 
 ## Author
 
-**Rafael Ruscher** · <rruscher@gmail.com>
+**Rafael Ruscher**, author and lead developer · <rruscher@gmail.com>
 
 I have always loved games, and I am a firm believer in gaming on Linux. In
 recent years, with Valve's constant work, compatibility has become almost
