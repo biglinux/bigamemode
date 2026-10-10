@@ -304,11 +304,14 @@ pub fn build() -> adw::PreferencesPage {
     {
         let load = Rc::clone(&load);
         let scroll = scroll.clone();
-        glib::timeout_add_local(Duration::from_secs(5), move || {
-            if scroll.is_mapped() && live.is_active() {
-                load();
+        glib::spawn_future_local(async move {
+            loop {
+                crate::views::details::mapped(&scroll).await;
+                glib::timeout_future(Duration::from_secs(5)).await;
+                if scroll.is_mapped() && live.is_active() {
+                    load();
+                }
             }
-            glib::ControlFlow::Continue
         });
     }
 

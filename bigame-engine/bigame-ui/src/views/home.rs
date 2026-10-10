@@ -648,7 +648,15 @@ pub fn build(
                 refresh.force();
             });
         }
-        glib::timeout_add_local(TILE_REFRESH, move || refresh.tick());
+        // Nothing to do while the window is hidden or on another page: the
+        // loop waits for the page to be shown instead of waking to find out.
+        glib::spawn_future_local(async move {
+            loop {
+                crate::views::details::mapped(&refresh.root).await;
+                glib::timeout_future(TILE_REFRESH).await;
+                refresh.tick();
+            }
+        });
     }
 
     scroll.upcast()
@@ -692,10 +700,10 @@ impl Refresh {
         (self.update)(1);
     }
 
-    fn tick(&self) -> glib::ControlFlow {
-        // Nothing to do while the window is hidden or on another page.
+    fn tick(&self) {
+        // Hidden while the loop waited.
         if !self.root.is_mapped() {
-            return glib::ControlFlow::Continue;
+            return;
         }
         let n = self.tick.get().wrapping_add(1);
         self.tick.set(n);
@@ -703,7 +711,6 @@ impl Refresh {
         if !playing || n.is_multiple_of(IN_GAME_EVERY) {
             (self.update)(n);
         }
-        glib::ControlFlow::Continue
     }
 }
 
