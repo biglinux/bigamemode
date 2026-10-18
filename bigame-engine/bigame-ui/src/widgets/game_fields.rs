@@ -322,7 +322,7 @@ impl SchedulerFields {
                     i18n("Follows Tuning: %s")
                         .replace("%s", &scheduler_summary(&general_sched, &general_mode))
                 } else {
-                    String::new()
+                    i18n("Experimental: none made games faster in Big Game Mode's measurements.")
                 });
                 mode.row.set_subtitle(&if inherit {
                     if opt::inherits(&general_sched) {

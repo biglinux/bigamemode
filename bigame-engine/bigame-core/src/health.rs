@@ -262,6 +262,30 @@ pub fn scx_loader_default_check(default: Option<(String, String)>) -> Option<Che
     ))
 }
 
+/// falcond's general configuration loading a sched-ext scheduler: it runs
+/// for the whole desktop while Turbo is on, and falcond's general settings
+/// override every game's profile. In Big Game Mode's measurements (lavd and
+/// bpfland, two machines) none made games faster, so it is one more part
+/// that can fail, for nothing measured.
+#[must_use]
+pub fn general_scheduler_check(general: Option<&crate::config::FalcondConfig>) -> Option<Check> {
+    let sched = general?.scx_sched.trim();
+    if sched.is_empty() || sched == "none" {
+        return None;
+    }
+    Some(check(
+        N_("CPU scheduler"),
+        Status::Warning,
+        Text::with(
+            N_(
+                "falcond loads scx_%s for the whole desktop and every game while Turbo is on; in Big Game Mode's measurements no sched-ext scheduler made games faster",
+            ),
+            [sched.to_owned()],
+        ),
+        advice(N_("Tuning → CPU scheduler → None")),
+    ))
+}
+
 /// falcond's VRAM protection (DMEM, falcond 2.0.14): unavailable on this
 /// system, or failing with the error falcond reports. Nothing when it works
 /// or this falcond does not report it.
@@ -659,28 +683,26 @@ pub fn collect() -> Vec<Check> {
             None,
         ),
         Support::Unsupported(why) => check(N_("sched-ext"), Status::NotApplicable, why, None),
+        // Optional: no scheduler was measured faster for games, so a
+        // missing one is said, not pressed on anyone.
         Support::NotInstalled(package) if package == "scx-tools" => check(
             N_("sched-ext"),
-            Status::Warning,
+            Status::Info,
             Text::with(
                 N_("%s schedulers installed, but scx-tools (scx_loader) is not, so game profiles cannot switch scheduler"),
                 [caps.sched_ext.installed.len().to_string()],
             ),
-            cmd("sudo pacman -S scx-tools && sudo systemctl enable --now scx_loader"),
+            None,
         ),
         Support::NotInstalled(package) => check(
             N_("sched-ext"),
-            Status::Warning,
+            Status::Info,
             Text::with(N_("%s is not installed"), [package]),
-            cmd("sudo pacman -S scx-scheds scx-tools"),
+            None,
         ),
-        Support::ServiceDown(why) => check(
-            N_("sched-ext"),
-            Status::Warning,
-            why,
-            cmd("sudo systemctl enable --now scx_loader"),
-        ),
+        Support::ServiceDown(why) => check(N_("sched-ext"), Status::Info, why, None),
     });
+    out.extend(general_scheduler_check(crate::config::read().ok().as_ref()));
 
     out.extend(dmem_check(status.as_ref()));
     if caps.falcond_installed {
@@ -997,6 +1019,20 @@ mod tests {
         .unwrap();
         assert_eq!(scx_loader_default(&[&etc, &share]), None);
         assert!(scx_loader_default_check(None).is_none());
+        // falcond's general scheduler: said only when one is set.
+        let general = |sched: &str| crate::config::FalcondConfig {
+            scx_sched: sched.into(),
+            ..crate::config::FalcondConfig::default()
+        };
+        assert!(general_scheduler_check(None).is_none());
+        assert!(general_scheduler_check(Some(&general("none"))).is_none());
+        let c = general_scheduler_check(Some(&general("lavd"))).unwrap();
+        assert_eq!(c.status, Status::Warning);
+        assert!(
+            c.detail.english().contains("scx_lavd"),
+            "{}",
+            c.detail.english()
+        );
         std::fs::write(
             &etc,
             "default_sched = \"scx_beerland\"\ndefault_mode = \"Auto\"\n",

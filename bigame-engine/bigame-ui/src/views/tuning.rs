@@ -545,7 +545,7 @@ fn build_performance(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGro
         let sched = Picker::new(
             &i18n("CPU scheduler"),
             &i18n(
-                "Loaded while Turbo is on. A game whose profile names another scheduler switches to it while it runs.",
+                "Experimental: no scheduler made games faster in Big Game Mode's measurements. Loaded while Turbo is on; a game whose profile names another switches to it while it runs.",
             ),
             &ui::scheduler_items(m, Scope::General),
             &shared.borrow().scx_sched,
@@ -574,7 +574,7 @@ fn build_performance(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGro
                     row.set_subtitle(&format!(
                         "{}\n{now}",
                         i18n(
-                            "Loaded while Turbo is on. A game whose profile names another scheduler switches to it while it runs."
+                            "Experimental: no scheduler made games faster in Big Game Mode's measurements. Loaded while Turbo is on; a game whose profile names another switches to it while it runs."
                         )
                     ));
                 });
