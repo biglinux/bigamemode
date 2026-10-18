@@ -321,6 +321,65 @@ fn on_switch(row: &adw::SwitchRow, apply: impl Fn(bool) -> Result<(), String> + 
     });
 }
 
+/// Put back every game AI Graphics changed, after one question: what to do
+/// before removing Big Game Mode, and a way out after many games were tried.
+fn restore_all_graphics_row() -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(i18n("Restore every game's graphics"))
+        .subtitle(i18n(
+            "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode.",
+        ))
+        .build();
+    let button = gtk4::Button::builder()
+        .label(i18n("Restore All"))
+        .valign(gtk4::Align::Center)
+        .build();
+    button.connect_clicked(|button| {
+        let dialog = adw::AlertDialog::new(
+            Some(&i18n("Restore every game's graphics?")),
+            Some(&i18n(
+                "Every game AI Graphics changed gets its original files back. Close your games first.",
+            )),
+        );
+        dialog.add_response("cancel", &i18n("Cancel"));
+        dialog.add_response("restore", &i18n("Restore All"));
+        dialog.set_response_appearance("restore", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        let anchor = button.clone();
+        dialog.connect_response(None, move |_, response| {
+            if response != "restore" {
+                return;
+            }
+            let anchor = anchor.clone();
+            anchor.set_sensitive(false);
+            gtk4::glib::spawn_future_local(async move {
+                let results = gtk4::gio::spawn_blocking(bigame_core::graphics::restore_all)
+                    .await
+                    .unwrap_or_default();
+                anchor.set_sensitive(true);
+                let failed: Vec<String> = results
+                    .iter()
+                    .filter(|(_, r)| r.is_err())
+                    .map(|(game, _)| game.clone())
+                    .collect();
+                let text = if results.is_empty() {
+                    i18n("No game has files from AI Graphics")
+                } else if failed.is_empty() {
+                    i18n("Every game's graphics were restored")
+                } else {
+                    i18n("Not restored (close them and try again): %s")
+                        .replace("%s", &failed.join(", "))
+                };
+                crate::widgets::toast::show(&anchor, &text);
+            });
+        });
+        dialog.present(Some(button));
+    });
+    row.add_suffix(&button);
+    row
+}
+
 /// Keep `target` as the ping target, unless it is empty or would be read as
 /// an option by ping.
 fn save_ping_target(target: String) {
@@ -524,6 +583,7 @@ pub fn build() -> adw::PreferencesPage {
         settings::set_advanced(on).map_err(|e| e.to_string())
     });
     advanced.add(&advanced_row);
+    advanced.add(&restore_all_graphics_row());
     page.add(&advanced);
 
     // The technical rows only in advanced mode.

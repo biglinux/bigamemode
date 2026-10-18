@@ -1457,6 +1457,54 @@ fn restore_in(state: &Path, target: &Target) -> anyhow::Result<Restoration> {
     Ok(done)
 }
 
+/// Restore every game AI Graphics changed ([`restore`]), as before removing
+/// Big Game Mode: each game's title and how it went. A game that runs is
+/// left as it is (and said); a record that does not name its game's process
+/// and folder the way its key does is not acted on.
+#[must_use]
+pub fn restore_all() -> Vec<(String, anyhow::Result<Restoration>)> {
+    let state = state_dir();
+    let Ok(dir) = std::fs::read_dir(&state) else {
+        return Vec::new();
+    };
+    let mut keys: Vec<String> = dir
+        .flatten()
+        .filter(|d| d.path().is_dir())
+        .map(|d| d.file_name().to_string_lossy().into_owned())
+        .collect();
+    keys.sort();
+    let mut out = Vec::new();
+    for key in keys {
+        let Ok(Some(m)) = manifest::Manifest::load(&state, &key) else {
+            continue;
+        };
+        if m.state != manifest::State::Installed {
+            continue;
+        }
+        let Some(process) = m.process.clone() else {
+            continue;
+        };
+        let target = Target {
+            name: m.title.clone().unwrap_or_else(|| process.clone()),
+            process,
+            app_id: key.strip_prefix("steam-").map(str::to_owned),
+            install_root: m.install_root.clone(),
+        };
+        if target.key() != key {
+            out.push((
+                target.name,
+                Err(anyhow::anyhow!(
+                    "its record ({key}) does not name the game's process and folder; restore it from the game's AI Graphics page"
+                )),
+            ));
+            continue;
+        }
+        let done = restore(&target);
+        out.push((target.name, done));
+    }
+    out
+}
+
 /// [`restore`], as one result: the files' outcomes, or an error that also
 /// says when the files were put back and only the game's own setting was
 /// not.

@@ -351,14 +351,17 @@ policy, the desktop entry, AppStream metadata, icons and translations.
 > [!TIP]
 > On upgrade the helper stops and comes back, new, at its next call. On
 > removal falcond is handed back as it was before Big Game Mode took charge.
-> Files AI Graphics placed in games stay until **Restore the game's graphics**; the
-> backups are in `~/.local/state/bigame-mode/graphics`.
+> Files AI Graphics placed in games stay until **Restore the game's graphics**,
+> or, for every game at once, Settings → Advanced → **Restore every game's
+> graphics** (`bigame-ui --restore-all-graphics` in a terminal) — do it before
+> removing the package. The backups are in `~/.local/state/bigame-mode/graphics`.
 
 ## Running
 
 Open **Big Game Mode** from the menu, or run `bigame-ui`. `bigame-ui --background`
 starts it in the tray; `bigame-ui --diagnostics` prints the support report in a
-terminal without opening a window (`--network` adds the DNS measurements).
+terminal without opening a window (`--network` adds the DNS measurements), and
+`bigame-ui --restore-all-graphics` puts back every game AI Graphics changed.
 
 ## Troubleshooting
 

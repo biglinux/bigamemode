@@ -27,6 +27,30 @@ fn main() -> libadwaita::glib::ExitCode {
     // Before any thread starts, so all of them inherit it.
     bigame_core::processes::yield_disk_to_games();
     bigame_core::processes::limit_malloc_arenas();
+    // Every game AI Graphics changed, put back: before removing the package,
+    // from a terminal (the package's removal runs as root and cannot reach
+    // each user's games and backups).
+    if args.iter().any(|a| a == "--restore-all-graphics") {
+        let results = bigame_core::graphics::restore_all();
+        if results.is_empty() {
+            println!("No game has files from AI Graphics.");
+        }
+        let mut failed = false;
+        for (game, result) in results {
+            match result {
+                Ok(_) => println!("restored: {game}"),
+                Err(e) => {
+                    failed = true;
+                    println!("NOT restored: {game} — {e:#}");
+                }
+            }
+        }
+        return if failed {
+            libadwaita::glib::ExitCode::FAILURE
+        } else {
+            libadwaita::glib::ExitCode::SUCCESS
+        };
+    }
     init_tracing();
     i18n::init();
     app::run()

@@ -34,8 +34,10 @@ pre_remove() {
 
     cat <<'MSG'
 ==> Games changed by AI Graphics keep their OptiScaler files until restored.
-    Use "Restore the game's graphics" in Big Game Mode before removing it, or
-    reinstall later: the backups in ~/.local/state/bigame-mode/graphics stay.
+    Before removing Big Game Mode, run as your user (games closed):
+        bigame-ui --restore-all-graphics
+    or Settings → Advanced → Restore every game's graphics. Removed already?
+    Reinstall later: the backups in ~/.local/state/bigame-mode/graphics stay.
 ==> Settings Big Game Mode wrote for your user stay as they are: launch
     options in Steam, Heroic and Lutris, lsfg-vk entries, MangoHud and vkBasalt
     styles, ~/.config/environment.d/bigame-mode.conf, and the per-game
