@@ -1,8 +1,8 @@
 //! Main application window with `AdwNavigationSplitView` sidebar navigation.
 //!
-//! Six pages, in the order a person uses them: Home (Turbo), Profiles (the
-//! games), Tuning (what is applied), Details (what is really happening),
-//! Logs, Settings. The Optimization Report is not a page of its own: it is
+//! Seven pages, in the order a person uses them: Home (Turbo), Profiles (the
+//! games), Telemetry (the live charts), Tuning (what is applied), Details
+//! (what is really happening), Logs, Settings. The Optimization Report is not a page of its own: it is
 //! shown over Home with a way back.
 
 use adw::prelude::*;
@@ -19,9 +19,10 @@ use crate::widgets;
 
 /// The pages, by stack name. A saved page name from an older version
 /// (`video`, `benchmark`, `diagnostics`) maps to where its content went.
-pub const PAGES: [&str; 6] = [
+pub const PAGES: [&str; 7] = [
     "home",
     "profiles",
+    "telemetry",
     "tuning",
     "dashboard",
     "logs",
@@ -116,6 +117,9 @@ pub fn build(
     let profiles = views::profiles::build();
     view_stack.add_named(&profiles, Some("profiles"));
 
+    let telemetry = views::telemetry::build();
+    view_stack.add_named(&telemetry, Some("telemetry"));
+
     // Wrap in Rc<RefCell> so the Restore Defaults action can swap it without a rebuild
     let tuning_holder = Rc::new(RefCell::new(views::tuning::build()));
     view_stack.add_named(&*tuning_holder.borrow(), Some("tuning"));
@@ -154,6 +158,7 @@ pub fn build(
     let nav_items = [
         ("home", i18n("Home"), "go-home-symbolic"),
         ("profiles", i18n("Profiles"), "applications-games-symbolic"),
+        ("telemetry", i18n("Telemetry"), "bigame-telemetry-symbolic"),
         ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
         ("dashboard", i18n("Details"), "speedometer-symbolic"),
         ("logs", i18n("Logs"), "utilities-terminal-symbolic"),
@@ -755,6 +760,7 @@ mod tests {
             [
                 "home",
                 "profiles",
+                "telemetry",
                 "tuning",
                 "dashboard",
                 "logs",

@@ -18,7 +18,7 @@ error.
 
 | Component | Where | Responsibility |
 |---|---|---|
-| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Tuning, Details, Logs, Settings, and the Optimization Report over Home. Simple mode (the default, `advanced_mode = false` in `settings.toml`) shows Home, Profiles and Settings only, with Play on every game and Back to normal; Settings → Advanced shows the rest. While a game runs, no page reads anything unless its window is the active one, the game's exit is watched through a pidfd, and the process does its disk reads in the idle I/O class (a game it starts gets the normal class back). `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
+| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Telemetry, Tuning, Details, Logs, Settings, and the Optimization Report over Home. Simple mode (the default, `advanced_mode = false` in `settings.toml`) shows Home, Profiles, Telemetry and Settings only, with Play on every game and Back to normal; Settings → Advanced shows the rest. While a game runs, no page reads anything unless its window is the active one, the game's exit is watched through a pidfd, and the process does its disk reads in the idle I/O class (a game it starts gets the normal class back). `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
 | Core | `bigame-engine/bigame-core` (library, no UI) | Hardware and capability detection, Turbo (`turbo.rs`) and its presets (`turbo_preset.rs`: a layer of session variables over Tuning while Turbo is on — DXVK/VKD3D-Proton frame caps, Wine FSR, vkBasalt, `FSR4_UPGRADE`; native games launched by Big Game Mode are capped with MangoHud's limiter), the Booster engine (`booster/`), profiles and their migration, running-game detection (`running.rs`), recommendations (`recommend.rs`), the launch pipeline (`launcher.rs`, `gamescope.rs`), AI Graphics (`graphics/`), benchmarking (`benchmark/`), network measurement, logs, health and diagnostics. |
 | Helper | `bigame-engine/bigame-daemon` (root, system bus `com.biglinux.BiGameMode`, object `/com/biglinux/BiGameMode`) | The handful of writes the UI cannot do: `SaveProfile`, `DeleteProfile`, `ApplyFalcondConfig`, `SetVCacheMode`, `SetCpuGovernor`, `SetCpuEpp`, `SetGpuDpmLevel`, `SetGameBackend`, `ReleaseGameBackend`, plus the unauthenticated `Ping`. Started on demand by D-Bus through `bigame-daemon.service`. See [SECURITY.md](SECURITY.md). |
 | falcond | external system service | Matches game processes by name and applies their profile — performance power profile, sched-ext scheduler (through `scx_loader`), 3D V-Cache mode, idle inhibit — and restores everything when the game exits. |
@@ -522,6 +522,16 @@ of it needs root.
   changes the general settings: the launch leaves Wine FSR
   (`WINE_FULLSCREEN_FSR=0`) and the Gamescope render size out for that game,
   and the page says so.
+- **Telemetry** is the live charts (`views/telemetry.rs`): processor,
+  memory, disk and network from `bigame_core::system_telemetry` (one file
+  each, counters turned into rates between two readings), and one card per
+  GPU from `gpu_telemetry::sample`. Read once a second off the main thread
+  while the page is in front of someone (5 s unfocused, nothing behind a
+  game); the ping, a process, every 5 s on its own. The layout is fixed:
+  one-line labels that ellipsize, tabular figures, charts of a fixed height
+  and scale (`sparkline::chart`, newest point at the right edge), and an
+  `AdwBreakpointBin` that only turns rows into columns (4 → 2 × 2 → stacked
+  GPUs → one column).
 - **Details** is what is really happening. One reading
   (`bigame_core::overview::Snapshot`) taken off the main thread every 3 s
   while the page is on screen (6 s unfocused), and again when falcond's
@@ -537,8 +547,7 @@ of it needs root.
   means, the evidence (which file, which `/proc` entry) and the fix. The
   Problems group classes the health checks and the runtime findings as
   fixable (a command to copy), needs you, hardware or information; hardware
-  limits are never errors. Telemetry (1 s), the GPU cards, the network, the
-  background load, Steam's broken launch options and the support report
+  limits are never errors. The network, the background load, Steam's broken launch options and the support report
   complete the page. No system fix is ever run from it: a fix is a command to
   copy. The page's own actions are limited to what the user asks for there —
   clearing Steam's broken launch options, pausing, resuming or closing a

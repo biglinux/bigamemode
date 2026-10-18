@@ -269,7 +269,7 @@ fn ping_rows(current: &str) -> [adw::PreferencesRow; 2] {
     combo.add_suffix(&info::button(
         &i18n("Ping Target"),
         &i18n(
-            "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in.",
+            "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in.",
         ),
     ));
 

@@ -9,19 +9,17 @@
 //! ([`bigame_core::overview::Snapshot`]), taken off the main thread only
 //! while the page is in front of someone ([`showing`]) — every 3 s with the
 //! window focused, 6 s behind another window — and again at once when
-//! falcond's status file changes or the running game changes. Telemetry has
-//! its own, faster reading (1 s), on the same terms. Left behind a game
-//! being played, nothing is read: a reading looks into the game's process
-//! and asks the GPU's power controller, which the game needs more.
+//! falcond's status file changes or the running game changes. Left behind a
+//! game being played, nothing is read: a reading looks into the game's
+//! process and asks the GPU's power controller, which the game needs more.
+//! The live charts are on their own page, Telemetry, on the same terms.
 
 mod dns;
 pub(crate) mod extras;
-mod gpus;
 pub(crate) mod overview;
 mod performance;
 mod pipeline;
 mod problems;
-pub(crate) mod telemetry;
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -140,14 +138,6 @@ pub fn build() -> gtk4::Widget {
 fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
     let overview = overview::Overview::new(hw);
     page.add(overview.group());
-
-    let telemetry = telemetry::Telemetry::new();
-    page.add(telemetry.group());
-    telemetry.start();
-
-    let gpus = gpus::Gpus::new(hw);
-    page.add(gpus.group());
-    gpus.start(hw, telemetry.gpu_targets());
 
     let performance = performance::Performance::new(hw);
     page.add(performance.group());

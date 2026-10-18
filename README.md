@@ -81,6 +81,10 @@ does.
 - **Simple mode, the default:** Turbo says ON or OFF in words, three
   choices, **Play** on every game and **Back to normal** to undo it all.
   Settings → Advanced brings Tuning, Details and Logs back.
+- **Telemetry has its own page**, in the sidebar in simple mode too: the
+  processor, memory, disk, network and one card per GPU, each with a chart
+  of the last minute. The cards keep their size and place whatever the
+  readings say, and the whole page fits the window.
 - **What no setting fixes, said plainly:** a game library on a hard disk,
   adaptive sync switched off, and Steam launch options with a wrapper but no
   `%command%` (with a one-click fix).
@@ -247,14 +251,21 @@ release (HTTPS, pinned SHA-256) with a verified backup, or raises FSR 3.1 to
 FSR 4 through Proton. **Check Again**, **Repair**, **Restore** and **Diagnose**
 are always there. Games with anti-cheat are never touched.
 
-### Details, monitoring and logs
+### Telemetry, details and logs
+
+**Telemetry** shows, once a second, what the processor (load, the fastest
+core's clock and the average, temperature), memory (and swap), the disks
+(read and written), the network (latency, received and sent) and every GPU
+(load, temperature, clock, video memory, power, and which one renders the
+game) are doing, each with a chart of the last minute. The cards keep their
+size and place; a reading the driver does not publish says so in its place.
+Nothing is read while a game has the screen.
 
 **Details** says for every part whether it is **active**, **waiting**,
 **configured but not detected**, **off**, **missing a dependency** or
-**unsupported**, with the evidence and the fix. It adds live telemetry, a card
-per GPU (load, clocks, VRAM, temperature, power, and which one renders the
-game), the video pipeline, a ranked **Problems** list, the network with a DNS
-comparison, background load, broken Steam launch options and a support report.
+**unsupported**, with the evidence and the fix. It adds the video pipeline, a
+ranked **Problems** list, the network with a DNS comparison, background load,
+broken Steam launch options and a support report.
 **Logs** gathers falcond, the helper, power-profiles-daemon, scx_loader,
 Gamescope, GPU drivers, crashes and, from Steam games' output, Proton/Wine,
 MangoHud, vkBasalt, lsfg-vk and OptiScaler, filtered by source.
@@ -329,7 +340,7 @@ translation template, runs the tests and installs the package. Then open
 | `dbus`, `polkit`, `systemd` | the privileged helper: a system-bus service started by systemd, every method authorised by Polkit |
 | `curl`, `libarchive` | downloading and unpacking OptiScaler (AI Graphics) |
 | `hwdata` | graphics card names |
-| `iputils`, `iproute2` | network latency and queue discipline (Details) |
+| `iputils`, `iproute2` | network latency (Telemetry) and queue discipline (Details) |
 
 ### Optional components
 

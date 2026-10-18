@@ -45,6 +45,7 @@ pub mod screen;
 pub mod status;
 pub mod steam;
 pub mod steam_gamescope;
+pub mod system_telemetry;
 pub mod systemd;
 pub mod text;
 pub mod turbo;

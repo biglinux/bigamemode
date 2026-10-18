@@ -629,7 +629,7 @@ pub fn build(
                     card.tick();
                     return;
                 }
-                if let Some(khz) = crate::views::details::telemetry::read_cpu_khz() {
+                if let Some(khz) = crate::views::telemetry::read_cpu_khz() {
                     #[allow(clippy::cast_precision_loss)]
                     let ghz = khz as f64 / 1_000_000.0;
                     cpu_tile.set(&format!("{ghz:.1} GHz"), ghz);
@@ -653,7 +653,7 @@ pub fn build(
                     glib::spawn_future_local(async move {
                         let target = crate::settings::load().ping_target;
                         let ms = gio::spawn_blocking(move || {
-                            crate::views::details::telemetry::read_ping_ms(&target)
+                            crate::views::telemetry::read_ping_ms(&target)
                         })
                         .await
                         .ok()

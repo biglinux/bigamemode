@@ -3,6 +3,12 @@
 //! Colors adapt to the active theme: the design's `bgm_chart_color` where it
 //! defines one (Gamer), otherwise Adwaita's `accent_color`.
 //! Temperature sparklines can override to warm/hot colors via `set_color()`.
+//!
+//! The newest point is always at the right edge and every point keeps its
+//! width, so the line scrolls rather than stretching while it fills. A
+//! chart ([`chart`]) also keeps its vertical scale: a fixed top for a
+//! percentage, or a floor for a rate, so its shape says what the reading
+//! did and not what the scale did.
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -16,6 +22,15 @@ type SparkData = Arc<Mutex<VecDeque<f64>>>;
 
 /// RGB color override: `None` = use Adwaita `accent_color`.
 type ColorOverride = Arc<Mutex<Option<(f64, f64, f64)>>>;
+
+/// The top of a chart's vertical scale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Scale {
+    /// Always this value, e.g. 100 for a percentage.
+    Fixed(f64),
+    /// The highest point shown, but never below this.
+    AtLeast(f64),
+}
 
 /// Sparkline handle: owns the drawing area + data buffer.
 ///
@@ -55,8 +70,23 @@ impl SparkHandle {
 
 /// Create a `SparkHandle` with a 120×32px drawing area ready to embed.
 #[must_use]
-#[allow(clippy::many_single_char_names, clippy::cast_precision_loss)]
 pub fn build() -> SparkHandle {
+    make(Scale::AtLeast(1.0), false)
+}
+
+/// A chart of `height` pixels on the scale `scale`, with faint guide lines
+/// at a quarter, half and three quarters of it.
+#[must_use]
+pub fn chart(scale: Scale, height: i32) -> SparkHandle {
+    let spark = make(scale, true);
+    spark.area.set_content_height(height);
+    spark.area.set_vexpand(false);
+    spark.area.add_css_class("telemetry-chart");
+    spark
+}
+
+#[allow(clippy::many_single_char_names, clippy::cast_precision_loss)]
+fn make(scale: Scale, guides: bool) -> SparkHandle {
     let data: SparkData = Arc::new(Mutex::new(VecDeque::with_capacity(MAX_POINTS)));
     let color: ColorOverride = Arc::new(Mutex::new(None));
     let area = gtk4::DrawingArea::new();
@@ -68,6 +98,24 @@ pub fn build() -> SparkHandle {
     let col = Arc::clone(&color);
     area.set_draw_func(move |widget, cr, width, height| {
         let vals = buf.lock().unwrap_or_else(PoisonError::into_inner);
+        let w = f64::from(width);
+        let h = f64::from(height);
+        if guides {
+            let fg = widget.color();
+            cr.set_source_rgba(
+                f64::from(fg.red()),
+                f64::from(fg.green()),
+                f64::from(fg.blue()),
+                0.08,
+            );
+            cr.set_line_width(1.0);
+            for q in [0.25, 0.5, 0.75] {
+                let y = (h * q).round() + 0.5;
+                cr.move_to(0.0, y);
+                cr.line_to(w, y);
+            }
+            let _ = cr.stroke();
+        }
         if vals.len() < 2 {
             return;
         }
@@ -90,16 +138,20 @@ pub fn build() -> SparkHandle {
                 })
         });
 
-        let max = vals.iter().copied().fold(1.0_f64, f64::max);
-        let w = f64::from(width);
-        let h = f64::from(height);
-        let step = w / (vals.len() - 1) as f64;
+        let max = match scale {
+            Scale::Fixed(top) => top,
+            Scale::AtLeast(floor) => vals.iter().copied().fold(floor, f64::max),
+        };
+        // A fixed width per point, the newest at the right edge.
+        let step = w / (MAX_POINTS - 1) as f64;
+        let start = w - (vals.len() - 1) as f64 * step;
+        let y_of = |v: f64| h - (v / max).clamp(0.0, 1.0) * (h - 2.0);
 
         // Fill under the line
         cr.set_source_rgba(r, g, b, 0.2);
-        cr.move_to(0.0, h);
+        cr.move_to(start, h);
         for (i, &v) in vals.iter().enumerate() {
-            cr.line_to(i as f64 * step, h - (v / max) * (h - 2.0));
+            cr.line_to(start + i as f64 * step, y_of(v));
         }
         cr.line_to(w, h);
         cr.close_path();
@@ -108,8 +160,8 @@ pub fn build() -> SparkHandle {
         cr.set_source_rgba(r, g, b, 0.9);
         cr.set_line_width(1.5);
         for (i, &v) in vals.iter().enumerate() {
-            let x = i as f64 * step;
-            let y = h - (v / max) * (h - 2.0);
+            let x = start + i as f64 * step;
+            let y = y_of(v);
             if i == 0 {
                 cr.move_to(x, y);
             } else {
