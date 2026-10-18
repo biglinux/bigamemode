@@ -60,9 +60,7 @@ fn features() -> [(&'static str, String, String); 8] {
         (
             "power-profile-performance-symbolic",
             i18n("Presets"),
-            i18n(
-                "Standard, More FPS, Locked 60 FPS or Enhanced graphics: choose what games favour, from Home or the tray.",
-            ),
+            i18n("Fastest, Quiet or Pretty: choose what you want, from Home or the tray."),
         ),
         (
             "applications-games-symbolic",

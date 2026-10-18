@@ -48,19 +48,16 @@ pub enum Mode {
 /// The icon a preset is shown with, here and in its help.
 pub(crate) fn icon(preset: Preset) -> &'static str {
     match preset {
-        Preset::Standard => "applications-games-symbolic",
-        Preset::MoreFps => "power-profile-performance-symbolic",
-        Preset::Locked60 => "power-profile-balanced-symbolic",
-        Preset::Enhanced => "starred-symbolic",
+        Preset::Fastest => "power-profile-performance-symbolic",
+        Preset::Quiet => "power-profile-balanced-symbolic",
+        Preset::Pretty => "starred-symbolic",
     }
 }
 
 /// What `preset` does, and what this machine (once read) leaves out of it.
 fn describe(preset: Preset, machine: Option<Machine>, generating: &FrameGenerators) -> String {
     let mut text = i18n(preset.description());
-    // The cap does not depend on the machine.
-    let levers = turbo_preset::levers(preset, machine.unwrap_or_default());
-    if let Some(machine) = machine.filter(|_| preset == Preset::Enhanced) {
+    if let Some(machine) = machine.filter(|_| preset == Preset::Pretty) {
         if !machine.vkbasalt {
             text.push(' ');
             text.push_str(&i18n(
@@ -72,20 +69,25 @@ fn describe(preset: Preset, machine: Option<Machine>, generating: &FrameGenerato
             text.push_str(&i18n("This GPU has no FSR 4, so that part is left out."));
         }
     }
-    if levers.frame_cap.is_some_and(|f| f > 0) {
+    if preset.caps() {
+        // The cap follows the screen, so it is named once the screen is read.
+        if let Some(machine) = machine {
+            let fps = turbo_preset::quiet_cap(machine.refresh_hz).to_string();
+            text.push(' ');
+            text.push_str(&i18n("Here: %s FPS.").replace("%s", &fps));
+        }
         text.push(' ');
         text.push_str(&i18n(
             "A native Linux game is capped only when Big Game Mode starts it (Profiles → Launch).",
         ));
         // Where the generation sits decides what the cap holds: OptiScaler's
-        // runs in the game, above the limiter; lsfg-vk is a layer under it.
+        // runs in the game, above the limiter, and is left uncapped; lsfg-vk
+        // is a layer under it.
         if !generating.shown.is_empty() {
             text.push(' ');
             text.push_str(
-                &i18n(
-                    "With frame generation the cap counts the frames shown, so these games render about half of it: %s.",
-                )
-                .replace("%s", &generating.shown.join(", ")),
+                &i18n("These games generate frames, so they are not capped: %s.")
+                    .replace("%s", &generating.shown.join(", ")),
             );
         }
         if !generating.rendered.is_empty() {
@@ -110,14 +112,14 @@ impl PresetPicker {
     /// Build it, showing the preset chosen last.
     #[must_use]
     pub fn new() -> Rc<Self> {
-        let heading = gtk4::Label::new(Some(&i18n("What should games favour?")));
+        let heading = gtk4::Label::new(Some(&i18n("What do you want?")));
         heading.add_css_class("heading");
 
         let row = gtk4::FlowBox::builder()
             .selection_mode(gtk4::SelectionMode::None)
             .homogeneous(true)
-            .min_children_per_line(2)
-            .max_children_per_line(4)
+            .min_children_per_line(3)
+            .max_children_per_line(3)
             .column_spacing(8)
             .row_spacing(8)
             .halign(gtk4::Align::Center)
@@ -255,7 +257,7 @@ impl PresetPicker {
         self.buttons
             .iter()
             .find(|(_, b)| b.is_active())
-            .map_or(Preset::Standard, |(p, _)| *p)
+            .map_or(Preset::Fastest, |(p, _)| *p)
     }
 
     /// Whether a preset can be picked now.
@@ -290,7 +292,7 @@ impl PresetPicker {
         }
         let note = match mode {
             Mode::Next => Some(i18n("Used when Turbo is switched on.")),
-            Mode::Live => Some(i18n("A change applies to the games started from now on.")),
+            Mode::Live => Some(i18n("Close and reopen your game to see the change.")),
             Mode::Locked => None,
         };
         self.note.set_label(note.as_deref().unwrap_or_default());
@@ -307,34 +309,31 @@ mod tests {
         let machine = Machine {
             vkbasalt: true,
             fsr4: true,
+            refresh_hz: 160,
         };
         let generating = FrameGenerators {
             shown: vec!["SOTTR.exe".into()],
             rendered: vec![("Bodycam-Win64-Shipping.exe".into(), 2)],
         };
-        let text = describe(Preset::Locked60, Some(machine), &generating);
-        // OptiScaler above DXVK's limiter: about half rendered.
-        let half = text
-            .find("render about half of it: SOTTR.exe")
-            .expect(&text);
+        let text = describe(Preset::Quiet, Some(machine), &generating);
+        // The cap this screen gets.
+        assert!(text.contains("Here: 80 FPS."), "{text}");
+        // OptiScaler above DXVK's limiter: left uncapped.
+        let uncapped = text.find("not capped: SOTTR.exe").expect(&text);
         // lsfg-vk under the limiter: the cap is rendered, shown multiplied.
         let after = text
             .find("render the cap and show it multiplied: Bodycam-Win64-Shipping.exe ×2")
             .expect(&text);
-        assert!(!text[half..after].contains("Bodycam"), "{text}");
+        assert!(!text[uncapped..after].contains("Bodycam"), "{text}");
         // No cap, nothing to explain.
-        let text = describe(Preset::MoreFps, Some(machine), &generating);
+        let text = describe(Preset::Fastest, Some(machine), &generating);
         assert!(
             !text.contains("SOTTR.exe") && !text.contains("Bodycam"),
             "{text}"
         );
         // Until the machine is read, nothing is said about what it lacks.
         let bare = Some(Machine::default());
-        assert!(
-            describe(Preset::Enhanced, bare, &generating).contains("vkBasalt is not installed")
-        );
-        assert!(
-            !describe(Preset::Enhanced, None, &generating).contains("vkBasalt is not installed")
-        );
+        assert!(describe(Preset::Pretty, bare, &generating).contains("vkBasalt is not installed"));
+        assert!(!describe(Preset::Pretty, None, &generating).contains("vkBasalt is not installed"));
     }
 }

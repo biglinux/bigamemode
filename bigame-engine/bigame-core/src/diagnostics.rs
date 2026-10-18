@@ -206,7 +206,7 @@ fn section_bigame(out: &mut String) {
     // reboot the record can outlive the session's variables.
     let in_force = match crate::turbo_preset::in_session() {
         Ok(Some(p)) => p.label().to_owned(),
-        Ok(None) => crate::turbo_preset::Preset::Standard.label().to_owned(),
+        Ok(None) => crate::turbo_preset::Preset::Fastest.label().to_owned(),
         Err(e) => format!("unknown ({e})"),
     };
     let _ = writeln!(

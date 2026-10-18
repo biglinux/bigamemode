@@ -383,7 +383,7 @@ mod tests {
         Shown {
             turbo_on: on,
             turbo_enabled: enabled,
-            preset: Preset::MoreFps,
+            preset: Preset::Fastest,
             preset_home: true,
             warning: None,
         }
@@ -394,7 +394,7 @@ mod tests {
         assert_eq!(shown(false, true).description(), "Turbo mode inactive");
         assert_eq!(
             shown(true, true).description(),
-            "Turbo mode activated · More FPS"
+            "Turbo mode activated · Fastest"
         );
         assert_eq!(shown(false, false).description(), "Turning On");
         assert_eq!(shown(true, false).description(), "Turning Off");

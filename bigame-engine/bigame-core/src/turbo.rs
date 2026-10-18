@@ -574,7 +574,7 @@ fn hold_back(preset: crate::turbo_preset::Preset, booster: bool, report: &mut Re
             why(),
         );
     }
-    if preset != crate::turbo_preset::Preset::Standard {
+    if !preset.adds_nothing() {
         report.push_knob(
             Text::plain(N_("Turbo preset")),
             Section::Skipped,
@@ -736,9 +736,8 @@ async fn enable_backend<F: FnMut(Step)>(
 /// within a runtime", seen on the first real run): it goes to the blocking
 /// pool.
 async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) {
-    use crate::turbo_preset::Preset;
     let title = Text::plain(N_("Turbo preset"));
-    if preset == Preset::Standard {
+    if preset.adds_nothing() {
         // Nothing to lay over Tuning; a preset left from before goes.
         let cleared = tokio::task::spawn_blocking(crate::turbo_preset::deactivate).await;
         if let Ok(Err(e)) = cleared {
@@ -784,7 +783,7 @@ async fn apply_preset(preset: crate::turbo_preset::Preset, report: &mut Report) 
 /// Take the Turbo preset away and say so in the report (on the blocking
 /// pool, as [`apply_preset`]).
 async fn remove_preset(report: &mut Report) {
-    // A record that cannot be read reads as Standard, yet its variables may
+    // A record that cannot be read reads as Fastest, yet its variables may
     // still be in the session.
     if !crate::turbo_preset::has_record() {
         // A launcher open when the last preset went may be closed now.
@@ -798,7 +797,21 @@ async fn remove_preset(report: &mut Report) {
         .unwrap_or_else(|e| Err(anyhow::anyhow!("{e}")));
     match removed {
         // Unreadable, so no preset to name: the log says what was cleared.
-        Ok(_) if preset == crate::turbo_preset::Preset::Standard => {}
+        Ok(_) if preset.adds_nothing() => {}
+        // Steam keeps the environment it was opened with: the preset stays
+        // in its games until it is reopened, and saying "taken away" would
+        // not be true for them.
+        Ok(_) if crate::steam::is_running() => report.push_knob(
+            title,
+            Section::Restored,
+            "Big Game Mode",
+            Text::with(
+                N_(
+                    "%s taken away. Steam was open and still has it: close and reopen Steam so its games get Tuning's settings again",
+                ),
+                [Arg::Text(Text::plain(preset.label()))],
+            ),
+        ),
         Ok(_) => report.push_knob(
             title,
             Section::Restored,

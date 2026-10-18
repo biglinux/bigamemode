@@ -2064,8 +2064,9 @@ fn wine_fsr_second(target: &Target) -> bool {
 }
 
 /// A Turbo preset that switches Wine FSR on reaches every game the Steam
-/// client starts, through the session's environment: More FPS did, in Shadow
-/// of the Tomb Raider with `OptiScaler` installed. The preset in force and the
+/// client starts, through the session's environment: More FPS did before
+/// 2.4.0, in Shadow of the Tomb Raider with `OptiScaler` installed. The
+/// preset in force and the
 /// one chosen for the next Turbo both count, since Turbo can be switched on
 /// after `OptiScaler` is installed without this page being opened again.
 fn preset_turns_wine_fsr_on() -> bool {
