@@ -248,8 +248,8 @@ pub fn body(crash: &Crash, week: usize) -> String {
     lines.push(first);
     if week > 1 {
         lines.push(ni18n(
-            "It is this game's %n crash this week.",
-            "It is this game's %n crashes this week.",
+            "This game closed with an error %n time this week.",
+            "This game closed with an error %n times this week.",
             week,
         ));
     }

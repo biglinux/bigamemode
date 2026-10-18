@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 18:39-0300\n"
+"POT-Creation-Date: 2026-10-18 20:45-0300\n"
 "PO-Revision-Date: 2026-04-20 22:15\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Bulgarian <bg@li.org>\n"
@@ -47,7 +47,7 @@ msgid_plural "%n applied"
 msgstr[0] "%n приложена"
 msgstr[1] "%n приложени"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:494
+#: bigame-engine/bigame-ui/src/views/settings.rs:497
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n никога не може да съвпадне с играта си в сегашния си вид"
@@ -93,6 +93,12 @@ msgid_plural "%n items need attention"
 msgstr[0] "%n елемент изисква внимание"
 msgstr[1] "%n елемента изискват внимание"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:229
+msgid "%n minute"
+msgid_plural "%n minutes"
+msgstr[0] "%n минута"
+msgstr[1] "%n минути"
+
 #: bigame-engine/bigame-ui/src/views/home.rs:920
 msgid "%n per game"
 msgid_plural "%n per game"
@@ -116,6 +122,12 @@ msgid "%n restored"
 msgid_plural "%n restored"
 msgstr[0] "%n възстановена"
 msgstr[1] "%n възстановени"
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:228
+msgid "%n second"
+msgid_plural "%n seconds"
+msgstr[0] "%n секунда"
+msgstr[1] "%n секунди"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2843
 msgid "%n setting you changed in OptiScaler's overlay was kept"
@@ -205,6 +217,10 @@ msgstr "%s може да се промени без паролата на адм
 msgid "%s closed"
 msgstr "%s е затворена"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:221
+msgid "%s closed with an error"
+msgstr "Играта %s се затвори с грешка"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:679
 msgid "%s code, without its DLL"
 msgstr "%s като код, без своя DLL"
@@ -234,9 +250,13 @@ msgstr "%s завърши с код за изход %d"
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "%s файл(а) не са такива, каквито са инсталирани (обновяване на играта или друг инструмент): %s"
 
-#: bigame-engine/bigame-ui/src/app.rs:556
+#: bigame-engine/bigame-ui/src/app.rs:558
 msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
 msgstr "Открит е %s, а OptiScaler от AI графика все още е в играта. Възстановете графиката ѝ, преди да играете онлайн: Профили → менюто на играта → Възстановяване на графиката на играта."
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:231
+msgid "%s h %s min"
+msgstr "%s ч %s мин"
 
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
@@ -301,7 +321,7 @@ msgstr "%s е зададен, но заявките се определят от
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s е все още зареден след спирането на falcond: falcond не разтоварва планировчика, който зарежда общата му конфигурация"
 
-#: bigame-engine/bigame-ui/src/app.rs:553
+#: bigame-engine/bigame-ui/src/app.rs:555
 msgid "%s now has anti-cheat"
 msgstr "%s вече има античийт"
 
@@ -425,7 +445,7 @@ msgstr "%s · услугата се провали; вижте Логове за
 msgid "%s — chosen in Tuning → Image quality, for every game"
 msgstr "%s — избрано във Фина настройка → Качество на изображението, за всяка игра"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1434
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1467
 msgid "%s — chosen in Tuning → Monitoring, for every game"
 msgstr "%s — избрано във Фина настройка → Наблюдение, за всяка игра"
 
@@ -461,6 +481,10 @@ msgstr "%s, по профила на играта"
 #: bigame-engine/bigame-core/src/turbo.rs:517
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s, затова профилите на игрите, които искат планировчик, не могат да зададат такъв"
+
+#: bigame-engine/bigame-core/src/game_crash.rs:286
+msgid "%s, the game's crash reporter, opened as it closed"
+msgstr "При затварянето на играта се отвори нейният инструмент за доклади за сривове %s"
 
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:197
 msgid "%s. %s"
@@ -695,7 +719,7 @@ msgstr "Zip архив в „Изтегляния“ с това, което т�
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2575
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:206
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:509
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1081
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1114
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:246
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:107
 msgid "AI Graphics"
@@ -770,7 +794,7 @@ msgstr "Доставчикът на FSR 4 от AMD още не е в префи�
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "Ъпскейлърът на AMD: уголемява изображението и изостря ръбовете, за да не изглежда размазано. Работи на всеки GPU. Обичайният избор: рендирайте играта по-малка и оставете FSR да я доведе до размера на екрана. Остротата по-долу се прилага към него."
 
-#: bigame-engine/bigame-ui/src/window.rs:473
+#: bigame-engine/bigame-ui/src/window.rs:480
 msgid "About"
 msgstr "Относно"
 
@@ -837,11 +861,11 @@ msgstr "Адаптивната синхронизация (VRR) на екран�
 msgid "Add the launch option"
 msgstr "Добавяне на опцията за стартиране"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:276
+#: bigame-engine/bigame-ui/src/views/settings.rs:279
 msgid "Address to ping"
 msgstr "Адрес за пинг"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:412
+#: bigame-engine/bigame-ui/src/views/settings.rs:415
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "Добавя запис за влизане само за вашия потребител (~/.config/autostart). След това Big Game Mode работи в системната област и може да предложи профил, когато стартира нова игра. Изключването премахва записа."
 
@@ -850,7 +874,7 @@ msgid "Adds in-between frames: looks smoother, but your controls react later. Ex
 msgstr "Добавя междинни кадри: изглежда по-плавно, но управлението реагира по-късно. Експериментално."
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1030
-#: bigame-engine/bigame-ui/src/views/settings.rs:571
+#: bigame-engine/bigame-ui/src/views/settings.rs:574
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1538
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -867,6 +891,10 @@ msgstr "Разширени — отваря се след създаването
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:194
 msgid "Advanced…"
 msgstr "Разширени…"
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:242
+msgid "After %s of play."
+msgstr "Време на игра: %s."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1317
 msgid "After installing or removing it with its own setup"
@@ -894,6 +922,10 @@ msgstr "Разрешаване на експериментални опции"
 #: bigame-engine/bigame-core/src/graphics/plan.rs:665
 msgid "Allow experimental options (Advanced options) to try it"
 msgstr "Включете „Разрешаване на експериментални опции“ (Разширени опции), за да го опитате"
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:262
+msgid "Also in the game"
+msgstr "Също в играта"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:514
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:603
@@ -954,7 +986,7 @@ msgstr "Античийт"
 msgid "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the account at risk, so nothing is offered."
 msgstr "Античийт или списъкът с игри на Big Game Mode: вмъкването на DLL може да изложи акаунта на риск, затова нищо не се предлага."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:41
+#: bigame-engine/bigame-ui/src/views/settings.rs:42
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
 msgid "Appearance"
 msgstr "Външен вид"
@@ -976,7 +1008,7 @@ msgstr "Приложено и проверено"
 msgid "Applied by falcond while Turbo is on, and undone when it is turned off. Saved through the privileged helper."
 msgstr "Прилага се от falcond, докато Turbo е включен, и се отменя, когато бъде изключен. Записва се чрез привилегирования помощник."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1504
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1537
 msgid "Applied by falcond while this game runs, whichever launcher starts it. Saved through the privileged helper when you save."
 msgstr "Прилага се от falcond, докато тази игра работи, независимо кой стартер я стартира. Записва се чрез привилегирования помощник, когато запазите."
 
@@ -1071,8 +1103,8 @@ msgid "Asked for, but it cannot be switched"
 msgstr "Поискано, но не може да се превключи"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:1481
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:328
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:351
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:327
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:350
 msgid "Asleep"
 msgstr "Заспал"
 
@@ -1116,7 +1148,7 @@ msgstr "За включване или изключване на Turbo е нео
 msgid "Authorization was refused or cancelled"
 msgstr "Разрешението беше отказано или отменено"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:333
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:332
 msgid "Available"
 msgstr "Налично"
 
@@ -1146,12 +1178,12 @@ msgid "Back to Home"
 msgstr "Обратно към Начало"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:109
-#: bigame-engine/bigame-ui/src/window.rs:388
-#: bigame-engine/bigame-ui/src/window.rs:465
+#: bigame-engine/bigame-ui/src/window.rs:395
+#: bigame-engine/bigame-ui/src/window.rs:472
 msgid "Back to normal"
 msgstr "Обратно към нормалното"
 
-#: bigame-engine/bigame-ui/src/window.rs:382
+#: bigame-engine/bigame-ui/src/window.rs:389
 msgid "Back to normal?"
 msgstr "Обратно към нормалното?"
 
@@ -1228,7 +1260,7 @@ msgstr "Big Game Mode инсталира OptiScaler в тази игра, а с 
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr "Big Game Mode е инсталирал в %s, която не е папката на тази игра (%s): играта е преместена без файловете си или записът е на друга игра. Нищо не беше променено"
 
-#: bigame-engine/bigame-ui/src/app.rs:754
+#: bigame-engine/bigame-ui/src/app.rs:756
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr "Big Game Mode е игровият център на BigLinux. С един бутон, Turbo, игрите работят с правилния профил на производителност, приложен от falcond при отварянето им и отменен при затварянето им. Приложението показва какво наистина е в сила, измерва дали дадена промяна е помогнала и се грижи за случващото се в играта, като увеличаване на резолюцията и генериране на кадри, винаги с пълно резервно копие и възможност за отмяна."
 
@@ -1248,7 +1280,7 @@ msgstr "Самият Big Game Mode. Страницата Подробности 
 msgid "Big Game Mode looks at the game and your graphics card and shows what it would do. Nothing changes until you press Apply."
 msgstr "Big Game Mode разглежда играта и графичната ви карта и показва какво би направил. Нищо не се променя, докато не натиснете Прилагане."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:228
+#: bigame-engine/bigame-ui/src/views/settings.rs:231
 msgid "Big Game Mode manages falcond again"
 msgstr "Big Game Mode отново управлява falcond"
 
@@ -1301,7 +1333,7 @@ msgstr "Версия"
 msgid "Built into falcond"
 msgstr "Вграден във falcond"
 
-#: bigame-engine/bigame-ui/src/app.rs:796
+#: bigame-engine/bigame-ui/src/app.rs:798
 msgid "Built on"
 msgstr "Изградено върху"
 
@@ -1372,10 +1404,10 @@ msgstr "Извиква „%p“, която не е инсталирана — �
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1707
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
-#: bigame-engine/bigame-ui/src/views/settings.rs:343
+#: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
-#: bigame-engine/bigame-ui/src/window.rs:342
-#: bigame-engine/bigame-ui/src/window.rs:387
+#: bigame-engine/bigame-ui/src/window.rs:349
+#: bigame-engine/bigame-ui/src/window.rs:394
 msgid "Cancel"
 msgstr "Отказ"
 
@@ -1451,9 +1483,9 @@ msgstr "Проверка на системата ви…"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:635
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:641
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:114
-#: bigame-engine/bigame-ui/src/views/settings.rs:108
-#: bigame-engine/bigame-ui/src/views/settings.rs:445
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:292
+#: bigame-engine/bigame-ui/src/views/settings.rs:111
+#: bigame-engine/bigame-ui/src/views/settings.rs:448
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:291
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Проверка…"
@@ -1502,11 +1534,11 @@ msgstr "Изчистване на филтрите"
 msgid "Clear launch options"
 msgstr "Изчистване на опциите за стартиране"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:303
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:302
 msgid "Clock"
 msgstr "Честота"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:611
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:610
 msgid "Clock not reported"
 msgstr "Честотата не се отчита"
 
@@ -1552,7 +1584,7 @@ msgstr "Първо затворете Steam: той пази опциите си
 msgid "Close Steam first: it would discard the launch option"
 msgstr "Първо затворете Steam: той би отхвърлил опцията за стартиране"
 
-#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:286
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:284
 msgid "Close and reopen your game to see the change."
 msgstr "Затворете и отворете отново играта, за да видите промяната."
 
@@ -1572,7 +1604,7 @@ msgstr "Затваряне на %s и повторно отваряне…"
 msgid "Closing the window leaves Big Game Mode in the tray, still watching for games. Logs gathers what falcond, Gamescope and the GPU drivers say."
 msgstr "Затварянето на прозореца оставя Big Game Mode в системния трей, където продължава да следи за игри. Логове събира това, което казват falcond, Gamescope и драйверите на GPU."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:68
+#: bigame-engine/bigame-ui/src/views/settings.rs:71
 msgid "Colour scheme"
 msgstr "Цветова схема"
 
@@ -1584,7 +1616,7 @@ msgstr "Комбинация"
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr "Комбинации, за които се съобщава, че работят, но не са потвърдени. Генерирането на кадри с OptiScaler е една от тях."
 
-#: bigame-engine/bigame-ui/src/app.rs:668
+#: bigame-engine/bigame-ui/src/app.rs:670
 msgid "Command"
 msgstr "Команда"
 
@@ -1673,8 +1705,8 @@ msgstr "Връзка"
 msgid "Considered and deliberately left alone."
 msgstr "Разгледано и умишлено оставено непроменено."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:107
-#: bigame-engine/bigame-ui/src/views/settings.rs:123
+#: bigame-engine/bigame-ui/src/views/settings.rs:110
+#: bigame-engine/bigame-ui/src/views/settings.rs:126
 msgid "Control of falcond"
 msgstr "Контрол над falcond"
 
@@ -1684,7 +1716,7 @@ msgstr "Управлява се от"
 
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:108
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:486
-#: bigame-engine/bigame-ui/src/views/logs.rs:294
+#: bigame-engine/bigame-ui/src/views/logs.rs:297
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:263
 #: bigame-engine/bigame-ui/src/widgets/status.rs:180
 msgid "Copied"
@@ -1694,7 +1726,7 @@ msgstr "Копирано"
 msgid "Copy"
 msgstr "Копиране"
 
-#: bigame-engine/bigame-ui/src/app.rs:618
+#: bigame-engine/bigame-ui/src/app.rs:620
 msgid "Copy Install Command"
 msgstr "Копиране на командата за инсталиране"
 
@@ -1716,8 +1748,8 @@ msgstr "Копиране и експорт"
 msgid "Copy the command"
 msgstr "Копиране на командата"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:137
-#: bigame-engine/bigame-ui/src/views/logs.rs:151
+#: bigame-engine/bigame-ui/src/views/logs.rs:140
+#: bigame-engine/bigame-ui/src/views/logs.rs:154
 msgid "Copy what is shown"
 msgstr "Копиране на показаното"
 
@@ -1734,7 +1766,7 @@ msgstr "Неуспешно прилагане"
 msgid "Could not change MangoHud's file"
 msgstr "Файлът на MangoHud не можа да бъде променен"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:314
+#: bigame-engine/bigame-ui/src/views/settings.rs:317
 msgid "Could not change it"
 msgstr "Не можа да бъде променено"
 
@@ -1770,20 +1802,20 @@ msgstr "Профилът не можа да бъде изтрит: %s"
 msgid "Could not download the shaders"
 msgstr "Шейдърите не можаха да бъдат изтеглени"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:503
+#: bigame-engine/bigame-ui/src/views/logs.rs:506
 msgid "Could not export"
 msgstr "Неуспешен експорт"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:528
+#: bigame-engine/bigame-ui/src/views/settings.rs:531
 msgid "Could not fix them"
 msgstr "Не можаха да бъдат поправени"
 
-#: bigame-engine/bigame-ui/src/views/details/extras.rs:889
+#: bigame-engine/bigame-ui/src/views/details/extras.rs:887
 msgid "Could not generate the report."
 msgstr "Докладът не можа да бъде генериран."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:212
-#: bigame-engine/bigame-ui/src/views/settings.rs:214
+#: bigame-engine/bigame-ui/src/views/settings.rs:215
+#: bigame-engine/bigame-ui/src/views/settings.rs:217
 msgid "Could not hand it back"
 msgstr "Не можа да бъде върнат"
 
@@ -1791,7 +1823,7 @@ msgstr "Не можа да бъде върнат"
 msgid "Could not install the missing packages"
 msgstr "Неуспешно инсталиране на липсващите пакети"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:136
+#: bigame-engine/bigame-ui/src/views/settings.rs:139
 msgid "Could not read falcond's service"
 msgstr "Услугата на falcond не можа да бъде прочетена"
 
@@ -1809,12 +1841,12 @@ msgstr "Неуспешна поправка"
 msgid "Could not restore"
 msgstr "Неуспешно възстановяване"
 
-#: bigame-engine/bigame-ui/src/window.rs:687
+#: bigame-engine/bigame-ui/src/window.rs:694
 msgid "Could not restore Gamescope's settings"
 msgstr "Настройките на Gamescope не можаха да бъдат възстановени"
 
-#: bigame-engine/bigame-ui/src/window.rs:668
-#: bigame-engine/bigame-ui/src/window.rs:678
+#: bigame-engine/bigame-ui/src/window.rs:675
+#: bigame-engine/bigame-ui/src/window.rs:685
 msgid "Could not restore falcond's settings"
 msgstr "Настройките на falcond не можаха да бъдат възстановени"
 
@@ -1841,7 +1873,7 @@ msgstr "Настройките за стартиране не можаха да 
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:142
 #: bigame-engine/bigame-ui/src/profile_offer.rs:518
-#: bigame-engine/bigame-ui/src/views/details/extras.rs:932
+#: bigame-engine/bigame-ui/src/views/details/extras.rs:930
 msgid "Could not save: %s"
 msgstr "Неуспешно записване: %s"
 
@@ -1849,8 +1881,8 @@ msgstr "Неуспешно записване: %s"
 msgid "Could not start %t: %e"
 msgstr "%t не можа да бъде стартирана: %e"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:230
-#: bigame-engine/bigame-ui/src/views/settings.rs:232
+#: bigame-engine/bigame-ui/src/views/settings.rs:233
+#: bigame-engine/bigame-ui/src/views/settings.rs:235
 msgid "Could not take control back"
 msgstr "Контролът не можа да бъде поет отново"
 
@@ -1868,7 +1900,7 @@ msgid "Could not update Heroic's settings for a game"
 msgstr "Настройките на Heroic за игра не можаха да бъдат обновени"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1334
-#: bigame-engine/bigame-ui/src/window.rs:705
+#: bigame-engine/bigame-ui/src/window.rs:712
 msgid "Could not update lsfg-vk's file"
 msgstr "Файлът на lsfg-vk не можа да бъде обновен"
 
@@ -1964,26 +1996,26 @@ msgstr "Невронно рендиране DLSS-NR-on-AMD"
 msgid "DNS resolver comparison"
 msgstr "Сравнение на DNS резолвери"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:75
+#: bigame-engine/bigame-ui/src/views/settings.rs:78
 msgid "Dark"
 msgstr "Тъмна"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:282
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:281
 msgid "Dedicated"
 msgstr "Самостоятелна"
 
 #: bigame-engine/bigame-core/src/optimization.rs:50
-#: bigame-engine/bigame-ui/src/views/settings.rs:54
+#: bigame-engine/bigame-ui/src/views/settings.rs:57
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1402
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:303
 msgid "Default"
 msgstr "По подразбиране"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:47
+#: bigame-engine/bigame-ui/src/views/settings.rs:50
 msgid "Default is shown while the desktop asks for high contrast"
 msgstr "Показва се „По подразбиране“, докато работният плот изисква висок контраст"
 
-#: bigame-engine/bigame-ui/src/window.rs:361
+#: bigame-engine/bigame-ui/src/window.rs:368
 msgid "Default settings restored"
 msgstr "Настройките по подразбиране са възстановени"
 
@@ -2025,13 +2057,13 @@ msgstr "Създаден да елиминира ненужните „тико�
 msgid "Desktop"
 msgstr "Настолен компютър"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:550
+#: bigame-engine/bigame-ui/src/views/settings.rs:553
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "Известия на работния плот, когато профил на игра се приложи и когато се възстанови. Предлагането на профил се управлява отделно по-горе."
 
 #: bigame-engine/bigame-ui/src/widgets/toast.rs:54
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
-#: bigame-engine/bigame-ui/src/window.rs:163
+#: bigame-engine/bigame-ui/src/window.rs:170
 msgid "Details"
 msgstr "Подробности"
 
@@ -2069,14 +2101,19 @@ msgstr "Не се задейства"
 msgid "Discard"
 msgstr "Отхвърляне"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:76
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:75
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:353
 msgid "Disk"
 msgstr "Диск"
 
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:102
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
+msgid "Dismiss"
+msgstr "Скрий"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68
 #: bigame-engine/bigame-ui/src/views/tuning.rs:671
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1527
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1560
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:285
 msgid "Display"
 msgstr "Екран"
@@ -2113,6 +2150,10 @@ msgstr "Динамично управление на игровата произ
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1364
 msgid "Each game's frame generation is in its profile"
 msgstr "Генерирането на кадри за всяка игра е в профила ѝ"
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:264
+msgid "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
+msgstr "Всяко от тях е избрано за самата игра в „Профили“ или „AI графика“; ако го промените там, то отпада от следващото стартиране."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:391
 msgid "Each item is Active, Waiting for a game, Configured, Not detected, Off, Missing dependency or Not supported. Open a row for what that means, the evidence and the fix."
@@ -2176,7 +2217,7 @@ msgstr "Всяка промяна се записва веднага. Възст
 msgid "Every file is as it was installed"
 msgstr "Всеки файл е такъв, какъвто е инсталиран"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:339
+#: bigame-engine/bigame-ui/src/views/settings.rs:342
 msgid "Every game AI Graphics changed gets its original files back. Close your games first."
 msgstr "Всяка игра, променена от AI графика, получава обратно оригиналните си файлове. Първо затворете игрите си."
 
@@ -2188,7 +2229,7 @@ msgstr "Всяка открита игра вече има профил."
 msgid "Every game's graphics can be restored in one go, and a game that got anti-cheat while OptiScaler is in it is named"
 msgstr "Графиката на всички игри може да се възстанови наведнъж, а игра, получила античийт, докато OptiScaler е в нея, се посочва по име"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:368
+#: bigame-engine/bigame-ui/src/views/settings.rs:371
 msgid "Every game's graphics were restored"
 msgstr "Графиката на всички игри е възстановена"
 
@@ -2200,7 +2241,7 @@ msgstr "Всичко, от което помагащият се нуждае з�
 msgid "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked."
 msgstr "Всичко по-горе в един текст за поставяне във форум или issue, със скрити потребителско име, домашна папка и хост."
 
-#: bigame-engine/bigame-ui/src/window.rs:410
+#: bigame-engine/bigame-ui/src/window.rs:417
 msgid "Everything is back to normal"
 msgstr "Всичко е върнато към нормалното"
 
@@ -2275,12 +2316,12 @@ msgstr "Експортирай профил"
 msgid "Export failed: %s"
 msgstr "Експортирането не бе успешно: %s"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:492
+#: bigame-engine/bigame-ui/src/views/logs.rs:495
 msgid "Export log"
 msgstr "Експорт на лога"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:142
-#: bigame-engine/bigame-ui/src/views/logs.rs:154
+#: bigame-engine/bigame-ui/src/views/logs.rs:145
+#: bigame-engine/bigame-ui/src/views/logs.rs:157
 msgid "Export, with personal data masked"
 msgstr "Експорт с маскирани лични данни"
 
@@ -2307,6 +2348,11 @@ msgstr "FSR 4 е наличен с опцията за стартиране FSR4
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:777
 msgid "FSR 4 expected through Proton's provider"
 msgstr "FSR 4 се очаква чрез доставчика на Proton"
+
+#: bigame-engine/bigame-core/src/game_crash.rs:61
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:967
+msgid "FSR 4 in place of the game's FSR 3.1"
+msgstr "FSR 4 вместо FSR 3.1 на играта"
 
 #: bigame-engine/bigame-core/src/graphics/plan.rs:532
 msgid "FSR 4 is expected, not proven: it is confirmed when the game runs with the provider loaded, and the game's own menu is the last word"
@@ -2352,7 +2398,7 @@ msgstr "По-бързо и по-точно откриване на игри за
 msgid "Fastest"
 msgstr "Най-бързо"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:606
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:605
 msgid "Fastest core %f · average %a"
 msgstr "Най-бързо ядро %f · средно %a"
 
@@ -2415,7 +2461,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "Пет малки файла (около 30 KB) от GitHub: Colourfulness и FilmGrain2 от шейдърите на ReShade, FakeHDR от SweetFX и заглавните файлове, които включват. Всеки е фиксирана версия, проверена спрямо своя SHA-256 преди да се използва, и отива в ~/.local/share/reshade. Без тях vkBasalt би спрял играта, затова стилът се записва едва след като са на мястото си."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:533
-#: bigame-engine/bigame-ui/src/views/settings.rs:449
+#: bigame-engine/bigame-ui/src/views/settings.rs:452
 msgid "Fix"
 msgstr "Поправяне"
 
@@ -2423,7 +2469,7 @@ msgstr "Поправяне"
 msgid "Fixable"
 msgstr "Поправимо"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1182
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1215
 msgid "Flow scale (%)"
 msgstr "Flow Scale (%)"
 
@@ -2431,8 +2477,8 @@ msgstr "Flow Scale (%)"
 msgid "Follow"
 msgstr "Последвайте ни"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:127
-#: bigame-engine/bigame-ui/src/views/logs.rs:148
+#: bigame-engine/bigame-ui/src/views/logs.rs:130
+#: bigame-engine/bigame-ui/src/views/logs.rs:151
 msgid "Follow new entries"
 msgstr "Следене на новите записи"
 
@@ -2457,11 +2503,11 @@ msgstr "За игри, стартирани от Big Game Mode (Профили �
 msgid "For this game"
 msgstr "За тази игра"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1514
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1547
 msgid "For this game when Big Game Mode starts it (Profiles → Launch (Turbo))."
 msgstr "За тази игра, когато Big Game Mode я стартира (Профили → Стартиране (Turbo))."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1519
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1552
 msgid "For this game when Big Game Mode starts it, and in its Steam launch options or its settings in Heroic when one of them starts it (written when you save, with that launcher closed)."
 msgstr "За тази игра, когато Big Game Mode я стартира, и в опциите ѝ за стартиране в Steam или настройките ѝ в Heroic, когато някой от тях я стартира (записва се, когато запазите, при затворен стартер)."
 
@@ -2469,7 +2515,7 @@ msgstr "За тази игра, когато Big Game Mode я стартира, 
 msgid "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play."
 msgstr "За тези, които искат да надникнат под капака. Настройките по подразбиране пасват на почти всички: тук нищо не трябва да се променя, за да се играе."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1414
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1447
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:646
 msgid "Forced"
 msgstr "Принудително"
@@ -2497,7 +2543,7 @@ msgstr "Генериране на кадри"
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:293
 #: bigame-engine/bigame-ui/src/views/home.rs:1376
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1297
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1543
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1576
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:631
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:297
 msgid "Frame generation"
@@ -2517,13 +2563,17 @@ msgstr "Генерирането на кадри показва допълнит
 msgid "Frame limit"
 msgstr "Ограничение на кадрите"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1181
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1214
 msgid "Frames shown per rendered frame"
 msgstr "Показани кадри на рендиран кадър"
 
 #: bigame-engine/bigame-core/src/optimization.rs:97
 msgid "Frequency CCD"
 msgstr "CCD с честота"
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:326
+msgid "From its next start, %s runs without: %s."
+msgstr "От следващото си стартиране %s ще работи без: %s."
 
 #: bigame-engine/bigame-core/src/graphics/backend.rs:212
 #: bigame-engine/bigame-core/src/graphics/backend.rs:218
@@ -2563,7 +2613,7 @@ msgstr "API на играта"
 msgid "Game Library"
 msgstr "Библиотека с игри"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:547
+#: bigame-engine/bigame-ui/src/views/settings.rs:550
 msgid "Game Notifications"
 msgstr "Игрови известия"
 
@@ -2584,7 +2634,7 @@ msgstr "Списък с игри"
 msgid "Game name cannot be empty"
 msgstr "Името на играта не може да е празно"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:426
+#: bigame-engine/bigame-ui/src/views/settings.rs:429
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:476
 msgid "Game profiles"
 msgstr "Профили на игри"
@@ -2593,7 +2643,7 @@ msgstr "Профили на игри"
 msgid "Game profiles keep the protections falcond gives every Proton game, and no CPU scheduler is pressed on anyone"
 msgstr "Профилите на игрите запазват защитите, които falcond дава на всяка игра с Proton, и на никого не се налага планировчик на CPU"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:55
+#: bigame-engine/bigame-ui/src/views/settings.rs:58
 msgid "Gamer"
 msgstr "Геймърски"
 
@@ -2613,7 +2663,7 @@ msgstr "Игрите предпочитат CCD с допълнителния 3D
 msgid "Games prefer the CCD without the extra cache, which clocks higher. For the few games that gain from clock speed more than from cache."
 msgstr "Игрите предпочитат CCD без допълнителния кеш, който работи на по-висока честота. За малкото игри, които печелят повече от честотата, отколкото от кеша."
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:332
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:331
 msgid "Games render here"
 msgstr "Игрите се рендират тук"
 
@@ -2645,6 +2695,7 @@ msgstr "Игрите спират при честота на кадрите, к�
 msgid "Games with files installed"
 msgstr "Игри с инсталирани файлове"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:66
 #: bigame-engine/bigame-core/src/health.rs:880
 msgid "Gamescope"
 msgstr "Gamescope"
@@ -2709,7 +2760,7 @@ msgid "Gamescope upscaling for this game: two upscalers in series"
 msgstr "Увеличаване на резолюцията с Gamescope за тази игра: два последователни ъпскейлъра"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1020
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1623
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1656
 msgid "Gamescope upscaling is on; Wine FSR was turned off"
 msgstr "Увеличаването на резолюцията с Gamescope е включено; Wine FSR е изключен"
 
@@ -2745,7 +2796,7 @@ msgstr "Управление на игровата производително�
 msgid "Gaming mode for BigLinux"
 msgstr "Игрови режим за BigLinux"
 
-#: bigame-engine/bigame-ui/src/app.rs:761
+#: bigame-engine/bigame-ui/src/app.rs:763
 msgid "Gathering system information…"
 msgstr "Събиране на информация за системата…"
 
@@ -2753,6 +2804,7 @@ msgstr "Събиране на информация за системата…"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:528
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:540
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:72
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:963
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:27
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:512
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:538
@@ -2767,7 +2819,7 @@ msgstr "Обща конфигурация (%s)"
 msgid "General configuration · Global profile"
 msgstr "Обща конфигурация · Глобален профил"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1002
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1035
 msgid "General configuration: Heroic's own setting for this game, which Heroic applies over the session's"
 msgstr "Обща конфигурация: собствената настройка на Heroic за тази игра, която Heroic прилага върху тази на сесията"
 
@@ -2775,7 +2827,7 @@ msgstr "Обща конфигурация: собствената настрой
 msgid "General configuration: only when this game's own values below need Gamescope"
 msgstr "Обща конфигурация: само когато собствените стойности на тази игра по-долу изискват Gamescope"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1156
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1189
 msgid "Generate frames with lsfg-vk"
 msgstr "Генериране на кадри с lsfg-vk"
 
@@ -2830,12 +2882,12 @@ msgstr "Графичен API и доказателствата за него, GP
 msgid "Graphics card"
 msgstr "Графична карта"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:92
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:91
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:365
 msgid "Graphics cards"
 msgstr "Графични карти"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1193
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1226
 msgid "HDR Mode"
 msgstr "Режим HDR"
 
@@ -2851,11 +2903,11 @@ msgstr "HDR изход"
 msgid "HDR output is requested"
 msgstr "Поискан е HDR изход"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:511
+#: bigame-engine/bigame-ui/src/views/settings.rs:514
 msgid "HOME is not set"
 msgstr "HOME не е зададена"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:111
+#: bigame-engine/bigame-ui/src/views/settings.rs:114
 msgid "Hand back"
 msgstr "Връщане"
 
@@ -2863,7 +2915,7 @@ msgstr "Връщане"
 msgid "Hand falcond back"
 msgstr "Връщане на falcond"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:142
+#: bigame-engine/bigame-ui/src/views/settings.rs:145
 msgid "Handed back on %s: falcond is as it was before Big Game Mode"
 msgstr "Върнат на %s: falcond е такъв, какъвто беше преди Big Game Mode"
 
@@ -2879,7 +2931,7 @@ msgstr "Хардуер"
 msgid "Help"
 msgstr "Помощ"
 
-#: bigame-engine/bigame-ui/src/window.rs:486
+#: bigame-engine/bigame-ui/src/window.rs:493
 msgid "Help & Tutorial"
 msgstr "Помощ и ръководство"
 
@@ -2907,6 +2959,7 @@ msgstr "Heroic е отворен: игрите му със собствени н
 msgid "Heroic is open: this game's launch settings were not written into its settings there"
 msgstr "Heroic е отворен: настройките за стартиране на тази игра не бяха записани в настройките ѝ в Heroic"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:349
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2420
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "В Heroic работи игра: първо затворете играта. Heroic държи настройките на тази игра в паметта и би отхвърлил промяната."
@@ -2960,7 +3013,7 @@ msgid "Heroic's settings were not written"
 msgstr "Настройките на Heroic не бяха записани"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:167
-#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/window.rs:166
 #: bigame-engine/bigame-ui/src/window.rs:74
 msgid "Home"
 msgstr "Начало"
@@ -3007,12 +3060,12 @@ msgid "Hybrid graphics"
 msgstr "Хибридна графика"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:827
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1534
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1567
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:292
 msgid "Image quality"
 msgstr "Качество на изображението"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1202
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1235
 msgid "Immediate"
 msgstr "Незабавно"
 
@@ -3084,7 +3137,7 @@ msgstr "Първоначално издание с табло, профили, �
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr "Инсталирайте Lossless Scaling от библиотеката си в Steam (в Linux Steam го инсталира чрез Proton; никога не е нужно да се стартира). Тогава файлът е в папката на играта: …/steamapps/common/Lossless Scaling/Lossless.dll. Когато е там, бутонът за търсене до пътя го попълва; иначе го изберете с бутона за папка."
 
-#: bigame-engine/bigame-ui/src/app.rs:616
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Install Missing Packages"
 msgstr "Инсталиране на липсващите пакети"
 
@@ -3092,11 +3145,11 @@ msgstr "Инсталиране на липсващите пакети"
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Инсталирайте игра чрез Steam, Lutris, Heroic или менюто с приложения, след което сканирайте отново."
 
-#: bigame-engine/bigame-ui/src/app.rs:665
+#: bigame-engine/bigame-ui/src/app.rs:667
 msgid "Install missing packages"
 msgstr "Инсталиране на липсващите пакети"
 
-#: bigame-engine/bigame-ui/src/app.rs:676
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Install missing packages with your package manager"
 msgstr "Инсталиране на липсващите пакети с вашия мениджър на пакети"
 
@@ -3104,7 +3157,7 @@ msgstr "Инсталиране на липсващите пакети с ваш�
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:336
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:561
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1606
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1097
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1130
 msgid "Installed"
 msgstr "Инсталирано"
 
@@ -3146,7 +3199,7 @@ msgstr "Инсталирано; всеки заменен файл е архив
 msgid "Integer scaling"
 msgstr "Целочислено мащабиране"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:284
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:283
 msgid "Integrated"
 msgstr "Вградена"
 
@@ -3154,7 +3207,7 @@ msgstr "Вградена"
 msgid "Intel integrated"
 msgstr "Интегрирана Intel"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:45
+#: bigame-engine/bigame-ui/src/views/settings.rs:48
 msgid "Interface theme"
 msgstr "Тема на интерфейса"
 
@@ -3165,6 +3218,10 @@ msgstr "Продължава оттам, където е била поставе
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:226
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "Замръзва напълно, докато не я възобновите: прозорците ѝ спират да отговарят, а всеки звук, изтегляне или разговор в нея спира. Програма, която комуникира със сървър, може да загуби връзката си. Възобновете я тук, когато приключите — Big Game Mode също я възобновява, когато Big Game Mode излезе."
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:360
+msgid "It is kept in the game's settings and written once that is possible."
+msgstr "Това е запазено в настройките на играта и ще бъде записано веднага щом е възможно."
 
 #: bigame-engine/bigame-core/src/health.rs:1021
 msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and Big Game Mode does not change firmware settings"
@@ -3203,13 +3260,13 @@ msgstr "Журналът му, записан от стартирането на
 msgid "Its status file could not be read. See Problems below."
 msgstr "Файлът му за състоянието не можа да бъде прочетен. Вижте Проблеми по-долу."
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:112
+#: bigame-engine/bigame-ui/src/views/logs.rs:113
 msgid "Journal and log files"
 msgstr "Journal и лог файлове"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1969
 #: bigame-engine/bigame-ui/src/views/tuning.rs:932
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1268
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1301
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:862
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:207
 msgid "Keep %s"
@@ -3281,6 +3338,7 @@ msgstr "Последна стабилна"
 msgid "Launch (Turbo)"
 msgstr "Стартиране (Turbo)"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:342
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:693
 msgid "Launch options"
 msgstr "Опции за стартиране"
@@ -3293,6 +3351,7 @@ msgstr "Опциите за стартиране са изчистени"
 msgid "Launch options fixed"
 msgstr "Опциите за стартиране са поправени"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:336
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1213
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
@@ -3329,7 +3388,7 @@ msgstr "Стартер"
 msgid "Layer installed"
 msgstr "Слоят е инсталиран"
 
-#: bigame-engine/bigame-ui/src/app.rs:776
+#: bigame-engine/bigame-ui/src/app.rs:778
 msgid "Lead Developer"
 msgstr "Водещ разработчик"
 
@@ -3340,6 +3399,20 @@ msgstr "Научете за планировчиците"
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:199
 msgid "Leave the game's graphics as they are."
 msgstr "Оставяне на графиката на играта както е."
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:210
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:123
+msgid "Leave them out of this game"
+msgstr "Изключи ги за тази игра"
+
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:135
+msgid "Leaving them out of the game's launch settings…"
+msgstr "Премахваме ги от настройките за стартиране на играта…"
+
+#: bigame-engine/bigame-ui/src/crash_watch.rs:309
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:148
+msgid "Left out of %s"
+msgstr "Изключено за %s"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:515
 msgid "Left to the component that owns it, which sets it for each game."
@@ -3353,7 +3426,7 @@ msgstr "По-малко работа във фонов режим, докато 
 msgid "Let's Start"
 msgstr "Да започваме"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:74
+#: bigame-engine/bigame-ui/src/views/settings.rs:77
 msgid "Light"
 msgstr "Светла"
 
@@ -3366,7 +3439,7 @@ msgstr "Вероятни причини: играта е стартирана о
 msgid "Live readings"
 msgstr "Показания на живо"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:59
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:58
 msgid "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything."
 msgstr "Показания на живо, веднъж в секунда. Спират, докато игра заема екрана, така че гледането никога не струва нищо на играта."
 
@@ -3374,7 +3447,7 @@ msgstr "Показания на живо, веднъж в секунда. Спи
 msgid "Living room (HTPC)"
 msgstr "Хол (HTPC)"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:296
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:295
 msgid "Load"
 msgstr "Натоварване"
 
@@ -3403,12 +3476,12 @@ msgstr "Зареден сега"
 msgid "Loaded — choose the upscaler named in the steps in the game's graphics menu"
 msgstr "Зареден — изберете ъпскейлъра, посочен в стъпките, в графичното меню на играта"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:501
+#: bigame-engine/bigame-ui/src/views/logs.rs:504
 msgid "Log exported"
 msgstr "Логът е експортиран"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
-#: bigame-engine/bigame-ui/src/window.rs:164
+#: bigame-engine/bigame-ui/src/window.rs:171
 msgid "Logs"
 msgstr "Логове"
 
@@ -3451,11 +3524,11 @@ msgstr "Lutris не отговаря на сесийната шина (%s)"
 msgid "Lutris needs to be reopened"
 msgstr "Lutris трябва да бъде отворен отново"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1201
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1234
 msgid "Mailbox"
 msgstr "Mailbox"
 
-#: bigame-engine/bigame-ui/src/window.rs:481
+#: bigame-engine/bigame-ui/src/window.rs:488
 msgid "Main Menu"
 msgstr "Главно меню"
 
@@ -3469,7 +3542,7 @@ msgstr "Направи го DNS сървър на този компютър"
 msgid "Managed by"
 msgstr "Управлява се от"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:139
+#: bigame-engine/bigame-ui/src/views/settings.rs:142
 msgid "Managed by Big Game Mode since %s"
 msgstr "Управлява се от Big Game Mode от %s"
 
@@ -3505,6 +3578,10 @@ msgstr "MangoHud не е инсталиран"
 #: bigame-engine/bigame-core/src/graphics/rules.rs:390
 msgid "MangoHud misses lsfg-vk's frames if it loads before it; lsfg-vk upstream suggests disabling other layers"
 msgstr "MangoHud пропуска кадрите на lsfg-vk, ако се зареди преди него; авторите на lsfg-vk препоръчват изключване на другите слоеве"
+
+#: bigame-engine/bigame-core/src/game_crash.rs:63
+msgid "MangoHud overlay"
+msgstr "Наслагване на MangoHud"
 
 #: bigame-engine/bigame-core/src/graphics/rules.rs:88
 msgid "MangoHud's frame cap"
@@ -3569,7 +3646,7 @@ msgstr "Измерва колко бързо всеки резолвер отг�
 msgid "Measuring…"
 msgstr "Измерване…"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:70
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:69
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
 msgid "Memory"
 msgstr "Памет"
@@ -3582,9 +3659,9 @@ msgstr "Използваната памет от общата, и swap."
 msgid "Microsoft system DLL"
 msgstr "Системна DLL на Microsoft"
 
-#: bigame-engine/bigame-ui/src/app.rs:609
-#: bigame-engine/bigame-ui/src/app.rs:623
-#: bigame-engine/bigame-ui/src/app.rs:632
+#: bigame-engine/bigame-ui/src/app.rs:611
+#: bigame-engine/bigame-ui/src/app.rs:625
+#: bigame-engine/bigame-ui/src/app.rs:634
 msgid "Missing Runtime Dependencies"
 msgstr "Липсващи зависимости за изпълнение"
 
@@ -3596,7 +3673,7 @@ msgstr "Липсваща зависимост"
 msgid "Missing files put back"
 msgstr "Липсващите файлове са върнати"
 
-#: bigame-engine/bigame-ui/src/app.rs:679
+#: bigame-engine/bigame-ui/src/app.rs:681
 msgid "Missing packages"
 msgstr "Липсващи пакети"
 
@@ -3604,9 +3681,9 @@ msgstr "Липсващи пакети"
 msgid "Mode %s applied"
 msgstr "Приложен е режим %s"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:563
+#: bigame-engine/bigame-ui/src/views/settings.rs:566
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1378
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1582
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
 msgid "Monitoring"
 msgstr "Наблюдение"
@@ -3628,23 +3705,23 @@ msgstr "Повече информация за %s"
 msgid "More options"
 msgstr "Още опции"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:574
+#: bigame-engine/bigame-ui/src/views/settings.rs:577
 msgid "More pages and settings for people who know their hardware"
 msgstr "Още страници и настройки за хора, които познават хардуера си"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1183
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1216
 msgid "Motion estimation resolution. Lower = faster."
 msgstr "Резолюция на оценката на движението. По-ниска = по-бързо."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1180
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1213
 msgid "Multiplier"
 msgstr "Множител"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1224
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1257
 msgid "Multiplier, flow scale and present mode"
 msgstr "Множител, Flow Scale и режим на представяне"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1222
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1255
 msgid "Multiplier, flow scale, HDR and present mode"
 msgstr "Множител, Flow Scale, HDR и режим на представяне"
 
@@ -3656,7 +3733,7 @@ msgstr "Множител, Flow Scale, HDR и режим на представя�
 msgid "My own file"
 msgstr "Моят файл"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:628
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:627
 msgid "N/A"
 msgstr "Н/П"
 
@@ -3690,7 +3767,7 @@ msgstr "Nara Linux (ReShade, три ефекта на цял екран: стр�
 msgid "Native"
 msgstr "Нативно"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1083
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1116
 msgid "Needs the game's install folder, which its launcher does not record"
 msgstr "Нужна е инсталационната папка на играта, която стартерът ѝ не записва"
 
@@ -3700,7 +3777,7 @@ msgstr "Изисква вас"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:626
 #: bigame-engine/bigame-ui/src/views/home.rs:129
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:81
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:80
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:358
 msgid "Network"
 msgstr "Мрежа"
@@ -3797,11 +3874,11 @@ msgstr "Не"
 msgid "No DLSS, FSR or XeSS"
 msgstr "Няма DLSS, FSR или XeSS"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:428
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:427
 msgid "No DRM card is exposed by the kernel."
 msgstr "Ядрото не предоставя DRM карта."
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:426
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:425
 msgid "No GPU was found"
 msgstr "Не е открит GPU"
 
@@ -3829,7 +3906,7 @@ msgstr "Не е нужно допълнително хранилище: falcond,
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Не е открит изпълним файл на играта, така че този профил може да не съвпадне с работещата игра."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:366
+#: bigame-engine/bigame-ui/src/views/settings.rs:369
 msgid "No game has files from AI Graphics"
 msgstr "Никоя игра няма файлове от AI графика"
 
@@ -3891,7 +3968,7 @@ msgstr "Няма планировчик: режимът не прави нищо
 msgid "No screen saver or screen sleep while this game runs"
 msgstr "Без скрийнсейвър и заспиване на екрана, докато тази игра работи"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:640
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:639
 msgid "No swap"
 msgstr "Без swap"
 
@@ -3910,7 +3987,7 @@ msgstr "Няма"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "Не е поискан: планировчикът по подразбиране на ядрото"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:491
+#: bigame-engine/bigame-ui/src/views/settings.rs:494
 msgid "None need fixing"
 msgstr "Нищо не се нуждае от поправка"
 
@@ -3947,6 +4024,11 @@ msgstr "Не е конфигурирано"
 msgid "Not detected"
 msgstr "Не е открито"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:311
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:160
+msgid "Not everything was left out of %s"
+msgstr "Не всичко беше изключено за %s"
+
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:97
 msgid "Not for this game"
 msgstr "Не за тази игра"
@@ -3962,7 +4044,7 @@ msgid "Not installed"
 msgstr "Не е инсталирано"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1301
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1149
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1182
 msgid "Not installed. Generates extra frames between rendered ones (Lossless Scaling's method, as a Vulkan layer). It needs your own Lossless.dll."
 msgstr "Не е инсталирано. Генерира допълнителни кадри между рендираните (методът на Lossless Scaling, като Vulkan слой). Нуждае се от ваш собствен Lossless.dll."
 
@@ -3972,7 +4054,7 @@ msgid "Not installed. It wraps the game in a micro-compositor: scaling, a frame 
 msgstr "Не е инсталирано. Обвива играта в микрокомпозитор: мащабиране, ограничение на кадрите, стабилен цял екран."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1382
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1400
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1433
 msgid "Not installed. The performance overlay; it also captures the frametimes Measure the difference uses."
 msgstr "Не е инсталирано. Наслагването за производителност; то също записва frametime стойностите, които Измерване на разликата използва."
 
@@ -3985,7 +4067,7 @@ msgstr "Не е инсталирано. Визуални филтри (изос�
 msgid "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it Turbo applies only the general settings and presets, and these options are unavailable."
 msgstr "Не е инсталиран. falcond прилага профила на производителност на всяка игра (енергиен профил, планировчик на CPU, 3D V-Cache), докато Turbo е включен; без него Turbo прилага само общите настройки и предварителните настройки, а тези опции не са налични."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:146
+#: bigame-engine/bigame-ui/src/views/settings.rs:149
 msgid "Not managed: Big Game Mode has not changed falcond's service"
 msgstr "Не се управлява: Big Game Mode не е променял услугата на falcond"
 
@@ -4013,15 +4095,15 @@ msgstr "Не се предлага: тази игра има античийт"
 msgid "Not recommended"
 msgstr "Не се препоръчва"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:241
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:240
 msgid "Not reported"
 msgstr "Не се отчита"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:370
+#: bigame-engine/bigame-ui/src/views/settings.rs:373
 msgid "Not restored (close them and try again): %s"
 msgstr "Не са възстановени (затворете ги и опитайте отново): %s"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1099
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1132
 msgid "Not set up"
 msgstr "Не е настроено"
 
@@ -4093,7 +4175,7 @@ msgstr "Нищо не се инсталира. Страницата казва �
 msgid "Nothing is wrong, and nothing needs to be done: AI Graphics works fully without it, and Big Game Mode never downloads or installs it."
 msgstr "Всичко е наред и нищо не трябва да се прави: AI графика работи напълно без него, а Big Game Mode никога не го изтегля и не го инсталира."
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:444
+#: bigame-engine/bigame-ui/src/views/logs.rs:447
 msgid "Nothing matches."
 msgstr "Няма съвпадения."
 
@@ -4121,6 +4203,10 @@ msgstr "Няма какво да се инсталира: собственият
 msgid "Nothing to measure"
 msgstr "Няма какво да се измери"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:257
+msgid "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
+msgstr "Нищо не е добавяно към играта: грешката е в самата игра, в драйверите ѝ или в системата."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2017
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2018
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2045
@@ -4134,7 +4220,7 @@ msgstr "Нищо не беше променено"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "Нищо, което си струва да се инсталира, или би било по-лошо от това, което играта вече има. Причината е на страницата."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:543
+#: bigame-engine/bigame-ui/src/views/settings.rs:546
 msgid "Notifications"
 msgstr "Известия"
 
@@ -4163,9 +4249,10 @@ msgstr "OK"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1669
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1745
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:551
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1412
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1445
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:65
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:74
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:964
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:553
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:559
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:601
@@ -4187,7 +4274,7 @@ msgstr "Изключено: Big Game Mode не се намесва в игрит
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "Изключен: Big Game Mode не се намесва в игрите"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:429
+#: bigame-engine/bigame-ui/src/views/settings.rs:432
 msgid "Offer a profile for new games"
 msgstr "Предлагане на профил за нови игри"
 
@@ -4195,12 +4282,12 @@ msgstr "Предлагане на профил за нови игри"
 msgid "Offline"
 msgstr "Офлайн"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:456
+#: bigame-engine/bigame-ui/src/views/settings.rs:459
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "По-старите версии именуваха профилите по заглавието на играта, което falcond никога не може да разпознае, и съхраняваха настройки, които falcond пренебрегва. Поправянето преименува всеки от тях на истинския процес на играта и запазва само настройките на falcond. Всеки профил първо се архивира в ~/.local/state/bigame-mode. Собствените профили на falcond никога не се пипат."
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:417
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1413
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1446
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:65
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:73
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:553
@@ -4238,7 +4325,7 @@ msgstr "На основния ви екран: около %s."
 msgid "On, but off in Tuning for every game"
 msgstr "Включено, но изключено във Фина настройка за всяка игра"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1410
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1443
 msgid "On: Vulkan and Proton games. Forced: OpenGL games too."
 msgstr "Включено: Vulkan и Proton игри. Принудително: и OpenGL игри."
 
@@ -4262,7 +4349,7 @@ msgstr "Една обща конфигурация"
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Един ред за състоянието на машината и чип за всеки елемент: Turbo, falcond, профилът, захранването, планировчикът, GPU, Gamescope, увеличаването на резолюцията, генерирането на кадри."
 
-#: bigame-engine/bigame-ui/src/app.rs:757
+#: bigame-engine/bigame-ui/src/app.rs:759
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "През целия проект минава едно правило: не се предлага нищо, което машината не може да направи, и нищо не се нарича подобрение без измерване."
 
@@ -4278,7 +4365,7 @@ msgstr "Само за филтъра FSR"
 msgid "Only for this game. Options left on “General configuration” follow Tuning."
 msgstr "Само за тази игра. Опциите, оставени на „Обща конфигурация“, следват Фина настройка."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:49
+#: bigame-engine/bigame-ui/src/views/settings.rs:52
 msgid "Only the look changes: every page works the same"
 msgstr "Променя се само изгледът: всяка страница работи по същия начин"
 
@@ -4295,7 +4382,7 @@ msgid "Only what works here"
 msgstr "Само това, което работи тук"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:672
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1104
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1137
 msgid "Open"
 msgstr "Отваряне"
 
@@ -4303,12 +4390,12 @@ msgstr "Отваряне"
 msgid "Open Big Game Mode"
 msgstr "Отваряне на Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/app.rs:667
-#: bigame-engine/bigame-ui/src/app.rs:678
+#: bigame-engine/bigame-ui/src/app.rs:669
+#: bigame-engine/bigame-ui/src/app.rs:680
 msgid "Open Details after starting a game to see what it really got"
 msgstr "Отворете Подробности след стартиране на игра, за да видите какво наистина е получила"
 
-#: bigame-engine/bigame-ui/src/app.rs:592
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr "Отворете Логове, за да видите защо. Изключването и повторното включване на Turbo го рестартира."
 
@@ -4323,6 +4410,10 @@ msgstr "Отворете менюто ѝ (⋮) и изберете Създав�
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1255
 msgid "Open official page"
 msgstr "Отваряне на официалната страница"
+
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:110
+msgid "Open the game's report"
+msgstr "Отвори доклада на играта"
 
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:228
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:236
@@ -4355,12 +4446,16 @@ msgstr "OptiScaler %s вече е инсталиран"
 msgid "OptiScaler %s is not a stable release with a published checksum"
 msgstr "OptiScaler %s не е стабилно издание с публикувана контролна сума"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:65
+msgid "OptiScaler (AI Graphics)"
+msgstr "OptiScaler (AI графика)"
+
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:596
 msgid "OptiScaler already upscales this game"
 msgstr "OptiScaler вече увеличава резолюцията на тази игра"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1764
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1262
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1295
 msgid "OptiScaler and lsfg-vk both generate frames in this game"
 msgstr "OptiScaler и lsfg-vk генерират кадри едновременно в тази игра"
 
@@ -4388,7 +4483,7 @@ msgstr "OptiScaler генерира кадрите на тази игра, за�
 msgid "OptiScaler goes in as dxgi.dll, which a Vulkan game need not load: Big Game Mode does not install it in Vulkan games yet"
 msgstr "OptiScaler се поставя като dxgi.dll, който игра с Vulkan не е задължена да зарежда: Big Game Mode все още не го инсталира във Vulkan игри"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1085
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1118
 msgid "OptiScaler installed by Big Game Mode for this game"
 msgstr "OptiScaler, инсталиран от Big Game Mode за тази игра"
 
@@ -4468,7 +4563,7 @@ msgstr "Поемането на %s на тази игра от OptiScaler не �
 msgid "OptiScaler upscales it, and Wine FSR would scale the image a second time whenever the game runs fullscreen below the display's resolution. Big Game Mode's own launch turns it off; the Steam client needs it in the game's launch options."
 msgstr "OptiScaler вече увеличава резолюцията ѝ, а Wine FSR би мащабирал изображението втори път, когато играта работи на цял екран под резолюцията на дисплея. Собственото стартиране на Big Game Mode го изключва; за клиента на Steam това трябва да е в опциите за стартиране на играта."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:991
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1024
 msgid "OptiScaler upscales this game (AI Graphics): Wine FSR is switched off for it at launch."
 msgstr "OptiScaler увеличава резолюцията на тази игра (AI графика): Wine FSR се изключва за нея при стартиране."
 
@@ -4553,7 +4648,7 @@ msgstr "Опции, които извикват програма, каквато
 msgid "Organizes tasks into strict priority layers. High-priority tasks are guaranteed to run before lower-priority ones, giving you absolute control over system priority."
 msgstr "Организира задачите в строги слоеве по приоритет. Задачите с висок приоритет гарантирано се изпълняват преди тези с по-нисък, което ви дава абсолютен контрол над системните приоритети."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:253
+#: bigame-engine/bigame-ui/src/views/settings.rs:256
 msgid "Other address"
 msgstr "Друг адрес"
 
@@ -4567,7 +4662,7 @@ msgid "Output size"
 msgstr "Изходен размер"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1406
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1432
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1465
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:291
 msgid "Overlay style"
 msgstr "Стил на наслагването"
@@ -4628,7 +4723,7 @@ msgstr "Оптимизацията за всяка игра не можа да �
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:31
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:120
 #: bigame-engine/bigame-ui/src/views/tuning.rs:516
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1503
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1536
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:133
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:213
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:278
@@ -4645,7 +4740,7 @@ msgstr "Въздействието върху производителностт
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:420
 #: bigame-engine/bigame-ui/src/views/tuning.rs:526
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1185
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1218
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:221
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:556
 msgid "Performance mode"
@@ -4663,12 +4758,12 @@ msgstr "Режимът на производителност държи проц
 msgid "Performance mode, the sched-ext CPU scheduler for games without one of their own, and 3D V-Cache where the processor has it."
 msgstr "Режим на производителност, планировчикът на CPU sched-ext за игри без собствен и 3D V-Cache, където процесорът го има."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:263
-#: bigame-engine/bigame-ui/src/views/settings.rs:269
+#: bigame-engine/bigame-ui/src/views/settings.rs:266
+#: bigame-engine/bigame-ui/src/views/settings.rs:272
 msgid "Ping Target"
 msgstr "Цел за пинг"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:577
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:576
 msgid "Ping to %s"
 msgstr "Пинг до %s"
 
@@ -4690,7 +4785,7 @@ msgid "Post-processing filters (sharpening, colour) in Vulkan games"
 msgstr "Филтри за последваща обработка (изостряне, цвят) във Vulkan игри"
 
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:34
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:305
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:304
 msgid "Power"
 msgstr "Мощност"
 
@@ -4717,7 +4812,7 @@ msgstr "Енергоспестяване"
 msgid "Power-of-2-Choices Double Queue. A highly academic, low-latency scheduler that uses mathematical probability to rapidly balance load across many CPU cores."
 msgstr "Power-of-2-Choices Double Queue. Силно академичен планировчик с ниска латентност, който използва математическа вероятност за бързо балансиране на натоварването между много процесорни ядра."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1211
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1244
 msgid "Present Mode"
 msgstr "Режим на представяне"
 
@@ -4752,7 +4847,7 @@ msgstr "Процес"
 msgid "Process Name"
 msgstr "Име на процес"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:65
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:64
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
 msgid "Processor"
 msgstr "Процесор"
@@ -4849,7 +4944,7 @@ msgid "Profile set"
 msgstr "Набор профили"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:217
-#: bigame-engine/bigame-ui/src/window.rs:160
+#: bigame-engine/bigame-ui/src/window.rs:167
 msgid "Profiles"
 msgstr "Профили"
 
@@ -4865,8 +4960,8 @@ msgstr "Профили за компютър, свързан с телевизо
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Профили за преносими компютри като Steam Deck или ROG Ally: те предпочитат живота на батерията, а някои изключват режима на производителност."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:444
-#: bigame-engine/bigame-ui/src/views/settings.rs:455
+#: bigame-engine/bigame-ui/src/views/settings.rs:447
+#: bigame-engine/bigame-ui/src/views/settings.rs:458
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:488
 msgid "Profiles from an older Big Game Mode"
 msgstr "Профили от по-стар Big Game Mode"
@@ -4916,6 +5011,10 @@ msgstr "Proton (общ)"
 msgid "Proton / Wine"
 msgstr "Proton / Wine"
 
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:968
+msgid "Proton's upgrade of a game's FSR 3.1 to FSR 4, which the Pretty Turbo preset asks for. Off keeps it out of this game alone."
+msgstr "Замяната от Proton на FSR 3.1 в играта с FSR 4, която предварителната настройка Turbo „Красиво“ изисква. „Изключено“ я премахва само за тази игра."
+
 #: bigame-engine/bigame-ui/src/views/report.rs:34
 msgid "Put back"
 msgstr "Върнато"
@@ -4942,7 +5041,7 @@ msgid "Quiet"
 msgstr "Тихо"
 
 #: bigame-engine/bigame-ui/src/tray.rs:219
-#: bigame-engine/bigame-ui/src/window.rs:474
+#: bigame-engine/bigame-ui/src/window.rs:481
 msgid "Quit"
 msgstr "Изход"
 
@@ -4954,6 +5053,11 @@ msgstr "Изход след приключване"
 msgid "Quit when finished?"
 msgstr "Изход след приключване?"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:348
+#: bigame-engine/bigame-core/src/game_crash.rs:938
+msgid "REDengine wrote a crash report"
+msgstr "REDengine записа доклад за срив"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:543
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
 msgstr "Повишава показваната честота на кадрите, не рендираната, и добавя забавяне. Доказателство: liblsfg-vk е зареден в играта и записът на lsfg-vk за нея."
@@ -4962,7 +5066,7 @@ msgstr "Повишава показваната честота на кадрит
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Off sets every entry aside; on puts them back."
 msgstr "Повишава показваната честота на кадрите, не рендираната, и добавя забавяне. Изключено оставя всеки запис настрана; включено ги връща."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1157
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1190
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. On or off takes effect at the game's next start."
 msgstr "Повишава показваната честота на кадрите, не рендираната, и добавя забавяне. Включването или изключването влиза в сила при следващото стартиране на играта."
 
@@ -4970,7 +5074,7 @@ msgstr "Повишава показваната честота на кадрит
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "Версията на ReShade с добавки е само за игри за един играч; античийтът може да наложи бан заради вмъкнати DLL файлове"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:668
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:667
 msgid "Read %s"
 msgstr "Четене %s"
 
@@ -5039,7 +5143,7 @@ msgstr "Препоръка"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:188
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:528
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:188
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1200
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1233
 msgid "Recommended"
 msgstr "Препоръчано"
 
@@ -5061,8 +5165,8 @@ msgstr "Препоръчано · всяка опция е обяснена"
 msgid "Recommended — opens after the profile is created"
 msgstr "Препоръчано — отваря се след създаването на профила"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:132
-#: bigame-engine/bigame-ui/src/views/logs.rs:150
+#: bigame-engine/bigame-ui/src/views/logs.rs:135
+#: bigame-engine/bigame-ui/src/views/logs.rs:153
 msgid "Refresh"
 msgstr "Обновяване"
 
@@ -5092,7 +5196,7 @@ msgstr "Премахване на опцията за стартиране…"
 msgid "Render size"
 msgstr "Размер на рендиране"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:331
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:330
 msgid "Renders %s"
 msgstr "Рендира %s"
 
@@ -5126,11 +5230,11 @@ msgstr "Поправка връща липсващите файлове; про�
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr "Поправка сега не връща нищо в тази игра; Възстановяване на графиката на играта премахва това, което Big Game Mode е поставил"
 
-#: bigame-engine/bigame-ui/src/views/details/extras.rs:908
+#: bigame-engine/bigame-ui/src/views/details/extras.rs:906
 msgid "Report copied"
 msgstr "Докладът е копиран"
 
-#: bigame-engine/bigame-ui/src/views/details/extras.rs:929
+#: bigame-engine/bigame-ui/src/views/details/extras.rs:927
 msgid "Report saved"
 msgstr "Докладът е записан"
 
@@ -5142,8 +5246,8 @@ msgstr "Докладът е записан в %s"
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr "Съобщава се, че работи, но не е потвърдено, или зависи от това на играта да се докладва друг GPU (подправяне). Опитайте и използвайте Възстановяване на графиката на играта, ако играта не се държи правилно."
 
-#: bigame-engine/bigame-ui/src/app.rs:612
-#: bigame-engine/bigame-ui/src/app.rs:626
+#: bigame-engine/bigame-ui/src/app.rs:614
+#: bigame-engine/bigame-ui/src/app.rs:628
 msgid "Required packages were not found in the system"
 msgstr "Необходимите пакети не бяха открити в системата"
 
@@ -5152,7 +5256,7 @@ msgstr "Необходимите пакети не бяха открити в с
 msgid "Rescan game library"
 msgstr "Повторно сканиране на библиотеката с игри"
 
-#: bigame-engine/bigame-ui/src/window.rs:340
+#: bigame-engine/bigame-ui/src/window.rs:347
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Връщане на всички настройки от Фина настройка и Gamescope към препоръчаните по подразбиране. Това не може да бъде отменено."
 
@@ -5162,26 +5266,26 @@ msgid "Resizable BAR"
 msgstr "Resizable BAR"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:898
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1061
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1094
 msgid "Resolved: %s is the only upscaler"
 msgstr "Решено: %s е единственият ъпскейлър"
 
-#: bigame-engine/bigame-ui/src/app.rs:666
-#: bigame-engine/bigame-ui/src/app.rs:677
+#: bigame-engine/bigame-ui/src/app.rs:668
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Restart Big Game Mode"
 msgstr "Рестартиране на Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/window.rs:343
+#: bigame-engine/bigame-ui/src/window.rs:350
 msgid "Restore"
 msgstr "Възстановяване"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:333
-#: bigame-engine/bigame-ui/src/views/settings.rs:344
+#: bigame-engine/bigame-ui/src/views/settings.rs:336
+#: bigame-engine/bigame-ui/src/views/settings.rs:347
 msgid "Restore All"
 msgstr "Възстановяване на всички"
 
-#: bigame-engine/bigame-ui/src/window.rs:339
-#: bigame-engine/bigame-ui/src/window.rs:467
+#: bigame-engine/bigame-ui/src/window.rs:346
+#: bigame-engine/bigame-ui/src/window.rs:474
 msgid "Restore Defaults"
 msgstr "Възстановяване на настройките по подразбиране"
 
@@ -5190,11 +5294,11 @@ msgstr "Възстановяване на настройките по подра
 msgid "Restore Game Graphics"
 msgstr "Възстановяване на графиката на играта"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:327
+#: bigame-engine/bigame-ui/src/views/settings.rs:330
 msgid "Restore every game's graphics"
 msgstr "Възстановяване на графиката на всички игри"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:338
+#: bigame-engine/bigame-ui/src/views/settings.rs:341
 msgid "Restore every game's graphics?"
 msgstr "Да се възстанови ли графиката на всички игри?"
 
@@ -5323,7 +5427,7 @@ msgstr "Запазване на отчета"
 msgid "Save and launch"
 msgstr "Запазване и стартиране"
 
-#: bigame-engine/bigame-ui/src/views/details/extras.rs:917
+#: bigame-engine/bigame-ui/src/views/details/extras.rs:915
 msgid "Save diagnostics"
 msgstr "Записване на диагностика"
 
@@ -5406,7 +5510,7 @@ msgstr "Изгасяне на екрана"
 msgid "Screen-saver inhibited"
 msgstr "Скрийнсейвърът е забранен"
 
-#: bigame-engine/bigame-ui/src/views/logs.rs:121
+#: bigame-engine/bigame-ui/src/views/logs.rs:124
 msgid "Search"
 msgstr "Търсене"
 
@@ -5444,7 +5548,7 @@ msgstr "Открити са проблеми с услугата"
 msgid "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it."
 msgstr "Задава се в средата на сесията за всяка игра, стартирана след това. Вече работещ стартер (Steam) запазва старата си среда: затворете го и го отворете отново."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1256
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1289
 msgid "Set its path in the row above: one file for every game, saved at once."
 msgstr "Задайте пътя му в реда по-горе: един файл за всяка игра, запазва се веднага."
 
@@ -5453,7 +5557,7 @@ msgid "Set now"
 msgstr "Зададено сега"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
-#: bigame-engine/bigame-ui/src/window.rs:165
+#: bigame-engine/bigame-ui/src/window.rs:172
 msgid "Settings"
 msgstr "Настройки"
 
@@ -5462,15 +5566,15 @@ msgid "Shared by every game, and saved as soon as you stop typing"
 msgstr "Общо за всички игри; запазва се веднага щом спрете да пишете"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1573
-#: bigame-engine/bigame-ui/src/views/logs.rs:119
+#: bigame-engine/bigame-ui/src/views/logs.rs:122
 msgid "Show"
 msgstr "Покажи"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1409
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1442
 msgid "Show MangoHud"
 msgstr "Показване на MangoHud"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:573
+#: bigame-engine/bigame-ui/src/views/settings.rs:576
 msgid "Show advanced options"
 msgstr "Показване на разширени опции"
 
@@ -5478,7 +5582,7 @@ msgstr "Показване на разширени опции"
 msgid "Show dialog on startup"
 msgstr "Показване на диалога при стартиране"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:548
+#: bigame-engine/bigame-ui/src/views/settings.rs:551
 msgid "Show notifications on game launch and exit"
 msgstr "Показвай известия при стартиране и изход от игра"
 
@@ -5490,11 +5594,11 @@ msgstr "Показване само на грешки, предупрежден�
 msgid "Shown"
 msgstr "Показани"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:576
+#: bigame-engine/bigame-ui/src/views/settings.rs:579
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "Показва Фина настройка, Подробности и Логове, както и техническите настройки на всяка страница: falcond, планировчици на CPU, Gamescope, vkBasalt, генериране на кадри. Когато е изключено, Big Game Mode показва Turbo, какво да предпочитат игрите и вашите игри, а това е всичко, от което се нуждаят повечето хора."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:432
+#: bigame-engine/bigame-ui/src/views/settings.rs:435
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "Показва известие, никога прозорец върху играта ви. Профилът се изгражда за тази машина, а прегледът му показва защо е избрана всяка стойност. Нищо не се създава, освен ако не изберете това."
 
@@ -5518,7 +5622,7 @@ msgstr "Пропуснато"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Пропуснато, недостъпно, избегнати конфликти"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:410
+#: bigame-engine/bigame-ui/src/views/settings.rs:413
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "За да се забелязват игрите, които стартирате от Steam, дори когато този прозорец е затворен"
 
@@ -5529,11 +5633,11 @@ msgstr "По-меко, с повече кадри."
 #: bigame-engine/bigame-ui/src/views/home.rs:759
 #: bigame-engine/bigame-ui/src/views/home.rs:764
 #: bigame-engine/bigame-ui/src/views/home.rs:876
-#: bigame-engine/bigame-ui/src/views/settings.rs:207
+#: bigame-engine/bigame-ui/src/views/settings.rs:210
 msgid "Some settings could not be put back"
 msgstr "Някои настройки не можаха да бъдат върнати"
 
-#: bigame-engine/bigame-ui/src/app.rs:780
+#: bigame-engine/bigame-ui/src/app.rs:782
 msgid "Special Thanks"
 msgstr "Специални благодарности"
 
@@ -5557,7 +5661,7 @@ msgstr "Стартирайте игра, после се върнете тук �
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Стартирайте игра; какво реално получава се прочита от процеса ѝ и се показва тук."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:409
+#: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
 msgstr "Стартиране във фонов режим при влизане"
@@ -5578,7 +5682,7 @@ msgstr "Стартиране на тази игра с включен Turbo и �
 msgid "Started through"
 msgstr "Стартира се чрез"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1522
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1555
 msgid "Started through its own launcher, this game gets Tuning's settings from the session environment."
 msgstr "Когато се стартира чрез собствения си стартер, тази игра получава настройките от Фина настройка от средата на сесията."
 
@@ -5637,6 +5741,7 @@ msgstr "Steam е отворен: игрите му с Gamescope запазват
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam работи. Той държи localconfig.vdf в паметта и го презаписва при излизане, така че тази промяна би се изгубила. Затворете Steam и опитайте отново."
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:332
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Steam launch options"
@@ -5709,7 +5814,7 @@ msgstr "Доклад за поддръжка"
 msgid "Supported, not measured"
 msgstr "Поддържа се, не е измерено"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:642
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:641
 msgid "Swap %u of %t"
 msgstr "Swap %u от %t"
 
@@ -5734,7 +5839,7 @@ msgid "Switching on a technology that does the same job as one already on (Wine 
 msgstr "Включването на технология, която върши същата работа като вече включена (Wine FSR, увеличаването на резолюцията с Gamescope, OptiScaler, lsfg-vk), пита коя да се запази. Нищо не се решава мълчаливо."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:810
-#: bigame-engine/bigame-ui/src/views/settings.rs:73
+#: bigame-engine/bigame-ui/src/views/settings.rs:76
 msgid "System"
 msgstr "Система"
 
@@ -5742,16 +5847,16 @@ msgstr "Система"
 msgid "System Settings → Display & Monitor → your main screen → Adaptive sync: Automatic"
 msgstr "Системни настройки → Дисплей и монитор → основният ви екран → Адаптивна синхронизация: Автоматично"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:69
+#: bigame-engine/bigame-ui/src/views/settings.rs:72
 msgid "System follows the desktop's light or dark setting"
 msgstr "„Система“ следва светлата или тъмната настройка на работния плот"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:116
-#: bigame-engine/bigame-ui/src/views/settings.rs:156
+#: bigame-engine/bigame-ui/src/views/settings.rs:119
+#: bigame-engine/bigame-ui/src/views/settings.rs:159
 msgid "Take back control"
 msgstr "Повторно поемане на контрола"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:154
+#: bigame-engine/bigame-ui/src/views/settings.rs:157
 msgid "Take control"
 msgstr "Поемане на контрола"
 
@@ -5759,7 +5864,7 @@ msgstr "Поемане на контрола"
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "Премахнато от настройките на Heroic за тази игра; собственият FSR на играта работи както преди"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:328
+#: bigame-engine/bigame-ui/src/views/settings.rs:331
 msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
 msgstr "Премахва от всички игри OptiScaler и всеки файл, поставен от AI графика, и връща оригиналите от резервните копия. Направете го, преди да премахнете Big Game Mode."
 
@@ -5768,21 +5873,21 @@ msgid "Technical details"
 msgstr "Технически подробности"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
-#: bigame-engine/bigame-ui/src/window.rs:161
+#: bigame-engine/bigame-ui/src/window.rs:168
 msgid "Telemetry"
 msgstr "Телеметрия"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:297
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:359
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:385
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:296
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:358
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:384
 msgid "Temperature"
 msgstr "Температура"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:615
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:614
 msgid "Temperature %s"
 msgstr "Температура %s"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:622
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:621
 msgid "Temperature not reported"
 msgstr "Температурата не се отчита"
 
@@ -5815,7 +5920,7 @@ msgstr "Слоят на MangoHud, със стилове, вдъхновени о
 msgid "The Steam runtime's library cache tool is no longer taken for the running game"
 msgstr "Инструментът за кеш на библиотеките на средата за изпълнение на Steam вече не се приема за работещата игра"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:270
+#: bigame-engine/bigame-ui/src/views/settings.rs:273
 msgid "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
 msgstr "Адресът, към който се изпраща пинг за показанията на латентността на страниците Начало и Телеметрия. Изборът е между резолверите, които сравнението на DNS измерва: тези, които този компютър използва, и добре известни публични. Може да се въведе и всеки друг адрес."
 
@@ -5890,6 +5995,10 @@ msgstr "Играта рендира в размера на екрана, раз�
 msgid "The game was not started: the profile has errors"
 msgstr "Играта не беше стартирана: профилът съдържа грешки"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:295
+msgid "The game was stopped by %s (systemd-coredump)"
+msgstr "Играта беше спряна от сигнал %s (systemd-coredump)"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2361
 msgid "The game's files are as they were before"
 msgstr "Файловете на играта са такива, каквито бяха преди"
@@ -5903,7 +6012,7 @@ msgstr "Собствена функция на играта или комбин�
 msgid "The game's own only"
 msgstr "Само собственият на играта"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1207
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1240
 msgid "The game's own present mode"
 msgstr "Собственият режим на представяне на играта"
 
@@ -5993,7 +6102,7 @@ msgstr "Най-новото стабилно издание в страница�
 msgid "The next game gets its profile as it starts."
 msgstr "Следващата игра получава профила си при стартирането си."
 
-#: bigame-engine/bigame-ui/src/app.rs:591
+#: bigame-engine/bigame-ui/src/app.rs:593
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr "Услугата за оптимизация на всяка игра се провали, така че игрите не се оптимизират."
 
@@ -6001,7 +6110,7 @@ msgstr "Услугата за оптимизация на всяка игра с
 msgid "The per-game optimization service failed. Logs show why; turning Turbo off and on again restarts it."
 msgstr "Услугата за оптимизация на всяка игра се провали. Логове показва защо; изключването и повторното включване на Turbo я рестартира."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1427
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1460
 msgid "The performance overlay for this game. On uses MangoHud's Vulkan layer, which covers Vulkan and every Proton game; Forced uses its wrapper, which also reaches OpenGL games. It is written where the game's launcher reads it: Steam's launch options (with Steam closed), the game's settings in Heroic (with Heroic closed) or in Lutris."
 msgstr "Наслагването за производителност за тази игра. Включено използва Vulkan слоя на MangoHud, който обхваща Vulkan и всяка Proton игра; Принудително използва обвивката му, която достига и до OpenGL игри. Записва се там, където стартерът на играта го чете: опциите за стартиране на Steam (при затворен Steam), настройките на играта в Heroic (при затворен Heroic) или в Lutris."
 
@@ -6063,7 +6172,7 @@ msgstr "Записът за инсталираното не може да бъд
 msgid "The release Big Game Mode was tested with, checked against the SHA-256 it records. The default."
 msgstr "Изданието, с което Big Game Mode е тестван, проверено спрямо SHA-256, който той записва. По подразбиране."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:264
+#: bigame-engine/bigame-ui/src/views/settings.rs:267
 msgid "The resolvers the DNS comparison in Details measures"
 msgstr "Резолверите, които сравнението на DNS в Подробности измерва"
 
@@ -6134,7 +6243,7 @@ msgstr "Променливата се записва в ~/.config/environment.d 
 msgid "The welcome screen can be opened again from the main menu, under Welcome."
 msgstr "Екранът за добре дошли може да бъде отворен отново от главното меню, в Добре дошли."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:210
+#: bigame-engine/bigame-ui/src/views/settings.rs:213
 msgid "There was nothing to hand back"
 msgstr "Нямаше какво да се върне"
 
@@ -6154,6 +6263,10 @@ msgstr "Тези игри генерират кадри, затова не се 
 msgid "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 msgstr "Опциите за стартиране на тези игри вече пускат собствен Gamescope, затова този на Big Game Mode не беше добавен: %s"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:268
+msgid "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
+msgstr "Може да нямат нищо общо. Ако ги изключите за известно време за тази игра, ще разберете дали са виновни."
+
 #: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:69
 msgid "This GPU has no FSR 4, so that part is left out."
 msgstr "Този GPU няма FSR 4, затова тази част е пропусната."
@@ -6162,7 +6275,7 @@ msgstr "Този GPU няма FSR 4, затова тази част е проп�
 msgid "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Details › Network puts them back."
 msgstr "Това променя системните мрежови настройки за връзката „%s“: %s става първият ѝ DNS сървър, а автоматично раздаваните сървъри вече не се използват. Текущите настройки се записват първо; „Възстановяване на предишните“ в Подробности › Мрежа ги връща."
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:63
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:62
 msgid "This computer"
 msgstr "Този компютър"
 
@@ -6179,11 +6292,17 @@ msgstr "Този файл не съществува"
 msgid "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 msgstr "Тази игра и GPU отговарят на изискванията на DLSS-NR-on-AMD, а той не е инсталиран до играта. Той е незадължителен: инсталирайте го сами от официалната му страница, ако искате да го изпробвате, след това натиснете Нова проверка."
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:250
+msgid "This game closed with an error %n time this week."
+msgid_plural "This game closed with an error %n times this week."
+msgstr[0] "Тази седмица играта вече се е сривала %n път."
+msgstr[1] "Тази седмица играта вече се е сривала %n пъти."
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:417
 msgid "This game has AI Graphics installed: Wine FSR is turned off for its launch from Big Game Mode, so two upscalers never run in series."
 msgstr "Тази игра има инсталирана AI графика: Wine FSR е изключен при стартирането ѝ от Big Game Mode, така че два ъпскейлъра никога не работят последователно."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1289
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1322
 msgid "This game's setting is kept, and applies when lsfg-vk is turned on in Tuning."
 msgstr "Настройката на тази игра се запазва и се прилага, когато lsfg-vk бъде включен във Фина настройка."
 
@@ -6211,7 +6330,7 @@ msgstr "Три предварителни настройки, Най-бързо,
 msgid "Throughput for long batch work, not for games. Listed because falcond accepts it."
 msgstr "Пропускателна способност за дълга пакетна работа, не за игри. Посочен е, защото falcond го приема."
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:583
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:582
 msgid "Timeout"
 msgstr "Време за изчакване"
 
@@ -6219,8 +6338,12 @@ msgstr "Време за изчакване"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Съвет: изберете предварителна настройка, включете Turbo и стартирайте игра; Начало показва какво е получила. Бутонът (i) най-горе обяснява страницата, на която сте."
 
-#: bigame-engine/bigame-ui/src/app.rs:664
-#: bigame-engine/bigame-ui/src/app.rs:675
+#: bigame-engine/bigame-ui/src/crash_watch.rs:364
+msgid "To put them back: Profiles → the game → its launch settings."
+msgstr "За да ги върнете: Профили → играта → нейните настройки за стартиране."
+
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Troubleshooting"
 msgstr "Отстраняване на проблеми"
 
@@ -6230,7 +6353,7 @@ msgid "Try another name or remove the filters."
 msgstr "Опитайте друго име или премахнете филтрите."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:270
-#: bigame-engine/bigame-ui/src/window.rs:162
+#: bigame-engine/bigame-ui/src/window.rs:169
 msgid "Tuning"
 msgstr "Фина настройка"
 
@@ -6259,7 +6382,7 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turbo не можа да стартира"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:406
+#: bigame-engine/bigame-ui/src/views/settings.rs:409
 msgid "Turbo Mode"
 msgstr "Режим Turbo"
 
@@ -6329,11 +6452,11 @@ msgstr "Turbo се връща чисто, когато falcond не успее �
 msgid "Turbo turned off"
 msgstr "Turbo е изключен"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:124
+#: bigame-engine/bigame-ui/src/views/settings.rs:127
 msgid "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back."
 msgstr "Turbo включва и изключва услугата на falcond. Първия път, когато го направи, той записа дали falcond е бил активиран и работещ. Връщането възстановява точно това и оставя falcond на мира. Повторното поемане на контрола записва състоянието на falcond такова, каквото е в този момент — така че по-късно връщане възстановява него — и го кара отново да следва Turbo: остава работещ и активиран, ако работи, и остава спрян и деактивиран, ако не работи. Включването или изключването на Turbo също поема контрола отново."
 
-#: bigame-engine/bigame-ui/src/window.rs:383
+#: bigame-engine/bigame-ui/src/window.rs:390
 msgid "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched."
 msgstr "Turbo се изключва, изборът се връща на Най-бързо и всяка настройка се връща такава, каквато е била в началото. Игрите ви не се докосват."
 
@@ -6384,7 +6507,7 @@ msgid "Turning Turbo off or changing the preset reaches Steam and Heroic once th
 msgstr "Изключването на Turbo или смяната на предварителната настройка достига до Steam и Heroic, след като бъдат затворени, а изтриването на профил премахва опциите му за стартиране от Steam, Heroic и Lutris"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1765
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1263
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1296
 msgid "Two frame generators at once cause artefacts, added latency and unpredictable behaviour. Keep one."
 msgstr "Два генератора на кадри едновременно причиняват артефакти, допълнително забавяне и непредсказуемо поведение. Запазете един."
 
@@ -6414,6 +6537,10 @@ msgstr "Не е налично тук — незадължително, всич
 msgid "Unchanged"
 msgstr "Непроменено"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:350
+msgid "Unity wrote a crash report"
+msgstr "Unity записа доклад за срив"
+
 #: bigame-engine/bigame-core/src/running.rs:203
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1384
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:726
@@ -6430,6 +6557,10 @@ msgstr "Неизвестен CPU"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:686
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "Неизвестно: tc (iproute2) не можа да прочете дисциплината на опашката на интерфейса"
+
+#: bigame-engine/bigame-core/src/game_crash.rs:349
+msgid "Unreal Engine wrote a crash report"
+msgstr "Unreal Engine записа доклад за срив"
 
 #: bigame-engine/bigame-core/src/processes.rs:99
 msgid "Unrecognised."
@@ -6473,7 +6604,7 @@ msgstr "Увеличаване на резолюцията"
 msgid "Upscaling and frame generation inside the game, per game in Profiles"
 msgstr "Увеличаване на резолюцията и генериране на кадри в играта, за всяка игра в Профили"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1087
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1120
 msgid "Upscaling and frame generation inside the game, with backup and undo"
 msgstr "Увеличаване на резолюцията и генериране на кадри в играта, с резервно копие и отмяна"
 
@@ -6496,7 +6627,7 @@ msgstr "Използване"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1989
 #: bigame-engine/bigame-ui/src/views/tuning.rs:941
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1280
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1313
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:874
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:208
 msgid "Use %s"
@@ -6524,7 +6655,7 @@ msgstr "Използване на размера на основния екра�
 msgid "Used for the next install; an installed game is updated only when you choose"
 msgstr "Използва се за следващото инсталиране; инсталирана игра се обновява само когато вие изберете"
 
-#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:285
+#: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:283
 msgid "Used when Turbo is switched on."
 msgstr "Използва се, когато Turbo бъде включен."
 
@@ -6554,8 +6685,8 @@ msgstr "Защита на VRAM"
 msgid "VRR not requested"
 msgstr "VRR не е поискан"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1199
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1206
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1232
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1239
 msgid "VSync/FIFO (default)"
 msgstr "VSync/FIFO (по подразбиране)"
 
@@ -6573,7 +6704,7 @@ msgid_plural "Version %v — %n options detected from --help"
 msgstr[0] "Версия %v — %n опция, открита от --help"
 msgstr[1] "Версия %v — %n опции, открити от --help"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:304
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:303
 msgid "Video memory"
 msgstr "Видеопамет"
 
@@ -6589,7 +6720,7 @@ msgstr "Преглед на подробностите за оптимизаци
 msgid "Virtual"
 msgstr "Виртуален"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1027
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1060
 msgid "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, the Home key turns it on and off."
 msgstr "Визуални филтри (изостряне, цвят) за игри с Vulkan и Proton. Стил, а не ускорение: струва малко време на GPU. В играта клавишът Home го включва и изключва."
 
@@ -6618,7 +6749,7 @@ msgstr "Предупреждения и грешки"
 msgid "Watching for games"
 msgstr "Следене за игри"
 
-#: bigame-engine/bigame-ui/src/window.rs:472
+#: bigame-engine/bigame-ui/src/window.rs:479
 msgid "Welcome"
 msgstr "Добре дошли"
 
@@ -6660,11 +6791,11 @@ msgstr "Какво се прилага към системата, докато �
 msgid "What is in the game's folder now, placed by Big Game Mode."
 msgstr "Какво има сега в папката на играта, поставено от Big Game Mode."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1537
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1570
 msgid "What is left on “General configuration” comes from the session environment, as Tuning sets it."
 msgstr "Това, което е оставено на „Обща конфигурация“, идва от средата на сесията, както го задава Фина настройка."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1530
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1563
 msgid "What is left on “General configuration” follows Tuning → Display."
 msgstr "Това, което е оставено на „Обща конфигурация“, следва Фина настройка → Екран."
 
@@ -6740,7 +6871,7 @@ msgstr "Какво ще се промени"
 msgid "What you can do instead"
 msgstr "Какво можете да направите вместо това"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:430
+#: bigame-engine/bigame-ui/src/views/settings.rs:433
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "Когато Turbo е включен и стартира игра без собствен профил"
 
@@ -6809,6 +6940,7 @@ msgstr "Защо не е налично тук:"
 msgid "Wi-Fi"
 msgstr "Wi-Fi"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:62
 #: bigame-engine/bigame-core/src/graphics/rules.rs:76
 msgid "Wine FSR"
 msgstr "Wine FSR"
@@ -6847,7 +6979,7 @@ msgid "Wine FSR is also on for this game"
 msgstr "Wine FSR също е включен за тази игра"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:972
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1617
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1650
 msgid "Wine FSR is on; Gamescope now renders at the game's own size"
 msgstr "Wine FSR е включен; Gamescope вече рендира в собствения размер на играта"
 
@@ -6868,11 +7000,11 @@ msgid "Wine's own upscaling for Proton games in exclusive fullscreen"
 msgstr "Собственото увеличаване на резолюцията на Wine за Proton игри в изключителен цял екран"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:846
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:983
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1016
 msgid "Wine's own upscaling for Proton games in exclusive fullscreen (WINE_FULLSCREEN_FSR=1)"
 msgstr "Собственото увеличаване на резолюцията на Wine за Proton игри в изключителен цял екран (WINE_FULLSCREEN_FSR=1)"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:997
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1030
 msgid "Wine's own upscaling for Proton games in exclusive fullscreen: Heroic's own Wine FSR switch, written into its settings for this game"
 msgstr "Собственото увеличаване на резолюцията на Wine за Proton игри в изключителен цял екран: собственият превключвател за Wine FSR в Heroic, записан в настройките му за тази игра"
 
@@ -6930,7 +7062,7 @@ msgstr "Записване на опцията за стартиране…"
 msgid "Writing the report…"
 msgstr "Записване на доклада…"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:670
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:669
 msgid "Written %s"
 msgstr "Запис %s"
 
@@ -6938,11 +7070,11 @@ msgstr "Запис %s"
 msgid "Written in Rust, this is a highly intelligent and balanced scheduler. It perfectly understands modern CPU architectures with mixed cores (like Intel P-Cores/E-Cores or AMD X3D cache CCDs) and routes workloads perfectly."
 msgstr "Написан на Rust, това е изключително интелигентен и балансиран планировчик. Разбира отлично съвременните процесорни архитектури със смесени ядра (като P-ядрата/E-ядрата на Intel или CCD с кеш при AMD X3D) и насочва натоварванията безупречно."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1516
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
 msgid "Written into Heroic's settings for this game when you save, with Heroic closed; your own settings there are kept."
 msgstr "Записва се в настройките на Heroic за тази игра, когато запазите, при затворен Heroic; вашите собствени настройки там се запазват."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1030
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1063
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:693
 msgid "Written into Heroic's settings for this game, with Heroic closed"
 msgstr "Записва се в настройките на Heroic за тази игра, при затворен Heroic"
@@ -6963,7 +7095,7 @@ msgstr "Записано в настройките на играта в %l, но
 msgid "Written into this game's Steam launch options"
 msgstr "Записано в опциите за стартиране в Steam на тази игра"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1510
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1543
 msgid "Written into this game's Steam launch options when you save, with Steam closed; your own options there are kept."
 msgstr "Записва се в опциите за стартиране в Steam на тази игра, когато запазите, при затворен Steam; вашите собствени опции там се запазват."
 
@@ -6975,7 +7107,7 @@ msgstr "Записва се в ~/.config/MangoHud/MangoHud.conf; собстве�
 msgid "Written to ~/.config/vkBasalt/vkBasalt.conf; your own file is kept and comes back with “My own file”."
 msgstr "Записва се в ~/.config/vkBasalt/vkBasalt.conf; вашият собствен файл се запазва и се връща с „Моят файл“."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1550
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1583
 msgid "Written when you save where this game's launcher reads it: Steam's launch options, its settings in Heroic or Lutris, or Big Game Mode's own launch."
 msgstr "Записва се, когато запазите, там, където го чете стартерът на тази игра: опциите за стартиране на Steam, настройките ѝ в Heroic или Lutris, или собственото стартиране на Big Game Mode."
 
@@ -7319,8 +7451,8 @@ msgstr "falcond има профила %s за тази игра, но играт
 msgid "falcond is %s, not %s as it was"
 msgstr "falcond е %s, а не %s, както беше"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:202
-#: bigame-engine/bigame-ui/src/views/settings.rs:206
+#: bigame-engine/bigame-ui/src/views/settings.rs:205
+#: bigame-engine/bigame-ui/src/views/settings.rs:209
 msgid "falcond is back as it was before Big Game Mode"
 msgstr "falcond е върнат в състоянието отпреди Big Game Mode"
 
@@ -7338,7 +7470,7 @@ msgstr "falcond не е съвместим с този процесор"
 
 #: bigame-engine/bigame-core/src/turbo.rs:228
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:105
-#: bigame-engine/bigame-ui/src/views/settings.rs:137
+#: bigame-engine/bigame-ui/src/views/settings.rs:140
 msgid "falcond is not installed"
 msgstr "falcond не е инсталиран"
 
@@ -7421,8 +7553,8 @@ msgstr "falcond предоставя отделни набори профили 
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond спря на инструкция, която този процесор отхвърли: несъвместимост на набора от инструкции на процесора или повреден изпълним файл на falcond."
 
-#: bigame-engine/bigame-ui/src/app.rs:590
-#: bigame-engine/bigame-ui/src/app.rs:594
+#: bigame-engine/bigame-ui/src/app.rs:592
+#: bigame-engine/bigame-ui/src/app.rs:596
 msgid "falcond stopped unexpectedly"
 msgstr "falcond спря неочаквано"
 
@@ -7553,7 +7685,7 @@ msgstr "вмъкването в графиката е изключено за и
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "профили за преносими конзоли на машина, която не е преносима конзола: игрите работят в енергоспестяващ режим"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:391
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:390
 msgid "hardware slowdown"
 msgstr "хардуерно забавяне"
 
@@ -7701,6 +7833,7 @@ msgstr "lsfg-vk за всяка игра със запис"
 msgid "lsfg-vk for this game: two frame generators in series"
 msgstr "lsfg-vk за тази игра: два последователни генератора на кадри"
 
+#: bigame-engine/bigame-core/src/game_crash.rs:64
 #: bigame-engine/bigame-core/src/graphics/rules.rs:77
 msgid "lsfg-vk frame generation"
 msgstr "Генериране на кадри с lsfg-vk"
@@ -7718,7 +7851,7 @@ msgstr "lsfg-vk не е инсталиран"
 msgid "lsfg-vk is not installed."
 msgstr "lsfg-vk не е инсталиран."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1288
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1321
 msgid "lsfg-vk is off in Tuning"
 msgstr "lsfg-vk е изключен във Фина настройка"
 
@@ -7727,7 +7860,7 @@ msgid "lsfg-vk loads and generates nothing, so Big Game Mode switches it off at 
 msgstr "lsfg-vk се зарежда, но не генерира нищо, затова Big Game Mode го изключва при стартиране."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1352
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1255
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1288
 msgid "lsfg-vk needs your Lossless.dll"
 msgstr "lsfg-vk се нуждае от вашия Lossless.dll"
 
@@ -7735,11 +7868,11 @@ msgstr "lsfg-vk се нуждае от вашия Lossless.dll"
 msgid "lsfg-vk needs your own Lossless.dll (from Lossless Scaling on Steam). Set its path in Tuning → Frame generation."
 msgstr "lsfg-vk се нуждае от ваш собствен Lossless.dll (от Lossless Scaling в Steam). Задайте пътя му във Фина настройка → Генериране на кадри."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1220
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1253
 msgid "lsfg-vk options"
 msgstr "Опции на lsfg-vk"
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1544
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1577
 msgid "lsfg-vk reads this game's entry whichever launcher starts it; its Lossless.dll is one file for every game."
 msgstr "lsfg-vk чете записа на тази игра, независимо кой стартер я стартира; неговият Lossless.dll е един файл за всяка игра."
 
@@ -7753,7 +7886,7 @@ msgstr "lsfg-vk беше изключен за тази игра"
 msgid "lsfg-vk's file changed after the game started. It takes a new multiplier live, but turning generation on or off waits for the game's next start."
 msgstr "Файлът на lsfg-vk е променен след стартирането на играта. Той приема нов множител в движение, но включването или изключването на генерирането изчаква следващото стартиране на играта."
 
-#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1186
+#: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1219
 msgid "lsfg-vk's lighter model"
 msgstr "По-лекият модел на lsfg-vk"
 
@@ -7964,7 +8097,7 @@ msgstr "няма какво да се измерва: планът не пром
 msgid "nothing, Gamescope is off there"
 msgstr "нищо, Gamescope е изключен там"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:635
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:634
 msgid "of %t in use (%p)"
 msgstr "от %t в употреба (%p)"
 
@@ -8012,7 +8145,7 @@ msgstr "разчитане на TOML на импортирания профил"
 msgid "performance while the game runs, as falcond asked"
 msgstr "производителност, докато играта работи, както е поискал falcond"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:389
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:388
 msgid "power limit"
 msgstr "ограничение на мощността"
 
@@ -8204,7 +8337,7 @@ msgstr "systemd рестартира falcond веднъж, след като с�
 msgid "takes a DLL slot beside the game and may collide with OptiScaler"
 msgstr "заема DLL слот до играта и може да влезе в конфликт с OptiScaler"
 
-#: bigame-engine/bigame-ui/src/views/telemetry.rs:390
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:389
 msgid "temperature limit"
 msgstr "ограничение на температурата"
 
@@ -8518,6 +8651,7 @@ msgstr "не всички шейдъри на vkBasalt са на мястото 
 msgid "the worker thread failed"
 msgstr "работната нишка се провали"
 
+#: bigame-engine/bigame-ui/src/crash_watch.rs:299
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765
@@ -8525,7 +8659,7 @@ msgstr "работната нишка се провали"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:854
 #: bigame-engine/bigame-ui/src/views/tuning.rs:296
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:209
-#: bigame-engine/bigame-ui/src/window.rs:669
+#: bigame-engine/bigame-ui/src/window.rs:676
 msgid "the worker thread stopped"
 msgstr "работната нишка спря"
 
@@ -8566,7 +8700,7 @@ msgstr "този falcond е по-стар от защитата на VRAM (DMEM)
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling; the kernel supports DMEM, so a newer falcond could use it"
 msgstr "този falcond е по-стар от защитата на VRAM (DMEM) и обработката на split-lock; ядрото поддържа DMEM, така че по-нов falcond би могъл да я използва"
 
-#: bigame-engine/bigame-core/src/game_launch.rs:229
+#: bigame-engine/bigame-core/src/game_launch.rs:241
 msgid "this game sets nothing of its own that needs Gamescope"
 msgstr "тази игра не задава нищо свое, което да изисква Gamescope"
 
@@ -8616,7 +8750,7 @@ msgstr "чрез DXVK или VKD3D-Proton, вижда се, когато игр�
 msgid "too few usable runs to compare"
 msgstr "твърде малко използваеми изпълнения за сравнение"
 
-#: bigame-engine/bigame-ui/src/app.rs:766
+#: bigame-engine/bigame-ui/src/app.rs:768
 msgid "translator-credits"
 msgstr ""
 
@@ -8693,7 +8827,7 @@ msgstr "стойността не можа да бъде прочетена об
 msgid "variable refresh rate is requested"
 msgstr "поискана е променлива честота на опресняване"
 
-#: bigame-engine/bigame-ui/src/app.rs:790
+#: bigame-engine/bigame-ui/src/app.rs:792
 msgid "vkBasalt configuration"
 msgstr "Конфигурация на vkBasalt"
 
@@ -8712,6 +8846,10 @@ msgstr "vkBasalt е Vulkan слой: зарежда се само във Vulkan 
 #: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:63
 msgid "vkBasalt is not installed, so there is no sharpening."
 msgstr "vkBasalt не е инсталиран, затова няма изостряне."
+
+#: bigame-engine/bigame-core/src/game_crash.rs:60
+msgid "vkBasalt sharpening"
+msgstr "Изостряне с vkBasalt"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1153
 msgid "vkBasalt then uses its own defaults."
