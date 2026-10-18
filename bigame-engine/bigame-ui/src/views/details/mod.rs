@@ -7,10 +7,12 @@
 //!
 //! Every value comes from one reading of the system
 //! ([`bigame_core::overview::Snapshot`]), taken off the main thread only
-//! while the page is on screen — every 3 s with the window focused, 6 s
-//! behind another window — and again at once when falcond's status file
-//! changes or the running game changes. Telemetry has its own, faster
-//! reading (1 s), also only while the page is on screen.
+//! while the page is in front of someone ([`showing`]) — every 3 s with the
+//! window focused, 6 s behind another window — and again at once when
+//! falcond's status file changes or the running game changes. Telemetry has
+//! its own, faster reading (1 s), on the same terms. Left behind a game
+//! being played, nothing is read: a reading looks into the game's process
+//! and asks the GPU's power controller, which the game needs more.
 
 mod dns;
 pub(crate) mod extras;
@@ -85,6 +87,35 @@ pub(crate) async fn mapped(widget: &impl IsA<gtk4::Widget>) {
     })
     .await;
     widget.disconnect(on_map);
+}
+
+/// How often a page left behind a game looks whether it is in front again.
+/// Only the window's state is asked: nothing is read.
+const PAUSED_CHECK: Duration = Duration::from_secs(2);
+
+/// Whether the page `widget` is in front of someone: on screen, its window
+/// not minimised, and not left behind a game being played (the window is
+/// not the active one while a game runs).
+pub(crate) fn showing(widget: &impl IsA<gtk4::Widget>) -> bool {
+    if !widget.is_mapped() {
+        return false;
+    }
+    let Some(window) = widget.root().and_downcast::<gtk4::Window>() else {
+        return true;
+    };
+    !window.is_suspended() && (window.is_active() || crate::game_watch::current().is_none())
+}
+
+/// Resolve once the page `widget` is in front of someone ([`showing`]): the
+/// page's loops wait here, rather than reading for a window behind a game.
+pub(crate) async fn in_view(widget: &impl IsA<gtk4::Widget>) {
+    loop {
+        mapped(widget).await;
+        if showing(widget) {
+            return;
+        }
+        glib::timeout_future(PAUSED_CHECK).await;
+    }
 }
 
 /// Build the Details page.
@@ -186,7 +217,7 @@ fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
         glib::spawn_future_local(async move {
             let mut since_slow = Duration::ZERO;
             loop {
-                mapped(&root).await;
+                in_view(&root).await;
                 refresh();
                 if since_slow.is_zero() || since_slow >= SLOW_INTERVAL {
                     slow();
@@ -210,7 +241,7 @@ fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
                 if matches!(
                     event,
                     gio::FileMonitorEvent::Changed | gio::FileMonitorEvent::Created
-                ) && root.is_mapped()
+                ) && showing(&root)
                 {
                     refresh();
                 }
@@ -225,7 +256,7 @@ fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
         let refresh = Rc::clone(&refresh);
         let root = page.clone();
         crate::game_watch::subscribe(move |_| {
-            if root.is_mapped() {
+            if showing(&root) {
                 refresh();
             }
             glib::ControlFlow::Continue

@@ -9,6 +9,10 @@
 //! Windows game — so a file monitor on it catches most games the moment they
 //! start. A slow poll catches the rest (native games falcond has no profile
 //! for). Each check is one fork-free `/proc` walk, about 9 ms.
+//!
+//! While a game runs, its exit is an event too: a pidfd of the game's
+//! process becomes readable when it exits. The poll then only looks for a
+//! second game, once a minute, so the game has the machine.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -23,10 +27,9 @@ use bigame_core::running::GameIdentity;
 const POLL: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// How often to look while a game is known: the game should have the
-/// machine, a look walks `/proc` and asks what the game renders with, and
-/// its exit is mostly caught at once by falcond dropping its profile. A
-/// game falcond has no profile for is seen gone up to this much later.
-const POLL_PLAYING: std::time::Duration = std::time::Duration::from_secs(15);
+/// machine, and a look walks `/proc`. Its exit is caught at once by its
+/// pidfd, or falcond dropping its profile; this is for what neither says.
+const POLL_PLAYING: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// Returns [`glib::ControlFlow::Break`] to stop listening.
 type Listener = Box<dyn Fn(Option<&GameIdentity>) -> glib::ControlFlow>;
@@ -38,6 +41,9 @@ struct Watch {
     checking: std::cell::Cell<bool>,
     // Kept alive: dropping the monitor stops the events.
     monitor: RefCell<Option<gio::FileMonitor>>,
+    /// The pid whose exit is watched, and the source that watches it. The
+    /// source owns the pidfd: removing it closes the descriptor.
+    exit: RefCell<Option<(u32, glib::SourceId)>>,
 }
 
 thread_local! {
@@ -108,6 +114,7 @@ pub fn check() {
                 }
                 (None, _) => tracing::info!("game no longer running"),
             }
+            watch_exit(&watch, found.as_ref().map(|g| g.pid));
             *watch.current.borrow_mut() = found;
             let current = watch.current.borrow();
             watch
@@ -116,6 +123,33 @@ pub fn check() {
                 .retain(|listener| listener(current.as_ref()).is_continue());
         });
     });
+}
+
+/// Watch process `pid` exit (none: stop watching): when it does, look again
+/// at once.
+fn watch_exit(watch: &Watch, pid: Option<u32>) {
+    let mut exit = watch.exit.borrow_mut();
+    if exit.as_ref().map(|(p, _)| *p) == pid {
+        return;
+    }
+    if let Some((_, source)) = exit.take() {
+        source.remove();
+    }
+    let Some(pid) = pid else {
+        return;
+    };
+    let Some(fd) = bigame_core::processes::exit_watch(pid) else {
+        return;
+    };
+    let raw = std::os::fd::AsRawFd::as_raw_fd(&fd);
+    let source = glib::unix_fd_add_local(raw, glib::IOCondition::IN, move |_, _| {
+        // Owned here: dropped, and closed, with the source.
+        let _ = &fd;
+        WATCH.with(|w| *w.exit.borrow_mut() = None);
+        check();
+        glib::ControlFlow::Break
+    });
+    *exit = Some((pid, source));
 }
 
 /// What the watch holds after a check found `found`, and whether that is a

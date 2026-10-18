@@ -245,6 +245,9 @@ pub async fn set_enabled(
     }
 
     let reached = if enabled {
+        // Before falcond starts: it takes the scheduler loaded then as the
+        // one to put back after every game.
+        clear_leftover_scheduler(&manager).await;
         if before.is_failed() {
             info!(failure = ?before.failure(), "starting falcond again after a failure; clearing it first");
             manager.reset_failed_unit(UNIT).await?;
@@ -317,6 +320,8 @@ pub async fn set_enabled(
         if reached != "inactive" {
             anyhow::bail!("{UNIT} is still {reached}; not disabled yet");
         }
+        // falcond does not unload the scheduler its configuration loaded.
+        clear_leftover_scheduler(&manager).await;
         let changes = manager.disable_unit_files(&[UNIT], false).await?;
         reload_if_changed(&manager, &changes).await?;
         reached
@@ -328,6 +333,56 @@ pub async fn set_enabled(
     }
     info!(enabled, ?now, "game backend switched");
     Ok(now)
+}
+
+/// The unit that loads sched-ext schedulers.
+const SCX_LOADER: &str = "scx_loader.service";
+
+/// Whether a loaded sched-ext scheduler is one nobody asks for: falcond's
+/// general configuration names none (`general`), and `scx_loader` starts
+/// none at boot (`boot_default`). It is then what falcond left behind.
+fn scheduler_is_leftover(loaded: bool, general: Option<&str>, boot_default: bool) -> bool {
+    let general_none = general.is_none_or(|g| g.trim().is_empty() || g.trim() == "none");
+    loaded && general_none && !boot_default
+}
+
+/// Unload a scheduler nobody asks for by restarting `scx_loader`, which
+/// starts none again without a boot default.
+///
+/// falcond (2.0.14) does not unload the scheduler its configuration loaded
+/// when it stops, and takes the scheduler loaded when it starts as the one to
+/// put back after every game: once a scheduler was left behind, it came back
+/// after each game for good (lavd, on the reference desktop). `scx_loader`'s
+/// own `StopScheduler` needs an administrator's password from the session
+/// (`auth_admin_keep`); a restart through systemd, as root, needs none.
+async fn clear_leftover_scheduler(manager: &ManagerProxy<'_>) {
+    let loaded =
+        std::fs::read_to_string("/sys/kernel/sched_ext/state").is_ok_and(|s| s.trim() == "enabled");
+    let general = bigame_core::config::read().ok().map(|c| c.scx_sched);
+    let boot_default = bigame_core::health::scx_loader_default(
+        &bigame_core::health::SCX_LOADER_CONFIGS.map(Path::new),
+    )
+    .is_some();
+    if !scheduler_is_leftover(loaded, general.as_deref(), boot_default) {
+        return;
+    }
+    info!(
+        "a sched-ext scheduler is loaded and nothing asks for it; restarting scx_loader to unload it"
+    );
+    if let Err(e) = manager.restart_unit(SCX_LOADER, "replace").await {
+        warn!(error = %e, "could not restart scx_loader to unload a leftover scheduler");
+        return;
+    }
+    for _ in 0..30 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        if std::fs::read_to_string("/sys/kernel/sched_ext/state")
+            .is_ok_and(|s| s.trim() != "enabled")
+        {
+            info!("leftover scheduler unloaded");
+            return;
+        }
+    }
+    warn!("the leftover scheduler was still loaded 3 s after scx_loader restarted");
 }
 
 /// Put the unit back exactly as it was found, and forget the record.
@@ -396,6 +451,38 @@ pub async fn reload(connection: &zbus::Connection) {
         },
         Err(e) => warn!(error = %e, "systemd unreachable; falcond not reloaded"),
     }
+}
+
+/// Where falcond publishes its state for system services (the helper has
+/// its own `/tmp`).
+const FALCOND_STATUS: &str = "/var/lib/falcond/status";
+
+/// Whether falcond holds a game's profile now (its generic Proton one
+/// included).
+#[must_use]
+pub fn game_profile_active() -> bool {
+    std::fs::read_to_string(FALCOND_STATUS)
+        .is_ok_and(|t| bigame_core::status::parse(&t).active_profile.is_some())
+}
+
+/// A restart waiting for the game to end.
+static RESTART_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Restart falcond once no game's profile is active: a restart puts the
+/// running game's profile back and applies it again, which the game feels
+/// as a hitch. Asked again while one waits, the one waiting covers it.
+pub fn restart_when_no_game(connection: zbus::Connection) {
+    if RESTART_PENDING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    tokio::spawn(async move {
+        while game_profile_active() {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+        info!("the game ended; restarting falcond for the settings it reads at start-up");
+        RESTART_PENDING.store(false, std::sync::atomic::Ordering::SeqCst);
+        restart_if_running(&connection).await;
+    });
 }
 
 /// Restart a running falcond — needed only when a setting it reads at
@@ -522,6 +609,12 @@ mod tests {
     fn the_controlled_unit_is_fixed() {
         // Nothing a caller sends chooses the unit; it is a constant.
         assert_eq!(UNIT, "falcond.service");
+        // A scheduler is a leftover only when nothing asks for one.
+        assert!(super::scheduler_is_leftover(true, Some("none"), false));
+        assert!(super::scheduler_is_leftover(true, None, false));
+        assert!(!super::scheduler_is_leftover(true, Some("lavd"), false));
+        assert!(!super::scheduler_is_leftover(true, Some("none"), true));
+        assert!(!super::scheduler_is_leftover(false, Some("none"), false));
         assert!(OWNERSHIP_RECORD.starts_with("/var/lib/bigame-mode/"));
         assert!(RELEASE_RECORD.starts_with("/var/lib/bigame-mode/"));
         // The UI reads both from the same places.

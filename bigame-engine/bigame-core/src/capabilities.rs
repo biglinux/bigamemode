@@ -274,7 +274,7 @@ impl Capabilities {
     #[must_use]
     pub fn detect() -> Self {
         Self {
-            gamescope: detect_gamescope(),
+            gamescope: gamescope_cached(),
             mangohud: which("mangohud").is_some(),
             mangoapp: which("mangoapp").is_some(),
             falcond_installed: which("falcond").is_some(),

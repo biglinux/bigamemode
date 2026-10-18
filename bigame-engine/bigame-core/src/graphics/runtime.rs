@@ -230,17 +230,23 @@ pub fn fresh_log(exe_dir: &Path, age: Duration) -> Option<String> {
     if modified + Duration::from_secs(2) < started {
         return None;
     }
-    let mut text = std::fs::read_to_string(&path).ok()?;
     // The log can grow large at trace level; the last megabyte says what is
-    // happening now.
-    if text.len() > 1 << 20 {
-        let cut = text.len() - (1 << 20);
-        let cut = (cut..text.len())
-            .find(|&i| text.is_char_boundary(i))
-            .unwrap_or(cut);
-        text = text.split_off(cut);
+    // happening now, and only that much is read.
+    tail(&path, 1 << 20)
+}
+
+/// The last `limit` bytes of the file at `path`, as text: a character cut
+/// in two at the start is replaced, not an error.
+fn tail(path: &Path, limit: u64) -> Option<String> {
+    use std::io::{Read as _, Seek as _, SeekFrom};
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    if len > limit {
+        file.seek(SeekFrom::Start(len - limit)).ok()?;
     }
-    Some(text)
+    let mut bytes = Vec::new();
+    file.take(limit).read_to_end(&mut bytes).ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// How long `pid` has been running, from `/proc`.
@@ -269,6 +275,19 @@ pub fn process_age(pid: u32) -> Option<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_end_of_a_long_log_is_read() {
+        let dir = std::env::temp_dir().join(format!("bigame_tail_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("OptiScaler.log");
+        std::fs::write(&path, "é".repeat(10) + "the end").unwrap();
+        // Cut inside a two-byte character: replaced, the rest kept.
+        let text = tail(&path, 8).unwrap();
+        assert!(text.ends_with("the end"), "{text}");
+        assert_eq!(tail(&path, 1 << 20).unwrap(), "é".repeat(10) + "the end");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
     use crate::graphics::manifest::{Entry, FileKind, SCHEMA, Source, State, sha256_bytes};
 
     fn installed(root: &Path) -> Manifest {

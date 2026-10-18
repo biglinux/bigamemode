@@ -358,6 +358,35 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         scanning: RefCell::new((false, false)),
     });
 
+    // Simple mode: no blank profile, import or filters a beginner does not
+    // need, and the cards' button plays. Switched live.
+    {
+        let weak = Rc::downgrade(&view);
+        let (add_btn, import_btn, source_filter, status_filter) = (
+            add_btn.clone(),
+            import_btn.clone(),
+            source_filter.clone(),
+            status_filter.clone(),
+        );
+        let first = std::cell::Cell::new(true);
+        crate::settings::follow_advanced(move |on| {
+            add_btn.set_visible(on);
+            import_btn.set_visible(on);
+            source_filter.set_visible(on);
+            status_filter.set_visible(on);
+            if !on {
+                // A filter nobody can see must not hide games.
+                source_filter.set_selected(0);
+                status_filter.set_active_name(Some("all"));
+            }
+            if !first.replace(false)
+                && let Some(view) = weak.upgrade()
+            {
+                refresh_library(&view);
+            }
+        });
+    }
+
     // The filter reads the entries by the card's position in the grid.
     {
         let weak = Rc::downgrade(&view);
@@ -1255,14 +1284,21 @@ fn show_library(
         .collect();
     view.entries.borrow_mut().clone_from(&entries);
     view.set_sources(&entries);
+    let advanced = crate::settings::load().advanced_mode;
     for entry in entries {
         let nav_activate = view.nav.clone();
         let nav_menu = view.nav.clone();
         // Weak: the cards belong to the view, and the view must not be kept
         // alive by its own cards.
         let library = Rc::downgrade(view);
+        // Simple mode: a card's button plays the game.
+        let play: Option<game_card::Play> = (!advanced && entry.launch.is_some()).then(|| {
+            let anchor = view.grid.clone().upcast::<gtk4::Widget>();
+            Rc::new(move |entry: &game_card::Entry| launch_game(entry, &anchor)) as game_card::Play
+        });
         let card = game_card::build(
             &entry,
+            play,
             move |entry| open_profile(entry, &nav_activate),
             move |entry, anchor| show_card_menu(entry, anchor, &nav_menu, &library),
         );

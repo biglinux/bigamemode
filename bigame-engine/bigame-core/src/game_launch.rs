@@ -40,8 +40,12 @@ pub struct GameLaunch {
     /// FSR sharpness, 0 (sharpest) to 20.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sharpness: Option<u8>,
-    /// A frame limit through Gamescope (`-r`); 0 is none. Only a game has
-    /// one: Tuning has no frame limit for every game.
+    /// A frame limit; 0 is none. Only a game has one: Tuning has no frame
+    /// limit for every game. A Windows game gets it from DXVK and
+    /// VKD3D-Proton ([`Self::frame_limit_env`]), a native one Big Game Mode
+    /// starts from `MangoHud`; it never needs Gamescope, whose `-r` did not
+    /// hold a game and made frame pacing worse in Big Game Mode's
+    /// measurements.
     #[serde(skip_serializing_if = "is_zero")]
     pub frame_limit: u32,
     /// Wine FSR on or off.
@@ -83,7 +87,24 @@ impl GameLaunch {
             || self.output.is_some()
             || self.filter.is_some()
             || self.sharpness.is_some()
-            || self.frame_limit > 0
+    }
+
+    /// The variables that hold a Windows game at its own frame limit, as
+    /// `(name, value)`: none without one. DXVK reads its options only from
+    /// `DXVK_CONFIG` now (2.7: `dxvk.maxFrameRate`), DXVK before 2.3 reads
+    /// `DXVK_FRAME_RATE`, VKD3D-Proton `VKD3D_FRAME_RATE`. They take the
+    /// place of the session's (a Turbo preset's cap) in this game alone.
+    #[must_use]
+    pub fn frame_limit_env(&self) -> Vec<(String, String)> {
+        if self.frame_limit == 0 {
+            return Vec::new();
+        }
+        let fps = self.frame_limit.to_string();
+        vec![
+            ("DXVK_CONFIG".to_owned(), format!("dxvk.maxFrameRate={fps}")),
+            ("DXVK_FRAME_RATE".to_owned(), fps.clone()),
+            ("VKD3D_FRAME_RATE".to_owned(), fps),
+        ]
     }
 
     /// The settings a profile's `[gamescope]` table held, before they moved
@@ -177,10 +198,6 @@ impl GameLaunch {
                 None => gamescope::Filter::Linear,
             },
             sharpness: effective.clamped_sharpness(),
-            frame_limit: match self.frame_limit {
-                0 => gamescope::FrameLimit::None,
-                hz => gamescope::FrameLimit::NestedRefresh(hz),
-            },
             ..gamescope::Config::default()
         })
     }
@@ -280,6 +297,11 @@ impl GameLaunch {
             Some(false) => words.push("ENABLE_VKBASALT=0".to_owned()),
             None => {}
         }
+        words.extend(
+            self.frame_limit_env()
+                .into_iter()
+                .map(|(k, v)| format!("{k}={v}")),
+        );
         words
     }
 
@@ -330,6 +352,7 @@ impl GameLaunch {
             Some(false) => env.push(("ENABLE_VKBASALT".to_owned(), "0".to_owned())),
             None => {}
         }
+        env.extend(self.frame_limit_env());
         (wine_fsr, env)
     }
 }
@@ -394,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn the_override_carries_the_games_filter_and_frame_limit() {
+    fn the_override_carries_the_games_filter_but_not_its_frame_limit() {
         let own = GameLaunch {
             render: Some((1920, 1080)),
             frame_limit: 60,
@@ -406,7 +429,29 @@ mod tests {
         // Gamescope is off in Tuning: its output size is not the game's.
         assert_eq!((cfg.output_width, cfg.output_height), (0, 0));
         assert_eq!(cfg.filter, gamescope::Filter::Linear, "none of its own");
-        assert_eq!(cfg.frame_limit, gamescope::FrameLimit::NestedRefresh(60));
+        // The limit goes to DXVK and VKD3D-Proton, never to Gamescope's -r.
+        assert_eq!(cfg.frame_limit, gamescope::FrameLimit::None);
+        // A limit alone does not need Gamescope at all.
+        let limit = GameLaunch {
+            frame_limit: 80,
+            ..GameLaunch::default()
+        };
+        assert!(!limit.sets_gamescope());
+        assert!(limit.gamescope_override(&general()).is_none());
+        assert_eq!(
+            limit.steam_env(&general(), false, false),
+            [
+                "DXVK_CONFIG=dxvk.maxFrameRate=80",
+                "DXVK_FRAME_RATE=80",
+                "VKD3D_FRAME_RATE=80"
+            ]
+        );
+        assert!(
+            limit
+                .heroic_env(&general(), false, false, None)
+                .1
+                .contains(&("VKD3D_FRAME_RATE".to_owned(), "80".to_owned()))
+        );
         // On there, or with Always, the game's own size goes with Tuning's
         // output.
         let cfg = own.config(&general(), Mode::Enabled);

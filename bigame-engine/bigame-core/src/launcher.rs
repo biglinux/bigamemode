@@ -120,6 +120,12 @@ impl LaunchPlan {
         let own = crate::game_settings::load(logical_game)
             .map(|s| s.launch)
             .unwrap_or_default();
+        let mut preset = crate::turbo_preset::active_levers();
+        if crate::optimization::uncapped_for_frame_generation(logical_game) {
+            // Its frame generation runs above the limiter: under the cap it
+            // would render half of it. The session's cap is taken away below.
+            preset.frame_cap = None;
+        }
         Self::build_on_with_mode(
             &Host::detect(),
             executable,
@@ -129,7 +135,7 @@ impl LaunchPlan {
             gs_override,
             Some(gamescope_mode),
             &own,
-            crate::turbo_preset::active_levers(),
+            preset,
         )
     }
 
@@ -308,21 +314,23 @@ impl LaunchPlan {
             reason = %decision.reason,
             "gamescope decision"
         );
-        // One frame limiter per launch: two pacers at one rate beat.
+        // One frame limiter per launch: two pacers at one rate beat. The
+        // game's own limit (its profile, or an older profile's Gamescope
+        // table) is the more specific choice and takes the preset's place.
+        let own_limit = (own.frame_limit > 0)
+            .then_some(own.frame_limit)
+            .or_else(|| own_frame_limit(gs_override));
         let cap = Cap::choose(
-            preset.frame_cap,
-            decision
-                .use_gamescope
-                .then(|| own_frame_limit(gs_override))
-                .flatten(),
+            own_limit.or(preset.frame_cap),
             is_native(executable, executable_args),
             host.mangohud,
             decision.use_gamescope,
         );
-        if cap == Cap::OwnLimit {
+        if own_limit.is_some() {
             tracing::info!(
                 game = logical_game,
-                "frame cap: the game's own Gamescope limit, over the Turbo preset's"
+                ?cap,
+                "frame cap: the game's own limit, over the Turbo preset's"
             );
         }
         env.extend(crate::turbo_preset::preset_env(
@@ -352,10 +360,13 @@ impl LaunchPlan {
             if mangohud != crate::mangohud::Mode::Off && !matches!(cap, Cap::MangoHud(_)) {
                 gs.mangoapp = true;
             }
+            // Gamescope's -r only as the last resort the cap chose: an older
+            // profile's Gamescope limit is held by DXVK or MangoHud instead.
             let capped = if let Cap::Gamescope(fps) = cap {
                 gs.frame_limit = gamescope::FrameLimit::NestedRefresh(fps);
                 true
             } else {
+                gs.frame_limit = gamescope::FrameLimit::None;
                 false
             };
             let gs_override = (gs_override.is_some() || gs.mangoapp || capped).then_some(&gs);
@@ -559,9 +570,6 @@ impl LaunchPlan {
 enum Cap {
     /// No cap.
     None,
-    /// The game's own Gamescope limit (`-r`), which a preset does not
-    /// override: the game's profile is the more specific choice.
-    OwnLimit,
     /// DXVK and VKD3D-Proton, for a Windows game.
     Proton(u32),
     /// `MangoHud`'s `fps_limit`, which waits inside a native game's own swap.
@@ -571,21 +579,12 @@ enum Cap {
 }
 
 impl Cap {
-    /// The limiter for a preset's cap `preset` (`Some(0)` is "no cap"), the
-    /// game's own Gamescope limit `own`, on a game that is `native` or not.
+    /// The limiter for a cap of `fps` (`Some(0)` is "no cap": the game's own
+    /// limit or the preset's) on a game that is `native` or not.
     /// Gamescope's limiters did not hold `SuperTuxKart` with its vsync off
     /// (570 FPS presented, `MangoHud`'s log), so `-r` is the last resort.
-    fn choose(
-        preset: Option<u32>,
-        own: Option<u32>,
-        native: bool,
-        mangohud: bool,
-        gamescope: bool,
-    ) -> Self {
-        if own.is_some() {
-            return Self::OwnLimit;
-        }
-        match preset.filter(|fps| *fps > 0) {
+    fn choose(fps: Option<u32>, native: bool, mangohud: bool, gamescope: bool) -> Self {
+        match fps.filter(|fps| *fps > 0) {
             Some(fps) if !native => Self::Proton(fps),
             Some(fps) if mangohud => Self::MangoHud(fps),
             Some(fps) if gamescope => Self::Gamescope(fps),
@@ -619,25 +618,37 @@ const PRESET_VARIABLES: &[&str] = &[
 ];
 
 /// Whether `inherited` holds `key` at a value a Turbo preset writes, rather
-/// than one of the user's own.
+/// than one of the user's own. Quiet's cap follows the screen, so a cap is
+/// told apart by `DXVK_CONFIG` written as a preset writes it, at any rate.
 fn is_a_presets(inherited: &HashMap<String, String>, key: &str) -> bool {
     let Some(value) = inherited.get(key) else {
         return false;
     };
-    let everything = crate::turbo_preset::Machine {
-        vkbasalt: true,
-        fsr4: true,
-    };
-    crate::turbo_preset::ALL.iter().any(|p| {
-        let env = crate::turbo_preset::preset_env(crate::turbo_preset::levers(*p, everything));
+    let cap = crate::turbo_preset::presets_cap_in(inherited);
+    match key {
+        "DXVK_CONFIG" => cap.is_some_and(|n| {
+            crate::turbo_preset::preset_env(crate::turbo_preset::Levers {
+                frame_cap: Some(n),
+                ..crate::turbo_preset::Levers::default()
+            })
+            .get(key)
+                == Some(value)
+        }),
         // DXVK_FRAME_RATE holds the same number as VKD3D_FRAME_RATE.
-        let wrote = if key == "DXVK_FRAME_RATE" {
-            env.get("VKD3D_FRAME_RATE")
-        } else {
-            env.get(key)
-        };
-        wrote == Some(value)
-    })
+        "VKD3D_FRAME_RATE" | "DXVK_FRAME_RATE" => cap.is_some_and(|n| *value == n.to_string()),
+        _ => {
+            let everything = crate::turbo_preset::Machine {
+                vkbasalt: true,
+                fsr4: true,
+                refresh_hz: 0,
+            };
+            crate::turbo_preset::ALL.iter().any(|p| {
+                crate::turbo_preset::preset_env(crate::turbo_preset::levers(*p, everything))
+                    .get(key)
+                    == Some(value)
+            })
+        }
+    }
 }
 
 /// What of a Turbo preset the game would inherit and the plan does not set:
@@ -785,10 +796,20 @@ fn write_private(path: &std::path::Path, content: &[u8]) -> Result<()> {
 /// reach everything it starts — a wrapper script's game included.
 pub fn in_own_process_group(cmd: &mut std::process::Command) {
     use std::os::unix::process::CommandExt;
-    // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
-    // calling process, which between fork and exec is the child alone.
+    // SAFETY: `setpgid(0, 0)` and the `ioprio_set` system call are
+    // async-signal-safe and touch only the calling process, which between
+    // fork and exec is the child alone.
     unsafe {
         cmd.pre_exec(|| {
+            // Big Game Mode yields the disk to games
+            // ([`crate::processes::yield_disk_to_games`]); what it starts gets
+            // the normal priority back, which needs no privilege.
+            libc::syscall(
+                libc::SYS_ioprio_set,
+                crate::processes::IOPRIO_WHO_PROCESS,
+                0,
+                0,
+            );
             if libc::setpgid(0, 0) == 0 {
                 Ok(())
             } else {
@@ -1330,6 +1351,7 @@ mod tests {
         let desktop_fsr4 = Machine {
             vkbasalt: true,
             fsr4: true,
+            refresh_hz: 0,
         };
         let host = Host {
             gamescope: Some(crate::capabilities::GamescopeCaps {
@@ -1358,11 +1380,11 @@ mod tests {
                 levers(preset, desktop_fsr4),
             )
         };
-        // Locked 60 on a native game in Gamescope: MangoHud's limiter,
+        // Quiet on a native game in Gamescope: MangoHud's limiter,
         // hidden, inside it, and nothing else — no -r, no Proton cap.
         let mut video = VideoConfig::default();
         video.upscaling.gamescope_enabled = true;
-        let plan = plan_with(&video, Preset::Locked60);
+        let plan = plan_with(&video, Preset::Quiet);
         assert!(!plan.args.iter().any(|a| a == "-r"), "{:?}", plan.args);
         assert!(!plan.env.contains_key("DXVK_CONFIG"));
         assert!(!plan.env.contains_key("VKD3D_FRAME_RATE"));
@@ -1373,7 +1395,7 @@ mod tests {
             Some("no_display,fps_limit=60")
         );
         // Without Gamescope, the wrapper goes in front of the game.
-        let plan = plan_with(&VideoConfig::default(), Preset::Locked60);
+        let plan = plan_with(&VideoConfig::default(), Preset::Quiet);
         assert_eq!(
             (plan.program.as_str(), plan.args[0].as_str()),
             ("mangohud", "game")
@@ -1389,7 +1411,7 @@ mod tests {
             None,
             None,
             &crate::game_launch::GameLaunch::default(),
-            levers(Preset::Locked60, desktop_fsr4),
+            levers(Preset::Quiet, desktop_fsr4),
         );
         assert_eq!(plan.program, "gamescope");
         assert!(!plan.args.iter().any(|a| a == "-r" || a == "mangohud"));
@@ -1404,11 +1426,11 @@ mod tests {
             "DXVK before 2.3"
         );
         assert!(plan.env.contains_key("DXVK_CONFIG"));
-        // Enhanced over a Tuning with Wine FSR on: switched off explicitly,
+        // Pretty over a Tuning with Wine FSR on: switched off explicitly,
         // vkBasalt on, FSR 4 asked for.
         let mut video = VideoConfig::default();
         video.upscaling.wine_fsr_enabled = true;
-        let plan = plan_with(&video, Preset::Enhanced);
+        let plan = plan_with(&video, Preset::Pretty);
         assert_eq!(
             plan.env.get("WINE_FULLSCREEN_FSR").map(String::as_str),
             Some("0")
@@ -1418,8 +1440,8 @@ mod tests {
             Some("1")
         );
         assert_eq!(plan.env.get("FSR4_UPGRADE").map(String::as_str), Some("1"));
-        // Standard adds nothing.
-        let plan = plan_with(&VideoConfig::default(), Preset::Standard);
+        // Fastest adds nothing.
+        let plan = plan_with(&VideoConfig::default(), Preset::Fastest);
         assert!(plan.env.is_empty(), "{:?}", plan.env);
     }
 
@@ -1596,7 +1618,12 @@ mod tests {
         let plan = build_own(&video, &own, gamescope::Mode::Enabled);
         assert_eq!(plan.program, "gamescope");
         assert_eq!(arg_after(&plan, "-F"), Some("nis"));
-        assert_eq!(arg_after(&plan, "-r"), Some("60"));
+        // The limit is DXVK's and VKD3D-Proton's, not Gamescope's -r.
+        assert!(!plan.args.iter().any(|a| a == "-r"), "{:?}", plan.args);
+        assert_eq!(
+            plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
+            Some("60")
+        );
         // Its own filter where Automatic runs Gamescope for its own size.
         video.upscaling.target_width = 2560;
         video.upscaling.target_height = 1440;
@@ -1826,6 +1853,7 @@ mod tests {
                 crate::turbo_preset::Machine {
                     vkbasalt: true,
                     fsr4: true,
+                    refresh_hz: 0,
                 },
             ),
         )
@@ -1848,32 +1876,37 @@ mod tests {
             frame_limit: 30,
             ..crate::game_launch::GameLaunch::default()
         };
-        let always = Some(gamescope::Mode::Enabled);
-        for exe in ["game", "game.exe"] {
-            // Locked 60 neither raises it to 60 nor adds a second pacer.
-            let plan = preset_plan(&capable(), exe, &own, always, Preset::Locked60);
-            assert_eq!(arg_after(&plan, "-r"), Some("30"), "{exe}");
-            for key in [
-                "DXVK_CONFIG",
-                "VKD3D_FRAME_RATE",
-                "DXVK_FRAME_RATE",
-                "MANGOHUD_CONFIG",
-            ] {
-                assert!(!plan.env.contains_key(key), "{exe}: {key}");
-            }
-            assert!(!plan.args.iter().any(|a| a == "mangohud"), "{exe}");
-            // More FPS does not take it away.
-            let plan = preset_plan(&capable(), exe, &own, always, Preset::MoreFps);
-            assert_eq!(arg_after(&plan, "-r"), Some("30"), "{exe}");
+        for mode in [
+            Some(gamescope::Mode::Enabled),
+            Some(gamescope::Mode::Disabled),
+        ] {
+            // A Windows game: DXVK and VKD3D-Proton at the game's own limit,
+            // which Quiet's cap neither raises nor doubles.
+            let plan = preset_plan(&capable(), "game.exe", &own, mode, Preset::Quiet);
+            assert_eq!(
+                plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
+                Some("30"),
+                "{mode:?}"
+            );
+            assert!(!plan.args.iter().any(|a| a == "-r" || a == "mangohud"));
+            assert!(!plan.env.contains_key("MANGOHUD_CONFIG"));
+            // Fastest does not take it away.
+            let plan = preset_plan(&capable(), "game.exe", &own, mode, Preset::Fastest);
+            assert_eq!(
+                plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
+                Some("30"),
+                "{mode:?}"
+            );
+            // A native game: MangoHud's limiter, never Gamescope's -r.
+            let plan = preset_plan(&capable(), "game", &own, mode, Preset::Quiet);
+            assert!(!plan.args.iter().any(|a| a == "-r"), "{:?}", plan.args);
+            assert!(!plan.env.contains_key("VKD3D_FRAME_RATE"));
+            assert_eq!(
+                plan.env.get("MANGOHUD_CONFIG").map(String::as_str),
+                Some("no_display,fps_limit=30"),
+                "{mode:?}"
+            );
         }
-        // Without Gamescope the game's own limit is not in force: the
-        // preset's cap is.
-        let never = Some(gamescope::Mode::Disabled);
-        let plan = preset_plan(&capable(), "game.exe", &own, never, Preset::Locked60);
-        assert_eq!(
-            plan.env.get("VKD3D_FRAME_RATE").map(String::as_str),
-            Some("60")
-        );
     }
 
     #[test]
@@ -1885,12 +1918,12 @@ mod tests {
             mangohud: false,
             ..capable()
         };
-        let plan = preset_plan(&no_mangohud, "game", &none, always, Preset::Locked60);
+        let plan = preset_plan(&no_mangohud, "game", &none, always, Preset::Quiet);
         assert_eq!(arg_after(&plan, "-r"), Some("60"));
         assert!(!plan.args.iter().any(|a| a == "mangohud"));
         // Neither MangoHud nor Gamescope: no cap at all, rather than a
         // wrapper that is not there.
-        let plan = preset_plan(&no_mangohud, "game", &none, None, Preset::Locked60);
+        let plan = preset_plan(&no_mangohud, "game", &none, None, Preset::Quiet);
         assert_eq!(plan.program, "game");
         for key in ["DXVK_CONFIG", "VKD3D_FRAME_RATE", "MANGOHUD_CONFIG"] {
             assert!(!plan.env.contains_key(key), "{key}");
@@ -1900,7 +1933,7 @@ mod tests {
     #[test]
     fn what_a_preset_no_longer_in_force_left_behind_does_not_reach_the_game() {
         use crate::turbo_preset::Preset;
-        // Big Game Mode started while Locked 60 and Tuning's Wine FSR were in
+        // Big Game Mode started while Quiet and Tuning's Wine FSR were in
         // the session; both are off now.
         let stale = Host {
             env: [
@@ -1922,7 +1955,7 @@ mod tests {
             ..desktop()
         };
         let none = crate::game_launch::GameLaunch::default();
-        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Standard);
+        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Fastest);
         let mut unset = plan.unset.clone();
         unset.sort();
         assert_eq!(
@@ -1953,9 +1986,17 @@ mod tests {
             None,
         );
         assert_eq!(plan.unset.len(), 4);
-        // A preset in force sets its own values: nothing to take away.
-        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Enhanced);
-        assert!(plan.unset.is_empty(), "{:?}", plan.unset);
+        // Pretty in force sets FSR 4 itself; only the cap it does not set
+        // is taken away.
+        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Pretty);
+        let mut unset = plan.unset.clone();
+        unset.sort();
+        assert_eq!(unset, ["DXVK_CONFIG", "VKD3D_FRAME_RATE"]);
+        // Quiet in force sets the cap itself; FSR 4 it does not set goes.
+        let plan = preset_plan(&stale, "game.exe", &none, None, Preset::Quiet);
+        let mut unset = plan.unset.clone();
+        unset.sort();
+        assert_eq!(unset, ["FSR4_UPGRADE", "PROTON_FSR4_UPGRADE"]);
     }
 
     #[test]
@@ -1969,9 +2010,9 @@ mod tests {
             ..desktop()
         };
         let none = crate::game_launch::GameLaunch::default();
-        let plan = preset_plan(&mine, "game.exe", &none, None, Preset::Standard);
+        let plan = preset_plan(&mine, "game.exe", &none, None, Preset::Fastest);
         assert!(plan.unset.is_empty(), "the user's own is not a preset's");
-        let plan = preset_plan(&mine, "game.exe", &none, None, Preset::Locked60);
+        let plan = preset_plan(&mine, "game.exe", &none, None, Preset::Quiet);
         assert_eq!(
             plan.env.get("DXVK_CONFIG").map(String::as_str),
             Some("dxgi.syncInterval = 0; dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60")

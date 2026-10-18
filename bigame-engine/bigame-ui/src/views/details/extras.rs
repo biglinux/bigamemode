@@ -419,8 +419,8 @@ pub fn steam_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Steam launch options"));
     group.set_description(Some(&i18n(
-        "Options that call a program this system does not have. Steam runs them \
-         through a shell, so the game will not start.",
+        "Options that call a program this system does not have, so the game will not start, \
+         or a program without %command%, which then does nothing.",
     )));
     group.set_visible(false);
 
@@ -463,8 +463,11 @@ struct BrokenOption {
     config: std::path::PathBuf,
     app_id: String,
     title: String,
-    missing: String,
+    program: String,
+    why: bigame_core::steam::Broken,
     options: String,
+    /// The options as they should be, when that is clear.
+    fixed: Option<String>,
 }
 
 fn scan_broken_launch_options() -> Vec<BrokenOption> {
@@ -478,8 +481,10 @@ fn scan_broken_launch_options() -> Vec<BrokenOption> {
             out.push(BrokenOption {
                 title: steam_app_name(&home, &broken.app_id),
                 config: user.config.clone(),
+                fixed: broken.fixed(),
                 app_id: broken.app_id,
-                missing: broken.missing,
+                program: broken.program,
+                why: broken.why,
                 options: broken.options,
             });
         }
@@ -501,11 +506,18 @@ fn steam_app_name(home: &std::path::Path, app_id: &str) -> String {
 }
 
 fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {
+    let what = match entry.why {
+        bigame_core::steam::Broken::NotInstalled => {
+            i18n("Calls '%p', which is not installed — launch options: %o")
+        }
+        bigame_core::steam::Broken::NoCommand => i18n(
+            "'%p' without %command%: Steam passes it to the game, where it does nothing — launch options: %o",
+        ),
+    };
     let row = adw::ActionRow::builder()
         .title(&entry.title)
         .subtitle(
-            i18n("Calls '%p', which is not installed — launch options: %o")
-                .replace("%p", &entry.missing)
+            what.replace("%p", &entry.program)
                 .replace("%o", &entry.options),
         )
         .build();
@@ -514,57 +526,91 @@ fn build_broken_row(entry: &BrokenOption) -> adw::ActionRow {
         icon.add_css_class("warning");
         icon
     });
-
+    if let Some(fixed) = &entry.fixed {
+        let fix = gtk4::Button::builder()
+            .label(i18n("Fix"))
+            .tooltip_text(i18n("Change them to: %s").replace("%s", fixed))
+            .valign(gtk4::Align::Center)
+            .css_classes(["suggested-action"])
+            .build();
+        let (config, app_id, fixed) = (entry.config.clone(), entry.app_id.clone(), fixed.clone());
+        fix.connect_clicked(move |button| {
+            write_launch_options(
+                button,
+                &config,
+                &app_id,
+                &fixed,
+                i18n("Launch options fixed"),
+            );
+        });
+        row.add_suffix(&fix);
+    }
     let clear = gtk4::Button::builder()
         .label(i18n("Clear launch options"))
         .valign(gtk4::Align::Center)
         .build();
-
-    let config = entry.config.clone();
-    let app_id = entry.app_id.clone();
+    let (config, app_id) = (entry.config.clone(), entry.app_id.clone());
     clear.connect_clicked(move |button| {
-        let (config, app_id, button) = (config.clone(), app_id.clone(), button.clone());
-        button.set_sensitive(false);
-        // Steam's file is parsed and rewritten off the main thread.
-        glib::spawn_future_local(async move {
-            let done = gio::spawn_blocking(move || {
-                // Steam holds this file in memory and rewrites it on exit, so
-                // an edit made underneath a running client is silently
-                // discarded. Say so rather than appearing to work.
-                if bigame_core::steam::is_running() {
-                    return None;
-                }
-                Some(bigame_core::steam::set_launch_options(&config, &app_id, ""))
-            })
-            .await;
-            button.set_sensitive(true);
-            match done {
-                Ok(None) => toast::show(
-                    &button,
-                    &i18n("Close Steam first — it would overwrite this change when it exits."),
-                ),
-                Ok(Some(Ok(()))) => {
-                    toast::show(&button, &i18n("Launch options cleared"));
-                    STEAM_REFRESH.with(|cell| {
-                        if let Some(refresh) = cell.borrow().as_ref() {
-                            refresh();
-                        }
-                    });
-                }
-                Ok(Some(Err(e))) => toast::show(
-                    &button,
-                    &i18n("Could not change it: %s").replace("%s", &error_text(&e)),
-                ),
-                Err(_) => toast::show(
-                    &button,
-                    &i18n("Could not change it: %s")
-                        .replace("%s", &i18n("the worker thread stopped")),
-                ),
-            }
-        });
+        write_launch_options(button, &config, &app_id, "", i18n("Launch options cleared"));
     });
     row.add_suffix(&clear);
     row
+}
+
+/// Write `options` as the launch options of Steam app `app_id` in `config`,
+/// from `button`, and say how it went (`done` when it worked).
+fn write_launch_options(
+    button: &gtk4::Button,
+    config: &std::path::Path,
+    app_id: &str,
+    options: &str,
+    done: String,
+) {
+    let (config, app_id, options, button) = (
+        config.to_path_buf(),
+        app_id.to_owned(),
+        options.to_owned(),
+        button.clone(),
+    );
+    button.set_sensitive(false);
+    // Steam's file is parsed and rewritten off the main thread.
+    glib::spawn_future_local(async move {
+        let written = gio::spawn_blocking(move || {
+            // Steam holds this file in memory and rewrites it on exit, so
+            // an edit made underneath a running client is silently
+            // discarded. Say so rather than appearing to work.
+            if bigame_core::steam::is_running() {
+                return None;
+            }
+            Some(bigame_core::steam::set_launch_options(
+                &config, &app_id, &options,
+            ))
+        })
+        .await;
+        button.set_sensitive(true);
+        match written {
+            Ok(None) => toast::show(
+                &button,
+                &i18n("Close Steam first — it would overwrite this change when it exits."),
+            ),
+            Ok(Some(Ok(()))) => {
+                toast::show(&button, &done);
+                STEAM_REFRESH.with(|cell| {
+                    if let Some(refresh) = cell.borrow().as_ref() {
+                        refresh();
+                    }
+                });
+            }
+            Ok(Some(Err(e))) => toast::show(
+                &button,
+                &i18n("Could not change it: %s").replace("%s", &error_text(&e)),
+            ),
+            Err(_) => toast::show(
+                &button,
+                &i18n("Could not change it: %s").replace("%s", &i18n("the worker thread stopped")),
+            ),
+        }
+    });
 }
 
 // ── Network ─────────────────────────────────────────────────────────────────

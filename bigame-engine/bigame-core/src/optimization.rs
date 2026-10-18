@@ -467,20 +467,24 @@ impl GameOptimization {
     /// A new game's settings: the defaults every page starts from.
     #[must_use]
     pub fn new(process: &str) -> Self {
-        Self::from_profile(GameProfile {
+        let mut profile = GameProfile {
             name: process.to_owned(),
             ..GameProfile::default()
-        })
+        };
+        crate::profiles::keep_proton_protections(&mut profile);
+        Self::from_profile(profile)
     }
 
     /// The settings of the profile in file `stem`, each part read from its
     /// owner. A profile that does not read starts from the defaults.
     #[must_use]
     pub fn load(stem: &str) -> Self {
-        let profile = crate::profiles::load(stem).unwrap_or_else(|_| GameProfile {
+        let mut profile = crate::profiles::load(stem).unwrap_or_else(|_| GameProfile {
             name: stem.to_owned(),
             ..GameProfile::default()
         });
+        // A profile written before 2.4.0 gets them at its next save.
+        crate::profiles::keep_proton_protections(&mut profile);
         let mut me = Self::from_profile(profile);
         let (multiplier, flow_scale, performance, hdr, present_mode) =
             crate::fg::read_profile_any(&me.profile.name);
@@ -684,7 +688,7 @@ pub fn refresh_steam_gamescope() -> Vec<(String, anyhow::Result<crate::steam_gam
             || settings.steam_env.is_some()
             || settings.steam_wine_fsr_off;
         if !written {
-            if settings.launch.is_empty() {
+            if settings.launch.is_empty() && !uncapped_for_frame_generation(&name) {
                 continue;
             }
             let steam = steam_games.get_or_insert_with(|| {
@@ -737,10 +741,13 @@ impl GameOptimization {
             && self
                 .launch
                 .upscales(&video.upscaling, self.profile.gamescope_mode, false);
-        let env = self
-            .launch
-            .steam_env(&video.upscaling, upscales, optiscaler || wine_fsr_off)
-            .join(" ");
+        let mut words =
+            self.launch
+                .steam_env(&video.upscaling, upscales, optiscaler || wine_fsr_off);
+        if self.launch.frame_limit == 0 && uncapped_for_frame_generation(&self.profile.name) {
+            words.extend(UNCAPPED.map(|(k, v)| format!("{k}={v}")));
+        }
+        let env = words.join(" ");
         crate::steam_gamescope::Wanted {
             gamescope,
             env: (!env.is_empty()).then_some(env),
@@ -881,6 +888,9 @@ impl GameOptimization {
         if fsr4 {
             env.extend(HEROIC_FSR4.map(|(k, v)| (k.to_owned(), v.to_owned())));
         }
+        if self.launch.frame_limit == 0 && uncapped_for_frame_generation(&self.profile.name) {
+            env.extend(UNCAPPED.map(|(k, v)| (k.to_owned(), v.to_owned())));
+        }
         // MangoHud as Heroic has it: its own switch for Forced, the layer's
         // variable for On.
         if self.mangohud == crate::mangohud::Mode::On {
@@ -964,7 +974,10 @@ pub fn refresh_heroic() -> Vec<(String, anyhow::Result<crate::heroic_launch::App
             continue;
         };
         if settings.heroic.is_empty() {
-            if settings.launch.is_empty() && !settings.heroic_fsr4_upgrade {
+            if settings.launch.is_empty()
+                && !settings.heroic_fsr4_upgrade
+                && !uncapped_for_frame_generation(&name)
+            {
                 continue;
             }
             let heroic = heroic_games.get_or_insert_with(|| {
@@ -989,6 +1002,28 @@ pub fn refresh_heroic() -> Vec<(String, anyhow::Result<crate::heroic_launch::App
 #[must_use]
 pub fn lsfg_general_on(video: &VideoConfig) -> bool {
     video.frame_gen.enabled && video.frame_gen.backend == FrameGenBackend::LsfgVk
+}
+
+/// What lifts the Turbo preset's frame cap from one game, as `(name,
+/// value)`. DXVK reads its options only from `DXVK_CONFIG` now (2.7:
+/// `dxvk.maxFrameRate`, else `dxgi.`/`d3d9.maxFrameRate`), so the game gets
+/// one of its own that caps nothing in place of the session's; DXVK before
+/// 2.3 reads `DXVK_FRAME_RATE`, VKD3D-Proton `VKD3D_FRAME_RATE`, and `0` is
+/// no limit for both.
+pub const UNCAPPED: [(&str, &str); 3] = [
+    ("DXVK_CONFIG", "dxvk.maxFrameRate=0"),
+    ("DXVK_FRAME_RATE", "0"),
+    ("VKD3D_FRAME_RATE", "0"),
+];
+
+/// Whether the game whose process is `process` is left out of the Turbo
+/// preset's frame cap: `OptiScaler`'s frame generation runs above the
+/// limiter, so under a cap the game would render about half of it (Shadow
+/// of the Tomb Raider under 60: 30.0). lsfg-vk sits under the limiter and
+/// keeps the cap: it shows the cap multiplied.
+#[must_use]
+pub fn uncapped_for_frame_generation(process: &str) -> bool {
+    crate::turbo_preset::active().caps() && capped_frames(process) == Some(CappedFrames::Shown)
 }
 
 /// Which frames a Turbo preset's frame cap holds in a game that generates

@@ -1,7 +1,7 @@
 # Maintainer: Rafael Ruscher <rruscher@gmail.com>
 
 pkgname=bigame-mode
-pkgver=2.3.2
+pkgver=2.4.0
 pkgrel=1
 pkgdesc="Big Game Mode, BigLinux's game mode: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets"
 arch=('x86_64')
@@ -77,6 +77,12 @@ optdepends=(
     # Proton and Wine synchronise through /dev/ntsync when it exists; on Arch
     # only wine pulls this in, so a Steam-only system may lack the device.
     'ntsync-autoload: load the NTSync driver at boot (Proton/Wine synchronisation)'
+    # The main screen's size, refresh rate and adaptive sync: kscreen-doctor
+    # on KDE Plasma, xrandr elsewhere. Without either, the Quiet preset caps
+    # at 60 instead of the screen's rate (or half of it) and adaptive sync
+    # switched off is not pointed out.
+    'libkscreen: the screen'"'"'s refresh rate and adaptive sync on KDE Plasma'
+    'xorg-xrandr: the screen'"'"'s refresh rate outside KDE Plasma'
 )
 install="${pkgname}.install"
 # The BigLinux package builders build main once its CI has passed

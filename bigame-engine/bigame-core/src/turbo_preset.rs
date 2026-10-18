@@ -48,38 +48,43 @@ use serde::{Deserialize, Serialize};
 use crate::text::N_;
 
 /// What the games should favour while Turbo is on.
+///
+/// Three choices a child can tell apart, and none of them costs frames
+/// without its name saying so. Presets from before 2.4.0 load as the one
+/// that took their place: Standard and More FPS as Fastest (More FPS only
+/// added Wine FSR, which does nothing unless the game itself runs below the
+/// screen's resolution), Locked 60 FPS as Quiet, Enhanced graphics as
+/// Pretty.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Preset {
-    /// Tuning as it is: the preset adds nothing.
+    /// Every frame the computer can make: the preset adds nothing to
+    /// Tuning.
     #[default]
-    Standard,
-    /// No frame cap, Wine FSR on, no filter: every frame the GPU can give.
-    MoreFps,
-    /// A 60 FPS cap: steady frame times, less heat and noise.
-    Locked60,
-    /// Sharper image at native resolution, FSR 4 where the GPU has it, and
-    /// a 60 FPS cap so the heavier image still plays steadily.
-    Enhanced,
+    #[serde(alias = "standard", alias = "more_fps")]
+    Fastest,
+    /// A frame cap that fits the screen ([`quiet_cap`]): steady frame times,
+    /// a cooler and quieter computer. Games that generate frames are left
+    /// uncapped.
+    #[serde(alias = "locked60")]
+    Quiet,
+    /// A sharper image at the screen's resolution, and FSR 4 where the GPU
+    /// has it. No frame cap.
+    #[serde(alias = "enhanced")]
+    Pretty,
 }
 
 /// Every preset, in the order they are offered.
-pub const ALL: [Preset; 4] = [
-    Preset::Standard,
-    Preset::MoreFps,
-    Preset::Locked60,
-    Preset::Enhanced,
-];
+pub const ALL: [Preset; 3] = [Preset::Fastest, Preset::Quiet, Preset::Pretty];
 
 impl Preset {
     /// Its name, translatable.
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Standard => N_("Standard"),
-            Self::MoreFps => N_("More FPS"),
-            Self::Locked60 => N_("Locked 60 FPS"),
-            Self::Enhanced => N_("Enhanced graphics"),
+            Self::Fastest => N_("Fastest"),
+            Self::Quiet => N_("Quiet"),
+            Self::Pretty => N_("Pretty"),
         }
     }
 
@@ -87,15 +92,14 @@ impl Preset {
     #[must_use]
     pub fn description(self) -> &'static str {
         match self {
-            Self::Standard => N_("Games run with Tuning as it is; the preset changes nothing."),
-            Self::MoreFps => N_(
-                "No frame cap and no image filter. Wine FSR scales a game you run in fullscreen below the display's resolution: lowering the resolution in the game is where the frames come from.",
+            Self::Fastest => {
+                N_("As many frames as your computer can make. Nothing is capped or added.")
+            }
+            Self::Quiet => N_(
+                "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped.",
             ),
-            Self::Locked60 => N_(
-                "Proton games are capped at 60 FPS: steady frame times, a cooler and quieter GPU. Wine FSR stays available to hold 60 at a lower resolution.",
-            ),
-            Self::Enhanced => N_(
-                "Sharper image (vkBasalt's CAS) at the display's resolution, FSR 4 for games with FSR 3.1 on a GPU that has it, and a 60 FPS cap so the heavier image plays steadily.",
+            Self::Pretty => N_(
+                "A sharper picture at your screen's resolution, and FSR 4 for games with FSR 3.1 on a graphics card that has it. Costs a few frames; no cap.",
             ),
         }
     }
@@ -104,17 +108,47 @@ impl Preset {
     #[must_use]
     pub fn id(self) -> &'static str {
         match self {
-            Self::Standard => "standard",
-            Self::MoreFps => "more_fps",
-            Self::Locked60 => "locked60",
-            Self::Enhanced => "enhanced",
+            Self::Fastest => "fastest",
+            Self::Quiet => "quiet",
+            Self::Pretty => "pretty",
         }
     }
 
-    /// The preset stored as `id`.
+    /// The preset stored as `id`, by its name now or before 2.4.0.
     #[must_use]
     pub fn from_id(id: &str) -> Option<Self> {
-        ALL.into_iter().find(|p| p.id() == id)
+        match id {
+            "standard" | "more_fps" => Some(Self::Fastest),
+            "locked60" => Some(Self::Quiet),
+            "enhanced" => Some(Self::Pretty),
+            _ => ALL.into_iter().find(|p| p.id() == id),
+        }
+    }
+
+    /// Whether it puts anything in the session: Fastest does not.
+    #[must_use]
+    pub fn adds_nothing(self) -> bool {
+        self == Self::Fastest
+    }
+
+    /// Whether it caps the frame rate: Quiet alone does.
+    #[must_use]
+    pub fn caps(self) -> bool {
+        self == Self::Quiet
+    }
+}
+
+/// The frame cap Quiet uses on a screen refreshing `refresh_hz` times a
+/// second (`0` when it is not known): the refresh rate itself up to 75 Hz,
+/// half of it above. Half the refresh rate shows every frame for exactly
+/// two refreshes; a fixed 60 on a 144 or 160 Hz screen without adaptive
+/// sync shows frames for two and three refreshes in turn, which judders.
+#[must_use]
+pub fn quiet_cap(refresh_hz: u32) -> u32 {
+    match refresh_hz {
+        0 => 60,
+        hz if hz <= 75 => hz,
+        hz => hz.div_ceil(2),
     }
 }
 
@@ -125,6 +159,8 @@ pub struct Machine {
     pub vkbasalt: bool,
     /// The GPU games render on runs FSR 4.
     pub fsr4: bool,
+    /// The main screen's refresh rate in whole hertz; `0` when unknown.
+    pub refresh_hz: u32,
 }
 
 impl Machine {
@@ -136,6 +172,9 @@ impl Machine {
             vkbasalt: crate::capabilities::vkbasalt_installed(),
             fsr4: crate::graphics::report::render_gpu(&hw)
                 .is_some_and(|g| crate::graphics::report::GpuInfo::fsr4(&g)),
+            refresh_hz: crate::screen::primary()
+                .and_then(|p| p.refresh_hz)
+                .unwrap_or(0),
         }
     }
 }
@@ -158,21 +197,13 @@ pub struct Levers {
 #[must_use]
 pub fn levers(preset: Preset, machine: Machine) -> Levers {
     match preset {
-        Preset::Standard => Levers::default(),
-        Preset::MoreFps => Levers {
-            frame_cap: Some(0),
-            wine_fsr: Some(true),
-            vkbasalt: Some(false),
-            fsr4_upgrade: false,
+        Preset::Fastest => Levers::default(),
+        Preset::Quiet => Levers {
+            frame_cap: Some(quiet_cap(machine.refresh_hz)),
+            ..Levers::default()
         },
-        Preset::Locked60 => Levers {
-            frame_cap: Some(60),
-            wine_fsr: Some(true),
-            vkbasalt: Some(false),
-            fsr4_upgrade: false,
-        },
-        Preset::Enhanced => Levers {
-            frame_cap: Some(60),
+        Preset::Pretty => Levers {
+            frame_cap: None,
             wine_fsr: Some(false),
             vkbasalt: machine.vkbasalt.then_some(true),
             fsr4_upgrade: machine.fsr4,
@@ -325,7 +356,7 @@ pub fn overlay_over<S: std::hash::BuildHasher>(
 
 // ── vkBasalt's sharpening ───────────────────────────────────────────────────
 
-/// Big Game Mode's own vkBasalt file for "Enhanced graphics": CAS and nothing
+/// Big Game Mode's own vkBasalt file for Pretty: CAS and nothing
 /// else. Never the user's `~/.config/vkBasalt/vkBasalt.conf`, which can hold
 /// any look (or the Nara Linux style, whose shaders may be missing).
 #[must_use]
@@ -581,7 +612,7 @@ pub fn active() -> Preset {
 #[must_use]
 pub fn active_levers() -> Levers {
     match active() {
-        Preset::Standard => Levers::default(),
+        Preset::Fastest => Levers::default(),
         preset => levers(preset, Machine::detect()),
     }
 }
@@ -604,12 +635,23 @@ pub struct Layer {
 pub fn layer() -> Layer {
     read_stored(&active_path()).map_or_else(Layer::default, |s| Layer {
         levers: match s.preset {
-            Preset::Standard => Levers::default(),
+            Preset::Fastest => Levers::default(),
             preset => levers(preset, Machine::detect()),
         },
         before: s.before,
         owns_preset_keys: true,
     })
+}
+
+/// The frame cap a preset wrote into `env`: a `DXVK_CONFIG` that ends with
+/// the cap exactly as a preset writes it (alone, or after the user's own
+/// options it was merged into).
+#[must_use]
+pub fn presets_cap_in<S: std::hash::BuildHasher>(env: &HashMap<String, String, S>) -> Option<u32> {
+    let config = env.get("DXVK_CONFIG")?;
+    let (_, rate) = config.rsplit_once("dxgi.maxFrameRate = ")?;
+    let n: u32 = rate.split(';').next()?.trim().parse().ok()?;
+    (n > 0 && config.ends_with(&dxvk_cap(n))).then_some(n)
 }
 
 /// The user's own values of [`PRESET_KEYS`] in a session environment. A
@@ -656,7 +698,7 @@ pub fn activate(preset: Preset) -> Result<Vec<String>> {
 }
 
 /// Whether a preset's record is there, readable or not. [`active`] reads an
-/// unreadable one as Standard, yet its variables may still be in the
+/// unreadable one as Fastest, yet its variables may still be in the
 /// session and [`deactivate`] must still run to take them away.
 #[must_use]
 pub fn has_record() -> bool {
@@ -678,11 +720,26 @@ fn launchers_owed_path() -> PathBuf {
 /// games for good; the mark [`launchers_owed_path`] keeps that owed, and
 /// [`resync`] and the next Turbo switch try again until it is written.
 fn follow_in_launchers() {
-    follow_in_launchers_at(
+    let followed = follow_in_launchers_at(
         &launchers_owed_path(),
         crate::optimization::refresh_steam_gamescope,
         crate::optimization::refresh_heroic,
     );
+    // MangoHud a deleted profile left in Steam's options while it was open.
+    let waiting = crate::mangohud::sync_turned_off()
+        .into_iter()
+        .any(|(_, r)| matches!(r, Ok(crate::mangohud::Applied::SteamRunning)));
+    if followed && waiting {
+        mark_launchers_owed();
+    }
+}
+
+/// Note that the launchers still owe a change, to be tried again
+/// ([`follow_owed`]) once the one that was open is closed.
+pub fn mark_launchers_owed() {
+    if let Err(e) = write_atomic(&launchers_owed_path(), "") {
+        tracing::warn!(error = %format!("{e:#}"), "could not record that the launchers owe a change");
+    }
 }
 
 /// [`follow_in_launchers`] with the mark at `owed` and the launchers
@@ -810,7 +867,7 @@ fn remove_if_any(path: &Path) -> Result<()> {
 /// session's environment cannot be set.
 pub fn switch(preset: Preset) -> Result<Vec<String>> {
     set_chosen(preset)?;
-    if preset == Preset::Standard {
+    if preset.adds_nothing() {
         deactivate()
     } else {
         activate(preset)
@@ -885,7 +942,7 @@ pub fn in_session() -> Result<Option<Preset>> {
     let Some(record) = read_stored(&active_path()) else {
         return Ok(None);
     };
-    if record.preset == Preset::Standard {
+    if record.preset.adds_nothing() {
         return Ok(None);
     }
     let layer = Layer {
@@ -904,6 +961,7 @@ mod tests {
     const DESKTOP: Machine = Machine {
         vkbasalt: true,
         fsr4: true,
+        refresh_hz: 60,
     };
 
     fn tuning() -> HashMap<String, String> {
@@ -917,32 +975,63 @@ mod tests {
     }
 
     #[test]
-    fn standard_changes_nothing() {
+    fn fastest_changes_nothing() {
         let mut env = tuning();
-        overlay(&mut env, levers(Preset::Standard, DESKTOP));
+        overlay(&mut env, levers(Preset::Fastest, DESKTOP));
         assert_eq!(env, tuning());
+    }
+
+    #[test]
+    fn quiet_fits_the_cap_to_the_screen() {
+        assert_eq!(quiet_cap(0), 60, "unknown screen");
+        assert_eq!(quiet_cap(50), 50);
+        assert_eq!(quiet_cap(60), 60);
+        assert_eq!(quiet_cap(75), 75);
+        assert_eq!(quiet_cap(120), 60);
+        assert_eq!(quiet_cap(144), 72);
+        assert_eq!(quiet_cap(160), 80);
+        assert_eq!(quiet_cap(165), 83);
+        assert_eq!(quiet_cap(240), 120);
+        let screen = |refresh_hz| Machine {
+            refresh_hz,
+            ..DESKTOP
+        };
+        assert_eq!(levers(Preset::Quiet, screen(160)).frame_cap, Some(80));
+        // Quiet caps and nothing else: Tuning's Wine FSR and vkBasalt stay.
+        let mut env = tuning();
+        overlay(&mut env, levers(Preset::Quiet, screen(144)));
+        assert_eq!(env["VKD3D_FRAME_RATE"], "72");
+        assert_eq!(env["WINE_FULLSCREEN_FSR"], "1");
+    }
+
+    #[test]
+    fn only_quiet_caps() {
+        for preset in [Preset::Fastest, Preset::Pretty] {
+            let mut env = HashMap::new();
+            overlay(&mut env, levers(preset, DESKTOP));
+            for key in ["DXVK_CONFIG", "DXVK_FRAME_RATE", "VKD3D_FRAME_RATE"] {
+                assert!(!env.contains_key(key), "{preset:?}: {key}");
+            }
+        }
     }
 
     #[test]
     fn a_frame_cap_reaches_dxvk_and_vkd3d_proton() {
         let mut env = HashMap::new();
-        overlay(&mut env, levers(Preset::Locked60, DESKTOP));
+        overlay(&mut env, levers(Preset::Quiet, DESKTOP));
         assert_eq!(env["VKD3D_FRAME_RATE"], "60");
         // DXVK before 2.3 reads only DXVK_FRAME_RATE.
         assert_eq!(env["DXVK_FRAME_RATE"], "60");
         let dxvk = &env["DXVK_CONFIG"];
         assert!(dxvk.contains("dxgi.maxFrameRate = 60"), "{dxvk}");
         assert!(dxvk.contains("d3d9.maxFrameRate = 60"), "{dxvk}");
-        // More FPS removes a cap rather than setting one.
-        let mut env = HashMap::new();
-        overlay(&mut env, levers(Preset::MoreFps, DESKTOP));
-        assert!(!env.contains_key("VKD3D_FRAME_RATE") && !env.contains_key("DXVK_CONFIG"));
+        assert_eq!(presets_cap_in(&env), Some(60));
     }
 
     #[test]
-    fn enhanced_turns_wine_fsr_off_and_uses_what_the_machine_has() {
+    fn pretty_turns_wine_fsr_off_and_uses_what_the_machine_has() {
         let mut env = tuning();
-        overlay(&mut env, levers(Preset::Enhanced, DESKTOP));
+        overlay(&mut env, levers(Preset::Pretty, DESKTOP));
         assert!(
             !env.contains_key("WINE_FULLSCREEN_FSR"),
             "native resolution"
@@ -953,17 +1042,9 @@ mod tests {
         // Without vkBasalt or an FSR 4 GPU those are not asked for.
         let bare = Machine::default();
         let mut env = tuning();
-        overlay(&mut env, levers(Preset::Enhanced, bare));
+        overlay(&mut env, levers(Preset::Pretty, bare));
         assert!(!env.contains_key("ENABLE_VKBASALT"));
         assert!(!env.contains_key("FSR4_UPGRADE"));
-    }
-
-    #[test]
-    fn more_fps_takes_the_filter_away_and_turns_wine_fsr_on() {
-        let mut env = HashMap::from([("ENABLE_VKBASALT".to_owned(), "1".to_owned())]);
-        overlay(&mut env, levers(Preset::MoreFps, DESKTOP));
-        assert!(!env.contains_key("ENABLE_VKBASALT"));
-        assert_eq!(env["WINE_FULLSCREEN_FSR"], "1");
     }
 
     #[test]
@@ -1014,8 +1095,19 @@ multiplier = 1
         assert_eq!(Preset::from_id("nope"), None);
         // A record written before the user's values were kept still loads.
         let old: Stored = toml::from_str("preset = \"locked60\"\n").unwrap();
-        assert_eq!(old.preset, Preset::Locked60);
+        assert_eq!(old.preset, Preset::Quiet);
         assert!(old.before.is_empty());
+        // Every preset from before 2.4.0 loads as the one that took its place.
+        for (old, new) in [
+            ("standard", Preset::Fastest),
+            ("more_fps", Preset::Fastest),
+            ("locked60", Preset::Quiet),
+            ("enhanced", Preset::Pretty),
+        ] {
+            assert_eq!(Preset::from_id(old), Some(new), "{old}");
+            let stored: Stored = toml::from_str(&format!("preset = \"{old}\"\n")).unwrap();
+            assert_eq!(stored.preset, new, "{old}");
+        }
     }
 
     /// A private folder per test, removed afterwards.
@@ -1041,10 +1133,10 @@ multiplier = 1
     }
 
     #[test]
-    fn enhanced_points_vkbasalt_at_its_own_cas_file() {
+    fn pretty_points_vkbasalt_at_its_own_cas_file() {
         let cas = cas_config_path().to_string_lossy().into_owned();
         let mut env = tuning();
-        overlay(&mut env, levers(Preset::Enhanced, DESKTOP));
+        overlay(&mut env, levers(Preset::Pretty, DESKTOP));
         assert_eq!(env["VKBASALT_CONFIG_FILE"], cas);
         assert!(
             !cas.ends_with("vkBasalt/vkBasalt.conf"),
@@ -1052,13 +1144,11 @@ multiplier = 1
         );
         // Games Big Game Mode starts get the same file.
         assert_eq!(
-            preset_env(levers(Preset::Enhanced, DESKTOP))["VKBASALT_CONFIG_FILE"],
+            preset_env(levers(Preset::Pretty, DESKTOP))["VKBASALT_CONFIG_FILE"],
             cas
         );
-        // Only Enhanced turns vkBasalt on, so only it names a file.
-        assert!(
-            !preset_env(levers(Preset::Locked60, DESKTOP)).contains_key("VKBASALT_CONFIG_FILE")
-        );
+        // Only Pretty turns vkBasalt on, so only it names a file.
+        assert!(!preset_env(levers(Preset::Quiet, DESKTOP)).contains_key("VKBASALT_CONFIG_FILE"));
     }
 
     #[test]
@@ -1159,7 +1249,7 @@ multiplier = 1
         write(
             &f.record,
             &Stored {
-                preset: Preset::Enhanced,
+                preset: Preset::Pretty,
                 before: BTreeMap::from([("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned())]),
             },
         )
@@ -1285,21 +1375,23 @@ multiplier = 1
             ("PROTON_FSR4_UPGRADE".to_owned(), "1".to_owned()),
         ]);
         let mut env = HashMap::new();
-        overlay_over(&mut env, levers(Preset::Locked60, DESKTOP), &before);
+        overlay_over(&mut env, levers(Preset::Quiet, DESKTOP), &before);
         assert_eq!(
             env["DXVK_CONFIG"],
             "dxgi.customVendorId = 10de; dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60"
         );
         assert_eq!(env["VKD3D_FRAME_RATE"], "60");
-        // A key Locked 60 does not set keeps the user's value.
+        // A key Quiet does not set keeps the user's value.
         assert_eq!(env["PROTON_FSR4_UPGRADE"], "1");
         assert!(!env.contains_key("FSR4_UPGRADE"));
-        // More FPS: no cap, the rest of their DXVK options kept, and their
-        // VKD3D-Proton limit switched off rather than unset.
+        // The cap merged after their options is still told apart as a preset's.
+        assert_eq!(presets_cap_in(&env), Some(60));
+        // Pretty leaves their own frame limits as they are.
         let mut env = HashMap::new();
-        overlay_over(&mut env, levers(Preset::MoreFps, DESKTOP), &before);
+        overlay_over(&mut env, levers(Preset::Pretty, DESKTOP), &before);
         assert_eq!(env["DXVK_CONFIG"], "dxgi.customVendorId = 10de");
-        assert_eq!(env["VKD3D_FRAME_RATE"], "0");
+        assert_eq!(env["VKD3D_FRAME_RATE"], "144");
+        assert_eq!(presets_cap_in(&env), None);
     }
 
     #[test]
@@ -1330,7 +1422,7 @@ multiplier = 1
     #[test]
     fn what_the_session_holds_is_checked_variable_by_variable() {
         let layer = Layer {
-            levers: levers(Preset::Locked60, DESKTOP),
+            levers: levers(Preset::Quiet, DESKTOP),
             before: BTreeMap::new(),
             owns_preset_keys: true,
         };
@@ -1346,11 +1438,16 @@ multiplier = 1
         session.remove("VKD3D_FRAME_RATE");
         assert!(!session_holds(&layer, &session));
         session.insert("VKD3D_FRAME_RATE".into(), "60".into());
+        // Quiet leaves Tuning's vkBasalt as it is.
         session.insert("ENABLE_VKBASALT".into(), "1".into());
-        assert!(
-            !session_holds(&layer, &session),
-            "vkBasalt is off in Locked 60"
-        );
+        assert!(session_holds(&layer, &session));
+        // Pretty turns it on, so a session with it off does not hold Pretty.
+        let pretty = Layer {
+            levers: levers(Preset::Pretty, DESKTOP),
+            ..layer
+        };
+        session.insert("ENABLE_VKBASALT".into(), "0".into());
+        assert!(!session_holds(&pretty, &session));
     }
 
     #[test]

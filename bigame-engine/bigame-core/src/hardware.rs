@@ -994,9 +994,93 @@ pub fn detect_session() -> Session {
     }
 }
 
+// ── Disks ────────────────────────────────────────────────────────────────────
+
+/// Whether `path` is on a spinning hard disk: `Some(true)` for a hard disk,
+/// `Some(false)` for an SSD or `NVMe`, `None` when it cannot be told (a
+/// network or virtual file system). Read from the mount table, not the file's
+/// device number, which on Btrfs is a virtual one.
+#[must_use]
+pub fn on_hard_disk(path: &Path) -> Option<bool> {
+    let path = std::fs::canonicalize(path).ok()?;
+    let mountinfo = std::fs::read_to_string("/proc/self/mountinfo").ok()?;
+    let source = mount_source(&mountinfo, &path)?;
+    // `/dev/mapper/…` and `/dev/disk/by-…` are links to the real node.
+    let node = std::fs::canonicalize(&source).unwrap_or_else(|_| PathBuf::from(&source));
+    let name = node.file_name()?.to_str()?.to_owned();
+    let block = std::fs::canonicalize(Path::new("/sys/class/block").join(&name)).ok()?;
+    // A partition's queue is its disk's, one level up.
+    let disk = if block.join("partition").exists() {
+        block.parent()?.to_path_buf()
+    } else {
+        block
+    };
+    read_trim(disk.join("queue/rotational")).map(|r| r == "1")
+}
+
+/// The device the file system holding `path` was mounted from
+/// (`/dev/sda1`), from a `/proc/self/mountinfo` text: the mount point that
+/// is the longest prefix of `path`. `None` for a source that is not a
+/// device.
+fn mount_source(mountinfo: &str, path: &Path) -> Option<String> {
+    let mut best: Option<(usize, String)> = None;
+    for line in mountinfo.lines() {
+        let Some((left, right)) = line.split_once(" - ") else {
+            continue;
+        };
+        let (Some(mount_point), Some(source)) = (
+            left.split_whitespace().nth(4),
+            right.split_whitespace().nth(1),
+        ) else {
+            continue;
+        };
+        let mount_point = unescape_mount(mount_point);
+        if !path.starts_with(&mount_point) {
+            continue;
+        }
+        let depth = mount_point.len();
+        if best.as_ref().is_none_or(|(d, _)| depth >= *d) {
+            best = Some((depth, source.to_owned()));
+        }
+    }
+    best.map(|(_, s)| s).filter(|s| s.starts_with("/dev/"))
+}
+
+/// A mount point as the mount table writes it: spaces and tabs as `\040`
+/// and `\011`.
+fn unescape_mount(text: &str) -> String {
+    text.replace("\\040", " ")
+        .replace("\\011", "\t")
+        .replace("\\134", "\\")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_folder_is_traced_to_the_device_it_is_mounted_from() {
+        // The reference desktop: / on NVMe, the Steam library on a hard disk
+        // (Btrfs, whose files carry a virtual device number).
+        let mountinfo = "\
+26 1 0:24 /@ / rw,noatime - btrfs /dev/nvme0n1p2 rw,ssd\n\
+60 26 0:45 / /mnt/Dados rw,noatime - btrfs /dev/sda1 rw\n\
+61 26 0:46 / /mnt/My\\040Games rw - ext4 /dev/sdb1 rw\n\
+70 26 0:50 / /run/user/1000 rw - tmpfs tmpfs rw\n";
+        let source = |p: &str| mount_source(mountinfo, Path::new(p));
+        assert_eq!(
+            source("/mnt/Dados/Games/steamapps").as_deref(),
+            Some("/dev/sda1")
+        );
+        assert_eq!(
+            source("/home/u/.local/share/Steam").as_deref(),
+            Some("/dev/nvme0n1p2")
+        );
+        assert_eq!(source("/mnt/My Games/x").as_deref(), Some("/dev/sdb1"));
+        assert_eq!(source("/run/user/1000/doc"), None, "not a device");
+        // A prefix by name is not a parent folder.
+        assert_eq!(source("/mnt/DadosExtra").as_deref(), Some("/dev/nvme0n1p2"));
+    }
 
     const CPUINFO: &str = "\
 processor\t: 0

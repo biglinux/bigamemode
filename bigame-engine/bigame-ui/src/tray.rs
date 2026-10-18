@@ -83,12 +83,8 @@ impl Shown {
             // While switching, the state is still the one it is leaving.
             (false, false) => i18n("Turning On"),
             (false, true) => i18n("Turning Off"),
-            (true, true) => format!(
-                "{} · {}",
-                i18n("Turbo mode activated"),
-                i18n(self.preset.label())
-            ),
-            (true, false) => i18n("Turbo mode inactive"),
+            (true, true) => format!("{} · {}", i18n("Turbo is ON"), i18n(self.preset.label())),
+            (true, false) => i18n("Turbo is OFF"),
         }
     }
 }
@@ -383,7 +379,7 @@ mod tests {
         Shown {
             turbo_on: on,
             turbo_enabled: enabled,
-            preset: Preset::MoreFps,
+            preset: Preset::Fastest,
             preset_home: true,
             warning: None,
         }
@@ -391,11 +387,8 @@ mod tests {
 
     #[test]
     fn the_tooltip_says_what_turbo_is_doing() {
-        assert_eq!(shown(false, true).description(), "Turbo mode inactive");
-        assert_eq!(
-            shown(true, true).description(),
-            "Turbo mode activated · More FPS"
-        );
+        assert_eq!(shown(false, true).description(), "Turbo is OFF");
+        assert_eq!(shown(true, true).description(), "Turbo is ON · Fastest");
         assert_eq!(shown(false, false).description(), "Turning On");
         assert_eq!(shown(true, false).description(), "Turning Off");
         let mut s = shown(true, true);

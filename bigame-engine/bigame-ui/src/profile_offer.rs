@@ -9,7 +9,10 @@
 //! fullscreen, often under Gamescope, and a window that takes focus from it
 //! mid-play is worse than no offer at all; a notification waits in the
 //! desktop's queue on Wayland and X11 alike. Clicking it opens the review,
-//! which shows every value and why it was chosen.
+//! which shows every value and why it was chosen. Both notifications sent
+//! while a game runs are low priority: KDE and GNOME keep those in their
+//! notification list without a popup over the game, which can stall a
+//! fullscreen game's direct scan-out for a moment.
 //!
 //! The offer is made once per game per session, never while Turbo is off,
 //! and never again for a game the user said not to ask about.
@@ -227,6 +230,7 @@ fn notify_offer(app: &adw::Application, game: &GameIdentity) {
     notification.set_body(Some(&i18n(
         "Big Game Mode has no profile for this game yet. Create one tuned for this machine?",
     )));
+    notification.set_priority(gio::NotificationPriority::Low);
     notification.set_default_action_and_target_value("app.profile-review", Some(&target));
     notification.add_button_with_target_value(
         &i18n("Create profile"),
@@ -265,6 +269,7 @@ fn detected_profile() -> Option<String> {
 fn notify_detected(app: &adw::Application, game: &GameIdentity, profile: &str) {
     let n = gio::Notification::new(&format!("{} · {}", i18n("Turbo"), game.display_name));
     n.set_body(Some(&format!("{}: {profile}", i18n("Profile"))));
+    n.set_priority(gio::NotificationPriority::Low);
     app.send_notification(Some("game-launch"), &n);
 }
 

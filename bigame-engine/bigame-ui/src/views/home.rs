@@ -97,9 +97,13 @@ pub fn build(
 
     let presets = PresetPicker::new();
 
+    let tip = tip_banner();
+
     let column = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     column.set_halign(gtk4::Align::Center);
     column.set_valign(gtk4::Align::Center);
+    // Centred in what the tip banner above it leaves.
+    column.set_vexpand(true);
     column.set_margin_top(8);
     column.set_margin_bottom(8);
     column.set_margin_start(18);
@@ -110,10 +114,30 @@ pub fn build(
     column.append(button.caption());
     column.append(presets.widget());
     column.append(card.widget());
+    // The one way out, for anyone: the window's Back to normal.
+    let normal = gtk4::Button::builder()
+        .label(i18n("Back to normal"))
+        .tooltip_text(i18n(
+            "Turbo off, the choice back to Fastest, every setting as it started",
+        ))
+        .action_name("win.back-to-normal")
+        .halign(gtk4::Align::Center)
+        .css_classes(["pill"])
+        .margin_top(6)
+        .build();
+    column.append(&normal);
+    // The live readings are for people who know what they read.
+    {
+        let readings = readings.clone();
+        crate::settings::follow_advanced(move |on| readings.set_visible(on));
+    }
 
+    let page = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    page.append(&tip);
+    page.append(&column);
     let scroll = gtk4::ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
-        .child(&column)
+        .child(&page)
         .vexpand(true)
         .build();
 
@@ -597,8 +621,14 @@ pub fn build(
         let tick = Cell::new(0u32);
         let net = net_tile.clone();
         let gpu_busy = Rc::new(Cell::new(false));
+        let tiles = readings.clone();
         let refresh = Refresh {
             update: Box::new(move |n| {
+                // Hidden in simple mode: nothing to read for them.
+                if !tiles.is_visible() {
+                    card.tick();
+                    return;
+                }
                 if let Some(khz) = crate::views::details::telemetry::read_cpu_khz() {
                     #[allow(clippy::cast_precision_loss)]
                     let ghz = khz as f64 / 1_000_000.0;
@@ -652,7 +682,7 @@ pub fn build(
         // loop waits for the page to be shown instead of waking to find out.
         glib::spawn_future_local(async move {
             loop {
-                crate::views::details::mapped(&refresh.root).await;
+                crate::views::details::in_view(&refresh.root).await;
                 glib::timeout_future(TILE_REFRESH).await;
                 refresh.tick();
             }
@@ -660,6 +690,53 @@ pub fn build(
     }
 
     scroll.upcast()
+}
+
+/// One thing outside Big Game Mode that makes games smoother, in a line
+/// anyone can act on: a game library on a hard disk, or adaptive sync off.
+/// Read once, off the main thread, when the page is built; "OK" hides it
+/// until the next start.
+fn tip_banner() -> adw::Banner {
+    let banner = adw::Banner::builder()
+        .button_label(i18n("OK"))
+        .revealed(false)
+        .build();
+    banner.connect_button_clicked(|b| b.set_revealed(false));
+    let shown = banner.clone();
+    glib::spawn_future_local(async move {
+        let found = gio::spawn_blocking(|| {
+            let home = std::env::var_os("HOME").map(std::path::PathBuf::from)?;
+            let on_hard_disk = bigame_core::games::steam_libraries(&home)
+                .iter()
+                .any(|l| bigame_core::hardware::on_hard_disk(l) == Some(true));
+            if on_hard_disk {
+                return Some(Tip::HardDisk);
+            }
+            let primary = bigame_core::screen::primary()?;
+            (primary.vrr == Some(bigame_core::screen::Vrr::Never)).then_some(Tip::AdaptiveSync)
+        })
+        .await
+        .ok()
+        .flatten();
+        if let Some(tip) = found {
+            shown.set_title(&match tip {
+                Tip::HardDisk => i18n(
+                    "Your games are on a slow hard disk. Moving them to an SSD in Steam's Storage settings makes them smoother.",
+                ),
+                Tip::AdaptiveSync => i18n(
+                    "Adaptive sync (VRR) is off on your screen. Turning it on in the display settings makes games smoother.",
+                ),
+            });
+            shown.set_revealed(true);
+        }
+    });
+    banner
+}
+
+/// What [`tip_banner`] can say.
+enum Tip {
+    HardDisk,
+    AdaptiveSync,
 }
 
 /// Take away the preset and the Booster's changes a Turbo switched off from
@@ -701,8 +778,8 @@ impl Refresh {
     }
 
     fn tick(&self) {
-        // Hidden while the loop waited.
-        if !self.root.is_mapped() {
+        // Hidden, or left behind a game, while the loop waited.
+        if !crate::views::details::showing(&self.root) {
             return;
         }
         let n = self.tick.get().wrapping_add(1);
@@ -1208,6 +1285,13 @@ impl InfoCard {
             ));
         }
         self.facts.set_label(&facts.join(" · "));
+        // The flags read the game's process, its install folder (the FSR 4
+        // question) and the GPU: not for a card nobody sees, such as a
+        // window in the tray while the game loads. The page's loop reads
+        // them once it is in front again.
+        if !crate::views::details::showing(&self.root) {
+            return;
+        }
         // Everything the flags say is read from the running game and the
         // kernel, as Details reads it; the FSR 4 question is asked once per
         // game. All of it off the main thread.

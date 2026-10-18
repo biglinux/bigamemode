@@ -205,6 +205,10 @@ pub fn run() -> adw::glib::ExitCode {
         // An autostart entry an older version wrote gets TryExec.
         std::thread::spawn(crate::settings::refresh_autostart_entry);
 
+        // A game AI Graphics changed that an update gave anti-cheat since:
+        // said once per start, a while after it and not during a game.
+        warn_anti_cheat_later(app);
+
         // Programs a previous run paused from Details and could not resume
         // (it was killed, or crashed) are resumed before anything else: a
         // program must never stay frozen because Big Game Mode went away.
@@ -243,8 +247,24 @@ pub fn run() -> adw::glib::ExitCode {
             // Hide on close instead of destroying
             win.connect_close_request(|w| {
                 w.set_visible(false);
+                // Once GTK has let the window's textures go, what the pages
+                // used goes back to the system: the tray needs little.
+                glib::timeout_add_local_once(std::time::Duration::from_secs(5), || {
+                    bigame_core::processes::release_free_memory();
+                });
                 glib::Propagation::Stop
             });
+            // In the tray for hours, the watchers' and scans' freed memory
+            // goes back now and then too.
+            {
+                let hidden = win.downgrade();
+                glib::timeout_add_seconds_local(600, move || {
+                    if hidden.upgrade().is_some_and(|w| !w.is_visible()) {
+                        bigame_core::processes::release_free_memory();
+                    }
+                    glib::ControlFlow::Continue
+                });
+            }
             // Started at login: stay out of the way until asked for.
             if background.replace(false) {
                 win.set_visible(false);
@@ -493,9 +513,55 @@ fn start_status_loop(
         let read = std::rc::Rc::clone(&read);
         error_indicator.connect_action_done(move || read());
     }
-    glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+    read_again(read);
+}
+
+/// Read the status again in ten seconds, or in thirty while a game runs:
+/// each reading is a few round trips to systemd, and Turbo changes through
+/// Big Game Mode are read at once anyway.
+fn read_again(read: std::rc::Rc<dyn Fn()>) {
+    let wait = if crate::game_watch::current().is_some() {
+        30
+    } else {
+        10
+    };
+    glib::timeout_add_local_once(std::time::Duration::from_secs(wait), move || {
         read();
-        glib::ControlFlow::Continue
+        read_again(read);
+    });
+}
+
+/// Look, a minute and a half after start and with no game running, for
+/// games that still have `OptiScaler` and show anti-cheat now, and send a
+/// notification for each.
+fn warn_anti_cheat_later(app: &adw::Application) {
+    let app = app.downgrade();
+    glib::timeout_add_seconds_local_once(90, move || {
+        if crate::game_watch::current().is_some() {
+            return;
+        }
+        glib::spawn_future_local(async move {
+            let found = gtk4::gio::spawn_blocking(bigame_core::graphics::installed_with_anti_cheat)
+                .await
+                .unwrap_or_default();
+            let Some(app) = app.upgrade() else {
+                return;
+            };
+            for (game, anti_cheat) in found {
+                tracing::warn!(target: "graphics", %game, %anti_cheat, "a game with OptiScaler shows anti-cheat now");
+                let n = gtk4::gio::Notification::new(
+                    &crate::i18n::i18n("%s now has anti-cheat").replace("%s", &game),
+                );
+                n.set_body(Some(
+                    &crate::i18n::i18n(
+                        "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics.",
+                    )
+                    .replace("%s", &anti_cheat),
+                ));
+                n.set_priority(gtk4::gio::NotificationPriority::High);
+                app.send_notification(Some(&format!("anti-cheat-{game}")), &n);
+            }
+        });
     });
 }
 
