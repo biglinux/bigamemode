@@ -336,9 +336,14 @@ impl LaunchPlan {
         env.extend(crate::turbo_preset::preset_env(
             crate::turbo_preset::Levers {
                 frame_cap: cap.proton(),
+                fsr4_upgrade: preset.fsr4_upgrade && !own.fsr4_upgrade_off,
                 ..preset
             },
         ));
+        // Kept out of this game: the session may hold the upgrade too.
+        if own.fsr4_upgrade_off {
+            env.extend(crate::game_launch::FSR4_OFF.map(|(k, v)| (k.to_owned(), v.to_owned())));
+        }
         if let Some(fps) = cap.proton() {
             // DXVK before 2.3 reads only this name.
             env.insert("DXVK_FRAME_RATE".into(), fps.to_string());
@@ -1928,6 +1933,28 @@ mod tests {
         for key in ["DXVK_CONFIG", "VKD3D_FRAME_RATE", "MANGOHUD_CONFIG"] {
             assert!(!plan.env.contains_key(key), "{key}");
         }
+    }
+
+    #[test]
+    fn fsr4_kept_out_of_a_game_wins_over_the_presets() {
+        use crate::turbo_preset::Preset;
+        let out = crate::game_launch::GameLaunch {
+            fsr4_upgrade_off: true,
+            ..crate::game_launch::GameLaunch::default()
+        };
+        let plan = preset_plan(&desktop(), "game.exe", &out, None, Preset::Pretty);
+        for key in ["FSR4_UPGRADE", "PROTON_FSR4_UPGRADE"] {
+            assert_eq!(plan.env.get(key).map(String::as_str), Some("0"), "{key}");
+            assert!(!plan.unset.iter().any(|u| u == key), "{key}");
+        }
+        // The rest of Pretty stays.
+        assert_eq!(
+            plan.env.get("ENABLE_VKBASALT").map(String::as_str),
+            Some("1")
+        );
+        let none = crate::game_launch::GameLaunch::default();
+        let plan = preset_plan(&desktop(), "game.exe", &none, None, Preset::Pretty);
+        assert_eq!(plan.env.get("FSR4_UPGRADE").map(String::as_str), Some("1"));
     }
 
     #[test]

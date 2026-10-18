@@ -57,7 +57,19 @@ pub struct GameLaunch {
     /// vkBasalt on or off.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vkbasalt: Option<bool>,
+    /// Proton's FSR 4 upgrade kept out of this game, whatever the session
+    /// holds (a Turbo preset's `FSR4_UPGRADE=1`). Valve's Proton upgrades
+    /// only at `1` (`amdxc64.dll`) and GE-Proton at anything but `0`, so both
+    /// names go in at `0` ([`FSR4_OFF`]). An upgrade AI Graphics put into the
+    /// game's own launch options comes after them and still wins: that is a
+    /// choice made for this game too, and the later one.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub fsr4_upgrade_off: bool,
 }
+
+/// The variables that keep Proton's FSR 4 upgrade out of a game, for either
+/// Proton flavour.
+pub const FSR4_OFF: [(&str, &str); 2] = [("FSR4_UPGRADE", "0"), ("PROTON_FSR4_UPGRADE", "0")];
 
 // serde's `skip_serializing_if` passes a reference.
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -297,6 +309,9 @@ impl GameLaunch {
             Some(false) => words.push("ENABLE_VKBASALT=0".to_owned()),
             None => {}
         }
+        if self.fsr4_upgrade_off {
+            words.extend(FSR4_OFF.map(|(k, v)| format!("{k}={v}")));
+        }
         words.extend(
             self.frame_limit_env()
                 .into_iter()
@@ -351,6 +366,9 @@ impl GameLaunch {
             }
             Some(false) => env.push(("ENABLE_VKBASALT".to_owned(), "0".to_owned())),
             None => {}
+        }
+        if self.fsr4_upgrade_off {
+            env.extend(FSR4_OFF.map(|(k, v)| (k.to_owned(), v.to_owned())));
         }
         env.extend(self.frame_limit_env());
         (wine_fsr, env)
@@ -537,6 +555,33 @@ mod tests {
         assert!(decide(&own, &g, Mode::Auto, true));
         assert!(!decide(&own, &g, Mode::Disabled, false));
         assert!(decide(&none, &general(), Mode::Enabled, true));
+    }
+
+    #[test]
+    fn fsr4_kept_out_of_a_game_is_switched_off_for_both_protons() {
+        let out = GameLaunch {
+            vkbasalt: Some(false),
+            fsr4_upgrade_off: true,
+            ..GameLaunch::default()
+        };
+        assert!(!out.is_empty());
+        assert_eq!(
+            out.steam_env(&general(), false, false),
+            [
+                "ENABLE_VKBASALT=0",
+                "FSR4_UPGRADE=0",
+                "PROTON_FSR4_UPGRADE=0"
+            ]
+        );
+        let (_, env) = out.heroic_env(&general(), false, false, None);
+        for (k, v) in FSR4_OFF {
+            assert!(env.contains(&(k.to_owned(), v.to_owned())), "{k}");
+        }
+        // Saved only when set, so older files read the same.
+        let saved = toml::to_string(&GameLaunch::default()).unwrap();
+        assert!(!saved.contains("fsr4"));
+        let read: GameLaunch = toml::from_str("fsr4_upgrade_off = true").unwrap();
+        assert!(read.fsr4_upgrade_off);
     }
 
     #[test]
