@@ -1,0 +1,113 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "cap60",
+          "runs": [
+            59.81095150217243,
+            59.66238376921721
+          ],
+          "mean": 59.736667635694815,
+          "median": 59.736667635694815,
+          "min": 59.66238376921721,
+          "max": 59.81095150217243,
+          "stddev": 0.10505325143814942,
+          "cov": 0.0017586058211150751
+        },
+        "candidate": {
+          "arm": "pretty",
+          "runs": [
+            79.17225225846485,
+            79.71338997847077
+          ],
+          "mean": 79.4428211184678,
+          "median": 79.4428211184678,
+          "min": 79.17225225846485,
+          "max": 79.71338997847077,
+          "stddev": 0.38264215137201374,
+          "cov": 0.004816573051974135
+        },
+        "delta_pct": 32.98837089968147,
+        "verdict": "improvement",
+        "rationale": "33.0% faster, above the 0.5% run-to-run spread and significant at 95% (Welch's t = 70.23 against a 12.71 threshold)"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "cap60",
+          "runs": [
+            33.967986424247286,
+            32.366961458524145
+          ],
+          "mean": 33.167473941385715,
+          "median": 33.167473941385715,
+          "min": 32.366961458524145,
+          "max": 33.967986424247286,
+          "stddev": 1.132095610111793,
+          "cov": 0.03413270519523003
+        },
+        "candidate": {
+          "arm": "pretty",
+          "runs": [
+            35.67492098718498,
+            34.521285660351104
+          ],
+          "mean": 35.09810332376804,
+          "median": 35.09810332376804,
+          "min": 34.521285660351104,
+          "max": 35.67492098718498,
+          "stddev": 0.8157433626205947,
+          "cov": 0.02324180754428922
+        },
+        "delta_pct": 5.820851433528458,
+        "verdict": "within_noise",
+        "rationale": "a 5.8% difference, but Welch's t = 1.96 falls short of the 12.71 needed for 95% confidence at 1.8 degrees of freedom"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "cap60",
+          "runs": [
+            20.43092915779624,
+            16.342966967595164
+          ],
+          "mean": 18.3869480626957,
+          "median": 18.3869480626957,
+          "min": 16.342966967595164,
+          "max": 20.43092915779624,
+          "stddev": 2.8906257859253914,
+          "cov": 0.15721074405980556
+        },
+        "candidate": {
+          "arm": "pretty",
+          "runs": [
+            18.637859226815575,
+            14.497877176215006
+          ],
+          "mean": 16.56786820151529,
+          "median": 16.56786820151529,
+          "min": 14.497877176215006,
+          "max": 18.637859226815575,
+          "stddev": 2.9274093819702505,
+          "cov": 0.1766919766842732
+        },
+        "delta_pct": -9.893321365665066,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 15.7% and 17.7%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  }
+]

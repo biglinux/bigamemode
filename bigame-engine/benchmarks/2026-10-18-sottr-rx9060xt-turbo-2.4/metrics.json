@@ -1,0 +1,113 @@
+[
+  {
+    "metric": "avg_fps",
+    "comparisons": [
+      {
+        "metric": "avg_fps",
+        "baseline": {
+          "arm": "turbo_off",
+          "runs": [
+            79.54621921837813,
+            81.8700422690582
+          ],
+          "mean": 80.70813074371816,
+          "median": 80.70813074371816,
+          "min": 79.54621921837813,
+          "max": 81.8700422690582,
+          "stddev": 1.643191037413492,
+          "cov": 0.02035967160026672
+        },
+        "candidate": {
+          "arm": "turbo_on",
+          "runs": [
+            80.74910031561758,
+            80.03741327804468
+          ],
+          "mean": 80.39325679683114,
+          "median": 80.39325679683114,
+          "min": 80.03741327804468,
+          "max": 80.74910031561758,
+          "stddev": 0.5032387303503634,
+          "cov": 0.006259713194878299
+        },
+        "delta_pct": -0.39013906527816206,
+        "verdict": "within_noise",
+        "rationale": "the 0.4% difference is within the 2.0% spread of the runs themselves, so it cannot be attributed to the change"
+      }
+    ]
+  },
+  {
+    "metric": "low_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_1_fps",
+        "baseline": {
+          "arm": "turbo_off",
+          "runs": [
+            34.49191493089297,
+            37.453314008584655
+          ],
+          "mean": 35.972614469738815,
+          "median": 35.972614469738815,
+          "min": 34.49191493089297,
+          "max": 37.453314008584655,
+          "stddev": 2.09402536963538,
+          "cov": 0.05821165351762057
+        },
+        "candidate": {
+          "arm": "turbo_on",
+          "runs": [
+            35.68111311587144,
+            37.14272238468069
+          ],
+          "mean": 36.41191775027606,
+          "median": 36.41191775027606,
+          "min": 35.68111311587144,
+          "max": 37.14272238468069,
+          "stddev": 1.0335138254201306,
+          "cov": 0.0283839437545773
+        },
+        "delta_pct": 1.221215880504877,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 5.8% and 2.8%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  },
+  {
+    "metric": "low_0_1_fps",
+    "comparisons": [
+      {
+        "metric": "low_0_1_fps",
+        "baseline": {
+          "arm": "turbo_off",
+          "runs": [
+            15.56455639218372,
+            19.75782979997477
+          ],
+          "mean": 17.661193096079245,
+          "median": 17.661193096079245,
+          "min": 15.56455639218372,
+          "max": 19.75782979997477,
+          "stddev": 2.965092062018273,
+          "cov": 0.16788741541343086
+        },
+        "candidate": {
+          "arm": "turbo_on",
+          "runs": [
+            17.763032942227785,
+            20.167733488056044
+          ],
+          "mean": 18.965383215141912,
+          "median": 18.965383215141912,
+          "min": 17.763032942227785,
+          "max": 20.167733488056044,
+          "stddev": 1.7003800626781542,
+          "cov": 0.08965703689660091
+        },
+        "delta_pct": 7.384496120775642,
+        "verdict": "inconclusive",
+        "rationale": "the runs within an arm disagree too much to compare (variation 16.8% and 9.0%, above the 5% ceiling); something on the machine was interfering"
+      }
+    ]
+  }
+]
