@@ -467,20 +467,24 @@ impl GameOptimization {
     /// A new game's settings: the defaults every page starts from.
     #[must_use]
     pub fn new(process: &str) -> Self {
-        Self::from_profile(GameProfile {
+        let mut profile = GameProfile {
             name: process.to_owned(),
             ..GameProfile::default()
-        })
+        };
+        crate::profiles::keep_proton_protections(&mut profile);
+        Self::from_profile(profile)
     }
 
     /// The settings of the profile in file `stem`, each part read from its
     /// owner. A profile that does not read starts from the defaults.
     #[must_use]
     pub fn load(stem: &str) -> Self {
-        let profile = crate::profiles::load(stem).unwrap_or_else(|_| GameProfile {
+        let mut profile = crate::profiles::load(stem).unwrap_or_else(|_| GameProfile {
             name: stem.to_owned(),
             ..GameProfile::default()
         });
+        // A profile written before 2.4.0 gets them at its next save.
+        crate::profiles::keep_proton_protections(&mut profile);
         let mut me = Self::from_profile(profile);
         let (multiplier, flow_scale, performance, hdr, present_mode) =
             crate::fg::read_profile_any(&me.profile.name);

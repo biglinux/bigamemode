@@ -98,6 +98,28 @@ pub struct GameProfile {
     pub extra: std::collections::BTreeMap<String, String>,
 }
 
+/// What falcond's own Proton profile turns on for every Proton game: VRAM
+/// protection and the split-lock slowdown switched off (on Intel's newer
+/// CPUs a game's split locks are slowed about 10 ms each, a stutter). A
+/// game's own profile replaces that one entirely, so without these the game
+/// would get less from its profile than from none. A falcond before 2.0.8
+/// skips them as unknown keys.
+pub const PROTON_PROTECTIONS: [&str; 2] = ["dmem_protect", "disable_split_lock"];
+
+/// Give a Proton game's profile ([`PROTON_PROTECTIONS`]) what falcond's own
+/// Proton profile gives it, where the profile does not say otherwise.
+pub fn keep_proton_protections(profile: &mut GameProfile) {
+    if !profile.name.to_ascii_lowercase().ends_with(".exe") {
+        return;
+    }
+    for key in PROTON_PROTECTIONS {
+        profile
+            .extra
+            .entry(key.to_owned())
+            .or_insert_with(|| "true".to_owned());
+    }
+}
+
 fn default_enabled() -> bool {
     true
 }
@@ -752,6 +774,35 @@ pub fn import(src: &Path) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_proton_games_profile_keeps_falconds_protections() {
+        let mut game = GameProfile {
+            name: "DuneSandbox-Win64-Shipping.exe".into(),
+            ..GameProfile::default()
+        };
+        keep_proton_protections(&mut game);
+        let written = serialize_profile_otter_conf(&game);
+        assert!(written.contains("dmem_protect = true"), "{written}");
+        assert!(written.contains("disable_split_lock = true"), "{written}");
+        // What the profile says itself stays.
+        let mut off = GameProfile {
+            name: "Game.EXE".into(),
+            ..GameProfile::default()
+        };
+        off.extra
+            .insert("disable_split_lock".into(), "false".into());
+        keep_proton_protections(&mut off);
+        assert_eq!(off.extra["disable_split_lock"], "false");
+        assert_eq!(off.extra["dmem_protect"], "true");
+        // A native game is not a Proton one.
+        let mut native = GameProfile {
+            name: "supertuxkart".into(),
+            ..GameProfile::default()
+        };
+        keep_proton_protections(&mut native);
+        assert!(native.extra.is_empty());
+    }
 
     #[test]
     fn gamescope_mode_survives_the_otter_conf_round_trip() {
