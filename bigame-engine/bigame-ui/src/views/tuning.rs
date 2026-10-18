@@ -1092,7 +1092,7 @@ fn build_vkbasalt(saver: &VideoSaver, group: &adw::PreferencesGroup) {
     let switch = adw::SwitchRow::builder()
         .title("vkBasalt")
         .subtitle(i18n(
-            "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, Home turns it on and off.",
+            "Visual filters (sharpening, colour). On here, it reaches every Vulkan program you open, games or not, and costs GPU time; a game's own profile can turn it on for that game alone. In the game, Home turns it on and off.",
         ))
         .active(cfg.upscaling.vkbasalt_enabled)
         .build();
@@ -1118,7 +1118,10 @@ fn build_vkbasalt(saver: &VideoSaver, group: &adw::PreferencesGroup) {
         &[
             ("own".to_owned(), own_label),
             ("cas".to_owned(), i18n("CAS sharpening")),
-            ("nara".to_owned(), i18n("Nara Linux (ReShade)")),
+            (
+                "nara".to_owned(),
+                i18n("Nara Linux (ReShade, three full-screen effects: costs frames)"),
+            ),
         ],
         match vkb::current_style() {
             StyleState::Style(Style::Cas) => "cas",
