@@ -84,6 +84,16 @@ does.
 - **What no setting fixes, said plainly:** a game library on a hard disk,
   adaptive sync switched off, and Steam launch options with a wrapper but no
   `%command%` (with a one-click fix).
+- **No scheduler left behind:** a sched-ext scheduler nobody asks for (left
+  by falcond, which put it back after every game) is unloaded as Turbo
+  switches, and saving Tuning no longer restarts falcond under a running
+  game.
+- **AI Graphics, safer to leave:** every game's graphics restored in one go
+  (Settings → Advanced, or `bigame-ui --restore-all-graphics` before removing
+  the package), and a game that got anti-cheat in an update while OptiScaler
+  is in it is named.
+- **Lighter in the tray:** about 117 MiB after the window closes, from about
+  480 MiB.
 
 ### 2.3.2
 
