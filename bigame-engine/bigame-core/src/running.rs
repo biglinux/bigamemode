@@ -757,6 +757,9 @@ pub fn identify_ranked<S: std::hash::BuildHasher>(
 /// happens only when what it is read from changed
 /// ([`crate::games::detect_all_changed`]): a look at an unchanged library
 /// costs the stat of its files, not a walk of every install folder.
+/// Whether the last [`detect`] found a game.
+static PLAYING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 #[must_use]
 pub fn known_native_games() -> HashMap<String, String> {
     use std::sync::Mutex;
@@ -774,9 +777,13 @@ pub fn known_native_games() -> HashMap<String, String> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let known = cache.get_or_insert_with(Known::default);
+    // While a game runs the list is not looked at again: Steam rewrites the
+    // running game's manifest as it starts, which would make a library scan
+    // of every install folder run alongside the game's own loading.
+    let playing = PLAYING.load(std::sync::atomic::Ordering::Relaxed);
     if known
         .at
-        .is_some_and(|at| at.elapsed() < Duration::from_secs(60))
+        .is_some_and(|at| playing || at.elapsed() < Duration::from_secs(60))
     {
         return known.games.clone();
     }
@@ -896,53 +903,84 @@ pub fn graphics_from_maps(maps: &str) -> Graphics {
     }
 }
 
-/// How long what was learned of a game's process — its graphics path, the
-/// card it renders on — is taken as known: its memory map and its
-/// descriptors are large reads, the card may take a question to NVML, and
-/// the watcher asks every few seconds for as long as the game runs. A game
-/// that loads its renderer late is read again after this.
-const GRAPHICS_KEPT: std::time::Duration = std::time::Duration::from_secs(30);
+/// How long what cannot be told yet of a game's process — its graphics
+/// path, the card it renders on — is left before it is read again, the
+/// first time: a game caught as it starts has not loaded its renderer yet.
+/// Each later miss waits twice as long, up to [`UNKNOWN_MAX`]: the memory map
+/// of a Wine game is megabytes, its descriptors and DRM fdinfo take locks
+/// the game's own GPU submissions take too, and a Windows game that renders
+/// with Vulkan itself never shows a Direct3D DLL to find.
+const UNKNOWN_RETRY: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// One fact learned of the process being watched, kept for a while: the
-/// watcher follows one game, so one process is kept.
-struct Kept<T>(Option<(u32, String, std::time::Instant, T)>);
+/// The longest wait before reading again what could not be told.
+const UNKNOWN_MAX: std::time::Duration = std::time::Duration::from_secs(600);
+
+/// One fact learned of the process being watched: the watcher follows one
+/// game, so one process is kept. Once known, it is known for as long as
+/// that process runs (a game does not change its renderer or its GPU).
+struct Kept<T>(Option<KeptFact<T>>);
+
+struct KeptFact<T> {
+    pid: u32,
+    executable: String,
+    at: std::time::Instant,
+    misses: u32,
+    value: Option<T>,
+}
 
 impl<T: Clone> Kept<T> {
     const fn new() -> Self {
         Self(None)
     }
 
-    /// What `read` says of process `pid` running `executable`, read again
-    /// once `max_age` has passed. A `None` is not kept: what cannot be told
-    /// yet is asked again the next time.
-    fn get(
+    /// What `read` says of process `pid` running `executable`: once known,
+    /// kept for the process's life; while unknown, read again after
+    /// [`UNKNOWN_RETRY`], doubling up to [`UNKNOWN_MAX`].
+    fn get(&mut self, pid: u32, executable: &str, read: impl FnOnce() -> Option<T>) -> Option<T> {
+        self.get_at(pid, executable, std::time::Instant::now(), read)
+    }
+
+    fn get_at(
         &mut self,
         pid: u32,
         executable: &str,
-        max_age: std::time::Duration,
+        now: std::time::Instant,
         read: impl FnOnce() -> Option<T>,
     ) -> Option<T> {
-        let now = std::time::Instant::now();
-        if let Some((p, e, at, value)) = &self.0
-            && *p == pid
-            && e == executable
-            && now.saturating_duration_since(*at) < max_age
+        let mut misses = 0;
+        if let Some(kept) = &self.0
+            && kept.pid == pid
+            && kept.executable == executable
         {
-            return Some(value.clone());
+            if let Some(value) = &kept.value {
+                return Some(value.clone());
+            }
+            let wait = UNKNOWN_RETRY
+                .saturating_mul(1 << kept.misses.min(5))
+                .min(UNKNOWN_MAX);
+            if now.saturating_duration_since(kept.at) < wait {
+                return None;
+            }
+            misses = kept.misses + 1;
         }
         let value = read();
-        self.0 = value.clone().map(|v| (pid, executable.to_owned(), now, v));
+        self.0 = Some(KeptFact {
+            pid,
+            executable: executable.to_owned(),
+            at: now,
+            misses,
+            value: value.clone(),
+        });
         value
     }
 }
 
-/// [`graphics_from_maps`] of process `pid`, read again only after
-/// [`GRAPHICS_KEPT`] once it is known.
+/// [`graphics_from_maps`] of process `pid`, kept as [`Kept`] keeps it.
 fn graphics_of(pid: u32, executable: &str) -> Graphics {
     static KEPT: std::sync::Mutex<Kept<Graphics>> = std::sync::Mutex::new(Kept::new());
     KEPT.lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(pid, executable, GRAPHICS_KEPT, || {
+        .get(pid, executable, || {
             std::fs::read_to_string(format!("/proc/{pid}/maps"))
                 .map(|maps| graphics_from_maps(&maps))
                 .ok()
@@ -951,13 +989,12 @@ fn graphics_of(pid: u32, executable: &str) -> Graphics {
         .unwrap_or(Graphics::Unknown)
 }
 
-/// [`render_card`] of process `pid`, read again only after
-/// [`GRAPHICS_KEPT`] once it is known.
+/// [`render_card`] of process `pid`, kept as [`Kept`] keeps it.
 fn render_card_of(pid: u32, executable: &str) -> Option<String> {
     static KEPT: std::sync::Mutex<Kept<String>> = std::sync::Mutex::new(Kept::new());
     KEPT.lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(pid, executable, GRAPHICS_KEPT, || render_card(pid))
+        .get(pid, executable, || render_card(pid))
 }
 
 /// A GPU a process has open.
@@ -1246,7 +1283,7 @@ fn steam_details(id: &str, home: &Path) -> SteamDetails {
 /// What was learned of the process is kept ([`Kept`]): the watcher asks
 /// again every few seconds for as long as the game runs, and the manifest
 /// of a running game does not change; its graphics and card are read again
-/// now and then, until they are known and then after [`GRAPHICS_KEPT`].
+/// now and then until they are known, and then no more.
 fn enrich(mut game: GameIdentity) -> GameIdentity {
     static STEAM: std::sync::Mutex<Kept<SteamDetails>> = std::sync::Mutex::new(Kept::new());
     game.graphics = graphics_of(game.pid, &game.executable);
@@ -1257,7 +1294,7 @@ fn enrich(mut game: GameIdentity) -> GameIdentity {
         let details = STEAM
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(game.pid, &game.executable, std::time::Duration::MAX, || {
+            .get(game.pid, &game.executable, || {
                 Some(steam_details(&id, &home))
             })
             .unwrap_or_default();
@@ -1305,6 +1342,7 @@ pub fn detect() -> Option<GameIdentity> {
     } else {
         games.into_iter().next()
     };
+    PLAYING.store(chosen.is_some(), std::sync::atomic::Ordering::Relaxed);
     chosen.map(enrich)
 }
 
@@ -2543,21 +2581,36 @@ mod tests {
             reads.set(reads.get() + 1);
             value
         };
-        let long = std::time::Duration::from_secs(60);
+        let start = std::time::Instant::now();
+        let at = |secs| start + std::time::Duration::from_secs(secs);
         let mut kept = Kept::new();
-        // Not known yet: asked again.
-        assert_eq!(kept.get(7, "G.exe", long, || read(None)), None);
-        assert_eq!(kept.get(7, "G.exe", long, || read(Some(1))), Some(1));
-        assert_eq!(kept.get(7, "G.exe", long, || read(Some(2))), Some(1));
-        assert_eq!(reads.get(), 2);
+        // Not known yet: asked again only after a while, longer each time.
+        assert_eq!(kept.get_at(7, "G.exe", at(0), || read(None)), None);
+        assert_eq!(kept.get_at(7, "G.exe", at(10), || read(Some(1))), None);
+        assert_eq!(reads.get(), 1, "too soon to ask again");
+        assert_eq!(kept.get_at(7, "G.exe", at(30), || read(None)), None);
+        assert_eq!(kept.get_at(7, "G.exe", at(70), || read(Some(1))), None);
+        assert_eq!(reads.get(), 2, "the second wait is twice as long");
+        assert_eq!(kept.get_at(7, "G.exe", at(90), || read(Some(1))), Some(1));
+        // Known: kept for the life of the process.
+        assert_eq!(
+            kept.get_at(7, "G.exe", at(100_000), || read(Some(2))),
+            Some(1)
+        );
+        assert_eq!(reads.get(), 3);
         // Another process, or the same pid running something else, is
         // read anew.
-        assert_eq!(kept.get(8, "G.exe", long, || read(Some(3))), Some(3));
-        assert_eq!(kept.get(8, "H.exe", long, || read(Some(4))), Some(4));
-        // And once its time is up.
-        let none = std::time::Duration::ZERO;
-        assert_eq!(kept.get(8, "H.exe", none, || read(Some(5))), Some(5));
+        assert_eq!(kept.get_at(8, "G.exe", at(0), || read(Some(3))), Some(3));
+        assert_eq!(kept.get_at(8, "H.exe", at(0), || read(Some(4))), Some(4));
         assert_eq!(reads.get(), 5);
+        // Never longer than ten minutes between two looks.
+        let mut kept: Kept<u32> = Kept::new();
+        let mut now = 0;
+        for _ in 0..12 {
+            kept.get_at(9, "V.exe", at(now), || None);
+            now += 600;
+        }
+        assert_eq!(kept.0.as_ref().map(|k| k.misses), Some(11));
     }
 
     #[test]

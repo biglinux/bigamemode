@@ -953,6 +953,22 @@ fn gone(target: &Target) -> UserError {
     UserError::with(N_("%s has already exited."), [target.name.as_str()])
 }
 
+/// A descriptor that becomes readable when process `pid` exits (a pidfd),
+/// or `None` when the process is gone already or the kernel has no pidfds
+/// (before 5.3). Waiting on it costs nothing until then, where polling
+/// `/proc` costs a walk of every process each time.
+#[must_use]
+pub fn exit_watch(pid: u32) -> Option<OwnedFd> {
+    let pid = libc::pid_t::try_from(pid).ok()?;
+    // SAFETY: pidfd_open takes a pid and flags and returns a new descriptor or
+    // -1; nothing is passed by pointer.
+    let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) };
+    let fd = i32::try_from(raw).ok().filter(|fd| *fd >= 0)?;
+    // SAFETY: `fd` was just returned by pidfd_open and is owned by nobody
+    // else; OwnedFd closes it.
+    Some(unsafe { OwnedFd::from_raw_fd(fd) })
+}
+
 /// Send `sig` to `target` once `check` accepts what it is now. Returns
 /// whether it was stopped (paused) before the signal.
 ///
@@ -1090,6 +1106,25 @@ fn switch_on(environ: &[u8], key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_process_exit_is_watched_through_a_descriptor() {
+        let mut child = std::process::Command::new("sleep")
+            .arg("0.1")
+            .spawn()
+            .expect("sleep");
+        let fd = exit_watch(child.id()).expect("pidfd");
+        let mut poll = libc::pollfd {
+            fd: std::os::fd::AsRawFd::as_raw_fd(&fd),
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        // SAFETY: one valid pollfd, waiting at most five seconds.
+        let ready = unsafe { libc::poll(&raw mut poll, 1, 5000) };
+        assert_eq!(ready, 1, "readable once the process exits");
+        child.wait().unwrap();
+        assert!(exit_watch(u32::MAX).is_none());
+    }
 
     #[test]
     fn a_switch_set_to_zero_is_off() {
