@@ -94,7 +94,15 @@ pub fn launch_options(
     }
     let add = match mode {
         Mode::On if !words.contains(&LAYER) => Some(LAYER),
-        Mode::Forced if !command(&words).is_some_and(|i| i > 0 && words[i - 1] == WRAPPER) => {
+        // A wrapper anywhere before the command already runs MangoHud
+        // (`mangohud gamemoderun %command%`): a second would draw it twice.
+        Mode::Forced
+            if !command(&words).is_some_and(|i| {
+                words[..i]
+                    .iter()
+                    .any(|w| *w == WRAPPER || w.ends_with("/mangohud"))
+            }) =>
+        {
             Some(WRAPPER)
         }
         _ => None,
@@ -927,6 +935,22 @@ pub(crate) fn put_back(backup: &std::path::Path, path: &std::path::Path) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn forced_adds_no_second_wrapper() {
+        // The user's own wrapper further from the command already runs it.
+        let (options, added) = launch_options("mangohud gamemoderun %command%", None, Mode::Forced);
+        assert_eq!(options, "mangohud gamemoderun %command%");
+        assert_eq!(added, None);
+        let (options, added) =
+            launch_options("/usr/bin/mangohud %command% -dx12", None, Mode::Forced);
+        assert_eq!(options, "/usr/bin/mangohud %command% -dx12");
+        assert_eq!(added, None);
+        // Without one, it goes in front of the command.
+        let (options, added) = launch_options("gamemoderun %command%", None, Mode::Forced);
+        assert_eq!(options, "gamemoderun mangohud %command%");
+        assert_eq!(added, Some(WRAPPER));
+    }
 
     /// Every option `MangoHud` 0.8.4 parses that a style uses
     /// (`src/overlay_params.h`, v0.8.4).
