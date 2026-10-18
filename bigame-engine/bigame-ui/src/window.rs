@@ -138,9 +138,16 @@ pub fn build(
     content_header.set_title_widget(Some(&page_title));
     content_header.pack_start(&back_button);
 
+    // A game that closed with an error is said there too, under it.
+    let crash_notice = widgets::crash_notice::CrashNotice::new();
+    let notices = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    notices.set_valign(gtk4::Align::Start);
+    notices.append(launcher_notice.widget());
+    notices.append(crash_notice.widget());
+
     let pages = gtk4::Overlay::new();
     pages.set_child(Some(&view_stack));
-    pages.add_overlay(launcher_notice.widget());
+    pages.add_overlay(&notices);
 
     let toast_overlay = adw::ToastOverlay::new();
     toast_overlay.set_child(Some(&pages));

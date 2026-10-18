@@ -1,6 +1,7 @@
 //! Big Game Mode Libadwaita application entry point.
 
 mod app;
+mod crash_watch;
 mod game_watch;
 pub mod i18n;
 mod profile_offer;

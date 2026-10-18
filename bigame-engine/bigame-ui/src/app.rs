@@ -231,11 +231,13 @@ pub fn run() -> adw::glib::ExitCode {
 
         app.set_accels_for_action("app.quit", &["<Control>q"]);
 
-        // Which game is running, for Home and the first-run profile offer.
+        // Which game is running, for Home, the first-run profile offer and
+        // the word that a game crashed.
         // Started here, not with the window: the application keeps running
         // with its window closed, and that is when games are played.
         crate::game_watch::start();
         crate::profile_offer::install(app);
+        crate::crash_watch::install(app);
     });
 
     app.connect_activate(move |app| {

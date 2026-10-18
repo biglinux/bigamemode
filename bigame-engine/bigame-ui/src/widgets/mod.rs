@@ -1,6 +1,7 @@
 //! Custom widget modules.
 
 pub mod booster_button;
+pub mod crash_notice;
 pub mod error_indicator;
 pub mod fg_controls;
 pub mod game_card;
