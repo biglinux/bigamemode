@@ -17,6 +17,8 @@ pub trait Manager {
     fn start_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
     #[zbus(name = "StopUnit")]
     fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
+    #[zbus(name = "RestartUnit")]
+    fn restart_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
     #[zbus(name = "EnableUnitFiles")]
     #[allow(clippy::type_complexity)]
     fn enable_unit_files(

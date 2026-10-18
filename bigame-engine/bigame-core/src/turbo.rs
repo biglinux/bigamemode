@@ -472,9 +472,19 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
     let mut running = true;
     let mut backend = caps.falcond_usable;
     if caps.falcond_usable {
-        // What runs before Turbo, so Turbo off can tell what falcond left.
-        remember_scheduler(current_scheduler().await.as_deref());
+        // What runs before Turbo, so Turbo off can tell what falcond left. A
+        // scheduler an earlier falcond left behind is the helper's to unload
+        // as falcond starts, so nothing ran before Turbo then.
+        let leftover = leftover_scheduler().await;
+        if leftover.is_some() {
+            remember_scheduler(None);
+        } else {
+            remember_scheduler(current_scheduler().await.as_deref());
+        }
         running = enable_backend(&hardware, &mut report, &mut progress).await;
+        if let Some(name) = leftover.filter(|_| running) {
+            note_leftover_cleared(&name, &mut report).await;
+        }
         if !running && crate::falcond_compat::crashes_here() {
             // It crashed on this processor just now, and the helper
             // recorded it: Turbo goes on without it, as without falcond.
@@ -1212,6 +1222,64 @@ fn loader_name(current: &str) -> Option<String> {
     (!name.is_empty() && name != "unknown").then(|| name.to_owned())
 }
 
+/// A scheduler loaded at Turbo on that nobody asked for: falcond's general
+/// configuration names none, and `scx_loader` starts none at boot. It is
+/// what an earlier falcond left behind, and it must go before falcond
+/// starts: falcond 2.0.14 takes the scheduler loaded when it starts as the
+/// one to put back after every game, so a leftover came back after each
+/// game for good (seen on the reference desktop: lavd reloaded at every
+/// game's exit).
+fn leftover_at_turbo_on(
+    loaded: Option<&str>,
+    general: Option<&str>,
+    boot_default: bool,
+) -> Option<String> {
+    let general_none = general.is_none_or(|g| g.trim().is_empty() || g.trim() == "none");
+    loaded
+        .filter(|_| general_none && !boot_default)
+        .map(str::to_owned)
+}
+
+/// The scheduler [`leftover_at_turbo_on`] finds before Turbo on: the
+/// helper unloads it as it starts falcond (by restarting `scx_loader`, as
+/// root: the session's own `StopScheduler` needs a password).
+async fn leftover_scheduler() -> Option<String> {
+    let loaded = current_scheduler().await;
+    let general = crate::config::read().ok().map(|c| c.scx_sched);
+    let boot_default = crate::health::scx_loader_default(
+        &crate::health::SCX_LOADER_CONFIGS.map(std::path::Path::new),
+    )
+    .is_some();
+    leftover_at_turbo_on(loaded.as_deref(), general.as_deref(), boot_default)
+}
+
+/// Say whether the leftover scheduler `name` went as falcond started.
+async fn note_leftover_cleared(name: &str, report: &mut Report) {
+    if current_scheduler().await.as_deref() == Some(name) {
+        report.push(
+            Kind::Scheduler,
+            Section::Failed,
+            "falcond",
+            Text::with(
+                N_("%s is loaded and nothing asks for it, but it could not be unloaded"),
+                [format!("scx_{name}")],
+            ),
+        );
+    } else {
+        report.push(
+            Kind::Scheduler,
+            Section::Restored,
+            "falcond",
+            Text::with(
+                N_(
+                    "%s was left loaded by an earlier falcond and nothing asks for it: unloaded, so falcond does not put it back after every game",
+                ),
+                [format!("scx_{name}")],
+            ),
+        );
+    }
+}
+
 /// Report a scheduler falcond left loaded as it stopped.
 async fn note_scheduler_left(report: &mut Report) {
     let before = remembered_scheduler();
@@ -1224,6 +1292,8 @@ async fn note_scheduler_left(report: &mut Report) {
         current_scheduler().await.as_deref(),
         general.as_deref(),
     );
+    // The helper unloads one nobody asks for as falcond stops; what is
+    // still loaded here is said.
     if let Some(name) = left {
         report.push(
             Kind::Scheduler,
@@ -1365,6 +1435,23 @@ mod tests {
             Some("lavd".into())
         );
         assert_eq!(scheduler_left(&Unknown, Some("rusty"), Some("lavd")), None);
+        // At Turbo on: loaded with nothing asking for it is a leftover.
+        assert_eq!(
+            leftover_at_turbo_on(Some("lavd"), Some("none"), false).as_deref(),
+            Some("lavd")
+        );
+        assert_eq!(
+            leftover_at_turbo_on(Some("lavd"), None, false).as_deref(),
+            Some("lavd")
+        );
+        // falcond's general configuration or scx_loader's boot default asks
+        // for one: it stays.
+        assert_eq!(
+            leftover_at_turbo_on(Some("lavd"), Some("lavd"), false),
+            None
+        );
+        assert_eq!(leftover_at_turbo_on(Some("lavd"), Some("none"), true), None);
+        assert_eq!(leftover_at_turbo_on(None, Some("none"), false), None);
         assert_eq!(scheduler_left(&Unknown, Some("lavd"), None), None);
     }
 

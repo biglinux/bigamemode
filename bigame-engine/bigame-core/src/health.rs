@@ -226,6 +226,13 @@ pub fn ntsync_check(dev: &Path, sys_module: &Path, modules_dir: &Path) -> Check 
     }
 }
 
+/// Where `scx_loader` reads its configuration, the first that exists.
+pub const SCX_LOADER_CONFIGS: [&str; 3] = [
+    "/etc/scx_loader.toml",
+    "/etc/scx_loader/config.toml",
+    "/usr/share/scx_loader/config.toml",
+];
+
 /// The scheduler `scx_loader` starts by itself at boot (`default_sched`, and
 /// `default_mode`), from the first of its configuration files that exists.
 #[must_use]
@@ -779,11 +786,9 @@ pub fn collect() -> Vec<Check> {
     }
     out.extend(mangohud_32bit_check(caps.mangohud, Path::new("/usr/lib32")));
     out.extend(lossless_dll_check());
-    if let Some(c) = scx_loader_default_check(scx_loader_default(&[
-        Path::new("/etc/scx_loader.toml"),
-        Path::new("/etc/scx_loader/config.toml"),
-        Path::new("/usr/share/scx_loader/config.toml"),
-    ])) {
+    if let Some(c) =
+        scx_loader_default_check(scx_loader_default(&SCX_LOADER_CONFIGS.map(Path::new)))
+    {
         out.push(c);
     }
 
