@@ -123,6 +123,24 @@ pub fn launch_options(
     (if rest == COMMAND { String::new() } else { rest }, add)
 }
 
+/// Bring to Off every game whose saved choice is Off while Steam's launch
+/// options still carry the word Big Game Mode recorded adding there: a
+/// profile deleted while Steam was open, which kept the overlay (or its
+/// wrapper) in the game for good. With Steam open nothing is written and
+/// the game says so ([`Applied::SteamRunning`]), to be tried again.
+#[must_use]
+pub fn sync_turned_off() -> Vec<(String, Result<Applied>)> {
+    let Ok(records) = read_record::<std::collections::BTreeMap<String, SteamRecord>>(&added_path())
+    else {
+        return Vec::new();
+    };
+    records
+        .keys()
+        .filter(|p| crate::game_settings::load(p).map_or(true, |s| s.mangohud == Mode::Off))
+        .map(|p| (p.clone(), apply(p, Mode::Off)))
+        .collect()
+}
+
 /// Where the words added to Steam's launch options are recorded.
 fn added_path() -> std::path::PathBuf {
     crate::paths::state_home().join("bigame-mode/mangohud/steam-added.toml")

@@ -720,11 +720,26 @@ fn launchers_owed_path() -> PathBuf {
 /// games for good; the mark [`launchers_owed_path`] keeps that owed, and
 /// [`resync`] and the next Turbo switch try again until it is written.
 fn follow_in_launchers() {
-    follow_in_launchers_at(
+    let followed = follow_in_launchers_at(
         &launchers_owed_path(),
         crate::optimization::refresh_steam_gamescope,
         crate::optimization::refresh_heroic,
     );
+    // MangoHud a deleted profile left in Steam's options while it was open.
+    let waiting = crate::mangohud::sync_turned_off()
+        .into_iter()
+        .any(|(_, r)| matches!(r, Ok(crate::mangohud::Applied::SteamRunning)));
+    if followed && waiting {
+        mark_launchers_owed();
+    }
+}
+
+/// Note that the launchers still owe a change, to be tried again
+/// ([`follow_owed`]) once the one that was open is closed.
+pub fn mark_launchers_owed() {
+    if let Err(e) = write_atomic(&launchers_owed_path(), "") {
+        tracing::warn!(error = %format!("{e:#}"), "could not record that the launchers owe a change");
+    }
 }
 
 /// [`follow_in_launchers`] with the mark at `owed` and the launchers

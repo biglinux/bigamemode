@@ -648,7 +648,20 @@ fn remove_from_launchers(process: &str) -> Deleted {
         Err(e) => deleted.settings = Some(e),
     }
     if mangohud != crate::mangohud::Mode::Off {
-        deleted.mangohud = Some(crate::mangohud::apply(process, crate::mangohud::Mode::Off));
+        let applied = crate::mangohud::apply(process, crate::mangohud::Mode::Off);
+        if matches!(applied, Ok(crate::mangohud::Applied::SteamRunning)) {
+            // Steam keeps its options in memory: the choice is Off now, and
+            // the word comes out once Steam is closed (Turbo's launcher
+            // follow-up, crate::turbo_preset::follow_owed).
+            if let Ok(mut settings) = crate::game_settings::load(process) {
+                settings.mangohud = crate::mangohud::Mode::Off;
+                if let Err(e) = crate::game_settings::save(process, &settings) {
+                    tracing::warn!(game = %process, error = %format!("{e:#}"), "MangoHud's choice could not be kept off");
+                }
+            }
+            crate::turbo_preset::mark_launchers_owed();
+        }
+        deleted.mangohud = Some(applied);
     }
     deleted.steam_launch = Some(crate::steam_gamescope::apply(
         process,
