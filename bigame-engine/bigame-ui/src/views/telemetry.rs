@@ -6,7 +6,7 @@
 //! rather than widening its card, a chart keeps its scale (a percentage
 //! always tops at 100), and a metric the driver does not report says so in
 //! its place instead of leaving a hole. Only the window's width changes the
-//! grid: four cards in a row, two, or one (`AdwBreakpointBin`).
+//! grid: four cards in a row, two, or one ([`layout::Page`]).
 //!
 //! Readings are taken only while the page is in front of someone
 //! ([`details::in_view`]): every second with the window focused, every five
@@ -30,6 +30,7 @@ use bigame_core::system_telemetry::{self as sys, CpuTimes, Memory};
 
 use crate::i18n::i18n;
 use crate::views::details;
+use crate::widgets::layout::{self, fixed_label, row_box};
 use crate::widgets::sparkline::{self, Scale, SparkHandle};
 
 /// Reading interval while the window has focus.
@@ -44,14 +45,6 @@ const PING_INTERVAL: Duration = Duration::from_secs(5);
 const CHART_HEIGHT: i32 = 56;
 const GPU_CHART_HEIGHT: i32 = 44;
 
-/// Below the first width the four machine cards go two by two; below the
-/// second the graphics cards go one under the other too, and below the
-/// third everything does. libadwaita applies the last that matches, so each
-/// repeats the setters of those before it.
-const TWO_COLUMNS: &str = "max-width: 880sp";
-const GPUS_STACKED: &str = "max-width: 760sp";
-const ONE_COLUMN: &str = "max-width: 540sp";
-
 /// Build the Telemetry page.
 ///
 /// The machine's cards are there at once; the graphics cards are added the
@@ -61,24 +54,12 @@ const ONE_COLUMN: &str = "max-width: 540sp";
 // The page's layout in one place, top to bottom.
 #[allow(clippy::too_many_lines)]
 pub fn build() -> gtk4::Widget {
-    let content = gtk4::Box::new(gtk4::Orientation::Vertical, 12);
-    content.set_margin_top(12);
-    content.set_margin_bottom(24);
-    content.set_margin_start(18);
-    content.set_margin_end(18);
+    let page = layout::Page::new();
+    page.intro(&i18n(
+        "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything.",
+    ));
 
-    content.append(
-        &gtk4::Label::builder()
-            .label(i18n(
-                "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything.",
-            ))
-            .wrap(true)
-            .xalign(0.0)
-            .css_classes(["dim-label"])
-            .build(),
-    );
-
-    content.append(&section(&i18n("This computer")));
+    page.section(&i18n("This computer"));
     let cpu = Panel::new(
         &i18n("Processor"),
         "bigame-cpu-symbolic",
@@ -100,55 +81,17 @@ pub fn build() -> gtk4::Widget {
         "network-transmit-receive-symbolic",
         Scale::AtLeast(50.0),
     );
-    let first_pair = pair(&cpu.root, &memory.root);
-    let second_pair = pair(&disk.root, &network.root);
-    let machine = row_box();
-    machine.append(&first_pair);
-    machine.append(&second_pair);
-    content.append(&machine);
+    page.row(&[
+        cpu.root.upcast_ref(),
+        memory.root.upcast_ref(),
+        disk.root.upcast_ref(),
+        network.root.upcast_ref(),
+    ]);
 
-    content.append(&section(&i18n("Graphics cards")));
-    let gpu_row = row_box();
-    content.append(&gpu_row);
-
-    let clamp = adw::Clamp::builder()
-        .maximum_size(1280)
-        .tightening_threshold(1280)
-        .child(&content)
-        .build();
-    let scroll = gtk4::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk4::PolicyType::Never)
-        .child(&clamp)
-        .build();
-    let bin = adw::BreakpointBin::builder()
-        .width_request(300)
-        .height_request(300)
-        .child(&scroll)
-        .build();
-
-    let vertical = gtk4::Orientation::Vertical.to_value();
-    if let Ok(cond) = adw::BreakpointCondition::parse(TWO_COLUMNS) {
-        let bp = adw::Breakpoint::new(cond);
-        bp.add_setter(&machine, "orientation", Some(&vertical));
-        bin.add_breakpoint(bp);
-    }
-    if let Ok(cond) = adw::BreakpointCondition::parse(GPUS_STACKED) {
-        let bp = adw::Breakpoint::new(cond);
-        for b in [&machine, &gpu_row] {
-            bp.add_setter(b, "orientation", Some(&vertical));
-        }
-        bin.add_breakpoint(bp);
-    }
-    let one_column = adw::BreakpointCondition::parse(ONE_COLUMN)
-        .ok()
-        .map(|cond| {
-            let bp = adw::Breakpoint::new(cond);
-            for b in [&machine, &first_pair, &second_pair, &gpu_row] {
-                bp.add_setter(b, "orientation", Some(&vertical));
-            }
-            bin.add_breakpoint(bp.clone());
-            bp
-        });
+    page.section(&i18n("Graphics cards"));
+    let gpu_row = layout::row_box();
+    page.stack_when_narrow(&gpu_row);
+    page.add(&gpu_row);
 
     let machine_panels = Machine {
         cpu,
@@ -156,7 +99,8 @@ pub fn build() -> gtk4::Widget {
         disk,
         network,
     };
-    let root = bin.clone();
+    let root = page.widget().clone();
+    let widget = root.clone().upcast::<gtk4::Widget>();
     glib::spawn_future_local(async move {
         details::mapped(&root).await;
         let found = gio::spawn_blocking(|| {
@@ -171,9 +115,7 @@ pub fn build() -> gtk4::Widget {
             .map(|info| {
                 let card = GpuCard::new(info);
                 gpu_row.append(&card.root);
-                if let Some(bp) = &one_column {
-                    bp.add_setter(&card.charts, "orientation", Some(&vertical));
-                }
+                page.stack_when_tiny(&card.charts);
                 card
             })
             .collect();
@@ -183,48 +125,7 @@ pub fn build() -> gtk4::Widget {
         read_forever(&root, &machine_panels, &cards, Arc::new(hw.gpus)).await;
     });
 
-    bin.upcast()
-}
-
-/// A section's heading.
-fn section(title: &str) -> gtk4::Label {
-    gtk4::Label::builder()
-        .label(title)
-        .xalign(0.0)
-        .margin_top(6)
-        .css_classes(["heading"])
-        .build()
-}
-
-/// A row of equal cards; a breakpoint turns it into a column.
-fn row_box() -> gtk4::Box {
-    let b = gtk4::Box::new(gtk4::Orientation::Horizontal, 12);
-    b.set_homogeneous(true);
-    b
-}
-
-/// Two cards side by side, kept together when the row becomes two rows.
-fn pair(a: &gtk4::Box, b: &gtk4::Box) -> gtk4::Box {
-    let p = row_box();
-    p.append(a);
-    p.append(b);
-    p
-}
-
-/// A label of one line that never widens its card: a longer text is cut
-/// short with an ellipsis.
-fn fixed_label(text: &str, classes: &[&str]) -> gtk4::Label {
-    let label = gtk4::Label::builder()
-        .label(text)
-        .xalign(0.0)
-        .lines(1)
-        .ellipsize(gtk4::pango::EllipsizeMode::End)
-        .width_chars(1)
-        .build();
-    for c in classes {
-        label.add_css_class(c);
-    }
-    label
+    widget
 }
 
 /// One of the machine's four cards: a value, two lines under it, a chart.
@@ -239,18 +140,7 @@ struct Panel {
 
 impl Panel {
     fn new(title: &str, icon: &str, scale: Scale) -> Self {
-        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
-        root.add_css_class("card");
-        root.add_css_class("telemetry-card");
-        root.set_hexpand(true);
-        root.update_property(&[gtk4::accessible::Property::Label(title)]);
-
-        let header = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-        let img = gtk4::Image::from_icon_name(icon);
-        img.add_css_class("dim-label");
-        header.append(&img);
-        header.append(&fixed_label(title, &["caption-heading", "dim-label"]));
-        root.append(&header);
+        let root = layout::card(title, icon);
 
         let value = fixed_label("—", &["title-2", "telemetry-value"]);
         value.set_margin_top(6);
@@ -398,13 +288,7 @@ impl GpuCard {
         };
         names.append(&fixed_label(&driver, &["caption", "dim-label"]));
         header.append(&names);
-        let role = gtk4::Label::builder()
-            .label(i18n("Checking…"))
-            .valign(gtk4::Align::Center)
-            .ellipsize(gtk4::pango::EllipsizeMode::End)
-            .max_width_chars(22)
-            .css_classes(["caption-heading", "telemetry-role"])
-            .build();
+        let role = layout::pill(&i18n("Checking…"));
         header.append(&role);
         root.append(&header);
 

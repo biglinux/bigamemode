@@ -8,6 +8,7 @@ pub mod game_fields;
 pub mod info;
 pub mod launch;
 pub mod launcher_notice;
+pub mod layout;
 pub mod notice;
 pub mod optimization;
 pub mod resolution;

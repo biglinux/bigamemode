@@ -44,6 +44,7 @@ impl Overview {
     #[must_use]
     pub fn new(hw: &bigame_core::hardware::Hardware) -> Self {
         let group = adw::PreferencesGroup::new();
+        group.add_css_class("plain-group");
 
         let icon = gtk4::Image::from_icon_name("emblem-synchronizing-symbolic");
         icon.set_pixel_size(28);

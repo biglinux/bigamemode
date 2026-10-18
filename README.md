@@ -85,6 +85,10 @@ does.
   processor, memory, disk, network and one card per GPU, each with a chart
   of the last minute. The cards keep their size and place whatever the
   readings say, and the whole page fits the window.
+- **One look on every page:** Home, Profiles, Tuning, Details, Logs and
+  Settings use Telemetry's cards, with an icon and a title in each card's
+  header, laid out in columns on a wide window and one under the other on a
+  narrow one. Turbo's button is as it was.
 - **What no setting fixes, said plainly:** a game library on a hard disk,
   adaptive sync switched off, and Steam launch options with a wrapper but no
   `%command%` (with a one-click fix).

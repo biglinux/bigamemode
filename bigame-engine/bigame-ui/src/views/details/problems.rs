@@ -90,6 +90,7 @@ impl Problems {
     pub fn new() -> Self {
         let group = adw::PreferencesGroup::new();
         group.set_title(&i18n("Problems"));
+        crate::widgets::layout::icon(&group, "dialog-warning-symbolic");
         group.set_description(Some(&i18n(
             "What needs attention, and what can be done about it. Commands are copied, never run.",
         )));

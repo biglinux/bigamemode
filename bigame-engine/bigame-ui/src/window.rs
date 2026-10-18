@@ -581,7 +581,7 @@ struct Restored {
 fn restore_and_rebuild(
     stack: &adw::ViewStack,
     overlay: &adw::ToastOverlay,
-    tuning: &Rc<RefCell<adw::PreferencesPage>>,
+    tuning: &Rc<RefCell<gtk4::Widget>>,
     sidebar: &gtk4::ListBox,
     open_tuning: bool,
     done_text: String,

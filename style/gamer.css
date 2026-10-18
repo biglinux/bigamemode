@@ -211,6 +211,43 @@ preferencesgroup > box > box.header > box.labels > label.dimmed {
 .dim-label,
 .dimmed { color: var(--gm-text-muted); opacity: 1; }
 
+/* The pages' section titles carry the same bar, and so does a group that
+ * is a section around cards (.plain-group); a card's title has its icon
+ * instead. */
+.page-section {
+    padding-left: 9px;
+    border-style: solid;
+    border-width: 0 0 0 3px;
+    border-image: linear-gradient(to bottom, #835dff, #22d3ee) 1;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) > box > box.header > box.labels > label.heading {
+    font-size: inherit;
+    padding-left: 0;
+    border-width: 0;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) > box > box.header > box.labels > label.dimmed {
+    padding-left: 0;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) > box {
+    border-radius: 14px;
+    border: none;
+    box-shadow: 0 0 0 1px var(--gm-border-subtle), var(--gm-shadow-sm);
+}
+
+/* The rows inside a group's card: the card is the frame, not the list. */
+.bgm-cards preferencesgroup:not(.plain-group) list.boxed-list {
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.group-icon {
+    color: var(--gm-violet);
+    opacity: 1;
+}
+
 /* Header bars: one surface with the page, separated by a hairline. */
 headerbar {
     box-shadow: inset 0 -1px var(--gm-border-subtle);
@@ -397,12 +434,6 @@ toast {
 /* ── The Turbo control ─────────────────────────────────────────────── */
 
 /* The disc is drawn; the design restyles what sits round it. */
-.home-mini,
-.home-card {
-    background-color: var(--gm-surface-primary);
-    box-shadow: 0 0 0 1px var(--gm-border-subtle);
-}
-
 .home-card {
     background-image: radial-gradient(circle at 100% 0%, rgba(131, 93, 255, 0.12), rgba(131, 93, 255, 0) 55%);
 }

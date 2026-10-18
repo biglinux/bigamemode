@@ -9,7 +9,7 @@ use libadwaita as adw;
 
 use crate::i18n::{N_, error_text, i18n, ni18n, tr};
 use crate::settings;
-use crate::widgets::info;
+use crate::widgets::{info, layout};
 
 fn switch(title: &str, subtitle: &str, active: bool, about: &str) -> adw::SwitchRow {
     let row = adw::SwitchRow::builder()
@@ -38,8 +38,10 @@ fn toggles(choices: &[(&str, String)], active: &str) -> adw::ToggleGroup {
 fn appearance_group() -> adw::PreferencesGroup {
     use crate::theme::{self, Design, Scheme};
 
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Appearance"));
+    let group = layout::group(
+        &i18n("Appearance"),
+        "preferences-desktop-appearance-symbolic",
+    );
     let (design, scheme) = theme::saved();
 
     let design_row = adw::ActionRow::builder()
@@ -396,15 +398,15 @@ fn save_ping_target(target: String) {
 /// Build the Settings page.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn build() -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::new();
+pub fn build() -> gtk4::Widget {
+    let page = layout::Page::new();
+    let (left, right) = page.columns();
     let current = settings::load();
 
-    page.add(&appearance_group());
+    left.append(&appearance_group());
 
     // ── Turbo Mode ──────────────────────────────────────────────────────
-    let turbo = adw::PreferencesGroup::new();
-    turbo.set_title(&i18n("Turbo Mode"));
+    let turbo = layout::group(&i18n("Turbo Mode"), "power-profile-performance-symbolic");
 
     let login = switch(
         &i18n("Start in the background at login"),
@@ -421,11 +423,10 @@ pub fn build() -> adw::PreferencesPage {
 
     let falcond = falcond_row();
     turbo.add(&falcond);
-    page.add(&turbo);
+    left.append(&turbo);
 
     // ── Game profiles ───────────────────────────────────────────────────
-    let profiles = adw::PreferencesGroup::new();
-    profiles.set_title(&i18n("Game profiles"));
+    let profiles = layout::group(&i18n("Game profiles"), "applications-games-symbolic");
 
     let offer = switch(
         &i18n("Offer a profile for new games"),
@@ -538,11 +539,13 @@ pub fn build() -> adw::PreferencesPage {
             });
         });
     });
-    page.add(&profiles);
+    right.append(&profiles);
 
     // ── Notifications ───────────────────────────────────────────────────
-    let notif = adw::PreferencesGroup::new();
-    notif.set_title(&i18n("Notifications"));
+    let notif = layout::group(
+        &i18n("Notifications"),
+        "preferences-system-notifications-symbolic",
+    );
     let notif_row = switch(
         &i18n("Game Notifications"),
         &i18n("Show notifications on game launch and exit"),
@@ -557,20 +560,18 @@ pub fn build() -> adw::PreferencesPage {
         settings::try_save(&s).map_err(|e| e.to_string())
     });
     notif.add(&notif_row);
-    page.add(&notif);
+    left.append(&notif);
 
     // ── Monitoring ──────────────────────────────────────────────────────
-    let monitoring = adw::PreferencesGroup::new();
-    monitoring.set_title(&i18n("Monitoring"));
+    let monitoring = layout::group(&i18n("Monitoring"), "bigame-telemetry-symbolic");
     for row in ping_rows(&current.ping_target) {
         monitoring.add(&row);
     }
-    page.add(&monitoring);
+    right.append(&monitoring);
 
     // ── Advanced ────────────────────────────────────────────────────────
     // Last, so nobody lands on it by chance.
-    let advanced = adw::PreferencesGroup::new();
-    advanced.set_title(&i18n("Advanced"));
+    let advanced = layout::group(&i18n("Advanced"), "preferences-other-symbolic");
     let advanced_row = switch(
         &i18n("Show advanced options"),
         &i18n("More pages and settings for people who know their hardware"),
@@ -584,7 +585,7 @@ pub fn build() -> adw::PreferencesPage {
     });
     advanced.add(&advanced_row);
     advanced.add(&restore_all_graphics_row());
-    page.add(&advanced);
+    right.append(&advanced);
 
     // The technical rows only in advanced mode.
     settings::follow_advanced(move |on| {
@@ -592,5 +593,5 @@ pub fn build() -> adw::PreferencesPage {
         monitoring.set_visible(on);
     });
 
-    page
+    page.widget().clone().upcast()
 }

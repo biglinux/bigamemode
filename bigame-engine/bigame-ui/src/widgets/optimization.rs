@@ -213,6 +213,7 @@ pub fn scope_banner(scope: Scope<'_>) -> adw::PreferencesGroup {
     card.append(&image);
     card.append(&words);
     let group = adw::PreferencesGroup::new();
+    group.add_css_class("plain-group");
     group.add(&card);
     group
 }
@@ -221,10 +222,18 @@ pub fn scope_banner(scope: Scope<'_>) -> adw::PreferencesGroup {
 /// Performance, Display, Image quality, Frame generation, Monitoring,
 /// Advanced.
 #[must_use]
-pub fn section(title: &str) -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::new();
-    group.set_title(title);
-    group
+///
+/// `key` is the section's English title (`N_`), which also picks its icon.
+pub fn section(key: &str) -> adw::PreferencesGroup {
+    let icon = match key {
+        "Performance" => "power-profile-performance-symbolic",
+        "Display" => "video-display-symbolic",
+        "Image quality" => "applications-graphics-symbolic",
+        "Frame generation" => "media-skip-forward-symbolic",
+        "Monitoring" => "bigame-telemetry-symbolic",
+        _ => "preferences-other-symbolic",
+    };
+    crate::widgets::layout::group(&i18n(key), icon)
 }
 
 /// A row that says something is not there, with the command that installs

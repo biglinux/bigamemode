@@ -32,6 +32,7 @@ use bigame_core::turbo_preset;
 use crate::i18n::{error_text, i18n, ni18n, tr};
 use crate::widgets::booster_button::{self, BoosterButton, State};
 use crate::widgets::launcher_notice::LauncherNotice;
+use crate::widgets::layout;
 use crate::widgets::sparkline::{self, SparkHandle};
 use crate::widgets::status::Chip;
 use crate::widgets::turbo_presets::{Mode, PresetPicker};
@@ -78,19 +79,9 @@ pub fn build(
     // The machine, named once its hardware has been read.
     let machine = gtk4::Label::new(Some(&i18n("Checking your system…")));
     machine.add_css_class("dim-label");
-    machine.add_css_class("home-status");
+    machine.add_css_class("caption");
     machine.set_wrap(true);
     machine.set_justify(gtk4::Justification::Center);
-
-    // ── Live readings, above the disc ───────────────────────────────────
-    let readings = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
-    readings.set_halign(gtk4::Align::Center);
-    let cpu_tile = MiniTile::new(&i18n("CPU"), "cpu-symbolic");
-    let gpu_tile = MiniTile::new(&i18n("GPU"), "video-display-symbolic");
-    let net_tile = MiniTile::new(&i18n("Network"), "network-wireless-symbolic");
-    readings.append(cpu_tile.widget());
-    readings.append(gpu_tile.widget());
-    readings.append(net_tile.widget());
 
     // ── The card: Turbo's result, or the running game ───────────────────
     let card = InfoCard::new(Rc::clone(&last_report), Rc::clone(&show_report));
@@ -99,21 +90,20 @@ pub fn build(
 
     let tip = tip_banner();
 
-    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
-    column.set_halign(gtk4::Align::Center);
-    column.set_valign(gtk4::Align::Center);
-    // Centred in what the tip banner above it leaves.
-    column.set_vexpand(true);
-    column.set_margin_top(8);
-    column.set_margin_bottom(8);
-    column.set_margin_start(18);
-    column.set_margin_end(18);
-    column.append(&machine);
-    column.append(&readings);
-    column.append(button.widget());
-    column.append(button.caption());
-    column.append(presets.widget());
-    column.append(card.widget());
+    // ── The page: Turbo on the left, what it is set to on the right ─────
+    let page = layout::Page::new();
+    let (left, right) = page.card_columns();
+    // The Turbo card takes the height of the column beside it.
+    left.set_valign(gtk4::Align::Fill);
+    let turbo_card = layout::panel(&i18n("Turbo"), "power-profile-performance-symbolic");
+    turbo_card.set_vexpand(true);
+    let disc = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
+    disc.set_valign(gtk4::Align::Center);
+    disc.set_vexpand(true);
+    disc.append(button.widget());
+    disc.append(button.caption());
+    disc.append(&machine);
+    turbo_card.append(&disc);
     // The one way out, for anyone: the window's Back to normal.
     let normal = gtk4::Button::builder()
         .label(i18n("Back to normal"))
@@ -123,23 +113,38 @@ pub fn build(
         .action_name("win.back-to-normal")
         .halign(gtk4::Align::Center)
         .css_classes(["pill"])
-        .margin_top(6)
+        .margin_bottom(4)
         .build();
-    column.append(&normal);
-    // The live readings are for people who know what they read.
+    turbo_card.append(&normal);
+    left.append(&turbo_card);
+    right.set_valign(gtk4::Align::Fill);
+    right.append(presets.widget());
+    card.widget().set_vexpand(true);
+    right.append(card.widget());
+
+    // ── Live readings, for people who know what they read ───────────────
+    let readings_title = page.section(&i18n("Live readings"));
+    let cpu_tile = MiniTile::new(&i18n("CPU"), "bigame-cpu-symbolic");
+    let gpu_tile = MiniTile::new(&i18n("GPU"), "video-display-symbolic");
+    let net_tile = MiniTile::new(&i18n("Network"), "network-transmit-receive-symbolic");
+    let readings = layout::row_box();
+    readings.append(cpu_tile.widget());
+    readings.append(gpu_tile.widget());
+    readings.append(net_tile.widget());
+    page.stack_when_tiny(&readings);
+    page.add(&readings);
     {
         let readings = readings.clone();
-        crate::settings::follow_advanced(move |on| readings.set_visible(on));
+        crate::settings::follow_advanced(move |on| {
+            readings.set_visible(on);
+            readings_title.set_visible(on);
+        });
     }
 
-    let page = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    page.append(&tip);
-    page.append(&column);
-    let scroll = gtk4::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk4::PolicyType::Never)
-        .child(&page)
-        .vexpand(true)
-        .build();
+    let home_root = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    home_root.append(&tip);
+    page.widget().set_vexpand(true);
+    home_root.append(page.widget());
 
     let turbo_on = Rc::new(Cell::new(false));
     // A preset is being put in force while Turbo is on: Turbo and the
@@ -511,7 +516,7 @@ pub fn build(
         let card = card.clone();
         let notice = Rc::clone(&launcher_notice);
         let switching = Rc::clone(&switching_preset);
-        let root = scroll.clone();
+        let root = home_root.clone();
         let busy = Rc::new(Cell::new(false));
         crate::app::follow_backend_unit(move |unit| {
             // No reading: systemd could not be asked, and saying "off"
@@ -588,13 +593,13 @@ pub fn build(
     // readings refresh it only while the page is on screen.
     {
         let card = card.clone();
-        scroll.connect_map(move |_| card.refresh_preset());
+        home_root.connect_map(move |_| card.refresh_preset());
     }
 
     // ── Live readings ───────────────────────────────────────────────────
     {
         let card = card.clone();
-        let root = scroll.clone();
+        let root = home_root.clone();
         // Read once, off the main thread: the CPU model and the GPUs do not
         // change while the application runs, and naming the GPUs reads the
         // PCI database. Until then (and if it fails) the tiles still run.
@@ -674,7 +679,7 @@ pub fn build(
         let refresh = Rc::new(refresh);
         {
             let refresh = Rc::clone(&refresh);
-            scroll.connect_map(move |_| {
+            home_root.connect_map(move |_| {
                 refresh.force();
             });
         }
@@ -689,7 +694,7 @@ pub fn build(
         });
     }
 
-    scroll.upcast()
+    home_root.upcast()
 }
 
 /// One thing outside Big Game Mode that makes games smoother, in a line
@@ -741,7 +746,7 @@ enum Tip {
 
 /// Take away the preset and the Booster's changes a Turbo switched off from
 /// outside left in force, off the main thread.
-fn tidy_up(anchor: &gtk4::ScrolledWindow, card: &InfoCard) {
+fn tidy_up(anchor: &gtk4::Box, card: &InfoCard) {
     let (anchor, card) = (anchor.clone(), card.clone());
     glib::spawn_future_local(async move {
         let result = gio::spawn_blocking(turbo::tidy_up_blocking).await;
@@ -768,7 +773,7 @@ fn tidy_up(anchor: &gtk4::ScrolledWindow, card: &InfoCard) {
 struct Refresh {
     /// Called with the tick number.
     update: Box<dyn Fn(u32)>,
-    root: gtk4::ScrolledWindow,
+    root: gtk4::Box,
     tick: Cell<u32>,
 }
 
@@ -1099,14 +1104,13 @@ impl InfoCard {
         text.append(&flags);
         text.append(&bottom);
 
-        let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 14);
-        root.add_css_class("card");
+        let inside = gtk4::Box::new(gtk4::Orientation::Horizontal, 14);
+        inside.append(&cover);
+        inside.append(&icon);
+        inside.append(&text);
+        let root = layout::panel(&i18n("Right now"), "input-gaming-symbolic");
         root.add_css_class("home-card");
-        root.set_halign(gtk4::Align::Fill);
-        root.set_size_request(560, -1);
-        root.append(&cover);
-        root.append(&icon);
-        root.append(&text);
+        root.append(&inside);
 
         let me = Self {
             root,
@@ -1505,33 +1509,13 @@ struct MiniTile {
 
 impl MiniTile {
     fn new(label: &str, icon: &str) -> Self {
-        let header = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-        let image = gtk4::Image::from_icon_name(icon);
-        image.set_pixel_size(14);
-        image.add_css_class("dim-label");
-        let caption = gtk4::Label::new(Some(label));
-        caption.add_css_class("caption");
-        caption.add_css_class("dim-label");
-        let value = gtk4::Label::new(Some("—"));
-        value.add_css_class("heading");
-        value.set_hexpand(true);
-        value.set_xalign(1.0);
-        header.append(&image);
-        header.append(&caption);
-        header.append(&value);
-
-        let spark = sparkline::build();
-        spark.area.set_content_height(18);
-        spark.area.set_content_width(120);
-
-        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-        root.add_css_class("card");
-        root.add_css_class("home-mini");
-        root.set_width_request(150);
-        root.append(&header);
+        let root = layout::card(label, icon);
+        let value = layout::fixed_label("—", &["title-2", "telemetry-value"]);
+        value.set_margin_top(6);
+        root.append(&value);
+        let spark = sparkline::chart(sparkline::Scale::AtLeast(1.0), 40);
+        spark.area.set_margin_top(8);
         root.append(&spark.area);
-        root.update_property(&[gtk4::accessible::Property::Label(label)]);
-
         Self { root, value, spark }
     }
 

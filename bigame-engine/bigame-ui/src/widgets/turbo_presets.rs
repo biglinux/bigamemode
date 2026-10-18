@@ -112,36 +112,30 @@ impl PresetPicker {
     /// Build it, showing the preset chosen last.
     #[must_use]
     pub fn new() -> Rc<Self> {
-        let heading = gtk4::Label::new(Some(&i18n("What do you want?")));
-        heading.add_css_class("heading");
-
-        let row = gtk4::FlowBox::builder()
-            .selection_mode(gtk4::SelectionMode::None)
-            .homogeneous(true)
-            .min_children_per_line(3)
-            .max_children_per_line(3)
-            .column_spacing(8)
-            .row_spacing(8)
-            .halign(gtk4::Align::Center)
-            .build();
+        // Three equal tiles in a card, as every page's cards.
+        let row = crate::widgets::layout::row_box();
+        row.set_spacing(8);
 
         let chosen = turbo_preset::chosen();
         let mut buttons = Vec::new();
         let mut first: Option<gtk4::ToggleButton> = None;
         for preset in turbo_preset::ALL {
             let image = gtk4::Image::from_icon_name(icon(preset));
-            image.set_pixel_size(18);
+            image.set_pixel_size(22);
             let label = gtk4::Label::new(Some(&i18n(preset.label())));
             label.set_wrap(true);
             label.set_justify(gtk4::Justification::Center);
             label.set_max_width_chars(12);
-            let content = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+            label.add_css_class("heading");
+            let content = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+            content.set_margin_top(6);
+            content.set_margin_bottom(6);
             content.append(&image);
             content.append(&label);
             let button = gtk4::ToggleButton::builder()
                 .child(&content)
                 .css_classes(["turbo-preset"])
-                .width_request(108)
+                .hexpand(true)
                 .active(preset == chosen)
                 .build();
             button.update_property(&[gtk4::accessible::Property::Label(&i18n(preset.label()))]);
@@ -150,11 +144,7 @@ impl PresetPicker {
             } else {
                 first = Some(button.clone());
             }
-            // A FlowBox child takes the focus itself; the button should.
-            let child = gtk4::FlowBoxChild::new();
-            child.set_focusable(false);
-            child.set_child(Some(&button));
-            row.append(&child);
+            row.append(&button);
             buttons.push((preset, button));
         }
 
@@ -166,20 +156,19 @@ impl PresetPicker {
         description.set_wrap(true);
         description.set_lines(2);
         description.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        description.set_justify(gtk4::Justification::Center);
-        description.set_max_width_chars(70);
+        description.set_xalign(0.0);
+        description.set_width_chars(1);
         description.set_tooltip_text(Some(&describe(chosen, None, &not_read_yet)));
 
         let note = gtk4::Label::new(None);
         note.add_css_class("caption");
         note.add_css_class("turbo-preset-note");
         note.set_wrap(true);
-        note.set_justify(gtk4::Justification::Center);
+        note.set_xalign(0.0);
         note.set_visible(false);
 
-        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
-        root.set_halign(gtk4::Align::Center);
-        root.append(&heading);
+        let root =
+            crate::widgets::layout::panel(&i18n("What do you want?"), "preferences-other-symbolic");
         root.append(&row);
         root.append(&description);
         root.append(&note);

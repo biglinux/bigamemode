@@ -68,17 +68,11 @@ impl SparkHandle {
     }
 }
 
-/// Create a `SparkHandle` with a 120×32px drawing area ready to embed.
-#[must_use]
-pub fn build() -> SparkHandle {
-    make(Scale::AtLeast(1.0), false)
-}
-
 /// A chart of `height` pixels on the scale `scale`, with faint guide lines
 /// at a quarter, half and three quarters of it.
 #[must_use]
 pub fn chart(scale: Scale, height: i32) -> SparkHandle {
-    let spark = make(scale, true);
+    let spark = make(scale);
     spark.area.set_content_height(height);
     spark.area.set_vexpand(false);
     spark.area.add_css_class("telemetry-chart");
@@ -86,7 +80,7 @@ pub fn chart(scale: Scale, height: i32) -> SparkHandle {
 }
 
 #[allow(clippy::many_single_char_names, clippy::cast_precision_loss)]
-fn make(scale: Scale, guides: bool) -> SparkHandle {
+fn make(scale: Scale) -> SparkHandle {
     let data: SparkData = Arc::new(Mutex::new(VecDeque::with_capacity(MAX_POINTS)));
     let color: ColorOverride = Arc::new(Mutex::new(None));
     let area = gtk4::DrawingArea::new();
@@ -100,22 +94,20 @@ fn make(scale: Scale, guides: bool) -> SparkHandle {
         let vals = buf.lock().unwrap_or_else(PoisonError::into_inner);
         let w = f64::from(width);
         let h = f64::from(height);
-        if guides {
-            let fg = widget.color();
-            cr.set_source_rgba(
-                f64::from(fg.red()),
-                f64::from(fg.green()),
-                f64::from(fg.blue()),
-                0.08,
-            );
-            cr.set_line_width(1.0);
-            for q in [0.25, 0.5, 0.75] {
-                let y = (h * q).round() + 0.5;
-                cr.move_to(0.0, y);
-                cr.line_to(w, y);
-            }
-            let _ = cr.stroke();
+        let fg = widget.color();
+        cr.set_source_rgba(
+            f64::from(fg.red()),
+            f64::from(fg.green()),
+            f64::from(fg.blue()),
+            0.08,
+        );
+        cr.set_line_width(1.0);
+        for q in [0.25, 0.5, 0.75] {
+            let y = (h * q).round() + 0.5;
+            cr.move_to(0.0, y);
+            cr.line_to(w, y);
         }
+        let _ = cr.stroke();
         if vals.len() < 2 {
             return;
         }

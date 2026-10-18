@@ -21,7 +21,7 @@ use bigame_core::network::{self, Resolver};
 use bigame_core::processes;
 
 use crate::i18n::{error_text, i18n};
-use crate::widgets::toast;
+use crate::widgets::{layout, toast};
 
 /// Domains queried by the DNS benchmark.
 ///
@@ -64,6 +64,7 @@ type Refresh = Rc<dyn Fn()>;
 pub fn background_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Background load"));
+    layout::icon(&group, "system-run-symbolic");
     group.set_description(Some(&i18n(
         "Programs of yours using noticeable CPU. Closing or pausing them frees \
          it for a game — but only you know which ones you are actually using. \
@@ -418,6 +419,7 @@ fn act(
 pub fn steam_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Steam launch options"));
+    layout::icon(&group, "applications-games-symbolic");
     group.set_description(Some(&i18n(
         "Options that call a program this system does not have, so the game will not start, \
          or a program without %command%, which then does nothing.",
@@ -622,6 +624,7 @@ fn write_launch_options(
 pub fn network_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Network"));
+    layout::icon(&group, "network-transmit-receive-symbolic");
     group.set_description(Some(&i18n(
         "Measured on the connection that carries your traffic, not on every \
          interface this machine happens to have.",
@@ -840,14 +843,16 @@ pub fn report_group() -> adw::PreferencesGroup {
         .right_margin(12)
         .top_margin(12)
         .bottom_margin(12)
+        .css_classes(["log-view"])
         .build();
 
     let scroll = gtk4::ScrolledWindow::builder()
         .child(&view)
         .height_request(320)
         .hscrollbar_policy(gtk4::PolicyType::Automatic)
+        .overflow(gtk4::Overflow::Hidden)
         .build();
-    scroll.add_css_class("card");
+    scroll.add_css_class("telemetry-tile");
 
     let copy = gtk4::Button::builder().label(i18n("Copy")).build();
     let save = gtk4::Button::builder().label(i18n("Save to file…")).build();
@@ -864,9 +869,11 @@ pub fn report_group() -> adw::PreferencesGroup {
     actions.append(&save);
 
     let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    layout::inset(&column);
     column.append(&scroll);
     column.append(&actions);
     group.add(&column);
+    layout::icon(&group, "document-send-symbolic");
 
     let generate = {
         let buffer = buffer.clone();

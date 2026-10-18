@@ -522,6 +522,13 @@ of it needs root.
   changes the general settings: the launch leaves Wine FSR
   (`WINE_FULLSCREEN_FSR=0`) and the Gamescope render size out for that game,
   and the page says so.
+- **Every page** is laid out by `widgets/layout.rs`, the layout Telemetry
+  set: a scrolled page clamped at 1280 px, section titles, and cards with an
+  icon and a title in the header. Settings groups stay
+  `AdwPreferencesGroup`s and are drawn as cards by the `.bgm-cards` rules
+  (a group that is a section around cards of its own is `.plain-group`).
+  `Page::columns` puts groups of setting rows side by side from 1000 sp and
+  `Page::card_columns` cards from 760 sp; only breakpoints move them.
 - **Telemetry** is the live charts (`views/telemetry.rs`): processor,
   memory, disk and network from `bigame_core::system_telemetry` (one file
   each, counters turned into rates between two readings), and one card per

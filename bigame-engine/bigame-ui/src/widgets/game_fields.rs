@@ -1494,7 +1494,7 @@ impl GameFields {
     pub fn build(g: &GameOptimization, m: &Machine, game: &Game, titled: bool) -> Self {
         let section = |title: &str, description: String| {
             titled.then(|| {
-                let group = crate::widgets::optimization::section(&i18n(title));
+                let group = crate::widgets::optimization::section(title);
                 group.set_description(Some(&description));
                 group
             })
