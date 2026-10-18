@@ -26,7 +26,7 @@ what is really in effect.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-light.png">
-  <img src="docs/screenshots/home.png" width="860" alt="Big Game Mode's Home page with the Turbo button and its presets">
+  <img src="docs/screenshots/home.png" width="860" alt="Big Game Mode's Home page in simple mode: Turbo in words, three choices and Back to normal">
 </picture>
 
 </div>
@@ -275,11 +275,11 @@ Closing the window keeps Big Game Mode in the tray, with Turbo, the presets and
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/profiles.png" alt="Profiles: the library of installed games"></td>
+<td width="50%"><img src="docs/screenshots/profiles.png" alt="Profiles: the library of installed games, each with Play"></td>
 <td width="50%"><img src="docs/screenshots/tuning.png" alt="Tuning: performance, Gamescope, image quality and frame generation"></td>
 </tr>
 <tr>
-<td align="center"><b>Profiles</b>: every installed game, each with its profile</td>
+<td align="center"><b>Profiles</b>: every installed game, Play on each</td>
 <td align="center"><b>Tuning</b>: what the machine cannot do is shown as such</td>
 </tr>
 <tr>
@@ -292,11 +292,11 @@ Closing the window keeps Big Game Mode in the tray, with Turbo, the presets and
 </tr>
 <tr>
 <td><img src="docs/screenshots/logs.png" alt="Logs: every source a game session depends on"></td>
-<td><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications and falcond"></td>
+<td><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications and advanced options"></td>
 </tr>
 <tr>
 <td align="center"><b>Logs</b>: every source, filtered</td>
-<td align="center"><b>Settings</b>: Default and Gamer themes, light or dark</td>
+<td align="center"><b>Settings</b>: themes, and the switch for advanced options</td>
 </tr>
 <tr>
 <td colspan="2" align="center"><img src="docs/screenshots/about.png" width="430" alt="About Big Game Mode"></td>
