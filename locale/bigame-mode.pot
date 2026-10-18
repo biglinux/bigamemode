@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 15:52-0300\n"
+"POT-Creation-Date: 2026-10-18 15:54-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -259,6 +259,10 @@ msgstr ""
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr ""
 
+#: bigame-engine/bigame-ui/src/app.rs:556
+msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
+msgstr ""
+
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
 msgstr ""
@@ -320,6 +324,10 @@ msgstr ""
 
 #: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
+msgstr ""
+
+#: bigame-engine/bigame-ui/src/app.rs:553
+msgid "%s now has anti-cheat"
 msgstr ""
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:260
@@ -1228,7 +1236,7 @@ msgstr ""
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:716
+#: bigame-engine/bigame-ui/src/app.rs:754
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr ""
 
@@ -1301,7 +1309,7 @@ msgstr ""
 msgid "Built into falcond"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:758
+#: bigame-engine/bigame-ui/src/app.rs:796
 msgid "Built on"
 msgstr ""
 
@@ -1584,7 +1592,7 @@ msgstr ""
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:630
+#: bigame-engine/bigame-ui/src/app.rs:668
 msgid "Command"
 msgstr ""
 
@@ -1694,7 +1702,7 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:580
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Copy Install Command"
 msgstr ""
 
@@ -2732,7 +2740,7 @@ msgstr ""
 msgid "Gaming mode for BigLinux"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:723
+#: bigame-engine/bigame-ui/src/app.rs:761
 msgid "Gathering system information…"
 msgstr ""
 
@@ -3058,7 +3066,7 @@ msgstr ""
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:578
+#: bigame-engine/bigame-ui/src/app.rs:616
 msgid "Install Missing Packages"
 msgstr ""
 
@@ -3066,11 +3074,11 @@ msgstr ""
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:627
+#: bigame-engine/bigame-ui/src/app.rs:665
 msgid "Install missing packages"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:638
+#: bigame-engine/bigame-ui/src/app.rs:676
 msgid "Install missing packages with your package manager"
 msgstr ""
 
@@ -3299,7 +3307,7 @@ msgstr ""
 msgid "Layer installed"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:738
+#: bigame-engine/bigame-ui/src/app.rs:776
 msgid "Lead Developer"
 msgstr ""
 
@@ -3543,9 +3551,9 @@ msgstr ""
 msgid "Microsoft system DLL"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:571
-#: bigame-engine/bigame-ui/src/app.rs:585
-#: bigame-engine/bigame-ui/src/app.rs:594
+#: bigame-engine/bigame-ui/src/app.rs:609
+#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:632
 msgid "Missing Runtime Dependencies"
 msgstr ""
 
@@ -3557,7 +3565,7 @@ msgstr ""
 msgid "Missing files put back"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:641
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Missing packages"
 msgstr ""
 
@@ -4215,7 +4223,7 @@ msgstr ""
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:719
+#: bigame-engine/bigame-ui/src/app.rs:757
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr ""
 
@@ -4256,12 +4264,12 @@ msgstr ""
 msgid "Open Big Game Mode"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:629
-#: bigame-engine/bigame-ui/src/app.rs:640
+#: bigame-engine/bigame-ui/src/app.rs:667
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Open Details after starting a game to see what it really got"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:554
+#: bigame-engine/bigame-ui/src/app.rs:592
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr ""
 
@@ -5070,7 +5078,7 @@ msgstr ""
 msgid "Repair puts missing files back; a changed binary belongs to whatever changed it"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1563
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1593
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr ""
 
@@ -5090,8 +5098,8 @@ msgstr ""
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:574
-#: bigame-engine/bigame-ui/src/app.rs:588
+#: bigame-engine/bigame-ui/src/app.rs:612
+#: bigame-engine/bigame-ui/src/app.rs:626
 msgid "Required packages were not found in the system"
 msgstr ""
 
@@ -5114,8 +5122,8 @@ msgstr ""
 msgid "Resolved: %s is the only upscaler"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:628
-#: bigame-engine/bigame-ui/src/app.rs:639
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Restart Big Game Mode"
 msgstr ""
 
@@ -5476,7 +5484,7 @@ msgstr ""
 msgid "Some settings could not be put back"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:742
+#: bigame-engine/bigame-ui/src/app.rs:780
 msgid "Special Thanks"
 msgstr ""
 
@@ -5602,7 +5610,7 @@ msgstr ""
 msgid "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/mangohud.rs:282
+#: bigame-engine/bigame-core/src/mangohud.rs:290
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr ""
 
@@ -5913,7 +5921,7 @@ msgstr ""
 msgid "The next game gets its profile as it starts."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:553
+#: bigame-engine/bigame-ui/src/app.rs:591
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr ""
 
@@ -6135,8 +6143,8 @@ msgstr ""
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:626
-#: bigame-engine/bigame-ui/src/app.rs:637
+#: bigame-engine/bigame-ui/src/app.rs:664
+#: bigame-engine/bigame-ui/src/app.rs:675
 msgid "Troubleshooting"
 msgstr ""
 
@@ -7328,8 +7336,8 @@ msgstr ""
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:552
-#: bigame-engine/bigame-ui/src/app.rs:556
+#: bigame-engine/bigame-ui/src/app.rs:590
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "falcond stopped unexpectedly"
 msgstr ""
 
@@ -8259,7 +8267,7 @@ msgstr ""
 msgid "the game's executable was not found"
 msgstr ""
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1525
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1555
 msgid "the game's files were put back, but its own setting could not be (%s); Restore tries it again"
 msgstr ""
 
@@ -8519,7 +8527,7 @@ msgstr ""
 msgid "too few usable runs to compare"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:728
+#: bigame-engine/bigame-ui/src/app.rs:766
 msgid "translator-credits"
 msgstr ""
 
@@ -8596,7 +8604,7 @@ msgstr ""
 msgid "variable refresh rate is requested"
 msgstr ""
 
-#: bigame-engine/bigame-ui/src/app.rs:752
+#: bigame-engine/bigame-ui/src/app.rs:790
 msgid "vkBasalt configuration"
 msgstr ""
 

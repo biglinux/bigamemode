@@ -1457,6 +1457,36 @@ fn restore_in(state: &Path, target: &Target) -> anyhow::Result<Restoration> {
     Ok(done)
 }
 
+/// Games with `OptiScaler` installed whose folder shows anti-cheat now, as
+/// `(title, anti-cheat)`: an update can add it after Apply, and the checks
+/// at Apply and Repair do not run again by themselves. Playing such a game
+/// online with an injected DLL risks the account. Each game's folder is
+/// walked, so this runs off the main thread and not while a game runs.
+#[must_use]
+pub fn installed_with_anti_cheat() -> Vec<(String, String)> {
+    let state = state_dir();
+    let Ok(dir) = std::fs::read_dir(&state) else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for d in dir.flatten().filter(|d| d.path().is_dir()) {
+        let key = d.file_name().to_string_lossy().into_owned();
+        let Ok(Some(m)) = manifest::Manifest::load(&state, &key) else {
+            continue;
+        };
+        if m.state != manifest::State::Installed || !m.install_root.is_dir() {
+            continue;
+        }
+        let scanned = scan::scan(&m.install_root, m.process.as_deref());
+        if let Some(ac) = scanned.anti_cheat.first() {
+            let title = m.title.clone().or(m.process.clone()).unwrap_or(key);
+            found.push((title, ac.name.clone()));
+        }
+    }
+    found.sort();
+    found
+}
+
 /// Restore every game AI Graphics changed ([`restore`]), as before removing
 /// Big Game Mode: each game's title and how it went. A game that runs is
 /// left as it is (and said); a record that does not name its game's process

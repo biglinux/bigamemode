@@ -205,6 +205,10 @@ pub fn run() -> adw::glib::ExitCode {
         // An autostart entry an older version wrote gets TryExec.
         std::thread::spawn(crate::settings::refresh_autostart_entry);
 
+        // A game AI Graphics changed that an update gave anti-cheat since:
+        // said once per start, a while after it and not during a game.
+        warn_anti_cheat_later(app);
+
         // Programs a previous run paused from Details and could not resume
         // (it was killed, or crashed) are resumed before anything else: a
         // program must never stay frozen because Big Game Mode went away.
@@ -524,6 +528,40 @@ fn read_again(read: std::rc::Rc<dyn Fn()>) {
     glib::timeout_add_local_once(std::time::Duration::from_secs(wait), move || {
         read();
         read_again(read);
+    });
+}
+
+/// Look, a minute and a half after start and with no game running, for
+/// games that still have `OptiScaler` and show anti-cheat now, and send a
+/// notification for each.
+fn warn_anti_cheat_later(app: &adw::Application) {
+    let app = app.downgrade();
+    glib::timeout_add_seconds_local_once(90, move || {
+        if crate::game_watch::current().is_some() {
+            return;
+        }
+        glib::spawn_future_local(async move {
+            let found = gtk4::gio::spawn_blocking(bigame_core::graphics::installed_with_anti_cheat)
+                .await
+                .unwrap_or_default();
+            let Some(app) = app.upgrade() else {
+                return;
+            };
+            for (game, anti_cheat) in found {
+                tracing::warn!(target: "graphics", %game, %anti_cheat, "a game with OptiScaler shows anti-cheat now");
+                let n = gtk4::gio::Notification::new(
+                    &crate::i18n::i18n("%s now has anti-cheat").replace("%s", &game),
+                );
+                n.set_body(Some(
+                    &crate::i18n::i18n(
+                        "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics.",
+                    )
+                    .replace("%s", &anti_cheat),
+                ));
+                n.set_priority(gtk4::gio::NotificationPriority::High);
+                app.send_notification(Some(&format!("anti-cheat-{game}")), &n);
+            }
+        });
     });
 }
 
