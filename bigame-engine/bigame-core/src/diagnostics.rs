@@ -802,12 +802,20 @@ fn section_conflicts(out: &mut String, caps: &Capabilities) {
         for user in crate::steam::users(std::path::Path::new(&home)) {
             for broken in crate::steam::broken_launch_options(&user.config) {
                 found += 1;
-                let _ = writeln!(
-                    out,
-                    "  ! Steam app {} has launch options calling '{}', which is not \
-                     installed — that game will not start.",
-                    broken.app_id, broken.missing
-                );
+                let _ = match broken.why {
+                    crate::steam::Broken::NotInstalled => writeln!(
+                        out,
+                        "  ! Steam app {} has launch options calling '{}', which is not \
+                         installed — that game will not start.",
+                        broken.app_id, broken.program
+                    ),
+                    crate::steam::Broken::NoCommand => writeln!(
+                        out,
+                        "  ! Steam app {} has '{}' in its launch options without %command%: \
+                         Steam passes it to the game as an argument, and it does nothing.",
+                        broken.app_id, broken.program
+                    ),
+                };
             }
         }
     }
