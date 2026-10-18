@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 10:58-0300\n"
+"POT-Creation-Date: 2026-10-18 15:00-0300\n"
 "PO-Revision-Date: 2026-04-20 22:26\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Russian <ru@li.org>\n"
@@ -187,7 +187,7 @@ msgstr "Запрошен %r, но работает %l"
 msgid "%s"
 msgstr "%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:605
+#: bigame-engine/bigame-core/src/turbo.rs:615
 msgid "%s %s"
 msgstr "%s %s"
 
@@ -237,7 +237,7 @@ msgstr "%s относится к другой игре (%s)"
 msgid "%s beside the game is %s: %s"
 msgstr "%s рядом с игрой — это %s: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:392
+#: bigame-engine/bigame-core/src/health.rs:399
 msgid "%s can be changed without the administrator password, yet falcond applies what it holds as root"
 msgstr "%s можно изменить без пароля администратора, но falcond применяет его содержимое от имени root"
 
@@ -290,8 +290,12 @@ msgstr "%s встроен в исполняемый файл игры, а не �
 msgid "%s is in the game's folder more than once, in different letter case; remove one of them first"
 msgstr "%s встречается в папке игры несколько раз в разном регистре букв; сначала удалите один из них"
 
+#: bigame-engine/bigame-core/src/turbo.rs:1264
+msgid "%s is loaded and nothing asks for it, but it could not be unloaded"
+msgstr "%s загружен, и ничто его не запрашивает, но выгрузить его не удалось"
+
 #: bigame-engine/bigame-core/src/capabilities.rs:58
-#: bigame-engine/bigame-core/src/health.rs:755
+#: bigame-engine/bigame-core/src/health.rs:762
 msgid "%s is not installed"
 msgstr "%s не установлен"
 
@@ -329,7 +333,7 @@ msgstr "игра %s запущена; закройте её, прежде чем
 msgid "%s is set, but another program decides the lookups"
 msgstr "%s задан, но DNS-запросы определяет другая программа"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1233
+#: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s всё ещё загружен после остановки falcond: falcond не выгружает планировщик, который загружает его общая конфигурация"
 
@@ -355,11 +359,11 @@ msgstr "%s защищает эту игру (%s): внедрение внешн�
 msgid "%s resumed"
 msgstr "Программа %s возобновлена"
 
-#: bigame-engine/bigame-core/src/health.rs:747
+#: bigame-engine/bigame-core/src/health.rs:754
 msgid "%s schedulers installed, but scx-tools (scx_loader) is not, so game profiles cannot switch scheduler"
 msgstr "Планировщики %s установлены, но scx-tools (scx_loader) — нет, поэтому игровые профили не могут переключать планировщик"
 
-#: bigame-engine/bigame-core/src/health.rs:735
+#: bigame-engine/bigame-core/src/health.rs:742
 msgid "%s schedulers, scx_loader available"
 msgstr "Планировщики %s, scx_loader доступен"
 
@@ -379,11 +383,11 @@ msgstr "%s включён в настройках игры"
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s включается в настройках игры, если он выключен, и возвращается кнопкой «Восстановить» — OptiScaler запускает %s вместо него; качество по-прежнему меняете вы в меню игры"
 
-#: bigame-engine/bigame-core/src/turbo.rs:809
+#: bigame-engine/bigame-core/src/turbo.rs:819
 msgid "%s taken away. Steam was open and still has it: close and reopen Steam so its games get Tuning's settings again"
 msgstr "%s снят. Steam был открыт и всё ещё держит его: закройте и снова откройте Steam, чтобы его игры снова получали настройки из «Тонкой настройки»"
 
-#: bigame-engine/bigame-core/src/turbo.rs:820
+#: bigame-engine/bigame-core/src/turbo.rs:830
 msgid "%s taken away: games get Tuning's settings again"
 msgstr "Пресет «%s» снят: игры снова получают настройки из «Тонкой настройки»"
 
@@ -402,6 +406,10 @@ msgstr "Выбрано масштабирование %s"
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:295
 msgid "%s was asked for, but no scheduler is loaded"
 msgstr "Запрошен %s, но ни один планировщик не загружен"
+
+#: bigame-engine/bigame-core/src/turbo.rs:1274
+msgid "%s was left loaded by an earlier falcond and nothing asks for it: unloaded, so falcond does not put it back after every game"
+msgstr "%s остался загруженным от прежнего falcond, и ничто его не запрашивает: выгружен, чтобы falcond не возвращал его после каждой игры"
 
 #: bigame-engine/bigame-ui/src/widgets/launcher_notice.rs:261
 msgid "%s was reopened with the current settings"
@@ -424,8 +432,8 @@ msgstr "файл %s записан более новой версией Big Game
 msgid "%s when a game starts"
 msgstr "%s при запуске игры"
 
-#: bigame-engine/bigame-core/src/health.rs:650
-#: bigame-engine/bigame-core/src/health.rs:671
+#: bigame-engine/bigame-core/src/health.rs:657
+#: bigame-engine/bigame-core/src/health.rs:678
 msgid "%s · %s"
 msgstr "%s · %s"
 
@@ -433,15 +441,15 @@ msgstr "%s · %s"
 msgid "%s · Windows %s · FSR 4 provider %s · HIP runtime %s"
 msgstr "%s · Windows %s · провайдер FSR 4 %s · среда HIP %s"
 
-#: bigame-engine/bigame-core/src/health.rs:685
+#: bigame-engine/bigame-core/src/health.rs:692
 msgid "%s · running (Turbo on)"
 msgstr "%s · работает (Turbo включён)"
 
-#: bigame-engine/bigame-core/src/health.rs:691
+#: bigame-engine/bigame-core/src/health.rs:698
 msgid "%s · stopped (Turbo off)"
 msgstr "%s · остановлен (Turbo выключен)"
 
-#: bigame-engine/bigame-core/src/health.rs:678
+#: bigame-engine/bigame-core/src/health.rs:685
 msgid "%s · the service failed; see Logs for why"
 msgstr "%s · сбой службы; причина — в разделе «Журналы»"
 
@@ -461,7 +469,7 @@ msgstr "%s — основной экран"
 msgid "%s → %s"
 msgstr "%s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:658
+#: bigame-engine/bigame-core/src/turbo.rs:668
 msgid "%s → %s: the handheld profiles run games in power-saving mode, and this machine is not a handheld"
 msgstr "%s → %s: профили для портативных консолей запускают игры в энергосберегающем режиме, а этот компьютер не портативная консоль"
 
@@ -482,7 +490,7 @@ msgstr "%s, по глобальной настройке falcond"
 msgid "%s, by the game's profile"
 msgstr "%s, по профилю игры"
 
-#: bigame-engine/bigame-core/src/turbo.rs:507
+#: bigame-engine/bigame-core/src/turbo.rs:517
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s, поэтому игровые профили, запрашивающие планировщик, не могут его установить"
 
@@ -506,11 +514,11 @@ msgstr "%s: %s %s → %s %s (хуже)"
 msgid "%s: %s → %s"
 msgstr "%s: %s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:773
+#: bigame-engine/bigame-core/src/turbo.rs:783
 msgid "%s: in the session's environment. Games get it through a launcher that has it; Home offers to reopen one that does not"
 msgstr "%s: в окружении сеанса. Игры получают его через лаунчер, у которого оно есть; «Главная» предлагает заново открыть лаунчер, у которого его нет"
 
-#: bigame-engine/bigame-core/src/turbo.rs:758
+#: bigame-engine/bigame-core/src/turbo.rs:768
 msgid "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset"
 msgstr "%s: в окружении сеанса. Steam уже был открыт и сохраняет окружение, с которым запустился: закройте и снова откройте его, чтобы его игры получили пресет"
 
@@ -562,8 +570,8 @@ msgstr "0 = максимальная резкость · 20 = максималь
 msgid "1% low"
 msgstr "1% low"
 
-#: bigame-engine/bigame-core/src/health.rs:842
-#: bigame-engine/bigame-core/src/health.rs:845
+#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:850
 msgid "32-bit Vulkan"
 msgstr "32-битный Vulkan"
 
@@ -571,8 +579,8 @@ msgstr "32-битный Vulkan"
 msgid "32-bit game"
 msgstr "32-битная игра"
 
-#: bigame-engine/bigame-core/src/health.rs:925
-#: bigame-engine/bigame-core/src/health.rs:932
+#: bigame-engine/bigame-core/src/health.rs:930
+#: bigame-engine/bigame-core/src/health.rs:937
 #: bigame-engine/bigame-ui/src/profile_offer.rs:430
 #: bigame-engine/bigame-ui/src/profile_offer.rs:432
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:56
@@ -845,7 +853,7 @@ msgstr "О стилях vkBasalt"
 msgid "Active"
 msgstr "Активно"
 
-#: bigame-engine/bigame-core/src/health.rs:306
+#: bigame-engine/bigame-core/src/health.rs:313
 msgid "Adaptive sync"
 msgstr "Адаптивная синхронизация"
 
@@ -1231,8 +1239,8 @@ msgstr "У Big Game Mode ещё нет профиля для этой игры. 
 msgid "Big Game Mode has no profile for this game yet. This is the profile it would create, and why each value was chosen."
 msgstr "У Big Game Mode ещё нет профиля для этой игры. Вот профиль, который будет создан, и почему выбрано каждое значение."
 
-#: bigame-engine/bigame-core/src/health.rs:949
-#: bigame-engine/bigame-core/src/health.rs:955
+#: bigame-engine/bigame-core/src/health.rs:954
+#: bigame-engine/bigame-core/src/health.rs:960
 #: bigame-engine/bigame-ui/src/views/logs.rs:50
 msgid "Big Game Mode helper"
 msgstr "Помощник Big Game Mode"
@@ -1305,7 +1313,7 @@ msgid "Blocked"
 msgstr "Заблокировано"
 
 #: bigame-engine/bigame-core/src/turbo.rs:401
-#: bigame-engine/bigame-core/src/turbo.rs:571
+#: bigame-engine/bigame-core/src/turbo.rs:581
 #: bigame-engine/bigame-ui/src/views/report.rs:120
 msgid "Booster"
 msgstr "Ускоритель"
@@ -1356,7 +1364,7 @@ msgstr "Энергопредпочтение CPU"
 msgid "CPU governor"
 msgstr "Регулятор частоты CPU"
 
-#: bigame-engine/bigame-core/src/health.rs:332
+#: bigame-engine/bigame-core/src/health.rs:339
 #: bigame-engine/bigame-ui/src/profile_offer.rs:422
 #: bigame-engine/bigame-ui/src/profile_offer.rs:428
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:232
@@ -1372,8 +1380,8 @@ msgstr "Планировщик CPU"
 msgid "CPU scheduler (sched-ext)"
 msgstr "Планировщик CPU (sched-ext)"
 
-#: bigame-engine/bigame-core/src/health.rs:590
-#: bigame-engine/bigame-core/src/health.rs:598
+#: bigame-engine/bigame-core/src/health.rs:597
+#: bigame-engine/bigame-core/src/health.rs:605
 msgid "CPU temperature"
 msgstr "Температура CPU"
 
@@ -2367,8 +2375,8 @@ msgstr "Быстро, Тихо или Красиво: выберите, что �
 msgid "Favours the game's threads and steady frame pacing over background work. The usual choice for playing."
 msgstr "Отдаёт предпочтение потокам игры и ровной подаче кадров, а не фоновой работе. Обычный выбор для игры."
 
-#: bigame-engine/bigame-core/src/health.rs:818
-#: bigame-engine/bigame-core/src/health.rs:824
+#: bigame-engine/bigame-core/src/health.rs:823
+#: bigame-engine/bigame-core/src/health.rs:829
 #: bigame-engine/bigame-ui/src/views/report.rs:72
 msgid "Feral GameMode"
 msgstr "Feral GameMode"
@@ -2498,7 +2506,7 @@ msgstr "Генерация кадров"
 msgid "Frame generation"
 msgstr "Генерация кадров"
 
-#: bigame-engine/bigame-core/src/health.rs:426
+#: bigame-engine/bigame-core/src/health.rs:433
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:164
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:170
 msgid "Frame generation (lsfg-vk)"
@@ -2526,7 +2534,7 @@ msgstr "CCD частоты"
 #: bigame-engine/bigame-core/src/graphics/backend.rs:239
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:117
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
-#: bigame-engine/bigame-core/src/health.rs:853
+#: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
 #: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
@@ -2571,7 +2579,7 @@ msgstr "Игровые уведомления"
 msgid "Game detected"
 msgstr "Игра обнаружена"
 
-#: bigame-engine/bigame-core/src/health.rs:279
+#: bigame-engine/bigame-core/src/health.rs:286
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:232
 msgid "Game library"
 msgstr "Библиотека игр"
@@ -2645,7 +2653,7 @@ msgstr "Игры останавливаются на частоте кадров
 msgid "Games with files installed"
 msgstr "Игры с установленными файлами"
 
-#: bigame-engine/bigame-core/src/health.rs:875
+#: bigame-engine/bigame-core/src/health.rs:880
 msgid "Gamescope"
 msgstr "Gamescope"
 
@@ -2993,7 +3001,7 @@ msgstr "Как это определяется"
 msgid "Hybrid NVIDIA laptops: Gamescope no longer crashes, and nested Gamescope shows the game the screen's size"
 msgstr "Гибридные ноутбуки с NVIDIA: Gamescope больше не падает, а вложенный Gamescope показывает игру в размер экрана"
 
-#: bigame-engine/bigame-core/src/health.rs:524
+#: bigame-engine/bigame-core/src/health.rs:531
 msgid "Hybrid graphics"
 msgstr "Гибридная графика"
 
@@ -3153,7 +3161,7 @@ msgstr "Она продолжит с того места, где была при
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "Она полностью замирает, пока вы её не возобновите: её окна перестают отвечать, а звук, загрузка или звонок в ней прекращаются. Программа, связанная с сервером, может потерять соединение. Возобновите её здесь, когда закончите — Big Game Mode также возобновит её при своём завершении."
 
-#: bigame-engine/bigame-core/src/health.rs:1016
+#: bigame-engine/bigame-core/src/health.rs:1021
 msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and Big Game Mode does not change firmware settings"
 msgstr "Настраивается в прошивке компьютера (Above 4G Decoding и Re-Size BAR). Некоторые игры от этого выигрывают; на этом компьютере это не измерялось, и Big Game Mode не меняет настройки прошивки"
 
@@ -3210,7 +3218,7 @@ msgstr "Оставить одну версию"
 msgid "Keep the screen awake"
 msgstr "Не отключать экран"
 
-#: bigame-engine/bigame-core/src/health.rs:615
+#: bigame-engine/bigame-core/src/health.rs:622
 msgid "Keep the vents clear; on a laptop, measure whether Turbo helps this game (Measure the difference) before keeping it on"
 msgstr "Не перекрывайте вентиляционные отверстия; на ноутбуке сначала измерьте, помогает ли Turbo этой игре («Измерить разницу»), прежде чем оставлять его включённым"
 
@@ -3399,8 +3407,8 @@ msgstr "Журнал экспортирован"
 msgid "Logs"
 msgstr "Журналы"
 
-#: bigame-engine/bigame-core/src/turbo.rs:904
-#: bigame-engine/bigame-core/src/turbo.rs:912
+#: bigame-engine/bigame-core/src/turbo.rs:914
+#: bigame-engine/bigame-core/src/turbo.rs:922
 msgid "Logs show why. Turning Turbo off and on again starts it again."
 msgstr "Причина — в разделе «Журналы». Если выключить и снова включить Turbo, служба запустится заново."
 
@@ -3465,11 +3473,11 @@ msgstr "Управляется Big Game Mode с %s"
 msgid "Managed per game"
 msgstr "Управляется для каждой игры"
 
-#: bigame-engine/bigame-core/src/health.rs:869
+#: bigame-engine/bigame-core/src/health.rs:874
 msgid "MangoHud"
 msgstr "MangoHud"
 
-#: bigame-engine/bigame-core/src/health.rs:409
+#: bigame-engine/bigame-core/src/health.rs:416
 msgid "MangoHud (32-bit)"
 msgstr "MangoHud (32-битный)"
 
@@ -3477,11 +3485,11 @@ msgstr "MangoHud (32-битный)"
 msgid "MangoHud counts generated frames: the number shown is presented frames, not rendered ones"
 msgstr "MangoHud учитывает сгенерированные кадры: показывается число выводимых кадров, а не отрисованных"
 
-#: bigame-engine/bigame-core/src/health.rs:907
+#: bigame-engine/bigame-core/src/health.rs:912
 msgid "MangoHud in Heroic (Flatpak)"
 msgstr "MangoHud в Heroic (Flatpak)"
 
-#: bigame-engine/bigame-core/src/health.rs:909
+#: bigame-engine/bigame-core/src/health.rs:914
 msgid "MangoHud in Lutris (Flatpak)"
 msgstr "MangoHud в Lutris (Flatpak)"
 
@@ -5027,7 +5035,7 @@ msgstr "Обновить"
 msgid "Regenerate"
 msgstr "Сформировать заново"
 
-#: bigame-engine/bigame-core/src/turbo.rs:896
+#: bigame-engine/bigame-core/src/turbo.rs:906
 msgid "Reinstall falcond. If it keeps happening, report it and include the Support report."
 msgstr "Переустановите falcond. Если это повторяется, сообщите о проблеме и приложите «Отчёт для поддержки»."
 
@@ -5113,8 +5121,8 @@ msgstr "Пересканировать библиотеку игр"
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Сбросить все настройки разделов «Тонкая настройка» и Gamescope к рекомендуемым значениям. Это действие нельзя отменить."
 
-#: bigame-engine/bigame-core/src/health.rs:1000
-#: bigame-engine/bigame-core/src/health.rs:1010
+#: bigame-engine/bigame-core/src/health.rs:1005
+#: bigame-engine/bigame-core/src/health.rs:1015
 msgid "Resizable BAR"
 msgstr "Resizable BAR"
 
@@ -5319,7 +5327,7 @@ msgstr "Сканирует игру (графический API, поставл�
 msgid "Scheduler"
 msgstr "Планировщик"
 
-#: bigame-engine/bigame-core/src/health.rs:253
+#: bigame-engine/bigame-core/src/health.rs:260
 msgid "Scheduler at boot"
 msgstr "Планировщик при загрузке"
 
@@ -5538,7 +5546,7 @@ msgstr "Оставаться на одной версии — установле
 msgid "Stays in the tray when the window is closed"
 msgstr "Остаётся в трее, когда окно закрыто"
 
-#: bigame-engine/bigame-core/src/health.rs:863
+#: bigame-engine/bigame-core/src/health.rs:868
 msgid "Steam"
 msgstr "Steam"
 
@@ -5590,7 +5598,7 @@ msgstr "Параметры запуска Steam: %s. Они уже запуск�
 msgid "Steam needs to be reopened"
 msgstr "Steam нужно открыть заново"
 
-#: bigame-engine/bigame-core/src/health.rs:287
+#: bigame-engine/bigame-core/src/health.rs:294
 msgid "Steam → Settings → Storage: move the games you play most to an SSD"
 msgstr "Steam → Настройки → Хранилище: перенесите игры, в которые вы играете чаще всего, на SSD"
 
@@ -5669,7 +5677,7 @@ msgstr "Включение технологии, выполняющей ту ж�
 msgid "System"
 msgstr "Системная"
 
-#: bigame-engine/bigame-core/src/health.rs:314
+#: bigame-engine/bigame-core/src/health.rs:321
 msgid "System Settings → Display & Monitor → your main screen → Adaptive sync: Automatic"
 msgstr "Параметры системы → Дисплей и монитор → ваш основной экран → Адаптивная синхронизация: Автоматически"
 
@@ -6146,7 +6154,7 @@ msgstr "Тонкая настройка"
 msgid "Tuning holds what every game gets: Gamescope, Wine FSR, vkBasalt, lsfg-vk and MangoHud. Two technologies that collide are never left on together without asking you."
 msgstr "В «Тонкой настройке» задаётся то, что получает каждая игра: Gamescope, Wine FSR, vkBasalt, lsfg-vk и MangoHud. Две конфликтующие технологии никогда не остаются включёнными вместе без вашего согласия."
 
-#: bigame-engine/bigame-core/src/health.rs:340
+#: bigame-engine/bigame-core/src/health.rs:347
 msgid "Tuning → CPU scheduler → None"
 msgstr "Тонкая настройка → Планировщик CPU → Нет"
 
@@ -6217,9 +6225,9 @@ msgstr "Turbo больше не выключается сам через нес�
 msgid "Turbo off, the choice back to Fastest, every setting as it started"
 msgstr "Turbo выключен, выбор снова «Быстро», все настройки как в начале"
 
-#: bigame-engine/bigame-core/src/turbo.rs:579
-#: bigame-engine/bigame-core/src/turbo.rs:739
-#: bigame-engine/bigame-core/src/turbo.rs:794
+#: bigame-engine/bigame-core/src/turbo.rs:589
+#: bigame-engine/bigame-core/src/turbo.rs:749
+#: bigame-engine/bigame-core/src/turbo.rs:804
 #: bigame-engine/bigame-ui/src/tray.rs:185
 msgid "Turbo preset"
 msgstr "Пресет Turbo"
@@ -6268,7 +6276,7 @@ msgstr "Включите Turbo на странице «Главная». До э
 msgid "Turn Turbo on or off"
 msgstr "Включение или выключение Turbo"
 
-#: bigame-engine/bigame-core/src/health.rs:725
+#: bigame-engine/bigame-core/src/health.rs:732
 msgid "Turn Turbo on — or off and on again if it is already on — to switch falcond to its desktop profiles"
 msgstr "Включите Turbo — или выключите и снова включите, если он уже включён, — чтобы переключить falcond на профили для настольных компьютеров"
 
@@ -6350,7 +6358,7 @@ msgstr "Обновить"
 msgid "Update available: %s"
 msgstr "Доступно обновление: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:884
+#: bigame-engine/bigame-core/src/turbo.rs:894
 msgid "Update or reinstall falcond with a build for this processor. Turning Turbo off and on again does not help: the same package crashes the same way."
 msgstr "Обновите или переустановите falcond в сборке для этого процессора. Выключение и повторное включение Turbo не поможет: тот же пакет падает так же."
 
@@ -6456,8 +6464,8 @@ msgstr "Кэш VKD3D-Proton (vkd3d-proton.cache) находится в папк�
 msgid "VRAM"
 msgstr "VRAM"
 
-#: bigame-engine/bigame-core/src/health.rs:352
-#: bigame-engine/bigame-core/src/health.rs:365
+#: bigame-engine/bigame-core/src/health.rs:359
+#: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
 msgstr "Защита VRAM"
 
@@ -6952,11 +6960,11 @@ msgstr "у нативной игры для Linux нет слотов DLL; вн�
 msgid "a second OptiScaler would load with the one Big Game Mode installs; remove it with the tool that put it there first"
 msgstr "второй OptiScaler загрузился бы вместе с тем, который устанавливает Big Game Mode; сначала удалите его тем инструментом, который его туда поместил"
 
-#: bigame-engine/bigame-core/src/health.rs:309
+#: bigame-engine/bigame-core/src/health.rs:316
 msgid "adaptive sync (VRR, FreeSync) is off on your main screen%s: frame rates that do not divide its refresh rate judder"
 msgstr "адаптивная синхронизация (VRR, FreeSync) выключена на основном экране%s: частота кадров, на которую не делится его частота обновления, идёт рывками"
 
-#: bigame-engine/bigame-core/src/turbo.rs:995
+#: bigame-engine/bigame-core/src/turbo.rs:1005
 msgid "already %s"
 msgstr "уже %s"
 
@@ -7078,7 +7086,7 @@ msgstr "не удалось скачать %s: %s"
 msgid "could not record the machine's state before measuring; nothing was changed"
 msgstr "не удалось записать состояние компьютера перед измерением; ничего не изменено"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1082
+#: bigame-engine/bigame-core/src/turbo.rs:1092
 msgid "could not restore %s: %s"
 msgstr "не удалось восстановить %s: %s"
 
@@ -7090,7 +7098,7 @@ msgstr "не удалось обновить окружение текущего
 msgid "current settings"
 msgstr "текущие настройки"
 
-#: bigame-engine/bigame-core/src/turbo.rs:835
+#: bigame-engine/bigame-core/src/turbo.rs:845
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:153
 msgid "desktop"
 msgstr "настольный компьютер"
@@ -7149,12 +7157,12 @@ msgstr "должна отрисовывать игру; подтверждает
 msgid "external graphics injection is disabled for this game; there is no override"
 msgstr "внедрение внешней графики для этой игры отключено; переопределить нельзя"
 
-#: bigame-engine/bigame-core/src/health.rs:648
 #: bigame-engine/bigame-core/src/health.rs:655
-#: bigame-engine/bigame-core/src/health.rs:669
+#: bigame-engine/bigame-core/src/health.rs:662
 #: bigame-engine/bigame-core/src/health.rs:676
 #: bigame-engine/bigame-core/src/health.rs:683
-#: bigame-engine/bigame-core/src/health.rs:689
+#: bigame-engine/bigame-core/src/health.rs:690
+#: bigame-engine/bigame-core/src/health.rs:696
 msgid "falcond"
 msgstr "falcond"
 
@@ -7174,19 +7182,19 @@ msgstr "falcond запрашивает у power-profiles-daemon профиль p
 msgid "falcond asks scx_loader when the game starts; a failure is in Logs (scx_loader, falcond). Turning Turbo off and on again makes it retry."
 msgstr "falcond обращается к scx_loader при запуске игры; сбой виден в журналах (scx_loader, falcond). Выключение и повторное включение Turbo заставляет повторить попытку."
 
-#: bigame-engine/bigame-core/src/health.rs:355
+#: bigame-engine/bigame-core/src/health.rs:362
 msgid "falcond could not protect a game's VRAM: %s"
 msgstr "falcond не смог защитить VRAM игры: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:902
+#: bigame-engine/bigame-core/src/turbo.rs:912
 msgid "falcond crashed"
 msgstr "falcond аварийно завершился"
 
-#: bigame-engine/bigame-core/src/turbo.rs:874
+#: bigame-engine/bigame-core/src/turbo.rs:884
 msgid "falcond crashed on a CPU instruction this processor does not have (illegal instruction). The installed falcond package appears to be built for a newer x86-64 level: this processor is x86-64-v%s, without %s."
 msgstr "falcond аварийно завершился на инструкции, которой нет у этого процессора (недопустимая инструкция). Установленный пакет falcond, по-видимому, собран для более нового уровня x86-64: этот процессор — x86-64-v%s, без %s."
 
-#: bigame-engine/bigame-core/src/turbo.rs:891
+#: bigame-engine/bigame-core/src/turbo.rs:901
 msgid "falcond crashed on an illegal CPU instruction"
 msgstr "falcond аварийно завершился на недопустимой инструкции процессора"
 
@@ -7194,12 +7202,12 @@ msgstr "falcond аварийно завершился на недопустим�
 msgid "falcond default, not measured here"
 msgstr "по умолчанию falcond, здесь не измерялось"
 
-#: bigame-engine/bigame-core/src/turbo.rs:910
+#: bigame-engine/bigame-core/src/turbo.rs:920
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:227
 msgid "falcond failed"
 msgstr "Сбой falcond"
 
-#: bigame-engine/bigame-core/src/health.rs:707
+#: bigame-engine/bigame-core/src/health.rs:714
 msgid "falcond features"
 msgstr "Возможности falcond"
 
@@ -7232,7 +7240,7 @@ msgstr "falcond управляет этим для «%s»; при выходе �
 msgid "falcond is not applying the profile of %s"
 msgstr "falcond не применяет профиль игры %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:872
+#: bigame-engine/bigame-core/src/turbo.rs:882
 msgid "falcond is not compatible with this processor"
 msgstr "falcond несовместим с этим процессором"
 
@@ -7246,7 +7254,7 @@ msgstr "falcond не установлен"
 msgid "falcond is not installed, so the game's performance profile was not saved; its other settings were. Install falcond for per-game performance profiles."
 msgstr "falcond не установлен, поэтому профиль производительности игры не сохранён; остальные её настройки сохранены. Установите falcond, чтобы использовать профили производительности для каждой игры."
 
-#: bigame-engine/bigame-core/src/turbo.rs:493
+#: bigame-engine/bigame-core/src/turbo.rs:503
 msgid "falcond is not installed, so there are no per-game profiles; only global settings can be applied"
 msgstr "falcond не установлен, поэтому профилей для отдельных игр нет; можно применить только глобальные настройки"
 
@@ -7269,7 +7277,7 @@ msgstr[0] "falcond загружает не более 64 профилей, а с
 msgstr[1] "falcond загружает не более 64 профилей, а сверх этого есть ещё %n: %n ваших профиля не применяются."
 msgstr[2] "falcond загружает не более 64 профилей, а сверх этого есть ещё %n: %n ваших профилей не применяются."
 
-#: bigame-engine/bigame-core/src/health.rs:335
+#: bigame-engine/bigame-core/src/health.rs:342
 msgid "falcond loads scx_%s for the whole desktop and every game while Turbo is on; in Big Game Mode's measurements no sched-ext scheduler made games faster"
 msgstr "falcond загружает scx_%s для всего рабочего стола и каждой игры, пока Turbo включён; по измерениям Big Game Mode ни один планировщик sched-ext не ускорил игры"
 
@@ -7281,12 +7289,12 @@ msgstr "falcond не сопоставил этому процессу ни од�
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "Планировщиком управляет falcond; «Ускоритель» не записывает его, чтобы два управляющих не боролись за одно и то же состояние"
 
-#: bigame-engine/bigame-core/src/health.rs:722
+#: bigame-engine/bigame-core/src/health.rs:729
 #: bigame-engine/bigame-ui/src/views/report.rs:71
 msgid "falcond profile set"
 msgstr "Набор профилей falcond"
 
-#: bigame-engine/bigame-core/src/health.rs:358
+#: bigame-engine/bigame-core/src/health.rs:365
 msgid "falcond protects a game's VRAM only when the dmem controller is delegated to your session (the dmemcg-booster service does that); without it games run as before, without the protection"
 msgstr "falcond защищает VRAM игры, только когда контроллер dmem делегирован вашему сеансу (это делает служба dmemcg-booster); без этого игры работают как раньше, без защиты"
 
@@ -7298,7 +7306,7 @@ msgstr "falcond узнаёт игру по имени её процесса, к�
 msgid "falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."
 msgstr "falcond узнаёт игру по имени её процесса (как его показывает системный монитор), а не по названию. Профиль под другим именем никогда не применяется."
 
-#: bigame-engine/bigame-core/src/health.rs:485
+#: bigame-engine/bigame-core/src/health.rs:492
 msgid "falcond restarts"
 msgstr "Перезапуски falcond"
 
@@ -7318,7 +7326,7 @@ msgstr "falcond поставляется с готовыми профилями 
 msgid "falcond ships separate profile sets for desktops, handhelds and home-theatre PCs. The handheld set runs games in power-saving mode, which is the wrong set for a desktop."
 msgstr "falcond поставляется с отдельными наборами профилей для настольных компьютеров, портативных консолей и домашних медиацентров. Набор для портативных консолей запускает игры в энергосберегающем режиме — неподходящий набор для настольного компьютера."
 
-#: bigame-engine/bigame-core/src/turbo.rs:892
+#: bigame-engine/bigame-core/src/turbo.rs:902
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond остановился на инструкции, которую этот процессор отверг: несовместимость набора инструкций процессора или повреждённый исполняемый файл falcond."
 
@@ -7343,7 +7351,7 @@ msgstr "falcond записывает своё состояние в /var/lib/fal
 msgid "falcond's built-in profile %s is applied"
 msgstr "Применён встроенный профиль falcond %s"
 
-#: bigame-engine/bigame-core/src/health.rs:389
+#: bigame-engine/bigame-core/src/health.rs:396
 msgid "falcond's files"
 msgstr "Файлы falcond"
 
@@ -7368,7 +7376,7 @@ msgstr "Профиль falcond для этой игры: режим произв
 msgid "falcond's profiles for desktops and laptops. The right choice for a PC at a desk."
 msgstr "Профили falcond для настольных компьютеров и ноутбуков. Правильный выбор для ПК за столом."
 
-#: bigame-engine/bigame-core/src/turbo.rs:903
+#: bigame-engine/bigame-core/src/turbo.rs:913
 msgid "falcond's service ended on %s."
 msgstr "Служба falcond завершилась по %s."
 
@@ -7376,7 +7384,7 @@ msgstr "Служба falcond завершилась по %s."
 msgid "falcond's service failed"
 msgstr "Сбой службы falcond"
 
-#: bigame-engine/bigame-core/src/turbo.rs:911
+#: bigame-engine/bigame-core/src/turbo.rs:921
 msgid "falcond's service failed (%s)."
 msgstr "Сбой службы falcond (%s)."
 
@@ -7426,15 +7434,15 @@ msgstr "генерация кадров с lsfg-vk в профиле игры р
 msgid "frame rate not limited"
 msgstr "частота кадров не ограничена"
 
-#: bigame-engine/bigame-core/src/health.rs:282
+#: bigame-engine/bigame-core/src/health.rs:289
 msgid "games in %s are on a hard disk: they load and stream textures slowly there, which shows as stutter no setting removes"
 msgstr "игры в %s лежат на жёстком диске: там они медленно загружают и подгружают текстуры, что проявляется как подтормаживания, которые не убирает ни одна настройка"
 
-#: bigame-engine/bigame-core/src/health.rs:528
+#: bigame-engine/bigame-core/src/health.rs:535
 msgid "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options"
 msgstr "игры отрисовываются на GPU %s (%s); игры, запускаемые Big Game Mode, используют %s; игры через Proton выбирают его сами; нативной игре для Linux, запускаемой через Steam, нужен `prime-run %command%` в параметрах запуска"
 
-#: bigame-engine/bigame-core/src/health.rs:535
+#: bigame-engine/bigame-core/src/health.rs:542
 msgid "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options"
 msgstr "игры отрисовываются на GPU %s (%s); игры, запускаемые Big Game Mode, используют %s; игры через Proton выбирают его сами; нативной игре для Linux, запускаемой через Steam, нужны переменные offload в параметрах запуска"
 
@@ -7450,7 +7458,7 @@ msgstr "генерирует кадры в игре"
 msgid "graphics injection is disabled for games with anti-cheat"
 msgstr "внедрение графики отключено для игр с античитом"
 
-#: bigame-engine/bigame-core/src/health.rs:724
+#: bigame-engine/bigame-core/src/health.rs:731
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "профили для портативных консолей на компьютере, который не является портативной консолью: игры работают в энергосберегающем режиме"
 
@@ -7482,7 +7490,7 @@ msgstr "в дереве процессов игры"
 msgid "injection blocked: %s"
 msgstr "внедрение заблокировано: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:820
+#: bigame-engine/bigame-core/src/health.rs:825
 msgid "installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"
 msgstr "установлен вместе с falcond; Big Game Mode его не использует, потому что два управляющих сохраняли бы и восстанавливали одни и те же настройки"
 
@@ -7518,7 +7526,7 @@ msgstr "целочисленное масштабирование не прим�
 msgid "it loads the game's .asi mods into the same process; not established together with OptiScaler — if the game misbehaves, take one out"
 msgstr "он загружает моды .asi игры в тот же процесс; совместная работа с OptiScaler не подтверждена — если игра ведёт себя неправильно, уберите один из них"
 
-#: bigame-engine/bigame-core/src/turbo.rs:985
+#: bigame-engine/bigame-core/src/turbo.rs:995
 msgid "its current value could not be read, so it could not be restored"
 msgstr "не удалось прочитать текущее значение, поэтому восстановить его не удалось"
 
@@ -7589,7 +7597,7 @@ msgid "lsfg-vk adds its frames after the cap, so these games render the cap and 
 msgstr "lsfg-vk добавляет свои кадры после ограничения, поэтому эти игры рендерят значение ограничения и показывают его умноженным: %s."
 
 #: bigame-engine/bigame-core/src/fg.rs:1168
-#: bigame-engine/bigame-core/src/health.rs:429
+#: bigame-engine/bigame-core/src/health.rs:436
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:171
 msgid "lsfg-vk cannot generate frames with this Lossless.dll (%s): update Lossless Scaling and choose its Lossless.dll again"
 msgstr "lsfg-vk не может генерировать кадры с этим Lossless.dll (%s): обновите Lossless Scaling и снова выберите его Lossless.dll"
@@ -7674,7 +7682,7 @@ msgstr "плану измерения нужны команда, не менее
 msgid "median"
 msgstr "медиана"
 
-#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:852
 msgid "missing: many Proton games and Steam itself need it"
 msgstr "отсутствует: он нужен многим играм через Proton и самому Steam"
 
@@ -7747,7 +7755,7 @@ msgid "no profile yet"
 msgstr "профиля пока нет"
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:445
-#: bigame-engine/bigame-core/src/health.rs:855
+#: bigame-engine/bigame-core/src/health.rs:860
 msgid "no render GPU was identified"
 msgstr "GPU для рендеринга не определён"
 
@@ -7759,7 +7767,7 @@ msgstr "здесь планировщик не задан, поэтому общ
 msgid "no scheduler is set, so its mode has no effect"
 msgstr "планировщик не задан, поэтому его режим ни на что не влияет"
 
-#: bigame-engine/bigame-core/src/health.rs:592
+#: bigame-engine/bigame-core/src/health.rs:599
 msgid "no thermal throttling since boot"
 msgstr "с момента загрузки троттлинга из-за перегрева не было"
 
@@ -7792,7 +7800,7 @@ msgstr "нет — Turbo выключен или falcond её не сопост�
 msgid "not a Steam app id: %s"
 msgstr "не идентификатор приложения Steam: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:568
+#: bigame-engine/bigame-core/src/turbo.rs:578
 msgid "not applied: Turbo did not come on"
 msgstr "не применено: Turbo не включился"
 
@@ -7809,23 +7817,23 @@ msgstr "не установлено ни в ту, ни в другую стор�
 msgid "not held off"
 msgstr "не отложено"
 
-#: bigame-engine/bigame-core/src/health.rs:872
+#: bigame-engine/bigame-core/src/health.rs:877
 msgid "not installed · frame-time capture and the in-game overlay"
 msgstr "не установлено · запись времени кадров и внутриигровой оверлей"
 
-#: bigame-engine/bigame-core/src/health.rs:824
+#: bigame-engine/bigame-core/src/health.rs:829
 msgid "not installed · no conflict with falcond"
 msgstr "не установлено · конфликта с falcond нет"
 
-#: bigame-engine/bigame-core/src/health.rs:866
+#: bigame-engine/bigame-core/src/health.rs:871
 msgid "not installed · the launcher for most games here"
 msgstr "не установлено · лаунчер для большинства игр здесь"
 
-#: bigame-engine/bigame-core/src/health.rs:878
+#: bigame-engine/bigame-core/src/health.rs:883
 msgid "not installed · the micro-compositor used for scaling and frame limiting"
 msgstr "не установлено · микрокомпозитор для масштабирования и ограничения кадров"
 
-#: bigame-engine/bigame-core/src/health.rs:657
+#: bigame-engine/bigame-core/src/health.rs:664
 msgid "not installed: no per-game performance profiles; Turbo applies only the general settings"
 msgstr "не установлен: нет профилей производительности для каждой игры; Turbo применяет только общие настройки"
 
@@ -7837,11 +7845,11 @@ msgstr "не установлено; по плану будет установл
 msgid "not offered: %s"
 msgstr "не предлагается: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:957
+#: bigame-engine/bigame-core/src/health.rs:962
 msgid "not reachable: Turbo and profile changes cannot be made"
 msgstr "недоступен: изменить Turbo и профили невозможно"
 
-#: bigame-engine/bigame-core/src/health.rs:810
+#: bigame-engine/bigame-core/src/health.rs:815
 msgid "not reachable: game profiles cannot switch the power profile"
 msgstr "недоступен: игровые профили не могут переключать профиль питания"
 
@@ -7865,7 +7873,7 @@ msgstr "нечего измерять: план ничего не меняет �
 msgid "nothing, Gamescope is off there"
 msgstr "ничего, Gamescope там выключен"
 
-#: bigame-engine/bigame-core/src/health.rs:1013
+#: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "выкл.: CPU одновременно доступно %s из %s видеопамяти карты"
 
@@ -7873,7 +7881,7 @@ msgstr "выкл.: CPU одновременно доступно %s из %s ви
 msgid "on battery, holding the performance power profile costs more in heat and throttling than it returns"
 msgstr "при работе от батареи удержание профиля питания performance стоит больше нагрева и троттлинга, чем даёт"
 
-#: bigame-engine/bigame-core/src/health.rs:1003
+#: bigame-engine/bigame-core/src/health.rs:1008
 msgid "on: the CPU can reach all %s of video memory"
 msgstr "вкл.: CPU доступны все %s видеопамяти"
 
@@ -7881,7 +7889,7 @@ msgstr "вкл.: CPU доступны все %s видеопамяти"
 msgid "only one can be dxgi.dll: ReShade goes in OptiScaler's plugins folder, or is loaded by OptiScaler (LoadReshade)"
 msgstr "dxgi.dll может быть только один: ReShade кладётся в папку плагинов OptiScaler или загружается самим OptiScaler (LoadReshade)"
 
-#: bigame-engine/bigame-core/src/health.rs:411
+#: bigame-engine/bigame-core/src/health.rs:418
 msgid "only the 64-bit MangoHud is installed: 32-bit games show no overlay and cannot be measured"
 msgstr "установлен только 64-битный MangoHud: 32-битные игры не показывают оверлей и не могут быть измерены"
 
@@ -7913,8 +7921,8 @@ msgstr "performance, пока игра запущена, по запросу fal
 msgid "power limit"
 msgstr "ограничение мощности"
 
-#: bigame-engine/bigame-core/src/health.rs:801
-#: bigame-engine/bigame-core/src/health.rs:808
+#: bigame-engine/bigame-core/src/health.rs:806
+#: bigame-engine/bigame-core/src/health.rs:813
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
@@ -7932,12 +7940,12 @@ msgid "prefers the cache-stacked CCD while the game runs, as falcond's profiles 
 msgstr "предпочитает CCD с дополнительным кешем, пока игра запущена, как и профили falcond"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:266
-#: bigame-engine/bigame-core/src/health.rs:842
-#: bigame-engine/bigame-core/src/health.rs:888
+#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:893
 msgid "present"
 msgstr "есть"
 
-#: bigame-engine/bigame-core/src/health.rs:927
+#: bigame-engine/bigame-core/src/health.rs:932
 msgid "present; game profiles can prefer the cache CCD"
 msgstr "есть; игровые профили могут предпочитать CCD с кешем"
 
@@ -7953,7 +7961,7 @@ msgstr "профиль не найден: %s"
 msgid "proxy"
 msgstr "прокси"
 
-#: bigame-engine/bigame-core/src/health.rs:951
+#: bigame-engine/bigame-core/src/health.rs:956
 msgid "reachable"
 msgstr "доступен"
 
@@ -7974,7 +7982,7 @@ msgstr "отрисовывает игру"
 msgid "reported a failure: %s"
 msgstr "сообщил о сбое: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1076
+#: bigame-engine/bigame-core/src/turbo.rs:1086
 msgid "restored to %s"
 msgstr "восстановлено: %s"
 
@@ -7986,7 +7994,7 @@ msgstr "запустите игру один раз: API подтверждае�
 msgid "running %s%s"
 msgstr "работает %s%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:707
+#: bigame-engine/bigame-core/src/turbo.rs:717
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "работает (systemd сообщает, что служба активна; falcond ещё не опубликовал своё состояние)"
 
@@ -8006,7 +8014,7 @@ msgstr "работает без FSR4_UPGRADE=1: FSR 3.1"
 msgid "running without the FSR 4 provider: FSR is off in its menu"
 msgstr "работает без провайдера FSR 4: FSR выключен в её меню"
 
-#: bigame-engine/bigame-core/src/turbo.rs:693
+#: bigame-engine/bigame-core/src/turbo.rs:703
 msgid "running, %s profiles loaded (%s set); applies a profile to each game as it starts"
 msgstr "работает, загружено профилей: %s (набор %s); применяет профиль к каждой игре при её запуске"
 
@@ -8014,11 +8022,11 @@ msgstr "работает, загружено профилей: %s (набор %s
 msgid "runs DLSS"
 msgstr "поддерживает DLSS"
 
-#: bigame-engine/bigame-core/src/health.rs:732
-#: bigame-engine/bigame-core/src/health.rs:740
-#: bigame-engine/bigame-core/src/health.rs:744
-#: bigame-engine/bigame-core/src/health.rs:753
-#: bigame-engine/bigame-core/src/health.rs:758
+#: bigame-engine/bigame-core/src/health.rs:739
+#: bigame-engine/bigame-core/src/health.rs:747
+#: bigame-engine/bigame-core/src/health.rs:751
+#: bigame-engine/bigame-core/src/health.rs:760
+#: bigame-engine/bigame-core/src/health.rs:765
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1598
 msgid "sched-ext"
 msgstr "sched-ext"
@@ -8061,7 +8069,7 @@ msgstr "scx_loader установлен, но его служба не запу�
 msgid "scx_loader is installed but its service is not running."
 msgstr "scx_loader установлен, но его служба не запущена."
 
-#: bigame-engine/bigame-core/src/health.rs:256
+#: bigame-engine/bigame-core/src/health.rs:263
 msgid "scx_loader starts %s (%s mode) at every boot, with Turbo off too: a second owner of the CPU scheduler. While Turbo is on, a game's profile can replace it."
 msgstr "scx_loader запускает %s (режим %s) при каждой загрузке, даже при выключенном Turbo: второй владелец планировщика CPU. Пока Turbo включён, профиль игры может его заменить."
 
@@ -8069,7 +8077,7 @@ msgstr "scx_loader запускает %s (режим %s) при каждой з�
 msgid "sharpness left at default"
 msgstr "резкость оставлена по умолчанию"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1023
+#: bigame-engine/bigame-core/src/turbo.rs:1033
 msgid "stopped and disabled; any game profile it held was put back as it stopped"
 msgstr "остановлен и отключён; действовавший игровой профиль был отменён при остановке"
 
@@ -8085,15 +8093,15 @@ msgstr "systemd не удалось запустить %s (%s)"
 msgid "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing."
 msgstr "systemd не ответил по системной шине, поэтому неизвестно, работает ли falcond. Зависящие от этого показания ниже отсутствуют."
 
-#: bigame-engine/bigame-core/src/turbo.rs:839
+#: bigame-engine/bigame-core/src/turbo.rs:849
 msgid "systemd reports it %s"
 msgstr "по данным systemd: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:491
+#: bigame-engine/bigame-core/src/health.rs:498
 msgid "systemd restarted falcond %s times after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"
 msgstr "systemd перезапускал falcond после неожиданной остановки (раз: %s); перезапуск во время игры может оставить повышенный профиль питания после выхода из неё"
 
-#: bigame-engine/bigame-core/src/health.rs:488
+#: bigame-engine/bigame-core/src/health.rs:495
 msgid "systemd restarted falcond once after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"
 msgstr "systemd один раз перезапустил falcond после неожиданной остановки; перезапуск во время игры может оставить повышенный профиль питания после выхода из неё"
 
@@ -8109,11 +8117,11 @@ msgstr "температурное ограничение"
 msgid "the %s driver exposes no DPM level control"
 msgstr "драйвер %s не предоставляет управления уровнями DPM"
 
-#: bigame-engine/bigame-core/src/health.rs:609
+#: bigame-engine/bigame-core/src/health.rs:616
 msgid "the CPU hit its temperature limit %s times since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "с момента загрузки CPU упирался в температурный предел (раз: %s, всего замедление %s с): охлаждение ограничивает его скорость, а профиль питания performance добавляет нагрев"
 
-#: bigame-engine/bigame-core/src/health.rs:602
+#: bigame-engine/bigame-core/src/health.rs:609
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "с момента загрузки CPU один раз упёрся в температурный предел (всего замедление %s с): охлаждение ограничивает его скорость, а профиль питания performance добавляет нагрев"
 
@@ -8145,7 +8153,7 @@ msgstr "копия %s в кеше не совпадает с тем, что бы
 msgid "the component runs its kernels through AMD's Windows HIP runtime (amdhip64_7.dll), which comes with the Adrenalin driver; Proton ships none, and this prefix has none"
 msgstr "компонент выполняет свои вычислительные ядра через среду выполнения AMD HIP для Windows (amdhip64_7.dll), которая поставляется с драйвером Adrenalin; в Proton её нет, и в этом префиксе тоже"
 
-#: bigame-engine/bigame-core/src/turbo.rs:669
+#: bigame-engine/bigame-core/src/turbo.rs:679
 msgid "the configuration was written but reads back unchanged"
 msgstr "конфигурация записана, но при чтении не изменилась"
 
@@ -8439,7 +8447,7 @@ msgstr "нет более ранней версии, к которой можн�
 msgid "this CPU has no 3D V-Cache"
 msgstr "у этого CPU нет 3D V-Cache"
 
-#: bigame-engine/bigame-core/src/health.rs:934
+#: bigame-engine/bigame-core/src/health.rs:939
 msgid "this CPU has none"
 msgstr "у этого CPU его нет"
 
@@ -8451,15 +8459,15 @@ msgstr "на этом компьютере больше одного GPU: пла
 msgid "this cpufreq driver"
 msgstr "этот драйвер cpufreq"
 
-#: bigame-engine/bigame-core/src/turbo.rs:557
+#: bigame-engine/bigame-core/src/turbo.rs:567
 msgid "this falcond build crashed on this processor (illegal instruction), so it is not started again until the package changes; Turbo applies the general settings without per-game profiles"
 msgstr "эта сборка falcond аварийно завершилась на этом процессоре (недопустимая инструкция), поэтому она не будет запущена снова, пока не изменится пакет; Turbo применяет общие настройки без профилей для отдельных игр"
 
-#: bigame-engine/bigame-core/src/health.rs:712
+#: bigame-engine/bigame-core/src/health.rs:719
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling"
 msgstr "эта версия falcond старше защиты VRAM (DMEM) и обработки split-lock"
 
-#: bigame-engine/bigame-core/src/health.rs:710
+#: bigame-engine/bigame-core/src/health.rs:717
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling; the kernel supports DMEM, so a newer falcond could use it"
 msgstr "эта версия falcond старше защиты VRAM (DMEM) и обработки split-lock; ядро поддерживает DMEM, так что более новая версия falcond могла бы это использовать"
 
@@ -8483,11 +8491,11 @@ msgstr "это нативная игра для Linux: OptiScaler работае
 msgid "this kernel has no NTSync; games use fsync or esync"
 msgstr "в этом ядре нет NTSync; игры используют fsync или esync"
 
-#: bigame-engine/bigame-core/src/health.rs:367
+#: bigame-engine/bigame-core/src/health.rs:374
 msgid "this kernel or its cgroup setup does not let falcond protect a game's VRAM (DMEM); games run without that protection"
 msgstr "это ядро или его настройка cgroup не позволяет falcond защищать VRAM игры (DMEM); игры работают без этой защиты"
 
-#: bigame-engine/bigame-core/src/health.rs:915
+#: bigame-engine/bigame-core/src/health.rs:920
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "этот лаунчер работает как Flatpak и не видит системный MangoHud: игры, которые он запускает, остаются без оверлея (Heroic отказывается запускать игру с включённым переключателем MangoHud), пока не установлено Flatpak-расширение MangoHud для его среды выполнения"
 

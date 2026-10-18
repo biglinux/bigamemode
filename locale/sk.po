@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 10:58-0300\n"
+"POT-Creation-Date: 2026-10-18 15:00-0300\n"
 "PO-Revision-Date: 2026-04-20 22:26\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Slovak <sk@li.org>\n"
@@ -187,7 +187,7 @@ msgstr "Požadovaný bol %r, ale beží %l"
 msgid "%s"
 msgstr "%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:605
+#: bigame-engine/bigame-core/src/turbo.rs:615
 msgid "%s %s"
 msgstr "%s %s"
 
@@ -237,7 +237,7 @@ msgstr "%s patrí inej hre (%s)"
 msgid "%s beside the game is %s: %s"
 msgstr "%s vedľa hry je %s: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:392
+#: bigame-engine/bigame-core/src/health.rs:399
 msgid "%s can be changed without the administrator password, yet falcond applies what it holds as root"
 msgstr "%s sa dá zmeniť bez hesla správcu, no falcond to, čo obsahuje, uplatňuje ako root"
 
@@ -290,8 +290,12 @@ msgstr "%s je skompilovaný do spustiteľného súboru hry, namiesto toho, aby b
 msgid "%s is in the game's folder more than once, in different letter case; remove one of them first"
 msgstr "%s je v priečinku hry viackrát, s rozdielnou veľkosťou písmen; najprv jednu z kópií odstráňte"
 
+#: bigame-engine/bigame-core/src/turbo.rs:1264
+msgid "%s is loaded and nothing asks for it, but it could not be unloaded"
+msgstr "%s je načítaný a nič ho nevyžaduje, ale nepodarilo sa ho uvoľniť"
+
 #: bigame-engine/bigame-core/src/capabilities.rs:58
-#: bigame-engine/bigame-core/src/health.rs:755
+#: bigame-engine/bigame-core/src/health.rs:762
 msgid "%s is not installed"
 msgstr "%s nie je nainštalované"
 
@@ -329,7 +333,7 @@ msgstr "Hra %s je spustená; pred zmenou jej súborov ju zatvorte"
 msgid "%s is set, but another program decides the lookups"
 msgstr "%s je nastavený, ale o dotazoch rozhoduje iný program"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1233
+#: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s je stále načítaný aj po zastavení falcond: falcond neuvoľňuje plánovač, ktorý načítava jeho všeobecná konfigurácia"
 
@@ -355,11 +359,11 @@ msgstr "%s chráni túto hru (%s): externé vkladanie grafiky je vypnuté, aby s
 msgid "%s resumed"
 msgstr "%s pokračuje"
 
-#: bigame-engine/bigame-core/src/health.rs:747
+#: bigame-engine/bigame-core/src/health.rs:754
 msgid "%s schedulers installed, but scx-tools (scx_loader) is not, so game profiles cannot switch scheduler"
 msgstr "Nainštalované plánovače: %s, ale scx-tools (scx_loader) nie je nainštalovaný, takže herné profily nemôžu prepnúť plánovač"
 
-#: bigame-engine/bigame-core/src/health.rs:735
+#: bigame-engine/bigame-core/src/health.rs:742
 msgid "%s schedulers, scx_loader available"
 msgstr "Plánovače: %s, scx_loader je dostupný"
 
@@ -379,11 +383,11 @@ msgstr "%s zapnuté v nastaveniach hry"
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s zapnuté v nastaveniach hry, ak je vypnuté, a vrátené späť funkciou Obnoviť — OptiScaler namiesto neho spúšťa %s; kvalitu si naďalej meníte v ponuke hry"
 
-#: bigame-engine/bigame-core/src/turbo.rs:809
+#: bigame-engine/bigame-core/src/turbo.rs:819
 msgid "%s taken away. Steam was open and still has it: close and reopen Steam so its games get Tuning's settings again"
 msgstr "%s bolo odstránené. Steam bol otvorený a stále ho má: zatvorte a znova otvorte Steam, aby jeho hry opäť dostávali nastavenia z Ladenia"
 
-#: bigame-engine/bigame-core/src/turbo.rs:820
+#: bigame-engine/bigame-core/src/turbo.rs:830
 msgid "%s taken away: games get Tuning's settings again"
 msgstr "Predvoľba „%s“ bola odstránená: hry opäť dostávajú nastavenia z Ladenia"
 
@@ -402,6 +406,10 @@ msgstr "Je vybrané zvýšenie rozlíšenia %s"
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:295
 msgid "%s was asked for, but no scheduler is loaded"
 msgstr "Požadovaný bol %s, ale nie je načítaný žiadny plánovač"
+
+#: bigame-engine/bigame-core/src/turbo.rs:1274
+msgid "%s was left loaded by an earlier falcond and nothing asks for it: unloaded, so falcond does not put it back after every game"
+msgstr "%s zostal načítaný po skoršom falcond a nič ho nevyžaduje: uvoľnený, aby ho falcond nevracal po každej hre"
 
 #: bigame-engine/bigame-ui/src/widgets/launcher_notice.rs:261
 msgid "%s was reopened with the current settings"
@@ -424,8 +432,8 @@ msgstr "%s zapísala novšia verzia Big Game Mode (formát %s)"
 msgid "%s when a game starts"
 msgstr "%s pri spustení hry"
 
-#: bigame-engine/bigame-core/src/health.rs:650
-#: bigame-engine/bigame-core/src/health.rs:671
+#: bigame-engine/bigame-core/src/health.rs:657
+#: bigame-engine/bigame-core/src/health.rs:678
 msgid "%s · %s"
 msgstr "%s · %s"
 
@@ -433,15 +441,15 @@ msgstr "%s · %s"
 msgid "%s · Windows %s · FSR 4 provider %s · HIP runtime %s"
 msgstr "%s · Windows %s · poskytovateľ FSR 4 %s · runtime HIP %s"
 
-#: bigame-engine/bigame-core/src/health.rs:685
+#: bigame-engine/bigame-core/src/health.rs:692
 msgid "%s · running (Turbo on)"
 msgstr "%s · beží (Turbo zapnuté)"
 
-#: bigame-engine/bigame-core/src/health.rs:691
+#: bigame-engine/bigame-core/src/health.rs:698
 msgid "%s · stopped (Turbo off)"
 msgstr "%s · zastavené (Turbo vypnuté)"
 
-#: bigame-engine/bigame-core/src/health.rs:678
+#: bigame-engine/bigame-core/src/health.rs:685
 msgid "%s · the service failed; see Logs for why"
 msgstr "%s · služba zlyhala; príčinu nájdete v sekcii Záznamy"
 
@@ -461,7 +469,7 @@ msgstr "%s — hlavná obrazovka"
 msgid "%s → %s"
 msgstr "%s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:658
+#: bigame-engine/bigame-core/src/turbo.rs:668
 msgid "%s → %s: the handheld profiles run games in power-saving mode, and this machine is not a handheld"
 msgstr "%s → %s: profily pre handheldy spúšťajú hry v úspornom režime a tento počítač nie je handheld"
 
@@ -482,7 +490,7 @@ msgstr "%s, podľa globálneho nastavenia falcond"
 msgid "%s, by the game's profile"
 msgstr "%s, podľa profilu hry"
 
-#: bigame-engine/bigame-core/src/turbo.rs:507
+#: bigame-engine/bigame-core/src/turbo.rs:517
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s, takže herné profily, ktoré požadujú plánovač, ho nemôžu nastaviť"
 
@@ -506,11 +514,11 @@ msgstr "%s: %s %s → %s %s (horšie)"
 msgid "%s: %s → %s"
 msgstr "%s: %s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:773
+#: bigame-engine/bigame-core/src/turbo.rs:783
 msgid "%s: in the session's environment. Games get it through a launcher that has it; Home offers to reopen one that does not"
 msgstr "%s: v prostredí relácie. Hry ho dostanú cez spúšťač, ktorý ho má; Domov ponúkne znova otvoriť ten, ktorý ho nemá"
 
-#: bigame-engine/bigame-core/src/turbo.rs:758
+#: bigame-engine/bigame-core/src/turbo.rs:768
 msgid "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset"
 msgstr "%s: v prostredí relácie. Steam už bol otvorený a ponecháva si prostredie, s ktorým sa spustil: zatvorte ho a znova otvorte, aby jeho hry dostali predvoľbu"
 
@@ -562,8 +570,8 @@ msgstr "0 = najostrejšie · 20 = najjemnejšie"
 msgid "1% low"
 msgstr "1% low"
 
-#: bigame-engine/bigame-core/src/health.rs:842
-#: bigame-engine/bigame-core/src/health.rs:845
+#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:850
 msgid "32-bit Vulkan"
 msgstr "32-bitový Vulkan"
 
@@ -571,8 +579,8 @@ msgstr "32-bitový Vulkan"
 msgid "32-bit game"
 msgstr "32-bitová hra"
 
-#: bigame-engine/bigame-core/src/health.rs:925
-#: bigame-engine/bigame-core/src/health.rs:932
+#: bigame-engine/bigame-core/src/health.rs:930
+#: bigame-engine/bigame-core/src/health.rs:937
 #: bigame-engine/bigame-ui/src/profile_offer.rs:430
 #: bigame-engine/bigame-ui/src/profile_offer.rs:432
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:56
@@ -845,7 +853,7 @@ msgstr "O štýloch vkBasalt"
 msgid "Active"
 msgstr "Aktívne"
 
-#: bigame-engine/bigame-core/src/health.rs:306
+#: bigame-engine/bigame-core/src/health.rs:313
 msgid "Adaptive sync"
 msgstr "Adaptívna synchronizácia"
 
@@ -1231,8 +1239,8 @@ msgstr "Big Game Mode zatiaľ nemá profil pre túto hru. Vytvoriť profil vylad
 msgid "Big Game Mode has no profile for this game yet. This is the profile it would create, and why each value was chosen."
 msgstr "Big Game Mode zatiaľ nemá profil pre túto hru. Toto je profil, ktorý by vytvoril, a dôvod výberu každej hodnoty."
 
-#: bigame-engine/bigame-core/src/health.rs:949
-#: bigame-engine/bigame-core/src/health.rs:955
+#: bigame-engine/bigame-core/src/health.rs:954
+#: bigame-engine/bigame-core/src/health.rs:960
 #: bigame-engine/bigame-ui/src/views/logs.rs:50
 msgid "Big Game Mode helper"
 msgstr "Pomocník Big Game Mode"
@@ -1305,7 +1313,7 @@ msgid "Blocked"
 msgstr "Zablokované"
 
 #: bigame-engine/bigame-core/src/turbo.rs:401
-#: bigame-engine/bigame-core/src/turbo.rs:571
+#: bigame-engine/bigame-core/src/turbo.rs:581
 #: bigame-engine/bigame-ui/src/views/report.rs:120
 msgid "Booster"
 msgstr "Booster"
@@ -1356,7 +1364,7 @@ msgstr "Energetická preferencia CPU"
 msgid "CPU governor"
 msgstr "Governor CPU"
 
-#: bigame-engine/bigame-core/src/health.rs:332
+#: bigame-engine/bigame-core/src/health.rs:339
 #: bigame-engine/bigame-ui/src/profile_offer.rs:422
 #: bigame-engine/bigame-ui/src/profile_offer.rs:428
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:232
@@ -1372,8 +1380,8 @@ msgstr "Plánovač CPU"
 msgid "CPU scheduler (sched-ext)"
 msgstr "Plánovač CPU (sched-ext)"
 
-#: bigame-engine/bigame-core/src/health.rs:590
-#: bigame-engine/bigame-core/src/health.rs:598
+#: bigame-engine/bigame-core/src/health.rs:597
+#: bigame-engine/bigame-core/src/health.rs:605
 msgid "CPU temperature"
 msgstr "Teplota CPU"
 
@@ -2367,8 +2375,8 @@ msgstr "Rýchly, Tichý alebo Pekný: vyberte si, čo chcete, na stránke Domov 
 msgid "Favours the game's threads and steady frame pacing over background work. The usual choice for playing."
 msgstr "Uprednostňuje vlákna hry a rovnomerné tempo snímok pred prácou na pozadí. Obvyklá voľba na hranie."
 
-#: bigame-engine/bigame-core/src/health.rs:818
-#: bigame-engine/bigame-core/src/health.rs:824
+#: bigame-engine/bigame-core/src/health.rs:823
+#: bigame-engine/bigame-core/src/health.rs:829
 #: bigame-engine/bigame-ui/src/views/report.rs:72
 msgid "Feral GameMode"
 msgstr "Feral GameMode"
@@ -2498,7 +2506,7 @@ msgstr "Generovanie snímok"
 msgid "Frame generation"
 msgstr "Generovanie snímok"
 
-#: bigame-engine/bigame-core/src/health.rs:426
+#: bigame-engine/bigame-core/src/health.rs:433
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:164
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:170
 msgid "Frame generation (lsfg-vk)"
@@ -2526,7 +2534,7 @@ msgstr "Frekvenčný CCD"
 #: bigame-engine/bigame-core/src/graphics/backend.rs:239
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:117
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
-#: bigame-engine/bigame-core/src/health.rs:853
+#: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
 #: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
@@ -2571,7 +2579,7 @@ msgstr "Herné upozornenia"
 msgid "Game detected"
 msgstr "Zistená hra"
 
-#: bigame-engine/bigame-core/src/health.rs:279
+#: bigame-engine/bigame-core/src/health.rs:286
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:232
 msgid "Game library"
 msgstr "Knižnica hier"
@@ -2645,7 +2653,7 @@ msgstr "Hry sa zastavia na snímkovej frekvencii, ktorá sedí k vašej obrazovk
 msgid "Games with files installed"
 msgstr "Hry s nainštalovanými súbormi"
 
-#: bigame-engine/bigame-core/src/health.rs:875
+#: bigame-engine/bigame-core/src/health.rs:880
 msgid "Gamescope"
 msgstr "Gamescope"
 
@@ -2993,7 +3001,7 @@ msgstr "Ako sa o tom rozhoduje"
 msgid "Hybrid NVIDIA laptops: Gamescope no longer crashes, and nested Gamescope shows the game the screen's size"
 msgstr "Hybridné notebooky s NVIDIA: Gamescope už nepadá a vnorený Gamescope zobrazí hru vo veľkosti obrazovky"
 
-#: bigame-engine/bigame-core/src/health.rs:524
+#: bigame-engine/bigame-core/src/health.rs:531
 msgid "Hybrid graphics"
 msgstr "Hybridná grafika"
 
@@ -3153,7 +3161,7 @@ msgstr "Pokračuje tam, kde bol pozastavený, a znova začne používať CPU."
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "Úplne zamrzne, kým neobnovíte jeho beh: jeho okná prestanú reagovať a všetok zvuk, sťahovanie alebo hovor v ňom sa zastaví. Program, ktorý komunikuje so serverom, môže stratiť spojenie. Keď skončíte, nechajte ho tu pokračovať — Big Game Mode ho obnoví aj pri svojom ukončení."
 
-#: bigame-engine/bigame-core/src/health.rs:1016
+#: bigame-engine/bigame-core/src/health.rs:1021
 msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and Big Game Mode does not change firmware settings"
 msgstr "Nastavuje sa vo firmvéri počítača (Above 4G Decoding a Re-Size BAR). Niektoré hry z toho profitujú; na tomto počítači to nebolo zmerané a Big Game Mode nastavenia firmvéru nemení"
 
@@ -3210,7 +3218,7 @@ msgstr "Ponechať jednu verziu"
 msgid "Keep the screen awake"
 msgstr "Zabrániť stmaveniu obrazovky"
 
-#: bigame-engine/bigame-core/src/health.rs:615
+#: bigame-engine/bigame-core/src/health.rs:622
 msgid "Keep the vents clear; on a laptop, measure whether Turbo helps this game (Measure the difference) before keeping it on"
 msgstr "Udržujte vetracie otvory voľné; na notebooku zmerajte, či Turbo tejto hre pomáha (Zmerať rozdiel), skôr než ho necháte zapnuté"
 
@@ -3399,8 +3407,8 @@ msgstr "Záznam exportovaný"
 msgid "Logs"
 msgstr "Záznamy"
 
-#: bigame-engine/bigame-core/src/turbo.rs:904
-#: bigame-engine/bigame-core/src/turbo.rs:912
+#: bigame-engine/bigame-core/src/turbo.rs:914
+#: bigame-engine/bigame-core/src/turbo.rs:922
 msgid "Logs show why. Turning Turbo off and on again starts it again."
 msgstr "Príčinu ukazujú Záznamy. Vypnutím a opätovným zapnutím Turbo sa znova spustí."
 
@@ -3465,11 +3473,11 @@ msgstr "Spravované aplikáciou Big Game Mode od %s"
 msgid "Managed per game"
 msgstr "Spravované pre každú hru"
 
-#: bigame-engine/bigame-core/src/health.rs:869
+#: bigame-engine/bigame-core/src/health.rs:874
 msgid "MangoHud"
 msgstr "MangoHud"
 
-#: bigame-engine/bigame-core/src/health.rs:409
+#: bigame-engine/bigame-core/src/health.rs:416
 msgid "MangoHud (32-bit)"
 msgstr "MangoHud (32-bitový)"
 
@@ -3477,11 +3485,11 @@ msgstr "MangoHud (32-bitový)"
 msgid "MangoHud counts generated frames: the number shown is presented frames, not rendered ones"
 msgstr "MangoHud počíta aj generované snímky: zobrazené číslo sú zobrazené snímky, nie vykreslené"
 
-#: bigame-engine/bigame-core/src/health.rs:907
+#: bigame-engine/bigame-core/src/health.rs:912
 msgid "MangoHud in Heroic (Flatpak)"
 msgstr "MangoHud v Heroic (Flatpak)"
 
-#: bigame-engine/bigame-core/src/health.rs:909
+#: bigame-engine/bigame-core/src/health.rs:914
 msgid "MangoHud in Lutris (Flatpak)"
 msgstr "MangoHud v Lutris (Flatpak)"
 
@@ -5027,7 +5035,7 @@ msgstr "Obnoviť"
 msgid "Regenerate"
 msgstr "Vygenerovať znova"
 
-#: bigame-engine/bigame-core/src/turbo.rs:896
+#: bigame-engine/bigame-core/src/turbo.rs:906
 msgid "Reinstall falcond. If it keeps happening, report it and include the Support report."
 msgstr "Preinštalujte falcond. Ak sa to opakuje, nahláste to a priložte Správu pre podporu."
 
@@ -5113,8 +5121,8 @@ msgstr "Znova prehľadať knižnicu hier"
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Obnoviť všetky nastavenia Ladenia a Gamescope na odporúčané predvolené hodnoty. Toto sa nedá vrátiť späť."
 
-#: bigame-engine/bigame-core/src/health.rs:1000
-#: bigame-engine/bigame-core/src/health.rs:1010
+#: bigame-engine/bigame-core/src/health.rs:1005
+#: bigame-engine/bigame-core/src/health.rs:1015
 msgid "Resizable BAR"
 msgstr "Resizable BAR"
 
@@ -5319,7 +5327,7 @@ msgstr "Prehľadá hru (grafické API, upscalery, ktoré obsahuje, anti-cheat, G
 msgid "Scheduler"
 msgstr "Plánovač"
 
-#: bigame-engine/bigame-core/src/health.rs:253
+#: bigame-engine/bigame-core/src/health.rs:260
 msgid "Scheduler at boot"
 msgstr "Plánovač pri štarte systému"
 
@@ -5538,7 +5546,7 @@ msgstr "Zostať pri jednej verzii — nainštalovanej alebo otestovanej — kým
 msgid "Stays in the tray when the window is closed"
 msgstr "Zostáva v systémovej lište aj po zatvorení okna"
 
-#: bigame-engine/bigame-core/src/health.rs:863
+#: bigame-engine/bigame-core/src/health.rs:868
 msgid "Steam"
 msgstr "Steam"
 
@@ -5590,7 +5598,7 @@ msgstr "Možnosti spustenia Steam: %s. Už spúšťajú váš vlastný Gamescope
 msgid "Steam needs to be reopened"
 msgstr "Steam je potrebné znova otvoriť"
 
-#: bigame-engine/bigame-core/src/health.rs:287
+#: bigame-engine/bigame-core/src/health.rs:294
 msgid "Steam → Settings → Storage: move the games you play most to an SSD"
 msgstr "Steam → Nastavenia → Úložisko: presuňte hry, ktoré hráte najčastejšie, na SSD"
 
@@ -5669,7 +5677,7 @@ msgstr "Zapnutie technológie, ktorá robí rovnakú prácu ako iná už zapnut�
 msgid "System"
 msgstr "Systém"
 
-#: bigame-engine/bigame-core/src/health.rs:314
+#: bigame-engine/bigame-core/src/health.rs:321
 msgid "System Settings → Display & Monitor → your main screen → Adaptive sync: Automatic"
 msgstr "Systémové nastavenia → Obrazovka a monitor → vaša hlavná obrazovka → Adaptívna synchronizácia: Automaticky"
 
@@ -6146,7 +6154,7 @@ msgstr "Ladenie"
 msgid "Tuning holds what every game gets: Gamescope, Wine FSR, vkBasalt, lsfg-vk and MangoHud. Two technologies that collide are never left on together without asking you."
 msgstr "Ladenie obsahuje to, čo dostane každá hra: Gamescope, Wine FSR, vkBasalt, lsfg-vk a MangoHud. Dve technológie, ktoré sa stretávajú, nikdy nezostanú zapnuté súčasne bez toho, aby ste boli opýtaní."
 
-#: bigame-engine/bigame-core/src/health.rs:340
+#: bigame-engine/bigame-core/src/health.rs:347
 msgid "Tuning → CPU scheduler → None"
 msgstr "Ladenie → Plánovač CPU → Žiadny"
 
@@ -6217,9 +6225,9 @@ msgstr "Turbo sa už nevypína samo niekoľko sekúnd po spustení na procesoroc
 msgid "Turbo off, the choice back to Fastest, every setting as it started"
 msgstr "Turbo vypnuté, voľba späť na Rýchly, každé nastavenie ako na začiatku"
 
-#: bigame-engine/bigame-core/src/turbo.rs:579
-#: bigame-engine/bigame-core/src/turbo.rs:739
-#: bigame-engine/bigame-core/src/turbo.rs:794
+#: bigame-engine/bigame-core/src/turbo.rs:589
+#: bigame-engine/bigame-core/src/turbo.rs:749
+#: bigame-engine/bigame-core/src/turbo.rs:804
 #: bigame-engine/bigame-ui/src/tray.rs:185
 msgid "Turbo preset"
 msgstr "Predvoľba Turbo"
@@ -6268,7 +6276,7 @@ msgstr "Zapnite Turbo na stránke Domov. Dovtedy sa pre hru nepoužije žiadny p
 msgid "Turn Turbo on or off"
 msgstr "Zapnutie alebo vypnutie Turbo"
 
-#: bigame-engine/bigame-core/src/health.rs:725
+#: bigame-engine/bigame-core/src/health.rs:732
 msgid "Turn Turbo on — or off and on again if it is already on — to switch falcond to its desktop profiles"
 msgstr "Zapnite Turbo — alebo ho vypnite a znova zapnite, ak je už zapnuté — aby sa falcond prepol na profily pre stolné počítače"
 
@@ -6350,7 +6358,7 @@ msgstr "Aktualizovať"
 msgid "Update available: %s"
 msgstr "Dostupná aktualizácia: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:884
+#: bigame-engine/bigame-core/src/turbo.rs:894
 msgid "Update or reinstall falcond with a build for this processor. Turning Turbo off and on again does not help: the same package crashes the same way."
 msgstr "Aktualizujte alebo preinštalujte falcond zostavením pre tento procesor. Vypnutie a opätovné zapnutie Turbo nepomôže: rovnaký balík zlyhá rovnako."
 
@@ -6456,8 +6464,8 @@ msgstr "Vyrovnávacia pamäť VKD3D-Proton (vkd3d-proton.cache) je v priečinku 
 msgid "VRAM"
 msgstr "VRAM"
 
-#: bigame-engine/bigame-core/src/health.rs:352
-#: bigame-engine/bigame-core/src/health.rs:365
+#: bigame-engine/bigame-core/src/health.rs:359
+#: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
 msgstr "Ochrana VRAM"
 
@@ -6952,11 +6960,11 @@ msgstr "natívna linuxová hra nemá pozície DLL; nedá sa nič vložiť a k di
 msgid "a second OptiScaler would load with the one Big Game Mode installs; remove it with the tool that put it there first"
 msgstr "druhý OptiScaler by sa načítal spolu s tým, ktorý inštaluje Big Game Mode; najprv ho odstráňte nástrojom, ktorý ho tam umiestnil"
 
-#: bigame-engine/bigame-core/src/health.rs:309
+#: bigame-engine/bigame-core/src/health.rs:316
 msgid "adaptive sync (VRR, FreeSync) is off on your main screen%s: frame rates that do not divide its refresh rate judder"
 msgstr "adaptívna synchronizácia (VRR, FreeSync) je na hlavnej obrazovke%s vypnutá: snímkové frekvencie, ktoré nedelia jej obnovovaciu frekvenciu, pôsobia trhane"
 
-#: bigame-engine/bigame-core/src/turbo.rs:995
+#: bigame-engine/bigame-core/src/turbo.rs:1005
 msgid "already %s"
 msgstr "už %s"
 
@@ -7078,7 +7086,7 @@ msgstr "nepodarilo sa stiahnuť %s: %s"
 msgid "could not record the machine's state before measuring; nothing was changed"
 msgstr "stav počítača sa pred meraním nepodarilo zaznamenať; nič sa nezmenilo"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1082
+#: bigame-engine/bigame-core/src/turbo.rs:1092
 msgid "could not restore %s: %s"
 msgstr "nepodarilo sa obnoviť %s: %s"
 
@@ -7090,7 +7098,7 @@ msgstr "prostredie bežiacej relácie sa nepodarilo aktualizovať"
 msgid "current settings"
 msgstr "aktuálne nastavenia"
 
-#: bigame-engine/bigame-core/src/turbo.rs:835
+#: bigame-engine/bigame-core/src/turbo.rs:845
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:153
 msgid "desktop"
 msgstr "stolný počítač"
@@ -7149,12 +7157,12 @@ msgstr "očakáva sa, že bude vykresľovať hru; potvrdí sa, keď beží"
 msgid "external graphics injection is disabled for this game; there is no override"
 msgstr "externé vkladanie grafiky je pre túto hru vypnuté; nedá sa to obísť"
 
-#: bigame-engine/bigame-core/src/health.rs:648
 #: bigame-engine/bigame-core/src/health.rs:655
-#: bigame-engine/bigame-core/src/health.rs:669
+#: bigame-engine/bigame-core/src/health.rs:662
 #: bigame-engine/bigame-core/src/health.rs:676
 #: bigame-engine/bigame-core/src/health.rs:683
-#: bigame-engine/bigame-core/src/health.rs:689
+#: bigame-engine/bigame-core/src/health.rs:690
+#: bigame-engine/bigame-core/src/health.rs:696
 msgid "falcond"
 msgstr "falcond"
 
@@ -7174,19 +7182,19 @@ msgstr "falcond požiada power-profiles-daemon o profil performance, kým beží
 msgid "falcond asks scx_loader when the game starts; a failure is in Logs (scx_loader, falcond). Turning Turbo off and on again makes it retry."
 msgstr "falcond sa pýta scx_loader pri spustení hry; zlyhanie nájdete v sekcii Záznamy (scx_loader, falcond). Vypnutím a opätovným zapnutím Turbo sa pokus zopakuje."
 
-#: bigame-engine/bigame-core/src/health.rs:355
+#: bigame-engine/bigame-core/src/health.rs:362
 msgid "falcond could not protect a game's VRAM: %s"
 msgstr "falcond nemohol ochrániť VRAM hry: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:902
+#: bigame-engine/bigame-core/src/turbo.rs:912
 msgid "falcond crashed"
 msgstr "falcond spadol"
 
-#: bigame-engine/bigame-core/src/turbo.rs:874
+#: bigame-engine/bigame-core/src/turbo.rs:884
 msgid "falcond crashed on a CPU instruction this processor does not have (illegal instruction). The installed falcond package appears to be built for a newer x86-64 level: this processor is x86-64-v%s, without %s."
 msgstr "falcond spadol na inštrukcii, ktorú tento procesor nemá (neplatná inštrukcia). Nainštalovaný balík falcond je zrejme zostavený pre novšiu úroveň x86-64: tento procesor je x86-64-v%s, bez %s."
 
-#: bigame-engine/bigame-core/src/turbo.rs:891
+#: bigame-engine/bigame-core/src/turbo.rs:901
 msgid "falcond crashed on an illegal CPU instruction"
 msgstr "falcond spadol na neplatnej inštrukcii procesora"
 
@@ -7194,12 +7202,12 @@ msgstr "falcond spadol na neplatnej inštrukcii procesora"
 msgid "falcond default, not measured here"
 msgstr "predvolené vo falcond, tu nezmerané"
 
-#: bigame-engine/bigame-core/src/turbo.rs:910
+#: bigame-engine/bigame-core/src/turbo.rs:920
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:227
 msgid "falcond failed"
 msgstr "falcond zlyhal"
 
-#: bigame-engine/bigame-core/src/health.rs:707
+#: bigame-engine/bigame-core/src/health.rs:714
 msgid "falcond features"
 msgstr "Funkcie falcond"
 
@@ -7232,7 +7240,7 @@ msgstr "falcond ho spravuje pre „%s“; po ukončení hry vráti profil, ktor�
 msgid "falcond is not applying the profile of %s"
 msgstr "falcond nepoužíva profil hry %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:872
+#: bigame-engine/bigame-core/src/turbo.rs:882
 msgid "falcond is not compatible with this processor"
 msgstr "falcond nie je kompatibilný s týmto procesorom"
 
@@ -7246,7 +7254,7 @@ msgstr "falcond nie je nainštalovaný"
 msgid "falcond is not installed, so the game's performance profile was not saved; its other settings were. Install falcond for per-game performance profiles."
 msgstr "falcond nie je nainštalovaný, takže profil výkonu hry sa neuložil; jej ostatné nastavenia áno. Nainštalujte falcond, aby ste mohli používať profily výkonu pre každú hru."
 
-#: bigame-engine/bigame-core/src/turbo.rs:493
+#: bigame-engine/bigame-core/src/turbo.rs:503
 msgid "falcond is not installed, so there are no per-game profiles; only global settings can be applied"
 msgstr "falcond nie je nainštalovaný, takže neexistujú profily pre jednotlivé hry; použiť sa dajú iba globálne nastavenia"
 
@@ -7269,7 +7277,7 @@ msgstr[0] "falcond načíta najviac 64 profilov a je ich o %n viac: jeden z vaš
 msgstr[1] "falcond načíta najviac 64 profilov a je ich o %n viac: %n z vašich sa nepoužijú."
 msgstr[2] "falcond načíta najviac 64 profilov a je ich o %n viac: %n z vašich sa nepoužije."
 
-#: bigame-engine/bigame-core/src/health.rs:335
+#: bigame-engine/bigame-core/src/health.rs:342
 msgid "falcond loads scx_%s for the whole desktop and every game while Turbo is on; in Big Game Mode's measurements no sched-ext scheduler made games faster"
 msgstr "falcond načíta scx_%s pre celú plochu a každú hru, kým je Turbo zapnuté; v meraniach Big Game Mode žiadny plánovač sched-ext hry nezrýchlil"
 
@@ -7281,12 +7289,12 @@ msgstr "falcond k tomuto procesu nepriradil žiadny profil. Pre hru, ktorú nepo
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "plánovač vlastní falcond; Booster ho nezapisuje, aby dva ovládače nesúperili o rovnaký stav"
 
-#: bigame-engine/bigame-core/src/health.rs:722
+#: bigame-engine/bigame-core/src/health.rs:729
 #: bigame-engine/bigame-ui/src/views/report.rs:71
 msgid "falcond profile set"
 msgstr "Sada profilov falcond"
 
-#: bigame-engine/bigame-core/src/health.rs:358
+#: bigame-engine/bigame-core/src/health.rs:365
 msgid "falcond protects a game's VRAM only when the dmem controller is delegated to your session (the dmemcg-booster service does that); without it games run as before, without the protection"
 msgstr "falcond chráni VRAM hry, len keď je radič dmem delegovaný na vašu reláciu (to zabezpečuje služba dmemcg-booster); bez neho hry bežia ako predtým, bez ochrany"
 
@@ -7298,7 +7306,7 @@ msgstr "falcond rozpozná hru podľa názvu jej procesu, ako ho ukazuje monitor 
 msgid "falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."
 msgstr "falcond rozpoznáva hru podľa názvu jej procesu (ako ho zobrazuje monitor systému), nie podľa jej titulu. Profil pod iným názvom sa nikdy nepoužije."
 
-#: bigame-engine/bigame-core/src/health.rs:485
+#: bigame-engine/bigame-core/src/health.rs:492
 msgid "falcond restarts"
 msgstr "Reštarty falcond"
 
@@ -7318,7 +7326,7 @@ msgstr "falcond obsahuje hotové profily pre známe hry v troch sadách. Sada ur
 msgid "falcond ships separate profile sets for desktops, handhelds and home-theatre PCs. The handheld set runs games in power-saving mode, which is the wrong set for a desktop."
 msgstr "falcond dodáva samostatné sady profilov pre stolné počítače, handheldy a počítače pre domáce kino. Sada pre handheldy spúšťa hry v úspornom režime, čo je pre stolný počítač nesprávna sada."
 
-#: bigame-engine/bigame-core/src/turbo.rs:892
+#: bigame-engine/bigame-core/src/turbo.rs:902
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond sa zastavil na inštrukcii, ktorú tento procesor odmietol: nekompatibilita inštrukčnej sady procesora alebo poškodený binárny súbor falcond."
 
@@ -7343,7 +7351,7 @@ msgstr "falcond zapisuje svoj stav do /var/lib/falcond/status (alebo /tmp/falcon
 msgid "falcond's built-in profile %s is applied"
 msgstr "Používa sa zabudovaný profil falcond %s"
 
-#: bigame-engine/bigame-core/src/health.rs:389
+#: bigame-engine/bigame-core/src/health.rs:396
 msgid "falcond's files"
 msgstr "Súbory falcond"
 
@@ -7368,7 +7376,7 @@ msgstr "Profil falcond pre túto hru: režim výkonu, plánovač, 3D V-Cache a t
 msgid "falcond's profiles for desktops and laptops. The right choice for a PC at a desk."
 msgstr "Profily falcond pre stolné počítače a notebooky. Správna voľba pre počítač pri stole."
 
-#: bigame-engine/bigame-core/src/turbo.rs:903
+#: bigame-engine/bigame-core/src/turbo.rs:913
 msgid "falcond's service ended on %s."
 msgstr "Služba falcond skončila signálom %s."
 
@@ -7376,7 +7384,7 @@ msgstr "Služba falcond skončila signálom %s."
 msgid "falcond's service failed"
 msgstr "Služba falcond zlyhala"
 
-#: bigame-engine/bigame-core/src/turbo.rs:911
+#: bigame-engine/bigame-core/src/turbo.rs:921
 msgid "falcond's service failed (%s)."
 msgstr "Služba falcond zlyhala (%s)."
 
@@ -7426,15 +7434,15 @@ msgstr "generovanie snímok pomocou lsfg-vk v profile hry funguje v každej hre,
 msgid "frame rate not limited"
 msgstr "snímková frekvencia nie je obmedzená"
 
-#: bigame-engine/bigame-core/src/health.rs:282
+#: bigame-engine/bigame-core/src/health.rs:289
 msgid "games in %s are on a hard disk: they load and stream textures slowly there, which shows as stutter no setting removes"
 msgstr "hry v %s sú na pevnom disku: načítavajú a streamujú tam textúry pomaly, čo sa prejavuje ako zasekávanie, ktoré žiadne nastavenie neodstráni"
 
-#: bigame-engine/bigame-core/src/health.rs:528
+#: bigame-engine/bigame-core/src/health.rs:535
 msgid "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options"
 msgstr "hry sa vykresľujú na GPU %s (%s); hry spustené z Big Game Mode používajú %s; hry cez Proton si ju vyberajú samy; natívna linuxová hra spustená cez Steam potrebuje `prime-run %command%` v možnostiach spustenia"
 
-#: bigame-engine/bigame-core/src/health.rs:535
+#: bigame-engine/bigame-core/src/health.rs:542
 msgid "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options"
 msgstr "hry sa vykresľujú na GPU %s (%s); hry spustené z Big Game Mode používajú %s; hry cez Proton si ju vyberajú samy; natívna linuxová hra spustená cez Steam potrebuje premenné pre offload v možnostiach spustenia"
 
@@ -7450,7 +7458,7 @@ msgstr "generuje v hre"
 msgid "graphics injection is disabled for games with anti-cheat"
 msgstr "vkladanie grafiky je pre hry s anti-cheatom vypnuté"
 
-#: bigame-engine/bigame-core/src/health.rs:724
+#: bigame-engine/bigame-core/src/health.rs:731
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "profily pre handheldy na počítači, ktorý nie je handheld: hry bežia v úspornom režime"
 
@@ -7482,7 +7490,7 @@ msgstr "v strome procesov hry"
 msgid "injection blocked: %s"
 msgstr "vkladanie zablokované: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:820
+#: bigame-engine/bigame-core/src/health.rs:825
 msgid "installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"
 msgstr "nainštalované popri falcond; Big Game Mode ho nepoužíva, pretože dva ovládače by ukladali a obnovovali rovnaké nastavenia"
 
@@ -7518,7 +7526,7 @@ msgstr "celočíselné škálovanie sa nepoužíva"
 msgid "it loads the game's .asi mods into the same process; not established together with OptiScaler — if the game misbehaves, take one out"
 msgstr "načítava mody .asi hry do toho istého procesu; spolu s OptiScaler nepotvrdené — ak sa hra správa zle, jeden odoberte"
 
-#: bigame-engine/bigame-core/src/turbo.rs:985
+#: bigame-engine/bigame-core/src/turbo.rs:995
 msgid "its current value could not be read, so it could not be restored"
 msgstr "jeho aktuálnu hodnotu sa nepodarilo prečítať, takže sa nedala obnoviť"
 
@@ -7589,7 +7597,7 @@ msgid "lsfg-vk adds its frames after the cap, so these games render the cap and 
 msgstr "lsfg-vk pridáva svoje snímky až za obmedzením, takže tieto hry vykresľujú obmedzenie a zobrazujú ho vynásobené: %s."
 
 #: bigame-engine/bigame-core/src/fg.rs:1168
-#: bigame-engine/bigame-core/src/health.rs:429
+#: bigame-engine/bigame-core/src/health.rs:436
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:171
 msgid "lsfg-vk cannot generate frames with this Lossless.dll (%s): update Lossless Scaling and choose its Lossless.dll again"
 msgstr "lsfg-vk nedokáže s týmto Lossless.dll generovať snímky (%s): aktualizujte Lossless Scaling a znova vyberte jeho Lossless.dll"
@@ -7674,7 +7682,7 @@ msgstr "plán merania potrebuje príkaz, aspoň 5 sekúnd a aspoň 2 započítan
 msgid "median"
 msgstr "medián"
 
-#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:852
 msgid "missing: many Proton games and Steam itself need it"
 msgstr "chýba: potrebuje ho mnoho hier cez Proton aj samotný Steam"
 
@@ -7747,7 +7755,7 @@ msgid "no profile yet"
 msgstr "zatiaľ bez profilu"
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:445
-#: bigame-engine/bigame-core/src/health.rs:855
+#: bigame-engine/bigame-core/src/health.rs:860
 msgid "no render GPU was identified"
 msgstr "nebola identifikovaná žiadna vykresľovacia GPU"
 
@@ -7759,7 +7767,7 @@ msgstr "nie je tu nastavený žiadny plánovač, takže všeobecný si ponecháv
 msgid "no scheduler is set, so its mode has no effect"
 msgstr "nie je nastavený žiadny plánovač, takže jeho režim nemá účinok"
 
-#: bigame-engine/bigame-core/src/health.rs:592
+#: bigame-engine/bigame-core/src/health.rs:599
 msgid "no thermal throttling since boot"
 msgstr "od spustenia žiadne tepelné obmedzovanie"
 
@@ -7792,7 +7800,7 @@ msgstr "žiadny — Turbo je vypnuté alebo ho falcond nepriradil"
 msgid "not a Steam app id: %s"
 msgstr "nie je ID aplikácie Steam: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:568
+#: bigame-engine/bigame-core/src/turbo.rs:578
 msgid "not applied: Turbo did not come on"
 msgstr "nepoužité: Turbo sa nezaplo"
 
@@ -7809,23 +7817,23 @@ msgstr "nepotvrdené ani vyvrátené"
 msgid "not held off"
 msgstr "nepozdržané"
 
-#: bigame-engine/bigame-core/src/health.rs:872
+#: bigame-engine/bigame-core/src/health.rs:877
 msgid "not installed · frame-time capture and the in-game overlay"
 msgstr "nenainštalované · záznam časov snímok a prekryvná vrstva v hre"
 
-#: bigame-engine/bigame-core/src/health.rs:824
+#: bigame-engine/bigame-core/src/health.rs:829
 msgid "not installed · no conflict with falcond"
 msgstr "nenainštalované · žiadny konflikt s falcond"
 
-#: bigame-engine/bigame-core/src/health.rs:866
+#: bigame-engine/bigame-core/src/health.rs:871
 msgid "not installed · the launcher for most games here"
 msgstr "nenainštalované · spúšťač väčšiny hier tu"
 
-#: bigame-engine/bigame-core/src/health.rs:878
+#: bigame-engine/bigame-core/src/health.rs:883
 msgid "not installed · the micro-compositor used for scaling and frame limiting"
 msgstr "nenainštalované · mikro-kompozítor na škálovanie a obmedzenie snímok"
 
-#: bigame-engine/bigame-core/src/health.rs:657
+#: bigame-engine/bigame-core/src/health.rs:664
 msgid "not installed: no per-game performance profiles; Turbo applies only the general settings"
 msgstr "nenainštalované: žiadne profily výkonu pre každú hru; Turbo používa len všeobecné nastavenia"
 
@@ -7837,11 +7845,11 @@ msgstr "nenainštalované; plán by ho nainštaloval"
 msgid "not offered: %s"
 msgstr "neponúka sa: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:957
+#: bigame-engine/bigame-core/src/health.rs:962
 msgid "not reachable: Turbo and profile changes cannot be made"
 msgstr "nedostupné: Turbo ani profily sa nedajú meniť"
 
-#: bigame-engine/bigame-core/src/health.rs:810
+#: bigame-engine/bigame-core/src/health.rs:815
 msgid "not reachable: game profiles cannot switch the power profile"
 msgstr "nedostupné: herné profily nemôžu prepnúť profil napájania"
 
@@ -7865,7 +7873,7 @@ msgstr "nie je čo merať: plán na tomto počítači nič nemení"
 msgid "nothing, Gamescope is off there"
 msgstr "nič, Gamescope je tam vypnutý"
 
-#: bigame-engine/bigame-core/src/health.rs:1013
+#: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "vypnuté: CPU naraz dosiahne %s z %s videopamäte karty"
 
@@ -7873,7 +7881,7 @@ msgstr "vypnuté: CPU naraz dosiahne %s z %s videopamäte karty"
 msgid "on battery, holding the performance power profile costs more in heat and throttling than it returns"
 msgstr "na batérii stojí držanie výkonnostného profilu napájania viac na teple a obmedzovaní, než prinesie"
 
-#: bigame-engine/bigame-core/src/health.rs:1003
+#: bigame-engine/bigame-core/src/health.rs:1008
 msgid "on: the CPU can reach all %s of video memory"
 msgstr "zapnuté: CPU dosiahne celých %s videopamäte"
 
@@ -7881,7 +7889,7 @@ msgstr "zapnuté: CPU dosiahne celých %s videopamäte"
 msgid "only one can be dxgi.dll: ReShade goes in OptiScaler's plugins folder, or is loaded by OptiScaler (LoadReshade)"
 msgstr "dxgi.dll môže byť iba jeden: ReShade patrí do priečinka pluginov OptiScaler alebo ho načíta OptiScaler (LoadReshade)"
 
-#: bigame-engine/bigame-core/src/health.rs:411
+#: bigame-engine/bigame-core/src/health.rs:418
 msgid "only the 64-bit MangoHud is installed: 32-bit games show no overlay and cannot be measured"
 msgstr "nainštalovaný je len 64-bitový MangoHud: 32-bitové hry nezobrazia prekryvnú vrstvu a nedajú sa merať"
 
@@ -7913,8 +7921,8 @@ msgstr "výkon počas behu hry, ako požadoval falcond"
 msgid "power limit"
 msgstr "limit príkonu"
 
-#: bigame-engine/bigame-core/src/health.rs:801
-#: bigame-engine/bigame-core/src/health.rs:808
+#: bigame-engine/bigame-core/src/health.rs:806
+#: bigame-engine/bigame-core/src/health.rs:813
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
@@ -7932,12 +7940,12 @@ msgid "prefers the cache-stacked CCD while the game runs, as falcond's profiles 
 msgstr "uprednostňuje CCD s vrstvenou vyrovnávacou pamäťou počas behu hry, ako to robia profily falcond"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:266
-#: bigame-engine/bigame-core/src/health.rs:842
-#: bigame-engine/bigame-core/src/health.rs:888
+#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:893
 msgid "present"
 msgstr "prítomné"
 
-#: bigame-engine/bigame-core/src/health.rs:927
+#: bigame-engine/bigame-core/src/health.rs:932
 msgid "present; game profiles can prefer the cache CCD"
 msgstr "prítomné; herné profily môžu uprednostniť CCD s vyrovnávacou pamäťou"
 
@@ -7953,7 +7961,7 @@ msgstr "profil sa nenašiel: %s"
 msgid "proxy"
 msgstr "proxy"
 
-#: bigame-engine/bigame-core/src/health.rs:951
+#: bigame-engine/bigame-core/src/health.rs:956
 msgid "reachable"
 msgstr "dostupný"
 
@@ -7974,7 +7982,7 @@ msgstr "vykresľuje hru"
 msgid "reported a failure: %s"
 msgstr "hlásilo zlyhanie: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1076
+#: bigame-engine/bigame-core/src/turbo.rs:1086
 msgid "restored to %s"
 msgstr "obnovené na %s"
 
@@ -7986,7 +7994,7 @@ msgstr "spustite hru raz: API sa potvrdí podľa toho, čo načíta, a OptiScale
 msgid "running %s%s"
 msgstr "spúšťa %s%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:707
+#: bigame-engine/bigame-core/src/turbo.rs:717
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "beží (systemd ho hlási ako aktívny; falcond zatiaľ nezverejnil svoj stav)"
 
@@ -8006,7 +8014,7 @@ msgstr "beží bez FSR4_UPGRADE=1: FSR 3.1"
 msgid "running without the FSR 4 provider: FSR is off in its menu"
 msgstr "beží bez poskytovateľa FSR 4: FSR je v jej ponuke vypnuté"
 
-#: bigame-engine/bigame-core/src/turbo.rs:693
+#: bigame-engine/bigame-core/src/turbo.rs:703
 msgid "running, %s profiles loaded (%s set); applies a profile to each game as it starts"
 msgstr "beží, načítaných profilov: %s (sada %s); používa profil pre každú hru pri jej spustení"
 
@@ -8014,11 +8022,11 @@ msgstr "beží, načítaných profilov: %s (sada %s); používa profil pre každ
 msgid "runs DLSS"
 msgstr "spúšťa DLSS"
 
-#: bigame-engine/bigame-core/src/health.rs:732
-#: bigame-engine/bigame-core/src/health.rs:740
-#: bigame-engine/bigame-core/src/health.rs:744
-#: bigame-engine/bigame-core/src/health.rs:753
-#: bigame-engine/bigame-core/src/health.rs:758
+#: bigame-engine/bigame-core/src/health.rs:739
+#: bigame-engine/bigame-core/src/health.rs:747
+#: bigame-engine/bigame-core/src/health.rs:751
+#: bigame-engine/bigame-core/src/health.rs:760
+#: bigame-engine/bigame-core/src/health.rs:765
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1598
 msgid "sched-ext"
 msgstr "sched-ext"
@@ -8061,7 +8069,7 @@ msgstr "scx_loader je nainštalovaný, ale jeho služba nebeží"
 msgid "scx_loader is installed but its service is not running."
 msgstr "scx_loader je nainštalovaný, ale jeho služba nebeží."
 
-#: bigame-engine/bigame-core/src/health.rs:256
+#: bigame-engine/bigame-core/src/health.rs:263
 msgid "scx_loader starts %s (%s mode) at every boot, with Turbo off too: a second owner of the CPU scheduler. While Turbo is on, a game's profile can replace it."
 msgstr "scx_loader spúšťa %s (režim %s) pri každom štarte systému, aj keď je Turbo vypnuté: druhý vlastník plánovača CPU. Keď je Turbo zapnuté, profil hry ho môže nahradiť."
 
@@ -8069,7 +8077,7 @@ msgstr "scx_loader spúšťa %s (režim %s) pri každom štarte systému, aj ke�
 msgid "sharpness left at default"
 msgstr "ostrosť ponechaná na predvolenej hodnote"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1023
+#: bigame-engine/bigame-core/src/turbo.rs:1033
 msgid "stopped and disabled; any game profile it held was put back as it stopped"
 msgstr "zastavený a zakázaný; každý herný profil, ktorý držal, bol pri zastavení vrátený"
 
@@ -8085,15 +8093,15 @@ msgstr "systemd nemohol spustiť %s (%s)"
 msgid "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing."
 msgstr "systemd neodpovedal cez systémovú zbernicu, takže nie je známe, či falcond beží. Údaje nižšie, ktoré to potrebujú, chýbajú."
 
-#: bigame-engine/bigame-core/src/turbo.rs:839
+#: bigame-engine/bigame-core/src/turbo.rs:849
 msgid "systemd reports it %s"
 msgstr "systemd ho hlási ako %s"
 
-#: bigame-engine/bigame-core/src/health.rs:491
+#: bigame-engine/bigame-core/src/health.rs:498
 msgid "systemd restarted falcond %s times after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"
 msgstr "systemd reštartoval falcond %s-krát po jeho neočakávanom zastavení; reštart počas hry môže po ukončení hry ponechať zvýšený profil napájania"
 
-#: bigame-engine/bigame-core/src/health.rs:488
+#: bigame-engine/bigame-core/src/health.rs:495
 msgid "systemd restarted falcond once after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"
 msgstr "systemd raz reštartoval falcond po jeho neočakávanom zastavení; reštart počas hry môže po ukončení hry ponechať zvýšený profil napájania"
 
@@ -8109,11 +8117,11 @@ msgstr "teplotný limit"
 msgid "the %s driver exposes no DPM level control"
 msgstr "ovládač %s nesprístupňuje ovládanie úrovne DPM"
 
-#: bigame-engine/bigame-core/src/health.rs:609
+#: bigame-engine/bigame-core/src/health.rs:616
 msgid "the CPU hit its temperature limit %s times since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "CPU od spustenia %s-krát dosiahol teplotný limit (spomalený celkovo %s s): chladenie obmedzuje jeho rýchlosť a výkonnostný profil napájania pridáva teplo"
 
-#: bigame-engine/bigame-core/src/health.rs:602
+#: bigame-engine/bigame-core/src/health.rs:609
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "CPU od spustenia raz dosiahol teplotný limit (spomalený celkovo %s s): chladenie obmedzuje jeho rýchlosť a výkonnostný profil napájania pridáva teplo"
 
@@ -8145,7 +8153,7 @@ msgstr "kópia %s vo vyrovnávacej pamäti nie je tá, ktorá bola nainštalovan
 msgid "the component runs its kernels through AMD's Windows HIP runtime (amdhip64_7.dll), which comes with the Adrenalin driver; Proton ships none, and this prefix has none"
 msgstr "komponent spúšťa svoje jadrá cez runtime AMD HIP pre Windows (amdhip64_7.dll), ktorý sa dodáva s ovládačom Adrenalin; Proton žiadny neobsahuje a tento prefix tiež nie"
 
-#: bigame-engine/bigame-core/src/turbo.rs:669
+#: bigame-engine/bigame-core/src/turbo.rs:679
 msgid "the configuration was written but reads back unchanged"
 msgstr "konfigurácia bola zapísaná, ale pri spätnom čítaní je nezmenená"
 
@@ -8439,7 +8447,7 @@ msgstr "neexistuje staršia verzia, na ktorú by sa dalo vrátiť"
 msgid "this CPU has no 3D V-Cache"
 msgstr "tento CPU nemá 3D V-Cache"
 
-#: bigame-engine/bigame-core/src/health.rs:934
+#: bigame-engine/bigame-core/src/health.rs:939
 msgid "this CPU has none"
 msgstr "tento CPU ju nemá"
 
@@ -8451,15 +8459,15 @@ msgstr "tento počítač má viac ako jednu GPU: plán je pre %s, ktorú DXVK a 
 msgid "this cpufreq driver"
 msgstr "tento ovládač cpufreq"
 
-#: bigame-engine/bigame-core/src/turbo.rs:557
+#: bigame-engine/bigame-core/src/turbo.rs:567
 msgid "this falcond build crashed on this processor (illegal instruction), so it is not started again until the package changes; Turbo applies the general settings without per-game profiles"
 msgstr "táto zostava falcond na tomto procesore zlyhala (neplatná inštrukcia), preto sa znova nespustí, kým sa balík nezmení; Turbo použije všeobecné nastavenia bez profilov pre jednotlivé hry"
 
-#: bigame-engine/bigame-core/src/health.rs:712
+#: bigame-engine/bigame-core/src/health.rs:719
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling"
 msgstr "tento falcond je starší ako ochrana VRAM (DMEM) a spracovanie split-lock"
 
-#: bigame-engine/bigame-core/src/health.rs:710
+#: bigame-engine/bigame-core/src/health.rs:717
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling; the kernel supports DMEM, so a newer falcond could use it"
 msgstr "tento falcond je starší ako ochrana VRAM (DMEM) a spracovanie split-lock; jadro podporuje DMEM, takže novší falcond by ho mohol využiť"
 
@@ -8483,11 +8491,11 @@ msgstr "toto je natívna linuxová hra: OptiScaler funguje s hrami pre Windows p
 msgid "this kernel has no NTSync; games use fsync or esync"
 msgstr "toto jadro nemá NTSync; hry používajú fsync alebo esync"
 
-#: bigame-engine/bigame-core/src/health.rs:367
+#: bigame-engine/bigame-core/src/health.rs:374
 msgid "this kernel or its cgroup setup does not let falcond protect a game's VRAM (DMEM); games run without that protection"
 msgstr "toto jadro alebo jeho nastavenie cgroup nedovoľuje falcond chrániť VRAM hry (DMEM); hry bežia bez tejto ochrany"
 
-#: bigame-engine/bigame-core/src/health.rs:915
+#: bigame-engine/bigame-core/src/health.rs:920
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "tento spúšťač beží ako Flatpak a nevidí systémový MangoHud: hry, ktoré spustí, nedostanú prekryvnú vrstvu (Heroic odmietne hru spustiť so zapnutým prepínačom MangoHud), kým sa nenainštaluje rozšírenie Flatpak pre MangoHud pre jeho runtime"
 

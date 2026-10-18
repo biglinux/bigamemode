@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 10:58-0300\n"
+"POT-Creation-Date: 2026-10-18 15:00-0300\n"
 "PO-Revision-Date: 2026-04-20 22:21\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hungarian <hu@li.org>\n"
@@ -169,7 +169,7 @@ msgstr "Kérve: %r, de fut: %l"
 msgid "%s"
 msgstr "%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:605
+#: bigame-engine/bigame-core/src/turbo.rs:615
 msgid "%s %s"
 msgstr "%s %s"
 
@@ -219,7 +219,7 @@ msgstr "%s egy másik játékhoz tartozik (%s)"
 msgid "%s beside the game is %s: %s"
 msgstr "%s a játék mellett: %s: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:392
+#: bigame-engine/bigame-core/src/health.rs:399
 msgid "%s can be changed without the administrator password, yet falcond applies what it holds as root"
 msgstr "%s rendszergazdai jelszó nélkül módosítható, a falcond mégis rootként alkalmazza, amit tartalmaz"
 
@@ -272,8 +272,12 @@ msgstr "A(z) %s a játék futtatható fájljába van fordítva, nem DLL-ként sz
 msgid "%s is in the game's folder more than once, in different letter case; remove one of them first"
 msgstr "%s többször is szerepel a játék mappájában, eltérő kis- és nagybetűkkel; előbb távolítsd el az egyiket"
 
+#: bigame-engine/bigame-core/src/turbo.rs:1264
+msgid "%s is loaded and nothing asks for it, but it could not be unloaded"
+msgstr "%s be van töltve, és semmi sem igényli, de nem sikerült eltávolítani"
+
 #: bigame-engine/bigame-core/src/capabilities.rs:58
-#: bigame-engine/bigame-core/src/health.rs:755
+#: bigame-engine/bigame-core/src/health.rs:762
 msgid "%s is not installed"
 msgstr "%s nincs telepítve"
 
@@ -311,7 +315,7 @@ msgstr "%s fut; zárd be, mielőtt a fájljai módosulnak"
 msgid "%s is set, but another program decides the lookups"
 msgstr "%s be van állítva, de egy másik program dönt a lekérdezésekről"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1233
+#: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s a falcond leállása után is betöltve marad: a falcond nem távolítja el az általános beállítása által betöltött ütemezőt"
 
@@ -337,11 +341,11 @@ msgstr "%s védi ezt a játékot (%s): a külső grafikai injektálás le van ti
 msgid "%s resumed"
 msgstr "%s folytatva"
 
-#: bigame-engine/bigame-core/src/health.rs:747
+#: bigame-engine/bigame-core/src/health.rs:754
 msgid "%s schedulers installed, but scx-tools (scx_loader) is not, so game profiles cannot switch scheduler"
 msgstr "%s ütemező telepítve, de az scx-tools (scx_loader) nem, így a játékprofilok nem tudnak ütemezőt váltani"
 
-#: bigame-engine/bigame-core/src/health.rs:735
+#: bigame-engine/bigame-core/src/health.rs:742
 msgid "%s schedulers, scx_loader available"
 msgstr "%s ütemező, scx_loader elérhető"
 
@@ -361,11 +365,11 @@ msgstr "%s bekapcsolva a játék beállításaiban"
 msgid "%s switched on in the game's settings if it is off, and put back by Restore — OptiScaler runs %s in its place; the quality stays yours to change in the game's menu"
 msgstr "%s bekapcsolva a játék beállításaiban, ha ki van kapcsolva, és a Visszaállítás visszaállítja — helyette az OptiScaler ezt futtatja: %s; a minőséget továbbra is te állítod a játék menüjében"
 
-#: bigame-engine/bigame-core/src/turbo.rs:809
+#: bigame-engine/bigame-core/src/turbo.rs:819
 msgid "%s taken away. Steam was open and still has it: close and reopen Steam so its games get Tuning's settings again"
 msgstr "%s eltávolítva. A Steam nyitva volt, és még megtartotta: zárd be, majd nyisd meg újra a Steamet, hogy a játékai ismét a Hangolás beállításait kapják"
 
-#: bigame-engine/bigame-core/src/turbo.rs:820
+#: bigame-engine/bigame-core/src/turbo.rs:830
 msgid "%s taken away: games get Tuning's settings again"
 msgstr "%s eltávolítva: a játékok ismét a Hangolás beállításait kapják"
 
@@ -384,6 +388,10 @@ msgstr "%s felskálázás kiválasztva"
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:295
 msgid "%s was asked for, but no scheduler is loaded"
 msgstr "Kérve: %s, de nincs betöltött ütemező"
+
+#: bigame-engine/bigame-core/src/turbo.rs:1274
+msgid "%s was left loaded by an earlier falcond and nothing asks for it: unloaded, so falcond does not put it back after every game"
+msgstr "%s egy korábbi falcond után betöltve maradt, és semmi sem igényli: eltávolítva, hogy a falcond ne töltse vissza minden játék után"
 
 #: bigame-engine/bigame-ui/src/widgets/launcher_notice.rs:261
 msgid "%s was reopened with the current settings"
@@ -406,8 +414,8 @@ msgstr "%s egy újabb Big Game Mode-dal készült (formátum: %s)"
 msgid "%s when a game starts"
 msgstr "%s, amikor egy játék elindul"
 
-#: bigame-engine/bigame-core/src/health.rs:650
-#: bigame-engine/bigame-core/src/health.rs:671
+#: bigame-engine/bigame-core/src/health.rs:657
+#: bigame-engine/bigame-core/src/health.rs:678
 msgid "%s · %s"
 msgstr "%s · %s"
 
@@ -415,15 +423,15 @@ msgstr "%s · %s"
 msgid "%s · Windows %s · FSR 4 provider %s · HIP runtime %s"
 msgstr "%s · Windows %s · FSR 4-szolgáltató: %s · HIP-futtatókörnyezet: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:685
+#: bigame-engine/bigame-core/src/health.rs:692
 msgid "%s · running (Turbo on)"
 msgstr "%s · fut (Turbo bekapcsolva)"
 
-#: bigame-engine/bigame-core/src/health.rs:691
+#: bigame-engine/bigame-core/src/health.rs:698
 msgid "%s · stopped (Turbo off)"
 msgstr "%s · leállítva (Turbo kikapcsolva)"
 
-#: bigame-engine/bigame-core/src/health.rs:678
+#: bigame-engine/bigame-core/src/health.rs:685
 msgid "%s · the service failed; see Logs for why"
 msgstr "%s · a szolgáltatás hibát jelzett; az okát lásd a Naplók oldalon"
 
@@ -443,7 +451,7 @@ msgstr "%s — fő képernyő"
 msgid "%s → %s"
 msgstr "%s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:658
+#: bigame-engine/bigame-core/src/turbo.rs:668
 msgid "%s → %s: the handheld profiles run games in power-saving mode, and this machine is not a handheld"
 msgstr "%s → %s: a kézikonzol-profilok energiatakarékos módban futtatják a játékokat, és ez a gép nem kézikonzol"
 
@@ -464,7 +472,7 @@ msgstr "%s, a falcond globális beállítása szerint"
 msgid "%s, by the game's profile"
 msgstr "%s, a játék profilja szerint"
 
-#: bigame-engine/bigame-core/src/turbo.rs:507
+#: bigame-engine/bigame-core/src/turbo.rs:517
 msgid "%s, so game profiles that ask for a scheduler cannot set one"
 msgstr "%s, így az ütemezőt kérő játékprofilok nem tudnak ütemezőt beállítani"
 
@@ -488,11 +496,11 @@ msgstr "%s: %s %s → %s %s (rosszabb)"
 msgid "%s: %s → %s"
 msgstr "%s: %s → %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:773
+#: bigame-engine/bigame-core/src/turbo.rs:783
 msgid "%s: in the session's environment. Games get it through a launcher that has it; Home offers to reopen one that does not"
 msgstr "%s: a munkamenet környezetében. A játékok egy olyan indítón keresztül kapják meg, amelyben megvan; a Kezdőlap felajánlja annak újranyitását, amelyikben nincs"
 
-#: bigame-engine/bigame-core/src/turbo.rs:758
+#: bigame-engine/bigame-core/src/turbo.rs:768
 msgid "%s: in the session's environment. Steam was already open and keeps the environment it started with: close and reopen it for its games to get the preset"
 msgstr "%s: a munkamenet környezetében. A Steam már nyitva volt, és megtartja a környezetet, amellyel elindult: zárd be és nyisd meg újra, hogy a játékai megkapják az előbeállítást"
 
@@ -544,8 +552,8 @@ msgstr "0 = legélesebb · 20 = leglágyabb"
 msgid "1% low"
 msgstr "1% low"
 
-#: bigame-engine/bigame-core/src/health.rs:842
-#: bigame-engine/bigame-core/src/health.rs:845
+#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:850
 msgid "32-bit Vulkan"
 msgstr "32 bites Vulkan"
 
@@ -553,8 +561,8 @@ msgstr "32 bites Vulkan"
 msgid "32-bit game"
 msgstr "32 bites játék"
 
-#: bigame-engine/bigame-core/src/health.rs:925
-#: bigame-engine/bigame-core/src/health.rs:932
+#: bigame-engine/bigame-core/src/health.rs:930
+#: bigame-engine/bigame-core/src/health.rs:937
 #: bigame-engine/bigame-ui/src/profile_offer.rs:430
 #: bigame-engine/bigame-ui/src/profile_offer.rs:432
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:56
@@ -827,7 +835,7 @@ msgstr "A vkBasalt látványstílusairól"
 msgid "Active"
 msgstr "Aktív"
 
-#: bigame-engine/bigame-core/src/health.rs:306
+#: bigame-engine/bigame-core/src/health.rs:313
 msgid "Adaptive sync"
 msgstr "Adaptív szinkronizálás"
 
@@ -1213,8 +1221,8 @@ msgstr "A Big Game Mode-nak még nincs profilja ehhez a játékhoz. Létrehozol 
 msgid "Big Game Mode has no profile for this game yet. This is the profile it would create, and why each value was chosen."
 msgstr "A Big Game Mode-nak még nincs profilja ehhez a játékhoz. Ezt a profilt hozná létre, és ezért választotta az egyes értékeket."
 
-#: bigame-engine/bigame-core/src/health.rs:949
-#: bigame-engine/bigame-core/src/health.rs:955
+#: bigame-engine/bigame-core/src/health.rs:954
+#: bigame-engine/bigame-core/src/health.rs:960
 #: bigame-engine/bigame-ui/src/views/logs.rs:50
 msgid "Big Game Mode helper"
 msgstr "Big Game Mode segédprogram"
@@ -1287,7 +1295,7 @@ msgid "Blocked"
 msgstr "Letiltva"
 
 #: bigame-engine/bigame-core/src/turbo.rs:401
-#: bigame-engine/bigame-core/src/turbo.rs:571
+#: bigame-engine/bigame-core/src/turbo.rs:581
 #: bigame-engine/bigame-ui/src/views/report.rs:120
 msgid "Booster"
 msgstr "Booster"
@@ -1338,7 +1346,7 @@ msgstr "CPU energiapreferencia"
 msgid "CPU governor"
 msgstr "CPU governor"
 
-#: bigame-engine/bigame-core/src/health.rs:332
+#: bigame-engine/bigame-core/src/health.rs:339
 #: bigame-engine/bigame-ui/src/profile_offer.rs:422
 #: bigame-engine/bigame-ui/src/profile_offer.rs:428
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:232
@@ -1354,8 +1362,8 @@ msgstr "CPU-ütemező"
 msgid "CPU scheduler (sched-ext)"
 msgstr "CPU-ütemező (sched-ext)"
 
-#: bigame-engine/bigame-core/src/health.rs:590
-#: bigame-engine/bigame-core/src/health.rs:598
+#: bigame-engine/bigame-core/src/health.rs:597
+#: bigame-engine/bigame-core/src/health.rs:605
 msgid "CPU temperature"
 msgstr "CPU-hőmérséklet"
 
@@ -2348,8 +2356,8 @@ msgstr "Leggyorsabb, Csendes vagy Szép: válaszd ki, mit szeretnél, a Kezdőla
 msgid "Favours the game's threads and steady frame pacing over background work. The usual choice for playing."
 msgstr "A háttérmunkával szemben a játék szálait és az egyenletes képkockaütemezést részesíti előnyben. A szokásos választás játékhoz."
 
-#: bigame-engine/bigame-core/src/health.rs:818
-#: bigame-engine/bigame-core/src/health.rs:824
+#: bigame-engine/bigame-core/src/health.rs:823
+#: bigame-engine/bigame-core/src/health.rs:829
 #: bigame-engine/bigame-ui/src/views/report.rs:72
 msgid "Feral GameMode"
 msgstr "Feral GameMode"
@@ -2479,7 +2487,7 @@ msgstr "Képkocka-generálás"
 msgid "Frame generation"
 msgstr "Képkocka-generálás"
 
-#: bigame-engine/bigame-core/src/health.rs:426
+#: bigame-engine/bigame-core/src/health.rs:433
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:164
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:170
 msgid "Frame generation (lsfg-vk)"
@@ -2507,7 +2515,7 @@ msgstr "Frekvencia-CCD"
 #: bigame-engine/bigame-core/src/graphics/backend.rs:239
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:117
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
-#: bigame-engine/bigame-core/src/health.rs:853
+#: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
 #: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
@@ -2552,7 +2560,7 @@ msgstr "Játék értesítések"
 msgid "Game detected"
 msgstr "Játék észlelve"
 
-#: bigame-engine/bigame-core/src/health.rs:279
+#: bigame-engine/bigame-core/src/health.rs:286
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:232
 msgid "Game library"
 msgstr "Játékkönyvtár"
@@ -2626,7 +2634,7 @@ msgstr "A játékok a kijelződhöz illő képkocka-sebességnél megállnak, í
 msgid "Games with files installed"
 msgstr "Játékok telepített fájlokkal"
 
-#: bigame-engine/bigame-core/src/health.rs:875
+#: bigame-engine/bigame-core/src/health.rs:880
 msgid "Gamescope"
 msgstr "Gamescope"
 
@@ -2974,7 +2982,7 @@ msgstr "Hogyan születik a döntés"
 msgid "Hybrid NVIDIA laptops: Gamescope no longer crashes, and nested Gamescope shows the game the screen's size"
 msgstr "Hibrid NVIDIA laptopok: a Gamescope már nem omlik össze, és a beágyazott Gamescope a képernyő méretében jeleníti meg a játékot"
 
-#: bigame-engine/bigame-core/src/health.rs:524
+#: bigame-engine/bigame-core/src/health.rs:531
 msgid "Hybrid graphics"
 msgstr "Hibrid grafika"
 
@@ -3134,7 +3142,7 @@ msgstr "Onnan folytatja, ahol szüneteltették, és ismét használni kezdi a pr
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "Teljesen lefagy, amíg nem folytatod: az ablakai nem válaszolnak, és minden hang, letöltés vagy hívás leáll benne. Egy szerverrel kommunikáló program elveszítheti a kapcsolatot. Ha végeztél, itt folytathatod — a Big Game Mode is folytatja, amikor kilép."
 
-#: bigame-engine/bigame-core/src/health.rs:1016
+#: bigame-engine/bigame-core/src/health.rs:1021
 msgid "It is set in the computer's firmware (Above 4G Decoding and Re-Size BAR). Some games gain from it; it has not been measured on this machine, and Big Game Mode does not change firmware settings"
 msgstr "A számítógép firmware-ében állítható be (Above 4G Decoding és Re-Size BAR). Egyes játékok profitálnak belőle; ezen a gépen nem lett megmérve, és a Big Game Mode nem módosítja a firmware beállításait"
 
@@ -3191,7 +3199,7 @@ msgstr "Egy verzió megtartása"
 msgid "Keep the screen awake"
 msgstr "A képernyő ébren tartása"
 
-#: bigame-engine/bigame-core/src/health.rs:615
+#: bigame-engine/bigame-core/src/health.rs:622
 msgid "Keep the vents clear; on a laptop, measure whether Turbo helps this game (Measure the difference) before keeping it on"
 msgstr "Tartsd szabadon a szellőzőnyílásokat; laptopon mérd meg, hogy a Turbo segít-e ennél a játéknál (A különbség mérése), mielőtt bekapcsolva hagyod"
 
@@ -3380,8 +3388,8 @@ msgstr "Napló exportálva"
 msgid "Logs"
 msgstr "Naplók"
 
-#: bigame-engine/bigame-core/src/turbo.rs:904
-#: bigame-engine/bigame-core/src/turbo.rs:912
+#: bigame-engine/bigame-core/src/turbo.rs:914
+#: bigame-engine/bigame-core/src/turbo.rs:922
 msgid "Logs show why. Turning Turbo off and on again starts it again."
 msgstr "A Naplók megmutatják az okát. A Turbo ki- és visszakapcsolása újraindítja."
 
@@ -3446,11 +3454,11 @@ msgstr "A Big Game Mode kezeli ekkor óta: %s"
 msgid "Managed per game"
 msgstr "Játékonként kezelve"
 
-#: bigame-engine/bigame-core/src/health.rs:869
+#: bigame-engine/bigame-core/src/health.rs:874
 msgid "MangoHud"
 msgstr "MangoHud"
 
-#: bigame-engine/bigame-core/src/health.rs:409
+#: bigame-engine/bigame-core/src/health.rs:416
 msgid "MangoHud (32-bit)"
 msgstr "MangoHud (32 bites)"
 
@@ -3458,11 +3466,11 @@ msgstr "MangoHud (32 bites)"
 msgid "MangoHud counts generated frames: the number shown is presented frames, not rendered ones"
 msgstr "A MangoHud a generált képkockákat is számolja: a látható szám a megjelenített képkockákat mutatja, nem a rendereltet"
 
-#: bigame-engine/bigame-core/src/health.rs:907
+#: bigame-engine/bigame-core/src/health.rs:912
 msgid "MangoHud in Heroic (Flatpak)"
 msgstr "MangoHud a Heroicban (Flatpak)"
 
-#: bigame-engine/bigame-core/src/health.rs:909
+#: bigame-engine/bigame-core/src/health.rs:914
 msgid "MangoHud in Lutris (Flatpak)"
 msgstr "MangoHud a Lutrisban (Flatpak)"
 
@@ -5008,7 +5016,7 @@ msgstr "Frissítés"
 msgid "Regenerate"
 msgstr "Újragenerálás"
 
-#: bigame-engine/bigame-core/src/turbo.rs:896
+#: bigame-engine/bigame-core/src/turbo.rs:906
 msgid "Reinstall falcond. If it keeps happening, report it and include the Support report."
 msgstr "Telepítse újra a falcondot. Ha ismét előfordul, jelentse, és csatolja a Támogatási jelentést."
 
@@ -5094,8 +5102,8 @@ msgstr "Játékkönyvtár újraolvasása"
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Az összes Hangolás és Gamescope beállítás visszaállítása az ajánlott alapértelmezésekre. Ez nem vonható vissza."
 
-#: bigame-engine/bigame-core/src/health.rs:1000
-#: bigame-engine/bigame-core/src/health.rs:1010
+#: bigame-engine/bigame-core/src/health.rs:1005
+#: bigame-engine/bigame-core/src/health.rs:1015
 msgid "Resizable BAR"
 msgstr "Resizable BAR"
 
@@ -5300,7 +5308,7 @@ msgstr "Megvizsgálja a játékot (grafikus API, a vele szállított felskáláz
 msgid "Scheduler"
 msgstr "Ütemező"
 
-#: bigame-engine/bigame-core/src/health.rs:253
+#: bigame-engine/bigame-core/src/health.rs:260
 msgid "Scheduler at boot"
 msgstr "Ütemező rendszerindításkor"
 
@@ -5519,7 +5527,7 @@ msgstr "Maradás egy verziónál — a telepítettnél vagy a teszteltnél —, 
 msgid "Stays in the tray when the window is closed"
 msgstr "Az ablak bezárása után a tálcán marad"
 
-#: bigame-engine/bigame-core/src/health.rs:863
+#: bigame-engine/bigame-core/src/health.rs:868
 msgid "Steam"
 msgstr "Steam"
 
@@ -5571,7 +5579,7 @@ msgstr "Steam indítási opciók: %s. Ezek már saját Gamescope-ot futtatnak, �
 msgid "Steam needs to be reopened"
 msgstr "A Steam újranyitása szükséges"
 
-#: bigame-engine/bigame-core/src/health.rs:287
+#: bigame-engine/bigame-core/src/health.rs:294
 msgid "Steam → Settings → Storage: move the games you play most to an SSD"
 msgstr "Steam → Beállítások → Tárhely: helyezd át a legtöbbet játszott játékaidat egy SSD-re"
 
@@ -5650,7 +5658,7 @@ msgstr "Ha bekapcsolsz egy technológiát, amely ugyanazt a feladatot látja el,
 msgid "System"
 msgstr "Rendszer"
 
-#: bigame-engine/bigame-core/src/health.rs:314
+#: bigame-engine/bigame-core/src/health.rs:321
 msgid "System Settings → Display & Monitor → your main screen → Adaptive sync: Automatic"
 msgstr "Rendszerbeállítások → Kijelző és monitor → a fő kijelződ → Adaptív szinkronizálás: Automatikus"
 
@@ -6127,7 +6135,7 @@ msgstr "Hangolás"
 msgid "Tuning holds what every game gets: Gamescope, Wine FSR, vkBasalt, lsfg-vk and MangoHud. Two technologies that collide are never left on together without asking you."
 msgstr "A Hangolás tartalmazza, amit minden játék megkap: Gamescope, Wine FSR, vkBasalt, lsfg-vk és MangoHud. Két ütköző technológia soha nem marad egyszerre bekapcsolva anélkül, hogy megkérdezne."
 
-#: bigame-engine/bigame-core/src/health.rs:340
+#: bigame-engine/bigame-core/src/health.rs:347
 msgid "Tuning → CPU scheduler → None"
 msgstr "Hangolás → CPU-ütemező → Nincs"
 
@@ -6198,9 +6206,9 @@ msgstr "A Turbo már nem kapcsol ki magától néhány másodperccel az indulás
 msgid "Turbo off, the choice back to Fastest, every setting as it started"
 msgstr "Turbo kikapcsolva, a választás vissza a Leggyorsabbra, minden beállítás az eredeti állapotában"
 
-#: bigame-engine/bigame-core/src/turbo.rs:579
-#: bigame-engine/bigame-core/src/turbo.rs:739
-#: bigame-engine/bigame-core/src/turbo.rs:794
+#: bigame-engine/bigame-core/src/turbo.rs:589
+#: bigame-engine/bigame-core/src/turbo.rs:749
+#: bigame-engine/bigame-core/src/turbo.rs:804
 #: bigame-engine/bigame-ui/src/tray.rs:185
 msgid "Turbo preset"
 msgstr "Turbo-előbeállítás"
@@ -6249,7 +6257,7 @@ msgstr "Kapcsold be a Turbót a Kezdőlapon. Addig egyetlen játékhoz sem kerü
 msgid "Turn Turbo on or off"
 msgstr "A Turbo be- vagy kikapcsolása"
 
-#: bigame-engine/bigame-core/src/health.rs:725
+#: bigame-engine/bigame-core/src/health.rs:732
 msgid "Turn Turbo on — or off and on again if it is already on — to switch falcond to its desktop profiles"
 msgstr "Kapcsold be a Turbót — vagy ha már be van kapcsolva, kapcsold ki és újra be —, hogy a falcond átváltson az asztali profiljaira"
 
@@ -6331,7 +6339,7 @@ msgstr "Frissítés"
 msgid "Update available: %s"
 msgstr "Frissítés érhető el: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:884
+#: bigame-engine/bigame-core/src/turbo.rs:894
 msgid "Update or reinstall falcond with a build for this processor. Turning Turbo off and on again does not help: the same package crashes the same way."
 msgstr "Frissítse vagy telepítse újra a falcondot egy ehhez a processzorhoz készült változattal. A Turbo ki- és visszakapcsolása nem segít: ugyanaz a csomag ugyanúgy összeomlik."
 
@@ -6437,8 +6445,8 @@ msgstr "A VKD3D-Proton gyorsítótára (vkd3d-proton.cache) a játék mappájáb
 msgid "VRAM"
 msgstr "VRAM"
 
-#: bigame-engine/bigame-core/src/health.rs:352
-#: bigame-engine/bigame-core/src/health.rs:365
+#: bigame-engine/bigame-core/src/health.rs:359
+#: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
 msgstr "VRAM-védelem"
 
@@ -6932,11 +6940,11 @@ msgstr "egy natív Linux-játéknak nincsenek DLL-helyei; semmi sem injektálhat
 msgid "a second OptiScaler would load with the one Big Game Mode installs; remove it with the tool that put it there first"
 msgstr "egy második OptiScaler is betöltődne azzal együtt, amelyet a Big Game Mode telepít; előbb távolítsd el azzal az eszközzel, amely odatette"
 
-#: bigame-engine/bigame-core/src/health.rs:309
+#: bigame-engine/bigame-core/src/health.rs:316
 msgid "adaptive sync (VRR, FreeSync) is off on your main screen%s: frame rates that do not divide its refresh rate judder"
 msgstr "az adaptív szinkronizálás (VRR, FreeSync) ki van kapcsolva a fő kijelződön%s: azok a képkocka-sebességek, amelyek nem osztói a frissítési frekvenciájának, akadoznak"
 
-#: bigame-engine/bigame-core/src/turbo.rs:995
+#: bigame-engine/bigame-core/src/turbo.rs:1005
 msgid "already %s"
 msgstr "már %s"
 
@@ -7058,7 +7066,7 @@ msgstr "%s letöltése nem sikerült: %s"
 msgid "could not record the machine's state before measuring; nothing was changed"
 msgstr "nem sikerült rögzíteni a gép állapotát a mérés előtt; semmi sem változott"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1082
+#: bigame-engine/bigame-core/src/turbo.rs:1092
 msgid "could not restore %s: %s"
 msgstr "%s visszaállítása sikertelen: %s"
 
@@ -7070,7 +7078,7 @@ msgstr "nem sikerült frissíteni a futó munkamenet környezetét"
 msgid "current settings"
 msgstr "jelenlegi beállítások"
 
-#: bigame-engine/bigame-core/src/turbo.rs:835
+#: bigame-engine/bigame-core/src/turbo.rs:845
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:153
 msgid "desktop"
 msgstr "asztali"
@@ -7129,12 +7137,12 @@ msgstr "várhatóan ez rendereli a játékot; a futásakor igazolódik"
 msgid "external graphics injection is disabled for this game; there is no override"
 msgstr "a külső grafikai injektálás le van tiltva ennél a játéknál; nincs felülbírálás"
 
-#: bigame-engine/bigame-core/src/health.rs:648
 #: bigame-engine/bigame-core/src/health.rs:655
-#: bigame-engine/bigame-core/src/health.rs:669
+#: bigame-engine/bigame-core/src/health.rs:662
 #: bigame-engine/bigame-core/src/health.rs:676
 #: bigame-engine/bigame-core/src/health.rs:683
-#: bigame-engine/bigame-core/src/health.rs:689
+#: bigame-engine/bigame-core/src/health.rs:690
+#: bigame-engine/bigame-core/src/health.rs:696
 msgid "falcond"
 msgstr "falcond"
 
@@ -7154,19 +7162,19 @@ msgstr "A falcond a performance profilt kéri a power-profiles-daemontól, amíg
 msgid "falcond asks scx_loader when the game starts; a failure is in Logs (scx_loader, falcond). Turning Turbo off and on again makes it retry."
 msgstr "A falcond a játék indulásakor az scx_loadert kéri meg; a hibák a Naplókban láthatók (scx_loader, falcond). A Turbo ki- és újra bekapcsolása újrapróbálkozásra készteti."
 
-#: bigame-engine/bigame-core/src/health.rs:355
+#: bigame-engine/bigame-core/src/health.rs:362
 msgid "falcond could not protect a game's VRAM: %s"
 msgstr "a falcond nem tudta megvédeni egy játék VRAM-ját: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:902
+#: bigame-engine/bigame-core/src/turbo.rs:912
 msgid "falcond crashed"
 msgstr "A falcond összeomlott"
 
-#: bigame-engine/bigame-core/src/turbo.rs:874
+#: bigame-engine/bigame-core/src/turbo.rs:884
 msgid "falcond crashed on a CPU instruction this processor does not have (illegal instruction). The installed falcond package appears to be built for a newer x86-64 level: this processor is x86-64-v%s, without %s."
 msgstr "A falcond olyan processzorutasításnál omlott össze, amely ebben a processzorban nincs meg (érvénytelen utasítás). A telepített falcond csomag láthatóan újabb x86-64 szintre készült: ez a processzor x86-64-v%s, %s nélkül."
 
-#: bigame-engine/bigame-core/src/turbo.rs:891
+#: bigame-engine/bigame-core/src/turbo.rs:901
 msgid "falcond crashed on an illegal CPU instruction"
 msgstr "A falcond érvénytelen processzorutasításnál omlott össze"
 
@@ -7174,12 +7182,12 @@ msgstr "A falcond érvénytelen processzorutasításnál omlott össze"
 msgid "falcond default, not measured here"
 msgstr "falcond alapértelmezés, itt nincs megmérve"
 
-#: bigame-engine/bigame-core/src/turbo.rs:910
+#: bigame-engine/bigame-core/src/turbo.rs:920
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:227
 msgid "falcond failed"
 msgstr "A falcond hibát jelzett"
 
-#: bigame-engine/bigame-core/src/health.rs:707
+#: bigame-engine/bigame-core/src/health.rs:714
 msgid "falcond features"
 msgstr "falcond funkciók"
 
@@ -7212,7 +7220,7 @@ msgstr "a falcond kezeli a következőhöz: '%s'; amikor a játék kilép, vissz
 msgid "falcond is not applying the profile of %s"
 msgstr "A falcond nem alkalmazza ennek a játéknak a profilját: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:872
+#: bigame-engine/bigame-core/src/turbo.rs:882
 msgid "falcond is not compatible with this processor"
 msgstr "A falcond nem kompatibilis ezzel a processzorral"
 
@@ -7226,7 +7234,7 @@ msgstr "A falcond nincs telepítve"
 msgid "falcond is not installed, so the game's performance profile was not saved; its other settings were. Install falcond for per-game performance profiles."
 msgstr "A falcond nincs telepítve, ezért a játék teljesítményprofilja nem lett mentve; a többi beállítása igen. Telepítsd a falcondot a játékonkénti teljesítményprofilok használatához."
 
-#: bigame-engine/bigame-core/src/turbo.rs:493
+#: bigame-engine/bigame-core/src/turbo.rs:503
 msgid "falcond is not installed, so there are no per-game profiles; only global settings can be applied"
 msgstr "a falcond nincs telepítve, így nincsenek játékonkénti profilok; csak globális beállítások alkalmazhatók"
 
@@ -7248,7 +7256,7 @@ msgid_plural "falcond loads at most 64 profiles, and there are %n more: %n of yo
 msgstr[0] "a falcond legfeljebb 64 profilt tölt be, és %n-nel több van: az egyik profilod nem lesz alkalmazva."
 msgstr[1] "a falcond legfeljebb 64 profilt tölt be, és %n-nel több van: %n profilod nem lesz alkalmazva."
 
-#: bigame-engine/bigame-core/src/health.rs:335
+#: bigame-engine/bigame-core/src/health.rs:342
 msgid "falcond loads scx_%s for the whole desktop and every game while Turbo is on; in Big Game Mode's measurements no sched-ext scheduler made games faster"
 msgstr "a falcond betölti a scx_%s ütemezőt az egész asztalra és minden játékra, amíg a Turbo be van kapcsolva; a Big Game Mode mérései szerint egyik sched-ext ütemező sem tette gyorsabbá a játékokat"
 
@@ -7260,12 +7268,12 @@ msgstr "A falcond egyetlen profilt sem társított ehhez a folyamathoz. Olyan j�
 msgid "falcond owns the scheduler; Booster does not write it to avoid two controllers contending for the same state"
 msgstr "az ütemezőt a falcond kezeli; a Booster nem írja, hogy elkerülje, hogy két vezérlő ugyanazért az állapotért versengjen"
 
-#: bigame-engine/bigame-core/src/health.rs:722
+#: bigame-engine/bigame-core/src/health.rs:729
 #: bigame-engine/bigame-ui/src/views/report.rs:71
 msgid "falcond profile set"
 msgstr "falcond profilkészlet"
 
-#: bigame-engine/bigame-core/src/health.rs:358
+#: bigame-engine/bigame-core/src/health.rs:365
 msgid "falcond protects a game's VRAM only when the dmem controller is delegated to your session (the dmemcg-booster service does that); without it games run as before, without the protection"
 msgstr "a falcond csak akkor védi a játék VRAM-ját, ha a dmem vezérlő a munkamenetedre van delegálva (ezt a dmemcg-booster szolgáltatás végzi); nélküle a játékok a korábbiak szerint, védelem nélkül futnak"
 
@@ -7277,7 +7285,7 @@ msgstr "A falcond a játékot a folyamata neve alapján ismeri fel, ahogy a rend
 msgid "falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."
 msgstr "A falcond a játékot a folyamata neve alapján ismeri fel (ahogy a rendszerfigyelő mutatja), nem a címe alapján. Egy más néven szereplő profil soha nem érvényesül."
 
-#: bigame-engine/bigame-core/src/health.rs:485
+#: bigame-engine/bigame-core/src/health.rs:492
 msgid "falcond restarts"
 msgstr "falcond újraindulások"
 
@@ -7297,7 +7305,7 @@ msgstr "A falcond kész profilokat szállít ismert játékokhoz, három készle
 msgid "falcond ships separate profile sets for desktops, handhelds and home-theatre PCs. The handheld set runs games in power-saving mode, which is the wrong set for a desktop."
 msgstr "A falcond külön profilkészleteket szállít asztali gépekhez, kézikonzolokhoz és házimozi-PC-khez. A kézikonzol-készlet energiatakarékos módban futtatja a játékokat, ami asztali géphez rossz készlet."
 
-#: bigame-engine/bigame-core/src/turbo.rs:892
+#: bigame-engine/bigame-core/src/turbo.rs:902
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "A falcond olyan utasításnál állt meg, amelyet ez a processzor elutasított: a processzor utasításkészletével való összeférhetetlenség, vagy sérült falcond programfájl."
 
@@ -7322,7 +7330,7 @@ msgstr "A falcond az állapotát a /var/lib/falcond/status (vagy /tmp/falcond_st
 msgid "falcond's built-in profile %s is applied"
 msgstr "A falcond beépített profilja alkalmazva: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:389
+#: bigame-engine/bigame-core/src/health.rs:396
 msgid "falcond's files"
 msgstr "A falcond fájljai"
 
@@ -7347,7 +7355,7 @@ msgstr "A falcond profilja ehhez a játékhoz: teljesítménymód, ütemező, 3D
 msgid "falcond's profiles for desktops and laptops. The right choice for a PC at a desk."
 msgstr "A falcond profiljai asztali gépekhez és laptopokhoz. A megfelelő választás asztalnál használt PC-hez."
 
-#: bigame-engine/bigame-core/src/turbo.rs:903
+#: bigame-engine/bigame-core/src/turbo.rs:913
 msgid "falcond's service ended on %s."
 msgstr "A falcond szolgáltatása %s jelzéssel ért véget."
 
@@ -7355,7 +7363,7 @@ msgstr "A falcond szolgáltatása %s jelzéssel ért véget."
 msgid "falcond's service failed"
 msgstr "A falcond szolgáltatása hibát jelzett"
 
-#: bigame-engine/bigame-core/src/turbo.rs:911
+#: bigame-engine/bigame-core/src/turbo.rs:921
 msgid "falcond's service failed (%s)."
 msgstr "A falcond szolgáltatása hibát jelzett (%s)."
 
@@ -7405,15 +7413,15 @@ msgstr "képkocka-generálás az lsfg-vk-val, a játék profiljában: bármely j
 msgid "frame rate not limited"
 msgstr "képkocka-sebesség nincs korlátozva"
 
-#: bigame-engine/bigame-core/src/health.rs:282
+#: bigame-engine/bigame-core/src/health.rs:289
 msgid "games in %s are on a hard disk: they load and stream textures slowly there, which shows as stutter no setting removes"
 msgstr "a(z) %s helyen lévő játékok merevlemezen vannak: ott lassan töltik be és olvassák a textúrákat, ami akadozásként jelenik meg, és ezt semmilyen beállítás nem szünteti meg"
 
-#: bigame-engine/bigame-core/src/health.rs:528
+#: bigame-engine/bigame-core/src/health.rs:535
 msgid "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs `prime-run %command%` in its launch options"
 msgstr "a játékok ezen a GPU-n renderelnek: %s (%s); a Big Game Mode által indított játékok ezt használják: %s; a Proton-játékok maguk választják ki; egy Steam által indított natív Linux-játéknak `prime-run %command%` kell az indítási opcióiban"
 
-#: bigame-engine/bigame-core/src/health.rs:535
+#: bigame-engine/bigame-core/src/health.rs:542
 msgid "games render on the %s GPU (%s); games Big Game Mode starts use %s; Proton games choose it by themselves; a native Linux game started by Steam needs the offload variables in its launch options"
 msgstr "a játékok ezen a GPU-n renderelnek: %s (%s); a Big Game Mode által indított játékok ezt használják: %s; a Proton-játékok maguk választják ki; egy Steam által indított natív Linux-játéknak az offload változók kellenek az indítási opcióiban"
 
@@ -7429,7 +7437,7 @@ msgstr "generál a játékban"
 msgid "graphics injection is disabled for games with anti-cheat"
 msgstr "a grafikai injektálás le van tiltva a csalásgátlót használó játékoknál"
 
-#: bigame-engine/bigame-core/src/health.rs:724
+#: bigame-engine/bigame-core/src/health.rs:731
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "kézikonzol-profilok egy olyan gépen, amely nem kézikonzol: a játékok energiatakarékos módban futnak"
 
@@ -7461,7 +7469,7 @@ msgstr "a játék folyamatfájában"
 msgid "injection blocked: %s"
 msgstr "injektálás letiltva: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:820
+#: bigame-engine/bigame-core/src/health.rs:825
 msgid "installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"
 msgstr "a falcond mellett telepítve; a Big Game Mode nem használja, mert két vezérlő mentené és állítaná vissza ugyanazokat a beállításokat"
 
@@ -7497,7 +7505,7 @@ msgstr "egész számú méretezés nincs alkalmazva"
 msgid "it loads the game's .asi mods into the same process; not established together with OptiScaler — if the game misbehaves, take one out"
 msgstr "a játék .asi modjait ugyanabba a folyamatba tölti be; az OptiScalerrel együtt nem igazolt — ha a játék rendellenesen működik, vedd ki az egyiket"
 
-#: bigame-engine/bigame-core/src/turbo.rs:985
+#: bigame-engine/bigame-core/src/turbo.rs:995
 msgid "its current value could not be read, so it could not be restored"
 msgstr "a jelenlegi értéke nem olvasható, így nem lehetett visszaállítani"
 
@@ -7568,7 +7576,7 @@ msgid "lsfg-vk adds its frames after the cap, so these games render the cap and 
 msgstr "az lsfg-vk a korlát után adja hozzá a képkockáit, így ezek a játékok a korlátot renderelik, és annak többszörösét mutatják: %s."
 
 #: bigame-engine/bigame-core/src/fg.rs:1168
-#: bigame-engine/bigame-core/src/health.rs:429
+#: bigame-engine/bigame-core/src/health.rs:436
 #: bigame-engine/bigame-ui/src/widgets/fg_controls.rs:171
 msgid "lsfg-vk cannot generate frames with this Lossless.dll (%s): update Lossless Scaling and choose its Lossless.dll again"
 msgstr "az lsfg-vk nem tud képkockákat generálni ezzel a Lossless.dll-lel (%s): frissítsd a Lossless Scalinget, és válaszd ki újra a Lossless.dll fájlját"
@@ -7653,7 +7661,7 @@ msgstr "a mérési tervhez parancs, legalább 5 másodperc és ágankként legal
 msgid "median"
 msgstr "medián"
 
-#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:852
 msgid "missing: many Proton games and Steam itself need it"
 msgstr "hiányzik: sok Proton-játéknak és magának a Steamnek is szüksége van rá"
 
@@ -7726,7 +7734,7 @@ msgid "no profile yet"
 msgstr "még nincs profil"
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:445
-#: bigame-engine/bigame-core/src/health.rs:855
+#: bigame-engine/bigame-core/src/health.rs:860
 msgid "no render GPU was identified"
 msgstr "nem sikerült renderelő GPU-t azonosítani"
 
@@ -7738,7 +7746,7 @@ msgstr "itt nincs ütemező beállítva, így az általános megtartja a saját 
 msgid "no scheduler is set, so its mode has no effect"
 msgstr "nincs beállítva ütemező, így a módjának nincs hatása"
 
-#: bigame-engine/bigame-core/src/health.rs:592
+#: bigame-engine/bigame-core/src/health.rs:599
 msgid "no thermal throttling since boot"
 msgstr "nem volt hőmérsékleti visszafojtás a rendszerindítás óta"
 
@@ -7771,7 +7779,7 @@ msgstr "nincs — a Turbo ki van kapcsolva, vagy a falcond nem társította"
 msgid "not a Steam app id: %s"
 msgstr "nem Steam-alkalmazásazonosító: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:568
+#: bigame-engine/bigame-core/src/turbo.rs:578
 msgid "not applied: Turbo did not come on"
 msgstr "nincs alkalmazva: a Turbo nem kapcsolt be"
 
@@ -7788,23 +7796,23 @@ msgstr "egyik irányban sem igazolt"
 msgid "not held off"
 msgstr "nincs visszatartva"
 
-#: bigame-engine/bigame-core/src/health.rs:872
+#: bigame-engine/bigame-core/src/health.rs:877
 msgid "not installed · frame-time capture and the in-game overlay"
 msgstr "nincs telepítve · képkockaidő-rögzítés és játékon belüli átfedés"
 
-#: bigame-engine/bigame-core/src/health.rs:824
+#: bigame-engine/bigame-core/src/health.rs:829
 msgid "not installed · no conflict with falcond"
 msgstr "nincs telepítve · nincs ütközés a falconddal"
 
-#: bigame-engine/bigame-core/src/health.rs:866
+#: bigame-engine/bigame-core/src/health.rs:871
 msgid "not installed · the launcher for most games here"
 msgstr "nincs telepítve · az itteni játékok többségének indítója"
 
-#: bigame-engine/bigame-core/src/health.rs:878
+#: bigame-engine/bigame-core/src/health.rs:883
 msgid "not installed · the micro-compositor used for scaling and frame limiting"
 msgstr "nincs telepítve · a méretezéshez és képkockakorlátozáshoz használt mikrokompozitor"
 
-#: bigame-engine/bigame-core/src/health.rs:657
+#: bigame-engine/bigame-core/src/health.rs:664
 msgid "not installed: no per-game performance profiles; Turbo applies only the general settings"
 msgstr "nincs telepítve: nincsenek játékonkénti teljesítményprofilok; a Turbo csak az általános beállításokat alkalmazza"
 
@@ -7816,11 +7824,11 @@ msgstr "nincs telepítve; a terv telepítené"
 msgid "not offered: %s"
 msgstr "nem elérhető: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:957
+#: bigame-engine/bigame-core/src/health.rs:962
 msgid "not reachable: Turbo and profile changes cannot be made"
 msgstr "nem elérhető: a Turbo és a profilok nem módosíthatók"
 
-#: bigame-engine/bigame-core/src/health.rs:810
+#: bigame-engine/bigame-core/src/health.rs:815
 msgid "not reachable: game profiles cannot switch the power profile"
 msgstr "nem elérhető: a játékprofilok nem tudják átkapcsolni az energiaprofilt"
 
@@ -7844,7 +7852,7 @@ msgstr "nincs mit mérni: a terv semmit sem változtat ezen a gépen"
 msgid "nothing, Gamescope is off there"
 msgstr "semmi, ott a Gamescope ki van kapcsolva"
 
-#: bigame-engine/bigame-core/src/health.rs:1013
+#: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "ki: a processzor egyszerre %s területet ér el a kártya %s videomemóriájából"
 
@@ -7852,7 +7860,7 @@ msgstr "ki: a processzor egyszerre %s területet ér el a kártya %s videomemór
 msgid "on battery, holding the performance power profile costs more in heat and throttling than it returns"
 msgstr "akkumulátoron a performance energiaprofil fenntartása hőben és visszafojtásban többe kerül, mint amennyit hoz"
 
-#: bigame-engine/bigame-core/src/health.rs:1003
+#: bigame-engine/bigame-core/src/health.rs:1008
 msgid "on: the CPU can reach all %s of video memory"
 msgstr "be: a processzor a teljes %s videomemóriát eléri"
 
@@ -7860,7 +7868,7 @@ msgstr "be: a processzor a teljes %s videomemóriát eléri"
 msgid "only one can be dxgi.dll: ReShade goes in OptiScaler's plugins folder, or is loaded by OptiScaler (LoadReshade)"
 msgstr "csak az egyik lehet dxgi.dll: a ReShade az OptiScaler plugins mappájába kerül, vagy az OptiScaler tölti be (LoadReshade)"
 
-#: bigame-engine/bigame-core/src/health.rs:411
+#: bigame-engine/bigame-core/src/health.rs:418
 msgid "only the 64-bit MangoHud is installed: 32-bit games show no overlay and cannot be measured"
 msgstr "csak a 64 bites MangoHud van telepítve: a 32 bites játékok nem jelenítenek meg átfedést, és nem mérhetők"
 
@@ -7892,8 +7900,8 @@ msgstr "performance, amíg a játék fut, ahogy a falcond kérte"
 msgid "power limit"
 msgstr "teljesítménykorlát"
 
-#: bigame-engine/bigame-core/src/health.rs:801
-#: bigame-engine/bigame-core/src/health.rs:808
+#: bigame-engine/bigame-core/src/health.rs:806
+#: bigame-engine/bigame-core/src/health.rs:813
 msgid "power-profiles-daemon"
 msgstr "power-profiles-daemon"
 
@@ -7911,12 +7919,12 @@ msgid "prefers the cache-stacked CCD while the game runs, as falcond's profiles 
 msgstr "a játék futása alatt a gyorsítótárral bővített CCD-t részesíti előnyben, ahogy a falcond profiljai is"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:266
-#: bigame-engine/bigame-core/src/health.rs:842
-#: bigame-engine/bigame-core/src/health.rs:888
+#: bigame-engine/bigame-core/src/health.rs:847
+#: bigame-engine/bigame-core/src/health.rs:893
 msgid "present"
 msgstr "jelen van"
 
-#: bigame-engine/bigame-core/src/health.rs:927
+#: bigame-engine/bigame-core/src/health.rs:932
 msgid "present; game profiles can prefer the cache CCD"
 msgstr "jelen van; a játékprofilok előnyben részesíthetik a gyorsítótáras CCD-t"
 
@@ -7932,7 +7940,7 @@ msgstr "a profil nem található: %s"
 msgid "proxy"
 msgstr "proxy"
 
-#: bigame-engine/bigame-core/src/health.rs:951
+#: bigame-engine/bigame-core/src/health.rs:956
 msgid "reachable"
 msgstr "elérhető"
 
@@ -7953,7 +7961,7 @@ msgstr "ez rendereli a játékot"
 msgid "reported a failure: %s"
 msgstr "hibát jelzett: %s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1076
+#: bigame-engine/bigame-core/src/turbo.rs:1086
 msgid "restored to %s"
 msgstr "visszaállítva erre: %s"
 
@@ -7965,7 +7973,7 @@ msgstr "futtasd a játékot egyszer: az API a betöltött elemekből igazolódik
 msgid "running %s%s"
 msgstr "fut: %s%s"
 
-#: bigame-engine/bigame-core/src/turbo.rs:707
+#: bigame-engine/bigame-core/src/turbo.rs:717
 msgid "running (systemd reports it active; falcond has not published its status yet)"
 msgstr "fut (a systemd aktívnak jelenti; a falcond még nem tette közzé az állapotát)"
 
@@ -7985,7 +7993,7 @@ msgstr "FSR4_UPGRADE=1 nélkül fut: FSR 3.1"
 msgid "running without the FSR 4 provider: FSR is off in its menu"
 msgstr "az FSR 4-szolgáltató nélkül fut: az FSR ki van kapcsolva a menüjében"
 
-#: bigame-engine/bigame-core/src/turbo.rs:693
+#: bigame-engine/bigame-core/src/turbo.rs:703
 msgid "running, %s profiles loaded (%s set); applies a profile to each game as it starts"
 msgstr "fut, %s profil betöltve (%s készlet); minden játékra alkalmaz egy profilt az indulásakor"
 
@@ -7993,11 +8001,11 @@ msgstr "fut, %s profil betöltve (%s készlet); minden játékra alkalmaz egy pr
 msgid "runs DLSS"
 msgstr "DLSS-t futtat"
 
-#: bigame-engine/bigame-core/src/health.rs:732
-#: bigame-engine/bigame-core/src/health.rs:740
-#: bigame-engine/bigame-core/src/health.rs:744
-#: bigame-engine/bigame-core/src/health.rs:753
-#: bigame-engine/bigame-core/src/health.rs:758
+#: bigame-engine/bigame-core/src/health.rs:739
+#: bigame-engine/bigame-core/src/health.rs:747
+#: bigame-engine/bigame-core/src/health.rs:751
+#: bigame-engine/bigame-core/src/health.rs:760
+#: bigame-engine/bigame-core/src/health.rs:765
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1598
 msgid "sched-ext"
 msgstr "sched-ext"
@@ -8040,7 +8048,7 @@ msgstr "az scx_loader telepítve van, de a szolgáltatása nem fut"
 msgid "scx_loader is installed but its service is not running."
 msgstr "Az scx_loader telepítve van, de a szolgáltatása nem fut."
 
-#: bigame-engine/bigame-core/src/health.rs:256
+#: bigame-engine/bigame-core/src/health.rs:263
 msgid "scx_loader starts %s (%s mode) at every boot, with Turbo off too: a second owner of the CPU scheduler. While Turbo is on, a game's profile can replace it."
 msgstr "az scx_loader minden rendszerindításkor elindítja ezt: %s (%s mód), kikapcsolt Turbo mellett is: a CPU-ütemező második gazdája. Amíg a Turbo be van kapcsolva, egy játék profilja lecserélheti."
 
@@ -8048,7 +8056,7 @@ msgstr "az scx_loader minden rendszerindításkor elindítja ezt: %s (%s mód), 
 msgid "sharpness left at default"
 msgstr "élesség alapértelmezésen hagyva"
 
-#: bigame-engine/bigame-core/src/turbo.rs:1023
+#: bigame-engine/bigame-core/src/turbo.rs:1033
 msgid "stopped and disabled; any game profile it held was put back as it stopped"
 msgstr "leállítva és letiltva; az általa tartott játékprofilt a leálláskor visszaállította"
 
@@ -8064,15 +8072,15 @@ msgstr "A systemd nem tudta elindítani ezt: %s (%s)"
 msgid "systemd did not answer over the system bus, so whether falcond runs is unknown. The readings below that need it are missing."
 msgstr "A systemd nem válaszolt a rendszerbuszon, így nem ismert, hogy a falcond fut-e. Az alábbi, ehhez kötött értékek hiányoznak."
 
-#: bigame-engine/bigame-core/src/turbo.rs:839
+#: bigame-engine/bigame-core/src/turbo.rs:849
 msgid "systemd reports it %s"
 msgstr "a systemd szerint: %s"
 
-#: bigame-engine/bigame-core/src/health.rs:491
+#: bigame-engine/bigame-core/src/health.rs:498
 msgid "systemd restarted falcond %s times after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"
 msgstr "a systemd %s alkalommal újraindította a falcondot, miután váratlanul leállt; egy játék közbeni újraindítás után az energiaprofil a játék bezárását követően is emelt maradhat"
 
-#: bigame-engine/bigame-core/src/health.rs:488
+#: bigame-engine/bigame-core/src/health.rs:495
 msgid "systemd restarted falcond once after it stopped unexpectedly; a restart during a game can leave the power profile boosted after the game exits"
 msgstr "a systemd egyszer újraindította a falcondot, miután váratlanul leállt; egy játék közbeni újraindítás után az energiaprofil a játék bezárását követően is emelt maradhat"
 
@@ -8088,11 +8096,11 @@ msgstr "hőmérsékleti korlát"
 msgid "the %s driver exposes no DPM level control"
 msgstr "az illesztőprogram (%s) nem biztosít DPM-szintvezérlést"
 
-#: bigame-engine/bigame-core/src/health.rs:609
+#: bigame-engine/bigame-core/src/health.rs:616
 msgid "the CPU hit its temperature limit %s times since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "a processzor a rendszerindítás óta %s alkalommal érte el a hőmérsékleti korlátját (összesen %s s lassulás): a hűtése korlátozza a sebességét, és a performance energiaprofil több hőt termel"
 
-#: bigame-engine/bigame-core/src/health.rs:602
+#: bigame-engine/bigame-core/src/health.rs:609
 msgid "the CPU hit its temperature limit once since boot (%s s slowed in total): its cooling caps its speed, and a performance power profile adds heat"
 msgstr "a processzor a rendszerindítás óta egyszer érte el a hőmérsékleti korlátját (összesen %s s lassulás): a hűtése korlátozza a sebességét, és a performance energiaprofil több hőt termel"
 
@@ -8124,7 +8132,7 @@ msgstr "a gyorsítótárban lévő másolat nem az, ami telepítve lett: %s"
 msgid "the component runs its kernels through AMD's Windows HIP runtime (amdhip64_7.dll), which comes with the Adrenalin driver; Proton ships none, and this prefix has none"
 msgstr "a komponens az AMD Windowsos HIP-futtatókörnyezetén (amdhip64_7.dll) keresztül futtatja a kerneleit, amely az Adrenalin illesztőprogrammal érkezik; a Proton nem tartalmazza, és ebben a prefixben sincs"
 
-#: bigame-engine/bigame-core/src/turbo.rs:669
+#: bigame-engine/bigame-core/src/turbo.rs:679
 msgid "the configuration was written but reads back unchanged"
 msgstr "a konfiguráció beírásra került, de visszaolvasva változatlan"
 
@@ -8418,7 +8426,7 @@ msgstr "nincs korábbi verzió, amelyre vissza lehetne térni"
 msgid "this CPU has no 3D V-Cache"
 msgstr "ebben a processzorban nincs 3D V-Cache"
 
-#: bigame-engine/bigame-core/src/health.rs:934
+#: bigame-engine/bigame-core/src/health.rs:939
 msgid "this CPU has none"
 msgstr "ebben a processzorban nincs"
 
@@ -8430,15 +8438,15 @@ msgstr "ebben a számítógépben több GPU van: a terv ehhez készült: %s — 
 msgid "this cpufreq driver"
 msgstr "ez a cpufreq illesztőprogram"
 
-#: bigame-engine/bigame-core/src/turbo.rs:557
+#: bigame-engine/bigame-core/src/turbo.rs:567
 msgid "this falcond build crashed on this processor (illegal instruction), so it is not started again until the package changes; Turbo applies the general settings without per-game profiles"
 msgstr "ez a falcond-build összeomlott ezen a processzoron (érvénytelen utasítás), ezért nem indul újra, amíg a csomag nem változik; a Turbo játékonkénti profilok nélkül alkalmazza az általános beállításokat"
 
-#: bigame-engine/bigame-core/src/health.rs:712
+#: bigame-engine/bigame-core/src/health.rs:719
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling"
 msgstr "ez a falcond régebbi a VRAM-védelemnél (DMEM) és a split-lock kezelésnél"
 
-#: bigame-engine/bigame-core/src/health.rs:710
+#: bigame-engine/bigame-core/src/health.rs:717
 msgid "this falcond predates VRAM protection (DMEM) and split-lock handling; the kernel supports DMEM, so a newer falcond could use it"
 msgstr "ez a falcond régebbi a VRAM-védelemnél (DMEM) és a split-lock kezelésnél; a kernel támogatja a DMEM-et, így egy újabb falcond használhatná"
 
@@ -8462,11 +8470,11 @@ msgstr "ez egy natív Linux-játék: az OptiScaler Proton vagy Wine alatt futó 
 msgid "this kernel has no NTSync; games use fsync or esync"
 msgstr "ebben a kernelben nincs NTSync; a játékok az fsync vagy az esync megoldást használják"
 
-#: bigame-engine/bigame-core/src/health.rs:367
+#: bigame-engine/bigame-core/src/health.rs:374
 msgid "this kernel or its cgroup setup does not let falcond protect a game's VRAM (DMEM); games run without that protection"
 msgstr "ez a kernel vagy a cgroup-beállítása nem teszi lehetővé, hogy a falcond megvédje a játékok VRAM-ját (DMEM); a játékok e védelem nélkül futnak"
 
-#: bigame-engine/bigame-core/src/health.rs:915
+#: bigame-engine/bigame-core/src/health.rs:920
 msgid "this launcher runs as a Flatpak and cannot see the system's MangoHud: games it starts get no overlay (Heroic refuses to start one with its MangoHud switch on) until MangoHud's Flatpak extension for its runtime is installed"
 msgstr "ez az indító Flatpakként fut, és nem látja a rendszer MangoHudját: az általa indított játékok nem kapnak átfedést (a Heroic bekapcsolt MangoHud kapcsolóval nem is indítja el őket), amíg a futtatókörnyezetéhez tartozó MangoHud Flatpak-bővítmény nincs telepítve"
 
