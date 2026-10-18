@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 16:00-0300\n"
+"POT-Creation-Date: 2026-10-18 17:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:27\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Turkish <tr@li.org>\n"
@@ -156,10 +156,6 @@ msgstr[1] "%n uyarı"
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:190
 msgid "%r cannot be used together with %a"
 msgstr "%r, %a ile birlikte kullanılamaz"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:125
-msgid "%r read · %w written KB/s"
-msgstr "%r okuma · %w yazma KB/s"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:291
 msgid "%r was asked for, but %l is running"
@@ -792,7 +788,7 @@ msgstr "AMD'nin FSR 4 sağlayıcısı henüz bu oyunun önekinde yok: oyun bu ba
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "AMD'nin ölçekleyicisi: görüntüyü büyütür ve bulanık görünmemesi için kenarları keskinleştirir. Her GPU'da çalışır. Olağan seçim: oyunu daha küçük boyutta işleyin ve FSR'ın onu ekran boyutuna çıkarmasına izin verin. Aşağıdaki keskinlik ona uygulanır."
 
-#: bigame-engine/bigame-ui/src/window.rs:468
+#: bigame-engine/bigame-ui/src/window.rs:473
 msgid "About"
 msgstr "Hakkında"
 
@@ -977,7 +973,7 @@ msgid "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the ac
 msgstr "Hile önleyici veya Big Game Mode'un oyun listesi: bir DLL enjekte etmek hesabı riske atabilir, bu yüzden hiçbir şey önerilmez."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:42
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
 msgid "Appearance"
 msgstr "Görünüm"
 
@@ -990,7 +986,7 @@ msgid "Applied and active"
 msgstr "Uygulandı ve etkin"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:33
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:474
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:509
 msgid "Applied and verified"
 msgstr "Uygulandı ve doğrulandı"
 
@@ -1088,10 +1084,9 @@ msgstr "İstenen"
 msgid "Asked for, but it cannot be switched"
 msgstr "İstendi, ancak değiştirilemiyor"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:11
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:24
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:234
 #: bigame-engine/bigame-ui/src/views/home.rs:1477
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:443
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:466
 msgid "Asleep"
 msgstr "Uykuda"
 
@@ -1103,7 +1098,7 @@ msgstr "Başlatmada"
 msgid "At launch Gamescope runs it at the game's own size, so the image is not scaled twice."
 msgstr "Başlatmada Gamescope onu oyunun kendi boyutunda çalıştırır; böylece görüntü iki kez ölçeklenmez."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:492
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:527
 msgid "Attempted, and the system did not change: the reason is on the row."
 msgstr "Denendi ve sistem değişmedi: neden satırda yazıyor."
 
@@ -1135,7 +1130,7 @@ msgstr "Turbo'yu açmak veya kapatmak için kimlik doğrulama gerekir"
 msgid "Authorization was refused or cancelled"
 msgstr "Yetkilendirme reddedildi veya iptal edildi"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:230
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:448
 msgid "Available"
 msgstr "Kullanılabilir"
 
@@ -1159,18 +1154,18 @@ msgstr "Ortalama FPS"
 msgid "Back"
 msgstr "Geri"
 
-#: bigame-engine/bigame-ui/src/window.rs:82
-#: bigame-engine/bigame-ui/src/window.rs:85
+#: bigame-engine/bigame-ui/src/window.rs:83
+#: bigame-engine/bigame-ui/src/window.rs:86
 msgid "Back to Home"
 msgstr "Ana Sayfaya Dön"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:119
-#: bigame-engine/bigame-ui/src/window.rs:383
-#: bigame-engine/bigame-ui/src/window.rs:460
+#: bigame-engine/bigame-ui/src/window.rs:388
+#: bigame-engine/bigame-ui/src/window.rs:465
 msgid "Back to normal"
 msgstr "Normale dön"
 
-#: bigame-engine/bigame-ui/src/window.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:382
 msgid "Back to normal?"
 msgstr "Normale dönülsün mü?"
 
@@ -1340,10 +1335,6 @@ msgstr "CAS keskinleştirme"
 msgid "CPU"
 msgstr "CPU"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:59
-msgid "CPU Freq"
-msgstr "CPU Frekansı"
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:200
 msgid "CPU clock, GPU load and network latency, read while Home is on screen."
 msgstr "CPU saat hızı, GPU yükü ve ağ gecikmesi; Ana Sayfa ekrandayken okunur."
@@ -1397,8 +1388,8 @@ msgstr "Kurulu olmayan '%p' çağrılıyor — başlatma seçenekleri: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
 #: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
-#: bigame-engine/bigame-ui/src/window.rs:337
-#: bigame-engine/bigame-ui/src/window.rs:382
+#: bigame-engine/bigame-ui/src/window.rs:342
+#: bigame-engine/bigame-ui/src/window.rs:387
 msgid "Cancel"
 msgstr "İptal"
 
@@ -1426,7 +1417,7 @@ msgstr "Yalnızca bu oyunun ihtiyaç duyduğunu değiştirin. “Genel yapıland
 msgid "Change them to: %s"
 msgstr "Şununla değiştir: %s"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:475
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:510
 msgid "Changed, then read back from the system to confirm it took."
 msgstr "Değiştirildi, ardından etkili olduğunu doğrulamak için sistemden geri okundu."
 
@@ -1473,10 +1464,10 @@ msgstr "Sisteminiz kontrol ediliyor…"
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:52
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:632
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:638
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
 #: bigame-engine/bigame-ui/src/views/settings.rs:447
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:402
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Kontrol ediliyor…"
@@ -1525,9 +1516,13 @@ msgstr "Filtreleri temizle"
 msgid "Clear launch options"
 msgstr "Başlatma seçeneklerini temizle"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:143
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:418
 msgid "Clock"
 msgstr "Saat hızı"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:726
+msgid "Clock not reported"
+msgstr "Saat hızı bildirilmiyor"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:250
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:267
@@ -1722,7 +1717,7 @@ msgstr "Kurulum Komutunu Kopyala"
 msgid "Copy all checks"
 msgstr "Tüm denetimleri kopyala"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
 msgid "Copy and export"
 msgstr "Kopyala ve dışa aktar"
 
@@ -1740,7 +1735,7 @@ msgstr "Komutu kopyala"
 msgid "Copy what is shown"
 msgstr "Gösterileni kopyala"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
 msgid "Copy what is shown, or save it to a file with your user name, home folder and host masked."
 msgstr "Gösterileni kopyalayın ya da kullanıcı adınız, ev klasörünüz ve ana makine adınız maskelenmiş olarak bir dosyaya kaydedin."
 
@@ -1828,12 +1823,12 @@ msgstr "Onarılamadı"
 msgid "Could not restore"
 msgstr "Geri yüklenemedi"
 
-#: bigame-engine/bigame-ui/src/window.rs:682
+#: bigame-engine/bigame-ui/src/window.rs:687
 msgid "Could not restore Gamescope's settings"
 msgstr "Gamescope'un ayarları geri yüklenemedi"
 
-#: bigame-engine/bigame-ui/src/window.rs:663
-#: bigame-engine/bigame-ui/src/window.rs:673
+#: bigame-engine/bigame-ui/src/window.rs:668
+#: bigame-engine/bigame-ui/src/window.rs:678
 msgid "Could not restore falcond's settings"
 msgstr "falcond'un ayarları geri yüklenemedi"
 
@@ -1887,7 +1882,7 @@ msgid "Could not update Heroic's settings for a game"
 msgstr "Bir oyun için Heroic'in ayarları güncellenemedi"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1333
-#: bigame-engine/bigame-ui/src/window.rs:700
+#: bigame-engine/bigame-ui/src/window.rs:705
 msgid "Could not update lsfg-vk's file"
 msgstr "lsfg-vk'nin dosyası güncellenemedi"
 
@@ -1987,6 +1982,10 @@ msgstr "DNS çözümleyici karşılaştırması"
 msgid "Dark"
 msgstr "Koyu"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:391
+msgid "Dedicated"
+msgstr "Harici"
+
 #: bigame-engine/bigame-core/src/optimization.rs:50
 #: bigame-engine/bigame-ui/src/views/settings.rs:55
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1401
@@ -1998,7 +1997,7 @@ msgstr "Varsayılan"
 msgid "Default is shown while the desktop asks for high contrast"
 msgstr "Masaüstü yüksek karşıtlık istediği sürece Varsayılan gösterilir"
 
-#: bigame-engine/bigame-ui/src/window.rs:356
+#: bigame-engine/bigame-ui/src/window.rs:361
 msgid "Default settings restored"
 msgstr "Varsayılan ayarlar geri yüklendi"
 
@@ -2024,7 +2023,7 @@ msgstr "Profili sil"
 msgid "Delete this profile?"
 msgstr "Bu profil silinsin mi?"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:485
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:520
 msgid "Deliberately left alone, not possible on this machine, or a second controller of the same thing that was not used."
 msgstr "Bilerek dokunulmadı, bu makinede mümkün değil ya da aynı şeyin kullanılmayan ikinci bir denetleyicisi."
 
@@ -2045,8 +2044,8 @@ msgid "Desktop notifications when a game profile is applied and when it is resto
 msgstr "Bir oyun profili uygulandığında ve geri alındığında masaüstü bildirimleri. Profil önerisi yukarıda ayrıca denetlenir."
 
 #: bigame-engine/bigame-ui/src/widgets/toast.rs:54
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
-#: bigame-engine/bigame-ui/src/window.rs:158
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:163
 msgid "Details"
 msgstr "Ayrıntılar"
 
@@ -2076,7 +2075,7 @@ msgid "Diagnose and details"
 msgstr "Tanılama ve ayrıntılar"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:39
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:491
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:526
 msgid "Did not take effect"
 msgstr "Etkili olmadı"
 
@@ -2084,9 +2083,10 @@ msgstr "Etkili olmadı"
 msgid "Discard"
 msgstr "Vazgeç"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:64
-msgid "Disk I/O"
-msgstr "Disk G/Ç"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:94
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:353
+msgid "Disk"
+msgstr "Disk"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68
 #: bigame-engine/bigame-ui/src/views/tuning.rs:670
@@ -2128,7 +2128,7 @@ msgstr "BigLinux için dinamik oyun performansı yönetimi"
 msgid "Each game's frame generation is in its profile"
 msgstr "Her oyunun kare oluşturma ayarı kendi profilindedir"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:356
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:391
 msgid "Each item is Active, Waiting for a game, Configured, Not detected, Off, Missing dependency or Not supported. Open a row for what that means, the evidence and the fix."
 msgstr "Her öğe Etkin, Bir oyun bekleniyor, Yapılandırıldı, Algılanmadı, Kapalı, Eksik bağımlılık veya Desteklenmiyor durumundadır. Ne anlama geldiği, kanıtı ve çözümü için bir satırı açın."
 
@@ -2209,15 +2209,15 @@ msgstr "Tüm oyunların grafikleri geri yüklendi"
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
 msgstr "Bir destek verenin bu makine hakkında ihtiyaç duyduğu her şey. Kullanıcı adınız, ev dizininiz, ana makine adınız ve genel ağ adresleriniz rapor oluşturulurken kaldırılır."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
 msgid "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked."
 msgstr "Yukarıdaki her şey, bir foruma veya hata kaydına yapıştırmak için tek bir metinde; kullanıcı adınız, ev klasörünüz ve ana makine adınız maskelenmiş olarak."
 
-#: bigame-engine/bigame-ui/src/window.rs:405
+#: bigame-engine/bigame-ui/src/window.rs:410
 msgid "Everything is back to normal"
 msgstr "Her şey normale döndü"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:363
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:398
 msgid "Everything that needs attention, classed as fixable, needing you, hardware or information, with commands to copy. A hardware limit is never an error."
 msgstr "Dikkat gerektiren her şey; düzeltilebilir, sizi gerektiren, donanım veya bilgi olarak sınıflandırılır ve kopyalanacak komutlarla gelir. Bir donanım sınırı asla hata değildir."
 
@@ -2365,6 +2365,10 @@ msgstr "Steam, Heroic ve Lutris için daha hızlı, daha doğru oyun algılama"
 msgid "Fastest"
 msgstr "En Hızlı"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:721
+msgid "Fastest core %f · average %a"
+msgstr "En hızlı çekirdek %f · ortalama %a"
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:61
 msgid "Fastest for the most frames, Quiet for a cooler and quieter computer, Pretty for a sharper picture."
 msgstr "En çok kare için En Hızlı, daha serin ve sessiz bir bilgisayar için Sessiz, daha keskin bir görüntü için Güzel."
@@ -2407,7 +2411,7 @@ msgstr "Dosyalar geri kondu; oyunun kendi ayarı henüz geri alınmadı — yeni
 msgid "Files that will change"
 msgstr "Değişecek dosyalar"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:401
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:436
 msgid "Filter and search"
 msgstr "Filtrele ve ara"
 
@@ -2436,7 +2440,7 @@ msgstr "Düzeltilebilir"
 msgid "Flow scale (%)"
 msgstr "Akış ölçeği (%)"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:406
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Follow"
 msgstr "Takip"
 
@@ -2542,15 +2546,10 @@ msgstr "Frekans CCD'si"
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
 #: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
 #: bigame-engine/bigame-ui/src/views/home.rs:89
 msgid "GPU"
 msgstr "GPU"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:62
-msgid "GPU Temp"
-msgstr "GPU Sıcaklığı"
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:444
 msgid "GPU power level"
@@ -2599,7 +2598,7 @@ msgid "Game name cannot be empty"
 msgstr "Oyun adı boş olamaz"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:428
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:476
 msgid "Game profiles"
 msgstr "Oyun profilleri"
 
@@ -2627,7 +2626,7 @@ msgstr "Oyunlar istiflenmiş 3D V-Cache'e sahip CCD'yi tercih eder. Çoğu oyun 
 msgid "Games prefer the CCD without the extra cache, which clocks higher. For the few games that gain from clock speed more than from cache."
 msgstr "Oyunlar ek önbelleği olmayan, daha yüksek saat hızında çalışan CCD'yi tercih eder. Saat hızından önbellekten daha fazla kazanç sağlayan az sayıdaki oyun için."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:229
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:447
 msgid "Games render here"
 msgstr "Oyunlar burada işlenir"
 
@@ -2844,7 +2843,8 @@ msgstr "Grafik API'si ve kanıtı, GPU, oyunun kendi ölçekleyicileri, DLL yuva
 msgid "Graphics card"
 msgstr "Ekran kartı"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:105
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:110
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:365
 msgid "Graphics cards"
 msgstr "Ekran kartları"
 
@@ -2872,7 +2872,7 @@ msgstr "HOME ayarlanmamış"
 msgid "Hand back"
 msgstr "Geri teslim et"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:493
 msgid "Hand falcond back"
 msgstr "falcond'u geri teslim et"
 
@@ -2888,11 +2888,11 @@ msgstr "El konsolu"
 msgid "Hardware"
 msgstr "Donanım"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:534
 msgid "Help"
 msgstr "Yardım"
 
-#: bigame-engine/bigame-ui/src/window.rs:481
+#: bigame-engine/bigame-ui/src/window.rs:486
 msgid "Help & Tutorial"
 msgstr "Yardım ve Eğitim"
 
@@ -2973,14 +2973,18 @@ msgid "Heroic's settings were not written"
 msgstr "Heroic'in ayarları yazılmadı"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:167
-#: bigame-engine/bigame-ui/src/window.rs:155
-#: bigame-engine/bigame-ui/src/window.rs:73
+#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/window.rs:74
 msgid "Home"
 msgstr "Ana Sayfa"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
 msgid "How Big Game Mode looks and behaves, and how to hand falcond back."
 msgstr "Big Game Mode'un nasıl göründüğü ve davrandığı, ve falcond'un nasıl geri teslim edileceği."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+msgid "How busy all its cores are, the fastest core's clock and the average, and its temperature."
+msgstr "Tüm çekirdeklerin ne kadar meşgul olduğu, en hızlı çekirdeğin saat hızı ve ortalama, ve sıcaklığı."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1008
 msgid "How files are changed safely"
@@ -2989,6 +2993,10 @@ msgstr "Dosyalar nasıl güvenle değiştirilir"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:755
 msgid "How it is known"
 msgstr "Nasıl biliniyor"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:354
+msgid "How much every disk reads and writes each second, together."
+msgstr "Tüm disklerin saniyede toplam ne kadar okuyup yazdığı."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1464
 msgid "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000."
@@ -3065,7 +3073,7 @@ msgstr "Oyunda"
 msgid "In the game next to OptiScaler: two upscalers in series"
 msgstr "Oyunda OptiScaler'ın yanında: art arda iki ölçekleyici"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:435
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:470
 msgid "In the tray, so games started from Steam are noticed even with the window closed."
 msgstr "Sistem tepsisinde; böylece Steam'den başlatılan oyunlar pencere kapalıyken de fark edilir."
 
@@ -3150,6 +3158,10 @@ msgstr "Kuruldu; değiştirilen her dosya yedeklendi"
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:85
 msgid "Integer scaling"
 msgstr "Tam sayı ölçekleme"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:393
+msgid "Integrated"
+msgstr "Tümleşik"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:153
 msgid "Intel integrated"
@@ -3264,10 +3276,6 @@ msgstr "LSFG-VK, kare hızınızı katlamak için yapay olarak oluşturulmuş ka
 msgid "Last read"
 msgstr "Son okuma"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:65
-msgid "Latency"
-msgstr "Gecikme"
-
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:15
 msgid "Latency-Aware Virtual Deadline. The absolute best choice for gaming! It heavily prioritizes interactive tasks (like your game rendering frames and reading your mouse clicks). It dramatically reduces stuttering and stabilizes FPS."
 msgstr "Latency-Aware Virtual Deadline (Gecikme Duyarlı Sanal Son Tarih). Oyun için kesinlikle en iyi seçim! Etkileşimli görevlere (oyununuzun kare işlemesi ve fare tıklamalarınızı okuması gibi) güçlü öncelik verir. Takılmaları büyük ölçüde azaltır ve FPS'yi dengeler."
@@ -3342,7 +3350,7 @@ msgstr "Zamanlayıcılar Hakkında Bilgi Edinin"
 msgid "Leave the game's graphics as they are."
 msgstr "Oyunun grafiklerini olduğu gibi bırak."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:480
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:515
 msgid "Left to the component that owns it, which sets it for each game."
 msgstr "Onun sahibi olan ve her oyun için ayarlayan bileşene bırakıldı."
 
@@ -3362,19 +3370,19 @@ msgstr "Açık"
 msgid "Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."
 msgstr "Olası nedenler: oyun Big Game Mode'dan (Profiller → Başlat) değil, Steam'den veya kendi başlatıcısından başlatıldı; Gamescope başlangıçta kapandı (WSI katmanı, Wayland'i tercih eden bir oyun); oyunun profili Asla diyor."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
-msgid "Live CPU and GPU readings, and one card per GPU with its load, clock, video memory, temperature and power, and which one renders the game."
-msgstr "Canlı CPU ve GPU ölçümleri ile her GPU için yükü, saat hızı, video belleği, sıcaklığı ve gücüyle bir kart; ve oyunu hangisinin işlediği."
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:199
 msgid "Live readings"
 msgstr "Canlı ölçümler"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:72
+msgid "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything."
+msgstr "Canlı ölçümler, saniyede bir. Bir oyun ekrandayken duraklarlar; bu yüzden izlemek oyuna asla bir şeye mal olmaz."
 
 #: bigame-engine/bigame-core/src/optimization.rs:120
 msgid "Living room (HTPC)"
 msgstr "Oturma odası (HTPC)"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:142
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:411
 msgid "Load"
 msgstr "Yük"
 
@@ -3408,8 +3416,8 @@ msgid "Log exported"
 msgstr "Kayıt dışa aktarıldı"
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:96
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:388
-#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
+#: bigame-engine/bigame-ui/src/window.rs:164
 msgid "Logs"
 msgstr "Kayıtlar"
 
@@ -3456,7 +3464,7 @@ msgstr "Lutris'in yeniden açılması gerekiyor"
 msgid "Mailbox"
 msgstr "Mailbox"
 
-#: bigame-engine/bigame-ui/src/window.rs:476
+#: bigame-engine/bigame-ui/src/window.rs:481
 msgid "Main Menu"
 msgstr "Ana Menü"
 
@@ -3475,7 +3483,7 @@ msgid "Managed by Big Game Mode since %s"
 msgstr "%s tarihinden beri Big Game Mode tarafından yönetiliyor"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:35
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:479
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:514
 msgid "Managed per game"
 msgstr "Oyun başına yönetilir"
 
@@ -3570,6 +3578,15 @@ msgstr "Her çözümleyicinin bir sorguyu ne kadar hızlı yanıtladığını ö
 msgid "Measuring…"
 msgstr "Ölçülüyor…"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:88
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
+msgid "Memory"
+msgstr "Bellek"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
+msgid "Memory in use out of the total, and swap."
+msgstr "Toplamın ne kadarının kullanımda olduğu, ve takas alanı."
+
 #: bigame-engine/bigame-core/src/graphics/scan.rs:133
 msgid "Microsoft system DLL"
 msgstr "Microsoft sistem DLL'si"
@@ -3648,9 +3665,7 @@ msgstr "Çarpan, akış ölçeği, HDR ve sunum modu"
 msgid "My own file"
 msgstr "Kendi dosyam"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:17
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:117
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:165
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:743
 msgid "N/A"
 msgstr "Yok"
 
@@ -3694,10 +3709,12 @@ msgstr "Sizi gerektiriyor"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:624
 #: bigame-engine/bigame-ui/src/views/home.rs:90
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:99
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:358
 msgid "Network"
 msgstr "Ağ"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:369
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:404
 msgid "Network, background load and Steam"
 msgstr "Ağ, arka plan yükü ve Steam"
 
@@ -3767,7 +3784,7 @@ msgstr "Asla"
 msgid "New Profile"
 msgstr "Yeni Profil"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:407
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
 msgid "New entries appear while the page is open; nothing is read while it is not."
 msgstr "Sayfa açıkken yeni girdiler görünür; açık değilken hiçbir şey okunmaz."
 
@@ -3789,11 +3806,11 @@ msgstr "Hayır"
 msgid "No DLSS, FSR or XeSS"
 msgstr "DLSS, FSR veya XeSS yok"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:172
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:543
 msgid "No DRM card is exposed by the kernel."
 msgstr "Çekirdek hiçbir DRM kartı sunmuyor."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:171
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:541
 msgid "No GPU was found"
 msgstr "Hiç GPU bulunamadı"
 
@@ -3847,7 +3864,7 @@ msgstr "Oyun bulunamadı"
 msgid "No generated frames from OptiScaler. The game's own frame generation, if it has one, stays in its menu."
 msgstr "OptiScaler'dan oluşturulmuş kare yok. Oyunun kendi kare oluşturması, varsa, kendi menüsünde kalır."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:500
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:535
 msgid "No help available for this view."
 msgstr "Bu görünüm için yardım yok."
 
@@ -3882,6 +3899,10 @@ msgstr "Zamanlayıcı yok: mod hiçbir şey yapmaz"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:244
 msgid "No screen saver or screen sleep while this game runs"
 msgstr "Bu oyun çalışırken ekran koruyucu veya ekran uykusu yok"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:755
+msgid "No swap"
+msgstr "Takas alanı yok"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:317
 msgid "No, by the game's profile (Never)"
@@ -4001,9 +4022,9 @@ msgstr "Önerilmiyor: bu oyunda hile önleyici var"
 msgid "Not recommended"
 msgstr "Önerilmez"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:27
-msgid "Not reported by the driver"
-msgstr "Sürücü tarafından bildirilmiyor"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:350
+msgid "Not reported"
+msgstr "Bildirilmiyor"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:371
 msgid "Not restored (close them and try again): %s"
@@ -4126,13 +4147,13 @@ msgstr "Kurmaya değer bir şey yok ya da oyunda zaten olandan daha kötü olurd
 msgid "Notifications"
 msgstr "Bildirimler"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:481
 msgid "Notifications and ping target"
 msgstr "Bildirimler ve ping hedefi"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
-msgid "Notifications when a game starts or exits, and the address the Details page pings for its latency graph."
-msgstr "Bir oyun başladığında veya kapandığında bildirimler ve Ayrıntılar sayfasının gecikme grafiği için ping attığı adres."
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:482
+msgid "Notifications when a game starts or exits, and the address the Telemetry page pings for its latency chart."
+msgstr "Bir oyun başladığında veya kapandığında bildirimler ve Telemetri sayfasının gecikme grafiği için ping attığı adres."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:571
 msgid "Now: %s"
@@ -4238,11 +4259,15 @@ msgstr "Açık: falcond çalışır ve her oyunun profilini uygular"
 msgid "One button makes your games run better. Press it again to go back to normal."
 msgstr "Tek bir düğme oyunlarınızı daha iyi çalıştırır. Normale dönmek için yeniden basın."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:366
+msgid "One card per GPU with its load, temperature, clock, video memory and power, and which one renders the game. Not reported means the driver does not publish that reading."
+msgstr "Her GPU için yükü, sıcaklığı, saat hızı, video belleği ve gücüyle bir kart, ve oyunu hangisinin işlediği. Bildirilmiyor, sürücünün bu ölçümü yayımlamadığı anlamına gelir."
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:114
 msgid "One general configuration"
 msgstr "Tek bir genel yapılandırma"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:384
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Makinenin durumunu anlatan tek satır ve her öğe için bir çip: Turbo, falcond, profil, güç, zamanlayıcı, GPU, Gamescope, ölçekleme, kare oluşturma."
 
@@ -4250,7 +4275,7 @@ msgstr "Makinenin durumunu anlatan tek satır ve her öğe için bir çip: Turbo
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "Projenin tamamında tek bir kural geçerlidir: makinenin yapamayacağı hiçbir şey sunulmaz ve ölçüm olmadan hiçbir şeye iyileştirme denmez."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:394
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
 msgid "One view"
 msgstr "Tek görünüm"
 
@@ -4511,8 +4536,8 @@ msgid "OptiScaler's own frame generation (OptiFG, with FSR frame generation), fo
 msgstr "OptiScaler'ın kendi kare oluşturması (OptiFG, FSR kare oluşturma ile), DirectX 12 oyunları için. Deneysel: HUD'da gölgelenme olabilir ve gecikme ekler. Seçilmesi deneysel seçeneklere izin verir. Asla lsfg-vk ile birlikte değil: art arda iki kare oluşturucu, oluşturulmuş karelerden kare oluşturur."
 
 #: bigame-engine/bigame-ui/src/views/report.rs:234
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:468
-#: bigame-engine/bigame-ui/src/window.rs:100
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/window.rs:101
 msgid "Optimization Report"
 msgstr "Optimizasyon Raporu"
 
@@ -4556,7 +4581,7 @@ msgstr "Çıkış boyutu"
 msgid "Overlay style"
 msgstr "Kaplama stili"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:383
 msgid "Overview"
 msgstr "Genel bakış"
 
@@ -4619,7 +4644,7 @@ msgstr "Oyun başına optimizasyon başlatılamadı"
 msgid "Performance"
 msgstr "Performans"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:355
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:390
 msgid "Performance and video pipeline"
 msgstr "Performans ve video hattı"
 
@@ -4652,6 +4677,10 @@ msgstr "Performans modu, kendi zamanlayıcısı olmayan oyunlar için sched-ext 
 msgid "Ping Target"
 msgstr "Ping Hedefi"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:692
+msgid "Ping to %s"
+msgstr "%s adresine ping"
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:366
 msgid "Plan"
 msgstr "Plan"
@@ -4669,8 +4698,8 @@ msgstr "Oyna: %s"
 msgid "Post-processing filters (sharpening, colour) in Vulkan games"
 msgstr "Vulkan oyunlarında son işleme filtreleri (keskinleştirme, renk)"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:146
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:34
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:420
 msgid "Power"
 msgstr "Güç"
 
@@ -4718,7 +4747,7 @@ msgid "Pretty"
 msgstr "Güzel"
 
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:92
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:362
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:397
 msgid "Problems"
 msgstr "Sorunlar"
 
@@ -4731,6 +4760,11 @@ msgstr "İşlem"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:700
 msgid "Process Name"
 msgstr "İşlem Adı"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:83
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+msgid "Processor"
+msgstr "İşlemci"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:78
 msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
@@ -4824,7 +4858,7 @@ msgid "Profile set"
 msgstr "Profil seti"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:217
-#: bigame-engine/bigame-ui/src/window.rs:156
+#: bigame-engine/bigame-ui/src/window.rs:160
 msgid "Profiles"
 msgstr "Profiller"
 
@@ -4842,7 +4876,7 @@ msgstr "Steam Deck veya ROG Ally gibi el tipi PC'ler için profiller: pil ömrü
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:446
 #: bigame-engine/bigame-ui/src/views/settings.rs:457
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:488
 msgid "Profiles from an older Big Game Mode"
 msgstr "Eski bir Big Game Mode'dan kalan profiller"
 
@@ -4854,7 +4888,7 @@ msgstr "Yüklenen profiller"
 msgid "Profiles of yours that match no installed game. They stay until you delete them."
 msgstr "Kurulu hiçbir oyunla eşleşmeyen profilleriniz. Siz silene kadar kalırlar."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:454
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:489
 msgid "Profiles that can never match their game, and the fix."
 msgstr "Oyunlarıyla asla eşleşemeyecek profiller ve çözümü."
 
@@ -4917,7 +4951,7 @@ msgid "Quiet"
 msgstr "Sessiz"
 
 #: bigame-engine/bigame-ui/src/tray.rs:219
-#: bigame-engine/bigame-ui/src/window.rs:469
+#: bigame-engine/bigame-ui/src/window.rs:474
 msgid "Quit"
 msgstr "Çıkış"
 
@@ -4928,10 +4962,6 @@ msgstr "Bitince Çık"
 #: bigame-engine/bigame-ui/src/app.rs:112
 msgid "Quit when finished?"
 msgstr "Bitince çıkılsın mı?"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:63
-msgid "RAM Usage"
-msgstr "RAM Kullanımı"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:542
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
@@ -4948,6 +4978,10 @@ msgstr "İşlenen kare hızını değil, sunulan kare hızını artırır ve gec
 #: bigame-engine/bigame-core/src/graphics/rules.rs:179
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "ReShade'in eklenti sürümü yalnızca tek oyunculu oyunlar içindir; hile önleyici enjekte edilen DLL'ler yüzünden yasaklayabilir"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:783
+msgid "Read %s"
+msgstr "Okuma %s"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2213
 msgid "Read at %s from the game's folder, the graphics card and the running game"
@@ -5002,10 +5036,6 @@ msgstr "Uygulamaya hazır"
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:147
 msgid "Ready to play"
 msgstr "Oynamaya hazır"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:48
-msgid "Real-time Telemetry"
-msgstr "Gerçek Zamanlı Telemetri"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:18
 msgid "Real-time telemetry, diagnostics and one view of every relevant log"
@@ -5071,7 +5101,7 @@ msgstr "Başlatma seçeneği kaldırılıyor…"
 msgid "Render size"
 msgstr "İşleme boyutu"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:228
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:446
 msgid "Renders %s"
 msgstr "%s oyununu işliyor"
 
@@ -5131,7 +5161,7 @@ msgstr "Gerekli paketler sistemde bulunamadı"
 msgid "Rescan game library"
 msgstr "Oyun kütüphanesini yeniden tara"
 
-#: bigame-engine/bigame-ui/src/window.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:340
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Tüm Ayarlama ve Gamescope ayarlarını önerilen varsayılanlara sıfırlar. Bu işlem geri alınamaz."
 
@@ -5150,7 +5180,7 @@ msgstr "Çözüldü: tek ölçekleyici %s"
 msgid "Restart Big Game Mode"
 msgstr "Big Game Mode'u Yeniden Başlat"
 
-#: bigame-engine/bigame-ui/src/window.rs:338
+#: bigame-engine/bigame-ui/src/window.rs:343
 msgid "Restore"
 msgstr "Geri Yükle"
 
@@ -5159,8 +5189,8 @@ msgstr "Geri Yükle"
 msgid "Restore All"
 msgstr "Tümünü Geri Yükle"
 
-#: bigame-engine/bigame-ui/src/window.rs:334
-#: bigame-engine/bigame-ui/src/window.rs:462
+#: bigame-engine/bigame-ui/src/window.rs:339
+#: bigame-engine/bigame-ui/src/window.rs:467
 msgid "Restore Defaults"
 msgstr "Varsayılanları Geri Yükle"
 
@@ -5218,7 +5248,7 @@ msgstr "Sürdür"
 msgid "Resume %s?"
 msgstr "%s sürdürülsün mü?"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:494
 msgid "Return falcond to exactly the state it was in before Big Game Mode first changed it."
 msgstr "falcond'u, Big Game Mode onu ilk kez değiştirmeden önceki durumuna birebir döndürün."
 
@@ -5430,8 +5460,8 @@ msgstr "Yolunu yukarıdaki satırda ayarlayın: tüm oyunlar için tek dosya, he
 msgid "Set now"
 msgstr "Şu an ayarlı"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
-#: bigame-engine/bigame-ui/src/window.rs:160
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/window.rs:165
 msgid "Settings"
 msgstr "Ayarlar"
 
@@ -5460,7 +5490,7 @@ msgstr "Başlangıçta iletişim kutusunu göster"
 msgid "Show notifications on game launch and exit"
 msgstr "Oyun başlatıldığında ve kapatıldığında bildirimleri göster"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:402
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:437
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Yalnızca hataları, uyarıları veya tek bir kaynağı gösterin ya da metinde arayın."
 
@@ -5488,7 +5518,7 @@ msgstr "Atla"
 msgid "Skipped"
 msgstr "Atlandı"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:484
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:519
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Atlananlar, kullanılamayanlar, önlenen çakışmalar"
 
@@ -5515,7 +5545,7 @@ msgstr "Özel Teşekkürler"
 msgid "Standing"
 msgstr "Değerlendirme"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:382
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
 msgid "Start a game and keep this page open: it is read only while it is on screen, so it costs nothing the rest of the time."
 msgstr "Bir oyun başlatın ve bu sayfayı açık tutun: yalnızca ekrandayken okunur, bu yüzden geri kalan zamanda hiçbir maliyeti yoktur."
 
@@ -5523,12 +5553,16 @@ msgstr "Bir oyun başlatın ve bu sayfayı açık tutun: yalnızca ekrandayken o
 msgid "Start a game from Steam, Lutris, Heroic, the application menu or Profiles. The card at the bottom shows it with its flags."
 msgstr "Steam, Lutris, Heroic, uygulama menüsü veya Profiller'den bir oyun başlatın. Alttaki kart onu etiketleriyle birlikte gösterir."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:371
+msgid "Start a game, then come back here with Alt+Tab: the charts show the last minute. While the game has the screen, nothing is read."
+msgstr "Bir oyun başlatın, sonra Alt+Tab ile buraya dönün: grafikler son dakikayı gösterir. Oyun ekrandayken hiçbir şey okunmaz."
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:279
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Bir oyun başlatın; gerçekte ne aldığı işleminden okunur ve burada gösterilir."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:410
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
 msgstr "Oturum açılışında arka planda başlat"
 
@@ -5671,13 +5705,17 @@ msgstr "Başarılı"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1529
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:825
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:376
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
 msgid "Support report"
 msgstr "Destek raporu"
 
 #: bigame-engine/bigame-core/src/recommend.rs:51
 msgid "Supported, not measured"
 msgstr "Destekleniyor, ölçülmedi"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:757
+msgid "Swap %u of %t"
+msgstr "Takas %u / %t"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1999
 msgid "Switch it back on"
@@ -5733,13 +5771,24 @@ msgstr "OptiScaler'ı ve Yapay Zeka Grafikleri'nin yerleştirdiği her dosyayı 
 msgid "Technical details"
 msgstr "Teknik ayrıntılar"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
-msgid "Telemetry and graphics cards"
-msgstr "Telemetri ve ekran kartları"
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:161
+msgid "Telemetry"
+msgstr "Telemetri"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:145
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:412
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:474
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:500
 msgid "Temperature"
 msgstr "Sıcaklık"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:730
+msgid "Temperature %s"
+msgstr "Sıcaklık %s"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:737
+msgid "Temperature not reported"
+msgstr "Sıcaklık bildirilmiyor"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1693
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1819
@@ -5758,7 +5807,7 @@ msgstr "CPU zamanlayıcısı (işlemcinin trafik polisi) hangi programların han
 msgid "The DNS servers of the network connection that carries your traffic, as NetworkManager has them. \"Use\" on a measured resolver makes it the first one, and the servers your router hands out are no longer used. Before the first change, the connection's DNS settings are saved in ~/.local/state/bigame-mode/network; \"Restore previous\" puts them back and removes the copy. A faster lookup does not lower the latency of a game once it has connected."
 msgstr "Trafiğinizi taşıyan ağ bağlantısının DNS sunucuları, NetworkManager'da kayıtlı oldukları haliyle. Ölçülen bir çözümleyicide “Kullan” onu ilk sıraya koyar ve yönlendiricinizin dağıttığı sunucular artık kullanılmaz. İlk değişiklikten önce bağlantının DNS ayarları ~/.local/state/bigame-mode/network konumuna kaydedilir; “Öncekini geri yükle” onları geri koyar ve kopyayı siler. Daha hızlı bir sorgu, bir oyun bağlandıktan sonra gecikmesini düşürmez."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:465
 msgid "The Default or Gamer theme, light, dark or the desktop's. Only the look changes."
 msgstr "Varsayılan veya Oyuncu teması; açık, koyu ya da masaüstününki. Yalnızca görünüm değişir."
 
@@ -5771,10 +5820,10 @@ msgid "The Steam runtime's library cache tool is no longer taken for the running
 msgstr "Steam çalışma ortamının kitaplık önbelleği aracı artık çalışan oyun sanılmıyor"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:271
-msgid "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
-msgstr "Ana Sayfa ve Ayrıntılar sayfalarındaki gecikme ölçümleri için ping atılan adres. Seçenekler, DNS karşılaştırmasının ölçtüğü çözümleyicilerdir: bu bilgisayarın kullandıkları ve iyi bilinen genel çözümleyiciler. Başka herhangi bir adres de yazılabilir."
+msgid "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
+msgstr "Ana Sayfa ve Telemetri sayfalarındaki gecikme ölçümleri için ping atılan adres. Seçenekler, DNS karşılaştırmasının ölçtüğü çözümleyicilerdir: bu bilgisayarın kullandıkları ve iyi bilinen genel çözümleyiciler. Başka herhangi bir adres de yazılabilir."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:495
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:530
 msgid "The back button at the top returns to Home."
 msgstr "Üstteki geri düğmesi Ana Sayfa'ya döner."
 
@@ -5795,7 +5844,7 @@ msgstr "Bu oyun için yapılan seçim kaydedilmedi. Kaydetmek onu bir sonraki se
 msgid "The choice was not saved"
 msgstr "Seçim kaydedilmedi"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:370
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:405
 msgid "The connection and a DNS comparison, programs competing for the CPU, and Steam launch options that call a missing program."
 msgstr "Bağlantı ve bir DNS karşılaştırması, CPU için yarışan programlar ve eksik bir programı çağıran Steam başlatma seçenekleri."
 
@@ -5899,6 +5948,10 @@ msgstr "Görüntü iki kez ölçeklenir; bu onu bulanıklaştırır ve boşuna z
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1556
 msgid "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards."
 msgstr "Çekirdeğin CPU saat hızı kuralı. Big Game Mode bunu ayarlamaz: güç profiline göre power-profiles-daemon ayarlar. Performans modu (yukarıda) bir oyun çalışırken performans profilini ister ve ardından eski haline döner."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:359
+msgid "The latency to the address chosen in Settings, and what the network cards receive and send."
+msgstr "Ayarlar'da seçilen adrese gecikme, ve ağ kartlarının aldığı ve gönderdiği."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2407
 msgid "The launch option was removed; the game's own FSR runs as it did"
@@ -6080,8 +6133,8 @@ msgstr "Sistem, Big Game Mode'un %s işlemine sinyal göndermesine izin vermedi.
 msgid "The variable is written to ~/.config/environment.d and pushed into the session, but a launcher that was already running (Steam) keeps its old environment: close and reopen Steam, then start the game again."
 msgstr "Değişken ~/.config/environment.d dizinine yazılır ve oturuma aktarılır, ancak zaten çalışan bir başlatıcı (Steam) eski ortamını korur: Steam'i kapatıp yeniden açın, ardından oyunu tekrar başlatın."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:538
 msgid "The welcome screen can be opened again from the main menu, under Welcome."
 msgstr "Karşılama ekranı ana menüden, Hoş geldiniz altından yeniden açılabilir."
 
@@ -6112,6 +6165,10 @@ msgstr "Bu GPU'da FSR 4 yok, bu yüzden o kısım atlanır."
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:226
 msgid "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Details › Network puts them back."
 msgstr "Bu, “%s” bağlantısı için sistemin ağ ayarlarını değiştirir: %s ilk DNS sunucusu olur ve otomatik olarak dağıtılan sunucular artık kullanılmaz. Geçerli ayarlar önce kaydedilir; Ayrıntılar › Ağ altındaki “Öncekini geri yükle” onları geri koyar."
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:81
+msgid "This computer"
+msgstr "Bu bilgisayar"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:51
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:61
@@ -6158,7 +6215,7 @@ msgstr "Üç ön ayar: En Hızlı, Sessiz ve Güzel; kare hızını yalnızca Se
 msgid "Throughput for long batch work, not for games. Listed because falcond accepts it."
 msgstr "Oyunlar için değil, uzun toplu işler için iş hacmi. falcond kabul ettiği için listelenir."
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:151
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:698
 msgid "Timeout"
 msgstr "Zaman aşımı"
 
@@ -6177,7 +6234,7 @@ msgid "Try another name or remove the filters."
 msgstr "Başka bir ad deneyin veya filtreleri kaldırın."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:270
-#: bigame-engine/bigame-ui/src/window.rs:157
+#: bigame-engine/bigame-ui/src/window.rs:162
 msgid "Tuning"
 msgstr "Ayarlama"
 
@@ -6279,7 +6336,7 @@ msgstr "Turbo kapatıldı"
 msgid "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back."
 msgstr "Turbo, falcond'un hizmetini açıp kapatır. Bunu ilk yaptığında falcond'un etkin ve çalışır olup olmadığını kaydetti. Geri teslim etmek tam olarak o durumu geri yükler ve falcond'a dokunmaz. Denetimi geri almak falcond'un o anki durumunu kaydeder — böylece sonraki bir geri teslim onu geri yükler — ve onu yeniden Turbo'yu izler hale getirir: çalışıyorsa çalışır ve etkin tutulur, çalışmıyorsa durdurulmuş ve devre dışı tutulur. Turbo'yu açmak veya kapatmak da denetimi geri alır."
 
-#: bigame-engine/bigame-ui/src/window.rs:378
+#: bigame-engine/bigame-ui/src/window.rs:383
 msgid "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched."
 msgstr "Turbo kapanır, seçim En Hızlı'ya döner ve her ayar başlangıçtaki hâline geri döner. Oyunlarınıza dokunulmaz."
 
@@ -6491,10 +6548,6 @@ msgstr "VCache modu ayarlandı, ancak AMD 3D V-Cache algılanmadı"
 msgid "VKD3D-Proton's cache (vkd3d-proton.cache) is in the game's folder: it has run with Direct3D 12 here"
 msgstr "VKD3D-Proton önbelleği (vkd3d-proton.cache) oyunun klasöründe: oyun burada Direct3D 12 ile çalışmış"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:144
-msgid "VRAM"
-msgstr "VRAM"
-
 #: bigame-engine/bigame-core/src/health.rs:359
 #: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
@@ -6522,6 +6575,10 @@ msgid "Version %v — %n option detected from --help"
 msgid_plural "Version %v — %n options detected from --help"
 msgstr[0] "Sürüm %v — --help çıktısından %n seçenek algılandı"
 msgstr[1] "Sürüm %v — --help çıktısından %n seçenek algılandı"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:419
+msgid "Video memory"
+msgstr "Video belleği"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:77
 msgid "Video pipeline"
@@ -6560,7 +6617,7 @@ msgstr "Uyarılar ve hatalar"
 msgid "Watching for games"
 msgstr "Oyunlar izleniyor"
 
-#: bigame-engine/bigame-ui/src/window.rs:467
+#: bigame-engine/bigame-ui/src/window.rs:472
 msgid "Welcome"
 msgstr "Hoş geldiniz"
 
@@ -6610,7 +6667,7 @@ msgstr "“Genel yapılandırma” üzerinde bırakılanlar, Ayarlama'nın ayarl
 msgid "What is left on “General configuration” follows Tuning → Display."
 msgstr "“Genel yapılandırma” üzerinde bırakılanlar Ayarlama → Ekran'ı izler."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:378
 msgid "What is really in force for the game, and how Big Game Mode knows it."
 msgstr "Oyun için gerçekte neyin geçerli olduğu ve Big Game Mode'un bunu nasıl bildiği."
 
@@ -6618,7 +6675,7 @@ msgstr "Oyun için gerçekte neyin geçerli olduğu ve Big Game Mode'un bunu nas
 msgid "What it needs"
 msgstr "Neye ihtiyaç duyar"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:389
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
 msgid "What matters in a game session, read from the system journal."
 msgstr "Bir oyun oturumunda önemli olanlar, sistem günlüğünden okunur."
 
@@ -6634,6 +6691,10 @@ msgstr "Yalnızca oyunun kendi menüsünün yapabildikleri."
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
 msgstr "Oyun ile ekran arasında bulunanlar. Yapılandırılan, sizin istediğinizdir; algılanan, çalışan oyunun gösterdiğidir."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+msgid "What the computer and every graphics card are doing, second by second."
+msgstr "Bilgisayarın ve her ekran kartının saniye saniye ne yaptığı."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2588
 msgid "What the game has"
 msgstr "Oyunda neler var"
@@ -6642,7 +6703,7 @@ msgstr "Oyunda neler var"
 msgid "What the game has and what it runs now."
 msgstr "Oyunda neler var ve şu an neyi çalıştırıyor."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:504
 msgid "What the last switch of Turbo did, item by item, and why."
 msgstr "Turbo'nun son açılıp kapanmasının ne yaptığı, öğe öğe ve nedeniyle."
 
@@ -6686,7 +6747,7 @@ msgstr "Turbo açıkken kendi profili olmayan bir oyun başladığında"
 msgid "When it does nothing"
 msgstr "Hiçbir şey yapmadığında"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:452
 msgid "When something goes wrong in a game, open Logs right after it: the entries around that moment usually say why."
 msgstr "Bir oyunda bir şeyler ters giderse hemen ardından Kayıtlar'ı açın: o anın çevresindeki girdiler genellikle nedenini söyler."
 
@@ -6706,7 +6767,7 @@ msgstr "Bu oyunun ayarlarının tutulduğu yer. Oynamak için burada hiçbir şe
 msgid "Where to buy it"
 msgstr "Nereden satın alınır"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:477
 msgid "Whether a profile is offered when a game without one starts with Turbo on."
 msgstr "Profili olmayan bir oyun Turbo açıkken başladığında profil önerilip önerilmeyeceği."
 
@@ -6722,10 +6783,6 @@ msgstr "Turbo açıkken oyunların tercih ettiği CCD"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:404
 msgid "Which CCD this game prefers"
 msgstr "Bu oyunun tercih ettiği CCD"
-
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:106
-msgid "Which card renders the running game, and what each one is doing. Only what the driver reports is shown."
-msgstr "Çalışan oyunu hangi kartın işlediği ve her birinin ne yaptığı. Yalnızca sürücünün bildirdikleri gösterilir."
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:54
 msgid "While a game runs, Big Game Mode reads nothing behind it, watches only for the game to close, and its disk reads wait for the game"
@@ -6871,6 +6928,10 @@ msgstr "Başlatma seçeneği yazılıyor…"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1557
 msgid "Writing the report…"
 msgstr "Rapor yazılıyor…"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:785
+msgid "Written %s"
+msgstr "Yazma %s"
 
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:21
 msgid "Written in Rust, this is a highly intelligent and balanced scheduler. It perfectly understands modern CPU architectures with mixed cores (like Intel P-Cores/E-Cores or AMD X3D cache CCDs) and routes workloads perfectly."
@@ -7425,7 +7486,7 @@ msgstr "falcond'un hizmeti başarısız oldu; Turbo'yu kapatıp yeniden açın v
 msgid "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files."
 msgstr "falcond, Big Game Mode ve yardımcısı, çekirdeğin grafik sürücüleri, sched-ext, güç profilleri ve Polkit — ve her oyundan Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk ve OptiScaler. Sistem günlüğünden ve kendi kayıt dosyalarından."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:395
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
 msgid "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope and the kernel's GPU messages together."
 msgstr "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope ve çekirdeğin GPU iletileri bir arada."
 
@@ -7491,7 +7552,7 @@ msgstr "hile önleyicili oyunlar için grafik enjeksiyonu devre dışı"
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "el konsolu olmayan bir makinede el konsolu profilleri: oyunlar güç tasarrufu modunda çalışır"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:42
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:506
 msgid "hardware slowdown"
 msgstr "donanım yavaşlaması"
 
@@ -7902,6 +7963,10 @@ msgstr "ölçülecek bir şey yok: plan bu makinede hiçbir şeyi değiştirmiyo
 msgid "nothing, Gamescope is off there"
 msgstr "hiçbir şey, orada Gamescope kapalı"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:750
+msgid "of %t in use (%p)"
+msgstr "%t içinden kullanımda (%p)"
+
 #: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "kapalı: CPU bir seferde %s kadarına erişebilir; kartın video belleği %s"
@@ -7946,7 +8011,7 @@ msgstr "içe aktarılan profil TOML'unu ayrıştırma"
 msgid "performance while the game runs, as falcond asked"
 msgstr "oyun çalışırken performance, falcond'un istediği gibi"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:40
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:504
 msgid "power limit"
 msgstr "güç sınırı"
 
@@ -8138,7 +8203,7 @@ msgstr "systemd, beklenmedik şekilde durduktan sonra falcond'u bir kez yeniden 
 msgid "takes a DLL slot beside the game and may collide with OptiScaler"
 msgstr "oyunun yanında bir DLL yuvası kaplar ve OptiScaler ile çakışabilir"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:41
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:505
 msgid "temperature limit"
 msgstr "sıcaklık sınırı"
 
@@ -8459,7 +8524,7 @@ msgstr "çalışan iş parçacığı başarısız oldu"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:850
 #: bigame-engine/bigame-ui/src/views/tuning.rs:295
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:209
-#: bigame-engine/bigame-ui/src/window.rs:664
+#: bigame-engine/bigame-ui/src/window.rs:669
 msgid "the worker thread stopped"
 msgstr "çalışan iş parçacığı durdu"
 

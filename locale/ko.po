@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 16:00-0300\n"
+"POT-Creation-Date: 2026-10-18 17:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:23\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Korean <ko@li.org>\n"
@@ -138,10 +138,6 @@ msgstr[0] "경고 %n개"
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:190
 msgid "%r cannot be used together with %a"
 msgstr "%r은(는) %a과(와) 함께 사용할 수 없습니다"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:125
-msgid "%r read · %w written KB/s"
-msgstr "읽기 %r · 쓰기 %w KB/s"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:291
 msgid "%r was asked for, but %l is running"
@@ -774,7 +770,7 @@ msgstr "AMD의 FSR 4 제공 파일이 아직 이 게임의 prefix에 없습니�
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "AMD의 업스케일러: 이미지를 확대하고 가장자리를 선명하게 해 흐릿해 보이지 않게 합니다. 모든 GPU에서 작동합니다. 일반적인 사용법: 게임을 더 작게 렌더링하고 FSR이 화면 크기로 끌어올리게 합니다. 아래의 선명도는 여기에 적용됩니다."
 
-#: bigame-engine/bigame-ui/src/window.rs:468
+#: bigame-engine/bigame-ui/src/window.rs:473
 msgid "About"
 msgstr "정보"
 
@@ -959,7 +955,7 @@ msgid "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the ac
 msgstr "안티치트 또는 Big Game Mode 게임 목록: DLL을 주입하면 계정이 위험해질 수 있으므로 아무것도 제공하지 않습니다."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:42
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
 msgid "Appearance"
 msgstr "외관"
 
@@ -972,7 +968,7 @@ msgid "Applied and active"
 msgstr "적용 및 활성"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:33
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:474
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:509
 msgid "Applied and verified"
 msgstr "적용 및 확인됨"
 
@@ -1070,10 +1066,9 @@ msgstr "요청됨"
 msgid "Asked for, but it cannot be switched"
 msgstr "요청했지만 전환할 수 없습니다"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:11
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:24
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:234
 #: bigame-engine/bigame-ui/src/views/home.rs:1477
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:443
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:466
 msgid "Asleep"
 msgstr "절전 상태"
 
@@ -1085,7 +1080,7 @@ msgstr "실행 시"
 msgid "At launch Gamescope runs it at the game's own size, so the image is not scaled twice."
 msgstr "실행 시 Gamescope가 게임 원래 크기로 실행하므로 이미지가 두 번 스케일링되지 않습니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:492
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:527
 msgid "Attempted, and the system did not change: the reason is on the row."
 msgstr "시도했지만 시스템이 바뀌지 않았습니다. 이유는 해당 행에 있습니다."
 
@@ -1117,7 +1112,7 @@ msgstr "Turbo를 켜거나 끄려면 인증이 필요합니다"
 msgid "Authorization was refused or cancelled"
 msgstr "인증이 거부되었거나 취소되었습니다"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:230
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:448
 msgid "Available"
 msgstr "사용 가능"
 
@@ -1141,18 +1136,18 @@ msgstr "평균 FPS"
 msgid "Back"
 msgstr "뒤로"
 
-#: bigame-engine/bigame-ui/src/window.rs:82
-#: bigame-engine/bigame-ui/src/window.rs:85
+#: bigame-engine/bigame-ui/src/window.rs:83
+#: bigame-engine/bigame-ui/src/window.rs:86
 msgid "Back to Home"
 msgstr "홈으로 돌아가기"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:119
-#: bigame-engine/bigame-ui/src/window.rs:383
-#: bigame-engine/bigame-ui/src/window.rs:460
+#: bigame-engine/bigame-ui/src/window.rs:388
+#: bigame-engine/bigame-ui/src/window.rs:465
 msgid "Back to normal"
 msgstr "원래대로"
 
-#: bigame-engine/bigame-ui/src/window.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:382
 msgid "Back to normal?"
 msgstr "원래대로 되돌릴까요?"
 
@@ -1322,10 +1317,6 @@ msgstr "CAS 샤프닝"
 msgid "CPU"
 msgstr "CPU"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:59
-msgid "CPU Freq"
-msgstr "CPU 주파수"
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:200
 msgid "CPU clock, GPU load and network latency, read while Home is on screen."
 msgstr "홈이 화면에 있는 동안 읽는 CPU 클럭, GPU 부하, 네트워크 지연 시간."
@@ -1379,8 +1370,8 @@ msgstr "설치되지 않은 '%p'을(를) 호출합니다 — 실행 옵션: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
 #: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
-#: bigame-engine/bigame-ui/src/window.rs:337
-#: bigame-engine/bigame-ui/src/window.rs:382
+#: bigame-engine/bigame-ui/src/window.rs:342
+#: bigame-engine/bigame-ui/src/window.rs:387
 msgid "Cancel"
 msgstr "취소"
 
@@ -1408,7 +1399,7 @@ msgstr "이 게임에 필요한 것만 바꾸세요. ‘공통 설정’으로 �
 msgid "Change them to: %s"
 msgstr "다음으로 변경: %s"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:475
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:510
 msgid "Changed, then read back from the system to confirm it took."
 msgstr "변경한 뒤 시스템에서 다시 읽어 적용되었는지 확인했습니다."
 
@@ -1454,10 +1445,10 @@ msgstr "시스템 확인 중…"
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:52
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:632
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:638
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
 #: bigame-engine/bigame-ui/src/views/settings.rs:447
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:402
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "확인 중…"
@@ -1506,9 +1497,13 @@ msgstr "필터 지우기"
 msgid "Clear launch options"
 msgstr "실행 옵션 지우기"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:143
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:418
 msgid "Clock"
 msgstr "클럭"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:726
+msgid "Clock not reported"
+msgstr "클럭이 보고되지 않음"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:250
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:267
@@ -1703,7 +1698,7 @@ msgstr "설치 명령 복사"
 msgid "Copy all checks"
 msgstr "모든 검사 복사"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
 msgid "Copy and export"
 msgstr "복사 및 내보내기"
 
@@ -1721,7 +1716,7 @@ msgstr "명령 복사"
 msgid "Copy what is shown"
 msgstr "표시된 내용 복사"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
 msgid "Copy what is shown, or save it to a file with your user name, home folder and host masked."
 msgstr "표시된 내용을 복사하거나, 사용자 이름, 홈 폴더, 호스트를 가린 채 파일로 저장합니다."
 
@@ -1809,12 +1804,12 @@ msgstr "복구할 수 없음"
 msgid "Could not restore"
 msgstr "복원할 수 없음"
 
-#: bigame-engine/bigame-ui/src/window.rs:682
+#: bigame-engine/bigame-ui/src/window.rs:687
 msgid "Could not restore Gamescope's settings"
 msgstr "Gamescope 설정을 복원할 수 없음"
 
-#: bigame-engine/bigame-ui/src/window.rs:663
-#: bigame-engine/bigame-ui/src/window.rs:673
+#: bigame-engine/bigame-ui/src/window.rs:668
+#: bigame-engine/bigame-ui/src/window.rs:678
 msgid "Could not restore falcond's settings"
 msgstr "falcond 설정을 복원할 수 없음"
 
@@ -1868,7 +1863,7 @@ msgid "Could not update Heroic's settings for a game"
 msgstr "게임의 Heroic 설정을 업데이트할 수 없습니다"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1333
-#: bigame-engine/bigame-ui/src/window.rs:700
+#: bigame-engine/bigame-ui/src/window.rs:705
 msgid "Could not update lsfg-vk's file"
 msgstr "lsfg-vk 파일을 업데이트할 수 없음"
 
@@ -1968,6 +1963,10 @@ msgstr "DNS 리졸버 비교"
 msgid "Dark"
 msgstr "어둡게"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:391
+msgid "Dedicated"
+msgstr "외장"
+
 #: bigame-engine/bigame-core/src/optimization.rs:50
 #: bigame-engine/bigame-ui/src/views/settings.rs:55
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1401
@@ -1979,7 +1978,7 @@ msgstr "기본값"
 msgid "Default is shown while the desktop asks for high contrast"
 msgstr "데스크톱이 고대비를 요청하는 동안에는 기본값이 표시됩니다"
 
-#: bigame-engine/bigame-ui/src/window.rs:356
+#: bigame-engine/bigame-ui/src/window.rs:361
 msgid "Default settings restored"
 msgstr "기본 설정이 복원되었습니다"
 
@@ -2005,7 +2004,7 @@ msgstr "프로필 삭제"
 msgid "Delete this profile?"
 msgstr "이 프로필을 삭제하시겠습니까?"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:485
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:520
 msgid "Deliberately left alone, not possible on this machine, or a second controller of the same thing that was not used."
 msgstr "의도적으로 그대로 둔 것, 이 컴퓨터에서 불가능한 것, 또는 같은 대상을 제어하는 두 번째 도구로 사용되지 않은 것입니다."
 
@@ -2026,8 +2025,8 @@ msgid "Desktop notifications when a game profile is applied and when it is resto
 msgstr "게임 프로필이 적용되고 복원될 때 표시되는 데스크톱 알림입니다. 프로필 제안은 위에서 별도로 제어합니다."
 
 #: bigame-engine/bigame-ui/src/widgets/toast.rs:54
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
-#: bigame-engine/bigame-ui/src/window.rs:158
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:163
 msgid "Details"
 msgstr "세부 정보"
 
@@ -2057,7 +2056,7 @@ msgid "Diagnose and details"
 msgstr "진단 및 세부 정보"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:39
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:491
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:526
 msgid "Did not take effect"
 msgstr "적용되지 않음"
 
@@ -2065,9 +2064,10 @@ msgstr "적용되지 않음"
 msgid "Discard"
 msgstr "버리기"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:64
-msgid "Disk I/O"
-msgstr "디스크 입출력"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:94
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:353
+msgid "Disk"
+msgstr "디스크"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68
 #: bigame-engine/bigame-ui/src/views/tuning.rs:670
@@ -2109,7 +2109,7 @@ msgstr "BigLinux를 위한 동적 게임 성능 조율"
 msgid "Each game's frame generation is in its profile"
 msgstr "각 게임의 프레임 생성은 해당 게임의 프로필에 있습니다"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:356
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:391
 msgid "Each item is Active, Waiting for a game, Configured, Not detected, Off, Missing dependency or Not supported. Open a row for what that means, the evidence and the fix."
 msgstr "각 항목은 활성, 게임 대기 중, 구성됨, 감지되지 않음, 끔, 누락된 의존성, 지원되지 않음 중 하나입니다. 행을 열면 그 의미, 근거, 해결 방법을 볼 수 있습니다."
 
@@ -2190,15 +2190,15 @@ msgstr "모든 게임의 그래픽이 복원되었습니다"
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
 msgstr "지원 담당자가 이 컴퓨터에 대해 알아야 할 모든 정보입니다. 보고서를 만드는 동안 사용자 이름, 홈 디렉터리, 호스트 이름, 공인 네트워크 주소는 제거됩니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
 msgid "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked."
 msgstr "위의 모든 내용을 사용자 이름, 홈 폴더, 호스트를 가린 하나의 텍스트로 만들어 포럼이나 이슈에 붙여 넣을 수 있습니다."
 
-#: bigame-engine/bigame-ui/src/window.rs:405
+#: bigame-engine/bigame-ui/src/window.rs:410
 msgid "Everything is back to normal"
 msgstr "모두 원래대로 돌아왔습니다"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:363
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:398
 msgid "Everything that needs attention, classed as fixable, needing you, hardware or information, with commands to copy. A hardware limit is never an error."
 msgstr "주의가 필요한 모든 항목을 해결 가능, 사용자 조치 필요, 하드웨어, 정보로 분류하고 복사할 수 있는 명령과 함께 보여 줍니다. 하드웨어 한계는 결코 오류가 아닙니다."
 
@@ -2346,6 +2346,10 @@ msgstr "Steam, Heroic, Lutris의 더 빠르고 정확한 게임 감지"
 msgid "Fastest"
 msgstr "가장 빠르게"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:721
+msgid "Fastest core %f · average %a"
+msgstr "가장 빠른 코어 %f · 평균 %a"
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:61
 msgid "Fastest for the most frames, Quiet for a cooler and quieter computer, Pretty for a sharper picture."
 msgstr "프레임을 최대로 원하면 ‘가장 빠르게’, 더 시원하고 조용한 컴퓨터를 원하면 ‘조용하게’, 더 선명한 화면을 원하면 ‘예쁘게’."
@@ -2388,7 +2392,7 @@ msgstr "파일을 되돌렸습니다. 게임 자체 설정은 아직 되돌려�
 msgid "Files that will change"
 msgstr "변경될 파일"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:401
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:436
 msgid "Filter and search"
 msgstr "필터 및 검색"
 
@@ -2417,7 +2421,7 @@ msgstr "해결 가능"
 msgid "Flow scale (%)"
 msgstr "흐름 배율 (%)"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:406
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Follow"
 msgstr "팔로우"
 
@@ -2523,15 +2527,10 @@ msgstr "주파수 CCD"
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
 #: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
 #: bigame-engine/bigame-ui/src/views/home.rs:89
 msgid "GPU"
 msgstr "GPU"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:62
-msgid "GPU Temp"
-msgstr "GPU 온도"
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:444
 msgid "GPU power level"
@@ -2580,7 +2579,7 @@ msgid "Game name cannot be empty"
 msgstr "게임 이름은 비워 둘 수 없습니다"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:428
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:476
 msgid "Game profiles"
 msgstr "게임 프로필"
 
@@ -2608,7 +2607,7 @@ msgstr "게임이 3D V-Cache가 적층된 CCD를 선호합니다. 대부분의 �
 msgid "Games prefer the CCD without the extra cache, which clocks higher. For the few games that gain from clock speed more than from cache."
 msgstr "게임이 추가 캐시가 없고 클럭이 더 높은 CCD를 선호합니다. 캐시보다 클럭 속도에서 더 많은 이득을 얻는 소수의 게임용입니다."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:229
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:447
 msgid "Games render here"
 msgstr "게임이 여기서 렌더링됨"
 
@@ -2825,7 +2824,8 @@ msgstr "그래픽 API와 그 근거, GPU, 게임 자체 업스케일러, DLL 슬
 msgid "Graphics card"
 msgstr "그래픽 카드"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:105
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:110
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:365
 msgid "Graphics cards"
 msgstr "그래픽 카드"
 
@@ -2853,7 +2853,7 @@ msgstr "HOME이 설정되어 있지 않습니다"
 msgid "Hand back"
 msgstr "되돌려주기"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:493
 msgid "Hand falcond back"
 msgstr "falcond 되돌려주기"
 
@@ -2869,11 +2869,11 @@ msgstr "휴대용"
 msgid "Hardware"
 msgstr "하드웨어"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:534
 msgid "Help"
 msgstr "도움말"
 
-#: bigame-engine/bigame-ui/src/window.rs:481
+#: bigame-engine/bigame-ui/src/window.rs:486
 msgid "Help & Tutorial"
 msgstr "도움말 및 튜토리얼"
 
@@ -2954,14 +2954,18 @@ msgid "Heroic's settings were not written"
 msgstr "Heroic 설정이 기록되지 않았습니다"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:167
-#: bigame-engine/bigame-ui/src/window.rs:155
-#: bigame-engine/bigame-ui/src/window.rs:73
+#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/window.rs:74
 msgid "Home"
 msgstr "홈"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
 msgid "How Big Game Mode looks and behaves, and how to hand falcond back."
 msgstr "Big Game Mode의 모양과 동작, 그리고 falcond를 되돌려주는 방법."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+msgid "How busy all its cores are, the fastest core's clock and the average, and its temperature."
+msgstr "모든 코어의 사용률, 가장 빠른 코어의 클럭과 평균, 그리고 온도."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1008
 msgid "How files are changed safely"
@@ -2970,6 +2974,10 @@ msgstr "파일을 안전하게 변경하는 방법"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:755
 msgid "How it is known"
 msgstr "판단 근거"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:354
+msgid "How much every disk reads and writes each second, together."
+msgstr "모든 디스크가 초당 읽고 쓰는 양의 합계."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1464
 msgid "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000."
@@ -3046,7 +3054,7 @@ msgstr "게임 내"
 msgid "In the game next to OptiScaler: two upscalers in series"
 msgstr "게임에서 OptiScaler와 함께: 업스케일러 두 개가 직렬로 동작"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:435
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:470
 msgid "In the tray, so games started from Steam are noticed even with the window closed."
 msgstr "트레이에 있으므로 창을 닫아도 Steam에서 시작한 게임을 알아챕니다."
 
@@ -3131,6 +3139,10 @@ msgstr "설치됨. 교체된 모든 파일을 백업했습니다"
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:85
 msgid "Integer scaling"
 msgstr "정수 배율 스케일링"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:393
+msgid "Integrated"
+msgstr "내장"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:153
 msgid "Intel integrated"
@@ -3245,10 +3257,6 @@ msgstr "LSFG-VK는 인공적으로 생성한 프레임을 삽입해 프레임률
 msgid "Last read"
 msgstr "마지막 읽기"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:65
-msgid "Latency"
-msgstr "지연 시간"
-
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:15
 msgid "Latency-Aware Virtual Deadline. The absolute best choice for gaming! It heavily prioritizes interactive tasks (like your game rendering frames and reading your mouse clicks). It dramatically reduces stuttering and stabilizes FPS."
 msgstr "Latency-Aware Virtual Deadline. 게임에 가장 좋은 선택입니다! 대화형 작업(게임의 프레임 렌더링과 마우스 클릭 읽기 등)을 강하게 우선시하여 끊김을 크게 줄이고 FPS를 안정시킵니다."
@@ -3323,7 +3331,7 @@ msgstr "스케줄러 알아보기"
 msgid "Leave the game's graphics as they are."
 msgstr "게임 그래픽을 그대로 둡니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:480
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:515
 msgid "Left to the component that owns it, which sets it for each game."
 msgstr "이를 담당하는 구성 요소에 맡기며, 그 구성 요소가 게임마다 설정합니다."
 
@@ -3343,19 +3351,19 @@ msgstr "밝게"
 msgid "Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."
 msgstr "가능한 원인: 게임을 Big Game Mode(프로필 → 실행)가 아닌 Steam이나 런처에서 시작함, Gamescope가 시작 시 종료됨(WSI 레이어, Wayland를 선호하는 게임), 게임 프로필이 안 함으로 설정됨."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
-msgid "Live CPU and GPU readings, and one card per GPU with its load, clock, video memory, temperature and power, and which one renders the game."
-msgstr "실시간 CPU 및 GPU 수치와 GPU마다 하나씩 부하, 클럭, 비디오 메모리, 온도, 전력, 그리고 어느 GPU가 게임을 렌더링하는지 보여 주는 카드."
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:199
 msgid "Live readings"
 msgstr "실시간 수치"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:72
+msgid "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything."
+msgstr "초당 한 번의 실시간 측정값입니다. 게임이 화면을 차지하는 동안에는 일시 중지되므로, 지켜보는 것이 게임에 부담을 주지 않습니다."
 
 #: bigame-engine/bigame-core/src/optimization.rs:120
 msgid "Living room (HTPC)"
 msgstr "거실 (HTPC)"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:142
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:411
 msgid "Load"
 msgstr "부하"
 
@@ -3389,8 +3397,8 @@ msgid "Log exported"
 msgstr "로그를 내보냈습니다"
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:96
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:388
-#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
+#: bigame-engine/bigame-ui/src/window.rs:164
 msgid "Logs"
 msgstr "로그"
 
@@ -3437,7 +3445,7 @@ msgstr "Lutris를 다시 열어야 합니다"
 msgid "Mailbox"
 msgstr "Mailbox"
 
-#: bigame-engine/bigame-ui/src/window.rs:476
+#: bigame-engine/bigame-ui/src/window.rs:481
 msgid "Main Menu"
 msgstr "메인 메뉴"
 
@@ -3456,7 +3464,7 @@ msgid "Managed by Big Game Mode since %s"
 msgstr "%s부터 Big Game Mode가 관리"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:35
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:479
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:514
 msgid "Managed per game"
 msgstr "게임별로 관리됨"
 
@@ -3551,6 +3559,15 @@ msgstr "각 리졸버가 조회에 얼마나 빨리 응답하는지 측정합니
 msgid "Measuring…"
 msgstr "측정 중…"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:88
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
+msgid "Memory"
+msgstr "메모리"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
+msgid "Memory in use out of the total, and swap."
+msgstr "전체 중 사용 중인 메모리와 스왑."
+
 #: bigame-engine/bigame-core/src/graphics/scan.rs:133
 msgid "Microsoft system DLL"
 msgstr "Microsoft 시스템 DLL"
@@ -3629,9 +3646,7 @@ msgstr "배수, 흐름 배율, HDR 및 표시 모드"
 msgid "My own file"
 msgstr "내 파일"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:17
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:117
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:165
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:743
 msgid "N/A"
 msgstr "해당 없음"
 
@@ -3675,10 +3690,12 @@ msgstr "사용자 조치 필요"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:624
 #: bigame-engine/bigame-ui/src/views/home.rs:90
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:99
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:358
 msgid "Network"
 msgstr "네트워크"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:369
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:404
 msgid "Network, background load and Steam"
 msgstr "네트워크, 백그라운드 부하, Steam"
 
@@ -3748,7 +3765,7 @@ msgstr "안 함"
 msgid "New Profile"
 msgstr "새 프로필"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:407
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
 msgid "New entries appear while the page is open; nothing is read while it is not."
 msgstr "페이지가 열려 있는 동안 새 항목이 나타나며, 열려 있지 않을 때는 아무것도 읽지 않습니다."
 
@@ -3770,11 +3787,11 @@ msgstr "아니요"
 msgid "No DLSS, FSR or XeSS"
 msgstr "DLSS, FSR, XeSS 없음"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:172
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:543
 msgid "No DRM card is exposed by the kernel."
 msgstr "커널이 노출한 DRM 카드가 없습니다."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:171
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:541
 msgid "No GPU was found"
 msgstr "GPU를 찾을 수 없습니다"
 
@@ -3828,7 +3845,7 @@ msgstr "게임을 찾을 수 없음"
 msgid "No generated frames from OptiScaler. The game's own frame generation, if it has one, stays in its menu."
 msgstr "OptiScaler는 프레임을 생성하지 않습니다. 게임 자체 프레임 생성이 있다면 게임 메뉴에서 그대로 사용할 수 있습니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:500
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:535
 msgid "No help available for this view."
 msgstr "이 화면에 대한 도움말이 없습니다."
 
@@ -3863,6 +3880,10 @@ msgstr "스케줄러 없음: 모드가 아무 작업도 하지 않습니다"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:244
 msgid "No screen saver or screen sleep while this game runs"
 msgstr "이 게임이 실행되는 동안 화면 보호기와 화면 절전을 사용하지 않습니다"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:755
+msgid "No swap"
+msgstr "스왑 없음"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:317
 msgid "No, by the game's profile (Never)"
@@ -3982,9 +4003,9 @@ msgstr "제공 안 됨: 이 게임에는 안티치트가 있습니다"
 msgid "Not recommended"
 msgstr "권장하지 않음"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:27
-msgid "Not reported by the driver"
-msgstr "드라이버가 보고하지 않음"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:350
+msgid "Not reported"
+msgstr "보고되지 않음"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:371
 msgid "Not restored (close them and try again): %s"
@@ -4107,13 +4128,13 @@ msgstr "설치할 만한 것이 없거나, 게임에 이미 있는 것보다 나
 msgid "Notifications"
 msgstr "알림"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:481
 msgid "Notifications and ping target"
 msgstr "알림 및 핑 대상"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
-msgid "Notifications when a game starts or exits, and the address the Details page pings for its latency graph."
-msgstr "게임이 시작하거나 종료할 때의 알림과, 세부 정보 페이지가 지연 시간 그래프를 위해 핑을 보내는 주소."
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:482
+msgid "Notifications when a game starts or exits, and the address the Telemetry page pings for its latency chart."
+msgstr "게임이 시작하거나 종료할 때의 알림과, 원격 측정 페이지가 지연 시간 그래프를 위해 핑을 보내는 주소."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:571
 msgid "Now: %s"
@@ -4219,11 +4240,15 @@ msgstr "켜짐: falcond가 실행되어 각 게임의 프로필을 적용합니�
 msgid "One button makes your games run better. Press it again to go back to normal."
 msgstr "버튼 하나로 게임이 더 잘 돌아갑니다. 다시 누르면 원래대로 돌아갑니다."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:366
+msgid "One card per GPU with its load, temperature, clock, video memory and power, and which one renders the game. Not reported means the driver does not publish that reading."
+msgstr "GPU마다 하나의 카드로 부하, 온도, 클럭, 비디오 메모리, 전력과 어느 GPU가 게임을 렌더링하는지 보여 줍니다. 보고되지 않음은 드라이버가 그 값을 공개하지 않는다는 뜻입니다."
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:114
 msgid "One general configuration"
 msgstr "하나의 공통 설정"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:384
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "컴퓨터 상태를 알려 주는 한 줄과 항목마다 칩 하나: Turbo, falcond, 프로필, 전력, 스케줄러, GPU, Gamescope, 업스케일링, 프레임 생성."
 
@@ -4231,7 +4256,7 @@ msgstr "컴퓨터 상태를 알려 주는 한 줄과 항목마다 칩 하나: Tu
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "프로젝트 전체를 관통하는 규칙이 하나 있습니다: 컴퓨터가 할 수 없는 것은 제공하지 않고, 측정 없이는 어떤 것도 개선이라고 부르지 않습니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:394
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
 msgid "One view"
 msgstr "한눈에"
 
@@ -4492,8 +4517,8 @@ msgid "OptiScaler's own frame generation (OptiFG, with FSR frame generation), fo
 msgstr "DirectX 12 게임용 OptiScaler 자체 프레임 생성(OptiFG, FSR 프레임 생성 사용)입니다. 실험적: HUD에 잔상이 생길 수 있고 지연 시간이 늘어납니다. 이를 선택하면 실험적 옵션이 허용됩니다. lsfg-vk와는 절대 함께 쓰지 않습니다. 프레임 생성기 두 개가 직렬로 동작하면 생성된 프레임에서 다시 프레임을 생성합니다."
 
 #: bigame-engine/bigame-ui/src/views/report.rs:234
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:468
-#: bigame-engine/bigame-ui/src/window.rs:100
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/window.rs:101
 msgid "Optimization Report"
 msgstr "최적화 보고서"
 
@@ -4537,7 +4562,7 @@ msgstr "출력 크기"
 msgid "Overlay style"
 msgstr "오버레이 스타일"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:383
 msgid "Overview"
 msgstr "개요"
 
@@ -4600,7 +4625,7 @@ msgstr "게임별 최적화를 시작할 수 없습니다"
 msgid "Performance"
 msgstr "성능"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:355
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:390
 msgid "Performance and video pipeline"
 msgstr "성능 및 비디오 파이프라인"
 
@@ -4633,6 +4658,10 @@ msgstr "성능 모드, 자체 스케줄러가 없는 게임을 위한 sched-ext 
 msgid "Ping Target"
 msgstr "핑 대상"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:692
+msgid "Ping to %s"
+msgstr "%s(으)로 핑"
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:366
 msgid "Plan"
 msgstr "계획"
@@ -4650,8 +4679,8 @@ msgstr "%s 플레이"
 msgid "Post-processing filters (sharpening, colour) in Vulkan games"
 msgstr "Vulkan 게임의 후처리 필터 (샤프닝, 색상)"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:146
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:34
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:420
 msgid "Power"
 msgstr "전력"
 
@@ -4699,7 +4728,7 @@ msgid "Pretty"
 msgstr "예쁘게"
 
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:92
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:362
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:397
 msgid "Problems"
 msgstr "문제"
 
@@ -4712,6 +4741,11 @@ msgstr "프로세스"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:700
 msgid "Process Name"
 msgstr "프로세스 이름"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:83
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+msgid "Processor"
+msgstr "프로세서"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:78
 msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
@@ -4805,7 +4839,7 @@ msgid "Profile set"
 msgstr "프로필 세트"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:217
-#: bigame-engine/bigame-ui/src/window.rs:156
+#: bigame-engine/bigame-ui/src/window.rs:160
 msgid "Profiles"
 msgstr "프로필"
 
@@ -4823,7 +4857,7 @@ msgstr "Steam Deck이나 ROG Ally 같은 휴대용 PC용 프로필입니다. 배
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:446
 #: bigame-engine/bigame-ui/src/views/settings.rs:457
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:488
 msgid "Profiles from an older Big Game Mode"
 msgstr "이전 Big Game Mode의 프로필"
 
@@ -4835,7 +4869,7 @@ msgstr "프로필 로드됨"
 msgid "Profiles of yours that match no installed game. They stay until you delete them."
 msgstr "설치된 게임과 일치하지 않는 사용자 프로필입니다. 삭제할 때까지 남아 있습니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:454
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:489
 msgid "Profiles that can never match their game, and the fix."
 msgstr "게임과 절대 일치할 수 없는 프로필과 그 해결 방법."
 
@@ -4898,7 +4932,7 @@ msgid "Quiet"
 msgstr "조용하게"
 
 #: bigame-engine/bigame-ui/src/tray.rs:219
-#: bigame-engine/bigame-ui/src/window.rs:469
+#: bigame-engine/bigame-ui/src/window.rs:474
 msgid "Quit"
 msgstr "종료"
 
@@ -4909,10 +4943,6 @@ msgstr "완료되면 종료"
 #: bigame-engine/bigame-ui/src/app.rs:112
 msgid "Quit when finished?"
 msgstr "완료되면 종료할까요?"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:63
-msgid "RAM Usage"
-msgstr "RAM 사용량"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:542
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
@@ -4929,6 +4959,10 @@ msgstr "렌더링 프레임률이 아니라 표시 프레임률을 높이며 지
 #: bigame-engine/bigame-core/src/graphics/rules.rs:179
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "ReShade의 애드온 빌드는 싱글 플레이 게임 전용입니다. 주입된 DLL로 인해 안티치트에 차단(밴)될 수 있습니다"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:783
+msgid "Read %s"
+msgstr "읽기 %s"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2213
 msgid "Read at %s from the game's folder, the graphics card and the running game"
@@ -4983,10 +5017,6 @@ msgstr "적용 준비됨"
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:147
 msgid "Ready to play"
 msgstr "게임 준비 완료"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:48
-msgid "Real-time Telemetry"
-msgstr "실시간 원격 측정"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:18
 msgid "Real-time telemetry, diagnostics and one view of every relevant log"
@@ -5052,7 +5082,7 @@ msgstr "실행 옵션 제거 중…"
 msgid "Render size"
 msgstr "렌더링 크기"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:228
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:446
 msgid "Renders %s"
 msgstr "%s 렌더링 중"
 
@@ -5112,7 +5142,7 @@ msgstr "필요한 패키지를 시스템에서 찾을 수 없습니다"
 msgid "Rescan game library"
 msgstr "게임 라이브러리 다시 검색"
 
-#: bigame-engine/bigame-ui/src/window.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:340
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "모든 조정 및 Gamescope 설정을 권장 기본값으로 초기화합니다. 이 작업은 되돌릴 수 없습니다."
 
@@ -5131,7 +5161,7 @@ msgstr "해결됨: %s만 업스케일러로 사용"
 msgid "Restart Big Game Mode"
 msgstr "Big Game Mode 다시 시작"
 
-#: bigame-engine/bigame-ui/src/window.rs:338
+#: bigame-engine/bigame-ui/src/window.rs:343
 msgid "Restore"
 msgstr "복원"
 
@@ -5140,8 +5170,8 @@ msgstr "복원"
 msgid "Restore All"
 msgstr "모두 복원"
 
-#: bigame-engine/bigame-ui/src/window.rs:334
-#: bigame-engine/bigame-ui/src/window.rs:462
+#: bigame-engine/bigame-ui/src/window.rs:339
+#: bigame-engine/bigame-ui/src/window.rs:467
 msgid "Restore Defaults"
 msgstr "기본값 복원"
 
@@ -5199,7 +5229,7 @@ msgstr "재개"
 msgid "Resume %s?"
 msgstr "%s을(를) 재개할까요?"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:494
 msgid "Return falcond to exactly the state it was in before Big Game Mode first changed it."
 msgstr "Big Game Mode가 처음 변경하기 전의 상태 그대로 falcond를 되돌립니다."
 
@@ -5411,8 +5441,8 @@ msgstr "위 행에서 경로를 설정하세요. 모든 게임이 공유하는 �
 msgid "Set now"
 msgstr "지금 설정됨"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
-#: bigame-engine/bigame-ui/src/window.rs:160
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/window.rs:165
 msgid "Settings"
 msgstr "설정"
 
@@ -5441,7 +5471,7 @@ msgstr "시작할 때 대화 상자 표시"
 msgid "Show notifications on game launch and exit"
 msgstr "게임 시작 및 종료 시 알림 표시"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:402
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:437
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "오류, 경고 또는 한 가지 출처만 표시하거나 텍스트를 검색합니다."
 
@@ -5469,7 +5499,7 @@ msgstr "건너뛰기"
 msgid "Skipped"
 msgstr "건너뜀"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:484
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:519
 msgid "Skipped, not available, conflicts avoided"
 msgstr "건너뜀, 사용할 수 없음, 피한 충돌"
 
@@ -5496,7 +5526,7 @@ msgstr "특별히 감사드립니다"
 msgid "Standing"
 msgstr "상태"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:382
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
 msgid "Start a game and keep this page open: it is read only while it is on screen, so it costs nothing the rest of the time."
 msgstr "게임을 시작하고 이 페이지를 열어 두세요. 화면에 있는 동안에만 읽으므로 나머지 시간에는 부담이 없습니다."
 
@@ -5504,12 +5534,16 @@ msgstr "게임을 시작하고 이 페이지를 열어 두세요. 화면에 있�
 msgid "Start a game from Steam, Lutris, Heroic, the application menu or Profiles. The card at the bottom shows it with its flags."
 msgstr "Steam, Lutris, Heroic, 애플리케이션 메뉴 또는 프로필에서 게임을 시작하세요. 아래쪽 카드에 게임과 해당 플래그가 표시됩니다."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:371
+msgid "Start a game, then come back here with Alt+Tab: the charts show the last minute. While the game has the screen, nothing is read."
+msgstr "게임을 시작한 뒤 Alt+Tab으로 여기로 돌아오세요. 그래프는 최근 1분을 보여 줍니다. 게임이 화면을 차지하는 동안에는 아무것도 읽지 않습니다."
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:279
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "게임을 시작하세요. 게임이 실제로 받는 설정을 프로세스에서 읽어 여기에 표시합니다."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:410
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
 msgstr "로그인 시 백그라운드에서 시작"
 
@@ -5652,13 +5686,17 @@ msgstr "성공"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1529
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:825
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:376
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
 msgid "Support report"
 msgstr "지원 보고서"
 
 #: bigame-engine/bigame-core/src/recommend.rs:51
 msgid "Supported, not measured"
 msgstr "지원됨, 측정되지 않음"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:757
+msgid "Swap %u of %t"
+msgstr "스왑 %u / %t"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1999
 msgid "Switch it back on"
@@ -5714,13 +5752,24 @@ msgstr "모든 게임에서 OptiScaler와 AI 그래픽이 배치한 모든 파�
 msgid "Technical details"
 msgstr "기술 세부 정보"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
-msgid "Telemetry and graphics cards"
-msgstr "원격 측정 및 그래픽 카드"
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:161
+msgid "Telemetry"
+msgstr "원격 측정"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:145
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:412
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:474
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:500
 msgid "Temperature"
 msgstr "온도"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:730
+msgid "Temperature %s"
+msgstr "온도 %s"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:737
+msgid "Temperature not reported"
+msgstr "온도가 보고되지 않음"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1693
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1819
@@ -5739,7 +5788,7 @@ msgstr "CPU 스케줄러(프로세서의 '교통 관제사')는 어떤 프로그
 msgid "The DNS servers of the network connection that carries your traffic, as NetworkManager has them. \"Use\" on a measured resolver makes it the first one, and the servers your router hands out are no longer used. Before the first change, the connection's DNS settings are saved in ~/.local/state/bigame-mode/network; \"Restore previous\" puts them back and removes the copy. A faster lookup does not lower the latency of a game once it has connected."
 msgstr "트래픽을 전달하는 네트워크 연결의 DNS 서버(NetworkManager에 있는 그대로). 측정한 리졸버에서 ‘사용’을 누르면 그것이 첫 번째 서버가 되고, 라우터가 나눠 주는 서버는 더 이상 사용되지 않습니다. 첫 변경 전에 연결의 DNS 설정은 ~/.local/state/bigame-mode/network에 저장됩니다. ‘이전 설정 복원’은 이를 되돌리고 사본을 삭제합니다. 조회가 빨라져도 게임이 연결된 뒤의 지연 시간은 줄어들지 않습니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:465
 msgid "The Default or Gamer theme, light, dark or the desktop's. Only the look changes."
 msgstr "기본값 또는 게이머 테마, 밝게, 어둡게 또는 데스크톱 설정. 모양만 바뀝니다."
 
@@ -5752,10 +5801,10 @@ msgid "The Steam runtime's library cache tool is no longer taken for the running
 msgstr "Steam 런타임의 라이브러리 캐시 도구를 더 이상 실행 중인 게임으로 오인하지 않습니다"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:271
-msgid "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
-msgstr "홈과 세부 정보 페이지의 지연 시간 측정을 위해 핑을 보내는 주소입니다. 선택지는 DNS 비교에서 측정하는 리졸버, 즉 이 컴퓨터가 사용하는 리졸버와 잘 알려진 공용 리졸버입니다. 다른 주소를 직접 입력할 수도 있습니다."
+msgid "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
+msgstr "홈과 원격 측정 페이지의 지연 시간 측정을 위해 핑을 보내는 주소입니다. 선택지는 DNS 비교에서 측정하는 리졸버, 즉 이 컴퓨터가 사용하는 리졸버와 잘 알려진 공용 리졸버입니다. 다른 주소를 직접 입력할 수도 있습니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:495
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:530
 msgid "The back button at the top returns to Home."
 msgstr "위쪽의 뒤로 버튼을 누르면 홈으로 돌아갑니다."
 
@@ -5776,7 +5825,7 @@ msgstr "이 게임의 선택이 저장되지 않았습니다. 저장하면 다�
 msgid "The choice was not saved"
 msgstr "선택을 저장하지 못했습니다"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:370
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:405
 msgid "The connection and a DNS comparison, programs competing for the CPU, and Steam launch options that call a missing program."
 msgstr "연결과 DNS 비교, CPU를 두고 경쟁하는 프로그램, 없는 프로그램을 호출하는 Steam 실행 옵션."
 
@@ -5880,6 +5929,10 @@ msgstr "이미지가 두 번 스케일링되어 흐려지고 쓸데없이 시간
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1556
 msgid "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards."
 msgstr "CPU 클럭에 대한 커널의 규칙입니다. Big Game Mode는 이를 설정하지 않으며, power-profiles-daemon이 전원 프로필에 따라 설정합니다. 성능 모드(위)는 게임이 실행되는 동안 성능 프로필을 요청하고, 그 후 원래대로 돌아갑니다."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:359
+msgid "The latency to the address chosen in Settings, and what the network cards receive and send."
+msgstr "설정에서 고른 주소까지의 지연 시간과, 네트워크 카드가 받고 보내는 양."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2407
 msgid "The launch option was removed; the game's own FSR runs as it did"
@@ -6061,8 +6114,8 @@ msgstr "시스템이 Big Game Mode가 %s에 신호를 보내도록 허용하지 
 msgid "The variable is written to ~/.config/environment.d and pushed into the session, but a launcher that was already running (Steam) keeps its old environment: close and reopen Steam, then start the game again."
 msgstr "변수는 ~/.config/environment.d에 기록되고 세션에 전달되지만, 이미 실행 중인 런처(Steam)는 이전 환경을 유지합니다: Steam을 닫았다가 다시 연 다음 게임을 다시 시작하세요."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:538
 msgid "The welcome screen can be opened again from the main menu, under Welcome."
 msgstr "환영 화면은 주 메뉴의 환영에서 다시 열 수 있습니다."
 
@@ -6093,6 +6146,10 @@ msgstr "이 GPU는 FSR 4를 지원하지 않으므로 해당 부분은 제외됩
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:226
 msgid "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Details › Network puts them back."
 msgstr "이 작업은 연결 ‘%s’의 시스템 네트워크 설정을 바꿉니다: %s이(가) 첫 번째 DNS 서버가 되고, 자동으로 받은 서버는 더 이상 사용되지 않습니다. 현재 설정이 먼저 저장되며, 세부 정보 › 네트워크의 ‘이전 설정 복원’으로 되돌릴 수 있습니다."
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:81
+msgid "This computer"
+msgstr "이 컴퓨터"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:51
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:61
@@ -6139,7 +6196,7 @@ msgstr "세 가지 프리셋, ‘가장 빠르게’, ‘조용하게’, ‘예
 msgid "Throughput for long batch work, not for games. Listed because falcond accepts it."
 msgstr "게임이 아닌 장시간 일괄 작업을 위한 처리량 중심 모드입니다. falcond가 허용하므로 표시됩니다."
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:151
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:698
 msgid "Timeout"
 msgstr "시간 초과"
 
@@ -6158,7 +6215,7 @@ msgid "Try another name or remove the filters."
 msgstr "다른 이름을 입력하거나 필터를 제거하세요."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:270
-#: bigame-engine/bigame-ui/src/window.rs:157
+#: bigame-engine/bigame-ui/src/window.rs:162
 msgid "Tuning"
 msgstr "조정"
 
@@ -6260,7 +6317,7 @@ msgstr "Turbo 꺼짐"
 msgid "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back."
 msgstr "Turbo는 falcond 서비스를 켜고 끕니다. 처음 그렇게 했을 때 falcond가 활성화되어 실행 중이었는지를 기록했습니다. 되돌려주기는 정확히 그 상태를 복원하고 이후 falcond를 건드리지 않습니다. 제어권 되찾기는 그 시점의 falcond 상태를 기록하고(그래서 나중에 되돌려주면 그 상태가 복원됩니다) 다시 Turbo를 따르게 합니다: 실행 중이면 실행 및 활성 상태를 유지하고, 그렇지 않으면 중지 및 비활성 상태를 유지합니다. Turbo를 켜거나 꺼도 제어권을 되찾습니다."
 
-#: bigame-engine/bigame-ui/src/window.rs:378
+#: bigame-engine/bigame-ui/src/window.rs:383
 msgid "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched."
 msgstr "Turbo가 꺼지고, 선택이 ‘가장 빠르게’로 돌아가며, 모든 설정이 처음 상태로 돌아갑니다. 게임은 건드리지 않습니다."
 
@@ -6472,10 +6529,6 @@ msgstr "VCache 모드가 설정되었지만 AMD 3D V-Cache가 감지되지 않�
 msgid "VKD3D-Proton's cache (vkd3d-proton.cache) is in the game's folder: it has run with Direct3D 12 here"
 msgstr "게임 폴더에 VKD3D-Proton 캐시(vkd3d-proton.cache)가 있습니다. 이 환경에서 Direct3D 12로 실행된 적이 있습니다"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:144
-msgid "VRAM"
-msgstr "VRAM"
-
 #: bigame-engine/bigame-core/src/health.rs:359
 #: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
@@ -6502,6 +6555,10 @@ msgstr "버전 %v · Big Game Mode에서 시작한 게임을 감쌉니다"
 msgid "Version %v — %n option detected from --help"
 msgid_plural "Version %v — %n options detected from --help"
 msgstr[0] "버전 %v — --help에서 옵션 %n개 감지됨"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:419
+msgid "Video memory"
+msgstr "비디오 메모리"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:77
 msgid "Video pipeline"
@@ -6540,7 +6597,7 @@ msgstr "경고 및 오류"
 msgid "Watching for games"
 msgstr "게임 감시 중"
 
-#: bigame-engine/bigame-ui/src/window.rs:467
+#: bigame-engine/bigame-ui/src/window.rs:472
 msgid "Welcome"
 msgstr "환영"
 
@@ -6590,7 +6647,7 @@ msgstr "‘공통 설정’으로 남겨 둔 항목은 조정에서 설정한 �
 msgid "What is left on “General configuration” follows Tuning → Display."
 msgstr "‘공통 설정’으로 남겨 둔 항목은 조정 → 디스플레이를 따릅니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:378
 msgid "What is really in force for the game, and how Big Game Mode knows it."
 msgstr "게임에 실제로 적용된 것과 Big Game Mode가 그것을 어떻게 아는지."
 
@@ -6598,7 +6655,7 @@ msgstr "게임에 실제로 적용된 것과 Big Game Mode가 그것을 어떻�
 msgid "What it needs"
 msgstr "필요한 것"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:389
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
 msgid "What matters in a game session, read from the system journal."
 msgstr "시스템 저널에서 읽은, 게임 세션에서 중요한 내용."
 
@@ -6614,6 +6671,10 @@ msgstr "게임 자체 메뉴에서만 할 수 있는 것입니다."
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
 msgstr "게임과 화면 사이에 있는 요소입니다. 구성됨은 사용자가 요청한 것이고, 감지됨은 실행 중인 게임에서 확인된 것입니다."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+msgid "What the computer and every graphics card are doing, second by second."
+msgstr "컴퓨터와 각 그래픽 카드가 하는 일을 초 단위로 보여 줍니다."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2588
 msgid "What the game has"
 msgstr "게임에 있는 것"
@@ -6622,7 +6683,7 @@ msgstr "게임에 있는 것"
 msgid "What the game has and what it runs now."
 msgstr "게임에 있는 것과 지금 실행 중인 것."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:504
 msgid "What the last switch of Turbo did, item by item, and why."
 msgstr "마지막 Turbo 전환이 한 일을 항목별로, 그 이유와 함께."
 
@@ -6666,7 +6727,7 @@ msgstr "Turbo가 켜져 있고 자체 프로필이 없는 게임이 시작될 �
 msgid "When it does nothing"
 msgstr "효과가 없는 경우"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:452
 msgid "When something goes wrong in a game, open Logs right after it: the entries around that moment usually say why."
 msgstr "게임에서 문제가 생기면 바로 로그를 여세요. 그 순간 전후의 항목에 보통 이유가 나와 있습니다."
 
@@ -6686,7 +6747,7 @@ msgstr "이 게임의 설정이 보관되는 위치입니다. 게임을 하기 �
 msgid "Where to buy it"
 msgstr "구매처"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:477
 msgid "Whether a profile is offered when a game without one starts with Turbo on."
 msgstr "프로필이 없는 게임이 Turbo가 켜진 상태에서 시작될 때 프로필을 제안할지 여부."
 
@@ -6702,10 +6763,6 @@ msgstr "Turbo가 켜져 있는 동안 게임이 선호하는 CCD"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:404
 msgid "Which CCD this game prefers"
 msgstr "이 게임이 선호하는 CCD"
-
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:106
-msgid "Which card renders the running game, and what each one is doing. Only what the driver reports is shown."
-msgstr "실행 중인 게임을 렌더링하는 카드와 각 카드가 하는 일입니다. 드라이버가 보고하는 내용만 표시됩니다."
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:54
 msgid "While a game runs, Big Game Mode reads nothing behind it, watches only for the game to close, and its disk reads wait for the game"
@@ -6851,6 +6908,10 @@ msgstr "실행 옵션 쓰는 중…"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1557
 msgid "Writing the report…"
 msgstr "보고서 쓰는 중…"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:785
+msgid "Written %s"
+msgstr "쓰기 %s"
 
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:21
 msgid "Written in Rust, this is a highly intelligent and balanced scheduler. It perfectly understands modern CPU architectures with mixed cores (like Intel P-Cores/E-Cores or AMD X3D cache CCDs) and routes workloads perfectly."
@@ -7404,7 +7465,7 @@ msgstr "falcond 서비스가 실패했습니다. Turbo를 껐다가 다시 켜�
 msgid "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files."
 msgstr "falcond, Big Game Mode와 그 도우미, 커널의 그래픽 드라이버, sched-ext, 전원 프로필, Polkit — 그리고 각 게임의 Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk, OptiScaler. 시스템 저널과 각자의 로그 파일에서 가져옵니다."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:395
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
 msgid "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope and the kernel's GPU messages together."
 msgstr "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope, 커널의 GPU 메시지를 한곳에."
 
@@ -7470,7 +7531,7 @@ msgstr "안티치트가 있는 게임에는 그래픽 주입이 비활성화됩�
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "휴대용 기기가 아닌 컴퓨터에 휴대용 기기 프로필: 게임이 절전 모드로 실행됩니다"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:42
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:506
 msgid "hardware slowdown"
 msgstr "하드웨어 속도 저하"
 
@@ -7881,6 +7942,10 @@ msgstr "측정할 것이 없습니다: 이 계획은 이 컴퓨터에서 아무�
 msgid "nothing, Gamescope is off there"
 msgstr "없음, 그곳에서는 Gamescope가 꺼져 있음"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:750
+msgid "of %t in use (%p)"
+msgstr "/ %t 사용 중 (%p)"
+
 #: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "꺼짐: CPU가 한 번에 접근할 수 있는 양은 %s (카드의 비디오 메모리 %s 중)"
@@ -7925,7 +7990,7 @@ msgstr "가져온 프로필 TOML 구문 분석"
 msgid "performance while the game runs, as falcond asked"
 msgstr "falcond의 요청에 따라 게임이 실행되는 동안 performance"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:40
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:504
 msgid "power limit"
 msgstr "전력 제한"
 
@@ -8117,7 +8182,7 @@ msgstr "falcond가 예기치 않게 중지된 후 systemd가 한 번 다시 시�
 msgid "takes a DLL slot beside the game and may collide with OptiScaler"
 msgstr "게임 옆의 DLL 슬롯을 차지하며 OptiScaler와 충돌할 수 있습니다"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:41
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:505
 msgid "temperature limit"
 msgstr "온도 제한"
 
@@ -8438,7 +8503,7 @@ msgstr "작업자 스레드가 실패했습니다"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:850
 #: bigame-engine/bigame-ui/src/views/tuning.rs:295
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:209
-#: bigame-engine/bigame-ui/src/window.rs:664
+#: bigame-engine/bigame-ui/src/window.rs:669
 msgid "the worker thread stopped"
 msgstr "작업자 스레드가 중지되었습니다"
 

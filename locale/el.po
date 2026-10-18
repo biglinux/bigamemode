@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 16:00-0300\n"
+"POT-Creation-Date: 2026-10-18 17:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:17\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Greek <el@li.org>\n"
@@ -156,10 +156,6 @@ msgstr[1] "%n προειδοποιήσεις"
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:190
 msgid "%r cannot be used together with %a"
 msgstr "Το %r δεν μπορεί να χρησιμοποιηθεί μαζί με το %a"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:125
-msgid "%r read · %w written KB/s"
-msgstr "%r ανάγνωση · %w εγγραφή KB/s"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:291
 msgid "%r was asked for, but %l is running"
@@ -792,7 +788,7 @@ msgstr "Ο πάροχος FSR 4 της AMD δεν βρίσκεται ακόμη 
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "Ο upscaler της AMD: μεγεθύνει την εικόνα και οξύνει τις άκρες ώστε να μη φαίνεται θολή. Λειτουργεί σε οποιαδήποτε GPU. Η συνήθης επιλογή: αποδώστε το παιχνίδι σε μικρότερο μέγεθος και αφήστε το FSR να το φέρει στο μέγεθος της οθόνης. Η οξύτητα παρακάτω εφαρμόζεται σε αυτόν."
 
-#: bigame-engine/bigame-ui/src/window.rs:468
+#: bigame-engine/bigame-ui/src/window.rs:473
 msgid "About"
 msgstr "Σχετικά"
 
@@ -977,7 +973,7 @@ msgid "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the ac
 msgstr "Anti-cheat ή η λίστα παιχνιδιών του Big Game Mode: η έγχυση ενός DLL θα μπορούσε να θέσει σε κίνδυνο τον λογαριασμό, γι' αυτό δεν προσφέρεται τίποτα."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:42
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
 msgid "Appearance"
 msgstr "Εμφάνιση"
 
@@ -990,7 +986,7 @@ msgid "Applied and active"
 msgstr "Εφαρμόστηκε και είναι ενεργό"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:33
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:474
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:509
 msgid "Applied and verified"
 msgstr "Εφαρμόστηκε και επαληθεύτηκε"
 
@@ -1088,10 +1084,9 @@ msgstr "Ζητήθηκε"
 msgid "Asked for, but it cannot be switched"
 msgstr "Ζητήθηκε, αλλά δεν μπορεί να αλλάξει"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:11
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:24
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:234
 #: bigame-engine/bigame-ui/src/views/home.rs:1477
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:443
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:466
 msgid "Asleep"
 msgstr "Σε αδράνεια"
 
@@ -1103,7 +1098,7 @@ msgstr "Κατά την εκκίνηση"
 msgid "At launch Gamescope runs it at the game's own size, so the image is not scaled twice."
 msgstr "Κατά την εκκίνηση το Gamescope το τρέχει στο μέγεθος του ίδιου του παιχνιδιού, ώστε η εικόνα να μην κλιμακώνεται δύο φορές."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:492
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:527
 msgid "Attempted, and the system did not change: the reason is on the row."
 msgstr "Έγινε απόπειρα, αλλά το σύστημα δεν άλλαξε: ο λόγος αναφέρεται στη γραμμή."
 
@@ -1135,7 +1130,7 @@ msgstr "Απαιτείται πιστοποίηση για ενεργοποίη�
 msgid "Authorization was refused or cancelled"
 msgstr "Η εξουσιοδότηση απορρίφθηκε ή ακυρώθηκε"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:230
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:448
 msgid "Available"
 msgstr "Διαθέσιμο"
 
@@ -1159,18 +1154,18 @@ msgstr "Μέσος όρος FPS"
 msgid "Back"
 msgstr "Πίσω"
 
-#: bigame-engine/bigame-ui/src/window.rs:82
-#: bigame-engine/bigame-ui/src/window.rs:85
+#: bigame-engine/bigame-ui/src/window.rs:83
+#: bigame-engine/bigame-ui/src/window.rs:86
 msgid "Back to Home"
 msgstr "Πίσω στην Αρχική"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:119
-#: bigame-engine/bigame-ui/src/window.rs:383
-#: bigame-engine/bigame-ui/src/window.rs:460
+#: bigame-engine/bigame-ui/src/window.rs:388
+#: bigame-engine/bigame-ui/src/window.rs:465
 msgid "Back to normal"
 msgstr "Επιστροφή στο κανονικό"
 
-#: bigame-engine/bigame-ui/src/window.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:382
 msgid "Back to normal?"
 msgstr "Επιστροφή στο κανονικό;"
 
@@ -1340,10 +1335,6 @@ msgstr "Όξυνση CAS"
 msgid "CPU"
 msgstr "CPU"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:59
-msgid "CPU Freq"
-msgstr "Συχνότητα CPU"
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:200
 msgid "CPU clock, GPU load and network latency, read while Home is on screen."
 msgstr "Συχνότητα CPU, φόρτος GPU και καθυστέρηση δικτύου, που διαβάζονται όσο η Αρχική είναι στην οθόνη."
@@ -1397,8 +1388,8 @@ msgstr "Καλεί το '%p', που δεν είναι εγκατεστημέν�
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
 #: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
-#: bigame-engine/bigame-ui/src/window.rs:337
-#: bigame-engine/bigame-ui/src/window.rs:382
+#: bigame-engine/bigame-ui/src/window.rs:342
+#: bigame-engine/bigame-ui/src/window.rs:387
 msgid "Cancel"
 msgstr "Ακύρωση"
 
@@ -1426,7 +1417,7 @@ msgstr "Αλλάξτε μόνο ό,τι χρειάζεται αυτό το πα�
 msgid "Change them to: %s"
 msgstr "Αλλαγή τους σε: %s"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:475
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:510
 msgid "Changed, then read back from the system to confirm it took."
 msgstr "Άλλαξε και μετά διαβάστηκε ξανά από το σύστημα για επιβεβαίωση."
 
@@ -1473,10 +1464,10 @@ msgstr "Έλεγχος του συστήματός σας…"
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:52
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:632
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:638
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
 #: bigame-engine/bigame-ui/src/views/settings.rs:447
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:402
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Έλεγχος…"
@@ -1525,9 +1516,13 @@ msgstr "Καθαρισμός φίλτρων"
 msgid "Clear launch options"
 msgstr "Καθαρισμός επιλογών εκκίνησης"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:143
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:418
 msgid "Clock"
 msgstr "Συχνότητα"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:726
+msgid "Clock not reported"
+msgstr "Το ρολόι δεν αναφέρεται"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:250
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:267
@@ -1722,7 +1717,7 @@ msgstr "Αντιγραφή εντολής εγκατάστασης"
 msgid "Copy all checks"
 msgstr "Αντιγραφή όλων των ελέγχων"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
 msgid "Copy and export"
 msgstr "Αντιγραφή και εξαγωγή"
 
@@ -1740,7 +1735,7 @@ msgstr "Αντιγραφή της εντολής"
 msgid "Copy what is shown"
 msgstr "Αντιγραφή όσων εμφανίζονται"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
 msgid "Copy what is shown, or save it to a file with your user name, home folder and host masked."
 msgstr "Αντιγράψτε ό,τι εμφανίζεται ή αποθηκεύστε το σε αρχείο με το όνομα χρήστη, τον προσωπικό φάκελο και το όνομα κεντρικού υπολογιστή κρυμμένα."
 
@@ -1828,12 +1823,12 @@ msgstr "Δεν ήταν δυνατή η επιδιόρθωση"
 msgid "Could not restore"
 msgstr "Δεν ήταν δυνατή η επαναφορά"
 
-#: bigame-engine/bigame-ui/src/window.rs:682
+#: bigame-engine/bigame-ui/src/window.rs:687
 msgid "Could not restore Gamescope's settings"
 msgstr "Δεν ήταν δυνατή η επαναφορά των ρυθμίσεων του Gamescope"
 
-#: bigame-engine/bigame-ui/src/window.rs:663
-#: bigame-engine/bigame-ui/src/window.rs:673
+#: bigame-engine/bigame-ui/src/window.rs:668
+#: bigame-engine/bigame-ui/src/window.rs:678
 msgid "Could not restore falcond's settings"
 msgstr "Δεν ήταν δυνατή η επαναφορά των ρυθμίσεων του falcond"
 
@@ -1887,7 +1882,7 @@ msgid "Could not update Heroic's settings for a game"
 msgstr "Δεν ήταν δυνατή η ενημέρωση των ρυθμίσεων του Heroic για ένα παιχνίδι"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1333
-#: bigame-engine/bigame-ui/src/window.rs:700
+#: bigame-engine/bigame-ui/src/window.rs:705
 msgid "Could not update lsfg-vk's file"
 msgstr "Δεν ήταν δυνατή η ενημέρωση του αρχείου του lsfg-vk"
 
@@ -1987,6 +1982,10 @@ msgstr "Σύγκριση επιλυτών DNS"
 msgid "Dark"
 msgstr "Σκούρο"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:391
+msgid "Dedicated"
+msgstr "Αυτόνομη"
+
 #: bigame-engine/bigame-core/src/optimization.rs:50
 #: bigame-engine/bigame-ui/src/views/settings.rs:55
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1401
@@ -1998,7 +1997,7 @@ msgstr "Προεπιλογή"
 msgid "Default is shown while the desktop asks for high contrast"
 msgstr "Εμφανίζεται η Προεπιλογή όσο η επιφάνεια εργασίας ζητά υψηλή αντίθεση"
 
-#: bigame-engine/bigame-ui/src/window.rs:356
+#: bigame-engine/bigame-ui/src/window.rs:361
 msgid "Default settings restored"
 msgstr "Επαναφέρθηκαν οι προεπιλεγμένες ρυθμίσεις"
 
@@ -2024,7 +2023,7 @@ msgstr "Διαγραφή προφίλ"
 msgid "Delete this profile?"
 msgstr "Να διαγραφεί αυτό το προφίλ;"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:485
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:520
 msgid "Deliberately left alone, not possible on this machine, or a second controller of the same thing that was not used."
 msgstr "Αφέθηκε σκόπιμα, δεν είναι δυνατό σε αυτό το μηχάνημα ή δεύτερος ελεγκτής του ίδιου πράγματος που δεν χρησιμοποιήθηκε."
 
@@ -2045,8 +2044,8 @@ msgid "Desktop notifications when a game profile is applied and when it is resto
 msgstr "Ειδοποιήσεις επιφάνειας εργασίας όταν εφαρμόζεται ένα προφίλ παιχνιδιού και όταν επαναφέρεται. Η πρόταση προφίλ ελέγχεται ξεχωριστά παραπάνω."
 
 #: bigame-engine/bigame-ui/src/widgets/toast.rs:54
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
-#: bigame-engine/bigame-ui/src/window.rs:158
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:163
 msgid "Details"
 msgstr "Λεπτομέρειες"
 
@@ -2076,7 +2075,7 @@ msgid "Diagnose and details"
 msgstr "Διάγνωση και λεπτομέρειες"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:39
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:491
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:526
 msgid "Did not take effect"
 msgstr "Δεν εφαρμόστηκε"
 
@@ -2084,9 +2083,10 @@ msgstr "Δεν εφαρμόστηκε"
 msgid "Discard"
 msgstr "Απόρριψη"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:64
-msgid "Disk I/O"
-msgstr "Είσοδος/Έξοδος Δίσκου"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:94
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:353
+msgid "Disk"
+msgstr "Δίσκος"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68
 #: bigame-engine/bigame-ui/src/views/tuning.rs:670
@@ -2128,7 +2128,7 @@ msgstr "Δυναμική ενορχήστρωση απόδοσης παιχνι�
 msgid "Each game's frame generation is in its profile"
 msgstr "Η δημιουργία καρέ κάθε παιχνιδιού βρίσκεται στο προφίλ του"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:356
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:391
 msgid "Each item is Active, Waiting for a game, Configured, Not detected, Off, Missing dependency or Not supported. Open a row for what that means, the evidence and the fix."
 msgstr "Κάθε στοιχείο είναι Ενεργό, Αναμονή για παιχνίδι, Ρυθμισμένο, Δεν εντοπίστηκε, Ανενεργό, Λείπει εξάρτηση ή Δεν υποστηρίζεται. Ανοίξτε μια γραμμή για να δείτε τι σημαίνει, τις αποδείξεις και τη λύση."
 
@@ -2209,15 +2209,15 @@ msgstr "Τα γραφικά όλων των παιχνιδιών επαναφέ�
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
 msgstr "Όλα όσα χρειάζεται κάποιος που βοηθά για αυτό το μηχάνημα. Το όνομα χρήστη, ο προσωπικός φάκελος, το όνομα υπολογιστή και οι δημόσιες διευθύνσεις δικτύου σας αφαιρούνται κατά τη δημιουργία της αναφοράς."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
 msgid "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked."
 msgstr "Όλα τα παραπάνω σε ένα κείμενο για επικόλληση σε φόρουμ ή σε issue, με το όνομα χρήστη, τον προσωπικό φάκελο και το όνομα κεντρικού υπολογιστή κρυμμένα."
 
-#: bigame-engine/bigame-ui/src/window.rs:405
+#: bigame-engine/bigame-ui/src/window.rs:410
 msgid "Everything is back to normal"
 msgstr "Όλα επέστρεψαν στο κανονικό"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:363
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:398
 msgid "Everything that needs attention, classed as fixable, needing you, hardware or information, with commands to copy. A hardware limit is never an error."
 msgstr "Ό,τι χρειάζεται προσοχή, ταξινομημένο ως διορθώσιμο, χρειάζεται εσάς, υλικό ή πληροφορία, με εντολές για αντιγραφή. Ένα όριο υλικού δεν είναι ποτέ σφάλμα."
 
@@ -2365,6 +2365,10 @@ msgstr "Ταχύτερη και ακριβέστερη ανίχνευση παι
 msgid "Fastest"
 msgstr "Ταχύτατο"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:721
+msgid "Fastest core %f · average %a"
+msgstr "Ταχύτερος πυρήνας %f · μέσος όρος %a"
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:61
 msgid "Fastest for the most frames, Quiet for a cooler and quieter computer, Pretty for a sharper picture."
 msgstr "Ταχύτατο για τα περισσότερα καρέ, Αθόρυβο για πιο δροσερό και πιο ήσυχο υπολογιστή, Όμορφο για πιο καθαρή εικόνα."
@@ -2407,7 +2411,7 @@ msgstr "Τα αρχεία επαναφέρθηκαν· η ρύθμιση του 
 msgid "Files that will change"
 msgstr "Αρχεία που θα αλλάξουν"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:401
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:436
 msgid "Filter and search"
 msgstr "Φιλτράρισμα και αναζήτηση"
 
@@ -2436,7 +2440,7 @@ msgstr "Διορθώσιμο"
 msgid "Flow scale (%)"
 msgstr "Κλίμακα ροής (%)"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:406
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Follow"
 msgstr "Ακολουθήστε"
 
@@ -2542,15 +2546,10 @@ msgstr "CCD συχνότητας"
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
 #: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
 #: bigame-engine/bigame-ui/src/views/home.rs:89
 msgid "GPU"
 msgstr "GPU"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:62
-msgid "GPU Temp"
-msgstr "Θερμοκρασία GPU"
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:444
 msgid "GPU power level"
@@ -2599,7 +2598,7 @@ msgid "Game name cannot be empty"
 msgstr "Το όνομα του παιχνιδιού δεν μπορεί να είναι κενό"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:428
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:476
 msgid "Game profiles"
 msgstr "Προφίλ παιχνιδιών"
 
@@ -2627,7 +2626,7 @@ msgstr "Τα παιχνίδια προτιμούν το CCD με το στοιβ
 msgid "Games prefer the CCD without the extra cache, which clocks higher. For the few games that gain from clock speed more than from cache."
 msgstr "Τα παιχνίδια προτιμούν το CCD χωρίς την επιπλέον cache, που λειτουργεί σε υψηλότερη συχνότητα. Για τα λίγα παιχνίδια που κερδίζουν περισσότερα από τη συχνότητα παρά από την cache."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:229
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:447
 msgid "Games render here"
 msgstr "Τα παιχνίδια αποδίδονται εδώ"
 
@@ -2844,7 +2843,8 @@ msgstr "API γραφικών και τα τεκμήριά του, GPU, οι upsc
 msgid "Graphics card"
 msgstr "Κάρτα γραφικών"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:105
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:110
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:365
 msgid "Graphics cards"
 msgstr "Κάρτες γραφικών"
 
@@ -2872,7 +2872,7 @@ msgstr "Η HOME δεν έχει οριστεί"
 msgid "Hand back"
 msgstr "Επιστροφή"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:493
 msgid "Hand falcond back"
 msgstr "Επιστροφή του falcond"
 
@@ -2888,11 +2888,11 @@ msgstr "Φορητή κονσόλα"
 msgid "Hardware"
 msgstr "Υλικό"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:534
 msgid "Help"
 msgstr "Βοήθεια"
 
-#: bigame-engine/bigame-ui/src/window.rs:481
+#: bigame-engine/bigame-ui/src/window.rs:486
 msgid "Help & Tutorial"
 msgstr "Βοήθεια και οδηγός"
 
@@ -2973,14 +2973,18 @@ msgid "Heroic's settings were not written"
 msgstr "Οι ρυθμίσεις του Heroic δεν γράφτηκαν"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:167
-#: bigame-engine/bigame-ui/src/window.rs:155
-#: bigame-engine/bigame-ui/src/window.rs:73
+#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/window.rs:74
 msgid "Home"
 msgstr "Αρχική"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
 msgid "How Big Game Mode looks and behaves, and how to hand falcond back."
 msgstr "Πώς φαίνεται και συμπεριφέρεται το Big Game Mode και πώς επιστρέφετε το falcond."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+msgid "How busy all its cores are, the fastest core's clock and the average, and its temperature."
+msgstr "Πόσο απασχολημένοι είναι όλοι οι πυρήνες, το ρολόι του ταχύτερου πυρήνα και ο μέσος όρος, και η θερμοκρασία."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1008
 msgid "How files are changed safely"
@@ -2989,6 +2993,10 @@ msgstr "Πώς αλλάζουν τα αρχεία με ασφάλεια"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:755
 msgid "How it is known"
 msgstr "Πώς είναι γνωστό"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:354
+msgid "How much every disk reads and writes each second, together."
+msgstr "Πόσα διαβάζουν και γράφουν όλοι οι δίσκοι μαζί κάθε δευτερόλεπτο."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1464
 msgid "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000."
@@ -3065,7 +3073,7 @@ msgstr "Στο παιχνίδι"
 msgid "In the game next to OptiScaler: two upscalers in series"
 msgstr "Στο παιχνίδι δίπλα στο OptiScaler: δύο upscalers σε σειρά"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:435
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:470
 msgid "In the tray, so games started from Steam are noticed even with the window closed."
 msgstr "Στην περιοχή ειδοποιήσεων, ώστε τα παιχνίδια που ξεκινούν από το Steam να εντοπίζονται ακόμη και με το παράθυρο κλειστό."
 
@@ -3150,6 +3158,10 @@ msgstr "Εγκαταστάθηκε· κρατήθηκε αντίγραφο ασ�
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:85
 msgid "Integer scaling"
 msgstr "Ακέραια κλιμάκωση"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:393
+msgid "Integrated"
+msgstr "Ενσωματωμένη"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:153
 msgid "Intel integrated"
@@ -3264,10 +3276,6 @@ msgstr "Το LSFG-VK εισάγει συνθετικά δημιουργημέν�
 msgid "Last read"
 msgstr "Τελευταία ανάγνωση"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:65
-msgid "Latency"
-msgstr "Καθυστέρηση"
-
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:15
 msgid "Latency-Aware Virtual Deadline. The absolute best choice for gaming! It heavily prioritizes interactive tasks (like your game rendering frames and reading your mouse clicks). It dramatically reduces stuttering and stabilizes FPS."
 msgstr "Latency-Aware Virtual Deadline. Η απόλυτα καλύτερη επιλογή για gaming! Δίνει έντονη προτεραιότητα στις διαδραστικές εργασίες (όπως την απόδοση καρέ του παιχνιδιού και την ανάγνωση των κλικ του ποντικιού). Μειώνει δραματικά τα κολλήματα και σταθεροποιεί τα FPS."
@@ -3342,7 +3350,7 @@ msgstr "Μάθετε για τους χρονοπρογραμματιστές"
 msgid "Leave the game's graphics as they are."
 msgstr "Αφήστε τα γραφικά του παιχνιδιού όπως είναι."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:480
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:515
 msgid "Left to the component that owns it, which sets it for each game."
 msgstr "Αφήνεται στο στοιχείο στο οποίο ανήκει, που το ορίζει για κάθε παιχνίδι."
 
@@ -3362,19 +3370,19 @@ msgstr "Ανοιχτό"
 msgid "Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."
 msgstr "Πιθανοί λόγοι: το παιχνίδι ξεκίνησε από το Steam ή τον εκκινητή του, όχι από το Big Game Mode (Προφίλ → Εκκίνηση)· το Gamescope τερμάτισε κατά την εκκίνηση (το επίπεδο WSI του, ένα παιχνίδι που προτιμά Wayland)· το προφίλ του παιχνιδιού λέει Ποτέ."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
-msgid "Live CPU and GPU readings, and one card per GPU with its load, clock, video memory, temperature and power, and which one renders the game."
-msgstr "Ζωντανές μετρήσεις CPU και GPU και μία κάρτα ανά GPU με φόρτο, συχνότητα, μνήμη βίντεο, θερμοκρασία και ισχύ, καθώς και ποια αποδίδει το παιχνίδι."
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:199
 msgid "Live readings"
 msgstr "Ζωντανές μετρήσεις"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:72
+msgid "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything."
+msgstr "Ζωντανές μετρήσεις, μία ανά δευτερόλεπτο. Σταματούν όσο ένα παιχνίδι έχει την οθόνη, οπότε η παρακολούθηση δεν κοστίζει ποτέ τίποτα στο παιχνίδι."
 
 #: bigame-engine/bigame-core/src/optimization.rs:120
 msgid "Living room (HTPC)"
 msgstr "Σαλόνι (HTPC)"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:142
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:411
 msgid "Load"
 msgstr "Φόρτος"
 
@@ -3408,8 +3416,8 @@ msgid "Log exported"
 msgstr "Το αρχείο καταγραφής εξήχθη"
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:96
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:388
-#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
+#: bigame-engine/bigame-ui/src/window.rs:164
 msgid "Logs"
 msgstr "Αρχεία καταγραφής"
 
@@ -3456,7 +3464,7 @@ msgstr "Το Lutris πρέπει να ανοίξει ξανά"
 msgid "Mailbox"
 msgstr "Mailbox"
 
-#: bigame-engine/bigame-ui/src/window.rs:476
+#: bigame-engine/bigame-ui/src/window.rs:481
 msgid "Main Menu"
 msgstr "Κύριο μενού"
 
@@ -3475,7 +3483,7 @@ msgid "Managed by Big Game Mode since %s"
 msgstr "Υπό τη διαχείριση του Big Game Mode από %s"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:35
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:479
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:514
 msgid "Managed per game"
 msgstr "Διαχείριση ανά παιχνίδι"
 
@@ -3570,6 +3578,15 @@ msgstr "Μετρά πόσο γρήγορα απαντά κάθε επιλυτή�
 msgid "Measuring…"
 msgstr "Μέτρηση…"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:88
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
+msgid "Memory"
+msgstr "Μνήμη"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
+msgid "Memory in use out of the total, and swap."
+msgstr "Η μνήμη σε χρήση από το σύνολο, και το swap."
+
 #: bigame-engine/bigame-core/src/graphics/scan.rs:133
 msgid "Microsoft system DLL"
 msgstr "DLL συστήματος της Microsoft"
@@ -3648,9 +3665,7 @@ msgstr "Πολλαπλασιαστής, κλίμακα ροής, HDR και λε
 msgid "My own file"
 msgstr "Δικό μου αρχείο"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:17
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:117
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:165
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:743
 msgid "N/A"
 msgstr "Μ/Δ"
 
@@ -3694,10 +3709,12 @@ msgstr "Χρειάζεται εσάς"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:624
 #: bigame-engine/bigame-ui/src/views/home.rs:90
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:99
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:358
 msgid "Network"
 msgstr "Δίκτυο"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:369
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:404
 msgid "Network, background load and Steam"
 msgstr "Δίκτυο, φόρτος παρασκηνίου και Steam"
 
@@ -3767,7 +3784,7 @@ msgstr "Ποτέ"
 msgid "New Profile"
 msgstr "Νέο Προφίλ"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:407
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
 msgid "New entries appear while the page is open; nothing is read while it is not."
 msgstr "Νέες εγγραφές εμφανίζονται όσο η σελίδα είναι ανοιχτή· όταν δεν είναι, δεν διαβάζεται τίποτα."
 
@@ -3789,11 +3806,11 @@ msgstr "Όχι"
 msgid "No DLSS, FSR or XeSS"
 msgstr "Χωρίς DLSS, FSR ή XeSS"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:172
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:543
 msgid "No DRM card is exposed by the kernel."
 msgstr "Ο πυρήνας δεν εκθέτει καμία κάρτα DRM."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:171
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:541
 msgid "No GPU was found"
 msgstr "Δεν βρέθηκε GPU"
 
@@ -3847,7 +3864,7 @@ msgstr "Δεν βρέθηκαν παιχνίδια"
 msgid "No generated frames from OptiScaler. The game's own frame generation, if it has one, stays in its menu."
 msgstr "Χωρίς παραγόμενα καρέ από το OptiScaler. Η δική δημιουργία καρέ του παιχνιδιού, αν έχει, παραμένει στο μενού του."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:500
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:535
 msgid "No help available for this view."
 msgstr "Δεν υπάρχει βοήθεια για αυτή την προβολή."
 
@@ -3882,6 +3899,10 @@ msgstr "Κανένας χρονοπρογραμματιστής: η λειτου
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:244
 msgid "No screen saver or screen sleep while this game runs"
 msgstr "Χωρίς προφύλαξη οθόνης ή αδρανοποίηση οθόνης όσο τρέχει αυτό το παιχνίδι"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:755
+msgid "No swap"
+msgstr "Χωρίς swap"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:317
 msgid "No, by the game's profile (Never)"
@@ -4001,9 +4022,9 @@ msgstr "Δεν προσφέρεται: αυτό το παιχνίδι έχει a
 msgid "Not recommended"
 msgstr "Δεν συνιστάται"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:27
-msgid "Not reported by the driver"
-msgstr "Δεν αναφέρεται από το πρόγραμμα οδήγησης"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:350
+msgid "Not reported"
+msgstr "Δεν αναφέρεται"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:371
 msgid "Not restored (close them and try again): %s"
@@ -4126,13 +4147,13 @@ msgstr "Τίποτα που να αξίζει να εγκατασταθεί, ή 
 msgid "Notifications"
 msgstr "Ειδοποιήσεις"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:481
 msgid "Notifications and ping target"
 msgstr "Ειδοποιήσεις και στόχος ping"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
-msgid "Notifications when a game starts or exits, and the address the Details page pings for its latency graph."
-msgstr "Ειδοποιήσεις όταν ένα παιχνίδι ξεκινά ή τερματίζεται και η διεύθυνση στην οποία κάνει ping η σελίδα Λεπτομέρειες για το γράφημα καθυστέρησης."
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:482
+msgid "Notifications when a game starts or exits, and the address the Telemetry page pings for its latency chart."
+msgstr "Ειδοποιήσεις όταν ένα παιχνίδι ξεκινά ή τερματίζεται και η διεύθυνση στην οποία κάνει ping η σελίδα Τηλεμετρία για το γράφημα καθυστέρησης."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:571
 msgid "Now: %s"
@@ -4238,11 +4259,15 @@ msgstr "Ενεργό: το falcond τρέχει και εφαρμόζει το �
 msgid "One button makes your games run better. Press it again to go back to normal."
 msgstr "Ένα κουμπί κάνει τα παιχνίδια σας να τρέχουν καλύτερα. Πατήστε το ξανά για να επιστρέψετε στο κανονικό."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:366
+msgid "One card per GPU with its load, temperature, clock, video memory and power, and which one renders the game. Not reported means the driver does not publish that reading."
+msgstr "Μία κάρτα ανά GPU με φορτίο, θερμοκρασία, ρολόι, μνήμη βίντεο και ισχύ, και ποια αποδίδει το παιχνίδι. Το «Δεν αναφέρεται» σημαίνει ότι ο οδηγός δεν δημοσιεύει αυτή τη μέτρηση."
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:114
 msgid "One general configuration"
 msgstr "Μία γενική διαμόρφωση"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:384
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Μία γραμμή για την κατάσταση του μηχανήματος και ένα chip ανά στοιχείο: Turbo, falcond, το προφίλ, η ενέργεια, ο χρονοπρογραμματιστής, η GPU, το Gamescope, το upscaling, η δημιουργία καρέ."
 
@@ -4250,7 +4275,7 @@ msgstr "Μία γραμμή για την κατάσταση του μηχανή
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "Ένας κανόνας διατρέχει το έργο: δεν προσφέρεται τίποτα που το μηχάνημα δεν μπορεί να κάνει και τίποτα δεν ονομάζεται βελτίωση χωρίς μέτρηση."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:394
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
 msgid "One view"
 msgstr "Μία προβολή"
 
@@ -4511,8 +4536,8 @@ msgid "OptiScaler's own frame generation (OptiFG, with FSR frame generation), fo
 msgstr "Η δική δημιουργία καρέ του OptiScaler (OptiFG, με δημιουργία καρέ FSR), για παιχνίδια DirectX 12. Πειραματικό: το HUD μπορεί να αφήνει είδωλα, και προσθέτει καθυστέρηση. Η επιλογή του επιτρέπει πειραματικές επιλογές. Ποτέ μαζί με το lsfg-vk: δύο δημιουργοί καρέ σε σειρά παράγουν καρέ από παραγόμενα καρέ."
 
 #: bigame-engine/bigame-ui/src/views/report.rs:234
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:468
-#: bigame-engine/bigame-ui/src/window.rs:100
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/window.rs:101
 msgid "Optimization Report"
 msgstr "Αναφορά βελτιστοποίησης"
 
@@ -4556,7 +4581,7 @@ msgstr "Μέγεθος εξόδου"
 msgid "Overlay style"
 msgstr "Στυλ επικάλυψης"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:383
 msgid "Overview"
 msgstr "Επισκόπηση"
 
@@ -4619,7 +4644,7 @@ msgstr "Δεν ήταν δυνατή η εκκίνηση της βελτιστο
 msgid "Performance"
 msgstr "Απόδοση"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:355
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:390
 msgid "Performance and video pipeline"
 msgstr "Απόδοση και διαδρομή βίντεο"
 
@@ -4652,6 +4677,10 @@ msgstr "Λειτουργία απόδοσης, ο χρονοπρογραμματ
 msgid "Ping Target"
 msgstr "Στόχος Ping"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:692
+msgid "Ping to %s"
+msgstr "Ping προς %s"
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:366
 msgid "Plan"
 msgstr "Σχέδιο"
@@ -4669,8 +4698,8 @@ msgstr "Παίξτε %s"
 msgid "Post-processing filters (sharpening, colour) in Vulkan games"
 msgstr "Φίλτρα μετεπεξεργασίας (όξυνση, χρώμα) σε παιχνίδια Vulkan"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:146
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:34
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:420
 msgid "Power"
 msgstr "Ισχύς"
 
@@ -4718,7 +4747,7 @@ msgid "Pretty"
 msgstr "Όμορφο"
 
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:92
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:362
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:397
 msgid "Problems"
 msgstr "Προβλήματα"
 
@@ -4731,6 +4760,11 @@ msgstr "Διεργασία"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:700
 msgid "Process Name"
 msgstr "Όνομα διεργασίας"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:83
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+msgid "Processor"
+msgstr "Επεξεργαστής"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:78
 msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
@@ -4824,7 +4858,7 @@ msgid "Profile set"
 msgstr "Σύνολο προφίλ"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:217
-#: bigame-engine/bigame-ui/src/window.rs:156
+#: bigame-engine/bigame-ui/src/window.rs:160
 msgid "Profiles"
 msgstr "Προφίλ"
 
@@ -4842,7 +4876,7 @@ msgstr "Προφίλ για φορητά PC όπως το Steam Deck ή το ROG
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:446
 #: bigame-engine/bigame-ui/src/views/settings.rs:457
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:488
 msgid "Profiles from an older Big Game Mode"
 msgstr "Προφίλ από παλαιότερο Big Game Mode"
 
@@ -4854,7 +4888,7 @@ msgstr "Φορτωμένα προφίλ"
 msgid "Profiles of yours that match no installed game. They stay until you delete them."
 msgstr "Προφίλ σας που δεν αντιστοιχούν σε κανένα εγκατεστημένο παιχνίδι. Παραμένουν μέχρι να τα διαγράψετε."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:454
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:489
 msgid "Profiles that can never match their game, and the fix."
 msgstr "Προφίλ που δεν μπορούν ποτέ να ταιριάξουν με το παιχνίδι τους, και η διόρθωση."
 
@@ -4917,7 +4951,7 @@ msgid "Quiet"
 msgstr "Αθόρυβο"
 
 #: bigame-engine/bigame-ui/src/tray.rs:219
-#: bigame-engine/bigame-ui/src/window.rs:469
+#: bigame-engine/bigame-ui/src/window.rs:474
 msgid "Quit"
 msgstr "Έξοδος"
 
@@ -4928,10 +4962,6 @@ msgstr "Έξοδος μετά την ολοκλήρωση"
 #: bigame-engine/bigame-ui/src/app.rs:112
 msgid "Quit when finished?"
 msgstr "Έξοδος μετά την ολοκλήρωση;"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:63
-msgid "RAM Usage"
-msgstr "Χρήση RAM"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:542
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
@@ -4948,6 +4978,10 @@ msgstr "Αυξάνει τον ρυθμό καρέ που προβάλλεται,
 #: bigame-engine/bigame-core/src/graphics/rules.rs:179
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "Η έκδοση add-on του ReShade είναι μόνο για παιχνίδια ενός παίκτη· το anti-cheat μπορεί να οδηγήσει σε αποκλεισμό για εγχυμένα DLL"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:783
+msgid "Read %s"
+msgstr "Ανάγνωση %s"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2213
 msgid "Read at %s from the game's folder, the graphics card and the running game"
@@ -5002,10 +5036,6 @@ msgstr "Έτοιμο για εφαρμογή"
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:147
 msgid "Ready to play"
 msgstr "Έτοιμο για παιχνίδι"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:48
-msgid "Real-time Telemetry"
-msgstr "Τηλεμετρία σε πραγματικό χρόνο"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:18
 msgid "Real-time telemetry, diagnostics and one view of every relevant log"
@@ -5071,7 +5101,7 @@ msgstr "Αφαίρεση της επιλογής εκκίνησης…"
 msgid "Render size"
 msgstr "Μέγεθος απόδοσης"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:228
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:446
 msgid "Renders %s"
 msgstr "Αποδίδει το %s"
 
@@ -5131,7 +5161,7 @@ msgstr "Τα απαιτούμενα πακέτα δεν βρέθηκαν στο 
 msgid "Rescan game library"
 msgstr "Νέα σάρωση της βιβλιοθήκης παιχνιδιών"
 
-#: bigame-engine/bigame-ui/src/window.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:340
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Επαναφορά όλων των ρυθμίσεων Βελτιστοποίησης και Gamescope στις συνιστώμενες προεπιλογές. Αυτό δεν μπορεί να αναιρεθεί."
 
@@ -5150,7 +5180,7 @@ msgstr "Επιλύθηκε: το %s είναι ο μόνος upscaler"
 msgid "Restart Big Game Mode"
 msgstr "Επανεκκίνηση του Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/window.rs:338
+#: bigame-engine/bigame-ui/src/window.rs:343
 msgid "Restore"
 msgstr "Επαναφορά"
 
@@ -5159,8 +5189,8 @@ msgstr "Επαναφορά"
 msgid "Restore All"
 msgstr "Επαναφορά όλων"
 
-#: bigame-engine/bigame-ui/src/window.rs:334
-#: bigame-engine/bigame-ui/src/window.rs:462
+#: bigame-engine/bigame-ui/src/window.rs:339
+#: bigame-engine/bigame-ui/src/window.rs:467
 msgid "Restore Defaults"
 msgstr "Επαναφορά προεπιλογών"
 
@@ -5218,7 +5248,7 @@ msgstr "Συνέχιση"
 msgid "Resume %s?"
 msgstr "Συνέχιση του %s;"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:494
 msgid "Return falcond to exactly the state it was in before Big Game Mode first changed it."
 msgstr "Επαναφορά του falcond ακριβώς στην κατάσταση που ήταν πριν το Big Game Mode το αλλάξει για πρώτη φορά."
 
@@ -5430,8 +5460,8 @@ msgstr "Ορίστε τη διαδρομή του στη γραμμή παραπ
 msgid "Set now"
 msgstr "Ορισμένο τώρα"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
-#: bigame-engine/bigame-ui/src/window.rs:160
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/window.rs:165
 msgid "Settings"
 msgstr "Ρυθμίσεις"
 
@@ -5460,7 +5490,7 @@ msgstr "Εμφάνιση διαλόγου κατά την εκκίνηση"
 msgid "Show notifications on game launch and exit"
 msgstr "Εμφάνιση ειδοποιήσεων κατά την εκκίνηση και έξοδο από το παιχνίδι"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:402
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:437
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Εμφάνιση μόνο σφαλμάτων, προειδοποιήσεων ή μίας πηγής, ή αναζήτηση στο κείμενο."
 
@@ -5488,7 +5518,7 @@ msgstr "Παράλειψη"
 msgid "Skipped"
 msgstr "Παραλείφθηκε"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:484
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:519
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Παραλείφθηκαν, μη διαθέσιμα, συγκρούσεις που αποφεύχθηκαν"
 
@@ -5515,7 +5545,7 @@ msgstr "Ειδικές ευχαριστίες"
 msgid "Standing"
 msgstr "Κατάσταση"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:382
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
 msgid "Start a game and keep this page open: it is read only while it is on screen, so it costs nothing the rest of the time."
 msgstr "Ξεκινήστε ένα παιχνίδι και κρατήστε αυτή τη σελίδα ανοιχτή: διαβάζεται μόνο όσο είναι στην οθόνη, οπότε δεν κοστίζει τίποτα τον υπόλοιπο χρόνο."
 
@@ -5523,12 +5553,16 @@ msgstr "Ξεκινήστε ένα παιχνίδι και κρατήστε αυ�
 msgid "Start a game from Steam, Lutris, Heroic, the application menu or Profiles. The card at the bottom shows it with its flags."
 msgstr "Ξεκινήστε ένα παιχνίδι από το Steam, το Lutris, το Heroic, το μενού εφαρμογών ή τα Προφίλ. Η κάρτα στο κάτω μέρος το δείχνει με τις σημαίες του."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:371
+msgid "Start a game, then come back here with Alt+Tab: the charts show the last minute. While the game has the screen, nothing is read."
+msgstr "Ξεκινήστε ένα παιχνίδι και επιστρέψτε εδώ με Alt+Tab: τα γραφήματα δείχνουν το τελευταίο λεπτό. Όσο το παιχνίδι έχει την οθόνη, δεν διαβάζεται τίποτα."
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:279
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Ξεκινήστε ένα παιχνίδι· ό,τι πραγματικά παίρνει διαβάζεται από τη διεργασία του και εμφανίζεται εδώ."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:410
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
 msgstr "Εκκίνηση στο παρασκήνιο κατά τη σύνδεση"
 
@@ -5671,13 +5705,17 @@ msgstr "Επιτυχία"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1529
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:825
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:376
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
 msgid "Support report"
 msgstr "Αναφορά υποστήριξης"
 
 #: bigame-engine/bigame-core/src/recommend.rs:51
 msgid "Supported, not measured"
 msgstr "Υποστηρίζεται, δεν έχει μετρηθεί"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:757
+msgid "Swap %u of %t"
+msgstr "Swap %u από %t"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1999
 msgid "Switch it back on"
@@ -5733,13 +5771,24 @@ msgstr "Αφαιρεί από όλα τα παιχνίδια το OptiScaler κ�
 msgid "Technical details"
 msgstr "Τεχνικές λεπτομέρειες"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
-msgid "Telemetry and graphics cards"
-msgstr "Τηλεμετρία και κάρτες γραφικών"
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:161
+msgid "Telemetry"
+msgstr "Τηλεμετρία"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:145
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:412
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:474
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:500
 msgid "Temperature"
 msgstr "Θερμοκρασία"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:730
+msgid "Temperature %s"
+msgstr "Θερμοκρασία %s"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:737
+msgid "Temperature not reported"
+msgstr "Η θερμοκρασία δεν αναφέρεται"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1693
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1819
@@ -5758,7 +5807,7 @@ msgstr "Ο χρονοπρογραμματιστής CPU (ο τροχονόμος
 msgid "The DNS servers of the network connection that carries your traffic, as NetworkManager has them. \"Use\" on a measured resolver makes it the first one, and the servers your router hands out are no longer used. Before the first change, the connection's DNS settings are saved in ~/.local/state/bigame-mode/network; \"Restore previous\" puts them back and removes the copy. A faster lookup does not lower the latency of a game once it has connected."
 msgstr "Οι διακομιστές DNS της σύνδεσης δικτύου που μεταφέρει την κίνησή σας, όπως τους έχει το NetworkManager. Η «Χρήση» σε έναν μετρημένο επιλυτή τον κάνει πρώτο, και οι διακομιστές που δίνει ο δρομολογητής σας δεν χρησιμοποιούνται πλέον. Πριν από την πρώτη αλλαγή, οι ρυθμίσεις DNS της σύνδεσης αποθηκεύονται στο ~/.local/state/bigame-mode/network· η «Επαναφορά προηγούμενων» τις επαναφέρει και αφαιρεί το αντίγραφο. Μια ταχύτερη αναζήτηση δεν μειώνει την καθυστέρηση ενός παιχνιδιού αφού έχει συνδεθεί."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:465
 msgid "The Default or Gamer theme, light, dark or the desktop's. Only the look changes."
 msgstr "Το θέμα Προεπιλογή ή Gamer, ανοιχτό, σκούρο ή της επιφάνειας εργασίας. Αλλάζει μόνο η εμφάνιση."
 
@@ -5771,10 +5820,10 @@ msgid "The Steam runtime's library cache tool is no longer taken for the running
 msgstr "Το εργαλείο κρυφής μνήμης βιβλιοθηκών του περιβάλλοντος εκτέλεσης του Steam δεν εκλαμβάνεται πλέον ως το παιχνίδι που εκτελείται"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:271
-msgid "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
-msgstr "Η διεύθυνση στην οποία γίνεται ping για τις μετρήσεις καθυστέρησης στις σελίδες Αρχική και Λεπτομέρειες. Οι επιλογές είναι οι επιλυτές που μετρά η σύγκριση DNS: αυτοί που χρησιμοποιεί αυτός ο υπολογιστής και γνωστοί δημόσιοι. Μπορεί να πληκτρολογηθεί οποιαδήποτε άλλη διεύθυνση."
+msgid "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
+msgstr "Η διεύθυνση στην οποία γίνεται ping για τις μετρήσεις καθυστέρησης στις σελίδες Αρχική και Τηλεμετρία. Οι επιλογές είναι οι επιλυτές που μετρά η σύγκριση DNS: αυτοί που χρησιμοποιεί αυτός ο υπολογιστής και γνωστοί δημόσιοι. Μπορεί να πληκτρολογηθεί οποιαδήποτε άλλη διεύθυνση."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:495
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:530
 msgid "The back button at the top returns to Home."
 msgstr "Το κουμπί επιστροφής στην κορυφή επιστρέφει στην Αρχική."
 
@@ -5795,7 +5844,7 @@ msgstr "Η επιλογή για αυτό το παιχνίδι δεν έχει 
 msgid "The choice was not saved"
 msgstr "Η επιλογή δεν αποθηκεύτηκε"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:370
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:405
 msgid "The connection and a DNS comparison, programs competing for the CPU, and Steam launch options that call a missing program."
 msgstr "Η σύνδεση και μια σύγκριση DNS, προγράμματα που ανταγωνίζονται για τη CPU και επιλογές εκκίνησης του Steam που καλούν πρόγραμμα που λείπει."
 
@@ -5899,6 +5948,10 @@ msgstr "Η εικόνα θα κλιμακωνόταν δύο φορές, κάτ�
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1556
 msgid "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards."
 msgstr "Ο κανόνας του πυρήνα για τη συχνότητα της CPU. Το Big Game Mode δεν τον ορίζει: τον ορίζει το power-profiles-daemon, από το προφίλ ενέργειας. Η Λειτουργία απόδοσης (παραπάνω) ζητά το προφίλ performance όσο τρέχει ένα παιχνίδι, και μετά επανέρχεται."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:359
+msgid "The latency to the address chosen in Settings, and what the network cards receive and send."
+msgstr "Η καθυστέρηση προς τη διεύθυνση που επιλέχθηκε στις Ρυθμίσεις, και τι λαμβάνουν και στέλνουν οι κάρτες δικτύου."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2407
 msgid "The launch option was removed; the game's own FSR runs as it did"
@@ -6080,8 +6133,8 @@ msgstr "Το σύστημα δεν επέτρεψε στο Big Game Mode να σ
 msgid "The variable is written to ~/.config/environment.d and pushed into the session, but a launcher that was already running (Steam) keeps its old environment: close and reopen Steam, then start the game again."
 msgstr "Η μεταβλητή γράφεται στο ~/.config/environment.d και περνά στη συνεδρία, αλλά ένας εκκινητής που ήδη έτρεχε (Steam) κρατά το παλιό του περιβάλλον: κλείστε και ανοίξτε ξανά το Steam, και μετά ξεκινήστε ξανά το παιχνίδι."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:538
 msgid "The welcome screen can be opened again from the main menu, under Welcome."
 msgstr "Η οθόνη καλωσορίσματος μπορεί να ανοίξει ξανά από το κύριο μενού, στο Καλώς ήρθατε."
 
@@ -6112,6 +6165,10 @@ msgstr "Αυτή η GPU δεν έχει FSR 4, οπότε αυτό το μέρο
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:226
 msgid "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Details › Network puts them back."
 msgstr "Αυτό αλλάζει τις ρυθμίσεις δικτύου του συστήματος για τη σύνδεση «%s»: το %s γίνεται ο πρώτος της διακομιστής DNS και οι διακομιστές που δίνονται αυτόματα δεν χρησιμοποιούνται πλέον. Οι τρέχουσες ρυθμίσεις αποθηκεύονται πρώτα· η «Επαναφορά προηγούμενων» στις Λεπτομέρειες › Δίκτυο τις επαναφέρει."
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:81
+msgid "This computer"
+msgstr "Αυτός ο υπολογιστής"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:51
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:61
@@ -6158,7 +6215,7 @@ msgstr "Τρεις προεπιλογές, Ταχύτατο, Αθόρυβο κα
 msgid "Throughput for long batch work, not for games. Listed because falcond accepts it."
 msgstr "Συνολική απόδοση για μεγάλες εργασίες δέσμης, όχι για παιχνίδια. Εμφανίζεται επειδή το falcond τη δέχεται."
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:151
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:698
 msgid "Timeout"
 msgstr "Λήξη χρόνου"
 
@@ -6177,7 +6234,7 @@ msgid "Try another name or remove the filters."
 msgstr "Δοκιμάστε άλλο όνομα ή αφαιρέστε τα φίλτρα."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:270
-#: bigame-engine/bigame-ui/src/window.rs:157
+#: bigame-engine/bigame-ui/src/window.rs:162
 msgid "Tuning"
 msgstr "Βελτιστοποίηση"
 
@@ -6279,7 +6336,7 @@ msgstr "Το Turbo απενεργοποιήθηκε"
 msgid "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back."
 msgstr "Το Turbo ενεργοποιεί και απενεργοποιεί την υπηρεσία του falcond. Την πρώτη φορά που το έκανε, κατέγραψε αν το falcond ήταν ενεργοποιημένο και σε εκτέλεση. Η επιστροφή επαναφέρει ακριβώς αυτό και αφήνει το falcond ήσυχο. Η ανάκτηση του ελέγχου καταγράφει την κατάσταση του falcond όπως είναι εκείνη τη στιγμή — ώστε μια μεταγενέστερη επιστροφή να επαναφέρει αυτή — και το κάνει να ακολουθεί ξανά το Turbo: παραμένει σε εκτέλεση και ενεργοποιημένο αν εκτελείται, σταματημένο και απενεργοποιημένο αν όχι. Η ενεργοποίηση ή απενεργοποίηση του Turbo ανακτά επίσης τον έλεγχο."
 
-#: bigame-engine/bigame-ui/src/window.rs:378
+#: bigame-engine/bigame-ui/src/window.rs:383
 msgid "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched."
 msgstr "Το Turbo απενεργοποιείται, η επιλογή επιστρέφει στο Ταχύτατο και κάθε ρύθμιση γίνεται όπως ήταν στην αρχή. Τα παιχνίδια σας δεν αγγίζονται."
 
@@ -6491,10 +6548,6 @@ msgstr "Ορίστηκε λειτουργία VCache αλλά δεν εντοπ�
 msgid "VKD3D-Proton's cache (vkd3d-proton.cache) is in the game's folder: it has run with Direct3D 12 here"
 msgstr "Η cache του VKD3D-Proton (vkd3d-proton.cache) βρίσκεται στον φάκελο του παιχνιδιού: έχει εκτελεστεί με Direct3D 12 εδώ"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:144
-msgid "VRAM"
-msgstr "VRAM"
-
 #: bigame-engine/bigame-core/src/health.rs:359
 #: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
@@ -6522,6 +6575,10 @@ msgid "Version %v — %n option detected from --help"
 msgid_plural "Version %v — %n options detected from --help"
 msgstr[0] "Έκδοση %v — %n επιλογή εντοπίστηκε από το --help"
 msgstr[1] "Έκδοση %v — %n επιλογές εντοπίστηκαν από το --help"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:419
+msgid "Video memory"
+msgstr "Μνήμη βίντεο"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:77
 msgid "Video pipeline"
@@ -6560,7 +6617,7 @@ msgstr "Προειδοποιήσεις και σφάλματα"
 msgid "Watching for games"
 msgstr "Παρακολούθηση για παιχνίδια"
 
-#: bigame-engine/bigame-ui/src/window.rs:467
+#: bigame-engine/bigame-ui/src/window.rs:472
 msgid "Welcome"
 msgstr "Καλώς ήρθατε"
 
@@ -6610,7 +6667,7 @@ msgstr "Ό,τι μένει στη «Γενική διαμόρφωση» προέ
 msgid "What is left on “General configuration” follows Tuning → Display."
 msgstr "Ό,τι μένει στη «Γενική διαμόρφωση» ακολουθεί το Βελτιστοποίηση → Οθόνη."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:378
 msgid "What is really in force for the game, and how Big Game Mode knows it."
 msgstr "Τι ισχύει πραγματικά για το παιχνίδι και πώς το ξέρει το Big Game Mode."
 
@@ -6618,7 +6675,7 @@ msgstr "Τι ισχύει πραγματικά για το παιχνίδι κα
 msgid "What it needs"
 msgstr "Τι χρειάζεται"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:389
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
 msgid "What matters in a game session, read from the system journal."
 msgstr "Ό,τι έχει σημασία σε μια συνεδρία παιχνιδιού, από το ημερολόγιο του συστήματος."
 
@@ -6634,6 +6691,10 @@ msgstr "Ό,τι μπορεί να κάνει μόνο το μενού του ί�
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
 msgstr "Τι βρίσκεται ανάμεσα στο παιχνίδι και την οθόνη. Ρυθμισμένο είναι ό,τι ζητήσατε· εντοπισμένο είναι ό,τι δείχνει το παιχνίδι που τρέχει."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+msgid "What the computer and every graphics card are doing, second by second."
+msgstr "Τι κάνουν ο υπολογιστής και κάθε κάρτα γραφικών, δευτερόλεπτο προς δευτερόλεπτο."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2588
 msgid "What the game has"
 msgstr "Τι έχει το παιχνίδι"
@@ -6642,7 +6703,7 @@ msgstr "Τι έχει το παιχνίδι"
 msgid "What the game has and what it runs now."
 msgstr "Τι έχει το παιχνίδι και τι τρέχει τώρα."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:504
 msgid "What the last switch of Turbo did, item by item, and why."
 msgstr "Τι έκανε η τελευταία εναλλαγή του Turbo, στοιχείο προς στοιχείο, και γιατί."
 
@@ -6686,7 +6747,7 @@ msgstr "Όταν το Turbo είναι ενεργό και ξεκινά ένα �
 msgid "When it does nothing"
 msgstr "Πότε δεν κάνει τίποτα"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:452
 msgid "When something goes wrong in a game, open Logs right after it: the entries around that moment usually say why."
 msgstr "Όταν κάτι πάει στραβά σε ένα παιχνίδι, ανοίξτε τα Αρχεία καταγραφής αμέσως μετά: οι εγγραφές γύρω από εκείνη τη στιγμή συνήθως λένε γιατί."
 
@@ -6706,7 +6767,7 @@ msgstr "Πού φυλάσσονται οι ρυθμίσεις αυτού του 
 msgid "Where to buy it"
 msgstr "Πού να το αγοράσετε"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:477
 msgid "Whether a profile is offered when a game without one starts with Turbo on."
 msgstr "Αν θα προτείνεται προφίλ όταν ένα παιχνίδι χωρίς προφίλ ξεκινά με το Turbo ενεργό."
 
@@ -6722,10 +6783,6 @@ msgstr "Ποιο CCD προτιμούν τα παιχνίδια όσο το Turb
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:404
 msgid "Which CCD this game prefers"
 msgstr "Ποιο CCD προτιμά αυτό το παιχνίδι"
-
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:106
-msgid "Which card renders the running game, and what each one is doing. Only what the driver reports is shown."
-msgstr "Ποια κάρτα αποδίδει το παιχνίδι που τρέχει, και τι κάνει η καθεμία. Εμφανίζεται μόνο ό,τι αναφέρει το πρόγραμμα οδήγησης."
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:54
 msgid "While a game runs, Big Game Mode reads nothing behind it, watches only for the game to close, and its disk reads wait for the game"
@@ -6871,6 +6928,10 @@ msgstr "Εγγραφή της επιλογής εκκίνησης…"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1557
 msgid "Writing the report…"
 msgstr "Εγγραφή της αναφοράς…"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:785
+msgid "Written %s"
+msgstr "Εγγραφή %s"
 
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:21
 msgid "Written in Rust, this is a highly intelligent and balanced scheduler. It perfectly understands modern CPU architectures with mixed cores (like Intel P-Cores/E-Cores or AMD X3D cache CCDs) and routes workloads perfectly."
@@ -7425,7 +7486,7 @@ msgstr "Η υπηρεσία του falcond απέτυχε· απενεργοπο
 msgid "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files."
 msgstr "Το falcond, το Big Game Mode και ο βοηθός του, τα προγράμματα οδήγησης γραφικών του πυρήνα, το sched-ext, τα προφίλ ενέργειας και το Polkit — και, από κάθε παιχνίδι, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk και OptiScaler. Από το ημερολόγιο του συστήματος και τα δικά τους αρχεία καταγραφής."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:395
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
 msgid "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope and the kernel's GPU messages together."
 msgstr "Το falcond, το Big Game Mode, το power-profiles-daemon, το scx_loader, το Gamescope και τα μηνύματα GPU του πυρήνα μαζί."
 
@@ -7491,7 +7552,7 @@ msgstr "η έγχυση γραφικών είναι απενεργοποιημέ
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "προφίλ φορητών κονσολών σε μηχάνημα που δεν είναι φορητή κονσόλα: τα παιχνίδια τρέχουν σε λειτουργία εξοικονόμησης ενέργειας"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:42
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:506
 msgid "hardware slowdown"
 msgstr "επιβράδυνση υλικού"
 
@@ -7902,6 +7963,10 @@ msgstr "τίποτα προς μέτρηση: το σχέδιο δεν αλλά�
 msgid "nothing, Gamescope is off there"
 msgstr "τίποτα, το Gamescope είναι ανενεργό εκεί"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:750
+msgid "of %t in use (%p)"
+msgstr "από %t σε χρήση (%p)"
+
 #: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "ανενεργό: η CPU έχει πρόσβαση σε %s από τα %s της μνήμης βίντεο της κάρτας κάθε φορά"
@@ -7946,7 +8011,7 @@ msgstr "ανάλυση του TOML του εισαγόμενου προφίλ"
 msgid "performance while the game runs, as falcond asked"
 msgstr "performance όσο τρέχει το παιχνίδι, όπως ζήτησε το falcond"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:40
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:504
 msgid "power limit"
 msgstr "όριο ισχύος"
 
@@ -8138,7 +8203,7 @@ msgstr "το systemd επανεκκίνησε το falcond μία φορά αφ�
 msgid "takes a DLL slot beside the game and may collide with OptiScaler"
 msgstr "καταλαμβάνει θέση DLL δίπλα στο παιχνίδι και μπορεί να συγκρουστεί με το OptiScaler"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:41
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:505
 msgid "temperature limit"
 msgstr "όριο θερμοκρασίας"
 
@@ -8459,7 +8524,7 @@ msgstr "το νήμα εργασίας απέτυχε"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:850
 #: bigame-engine/bigame-ui/src/views/tuning.rs:295
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:209
-#: bigame-engine/bigame-ui/src/window.rs:664
+#: bigame-engine/bigame-ui/src/window.rs:669
 msgid "the worker thread stopped"
 msgstr "το νήμα εργασίας σταμάτησε"
 

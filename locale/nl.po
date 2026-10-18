@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 16:00-0300\n"
+"POT-Creation-Date: 2026-10-18 17:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:23\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Dutch <nl@li.org>\n"
@@ -156,10 +156,6 @@ msgstr[1] "%n waarschuwingen"
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:190
 msgid "%r cannot be used together with %a"
 msgstr "%r kan niet samen met %a worden gebruikt"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:125
-msgid "%r read · %w written KB/s"
-msgstr "%r gelezen · %w geschreven KB/s"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:291
 msgid "%r was asked for, but %l is running"
@@ -792,7 +788,7 @@ msgstr "De FSR 4-provider van AMD staat nog niet in de prefix van dit spel: Prot
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "De upscaler van AMD: hij vergroot het beeld en verscherpt de randen zodat het niet wazig oogt. Hij werkt op elke GPU. De gebruikelijke keuze: render het spel kleiner en laat FSR het opschalen naar het scherm. De scherpte hieronder geldt ervoor."
 
-#: bigame-engine/bigame-ui/src/window.rs:468
+#: bigame-engine/bigame-ui/src/window.rs:473
 msgid "About"
 msgstr "Over"
 
@@ -977,7 +973,7 @@ msgid "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the ac
 msgstr "Anti-cheat of de spellenlijst van Big Game Mode: een DLL injecteren kan het account in gevaar brengen, dus er wordt niets aangeboden."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:42
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
 msgid "Appearance"
 msgstr "Uiterlijk"
 
@@ -990,7 +986,7 @@ msgid "Applied and active"
 msgstr "Toegepast en actief"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:33
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:474
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:509
 msgid "Applied and verified"
 msgstr "Toegepast en geverifieerd"
 
@@ -1088,10 +1084,9 @@ msgstr "Gevraagd"
 msgid "Asked for, but it cannot be switched"
 msgstr "Gevraagd, maar het kan niet worden omgeschakeld"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:11
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:24
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:234
 #: bigame-engine/bigame-ui/src/views/home.rs:1477
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:443
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:466
 msgid "Asleep"
 msgstr "Slaapt"
 
@@ -1103,7 +1098,7 @@ msgstr "Bij het starten"
 msgid "At launch Gamescope runs it at the game's own size, so the image is not scaled twice."
 msgstr "Bij het starten laat Gamescope het op de eigen grootte van het spel draaien, zodat het beeld niet twee keer wordt geschaald."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:492
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:527
 msgid "Attempted, and the system did not change: the reason is on the row."
 msgstr "Geprobeerd, en het systeem veranderde niet: de reden staat in de rij."
 
@@ -1135,7 +1130,7 @@ msgstr "Authenticatie is vereist om Turbo aan of uit te zetten"
 msgid "Authorization was refused or cancelled"
 msgstr "Autorisatie is geweigerd of geannuleerd"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:230
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:448
 msgid "Available"
 msgstr "Beschikbaar"
 
@@ -1159,18 +1154,18 @@ msgstr "Gemiddelde FPS"
 msgid "Back"
 msgstr "Terug"
 
-#: bigame-engine/bigame-ui/src/window.rs:82
-#: bigame-engine/bigame-ui/src/window.rs:85
+#: bigame-engine/bigame-ui/src/window.rs:83
+#: bigame-engine/bigame-ui/src/window.rs:86
 msgid "Back to Home"
 msgstr "Terug naar Start"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:119
-#: bigame-engine/bigame-ui/src/window.rs:383
-#: bigame-engine/bigame-ui/src/window.rs:460
+#: bigame-engine/bigame-ui/src/window.rs:388
+#: bigame-engine/bigame-ui/src/window.rs:465
 msgid "Back to normal"
 msgstr "Terug naar normaal"
 
-#: bigame-engine/bigame-ui/src/window.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:382
 msgid "Back to normal?"
 msgstr "Terug naar normaal?"
 
@@ -1340,10 +1335,6 @@ msgstr "CAS-verscherping"
 msgid "CPU"
 msgstr "CPU"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:59
-msgid "CPU Freq"
-msgstr "CPU-freq."
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:200
 msgid "CPU clock, GPU load and network latency, read while Home is on screen."
 msgstr "CPU-klok, GPU-belasting en netwerklatentie, gelezen zolang Start in beeld is."
@@ -1397,8 +1388,8 @@ msgstr "Roept '%p' aan, dat niet is geïnstalleerd — startopties: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
 #: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
-#: bigame-engine/bigame-ui/src/window.rs:337
-#: bigame-engine/bigame-ui/src/window.rs:382
+#: bigame-engine/bigame-ui/src/window.rs:342
+#: bigame-engine/bigame-ui/src/window.rs:387
 msgid "Cancel"
 msgstr "Annuleren"
 
@@ -1426,7 +1417,7 @@ msgstr "Wijzig alleen wat dit spel nodig heeft. Opties die op “Algemene config
 msgid "Change them to: %s"
 msgstr "Verander ze in: %s"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:475
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:510
 msgid "Changed, then read back from the system to confirm it took."
 msgstr "Gewijzigd en daarna uit het systeem teruggelezen om te bevestigen dat het is doorgevoerd."
 
@@ -1473,10 +1464,10 @@ msgstr "Je systeem controleren…"
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:52
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:632
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:638
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
 #: bigame-engine/bigame-ui/src/views/settings.rs:447
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:402
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Controleren…"
@@ -1525,9 +1516,13 @@ msgstr "Filters wissen"
 msgid "Clear launch options"
 msgstr "Startopties wissen"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:143
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:418
 msgid "Clock"
 msgstr "Kloksnelheid"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:726
+msgid "Clock not reported"
+msgstr "Kloksnelheid niet gemeld"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:250
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:267
@@ -1722,7 +1717,7 @@ msgstr "Installatiecommando kopiëren"
 msgid "Copy all checks"
 msgstr "Alle controles kopiëren"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
 msgid "Copy and export"
 msgstr "Kopiëren en exporteren"
 
@@ -1740,7 +1735,7 @@ msgstr "Commando kopiëren"
 msgid "Copy what is shown"
 msgstr "Kopieer wat getoond wordt"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
 msgid "Copy what is shown, or save it to a file with your user name, home folder and host masked."
 msgstr "Kopieer wat getoond wordt, of sla het op in een bestand met je gebruikersnaam, persoonlijke map en host gemaskeerd."
 
@@ -1828,12 +1823,12 @@ msgstr "Kon niet repareren"
 msgid "Could not restore"
 msgstr "Kon niet herstellen"
 
-#: bigame-engine/bigame-ui/src/window.rs:682
+#: bigame-engine/bigame-ui/src/window.rs:687
 msgid "Could not restore Gamescope's settings"
 msgstr "Kon de instellingen van Gamescope niet herstellen"
 
-#: bigame-engine/bigame-ui/src/window.rs:663
-#: bigame-engine/bigame-ui/src/window.rs:673
+#: bigame-engine/bigame-ui/src/window.rs:668
+#: bigame-engine/bigame-ui/src/window.rs:678
 msgid "Could not restore falcond's settings"
 msgstr "Kon de instellingen van falcond niet herstellen"
 
@@ -1887,7 +1882,7 @@ msgid "Could not update Heroic's settings for a game"
 msgstr "Kon de Heroic-instellingen van een spel niet bijwerken"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1333
-#: bigame-engine/bigame-ui/src/window.rs:700
+#: bigame-engine/bigame-ui/src/window.rs:705
 msgid "Could not update lsfg-vk's file"
 msgstr "Kon het bestand van lsfg-vk niet bijwerken"
 
@@ -1987,6 +1982,10 @@ msgstr "Vergelijking van DNS-resolvers"
 msgid "Dark"
 msgstr "Donker"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:391
+msgid "Dedicated"
+msgstr "Dedicated"
+
 #: bigame-engine/bigame-core/src/optimization.rs:50
 #: bigame-engine/bigame-ui/src/views/settings.rs:55
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1401
@@ -1998,7 +1997,7 @@ msgstr "Standaard"
 msgid "Default is shown while the desktop asks for high contrast"
 msgstr "Standaard wordt getoond zolang het bureaublad om hoog contrast vraagt"
 
-#: bigame-engine/bigame-ui/src/window.rs:356
+#: bigame-engine/bigame-ui/src/window.rs:361
 msgid "Default settings restored"
 msgstr "Standaardinstellingen hersteld"
 
@@ -2024,7 +2023,7 @@ msgstr "Profiel verwijderen"
 msgid "Delete this profile?"
 msgstr "Dit profiel verwijderen?"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:485
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:520
 msgid "Deliberately left alone, not possible on this machine, or a second controller of the same thing that was not used."
 msgstr "Bewust met rust gelaten, niet mogelijk op deze computer, of een tweede regelaar voor hetzelfde die niet werd gebruikt."
 
@@ -2045,8 +2044,8 @@ msgid "Desktop notifications when a game profile is applied and when it is resto
 msgstr "Bureaubladmeldingen wanneer een spelprofiel wordt toegepast en wanneer het wordt hersteld. Het profielaanbod wordt hierboven apart ingesteld."
 
 #: bigame-engine/bigame-ui/src/widgets/toast.rs:54
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
-#: bigame-engine/bigame-ui/src/window.rs:158
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/window.rs:163
 msgid "Details"
 msgstr "Details"
 
@@ -2076,7 +2075,7 @@ msgid "Diagnose and details"
 msgstr "Diagnose en details"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:39
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:491
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:526
 msgid "Did not take effect"
 msgstr "Had geen effect"
 
@@ -2084,9 +2083,10 @@ msgstr "Had geen effect"
 msgid "Discard"
 msgstr "Verwerpen"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:64
-msgid "Disk I/O"
-msgstr "Schijf I/O"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:94
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:353
+msgid "Disk"
+msgstr "Schijf"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:68
 #: bigame-engine/bigame-ui/src/views/tuning.rs:670
@@ -2128,7 +2128,7 @@ msgstr "Dynamische orkestratie van gamingprestaties voor BigLinux"
 msgid "Each game's frame generation is in its profile"
 msgstr "De framegeneratie van elk spel staat in zijn profiel"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:356
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:391
 msgid "Each item is Active, Waiting for a game, Configured, Not detected, Off, Missing dependency or Not supported. Open a row for what that means, the evidence and the fix."
 msgstr "Elk item is Actief, Wachten op een spel, Geconfigureerd, Niet gedetecteerd, Uit, Ontbrekende afhankelijkheid of Niet ondersteund. Open een rij voor wat dat betekent, het bewijs en de oplossing."
 
@@ -2209,15 +2209,15 @@ msgstr "De graphics van alle spellen zijn hersteld"
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
 msgstr "Alles wat een helper over deze computer moet weten. Je gebruikersnaam, persoonlijke map, hostnaam en publieke netwerkadressen worden verwijderd terwijl het rapport wordt opgebouwd."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:377
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:412
 msgid "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked."
 msgstr "Alles hierboven in één tekst om in een forum of een issue te plakken, met je gebruikersnaam, persoonlijke map en host gemaskeerd."
 
-#: bigame-engine/bigame-ui/src/window.rs:405
+#: bigame-engine/bigame-ui/src/window.rs:410
 msgid "Everything is back to normal"
 msgstr "Alles is weer normaal"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:363
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:398
 msgid "Everything that needs attention, classed as fixable, needing you, hardware or information, with commands to copy. A hardware limit is never an error."
 msgstr "Alles wat aandacht nodig heeft, ingedeeld als op te lossen, vraagt om jou, hardware of informatie, met opdrachten om te kopiëren. Een hardwarebeperking is nooit een fout."
 
@@ -2365,6 +2365,10 @@ msgstr "Snellere, nauwkeurigere spelherkenning voor Steam, Heroic en Lutris"
 msgid "Fastest"
 msgstr "Snelst"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:721
+msgid "Fastest core %f · average %a"
+msgstr "Snelste kern %f · gemiddeld %a"
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:61
 msgid "Fastest for the most frames, Quiet for a cooler and quieter computer, Pretty for a sharper picture."
 msgstr "Snelst voor de meeste frames, Stil voor een koelere en stillere computer, Mooi voor een scherper beeld."
@@ -2407,7 +2411,7 @@ msgstr "Bestanden teruggezet; de eigen instelling van het spel moet nog worden t
 msgid "Files that will change"
 msgstr "Bestanden die zullen veranderen"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:401
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:436
 msgid "Filter and search"
 msgstr "Filteren en zoeken"
 
@@ -2436,7 +2440,7 @@ msgstr "Op te lossen"
 msgid "Flow scale (%)"
 msgstr "Flowschaal (%)"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:406
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Follow"
 msgstr "Volgen"
 
@@ -2542,15 +2546,10 @@ msgstr "Frequentie-CCD"
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:136
 #: bigame-engine/bigame-core/src/health.rs:858
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:36
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:60
 #: bigame-engine/bigame-ui/src/views/home.rs:1410
 #: bigame-engine/bigame-ui/src/views/home.rs:89
 msgid "GPU"
 msgstr "GPU"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:62
-msgid "GPU Temp"
-msgstr "GPU-temp."
 
 #: bigame-engine/bigame-core/src/booster/plan.rs:444
 msgid "GPU power level"
@@ -2599,7 +2598,7 @@ msgid "Game name cannot be empty"
 msgstr "De spelnaam mag niet leeg zijn"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:428
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:476
 msgid "Game profiles"
 msgstr "Spelprofielen"
 
@@ -2627,7 +2626,7 @@ msgstr "Spellen verkiezen de CCD met de gestapelde 3D V-Cache. Het beste voor de
 msgid "Games prefer the CCD without the extra cache, which clocks higher. For the few games that gain from clock speed more than from cache."
 msgstr "Spellen verkiezen de CCD zonder de extra cache, die hoger klokt. Voor de weinige spellen die meer winnen bij kloksnelheid dan bij cache."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:229
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:447
 msgid "Games render here"
 msgstr "Spellen renderen hier"
 
@@ -2844,7 +2843,8 @@ msgstr "Graphics-API en het bewijs ervoor, GPU, de eigen upscalers van het spel,
 msgid "Graphics card"
 msgstr "Videokaart"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:105
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:110
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:365
 msgid "Graphics cards"
 msgstr "Videokaarten"
 
@@ -2872,7 +2872,7 @@ msgstr "HOME is niet ingesteld"
 msgid "Hand back"
 msgstr "Teruggeven"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:493
 msgid "Hand falcond back"
 msgstr "falcond teruggeven"
 
@@ -2888,11 +2888,11 @@ msgstr "Handheld"
 msgid "Hardware"
 msgstr "Hardware"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:534
 msgid "Help"
 msgstr "Hulp"
 
-#: bigame-engine/bigame-ui/src/window.rs:481
+#: bigame-engine/bigame-ui/src/window.rs:486
 msgid "Help & Tutorial"
 msgstr "Hulp en rondleiding"
 
@@ -2973,14 +2973,18 @@ msgid "Heroic's settings were not written"
 msgstr "De Heroic-instellingen zijn niet geschreven"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:167
-#: bigame-engine/bigame-ui/src/window.rs:155
-#: bigame-engine/bigame-ui/src/window.rs:73
+#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/window.rs:74
 msgid "Home"
 msgstr "Start"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
 msgid "How Big Game Mode looks and behaves, and how to hand falcond back."
 msgstr "Hoe Big Game Mode eruitziet en zich gedraagt, en hoe je falcond teruggeeft."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+msgid "How busy all its cores are, the fastest core's clock and the average, and its temperature."
+msgstr "Hoe druk alle kernen zijn, de kloksnelheid van de snelste kern en het gemiddelde, en de temperatuur."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1008
 msgid "How files are changed safely"
@@ -2989,6 +2993,10 @@ msgstr "Hoe bestanden veilig worden gewijzigd"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:755
 msgid "How it is known"
 msgstr "Hoe het bekend is"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:354
+msgid "How much every disk reads and writes each second, together."
+msgstr "Hoeveel alle schijven samen per seconde lezen en schrijven."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1464
 msgid "How often falcond looks for a running game. Lower reacts sooner and costs more; the default is 9000."
@@ -3065,7 +3073,7 @@ msgstr "In het spel"
 msgid "In the game next to OptiScaler: two upscalers in series"
 msgstr "In het spel naast OptiScaler: twee upscalers achter elkaar"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:435
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:470
 msgid "In the tray, so games started from Steam are noticed even with the window closed."
 msgstr "In het systeemvak, zodat spellen die vanuit Steam starten ook worden opgemerkt als het venster gesloten is."
 
@@ -3150,6 +3158,10 @@ msgstr "Geïnstalleerd; van elk vervangen bestand is een back-up gemaakt"
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:85
 msgid "Integer scaling"
 msgstr "Integer-schaling"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:393
+msgid "Integrated"
+msgstr "Geïntegreerd"
 
 #: bigame-engine/bigame-core/src/graphics/report.rs:153
 msgid "Intel integrated"
@@ -3264,10 +3276,6 @@ msgstr "LSFG-VK voegt synthetisch gegenereerde frames in om je framerate te verm
 msgid "Last read"
 msgstr "Laatst gelezen"
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:65
-msgid "Latency"
-msgstr "Latentie"
-
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:15
 msgid "Latency-Aware Virtual Deadline. The absolute best choice for gaming! It heavily prioritizes interactive tasks (like your game rendering frames and reading your mouse clicks). It dramatically reduces stuttering and stabilizes FPS."
 msgstr "Latency-Aware Virtual Deadline. De allerbeste keuze om te gamen! Geeft sterk voorrang aan interactieve taken (zoals je spel dat frames rendert en je muisklikken leest). Vermindert haperingen flink en stabiliseert de FPS."
@@ -3342,7 +3350,7 @@ msgstr "Meer over schedulers"
 msgid "Leave the game's graphics as they are."
 msgstr "Laat de graphics van het spel zoals ze zijn."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:480
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:515
 msgid "Left to the component that owns it, which sets it for each game."
 msgstr "Overgelaten aan het onderdeel dat het beheert, dat het voor elk spel instelt."
 
@@ -3362,19 +3370,19 @@ msgstr "Licht"
 msgid "Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."
 msgstr "Waarschijnlijke oorzaken: het spel is gestart vanuit Steam of zijn launcher, niet vanuit Big Game Mode (Profielen → Starten); Gamescope stopte bij het starten (de WSI-laag, een spel dat Wayland verkiest); het profiel van het spel zegt Nooit."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
-msgid "Live CPU and GPU readings, and one card per GPU with its load, clock, video memory, temperature and power, and which one renders the game."
-msgstr "Live metingen van CPU en GPU, en één kaart per GPU met belasting, klok, videogeheugen, temperatuur en vermogen, en welke het spel rendert."
-
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:199
 msgid "Live readings"
 msgstr "Live metingen"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:72
+msgid "Live readings, once a second. They pause while a game has the screen, so watching never costs the game anything."
+msgstr "Live metingen, één per seconde. Ze pauzeren zolang een spel het scherm heeft, dus kijken kost het spel nooit iets."
 
 #: bigame-engine/bigame-core/src/optimization.rs:120
 msgid "Living room (HTPC)"
 msgstr "Woonkamer (HTPC)"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:142
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:411
 msgid "Load"
 msgstr "Belasting"
 
@@ -3408,8 +3416,8 @@ msgid "Log exported"
 msgstr "Logboek geëxporteerd"
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:96
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:388
-#: bigame-engine/bigame-ui/src/window.rs:159
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
+#: bigame-engine/bigame-ui/src/window.rs:164
 msgid "Logs"
 msgstr "Logboeken"
 
@@ -3456,7 +3464,7 @@ msgstr "Lutris moet opnieuw worden geopend"
 msgid "Mailbox"
 msgstr "Mailbox"
 
-#: bigame-engine/bigame-ui/src/window.rs:476
+#: bigame-engine/bigame-ui/src/window.rs:481
 msgid "Main Menu"
 msgstr "Hoofdmenu"
 
@@ -3475,7 +3483,7 @@ msgid "Managed by Big Game Mode since %s"
 msgstr "Beheerd door Big Game Mode sinds %s"
 
 #: bigame-engine/bigame-ui/src/views/report.rs:35
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:479
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:514
 msgid "Managed per game"
 msgstr "Per spel beheerd"
 
@@ -3570,6 +3578,15 @@ msgstr "Meet hoe snel elke resolver een opzoeking beantwoordt. Het verandert nie
 msgid "Measuring…"
 msgstr "Meten…"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:88
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
+msgid "Memory"
+msgstr "Geheugen"
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:349
+msgid "Memory in use out of the total, and swap."
+msgstr "Gebruikt geheugen van het totaal, en swap."
+
 #: bigame-engine/bigame-core/src/graphics/scan.rs:133
 msgid "Microsoft system DLL"
 msgstr "Microsoft-systeem-DLL"
@@ -3648,9 +3665,7 @@ msgstr "Vermenigvuldiger, flowschaal, HDR en presentatiemodus"
 msgid "My own file"
 msgstr "Mijn eigen bestand"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:17
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:117
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:165
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:743
 msgid "N/A"
 msgstr "n.v.t."
 
@@ -3694,10 +3709,12 @@ msgstr "Vraagt om jou"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:624
 #: bigame-engine/bigame-ui/src/views/home.rs:90
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:99
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:358
 msgid "Network"
 msgstr "Netwerk"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:369
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:404
 msgid "Network, background load and Steam"
 msgstr "Netwerk, achtergrondbelasting en Steam"
 
@@ -3767,7 +3784,7 @@ msgstr "Nooit"
 msgid "New Profile"
 msgstr "Nieuw profiel"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:407
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
 msgid "New entries appear while the page is open; nothing is read while it is not."
 msgstr "Nieuwe items verschijnen zolang de pagina open is; wanneer ze dat niet is, wordt er niets gelezen."
 
@@ -3789,11 +3806,11 @@ msgstr "Nee"
 msgid "No DLSS, FSR or XeSS"
 msgstr "Geen DLSS, FSR of XeSS"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:172
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:543
 msgid "No DRM card is exposed by the kernel."
 msgstr "De kernel stelt geen DRM-kaart beschikbaar."
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:171
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:541
 msgid "No GPU was found"
 msgstr "Er is geen GPU gevonden"
 
@@ -3847,7 +3864,7 @@ msgstr "Geen spellen gevonden"
 msgid "No generated frames from OptiScaler. The game's own frame generation, if it has one, stays in its menu."
 msgstr "Geen gegenereerde frames van OptiScaler. De eigen framegeneratie van het spel, als het die heeft, blijft in het menu ervan."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:500
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:535
 msgid "No help available for this view."
 msgstr "Geen hulp beschikbaar voor deze weergave."
 
@@ -3882,6 +3899,10 @@ msgstr "Geen scheduler: de modus doet niets"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:244
 msgid "No screen saver or screen sleep while this game runs"
 msgstr "Geen schermbeveiliging of slaapstand van het scherm zolang dit spel draait"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:755
+msgid "No swap"
+msgstr "Geen swap"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:317
 msgid "No, by the game's profile (Never)"
@@ -4001,9 +4022,9 @@ msgstr "Niet aangeboden: dit spel heeft anti-cheat"
 msgid "Not recommended"
 msgstr "Niet aanbevolen"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:27
-msgid "Not reported by the driver"
-msgstr "Niet gemeld door het stuurprogramma"
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:350
+msgid "Not reported"
+msgstr "Niet gemeld"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:371
 msgid "Not restored (close them and try again): %s"
@@ -4126,13 +4147,13 @@ msgstr "Niets wat het installeren waard is, of het zou slechter zijn dan wat het
 msgid "Notifications"
 msgstr "Meldingen"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:446
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:481
 msgid "Notifications and ping target"
 msgstr "Meldingen en pingdoel"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:447
-msgid "Notifications when a game starts or exits, and the address the Details page pings for its latency graph."
-msgstr "Meldingen wanneer een spel start of afsluit, en het adres dat de pagina Details pingt voor de latentiegrafiek."
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:482
+msgid "Notifications when a game starts or exits, and the address the Telemetry page pings for its latency chart."
+msgstr "Meldingen wanneer een spel start of afsluit, en het adres dat de pagina Telemetrie pingt voor de latentiegrafiek."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:571
 msgid "Now: %s"
@@ -4238,11 +4259,15 @@ msgstr "Aan: falcond draait en past het profiel van elk spel toe"
 msgid "One button makes your games run better. Press it again to go back to normal."
 msgstr "Eén knop laat je spellen beter draaien. Druk er nog eens op om terug te gaan naar normaal."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:366
+msgid "One card per GPU with its load, temperature, clock, video memory and power, and which one renders the game. Not reported means the driver does not publish that reading."
+msgstr "Eén kaart per GPU met belasting, temperatuur, kloksnelheid, videogeheugen en vermogen, en welke het spel rendert. Niet gemeld betekent dat het stuurprogramma die meting niet publiceert."
+
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:114
 msgid "One general configuration"
 msgstr "Eén algemene configuratie"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:342
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:384
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Eén regel over de staat van de computer, en een chip per item: Turbo, falcond, het profiel, energie, de scheduler, de GPU, Gamescope, upscaling, framegeneratie."
 
@@ -4250,7 +4275,7 @@ msgstr "Eén regel over de staat van de computer, en een chip per item: Turbo, f
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "Eén regel loopt door het hele project: er wordt niets aangeboden wat de computer niet kan, en niets heet een verbetering zonder meting."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:394
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:429
 msgid "One view"
 msgstr "Eén overzicht"
 
@@ -4511,8 +4536,8 @@ msgid "OptiScaler's own frame generation (OptiFG, with FSR frame generation), fo
 msgstr "De eigen framegeneratie van OptiScaler (OptiFG, met FSR-framegeneratie), voor DirectX 12-spellen. Experimenteel: de HUD kan spookbeelden geven, en het voegt latentie toe. Deze keuze staat experimentele opties toe. Nooit samen met lsfg-vk: twee framegeneratoren na elkaar genereren frames uit gegenereerde frames."
 
 #: bigame-engine/bigame-ui/src/views/report.rs:234
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:468
-#: bigame-engine/bigame-ui/src/window.rs:100
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/window.rs:101
 msgid "Optimization Report"
 msgstr "Optimalisatierapport"
 
@@ -4556,7 +4581,7 @@ msgstr "Uitvoergrootte"
 msgid "Overlay style"
 msgstr "Overlaystijl"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:383
 msgid "Overview"
 msgstr "Overzicht"
 
@@ -4619,7 +4644,7 @@ msgstr "Optimalisatie per spel kon niet worden gestart"
 msgid "Performance"
 msgstr "Prestaties"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:355
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:390
 msgid "Performance and video pipeline"
 msgstr "Prestaties en videopijplijn"
 
@@ -4652,6 +4677,10 @@ msgstr "Prestatiemodus, de sched-ext-CPU-scheduler voor spellen zonder een eigen
 msgid "Ping Target"
 msgstr "Pingdoel"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:692
+msgid "Ping to %s"
+msgstr "Ping naar %s"
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:366
 msgid "Plan"
 msgstr "Plan"
@@ -4669,8 +4698,8 @@ msgstr "%s spelen"
 msgid "Post-processing filters (sharpening, colour) in Vulkan games"
 msgstr "Nabewerkingsfilters (verscherping, kleur) in Vulkan-spellen"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:146
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:34
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:420
 msgid "Power"
 msgstr "Vermogen"
 
@@ -4718,7 +4747,7 @@ msgid "Pretty"
 msgstr "Mooi"
 
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:92
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:362
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:397
 msgid "Problems"
 msgstr "Problemen"
 
@@ -4731,6 +4760,11 @@ msgstr "Proces"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:700
 msgid "Process Name"
 msgstr "Procesnaam"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:83
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:341
+msgid "Processor"
+msgstr "Processor"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:78
 msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
@@ -4824,7 +4858,7 @@ msgid "Profile set"
 msgstr "Profielset"
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:217
-#: bigame-engine/bigame-ui/src/window.rs:156
+#: bigame-engine/bigame-ui/src/window.rs:160
 msgid "Profiles"
 msgstr "Profielen"
 
@@ -4842,7 +4876,7 @@ msgstr "Profielen voor handheld-pc's zoals de Steam Deck of de ROG Ally: ze geve
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:446
 #: bigame-engine/bigame-ui/src/views/settings.rs:457
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:488
 msgid "Profiles from an older Big Game Mode"
 msgstr "Profielen uit een oudere Big Game Mode"
 
@@ -4854,7 +4888,7 @@ msgstr "Profielen geladen"
 msgid "Profiles of yours that match no installed game. They stay until you delete them."
 msgstr "Profielen van jou die bij geen enkel geïnstalleerd spel passen. Ze blijven bestaan tot je ze verwijdert."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:454
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:489
 msgid "Profiles that can never match their game, and the fix."
 msgstr "Profielen die nooit bij hun spel kunnen passen, en de oplossing."
 
@@ -4917,7 +4951,7 @@ msgid "Quiet"
 msgstr "Stil"
 
 #: bigame-engine/bigame-ui/src/tray.rs:219
-#: bigame-engine/bigame-ui/src/window.rs:469
+#: bigame-engine/bigame-ui/src/window.rs:474
 msgid "Quit"
 msgstr "Afsluiten"
 
@@ -4928,10 +4962,6 @@ msgstr "Afsluiten als het klaar is"
 #: bigame-engine/bigame-ui/src/app.rs:112
 msgid "Quit when finished?"
 msgstr "Afsluiten als het klaar is?"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:63
-msgid "RAM Usage"
-msgstr "RAM-gebruik"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:542
 msgid "Raises the presented frame rate, not the rendered one, and adds latency. Evidence: liblsfg-vk mapped in the game, and lsfg-vk's entry for it."
@@ -4948,6 +4978,10 @@ msgstr "Verhoogt de getoonde framerate, niet de gerenderde, en voegt latentie to
 #: bigame-engine/bigame-core/src/graphics/rules.rs:179
 msgid "ReShade's add-on build is for single-player games only; anti-cheat can ban for injected DLLs"
 msgstr "De add-on-build van ReShade is alleen voor singleplayerspellen; anti-cheat kan een ban geven voor geïnjecteerde DLL's"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:783
+msgid "Read %s"
+msgstr "Lezen %s"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2213
 msgid "Read at %s from the game's folder, the graphics card and the running game"
@@ -5002,10 +5036,6 @@ msgstr "Klaar om toe te passen"
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:147
 msgid "Ready to play"
 msgstr "Klaar om te spelen"
-
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:48
-msgid "Real-time Telemetry"
-msgstr "Realtime telemetrie"
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:18
 msgid "Real-time telemetry, diagnostics and one view of every relevant log"
@@ -5071,7 +5101,7 @@ msgstr "Startoptie verwijderen…"
 msgid "Render size"
 msgstr "Rendergrootte"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:228
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:446
 msgid "Renders %s"
 msgstr "Rendert %s"
 
@@ -5131,7 +5161,7 @@ msgstr "Vereiste pakketten zijn niet gevonden op het systeem"
 msgid "Rescan game library"
 msgstr "Spelbibliotheek opnieuw scannen"
 
-#: bigame-engine/bigame-ui/src/window.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:340
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Zet alle instellingen van Afstemming en Gamescope terug naar de aanbevolen standaarden. Dit kan niet ongedaan worden gemaakt."
 
@@ -5150,7 +5180,7 @@ msgstr "Opgelost: %s is de enige upscaler"
 msgid "Restart Big Game Mode"
 msgstr "Big Game Mode opnieuw starten"
 
-#: bigame-engine/bigame-ui/src/window.rs:338
+#: bigame-engine/bigame-ui/src/window.rs:343
 msgid "Restore"
 msgstr "Herstellen"
 
@@ -5159,8 +5189,8 @@ msgstr "Herstellen"
 msgid "Restore All"
 msgstr "Alles herstellen"
 
-#: bigame-engine/bigame-ui/src/window.rs:334
-#: bigame-engine/bigame-ui/src/window.rs:462
+#: bigame-engine/bigame-ui/src/window.rs:339
+#: bigame-engine/bigame-ui/src/window.rs:467
 msgid "Restore Defaults"
 msgstr "Standaarden herstellen"
 
@@ -5218,7 +5248,7 @@ msgstr "Hervatten"
 msgid "Resume %s?"
 msgstr "%s hervatten?"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:459
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:494
 msgid "Return falcond to exactly the state it was in before Big Game Mode first changed it."
 msgstr "Zet falcond terug in precies de staat waarin het was voordat Big Game Mode het voor het eerst wijzigde."
 
@@ -5430,8 +5460,8 @@ msgstr "Stel het pad in op de rij hierboven: één bestand voor elk spel, meteen
 msgid "Set now"
 msgstr "Nu ingesteld"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:423
-#: bigame-engine/bigame-ui/src/window.rs:160
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:458
+#: bigame-engine/bigame-ui/src/window.rs:165
 msgid "Settings"
 msgstr "Instellingen"
 
@@ -5460,7 +5490,7 @@ msgstr "Dialoogvenster tonen bij opstarten"
 msgid "Show notifications on game launch and exit"
 msgstr "Meldingen tonen bij starten en afsluiten van het spel"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:402
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:437
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Toon alleen fouten, waarschuwingen of één bron, of doorzoek de tekst."
 
@@ -5488,7 +5518,7 @@ msgstr "Overslaan"
 msgid "Skipped"
 msgstr "Overgeslagen"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:484
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:519
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Overgeslagen, niet beschikbaar, conflicten vermeden"
 
@@ -5515,7 +5545,7 @@ msgstr "Speciale dank"
 msgid "Standing"
 msgstr "Beoordeling"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:382
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
 msgid "Start a game and keep this page open: it is read only while it is on screen, so it costs nothing the rest of the time."
 msgstr "Start een spel en houd deze pagina open: ze wordt alleen gelezen zolang ze in beeld is, dus de rest van de tijd kost ze niets."
 
@@ -5523,12 +5553,16 @@ msgstr "Start een spel en houd deze pagina open: ze wordt alleen gelezen zolang 
 msgid "Start a game from Steam, Lutris, Heroic, the application menu or Profiles. The card at the bottom shows it with its flags."
 msgstr "Start een spel vanuit Steam, Lutris, Heroic, het toepassingsmenu of Profielen. De kaart onderaan toont het met zijn vlaggen."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:371
+msgid "Start a game, then come back here with Alt+Tab: the charts show the last minute. While the game has the screen, nothing is read."
+msgstr "Start een spel en kom met Alt+Tab hier terug: de grafieken tonen de laatste minuut. Zolang het spel het scherm heeft, wordt niets gelezen."
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:279
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Start een spel; wat het echt krijgt, wordt uit het proces gelezen en hier getoond."
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:410
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
 msgstr "Bij inloggen op de achtergrond starten"
 
@@ -5671,13 +5705,17 @@ msgstr "Gelukt"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1529
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:825
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:376
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:411
 msgid "Support report"
 msgstr "Ondersteuningsrapport"
 
 #: bigame-engine/bigame-core/src/recommend.rs:51
 msgid "Supported, not measured"
 msgstr "Ondersteund, niet gemeten"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:757
+msgid "Swap %u of %t"
+msgstr "Swap %u van %t"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1999
 msgid "Switch it back on"
@@ -5733,13 +5771,24 @@ msgstr "Haalt OptiScaler en elk bestand dat AI-graphics heeft geplaatst uit alle
 msgid "Technical details"
 msgstr "Technische details"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:348
-msgid "Telemetry and graphics cards"
-msgstr "Telemetrie en videokaarten"
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:335
+#: bigame-engine/bigame-ui/src/window.rs:161
+msgid "Telemetry"
+msgstr "Telemetrie"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:145
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:412
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:474
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:500
 msgid "Temperature"
 msgstr "Temperatuur"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:730
+msgid "Temperature %s"
+msgstr "Temperatuur %s"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:737
+msgid "Temperature not reported"
+msgstr "Temperatuur niet gemeld"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1693
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1819
@@ -5758,7 +5807,7 @@ msgstr "De CPU-scheduler (de verkeersregelaar van de processor) bepaalt welke pr
 msgid "The DNS servers of the network connection that carries your traffic, as NetworkManager has them. \"Use\" on a measured resolver makes it the first one, and the servers your router hands out are no longer used. Before the first change, the connection's DNS settings are saved in ~/.local/state/bigame-mode/network; \"Restore previous\" puts them back and removes the copy. A faster lookup does not lower the latency of a game once it has connected."
 msgstr "De DNS-servers van de netwerkverbinding die je verkeer draagt, zoals NetworkManager ze heeft. “Gebruiken” bij een gemeten resolver maakt die de eerste, en de servers die je router uitdeelt, worden niet meer gebruikt. Vóór de eerste wijziging worden de DNS-instellingen van de verbinding opgeslagen in ~/.local/state/bigame-mode/network; “Vorige herstellen” zet ze terug en verwijdert de kopie. Een snellere opzoeking verlaagt de latentie van een spel niet zodra het verbonden is."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:465
 msgid "The Default or Gamer theme, light, dark or the desktop's. Only the look changes."
 msgstr "Het thema Standaard of Gamer, licht, donker of dat van het bureaublad. Alleen het uiterlijk verandert."
 
@@ -5771,10 +5820,10 @@ msgid "The Steam runtime's library cache tool is no longer taken for the running
 msgstr "Het bibliotheekcachehulpmiddel van de Steam-runtime wordt niet langer voor het lopende spel aangezien"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:271
-msgid "The address pinged for the latency readings on the Home and Details pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
-msgstr "Het adres dat wordt gepingd voor de latentiemetingen op de pagina's Start en Details. De keuzes zijn de resolvers die de DNS-vergelijking meet: die deze computer gebruikt en bekende publieke. Elk ander adres kan worden ingetypt."
+msgid "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
+msgstr "Het adres dat wordt gepingd voor de latentiemetingen op de pagina's Start en Telemetrie. De keuzes zijn de resolvers die de DNS-vergelijking meet: die deze computer gebruikt en bekende publieke. Elk ander adres kan worden ingetypt."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:495
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:530
 msgid "The back button at the top returns to Home."
 msgstr "De terugknop bovenaan gaat terug naar Start."
 
@@ -5795,7 +5844,7 @@ msgstr "De keuze voor dit spel is niet opgeslagen. Opslaan bewaart hem voor de v
 msgid "The choice was not saved"
 msgstr "De keuze is niet opgeslagen"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:370
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:405
 msgid "The connection and a DNS comparison, programs competing for the CPU, and Steam launch options that call a missing program."
 msgstr "De verbinding en een DNS-vergelijking, programma's die om de CPU concurreren, en Steam-startopties die een ontbrekend programma aanroepen."
 
@@ -5899,6 +5948,10 @@ msgstr "Het beeld zou twee keer worden geschaald, wat het wazig maakt en voor ni
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1556
 msgid "The kernel's rule for the CPU's clock. Big Game Mode does not set it: power-profiles-daemon does, from the power profile. Performance mode (above) asks for the performance profile while a game runs, and it goes back afterwards."
 msgstr "De regel van de kernel voor de CPU-klok. Big Game Mode stelt die niet in: power-profiles-daemon doet dat, op basis van het energieprofiel. Prestatiemodus (hierboven) vraagt om het prestatieprofiel zolang een spel draait, en daarna gaat het terug."
+
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:359
+msgid "The latency to the address chosen in Settings, and what the network cards receive and send."
+msgstr "De latentie naar het adres dat in Instellingen is gekozen, en wat de netwerkkaarten ontvangen en verzenden."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2407
 msgid "The launch option was removed; the game's own FSR runs as it did"
@@ -6080,8 +6133,8 @@ msgstr "Het systeem stond Big Game Mode niet toe %s een signaal te sturen."
 msgid "The variable is written to ~/.config/environment.d and pushed into the session, but a launcher that was already running (Steam) keeps its old environment: close and reopen Steam, then start the game again."
 msgstr "De variabele wordt naar ~/.config/environment.d geschreven en in de sessie gezet, maar een launcher die al draaide (Steam) houdt zijn oude omgeving: sluit Steam en open het opnieuw, en start dan het spel opnieuw."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:503
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:499
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:538
 msgid "The welcome screen can be opened again from the main menu, under Welcome."
 msgstr "Het welkomstscherm kan opnieuw worden geopend vanuit het hoofdmenu, onder Welkom."
 
@@ -6112,6 +6165,10 @@ msgstr "Deze GPU heeft geen FSR 4, dus dat deel valt weg."
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:226
 msgid "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Details › Network puts them back."
 msgstr "Dit wijzigt de netwerkinstellingen van het systeem voor de verbinding “%s”: %s wordt de eerste DNS-server, en de automatisch uitgedeelde servers worden niet meer gebruikt. De huidige instellingen worden eerst opgeslagen; “Vorige herstellen” onder Details › Netwerk zet ze terug."
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:81
+msgid "This computer"
+msgstr "Deze computer"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:51
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:61
@@ -6158,7 +6215,7 @@ msgstr "Drie voorinstellingen, Snelst, Stil en Mooi; alleen Stil begrenst de fra
 msgid "Throughput for long batch work, not for games. Listed because falcond accepts it."
 msgstr "Doorvoer voor lange batchtaken, niet voor spellen. Vermeld omdat falcond het accepteert."
 
-#: bigame-engine/bigame-ui/src/views/details/telemetry.rs:151
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:698
 msgid "Timeout"
 msgstr "Time-out"
 
@@ -6177,7 +6234,7 @@ msgid "Try another name or remove the filters."
 msgstr "Probeer een andere naam of verwijder de filters."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:270
-#: bigame-engine/bigame-ui/src/window.rs:157
+#: bigame-engine/bigame-ui/src/window.rs:162
 msgid "Tuning"
 msgstr "Afstemming"
 
@@ -6279,7 +6336,7 @@ msgstr "Turbo uitgezet"
 msgid "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back."
 msgstr "Turbo zet de service van falcond aan en uit. De eerste keer dat het dat deed, legde het vast of falcond ingeschakeld was en draaide. Teruggeven herstelt precies dat en laat falcond verder met rust. Controle terugnemen legt de staat van falcond vast zoals die op dat moment is — zodat een latere teruggave die herstelt — en laat het weer Turbo volgen: blijvend actief en ingeschakeld als het draait, blijvend gestopt en uitgeschakeld als het niet draait. Turbo aan- of uitzetten neemt de controle ook terug."
 
-#: bigame-engine/bigame-ui/src/window.rs:378
+#: bigame-engine/bigame-ui/src/window.rs:383
 msgid "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched."
 msgstr "Turbo gaat uit, de keuze gaat terug naar Snelst en elke instelling gaat terug naar hoe ze begon. Aan je spellen wordt niets veranderd."
 
@@ -6491,10 +6548,6 @@ msgstr "VCache-modus ingesteld, maar AMD 3D V-Cache niet gedetecteerd"
 msgid "VKD3D-Proton's cache (vkd3d-proton.cache) is in the game's folder: it has run with Direct3D 12 here"
 msgstr "De cache van VKD3D-Proton (vkd3d-proton.cache) staat in de map van het spel: het heeft hier met Direct3D 12 gedraaid"
 
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:144
-msgid "VRAM"
-msgstr "VRAM"
-
 #: bigame-engine/bigame-core/src/health.rs:359
 #: bigame-engine/bigame-core/src/health.rs:372
 msgid "VRAM protection"
@@ -6522,6 +6575,10 @@ msgid "Version %v — %n option detected from --help"
 msgid_plural "Version %v — %n options detected from --help"
 msgstr[0] "Versie %v — %n optie gedetecteerd via --help"
 msgstr[1] "Versie %v — %n opties gedetecteerd via --help"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:419
+msgid "Video memory"
+msgstr "Videogeheugen"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:77
 msgid "Video pipeline"
@@ -6560,7 +6617,7 @@ msgstr "Waarschuwingen en fouten"
 msgid "Watching for games"
 msgstr "Op zoek naar spellen"
 
-#: bigame-engine/bigame-ui/src/window.rs:467
+#: bigame-engine/bigame-ui/src/window.rs:472
 msgid "Welcome"
 msgstr "Welkom"
 
@@ -6610,7 +6667,7 @@ msgstr "Wat op “Algemene configuratie” blijft staan, komt uit de sessieomgev
 msgid "What is left on “General configuration” follows Tuning → Display."
 msgstr "Wat op “Algemene configuratie” blijft staan, volgt Afstemming → Beeld."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:378
 msgid "What is really in force for the game, and how Big Game Mode knows it."
 msgstr "Wat echt van kracht is voor het spel, en hoe Big Game Mode dat weet."
 
@@ -6618,7 +6675,7 @@ msgstr "Wat echt van kracht is voor het spel, en hoe Big Game Mode dat weet."
 msgid "What it needs"
 msgstr "Wat het nodig heeft"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:389
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:424
 msgid "What matters in a game session, read from the system journal."
 msgstr "Wat ertoe doet in een spelsessie, gelezen uit het systeemjournaal."
 
@@ -6634,6 +6691,10 @@ msgstr "Wat alleen het eigen menu van het spel kan."
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
 msgstr "Wat er tussen het spel en het scherm zit. Geconfigureerd is wat je hebt gevraagd; gedetecteerd is wat het draaiende spel laat zien."
 
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:336
+msgid "What the computer and every graphics card are doing, second by second."
+msgstr "Wat de computer en elke videokaart doen, seconde voor seconde."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2588
 msgid "What the game has"
 msgstr "Wat het spel heeft"
@@ -6642,7 +6703,7 @@ msgstr "Wat het spel heeft"
 msgid "What the game has and what it runs now."
 msgstr "Wat het spel heeft en wat het nu draait."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:504
 msgid "What the last switch of Turbo did, item by item, and why."
 msgstr "Wat de laatste omschakeling van Turbo deed, item voor item, en waarom."
 
@@ -6686,7 +6747,7 @@ msgstr "Wanneer Turbo aan staat en een spel zonder eigen profiel start"
 msgid "When it does nothing"
 msgstr "Wanneer het niets doet"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:417
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:452
 msgid "When something goes wrong in a game, open Logs right after it: the entries around that moment usually say why."
 msgstr "Als er in een spel iets misgaat, open dan meteen daarna Logboeken: de items rond dat moment vertellen meestal waarom."
 
@@ -6706,7 +6767,7 @@ msgstr "Waar de instellingen van dit spel worden bewaard. Om te spelen hoeft hie
 msgid "Where to buy it"
 msgstr "Waar te koop"
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:442
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:477
 msgid "Whether a profile is offered when a game without one starts with Turbo on."
 msgstr "Of er een profiel wordt aangeboden wanneer een spel zonder profiel start met Turbo aan."
 
@@ -6722,10 +6783,6 @@ msgstr "Welke CCD spellen verkiezen zolang Turbo aan staat"
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:404
 msgid "Which CCD this game prefers"
 msgstr "Welke CCD dit spel verkiest"
-
-#: bigame-engine/bigame-ui/src/views/details/gpus.rs:106
-msgid "Which card renders the running game, and what each one is doing. Only what the driver reports is shown."
-msgstr "Welke kaart het draaiende spel rendert, en wat elke kaart doet. Alleen wat het stuurprogramma meldt, wordt getoond."
 
 #: data/com.biglinux.BiGameMode.metainfo.xml:54
 msgid "While a game runs, Big Game Mode reads nothing behind it, watches only for the game to close, and its disk reads wait for the game"
@@ -6871,6 +6928,10 @@ msgstr "Startoptie schrijven…"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1557
 msgid "Writing the report…"
 msgstr "Rapport schrijven…"
+
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:785
+msgid "Written %s"
+msgstr "Schrijven %s"
 
 #: bigame-engine/bigame-ui/src/widgets/scheduler_info.rs:21
 msgid "Written in Rust, this is a highly intelligent and balanced scheduler. It perfectly understands modern CPU architectures with mixed cores (like Intel P-Cores/E-Cores or AMD X3D cache CCDs) and routes workloads perfectly."
@@ -7425,7 +7486,7 @@ msgstr "De service van falcond is mislukt; zet Turbo uit en weer aan, en zie Log
 msgid "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files."
 msgstr "falcond, Big Game Mode en zijn helper, de grafische stuurprogramma's van de kernel, sched-ext, energieprofielen en Polkit — en, van elk spel, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk en OptiScaler. Uit het systeemjournaal en hun eigen logbestanden."
 
-#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:395
+#: bigame-engine/bigame-ui/src/widgets/tutorial.rs:430
 msgid "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope and the kernel's GPU messages together."
 msgstr "falcond, Big Game Mode, power-profiles-daemon, scx_loader, Gamescope en de GPU-meldingen van de kernel samen."
 
@@ -7491,7 +7552,7 @@ msgstr "graphics-injectie is uitgeschakeld voor spellen met anti-cheat"
 msgid "handheld profiles on a machine that is not a handheld: games run in power-saving mode"
 msgstr "handheld-profielen op een computer die geen handheld is: spellen draaien in energiebesparende modus"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:42
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:506
 msgid "hardware slowdown"
 msgstr "hardwarevertraging"
 
@@ -7902,6 +7963,10 @@ msgstr "niets te meten: het plan verandert niets op deze computer"
 msgid "nothing, Gamescope is off there"
 msgstr "niets, Gamescope staat daar uit"
 
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:750
+msgid "of %t in use (%p)"
+msgstr "van %t in gebruik (%p)"
+
 #: bigame-engine/bigame-core/src/health.rs:1018
 msgid "off: the CPU reaches %s of the card's %s of video memory at a time"
 msgstr "uit: de CPU bereikt %s van de %s videogeheugen van de kaart tegelijk"
@@ -7946,7 +8011,7 @@ msgstr "TOML van geïmporteerd profiel verwerken"
 msgid "performance while the game runs, as falcond asked"
 msgstr "performance terwijl het spel draait, zoals falcond vroeg"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:40
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:504
 msgid "power limit"
 msgstr "vermogenslimiet"
 
@@ -8138,7 +8203,7 @@ msgstr "systemd heeft falcond één keer herstart nadat het onverwacht stopte; e
 msgid "takes a DLL slot beside the game and may collide with OptiScaler"
 msgstr "neemt een DLL-positie naast het spel in en kan botsen met OptiScaler"
 
-#: bigame-engine/bigame-ui/src/gpu_reading.rs:41
+#: bigame-engine/bigame-ui/src/views/telemetry.rs:505
 msgid "temperature limit"
 msgstr "temperatuurlimiet"
 
@@ -8459,7 +8524,7 @@ msgstr "de werkthread is mislukt"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:850
 #: bigame-engine/bigame-ui/src/views/tuning.rs:295
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:209
-#: bigame-engine/bigame-ui/src/window.rs:664
+#: bigame-engine/bigame-ui/src/window.rs:669
 msgid "the worker thread stopped"
 msgstr "de werkthread is gestopt"
 
