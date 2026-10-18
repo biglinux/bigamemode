@@ -953,6 +953,34 @@ fn gone(target: &Target) -> UserError {
     UserError::with(N_("%s has already exited."), [target.name.as_str()])
 }
 
+/// `ioprio_set`'s "this process" (thread, on Linux).
+pub const IOPRIO_WHO_PROCESS: libc::c_int = 1;
+
+/// Give Big Game Mode's own disk reads the idle I/O class: a library scan, a
+/// log read or a hash check waits while a game streams its assets. Called
+/// first thing, so every thread and helper process started afterwards
+/// inherits it; a game Big Game Mode starts gets the normal priority back
+/// ([`crate::launcher::in_own_process_group`]). Lowering it, and going back,
+/// needs no privilege. The CPU priority is left alone on purpose: a game
+/// started from here would inherit a lower one, and an unprivileged process
+/// cannot raise it again.
+pub fn yield_disk_to_games() {
+    const IOPRIO_CLASS_IDLE: libc::c_long = 3;
+    const IOPRIO_CLASS_SHIFT: libc::c_long = 13;
+    // SAFETY: a system call on this thread with integer arguments only.
+    let rc = unsafe {
+        libc::syscall(
+            libc::SYS_ioprio_set,
+            IOPRIO_WHO_PROCESS,
+            0,
+            IOPRIO_CLASS_IDLE << IOPRIO_CLASS_SHIFT,
+        )
+    };
+    if rc != 0 {
+        tracing::debug!(error = %std::io::Error::last_os_error(), "the idle I/O class was not set");
+    }
+}
+
 /// A descriptor that becomes readable when process `pid` exits (a pidfd),
 /// or `None` when the process is gone already or the kernel has no pidfds
 /// (before 5.3). Waiting on it costs nothing until then, where polling

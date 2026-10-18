@@ -24,6 +24,8 @@ fn main() -> libadwaita::glib::ExitCode {
         print!("{}", bigame_core::diagnostics::report(network));
         return libadwaita::glib::ExitCode::SUCCESS;
     }
+    // Before any thread starts, so all of them inherit it.
+    bigame_core::processes::yield_disk_to_games();
     init_tracing();
     i18n::init();
     app::run()

@@ -796,10 +796,20 @@ fn write_private(path: &std::path::Path, content: &[u8]) -> Result<()> {
 /// reach everything it starts — a wrapper script's game included.
 pub fn in_own_process_group(cmd: &mut std::process::Command) {
     use std::os::unix::process::CommandExt;
-    // SAFETY: `setpgid(0, 0)` is async-signal-safe and touches only the
-    // calling process, which between fork and exec is the child alone.
+    // SAFETY: `setpgid(0, 0)` and the `ioprio_set` system call are
+    // async-signal-safe and touch only the calling process, which between
+    // fork and exec is the child alone.
     unsafe {
         cmd.pre_exec(|| {
+            // Big Game Mode yields the disk to games
+            // ([`crate::processes::yield_disk_to_games`]); what it starts gets
+            // the normal priority back, which needs no privilege.
+            libc::syscall(
+                libc::SYS_ioprio_set,
+                crate::processes::IOPRIO_WHO_PROCESS,
+                0,
+                0,
+            );
             if libc::setpgid(0, 0) == 0 {
                 Ok(())
             } else {
