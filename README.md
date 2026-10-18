@@ -9,7 +9,7 @@ One switch for per-game performance, presets for what games should favour,
 AI Graphics with full backup and undo, and a page that shows — with evidence —
 what is really in effect.
 
-[![Version](https://img.shields.io/badge/version-2.3.2-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
+[![Version](https://img.shields.io/badge/version-2.4.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.88%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -47,7 +47,45 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## What's new in 2.3.2
+## What's new in 2.4.0
+
+**First, do no harm.** A full review asked one question of every feature:
+can it make a game slower without saying so? Where it could, it no longer
+does.
+
+- **Three presets, honest names.** **Fastest** adds nothing, **Quiet** caps
+  the frame rate at a rate that fits the screen (the refresh rate up to
+  75 Hz, half of it above: 80 on a 160 Hz screen, so every frame stays up
+  for exactly two refreshes), and **Pretty** sharpens with no cap. Before,
+  *Locked 60 FPS* and *Enhanced graphics* capped every game at 60, which on
+  a 144–165 Hz screen without adaptive sync judders. A game that generates
+  frames is never capped (under 60 it rendered 30). Saved presets load as
+  the one that took their place.
+- **A game's frame limit without Gamescope.** It used to start nested
+  Gamescope for `-r`, which did not limit and made frame pacing worse; now
+  DXVK and VKD3D-Proton hold it (MangoHud in native games).
+- **Profiles keep falcond's protections:** a game's own profile no longer
+  drops the VRAM protection and split-lock setting falcond's Proton profile
+  gives every Proton game. No CPU scheduler is pressed on anyone: none was
+  measured faster, and one set for the whole desktop is pointed out.
+- **Out of the way while you play.** Nothing is read behind a game (a
+  Details page left open used to read the game's memory map and the GPU's
+  sensors every few seconds), the game's exit is an event instead of a
+  process scan, the library is not rescanned during the game, in-game
+  notifications wait in the notification list, and Big Game Mode's disk
+  reads yield to the game's.
+- **AI Graphics' Recommended installs only what was verified;** a game
+  that ships AMD's FidelityFX API keeps its own FSR (FSR 4 through Proton)
+  on RDNA 4, and OptiScaler's frame generation is an experimental choice,
+  never planned on a GeForce GTX.
+- **Simple mode, the default:** Turbo says ON or OFF in words, three
+  choices, **Play** on every game and **Back to normal** to undo it all.
+  Settings → Advanced brings Tuning, Details and Logs back.
+- **What no setting fixes, said plainly:** a game library on a hard disk,
+  adaptive sync switched off, and Steam launch options with a wrapper but no
+  `%command%` (with a one-click fix).
+
+### 2.3.2
 
 A stability release, from a full review of the code, the helper and the
 package.
@@ -151,10 +189,9 @@ Before switching it on, choose what games should favour:
 
 | Preset | What it does |
 |---|---|
-| **Standard** | Tuning as it is; the preset changes nothing |
-| **More FPS** | No frame cap and no image filter; Wine FSR upscales a lower in-game resolution |
-| **Locked 60 FPS** | DXVK and VKD3D-Proton's limiter in Proton games, MangoHud's in native games Big Game Mode starts |
-| **Enhanced graphics** | vkBasalt CAS sharpening (from Big Game Mode's own CAS-only file), FSR 4 where the GPU has it, and 60 FPS so the heavier image stays steady |
+| **Fastest** | Nothing added: Tuning as it is, no frame cap |
+| **Quiet** | A frame cap that fits the screen — the refresh rate up to 75 Hz, half of it above (80 on 160 Hz) — through DXVK and VKD3D-Proton in Proton games and MangoHud in native games Big Game Mode starts; games that generate frames are left uncapped |
+| **Pretty** | vkBasalt CAS sharpening (from Big Game Mode's own CAS-only file) and FSR 4 where the GPU has it; no cap |
 
 A preset lives only in the running session (the user's systemd manager, never
 `environment.d`) and leaves with Turbo, even when falcond stops on its own. Your
@@ -327,6 +364,9 @@ terminal without opening a window (`--network` adds the DNS measurements).
 
 | Symptom | What to do |
 |---|---|
+| Games seem stuck at 60 FPS | Before 2.4.0, *Locked 60 FPS* and *Enhanced graphics* capped every game at 60. Choose **Fastest**, then reopen Steam: it keeps the environment it was opened with |
+| Stutter in big games that no setting fixes | Details → Problems says when the game library is on a hard disk or adaptive sync is off: move the games to an SSD, turn adaptive sync on |
+| I can't find Tuning, Details or Logs | Settings → Advanced → **Show advanced options** |
 | Games get no performance profile | Install `falcond`: without it Turbo applies only the general settings. Details → Problems names anything else missing |
 | A game does not get its profile | Details shows whether falcond applies it and why not; falcond 2.0.3 or newer is needed for games that rename their main thread (Cyberpunk 2077) |
 | A preset does not reach Steam's games | Steam keeps the settings it was opened with: use **Reopen Steam** in the notice |
@@ -405,7 +445,7 @@ Highlights (each a session of alternated runs with a Welch's t-test verdict):
 | Shadow of the Tomb Raider, 3440×1440, RX 9060 XT: OptiScaler FSR vs native TAA | **+10.1 %** (89.8 → 98.8 FPS); the game's own XeSS +4.9 % |
 | Same game, GTX 1050 Ti laptop: OptiScaler FSR 3.1 vs the game's XeSS Quality | **+20.1 %** (24.2 → 29.0 FPS) |
 | SuperTuxKart on the hybrid laptop: PRIME offload vs the integrated GPU | **4.7×** (13.0 → 61.2 FPS) |
-| Locked 60 FPS preset, SuperTuxKart | 455 → 60 FPS, GPU power 53 → **31 W** |
+| A 60 FPS cap (Locked 60, now Quiet), SuperTuxKart | 455 → 60 FPS, GPU power 53 → **31 W** |
 | GPU DPM level pinned to `high` | 7.5–8.3 % **slower**, so Big Game Mode never forces it |
 | Power profile, governor, sched-ext schedulers | no measurable change in GPU-bound games |
 
