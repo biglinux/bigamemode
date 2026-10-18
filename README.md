@@ -348,6 +348,7 @@ how to install it.
 | `nvidia-utils` | GPU telemetry on NVIDIA cards (NVML) | `extra` |
 | `networkmanager` | applying a DNS server from the DNS comparison | `extra` |
 | `ntsync-autoload` | loading the NTSync driver at boot for Proton/Wine | `extra` |
+| `libkscreen` (KDE Plasma) or `xorg-xrandr` | the screen's refresh rate (the Quiet preset's cap) and whether adaptive sync is off | `extra` |
 
 On BigLinux every optional component above is in the distribution's own
 repositories; on Arch, the three marked "BigLinux repository" come from the
