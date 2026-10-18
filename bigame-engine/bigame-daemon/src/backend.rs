@@ -453,6 +453,38 @@ pub async fn reload(connection: &zbus::Connection) {
     }
 }
 
+/// Where falcond publishes its state for system services (the helper has
+/// its own `/tmp`).
+const FALCOND_STATUS: &str = "/var/lib/falcond/status";
+
+/// Whether falcond holds a game's profile now (its generic Proton one
+/// included).
+#[must_use]
+pub fn game_profile_active() -> bool {
+    std::fs::read_to_string(FALCOND_STATUS)
+        .is_ok_and(|t| bigame_core::status::parse(&t).active_profile.is_some())
+}
+
+/// A restart waiting for the game to end.
+static RESTART_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Restart falcond once no game's profile is active: a restart puts the
+/// running game's profile back and applies it again, which the game feels
+/// as a hitch. Asked again while one waits, the one waiting covers it.
+pub fn restart_when_no_game(connection: zbus::Connection) {
+    if RESTART_PENDING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    tokio::spawn(async move {
+        while game_profile_active() {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+        info!("the game ended; restarting falcond for the settings it reads at start-up");
+        RESTART_PENDING.store(false, std::sync::atomic::Ordering::SeqCst);
+        restart_if_running(&connection).await;
+    });
+}
+
 /// Restart a running falcond — needed only when a setting it reads at
 /// start-up changed (`enable_performance_mode`, the global scheduler and
 /// 3D V-Cache mode).

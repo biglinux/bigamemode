@@ -152,6 +152,11 @@ impl BiGameDaemon {
             == startup_settings(config_payload)
         {
             backend::reload(&self.connection).await;
+        } else if backend::game_profile_active() {
+            info!(
+                "a setting falcond reads only at start-up changed while a game's profile is active; restarting it once the game ends"
+            );
+            backend::restart_when_no_game(self.connection.clone());
         } else {
             info!("a setting falcond reads only at start-up changed; restarting it");
             backend::restart_if_running(&self.connection).await;
