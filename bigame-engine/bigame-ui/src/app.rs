@@ -493,9 +493,21 @@ fn start_status_loop(
         let read = std::rc::Rc::clone(&read);
         error_indicator.connect_action_done(move || read());
     }
-    glib::timeout_add_local(std::time::Duration::from_secs(10), move || {
+    read_again(read);
+}
+
+/// Read the status again in ten seconds, or in thirty while a game runs:
+/// each reading is a few round trips to systemd, and Turbo changes through
+/// Big Game Mode are read at once anyway.
+fn read_again(read: std::rc::Rc<dyn Fn()>) {
+    let wait = if crate::game_watch::current().is_some() {
+        30
+    } else {
+        10
+    };
+    glib::timeout_add_local_once(std::time::Duration::from_secs(wait), move || {
         read();
-        glib::ControlFlow::Continue
+        read_again(read);
     });
 }
 
