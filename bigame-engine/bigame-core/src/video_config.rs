@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn a_detail_the_login_left_waits_for_the_next_login() {
         let strings = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
-        // More FPS turns Wine FSR on without a mode; the login gave one, and
+        // Wine FSR turned on without a mode; the login gave one, and
         // systemd keeps it.
         let held = read_back(
             &strings(&["WINE_FULLSCREEN_FSR_MODE", "DXVK_CONFIG"]),

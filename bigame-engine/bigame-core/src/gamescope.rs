@@ -125,9 +125,13 @@ impl Decision {
 /// Decide whether to wrap this game in Gamescope.
 ///
 /// `Auto` says yes only when the configuration asks for something Gamescope is
-/// the right tool for: upscaling, a non-default filter, a frame-rate target,
-/// HDR, VRR, or the `MangoHud` overlay through `--mangoapp`. Everything else is
-/// left unwrapped, because a compositor that changes nothing is pure cost.
+/// the right tool for: upscaling, a non-default filter, HDR, VRR, or the
+/// `MangoHud` overlay through `--mangoapp`. Everything else is left
+/// unwrapped, because a compositor that changes nothing is pure cost. A
+/// frame-rate target alone is not a reason: `-r` did not hold `SuperTuxKart`
+/// (570 FPS presented) and nested Gamescope made its frame pacing worse
+/// (p99 19.8 → 26.9 ms), so a game's limit goes to DXVK, VKD3D-Proton or
+/// `MangoHud` instead.
 ///
 /// `Enabled` still checks that Gamescope is installed and that there is a
 /// graphical session — an explicit choice cannot conjure a missing binary.
@@ -173,9 +177,6 @@ pub fn decide(
             N_("%s upscaling is selected"),
             [config.filter.as_arg()],
         ));
-    }
-    if matches!(config.frame_limit, FrameLimit::NestedRefresh(hz) if hz > 0) {
-        return Decision::yes(N_("a frame-rate target is set"));
     }
     if config.hdr {
         return Decision::yes(N_("HDR output is requested"));
@@ -559,13 +560,6 @@ mod tests {
             ),
             (
                 Config {
-                    frame_limit: FrameLimit::NestedRefresh(144),
-                    ..Config::default()
-                },
-                "frame-rate",
-            ),
-            (
-                Config {
                     hdr: true,
                     ..Config::default()
                 },
@@ -792,6 +786,27 @@ mod tests {
             ..Config::default()
         };
         assert!(!cfg.to_args(&modern()).args.iter().any(|a| a == "-w"));
+    }
+
+    #[test]
+    fn a_frame_rate_target_alone_is_no_reason_to_wrap() {
+        let cfg = Config {
+            frame_limit: FrameLimit::NestedRefresh(144),
+            ..Config::default()
+        };
+        let caps = GamescopeCaps {
+            version: None,
+            flags: vec!["r".into()],
+        };
+        assert!(
+            !decide(
+                Mode::Auto,
+                &cfg,
+                Some(&caps),
+                crate::hardware::Session::Wayland
+            )
+            .use_gamescope
+        );
     }
 
     #[test]

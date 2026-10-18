@@ -1749,7 +1749,12 @@ fn build_choice(cfg: &AiGraphicsConfig) -> Choice {
         u32::from(cfg.optiscaler_frame_generation()),
         &frame_gen_about(),
     );
-    group.add(&frame_gen);
+    frame_gen.set_subtitle(&i18n(
+        "Adds in-between frames: looks smoother, but your controls react later. Experimental.",
+    ));
+    // Experimental: chosen only once experimental options are allowed, never
+    // turned on underneath by choosing it.
+    frame_gen.set_sensitive(cfg.experimental);
 
     let failure = Notice::new(Kind::Error, "", "");
     failure.set_visible(false);
@@ -1785,7 +1790,10 @@ fn build_choice(cfg: &AiGraphicsConfig) -> Choice {
     // Progressive disclosure: what few people need.
     let advanced = adw::ExpanderRow::builder()
         .title(i18n("Advanced options"))
-        .subtitle(i18n("Experimental combinations and the OptiScaler version"))
+        .subtitle(i18n(
+            "Experimental combinations, frame generation and the OptiScaler version",
+        ))
+        .expanded(cfg.experimental)
         .build();
     let experimental = adw::SwitchRow::builder()
         .title(i18n("Allow experimental options"))
@@ -1801,6 +1809,7 @@ fn build_choice(cfg: &AiGraphicsConfig) -> Choice {
         ),
     ));
     advanced.add_row(&experimental);
+    advanced.add_row(&frame_gen);
     let tested = bigame_core::graphics::optiscaler::Release::recommended().version;
     let keep = match &cfg.version {
         VersionPolicy::Pinned(v) => v.clone(),
@@ -1927,6 +1936,7 @@ fn wire_choice(page: &Rc<Page>) {
                 return;
             }
             page.cfg.borrow_mut().experimental = r.is_active();
+            page.choice.frame_gen.set_sensitive(r.is_active());
             if !r.is_active() && page.cfg.borrow().frame_generation == FrameGeneration::OptiScaler {
                 // OptiScaler's frame generation is experimental: it goes too.
                 page.quiet.set(true);
@@ -2064,8 +2074,9 @@ fn wine_fsr_second(target: &Target) -> bool {
 }
 
 /// A Turbo preset that switches Wine FSR on reaches every game the Steam
-/// client starts, through the session's environment: More FPS did, in Shadow
-/// of the Tomb Raider with `OptiScaler` installed. The preset in force and the
+/// client starts, through the session's environment: More FPS did before
+/// 2.4.0, in Shadow of the Tomb Raider with `OptiScaler` installed. The
+/// preset in force and the
 /// one chosen for the next Turbo both count, since Turbo can be switched on
 /// after `OptiScaler` is installed without this page being opened again.
 fn preset_turns_wine_fsr_on() -> bool {
@@ -2075,25 +2086,20 @@ fn preset_turns_wine_fsr_on() -> bool {
 }
 
 /// Switch `OptiScaler`'s frame generation on or off in the choice. It is
-/// experimental, so choosing it allows experimental options too.
+/// experimental: its row can be used only once experimental options are
+/// allowed, so choosing it never allows them underneath.
 fn choose_frame_generation(page: &Rc<Page>, on: bool) {
     {
         let mut cfg = page.cfg.borrow_mut();
         if on {
             cfg.mode = Mode::Advanced;
             cfg.frame_generation = FrameGeneration::OptiScaler;
-            cfg.experimental = true;
         } else {
             cfg.frame_generation = FrameGeneration::Off;
             if page.choice.upscaler.selected() == 0 {
                 cfg.mode = Mode::Recommended;
             }
         }
-    }
-    if on && !page.choice.experimental.is_active() {
-        page.quiet.set(true);
-        page.choice.experimental.set_active(true);
-        page.quiet.set(false);
     }
     refresh(page);
 }

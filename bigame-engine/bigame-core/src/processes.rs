@@ -953,6 +953,70 @@ fn gone(target: &Target) -> UserError {
     UserError::with(N_("%s has already exited."), [target.name.as_str()])
 }
 
+/// Keep glibc's per-thread malloc arenas to a few, first thing, before any
+/// thread starts. Each worker thread otherwise gets an arena of its own, and
+/// what it frees stays resident: the tray process held six of about 57 MiB
+/// each (library scans, game covers) long after the work was done.
+pub fn limit_malloc_arenas() {
+    // SAFETY: a malloc tuning call with integer arguments, before threads.
+    unsafe {
+        libc::mallopt(libc::M_ARENA_MAX, 2);
+    }
+}
+
+/// Give the memory malloc holds free back to the system, from every arena:
+/// called when the window goes to the tray, where nothing needs it.
+pub fn release_free_memory() {
+    // SAFETY: malloc_trim walks malloc's own free lists; it takes no pointer.
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
+/// `ioprio_set`'s "this process" (thread, on Linux).
+pub const IOPRIO_WHO_PROCESS: libc::c_int = 1;
+
+/// Give Big Game Mode's own disk reads the idle I/O class: a library scan, a
+/// log read or a hash check waits while a game streams its assets. Called
+/// first thing, so every thread and helper process started afterwards
+/// inherits it; a game Big Game Mode starts gets the normal priority back
+/// ([`crate::launcher::in_own_process_group`]). Lowering it, and going back,
+/// needs no privilege. The CPU priority is left alone on purpose: a game
+/// started from here would inherit a lower one, and an unprivileged process
+/// cannot raise it again.
+pub fn yield_disk_to_games() {
+    const IOPRIO_CLASS_IDLE: libc::c_long = 3;
+    const IOPRIO_CLASS_SHIFT: libc::c_long = 13;
+    // SAFETY: a system call on this thread with integer arguments only.
+    let rc = unsafe {
+        libc::syscall(
+            libc::SYS_ioprio_set,
+            IOPRIO_WHO_PROCESS,
+            0,
+            IOPRIO_CLASS_IDLE << IOPRIO_CLASS_SHIFT,
+        )
+    };
+    if rc != 0 {
+        tracing::debug!(error = %std::io::Error::last_os_error(), "the idle I/O class was not set");
+    }
+}
+
+/// A descriptor that becomes readable when process `pid` exits (a pidfd),
+/// or `None` when the process is gone already or the kernel has no pidfds
+/// (before 5.3). Waiting on it costs nothing until then, where polling
+/// `/proc` costs a walk of every process each time.
+#[must_use]
+pub fn exit_watch(pid: u32) -> Option<OwnedFd> {
+    let pid = libc::pid_t::try_from(pid).ok()?;
+    // SAFETY: pidfd_open takes a pid and flags and returns a new descriptor or
+    // -1; nothing is passed by pointer.
+    let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) };
+    let fd = i32::try_from(raw).ok().filter(|fd| *fd >= 0)?;
+    // SAFETY: `fd` was just returned by pidfd_open and is owned by nobody
+    // else; OwnedFd closes it.
+    Some(unsafe { OwnedFd::from_raw_fd(fd) })
+}
+
 /// Send `sig` to `target` once `check` accepts what it is now. Returns
 /// whether it was stopped (paused) before the signal.
 ///
@@ -1090,6 +1154,25 @@ fn switch_on(environ: &[u8], key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_process_exit_is_watched_through_a_descriptor() {
+        let mut child = std::process::Command::new("sleep")
+            .arg("0.1")
+            .spawn()
+            .expect("sleep");
+        let fd = exit_watch(child.id()).expect("pidfd");
+        let mut poll = libc::pollfd {
+            fd: std::os::fd::AsRawFd::as_raw_fd(&fd),
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        // SAFETY: one valid pollfd, waiting at most five seconds.
+        let ready = unsafe { libc::poll(&raw mut poll, 1, 5000) };
+        assert_eq!(ready, 1, "readable once the process exits");
+        child.wait().unwrap();
+        assert!(exit_watch(u32::MAX).is_none());
+    }
 
     #[test]
     fn a_switch_set_to_zero_is_off() {

@@ -42,6 +42,11 @@ pub struct Settings {
     pub offer_profiles: bool,
     /// Show the welcome screen when the window first opens.
     pub show_welcome: bool,
+    /// Every page and setting: Tuning, Details, Logs and the technical
+    /// rows. Off (the default), the application shows what anyone needs —
+    /// Turbo, what games should favour, the games — and nothing that takes
+    /// knowing the hardware.
+    pub advanced_mode: bool,
 }
 
 impl Default for Settings {
@@ -62,6 +67,7 @@ impl Default for Settings {
             // An existing user who upgrades sees it once too: it is where
             // the features they have not met yet are listed.
             show_welcome: true,
+            advanced_mode: false,
         }
     }
 }
@@ -88,6 +94,38 @@ impl Settings {
             None => Self::first_run(),
         }
     }
+}
+
+/// Something told whenever advanced mode is switched.
+type AdvancedListener = Box<dyn Fn(bool)>;
+
+thread_local! {
+    static ADVANCED: std::cell::RefCell<Vec<AdvancedListener>> =
+        std::cell::RefCell::new(Vec::new());
+}
+
+/// Call `f` with whether advanced mode is on, now and whenever it is
+/// switched. Main thread only.
+pub fn follow_advanced(f: impl Fn(bool) + 'static) {
+    f(load().advanced_mode);
+    ADVANCED.with(|a| a.borrow_mut().push(Box::new(f)));
+}
+
+/// Switch advanced mode, keep it, and tell everything that follows it.
+///
+/// # Errors
+/// Returns an error when the settings cannot be written; nothing is told
+/// then.
+pub fn set_advanced(on: bool) -> std::io::Result<()> {
+    let mut s = load();
+    s.advanced_mode = on;
+    try_save(&s)?;
+    ADVANCED.with(|a| {
+        for f in a.borrow().iter() {
+            f(on);
+        }
+    });
+    Ok(())
 }
 
 /// Settings file path: `$XDG_CONFIG_HOME/bigame-mode/settings.toml`.

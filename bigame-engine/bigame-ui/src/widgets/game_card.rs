@@ -187,20 +187,27 @@ impl<K: std::hash::Hash + Eq + Clone, V: Clone> Recent<K, V> {
     }
 }
 
+/// What a card's Play button runs.
+pub type Play = Rc<dyn Fn(&Entry)>;
+
 /// Build a card for `entry`.
 ///
-/// `on_activate` fires when the card or its primary button is activated;
+/// `on_activate` fires when the card is activated, and its primary button
+/// too unless `play` is given: then the primary button is Play and starts
+/// the game (simple mode, where starting a game is what a card is for).
 /// `on_menu` fires for the overflow button.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn build<A, M>(entry: &Entry, on_activate: A, on_menu: M) -> gtk4::Widget
+pub fn build<A, M>(entry: &Entry, play: Option<Play>, on_activate: A, on_menu: M) -> gtk4::Widget
 where
     A: Fn(&Entry) + 'static,
     M: Fn(&Entry, &gtk4::Widget) + 'static,
 {
     // ── Actions, overlaid on the poster ─────────────────────────────────
     let primary = gtk4::Button::builder()
-        .label(if entry.has_profile {
+        .label(if play.is_some() {
+            i18n("Play")
+        } else if entry.has_profile {
             i18n("Edit")
         } else {
             i18n("Optimize")
@@ -208,6 +215,11 @@ where
         .hexpand(true)
         .css_classes(["suggested-action"])
         .build();
+    if play.is_some() {
+        primary.update_property(&[gtk4::accessible::Property::Label(
+            &i18n("Play %s").replace("%s", &entry.title),
+        )]);
+    }
 
     let menu = gtk4::Button::builder()
         .icon_name("view-more-symbolic")
@@ -315,8 +327,12 @@ where
     let on_activate = Rc::new(on_activate);
     {
         let entry = entry.clone();
-        let handler = Rc::clone(&on_activate);
-        primary.connect_clicked(move |_| handler(&entry));
+        if let Some(play) = play {
+            primary.connect_clicked(move |_| play(&entry));
+        } else {
+            let handler = Rc::clone(&on_activate);
+            primary.connect_clicked(move |_| handler(&entry));
+        }
     }
     {
         let entry = entry.clone();

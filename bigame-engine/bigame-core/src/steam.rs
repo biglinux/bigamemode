@@ -644,15 +644,39 @@ pub fn is_command(word: &str) -> bool {
 
 // ── Auditing what is already there ───────────────────────────────────────────
 
-/// A launch-options string that names a program which is not installed.
+/// What is wrong with a launch-options string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Broken {
+    /// It runs a program this system does not have: the game does not
+    /// start.
+    NotInstalled,
+    /// It names a wrapper but has no `%command%`: Steam then adds the
+    /// options after the game's own command, so the wrapper reaches the
+    /// game as an argument and does nothing (`mangohud` alone).
+    NoCommand,
+}
+
+/// A launch-options string that cannot do what it says.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrokenLaunchOption {
     /// Steam `AppID`.
     pub app_id: String,
     /// The stored launch options.
     pub options: String,
-    /// The missing program.
-    pub missing: String,
+    /// The wrapper program it names.
+    pub program: String,
+    /// What is wrong.
+    pub why: Broken,
+}
+
+impl BrokenLaunchOption {
+    /// The options as they should be, when that is clear: the wrapper in
+    /// front of `%command%`. A missing program is the user's to install or
+    /// remove, so there is none for it.
+    #[must_use]
+    pub fn fixed(&self) -> Option<String> {
+        (self.why == Broken::NoCommand).then(|| format!("{} {COMMAND}", self.options.trim()))
+    }
 }
 
 /// Wrapper programs commonly found in launch options.
@@ -664,11 +688,13 @@ const WRAPPERS: &[&str] = &[
     "strangle",
 ];
 
-/// Find launch options that invoke a program this system does not have.
+/// Find launch options that invoke a program this system does not have, or
+/// a wrapper without `%command%`.
 ///
 /// A common case is `gamemoderun %command%` without Feral `GameMode`
 /// installed: Steam runs the string through a shell, the wrapper is not found,
-/// and the game does not start. Nothing in Steam's UI says why.
+/// and the game does not start. Nothing in Steam's UI says why. Another is
+/// `mangohud` alone, which Steam hands to the game as an argument.
 #[must_use]
 pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
     let Ok(content) = std::fs::read_to_string(config) else {
@@ -698,18 +724,33 @@ pub fn broken_launch_options(config: &Path) -> Vec<BrokenLaunchOption> {
         if options.trim().is_empty() {
             continue;
         }
-        for wrapper in WRAPPERS {
-            if !mentions_wrapper(&options, wrapper) {
-                continue;
-            }
-            if crate::capabilities::which(wrapper).is_some() {
-                continue;
-            }
-            out.push(BrokenLaunchOption {
-                app_id: current_app.clone().unwrap_or_default(),
-                options: options.clone(),
-                missing: (*wrapper).to_owned(),
-            });
+        out.extend(
+            broken_in(&options, |w| crate::capabilities::which(w).is_some())
+                .into_iter()
+                .map(|(program, why)| BrokenLaunchOption {
+                    app_id: current_app.clone().unwrap_or_default(),
+                    options: options.clone(),
+                    program,
+                    why,
+                }),
+        );
+    }
+    out
+}
+
+/// What is wrong with one game's `options`, wrapper by wrapper, with
+/// `installed` saying whether a program is there.
+fn broken_in(options: &str, installed: impl Fn(&str) -> bool) -> Vec<(String, Broken)> {
+    let has_command = option_words(options).into_iter().any(is_command);
+    let mut out = Vec::new();
+    for wrapper in WRAPPERS {
+        if !mentions_wrapper(options, wrapper) {
+            continue;
+        }
+        if !installed(wrapper) {
+            out.push(((*wrapper).to_owned(), Broken::NotInstalled));
+        } else if !has_command {
+            out.push(((*wrapper).to_owned(), Broken::NoCommand));
         }
     }
     out
@@ -1123,9 +1164,42 @@ mod tests {
         // is reported must really be missing.
         for b in &broken {
             assert_eq!(b.app_id, "381210");
-            assert!(crate::capabilities::which(&b.missing).is_none());
+            if b.why == Broken::NotInstalled {
+                assert!(crate::capabilities::which(&b.program).is_none());
+            }
         }
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn a_wrapper_without_its_command_is_found_and_fixed() {
+        let installed = |w: &str| w == "mangohud";
+        // ARC Raiders' options on the reference desktop: Steam passes the
+        // word to the game.
+        assert_eq!(
+            broken_in("mangohud", installed),
+            [("mangohud".to_owned(), Broken::NoCommand)]
+        );
+        let found = BrokenLaunchOption {
+            app_id: "1808500".into(),
+            options: "mangohud ".into(),
+            program: "mangohud".into(),
+            why: Broken::NoCommand,
+        };
+        assert_eq!(found.fixed().as_deref(), Some("mangohud %command%"));
+        // With its command, nothing is wrong; a missing program is, and is
+        // the user's to install or remove.
+        assert!(broken_in("mangohud %command%", installed).is_empty());
+        assert!(broken_in("MANGOHUD=1 %command% -dx12", installed).is_empty());
+        assert_eq!(
+            broken_in("gamemoderun %command%", installed),
+            [("gamemoderun".to_owned(), Broken::NotInstalled)]
+        );
+        let missing = BrokenLaunchOption {
+            why: Broken::NotInstalled,
+            ..found
+        };
+        assert_eq!(missing.fixed(), None);
     }
 
     #[test]
