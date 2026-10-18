@@ -97,9 +97,13 @@ pub fn build(
 
     let presets = PresetPicker::new();
 
+    let tip = tip_banner();
+
     let column = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     column.set_halign(gtk4::Align::Center);
     column.set_valign(gtk4::Align::Center);
+    // Centred in what the tip banner above it leaves.
+    column.set_vexpand(true);
     column.set_margin_top(8);
     column.set_margin_bottom(8);
     column.set_margin_start(18);
@@ -128,9 +132,12 @@ pub fn build(
         crate::settings::follow_advanced(move |on| readings.set_visible(on));
     }
 
+    let page = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    page.append(&tip);
+    page.append(&column);
     let scroll = gtk4::ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
-        .child(&column)
+        .child(&page)
         .vexpand(true)
         .build();
 
@@ -683,6 +690,53 @@ pub fn build(
     }
 
     scroll.upcast()
+}
+
+/// One thing outside Big Game Mode that makes games smoother, in a line
+/// anyone can act on: a game library on a hard disk, or adaptive sync off.
+/// Read once, off the main thread, when the page is built; "OK" hides it
+/// until the next start.
+fn tip_banner() -> adw::Banner {
+    let banner = adw::Banner::builder()
+        .button_label(i18n("OK"))
+        .revealed(false)
+        .build();
+    banner.connect_button_clicked(|b| b.set_revealed(false));
+    let shown = banner.clone();
+    glib::spawn_future_local(async move {
+        let found = gio::spawn_blocking(|| {
+            let home = std::env::var_os("HOME").map(std::path::PathBuf::from)?;
+            let on_hard_disk = bigame_core::games::steam_libraries(&home)
+                .iter()
+                .any(|l| bigame_core::hardware::on_hard_disk(l) == Some(true));
+            if on_hard_disk {
+                return Some(Tip::HardDisk);
+            }
+            let primary = bigame_core::screen::primary()?;
+            (primary.vrr == Some(bigame_core::screen::Vrr::Never)).then_some(Tip::AdaptiveSync)
+        })
+        .await
+        .ok()
+        .flatten();
+        if let Some(tip) = found {
+            shown.set_title(&match tip {
+                Tip::HardDisk => i18n(
+                    "Your games are on a slow hard disk. Moving them to an SSD in Steam's Storage settings makes them smoother.",
+                ),
+                Tip::AdaptiveSync => i18n(
+                    "Adaptive sync (VRR) is off on your screen. Turning it on in the display settings makes games smoother.",
+                ),
+            });
+            shown.set_revealed(true);
+        }
+    });
+    banner
+}
+
+/// What [`tip_banner`] can say.
+enum Tip {
+    HardDisk,
+    AdaptiveSync,
 }
 
 /// Take away the preset and the Booster's changes a Turbo switched off from

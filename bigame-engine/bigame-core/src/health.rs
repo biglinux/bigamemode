@@ -262,6 +262,61 @@ pub fn scx_loader_default_check(default: Option<(String, String)>) -> Option<Che
     ))
 }
 
+/// Steam libraries on a spinning hard disk, from `(library, on a hard
+/// disk)`: games there load and stream their textures and shaders slowly,
+/// which shows as stutter no setting removes. Nothing when none is.
+#[must_use]
+pub fn library_disk_check(libraries: &[(std::path::PathBuf, Option<bool>)]) -> Option<Check> {
+    let slow: Vec<String> = libraries
+        .iter()
+        .filter(|(_, hard)| *hard == Some(true))
+        .map(|(p, _)| p.display().to_string())
+        .collect();
+    if slow.is_empty() {
+        return None;
+    }
+    Some(check(
+        N_("Game library"),
+        Status::Warning,
+        Text::with(
+            N_(
+                "games in %s are on a hard disk: they load and stream textures slowly there, which shows as stutter no setting removes",
+            ),
+            [slow.join(", ")],
+        ),
+        advice(N_(
+            "Steam → Settings → Storage: move the games you play most to an SSD",
+        )),
+    ))
+}
+
+/// The main screen with adaptive sync (VRR, `FreeSync`) switched off where
+/// KDE says it has it: without it, a frame rate that does not divide the
+/// refresh rate judders.
+#[must_use]
+pub fn adaptive_sync_check(primary: Option<&crate::screen::Primary>) -> Option<Check> {
+    let primary = primary?;
+    if primary.vrr != Some(crate::screen::Vrr::Never) {
+        return None;
+    }
+    let hz = primary
+        .refresh_hz
+        .map_or_else(String::new, |hz| format!(" ({hz} Hz)"));
+    Some(check(
+        N_("Adaptive sync"),
+        Status::Warning,
+        Text::with(
+            N_(
+                "adaptive sync (VRR, FreeSync) is off on your main screen%s: frame rates that do not divide its refresh rate judder",
+            ),
+            [hz],
+        ),
+        advice(N_(
+            "System Settings → Display & Monitor → your main screen → Adaptive sync: Automatic",
+        )),
+    ))
+}
+
 /// falcond's general configuration loading a sched-ext scheduler: it runs
 /// for the whole desktop while Turbo is on, and falcond's general settings
 /// override every game's profile. In Big Game Mode's measurements (lavd and
@@ -703,6 +758,17 @@ pub fn collect() -> Vec<Check> {
         Support::ServiceDown(why) => check(N_("sched-ext"), Status::Info, why, None),
     });
     out.extend(general_scheduler_check(crate::config::read().ok().as_ref()));
+    if let Some(home) = std::env::var_os("HOME") {
+        let libraries: Vec<_> = crate::games::steam_libraries(Path::new(&home))
+            .into_iter()
+            .map(|l| {
+                let hard = crate::hardware::on_hard_disk(&l);
+                (l, hard)
+            })
+            .collect();
+        out.extend(library_disk_check(&libraries));
+    }
+    out.extend(adaptive_sync_check(crate::screen::primary().as_ref()));
 
     out.extend(dmem_check(status.as_ref()));
     if caps.falcond_installed {
@@ -1019,6 +1085,34 @@ mod tests {
         .unwrap();
         assert_eq!(scx_loader_default(&[&etc, &share]), None);
         assert!(scx_loader_default_check(None).is_none());
+        // A Steam library on a hard disk is named; on an SSD, nothing.
+        let libs = [
+            ("/home/u/.local/share/Steam".into(), Some(false)),
+            ("/mnt/Dados/Games".into(), Some(true)),
+            ("/mnt/net".into(), None),
+        ];
+        let c = library_disk_check(&libs).unwrap();
+        assert_eq!(c.status, Status::Warning);
+        assert!(c.detail.english().contains("/mnt/Dados/Games"));
+        assert!(!c.detail.english().contains("/home/u"));
+        assert!(library_disk_check(&libs[..1]).is_none());
+        // Adaptive sync: only a screen KDE says has it, switched off.
+        let screen = |vrr| crate::screen::Primary {
+            size: (3440, 1440),
+            refresh_hz: Some(160),
+            vrr,
+        };
+        let off = screen(Some(crate::screen::Vrr::Never));
+        assert!(
+            adaptive_sync_check(Some(&off))
+                .unwrap()
+                .detail
+                .english()
+                .contains("(160 Hz)")
+        );
+        assert!(adaptive_sync_check(Some(&screen(Some(crate::screen::Vrr::Automatic)))).is_none());
+        assert!(adaptive_sync_check(Some(&screen(None))).is_none());
+        assert!(adaptive_sync_check(None).is_none());
         // falcond's general scheduler: said only when one is set.
         let general = |sched: &str| crate::config::FalcondConfig {
             scx_sched: sched.into(),
