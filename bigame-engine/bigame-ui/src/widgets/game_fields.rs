@@ -431,7 +431,11 @@ impl VCacheFields {
 // ── Display (Gamescope) ─────────────────────────────────────────────────────
 
 /// The frame limits offered, in frames per second.
-const FRAME_LIMITS: &[u32] = &[30, 40, 45, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
+/// Every rate a screen's refresh divides into evenly is here (half of 144,
+/// 160 and 165 Hz too): such a limit stays smooth without adaptive sync.
+const FRAME_LIMITS: &[u32] = &[
+    30, 40, 45, 50, 60, 72, 75, 80, 83, 90, 100, 120, 144, 165, 240,
+];
 
 /// Gamescope for one game: whether it runs, and each of Tuning's values the
 /// game may set for itself, in Tuning's order.
@@ -566,7 +570,7 @@ impl GamescopeFields {
         let frame = Picker::new(
             &i18n("Frame limit"),
             &i18n(
-                "Only this game: Gamescope shows it at this rate (-r), over a Turbo preset's frame cap.",
+                "Only this game, over a Turbo preset's cap. Pick your screen's refresh rate or half of it (80 on a 160 Hz screen) so frames stay even.",
             ),
             &limits,
             &own.frame_limit.to_string(),
