@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 15:00-0300\n"
+"POT-Creation-Date: 2026-10-18 15:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:25\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Romanian <ro@li.org>\n"
@@ -48,7 +48,7 @@ msgstr[0] "%n aplicată"
 msgstr[1] "%n aplicate"
 msgstr[2] "%n aplicate"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:437
+#: bigame-engine/bigame-ui/src/views/settings.rs:496
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n nu se poate potrivi niciodată cu jocul său în forma actuală"
@@ -274,6 +274,10 @@ msgstr "%s s-a încheiat cu codul de ieșire %d"
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "%s fișier(e) nu sunt ca la instalare (o actualizare a jocului sau alt instrument): %s"
 
+#: bigame-engine/bigame-ui/src/app.rs:556
+msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
+msgstr "%s a fost găsit, iar OptiScaler din Grafică AI este încă în joc. Restabilește grafica înainte de a juca online: Profiluri → meniul jocului → Restabilește grafica jocului."
+
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
 msgstr "%s s-a închis deja."
@@ -336,6 +340,10 @@ msgstr "%s este setat, dar alt program decide interogările"
 #: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s este încă încărcat după oprirea falcond: falcond nu descarcă planificatorul pe care îl încarcă configurația sa generală"
+
+#: bigame-engine/bigame-ui/src/app.rs:553
+msgid "%s now has anti-cheat"
+msgstr "%s are acum anti-cheat"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:260
 msgid "%s now; performance when a game starts"
@@ -869,7 +877,7 @@ msgstr "Adaugă opțiunea de lansare"
 msgid "Address to ping"
 msgstr "Adresă pentru ping"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:354
+#: bigame-engine/bigame-ui/src/views/settings.rs:413
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "Adaugă o intrare de autentificare doar pentru utilizatorul tău (~/.config/autostart). Big Game Mode rulează apoi în zona de notificare și poate oferi un profil când pornește un joc nou. Dezactivarea elimină intrarea."
 
@@ -878,7 +886,7 @@ msgid "Adds in-between frames: looks smoother, but your controls react later. Ex
 msgstr "Adaugă cadre intermediare: arată mai fluid, dar comenzile răspund mai târziu. Experimental."
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1026
-#: bigame-engine/bigame-ui/src/views/settings.rs:514
+#: bigame-engine/bigame-ui/src/views/settings.rs:573
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1537
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -1253,7 +1261,7 @@ msgstr "Big Game Mode a instalat OptiScaler în acest joc, iar cu alegerea de ma
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr "Big Game Mode a instalat în %s, care nu este dosarul acestui joc (%s): jocul a fost mutat fără fișierele sale sau înregistrarea aparține altui joc. Nu s-a modificat nimic"
 
-#: bigame-engine/bigame-ui/src/app.rs:700
+#: bigame-engine/bigame-ui/src/app.rs:754
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr "Big Game Mode este centrul de jocuri al BigLinux. Cu un singur buton, Turbo, jocurile rulează cu profilul de performanță potrivit, aplicat de falcond când pornesc și anulat când se închid. Aplicația arată ce este cu adevărat în vigoare, măsoară dacă o schimbare a ajutat și se ocupă de ce se întâmplă în joc, cum ar fi upscaling-ul și generarea de cadre, mereu cu o copie de rezervă completă și posibilitate de anulare."
 
@@ -1326,7 +1334,7 @@ msgstr "Versiune"
 msgid "Built into falcond"
 msgstr "Integrat în falcond"
 
-#: bigame-engine/bigame-ui/src/app.rs:742
+#: bigame-engine/bigame-ui/src/app.rs:796
 msgid "Built on"
 msgstr "Construit pe"
 
@@ -1401,6 +1409,7 @@ msgstr "Apelează „%p”, care nu este instalat — opțiuni de lansare: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1161
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1703
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
+#: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
 #: bigame-engine/bigame-ui/src/window.rs:337
 #: bigame-engine/bigame-ui/src/window.rs:382
@@ -1482,7 +1491,7 @@ msgstr "Se verifică sistemul…"
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
-#: bigame-engine/bigame-ui/src/views/settings.rs:388
+#: bigame-engine/bigame-ui/src/views/settings.rs:447
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Se verifică…"
@@ -1609,7 +1618,7 @@ msgstr "Combinație"
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr "Combinații raportate ca funcționale, dar neconfirmate. Generarea de cadre OptiScaler este una dintre ele."
 
-#: bigame-engine/bigame-ui/src/app.rs:614
+#: bigame-engine/bigame-ui/src/app.rs:668
 msgid "Command"
 msgstr "Comandă"
 
@@ -1719,7 +1728,7 @@ msgstr "Copiat"
 msgid "Copy"
 msgstr "Copiază"
 
-#: bigame-engine/bigame-ui/src/app.rs:564
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Copy Install Command"
 msgstr "Copiază comanda de instalare"
 
@@ -1799,7 +1808,7 @@ msgstr "Nu s-au putut descărca shaderele"
 msgid "Could not export"
 msgstr "Nu s-a putut exporta"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:471
+#: bigame-engine/bigame-ui/src/views/settings.rs:530
 msgid "Could not fix them"
 msgstr "Nu s-au putut remedia"
 
@@ -2046,7 +2055,7 @@ msgstr "Conceput să elimine „tick-urile” inutile ale CPU (treziri ale tempo
 msgid "Desktop"
 msgstr "Desktop"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:491
+#: bigame-engine/bigame-ui/src/views/settings.rs:550
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "Notificări pe desktop când un profil de joc este aplicat și când este restabilit. Oferta de profil este controlată separat mai sus."
 
@@ -2195,9 +2204,17 @@ msgstr "Fiecare modificare este salvată imediat. Restabilește valorile implici
 msgid "Every file is as it was installed"
 msgstr "Fiecare fișier este așa cum a fost instalat"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:340
+msgid "Every game AI Graphics changed gets its original files back. Close your games first."
+msgstr "Fiecare joc modificat de Grafică AI își primește înapoi fișierele originale. Închide mai întâi jocurile."
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:128
 msgid "Every game found already has a profile."
 msgstr "Fiecare joc găsit are deja un profil."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:369
+msgid "Every game's graphics were restored"
+msgstr "Grafica tuturor jocurilor a fost restabilită"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:826
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
@@ -2418,7 +2435,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "Cinci fișiere mici (circa 30 KB) de pe GitHub: Colourfulness și FilmGrain2 din shaderele ReShade, FakeHDR din SweetFX și antetele pe care le includ. Fiecare este o versiune fixă, verificată după SHA-256 înainte de a fi folosită, și ajunge în ~/.local/share/reshade. Fără ele vkBasalt ar opri jocul, așa că stilul este scris doar după ce sunt la locul lor."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:531
-#: bigame-engine/bigame-ui/src/views/settings.rs:392
+#: bigame-engine/bigame-ui/src/views/settings.rs:451
 msgid "Fix"
 msgstr "Remediază"
 
@@ -2571,7 +2588,7 @@ msgstr "API-ul jocului"
 msgid "Game Library"
 msgstr "Biblioteca de jocuri"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:488
+#: bigame-engine/bigame-ui/src/views/settings.rs:547
 msgid "Game Notifications"
 msgstr "Notificări joc"
 
@@ -2592,7 +2609,7 @@ msgstr "Lista de jocuri"
 msgid "Game name cannot be empty"
 msgstr "Numele jocului nu poate fi gol"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:369
+#: bigame-engine/bigame-ui/src/views/settings.rs:428
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Game profiles"
 msgstr "Profiluri de joc"
@@ -2753,7 +2770,7 @@ msgstr "Controlul performanței în jocuri"
 msgid "Gaming mode for BigLinux"
 msgstr "Mod de joc pentru BigLinux"
 
-#: bigame-engine/bigame-ui/src/app.rs:707
+#: bigame-engine/bigame-ui/src/app.rs:761
 msgid "Gathering system information…"
 msgstr "Se colectează informațiile despre sistem…"
 
@@ -2858,7 +2875,7 @@ msgstr "Ieșire HDR"
 msgid "HDR output is requested"
 msgstr "Ieșirea HDR este cerută"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:454
+#: bigame-engine/bigame-ui/src/views/settings.rs:513
 msgid "HOME is not set"
 msgstr "HOME nu este setat"
 
@@ -3083,7 +3100,7 @@ msgstr "Versiune inițială cu panourile tablou de bord, profiluri, reglaje și 
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr "Instalează Lossless Scaling din biblioteca ta Steam (pe Linux, Steam îl instalează prin Proton; nu trebuie să ruleze niciodată). Fișierul se află apoi în dosarul jocului: …/steamapps/common/Lossless Scaling/Lossless.dll. Când este acolo, butonul de căutare de lângă cale îl completează; altfel alege-l cu butonul de dosar."
 
-#: bigame-engine/bigame-ui/src/app.rs:562
+#: bigame-engine/bigame-ui/src/app.rs:616
 msgid "Install Missing Packages"
 msgstr "Instalează pachetele lipsă"
 
@@ -3091,11 +3108,11 @@ msgstr "Instalează pachetele lipsă"
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Instalează un joc prin Steam, Lutris, Heroic sau meniul de aplicații, apoi scanează din nou."
 
-#: bigame-engine/bigame-ui/src/app.rs:611
+#: bigame-engine/bigame-ui/src/app.rs:665
 msgid "Install missing packages"
 msgstr "Instalează pachetele lipsă"
 
-#: bigame-engine/bigame-ui/src/app.rs:622
+#: bigame-engine/bigame-ui/src/app.rs:676
 msgid "Install missing packages with your package manager"
 msgstr "Instalează pachetele lipsă cu managerul de pachete"
 
@@ -3324,7 +3341,7 @@ msgstr "Lansator"
 msgid "Layer installed"
 msgstr "Strat instalat"
 
-#: bigame-engine/bigame-ui/src/app.rs:722
+#: bigame-engine/bigame-ui/src/app.rs:776
 msgid "Lead Developer"
 msgstr "Dezvoltator principal"
 
@@ -3568,9 +3585,9 @@ msgstr "Se măsoară…"
 msgid "Microsoft system DLL"
 msgstr "DLL de sistem Microsoft"
 
-#: bigame-engine/bigame-ui/src/app.rs:555
-#: bigame-engine/bigame-ui/src/app.rs:569
-#: bigame-engine/bigame-ui/src/app.rs:578
+#: bigame-engine/bigame-ui/src/app.rs:609
+#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:632
 msgid "Missing Runtime Dependencies"
 msgstr "Dependențe de execuție lipsă"
 
@@ -3582,7 +3599,7 @@ msgstr "Dependență lipsă"
 msgid "Missing files put back"
 msgstr "Fișierele lipsă au fost puse la loc"
 
-#: bigame-engine/bigame-ui/src/app.rs:625
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Missing packages"
 msgstr "Pachete lipsă"
 
@@ -3590,7 +3607,7 @@ msgstr "Pachete lipsă"
 msgid "Mode %s applied"
 msgstr "Modul %s aplicat"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:505
+#: bigame-engine/bigame-ui/src/views/settings.rs:564
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1377
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
@@ -3614,7 +3631,7 @@ msgstr "Mai multe informații despre %s"
 msgid "More options"
 msgstr "Mai multe opțiuni"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:517
+#: bigame-engine/bigame-ui/src/views/settings.rs:576
 msgid "More pages and settings for people who know their hardware"
 msgstr "Mai multe pagini și setări pentru cei care își cunosc hardware-ul"
 
@@ -3815,6 +3832,10 @@ msgstr "Niciun depozit suplimentar necesar: falcond, lsfg-vk, sched-ext, Gamesco
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Nu a fost găsit niciun executabil al jocului, deci este posibil ca acest profil să nu se potrivească cu jocul în execuție."
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:367
+msgid "No game has files from AI Graphics"
+msgstr "Niciun joc nu are fișiere de la Grafică AI"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:278
 msgid "No game running"
 msgstr "Niciun joc în execuție"
@@ -3888,7 +3909,7 @@ msgstr "Niciunul"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "Niciunul cerut: planificatorul implicit al nucleului"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:434
+#: bigame-engine/bigame-ui/src/views/settings.rs:493
 msgid "None need fixing"
 msgstr "Niciunul nu trebuie remediat"
 
@@ -3994,6 +4015,10 @@ msgstr "Nerecomandat"
 #: bigame-engine/bigame-ui/src/gpu_reading.rs:27
 msgid "Not reported by the driver"
 msgstr "Neraportat de driver"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:371
+msgid "Not restored (close them and try again): %s"
+msgstr "Nerestabilite (închide-le și încearcă din nou): %s"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1099
 msgid "Not set up"
@@ -4108,7 +4133,7 @@ msgstr "Nu s-a modificat nimic"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "Nimic care să merite instalat, sau ar fi mai rău decât ce are deja jocul. Motivul este pe pagină."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:486
+#: bigame-engine/bigame-ui/src/views/settings.rs:545
 msgid "Notifications"
 msgstr "Notificări"
 
@@ -4161,7 +4186,7 @@ msgstr "Oprit, Big Game Mode nu intervine în jocuri. Pornit, falcond aplică pr
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "Oprit: Big Game Mode nu intervine în jocuri"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:372
+#: bigame-engine/bigame-ui/src/views/settings.rs:431
 msgid "Offer a profile for new games"
 msgstr "Oferă un profil pentru jocurile noi"
 
@@ -4169,7 +4194,7 @@ msgstr "Oferă un profil pentru jocurile noi"
 msgid "Offline"
 msgstr "Offline"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:399
+#: bigame-engine/bigame-ui/src/views/settings.rs:458
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "Versiunile mai vechi denumeau profilurile după titlul jocului, pe care falcond nu îl poate potrivi niciodată, și stocau setări pe care falcond le ignoră. Remedierea redenumește fiecare profil după procesul real al jocului și păstrează doar setările falcond. Fiecare profil este mai întâi salvat în ~/.local/state/bigame-mode. Profilurile proprii ale falcond nu sunt atinse niciodată."
 
@@ -4232,7 +4257,7 @@ msgstr "O singură configurație generală"
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Un rând despre starea sistemului și câte un cip pentru fiecare element: Turbo, falcond, profilul, energia, planificatorul, GPU-ul, Gamescope, upscaling-ul, generarea de cadre."
 
-#: bigame-engine/bigame-ui/src/app.rs:703
+#: bigame-engine/bigame-ui/src/app.rs:757
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "O regulă străbate tot proiectul: nu se oferă nimic ce sistemul nu poate face și nimic nu este numit îmbunătățire fără o măsurătoare."
 
@@ -4273,12 +4298,12 @@ msgstr "Deschide"
 msgid "Open Big Game Mode"
 msgstr "Deschide Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/app.rs:613
-#: bigame-engine/bigame-ui/src/app.rs:624
+#: bigame-engine/bigame-ui/src/app.rs:667
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Open Details after starting a game to see what it really got"
 msgstr "Deschide Detalii după pornirea unui joc pentru a vedea ce a primit cu adevărat"
 
-#: bigame-engine/bigame-ui/src/app.rs:538
+#: bigame-engine/bigame-ui/src/app.rs:592
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr "Deschide Jurnale pentru a vedea de ce. Oprirea și repornirea Turbo îl repornește."
 
@@ -4826,8 +4851,8 @@ msgstr "Profiluri pentru un PC conectat la un televizor și folosit de pe canape
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Profiluri pentru PC-uri portabile precum Steam Deck sau ROG Ally: favorizează autonomia bateriei, iar unele opresc modul de performanță."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:387
-#: bigame-engine/bigame-ui/src/views/settings.rs:398
+#: bigame-engine/bigame-ui/src/views/settings.rs:446
+#: bigame-engine/bigame-ui/src/views/settings.rs:457
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
 msgid "Profiles from an older Big Game Mode"
 msgstr "Profiluri dintr-un Big Game Mode mai vechi"
@@ -5087,7 +5112,7 @@ msgstr "Repară"
 msgid "Repair puts missing files back; a changed binary belongs to whatever changed it"
 msgstr "Repară pune la loc fișierele lipsă; un binar modificat aparține celui care l-a modificat"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1515
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1593
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr "Repară nu mai pune la loc nimic în acest joc acum; Restabilește grafica jocului elimină ce a plasat Big Game Mode"
 
@@ -5107,8 +5132,8 @@ msgstr "Raport salvat în %s"
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr "Raportat ca funcțional, dar neconfirmat, sau depinde de raportarea unui alt GPU către joc (falsificare). Încearcă-l și folosește Restabilește grafica jocului dacă jocul nu se comportă bine."
 
-#: bigame-engine/bigame-ui/src/app.rs:558
-#: bigame-engine/bigame-ui/src/app.rs:572
+#: bigame-engine/bigame-ui/src/app.rs:612
+#: bigame-engine/bigame-ui/src/app.rs:626
 msgid "Required packages were not found in the system"
 msgstr "Pachetele necesare nu au fost găsite în sistem"
 
@@ -5131,14 +5156,19 @@ msgstr "Resizable BAR"
 msgid "Resolved: %s is the only upscaler"
 msgstr "Rezolvat: %s este singurul upscaler"
 
-#: bigame-engine/bigame-ui/src/app.rs:612
-#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Restart Big Game Mode"
 msgstr "Repornește Big Game Mode"
 
 #: bigame-engine/bigame-ui/src/window.rs:338
 msgid "Restore"
 msgstr "Restabilește"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:334
+#: bigame-engine/bigame-ui/src/views/settings.rs:345
+msgid "Restore All"
+msgstr "Restabilește tot"
 
 #: bigame-engine/bigame-ui/src/window.rs:334
 #: bigame-engine/bigame-ui/src/window.rs:462
@@ -5149,6 +5179,14 @@ msgstr "Restabilește valorile implicite"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2640
 msgid "Restore Game Graphics"
 msgstr "Restabilește grafica jocului"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:328
+msgid "Restore every game's graphics"
+msgstr "Restabilește grafica tuturor jocurilor"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:339
+msgid "Restore every game's graphics?"
+msgstr "Restabilești grafica tuturor jocurilor?"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:55
 msgid "Restore previous"
@@ -5421,7 +5459,7 @@ msgstr "Arată"
 msgid "Show MangoHud"
 msgstr "Arată MangoHud"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:516
+#: bigame-engine/bigame-ui/src/views/settings.rs:575
 msgid "Show advanced options"
 msgstr "Arată opțiunile avansate"
 
@@ -5429,7 +5467,7 @@ msgstr "Arată opțiunile avansate"
 msgid "Show dialog on startup"
 msgstr "Arată dialogul la pornire"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:489
+#: bigame-engine/bigame-ui/src/views/settings.rs:548
 msgid "Show notifications on game launch and exit"
 msgstr "Afișează notificările la lansarea și ieșirea din joc"
 
@@ -5437,11 +5475,11 @@ msgstr "Afișează notificările la lansarea și ieșirea din joc"
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Arată doar erorile, avertismentele sau o singură sursă, ori caută în text."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:519
+#: bigame-engine/bigame-ui/src/views/settings.rs:578
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "Arată Reglaje, Detalii și Jurnale, plus setările tehnice din fiecare pagină: falcond, planificatoare CPU, Gamescope, vkBasalt, generarea de cadre. Când e oprit, Big Game Mode arată Turbo, ce ar trebui să favorizeze jocurile și jocurile tale, adică tot ce le trebuie celor mai mulți oameni."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:375
+#: bigame-engine/bigame-ui/src/views/settings.rs:434
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "Afișează o notificare, niciodată o fereastră peste joc. Profilul este construit pentru acest sistem, iar revizuirea sa arată de ce a fost aleasă fiecare valoare. Nu se creează nimic decât dacă alegi tu."
 
@@ -5465,7 +5503,7 @@ msgstr "Omis"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Omis, indisponibil, conflicte evitate"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:352
+#: bigame-engine/bigame-ui/src/views/settings.rs:411
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "Pentru ca jocurile pornite din Steam să fie observate chiar și cu această fereastră închisă"
 
@@ -5480,7 +5518,7 @@ msgstr "Mai moale, cu mai multe cadre."
 msgid "Some settings could not be put back"
 msgstr "Unele setări nu au putut fi readuse"
 
-#: bigame-engine/bigame-ui/src/app.rs:726
+#: bigame-engine/bigame-ui/src/app.rs:780
 msgid "Special Thanks"
 msgstr "Mulțumiri speciale"
 
@@ -5500,7 +5538,7 @@ msgstr "Pornește un joc din Steam, Lutris, Heroic, meniul de aplicații sau Pro
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Pornește un joc; ce primește cu adevărat este citit din procesul său și afișat aici."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:351
+#: bigame-engine/bigame-ui/src/views/settings.rs:410
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
 msgid "Start in the background at login"
 msgstr "Pornește în fundal la autentificare"
@@ -5606,7 +5644,7 @@ msgstr "Steam → Setări → Stocare: mută jocurile pe care le joci cel mai de
 msgid "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
 msgstr "Flatpak-ul Steam găsește Gamescope doar în extensia Gamescope de pe Flathub, care nu este instalată, iar acest joc nu ar porni cu el. Nu s-a scris nimic. Instaleaz-o și repornește Steam: %s"
 
-#: bigame-engine/bigame-core/src/mangohud.rs:282
+#: bigame-engine/bigame-core/src/mangohud.rs:308
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr "Flatpak-ul Steam găsește MangoHud doar în extensia MangoHud de pe Flathub, care nu este instalată. Nu s-a scris nimic. Instaleaz-o și repornește Steam: %s"
 
@@ -5697,6 +5735,10 @@ msgstr "Preia controlul"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2416
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "Scos din setările Heroic pentru acest joc; FSR-ul propriu al jocului rulează ca înainte"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:329
+msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
+msgstr "Scoate din toate jocurile OptiScaler și fiecare fișier pus de Grafică AI și pune la loc originalele din copiile de rezervă. Fă asta înainte de a elimina Big Game Mode."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1376
 msgid "Technical details"
@@ -5913,7 +5955,7 @@ msgstr "Cea mai nouă versiune stabilă de pe pagina GitHub a OptiScaler, niciod
 msgid "The next game gets its profile as it starts."
 msgstr "Următorul joc își primește profilul la pornire."
 
-#: bigame-engine/bigame-ui/src/app.rs:537
+#: bigame-engine/bigame-ui/src/app.rs:591
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr "Serviciul de optimizare per joc a eșuat, deci jocurile nu sunt optimizate."
 
@@ -6041,7 +6083,7 @@ msgstr "Setarea a fost salvată, dar NetworkManager nu a putut-o aplica acum"
 msgid "The sharpest image, and the smallest gain."
 msgstr "Cea mai clară imagine și cel mai mic câștig."
 
-#: bigame-engine/bigame-core/src/processes.rs:1049
+#: bigame-engine/bigame-core/src/processes.rs:1069
 msgid "The system did not let Big Game Mode signal %s."
 msgstr "Sistemul nu i-a permis lui Big Game Mode să trimită un semnal către %s."
 
@@ -6135,8 +6177,8 @@ msgstr "Expirat"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Sfat: alege o presetare, pornește Turbo și pornește un joc; Acasă arată ce a primit. Butonul (i) din partea de sus explică pagina pe care te afli."
 
-#: bigame-engine/bigame-ui/src/app.rs:610
-#: bigame-engine/bigame-ui/src/app.rs:621
+#: bigame-engine/bigame-ui/src/app.rs:664
+#: bigame-engine/bigame-ui/src/app.rs:675
 msgid "Troubleshooting"
 msgstr "Depanare"
 
@@ -6174,7 +6216,7 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turbo nu a putut porni"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:348
+#: bigame-engine/bigame-ui/src/views/settings.rs:407
 msgid "Turbo Mode"
 msgstr "Modul Turbo"
 
@@ -6648,7 +6690,7 @@ msgstr "Ce se va schimba"
 msgid "What you can do instead"
 msgstr "Ce poți face în schimb"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:373
+#: bigame-engine/bigame-ui/src/views/settings.rs:432
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "Când Turbo este pornit și pornește un joc fără profil propriu"
 
@@ -7330,8 +7372,8 @@ msgstr "falcond include seturi de profiluri separate pentru desktopuri, console 
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond s-a oprit la o instrucțiune pe care acest procesor a respins-o: o incompatibilitate a setului de instrucțiuni al procesorului sau un binar falcond deteriorat."
 
-#: bigame-engine/bigame-ui/src/app.rs:536
-#: bigame-engine/bigame-ui/src/app.rs:540
+#: bigame-engine/bigame-ui/src/app.rs:590
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "falcond stopped unexpectedly"
 msgstr "falcond s-a oprit neașteptat"
 
@@ -7474,7 +7516,7 @@ msgstr "amânat cât timp rulează jocul"
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "dacă jocul se blochează cu el, wiki-ul OptiScaler sugerează %s sub [SystemSettings] în Engine.ini al jocului"
 
-#: bigame-engine/bigame-core/src/profiles.rs:761
+#: bigame-engine/bigame-core/src/profiles.rs:774
 msgid "imported profile has no name"
 msgstr "profilul importat nu are nume"
 
@@ -7909,7 +7951,7 @@ msgstr "altul"
 msgid "overlay not shown"
 msgstr "suprapunerea nu este afișată"
 
-#: bigame-engine/bigame-core/src/profiles.rs:758
+#: bigame-engine/bigame-core/src/profiles.rs:771
 msgid "parse imported profile TOML"
 msgstr "analiza TOML-ului profilului importat"
 
@@ -8261,7 +8303,7 @@ msgstr "XeSS-ul jocului"
 msgid "the game's executable was not found"
 msgstr "executabilul jocului nu a fost găsit"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1477
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1555
 msgid "the game's files were put back, but its own setting could not be (%s); Restore tries it again"
 msgstr "fișierele jocului au fost puse la loc, dar setarea sa proprie nu a putut fi (%s); Restabilește încearcă din nou"
 
@@ -8521,7 +8563,7 @@ msgstr "prin DXVK sau VKD3D-Proton, observat când rulează jocul"
 msgid "too few usable runs to compare"
 msgstr "prea puține rulări utilizabile pentru comparație"
 
-#: bigame-engine/bigame-ui/src/app.rs:712
+#: bigame-engine/bigame-ui/src/app.rs:766
 msgid "translator-credits"
 msgstr ""
 
@@ -8598,7 +8640,7 @@ msgstr "valoarea nu a putut fi recitită"
 msgid "variable refresh rate is requested"
 msgstr "rata de reîmprospătare variabilă este cerută"
 
-#: bigame-engine/bigame-ui/src/app.rs:736
+#: bigame-engine/bigame-ui/src/app.rs:790
 msgid "vkBasalt configuration"
 msgstr "Configurație vkBasalt"
 

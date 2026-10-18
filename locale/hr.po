@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 15:00-0300\n"
+"POT-Creation-Date: 2026-10-18 15:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:20\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Croatian <hr@li.org>\n"
@@ -48,7 +48,7 @@ msgstr[0] "Primijenjeno: %n"
 msgstr[1] "Primijenjeno: %n"
 msgstr[2] "Primijenjeno: %n"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:437
+#: bigame-engine/bigame-ui/src/views/settings.rs:496
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n profil u ovom obliku nikad ne može odgovarati svojoj igri"
@@ -274,6 +274,10 @@ msgstr "%s je završio s izlaznim kodom %d"
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "Datoteke (%s) nisu kakve su bile pri instalaciji (ažuriranje igre ili drugi alat): %s"
 
+#: bigame-engine/bigame-ui/src/app.rs:556
+msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
+msgstr "Pronađen je %s, a OptiScaler iz AI grafike još je u igri. Vratite njezinu grafiku prije igranja na mreži: Profili → izbornik igre → Vrati grafiku igre."
+
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
 msgstr "%s se već zatvorio."
@@ -336,6 +340,10 @@ msgstr "%s je postavljen, ali o upitima odlučuje drugi program"
 #: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s je i dalje učitan nakon zaustavljanja falconda: falcond ne uklanja raspoređivač koji učitava njegova opća konfiguracija"
+
+#: bigame-engine/bigame-ui/src/app.rs:553
+msgid "%s now has anti-cheat"
+msgstr "%s sada ima anti-cheat"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:260
 msgid "%s now; performance when a game starts"
@@ -869,7 +877,7 @@ msgstr "Dodaj opciju pokretanja"
 msgid "Address to ping"
 msgstr "Adresa za ping"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:354
+#: bigame-engine/bigame-ui/src/views/settings.rs:413
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "Dodaje unos pri prijavi samo za vašeg korisnika (~/.config/autostart). Big Game Mode tada radi u sistemskoj ladici i može ponuditi profil kad se pokrene nova igra. Isključivanjem se unos uklanja."
 
@@ -878,7 +886,7 @@ msgid "Adds in-between frames: looks smoother, but your controls react later. Ex
 msgstr "Dodaje sličice između postojećih: izgleda glađe, ali kontrole reagiraju kasnije. Eksperimentalno."
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1026
-#: bigame-engine/bigame-ui/src/views/settings.rs:514
+#: bigame-engine/bigame-ui/src/views/settings.rs:573
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1537
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -1253,7 +1261,7 @@ msgstr "Big Game Mode je instalirao OptiScaler u ovu igru, a uz odabir ispod on 
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr "Big Game Mode instalirao je u %s, što nije mapa ove igre (%s): igra je premještena bez svojih datoteka ili zapis pripada drugoj igri. Ništa nije promijenjeno"
 
-#: bigame-engine/bigame-ui/src/app.rs:700
+#: bigame-engine/bigame-ui/src/app.rs:754
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr "Big Game Mode je BigLinuxovo središte za igre. Jednim gumbom, Turbo, igre rade s pravim profilom performansi, koji falcond primjenjuje kad se pokrenu i poništava kad se zatvore. Aplikacija pokazuje što je stvarno na snazi, mjeri je li promjena pomogla i brine se za ono što se događa unutar igre, poput povećanja rezolucije i generiranja sličica, uvijek s potpunom sigurnosnom kopijom i mogućnošću poništavanja."
 
@@ -1326,7 +1334,7 @@ msgstr "Izgradnja"
 msgid "Built into falcond"
 msgstr "Ugrađeno u falcond"
 
-#: bigame-engine/bigame-ui/src/app.rs:742
+#: bigame-engine/bigame-ui/src/app.rs:796
 msgid "Built on"
 msgstr "Izgrađeno na"
 
@@ -1401,6 +1409,7 @@ msgstr "Poziva '%p', koji nije instaliran — opcije pokretanja: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1161
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1703
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
+#: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
 #: bigame-engine/bigame-ui/src/window.rs:337
 #: bigame-engine/bigame-ui/src/window.rs:382
@@ -1482,7 +1491,7 @@ msgstr "Provjera vašeg sustava…"
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
-#: bigame-engine/bigame-ui/src/views/settings.rs:388
+#: bigame-engine/bigame-ui/src/views/settings.rs:447
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Provjera…"
@@ -1609,7 +1618,7 @@ msgstr "Kombinacija"
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr "Kombinacije za koje je prijavljeno da rade, ali nisu potvrđene. Jedna od njih je generiranje sličica u OptiScaleru."
 
-#: bigame-engine/bigame-ui/src/app.rs:614
+#: bigame-engine/bigame-ui/src/app.rs:668
 msgid "Command"
 msgstr "Naredba"
 
@@ -1719,7 +1728,7 @@ msgstr "Kopirano"
 msgid "Copy"
 msgstr "Kopiraj"
 
-#: bigame-engine/bigame-ui/src/app.rs:564
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Copy Install Command"
 msgstr "Kopiraj naredbu za instalaciju"
 
@@ -1799,7 +1808,7 @@ msgstr "Nije moguće preuzeti shadere"
 msgid "Could not export"
 msgstr "Izvoz nije uspio"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:471
+#: bigame-engine/bigame-ui/src/views/settings.rs:530
 msgid "Could not fix them"
 msgstr "Popravak nije uspio"
 
@@ -2046,7 +2055,7 @@ msgstr "Osmišljen za uklanjanje nepotrebnih 'otkucaja' CPU-a (buđenja mjerača
 msgid "Desktop"
 msgstr "Stolno računalo"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:491
+#: bigame-engine/bigame-ui/src/views/settings.rs:550
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "Obavijesti na radnoj površini kad se profil igre primijeni i kad se vrati. Ponudom profila upravlja se zasebno iznad."
 
@@ -2195,9 +2204,17 @@ msgstr "Svaka se promjena odmah sprema. Vrati zadano u glavnom izborniku vraća 
 msgid "Every file is as it was installed"
 msgstr "Sve su datoteke onakve kakve su bile pri instalaciji"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:340
+msgid "Every game AI Graphics changed gets its original files back. Close your games first."
+msgstr "Svaka igra koju je AI grafika promijenila dobiva natrag svoje izvorne datoteke. Najprije zatvorite svoje igre."
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:128
 msgid "Every game found already has a profile."
 msgstr "Svaka pronađena igra već ima profil."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:369
+msgid "Every game's graphics were restored"
+msgstr "Grafika svih igara je vraćena"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:826
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
@@ -2418,7 +2435,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "Pet malih datoteka (oko 30 KB) s GitHuba: Colourfulness i FilmGrain2 iz ReShade shadera, FakeHDR iz SweetFX-a i zaglavlja koja uključuju. Svaka je u fiksnoj verziji, provjerava se prema SHA-256 prije upotrebe i sprema u ~/.local/share/reshade. Bez njih bi vkBasalt zaustavio igru, pa se stil zapisuje tek kad su na mjestu."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:531
-#: bigame-engine/bigame-ui/src/views/settings.rs:392
+#: bigame-engine/bigame-ui/src/views/settings.rs:451
 msgid "Fix"
 msgstr "Popravi"
 
@@ -2571,7 +2588,7 @@ msgstr "API igre"
 msgid "Game Library"
 msgstr "Biblioteka igara"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:488
+#: bigame-engine/bigame-ui/src/views/settings.rs:547
 msgid "Game Notifications"
 msgstr "Obavijesti o igri"
 
@@ -2592,7 +2609,7 @@ msgstr "Popis igara"
 msgid "Game name cannot be empty"
 msgstr "Naziv igre ne može biti prazan"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:369
+#: bigame-engine/bigame-ui/src/views/settings.rs:428
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Game profiles"
 msgstr "Profili igara"
@@ -2753,7 +2770,7 @@ msgstr "Upravljanje performansama igara"
 msgid "Gaming mode for BigLinux"
 msgstr "Način za igranje za BigLinux"
 
-#: bigame-engine/bigame-ui/src/app.rs:707
+#: bigame-engine/bigame-ui/src/app.rs:761
 msgid "Gathering system information…"
 msgstr "Prikupljanje informacija o sustavu…"
 
@@ -2858,7 +2875,7 @@ msgstr "HDR izlaz"
 msgid "HDR output is requested"
 msgstr "HDR izlaz je zatražen"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:454
+#: bigame-engine/bigame-ui/src/views/settings.rs:513
 msgid "HOME is not set"
 msgstr "HOME nije postavljen"
 
@@ -3083,7 +3100,7 @@ msgstr "Prvo izdanje s nadzornom pločom te pločama za profile, podešavanje i 
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr "Instalirajte Lossless Scaling iz svoje Steam biblioteke (na Linuxu ga Steam instalira putem Protona; nikad ga ne treba pokretati). Datoteka je tada u mapi igre: …/steamapps/common/Lossless Scaling/Lossless.dll. Kad je ondje, gumb za pretraživanje pokraj putanje ispunjava je; inače je odaberite gumbom za mapu."
 
-#: bigame-engine/bigame-ui/src/app.rs:562
+#: bigame-engine/bigame-ui/src/app.rs:616
 msgid "Install Missing Packages"
 msgstr "Instaliraj pakete koji nedostaju"
 
@@ -3091,11 +3108,11 @@ msgstr "Instaliraj pakete koji nedostaju"
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Instalirajte igru putem Steama, Lutrisa, Heroica ili izbornika aplikacija, a zatim ponovno pretražite."
 
-#: bigame-engine/bigame-ui/src/app.rs:611
+#: bigame-engine/bigame-ui/src/app.rs:665
 msgid "Install missing packages"
 msgstr "Instaliraj pakete koji nedostaju"
 
-#: bigame-engine/bigame-ui/src/app.rs:622
+#: bigame-engine/bigame-ui/src/app.rs:676
 msgid "Install missing packages with your package manager"
 msgstr "Instalirajte pakete koji nedostaju pomoću upravitelja paketa"
 
@@ -3324,7 +3341,7 @@ msgstr "Pokretač"
 msgid "Layer installed"
 msgstr "Sloj instaliran"
 
-#: bigame-engine/bigame-ui/src/app.rs:722
+#: bigame-engine/bigame-ui/src/app.rs:776
 msgid "Lead Developer"
 msgstr "Glavni programer"
 
@@ -3568,9 +3585,9 @@ msgstr "Mjerenje…"
 msgid "Microsoft system DLL"
 msgstr "Microsoftov sistemski DLL"
 
-#: bigame-engine/bigame-ui/src/app.rs:555
-#: bigame-engine/bigame-ui/src/app.rs:569
-#: bigame-engine/bigame-ui/src/app.rs:578
+#: bigame-engine/bigame-ui/src/app.rs:609
+#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:632
 msgid "Missing Runtime Dependencies"
 msgstr "Nedostaju ovisnosti za rad"
 
@@ -3582,7 +3599,7 @@ msgstr "Nedostaje ovisnost"
 msgid "Missing files put back"
 msgstr "Datoteke koje su nedostajale vraćene su"
 
-#: bigame-engine/bigame-ui/src/app.rs:625
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Missing packages"
 msgstr "Paketi koji nedostaju"
 
@@ -3590,7 +3607,7 @@ msgstr "Paketi koji nedostaju"
 msgid "Mode %s applied"
 msgstr "Način %s primijenjen"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:505
+#: bigame-engine/bigame-ui/src/views/settings.rs:564
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1377
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
@@ -3614,7 +3631,7 @@ msgstr "Više informacija o %s"
 msgid "More options"
 msgstr "Više opcija"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:517
+#: bigame-engine/bigame-ui/src/views/settings.rs:576
 msgid "More pages and settings for people who know their hardware"
 msgstr "Više stranica i postavki za one koji poznaju svoj hardver"
 
@@ -3815,6 +3832,10 @@ msgstr "Nije potreban dodatni repozitorij: falcond, lsfg-vk, sched-ext, Gamescop
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Nije pronađena izvršna datoteka igre, pa ovaj profil možda neće odgovarati pokrenutoj igri."
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:367
+msgid "No game has files from AI Graphics"
+msgstr "Nijedna igra nema datoteke iz AI grafike"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:278
 msgid "No game running"
 msgstr "Nijedna igra nije pokrenuta"
@@ -3888,7 +3909,7 @@ msgstr "Nijedan"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "Ništa nije zatraženo: zadani raspoređivač jezgre"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:434
+#: bigame-engine/bigame-ui/src/views/settings.rs:493
 msgid "None need fixing"
 msgstr "Ništa ne treba popravljati"
 
@@ -3994,6 +4015,10 @@ msgstr "Nije preporučeno"
 #: bigame-engine/bigame-ui/src/gpu_reading.rs:27
 msgid "Not reported by the driver"
 msgstr "Upravljački program to ne javlja"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:371
+msgid "Not restored (close them and try again): %s"
+msgstr "Nije vraćeno (zatvorite ih i pokušajte ponovno): %s"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1099
 msgid "Not set up"
@@ -4108,7 +4133,7 @@ msgstr "Ništa nije promijenjeno"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "Ništa što bi vrijedilo instalirati, ili bi bilo lošije od onoga što igra već ima. Razlog je naveden na stranici."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:486
+#: bigame-engine/bigame-ui/src/views/settings.rs:545
 msgid "Notifications"
 msgstr "Obavijesti"
 
@@ -4161,7 +4186,7 @@ msgstr "Isključeno: Big Game Mode ne zadire u igre. Uključeno: falcond primjen
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "Isključeno: Big Game Mode ne intervenira u igre"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:372
+#: bigame-engine/bigame-ui/src/views/settings.rs:431
 msgid "Offer a profile for new games"
 msgstr "Ponudi profil za nove igre"
 
@@ -4169,7 +4194,7 @@ msgstr "Ponudi profil za nove igre"
 msgid "Offline"
 msgstr "Izvan mreže"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:399
+#: bigame-engine/bigame-ui/src/views/settings.rs:458
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "Starije verzije imenovale su profile prema naslovu igre, koji falcond nikad ne može prepoznati, i spremale postavke koje falcond zanemaruje. Popravak preimenuje svaki profil prema stvarnom procesu igre i zadržava samo postavke za falcond. Svaki se profil najprije sigurnosno kopira u ~/.local/state/bigame-mode. Vlastiti profili falconda nikad se ne diraju."
 
@@ -4232,7 +4257,7 @@ msgstr "Jedna opća konfiguracija"
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Jedan redak o stanju računala i oznaka za svaku stavku: Turbo, falcond, profil, napajanje, raspoređivač, GPU, Gamescope, povećanje rezolucije, generiranje sličica."
 
-#: bigame-engine/bigame-ui/src/app.rs:703
+#: bigame-engine/bigame-ui/src/app.rs:757
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "Kroz cijeli projekt provlači se jedno pravilo: ne nudi se ništa što računalo ne može i ništa se ne naziva poboljšanjem bez mjerenja."
 
@@ -4273,12 +4298,12 @@ msgstr "Otvori"
 msgid "Open Big Game Mode"
 msgstr "Otvori Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/app.rs:613
-#: bigame-engine/bigame-ui/src/app.rs:624
+#: bigame-engine/bigame-ui/src/app.rs:667
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Open Details after starting a game to see what it really got"
 msgstr "Nakon pokretanja igre otvorite Detalje da vidite što je stvarno dobila"
 
-#: bigame-engine/bigame-ui/src/app.rs:538
+#: bigame-engine/bigame-ui/src/app.rs:592
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr "Otvorite Dnevnike da vidite zašto. Isključivanjem i ponovnim uključivanjem Turba on se ponovno pokreće."
 
@@ -4826,8 +4851,8 @@ msgstr "Profili za računalo spojeno na televizor, s kojim se igra s kauča."
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Profili za ručna računala za igranje kao što su Steam Deck ili ROG Ally: daju prednost trajanju baterije, a neki isključuju način rada performansi."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:387
-#: bigame-engine/bigame-ui/src/views/settings.rs:398
+#: bigame-engine/bigame-ui/src/views/settings.rs:446
+#: bigame-engine/bigame-ui/src/views/settings.rs:457
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
 msgid "Profiles from an older Big Game Mode"
 msgstr "Profili iz starijeg Big Game Mode"
@@ -5087,7 +5112,7 @@ msgstr "Popravi"
 msgid "Repair puts missing files back; a changed binary belongs to whatever changed it"
 msgstr "Popravi vraća datoteke koje nedostaju; promijenjena izvršna datoteka pripada onome što ju je promijenilo"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1515
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1593
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr "Popravi sada u ovoj igri ništa ne vraća; Vrati grafiku igre uklanja ono što je Big Game Mode postavio"
 
@@ -5107,8 +5132,8 @@ msgstr "Izvješće spremljeno u %s"
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr "Prema izvješćima radi, ali nije potvrđeno, ili ovisi o tome da se igri prijavi drugi GPU (lažno predstavljanje). Isprobajte, a ako se igra ne ponaša ispravno, upotrijebite Vrati grafiku igre."
 
-#: bigame-engine/bigame-ui/src/app.rs:558
-#: bigame-engine/bigame-ui/src/app.rs:572
+#: bigame-engine/bigame-ui/src/app.rs:612
+#: bigame-engine/bigame-ui/src/app.rs:626
 msgid "Required packages were not found in the system"
 msgstr "Potrebni paketi nisu pronađeni u sustavu"
 
@@ -5131,14 +5156,19 @@ msgstr "Resizable BAR"
 msgid "Resolved: %s is the only upscaler"
 msgstr "Riješeno: %s je jedini alat za povećanje rezolucije"
 
-#: bigame-engine/bigame-ui/src/app.rs:612
-#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Restart Big Game Mode"
 msgstr "Ponovno pokreni Big Game Mode"
 
 #: bigame-engine/bigame-ui/src/window.rs:338
 msgid "Restore"
 msgstr "Vrati"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:334
+#: bigame-engine/bigame-ui/src/views/settings.rs:345
+msgid "Restore All"
+msgstr "Vrati sve"
 
 #: bigame-engine/bigame-ui/src/window.rs:334
 #: bigame-engine/bigame-ui/src/window.rs:462
@@ -5149,6 +5179,14 @@ msgstr "Vrati zadano"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2640
 msgid "Restore Game Graphics"
 msgstr "Vrati grafiku igre"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:328
+msgid "Restore every game's graphics"
+msgstr "Vrati grafiku svih igara"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:339
+msgid "Restore every game's graphics?"
+msgstr "Vratiti grafiku svih igara?"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:55
 msgid "Restore previous"
@@ -5421,7 +5459,7 @@ msgstr "Prikaži"
 msgid "Show MangoHud"
 msgstr "Prikaži MangoHud"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:516
+#: bigame-engine/bigame-ui/src/views/settings.rs:575
 msgid "Show advanced options"
 msgstr "Prikaži napredne opcije"
 
@@ -5429,7 +5467,7 @@ msgstr "Prikaži napredne opcije"
 msgid "Show dialog on startup"
 msgstr "Prikaži dijalog pri pokretanju"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:489
+#: bigame-engine/bigame-ui/src/views/settings.rs:548
 msgid "Show notifications on game launch and exit"
 msgstr "Prikaži obavijesti pri pokretanju i izlasku iz igre"
 
@@ -5437,11 +5475,11 @@ msgstr "Prikaži obavijesti pri pokretanju i izlasku iz igre"
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Prikaži samo pogreške, upozorenja ili jedan izvor, ili pretraži tekst."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:519
+#: bigame-engine/bigame-ui/src/views/settings.rs:578
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "Prikazuje Podešavanje, Detalje i Dnevnike te tehničke postavke na svakoj stranici: falcond, raspoređivače CPU-a, Gamescope, vkBasalt, generiranje sličica. Kad je isključeno, Big Game Mode prikazuje Turbo, čemu igre trebaju davati prednost i vaše igre, a to je sve što većini ljudi treba."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:375
+#: bigame-engine/bigame-ui/src/views/settings.rs:434
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "Prikazuje obavijest, nikad prozor preko vaše igre. Profil se izrađuje za ovo računalo, a njegov pregled pokazuje zašto je odabrana svaka vrijednost. Ništa se ne kreira ako to ne odaberete."
 
@@ -5465,7 +5503,7 @@ msgstr "Preskočeno"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Preskočeno, nedostupno, izbjegnuti sukobi"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:352
+#: bigame-engine/bigame-ui/src/views/settings.rs:411
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "Kako bi se igre koje pokrenete iz Steama primijetile i kad je ovaj prozor zatvoren"
 
@@ -5480,7 +5518,7 @@ msgstr "Mekše, s više sličica."
 msgid "Some settings could not be put back"
 msgstr "Neke postavke nije bilo moguće vratiti"
 
-#: bigame-engine/bigame-ui/src/app.rs:726
+#: bigame-engine/bigame-ui/src/app.rs:780
 msgid "Special Thanks"
 msgstr "Posebne zahvale"
 
@@ -5500,7 +5538,7 @@ msgstr "Pokrenite igru iz Steama, Lutrisa, Heroica, izbornika aplikacija ili Pro
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Pokrenite igru; ono što stvarno dobiva čita se iz njezina procesa i prikazuje ovdje."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:351
+#: bigame-engine/bigame-ui/src/views/settings.rs:410
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
 msgid "Start in the background at login"
 msgstr "Pokreni u pozadini pri prijavi"
@@ -5606,7 +5644,7 @@ msgstr "Steam → Postavke → Pohrana: premjestite igre koje najviše igrate na
 msgid "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
 msgstr "Steamov Flatpak pronalazi Gamescope samo u Flathubovom proširenju Gamescope, koje nije instalirano, a ova se igra s njim ne bi pokrenula. Ništa nije zapisano. Instalirajte ga i ponovno pokrenite Steam: %s"
 
-#: bigame-engine/bigame-core/src/mangohud.rs:282
+#: bigame-engine/bigame-core/src/mangohud.rs:308
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr "Steamov Flatpak pronalazi MangoHud samo u Flathubovom proširenju MangoHud, koje nije instalirano. Ništa nije zapisano. Instalirajte ga i ponovno pokrenite Steam: %s"
 
@@ -5697,6 +5735,10 @@ msgstr "Preuzmi kontrolu"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2416
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "Uklonjeno iz Heroicovih postavki za ovu igru; vlastiti FSR igre radi kao i prije"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:329
+msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
+msgstr "Uklanja iz svih igara OptiScaler i svaku datoteku koju je AI grafika postavila te vraća izvornike iz sigurnosnih kopija. Učinite to prije uklanjanja programa Big Game Mode."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1376
 msgid "Technical details"
@@ -5913,7 +5955,7 @@ msgstr "Najnovije stabilno izdanje na OptiScalerovoj GitHub stranici, nikad star
 msgid "The next game gets its profile as it starts."
 msgstr "Sljedeća igra dobiva svoj profil pri pokretanju."
 
-#: bigame-engine/bigame-ui/src/app.rs:537
+#: bigame-engine/bigame-ui/src/app.rs:591
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr "Usluga optimizacije po igri nije uspjela, pa se igre ne optimiziraju."
 
@@ -6041,7 +6083,7 @@ msgstr "Postavka je spremljena, ali je NetworkManager sada nije mogao primijenit
 msgid "The sharpest image, and the smallest gain."
 msgstr "Najoštrija slika i najmanji dobitak."
 
-#: bigame-engine/bigame-core/src/processes.rs:1049
+#: bigame-engine/bigame-core/src/processes.rs:1069
 msgid "The system did not let Big Game Mode signal %s."
 msgstr "Sustav nije dopustio Big Game Mode da pošalje signal programu %s."
 
@@ -6135,8 +6177,8 @@ msgstr "Isteklo vrijeme"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Savjet: odaberite predložak, uključite Turbo i pokrenite igru; Početna pokazuje što je igra dobila. Gumb (i) na vrhu objašnjava stranicu na kojoj ste."
 
-#: bigame-engine/bigame-ui/src/app.rs:610
-#: bigame-engine/bigame-ui/src/app.rs:621
+#: bigame-engine/bigame-ui/src/app.rs:664
+#: bigame-engine/bigame-ui/src/app.rs:675
 msgid "Troubleshooting"
 msgstr "Rješavanje problema"
 
@@ -6174,7 +6216,7 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turbo se nije mogao pokrenuti"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:348
+#: bigame-engine/bigame-ui/src/views/settings.rs:407
 msgid "Turbo Mode"
 msgstr "Turbo način"
 
@@ -6648,7 +6690,7 @@ msgstr "Što će se promijeniti"
 msgid "What you can do instead"
 msgstr "Što možete učiniti umjesto toga"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:373
+#: bigame-engine/bigame-ui/src/views/settings.rs:432
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "Kad je Turbo uključen i pokrene se igra bez vlastitog profila"
 
@@ -7330,8 +7372,8 @@ msgstr "falcond dolazi s odvojenim skupovima profila za stolna računala, ručne
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond se zaustavio na instrukciji koju je ovaj procesor odbio: nekompatibilnost skupa instrukcija procesora ili oštećena izvršna datoteka falcond."
 
-#: bigame-engine/bigame-ui/src/app.rs:536
-#: bigame-engine/bigame-ui/src/app.rs:540
+#: bigame-engine/bigame-ui/src/app.rs:590
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "falcond stopped unexpectedly"
 msgstr "falcond se neočekivano zaustavio"
 
@@ -7474,7 +7516,7 @@ msgstr "odgođeno dok igra radi"
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "ako se igra s njim ruši, OptiScalerov wiki predlaže %s pod [SystemSettings] u datoteci Engine.ini igre"
 
-#: bigame-engine/bigame-core/src/profiles.rs:761
+#: bigame-engine/bigame-core/src/profiles.rs:774
 msgid "imported profile has no name"
 msgstr "uvezeni profil nema naziv"
 
@@ -7909,7 +7951,7 @@ msgstr "ostalo"
 msgid "overlay not shown"
 msgstr "prekrivni sloj nije prikazan"
 
-#: bigame-engine/bigame-core/src/profiles.rs:758
+#: bigame-engine/bigame-core/src/profiles.rs:771
 msgid "parse imported profile TOML"
 msgstr "raščlanjivanje TOML-a uvezenog profila"
 
@@ -8261,7 +8303,7 @@ msgstr "XeSS igre"
 msgid "the game's executable was not found"
 msgstr "izvršna datoteka igre nije pronađena"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1477
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1555
 msgid "the game's files were put back, but its own setting could not be (%s); Restore tries it again"
 msgstr "datoteke igre su vraćene, ali njezina vlastita postavka nije (%s); Vrati će pokušati ponovno"
 
@@ -8521,7 +8563,7 @@ msgstr "putem DXVK ili VKD3D-Proton, vidljivo kad igra radi"
 msgid "too few usable runs to compare"
 msgstr "premalo upotrebljivih pokretanja za usporedbu"
 
-#: bigame-engine/bigame-ui/src/app.rs:712
+#: bigame-engine/bigame-ui/src/app.rs:766
 msgid "translator-credits"
 msgstr ""
 
@@ -8598,7 +8640,7 @@ msgstr "vrijednost nije bilo moguće ponovno očitati"
 msgid "variable refresh rate is requested"
 msgstr "zatražena je promjenjiva frekvencija osvježavanja"
 
-#: bigame-engine/bigame-ui/src/app.rs:736
+#: bigame-engine/bigame-ui/src/app.rs:790
 msgid "vkBasalt configuration"
 msgstr "Konfiguracija vkBasalta"
 

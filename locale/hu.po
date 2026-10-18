@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 15:00-0300\n"
+"POT-Creation-Date: 2026-10-18 15:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:21\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hungarian <hu@li.org>\n"
@@ -47,7 +47,7 @@ msgid_plural "%n applied"
 msgstr[0] "%n alkalmazva"
 msgstr[1] "%n alkalmazva"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:437
+#: bigame-engine/bigame-ui/src/views/settings.rs:496
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n soha nem illeszkedhet a játékához a jelenlegi formájában"
@@ -256,6 +256,10 @@ msgstr "%s a következő kilépési kóddal fejeződött be: %d"
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "%s fájl nem a telepített állapotában van (játékfrissítés vagy egy másik eszköz miatt): %s"
 
+#: bigame-engine/bigame-ui/src/app.rs:556
+msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
+msgstr "%s észlelve, és az MI-grafikából származó OptiScaler még a játékban van. Online játék előtt állítsd vissza a grafikáját: Profilok → a játék menüje → A játék grafikájának visszaállítása."
+
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
 msgstr "%s már kilépett."
@@ -318,6 +322,10 @@ msgstr "%s be van állítva, de egy másik program dönt a lekérdezésekről"
 #: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s a falcond leállása után is betöltve marad: a falcond nem távolítja el az általános beállítása által betöltött ütemezőt"
+
+#: bigame-engine/bigame-ui/src/app.rs:553
+msgid "%s now has anti-cheat"
+msgstr "%s mostantól csalásgátlót használ"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:260
 msgid "%s now; performance when a game starts"
@@ -851,7 +859,7 @@ msgstr "Indítási opció hozzáadása"
 msgid "Address to ping"
 msgstr "Pingelendő cím"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:354
+#: bigame-engine/bigame-ui/src/views/settings.rs:413
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "Csak a saját felhasználódhoz ad hozzá bejelentkezési bejegyzést (~/.config/autostart). A Big Game Mode ezután a tálcán fut, és felajánlhat egy profilt, amikor egy új játék elindul. A kikapcsolás eltávolítja a bejegyzést."
 
@@ -860,7 +868,7 @@ msgid "Adds in-between frames: looks smoother, but your controls react later. Ex
 msgstr "Köztes képkockákat ad hozzá: simábbnak tűnik, de az irányítás később reagál. Kísérleti."
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1026
-#: bigame-engine/bigame-ui/src/views/settings.rs:514
+#: bigame-engine/bigame-ui/src/views/settings.rs:573
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1537
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -1235,7 +1243,7 @@ msgstr "A Big Game Mode telepítette az OptiScalert ebbe a játékba, és az al�
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr "A Big Game Mode ide telepített: %s, ami nem ennek a játéknak a mappája (%s): a játékot a fájljai nélkül helyezték át, vagy a feljegyzés egy másik játéké. Semmi sem változott"
 
-#: bigame-engine/bigame-ui/src/app.rs:700
+#: bigame-engine/bigame-ui/src/app.rs:754
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr "A Big Game Mode a BigLinux játékközpontja. Egyetlen gombbal, a Turbóval a játékok a megfelelő teljesítményprofillal futnak, amelyet a falcond alkalmaz megnyitásukkor, és visszavon bezárásukkor. Az alkalmazás megmutatja, mi van ténylegesen érvényben, méri, hogy egy módosítás segített-e, és gondoskodik arról, ami a játékon belül történik, például a felskálázásról és a képkocka-generálásról, mindig teljes biztonsági mentéssel és visszavonási lehetőséggel."
 
@@ -1308,7 +1316,7 @@ msgstr "Build"
 msgid "Built into falcond"
 msgstr "A falcond beépített része"
 
-#: bigame-engine/bigame-ui/src/app.rs:742
+#: bigame-engine/bigame-ui/src/app.rs:796
 msgid "Built on"
 msgstr "Amire épül"
 
@@ -1383,6 +1391,7 @@ msgstr "Ezt hívja meg: '%p', de nincs telepítve — indítási opciók: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1161
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1703
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
+#: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
 #: bigame-engine/bigame-ui/src/window.rs:337
 #: bigame-engine/bigame-ui/src/window.rs:382
@@ -1463,7 +1472,7 @@ msgstr "A rendszer ellenőrzése…"
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
-#: bigame-engine/bigame-ui/src/views/settings.rs:388
+#: bigame-engine/bigame-ui/src/views/settings.rs:447
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Ellenőrzés…"
@@ -1590,7 +1599,7 @@ msgstr "Kombináció"
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr "Működőnek jelentett, de nem igazolt kombinációk. Az OptiScaler képkocka-generálása is ezek közé tartozik."
 
-#: bigame-engine/bigame-ui/src/app.rs:614
+#: bigame-engine/bigame-ui/src/app.rs:668
 msgid "Command"
 msgstr "Parancs"
 
@@ -1700,7 +1709,7 @@ msgstr "Másolva"
 msgid "Copy"
 msgstr "Másolás"
 
-#: bigame-engine/bigame-ui/src/app.rs:564
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Copy Install Command"
 msgstr "Telepítési parancs másolása"
 
@@ -1780,7 +1789,7 @@ msgstr "Nem sikerült letölteni a shadereket"
 msgid "Could not export"
 msgstr "Nem sikerült exportálni"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:471
+#: bigame-engine/bigame-ui/src/views/settings.rs:530
 msgid "Could not fix them"
 msgstr "Nem sikerült kijavítani őket"
 
@@ -2027,7 +2036,7 @@ msgstr "A szükségtelen processzor-„tickek” (időzítő-ébresztések) kik�
 msgid "Desktop"
 msgstr "Asztali"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:491
+#: bigame-engine/bigame-ui/src/views/settings.rs:550
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "Asztali értesítések, amikor egy játékprofil érvénybe lép, és amikor visszaáll. A profilajánlatot fent külön lehet szabályozni."
 
@@ -2176,9 +2185,17 @@ msgstr "Minden módosítás azonnal mentődik. A főmenü Alapértelmezések vis
 msgid "Every file is as it was installed"
 msgstr "Minden fájl a telepített állapotában van"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:340
+msgid "Every game AI Graphics changed gets its original files back. Close your games first."
+msgstr "Minden játék, amelyet az MI-grafika módosított, visszakapja az eredeti fájljait. Előbb zárd be a játékaidat."
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:128
 msgid "Every game found already has a profile."
 msgstr "Minden talált játéknak van már profilja."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:369
+msgid "Every game's graphics were restored"
+msgstr "Az összes játék grafikája visszaállítva"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:826
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
@@ -2399,7 +2416,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "Öt kis fájl (kb. 30 KB) a GitHubról: a Colourfulness és a FilmGrain2 a ReShade shaderei közül, a FakeHDR a SweetFX-ből, valamint az általuk beemelt fejlécfájlok. Mindegyik rögzített verzió, használat előtt SHA-256 alapján ellenőrizve, és a ~/.local/share/reshade mappába kerül. Nélkülük a vkBasalt leállítaná a játékot, ezért a stílus csak azután íródik ki, hogy a helyükre kerültek."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:531
-#: bigame-engine/bigame-ui/src/views/settings.rs:392
+#: bigame-engine/bigame-ui/src/views/settings.rs:451
 msgid "Fix"
 msgstr "Javítás"
 
@@ -2552,7 +2569,7 @@ msgstr "Játék API"
 msgid "Game Library"
 msgstr "Játékkönyvtár"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:488
+#: bigame-engine/bigame-ui/src/views/settings.rs:547
 msgid "Game Notifications"
 msgstr "Játék értesítések"
 
@@ -2573,7 +2590,7 @@ msgstr "Játéklista"
 msgid "Game name cannot be empty"
 msgstr "A játék neve nem lehet üres"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:369
+#: bigame-engine/bigame-ui/src/views/settings.rs:428
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Game profiles"
 msgstr "Játékprofilok"
@@ -2734,7 +2751,7 @@ msgstr "Játékteljesítmény-vezérlés"
 msgid "Gaming mode for BigLinux"
 msgstr "Játékmód a BigLinuxhoz"
 
-#: bigame-engine/bigame-ui/src/app.rs:707
+#: bigame-engine/bigame-ui/src/app.rs:761
 msgid "Gathering system information…"
 msgstr "Rendszerinformációk gyűjtése…"
 
@@ -2839,7 +2856,7 @@ msgstr "HDR kimenet"
 msgid "HDR output is requested"
 msgstr "HDR kimenet kérve"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:454
+#: bigame-engine/bigame-ui/src/views/settings.rs:513
 msgid "HOME is not set"
 msgstr "A HOME nincs beállítva"
 
@@ -3064,7 +3081,7 @@ msgstr "Első kiadás irányítópulttal, profilokkal, hangolással és gamescop
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr "Telepítsd a Lossless Scalinget a Steam-könyvtáradból (Linuxon a Steam a Protonon keresztül telepíti; soha nem kell futtatni). A fájl ezután a játék mappájában van: …/steamapps/common/Lossless Scaling/Lossless.dll. Ha ott van, az útvonal melletti keresés gomb kitölti; egyébként válaszd ki a mappa gombbal."
 
-#: bigame-engine/bigame-ui/src/app.rs:562
+#: bigame-engine/bigame-ui/src/app.rs:616
 msgid "Install Missing Packages"
 msgstr "Hiányzó csomagok telepítése"
 
@@ -3072,11 +3089,11 @@ msgstr "Hiányzó csomagok telepítése"
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Telepíts egy játékot a Steamen, a Lutrison, a Heroicon vagy az alkalmazásmenün keresztül, majd keress újra."
 
-#: bigame-engine/bigame-ui/src/app.rs:611
+#: bigame-engine/bigame-ui/src/app.rs:665
 msgid "Install missing packages"
 msgstr "Hiányzó csomagok telepítése"
 
-#: bigame-engine/bigame-ui/src/app.rs:622
+#: bigame-engine/bigame-ui/src/app.rs:676
 msgid "Install missing packages with your package manager"
 msgstr "Hiányzó csomagok telepítése a csomagkezelővel"
 
@@ -3305,7 +3322,7 @@ msgstr "Indító"
 msgid "Layer installed"
 msgstr "Réteg telepítve"
 
-#: bigame-engine/bigame-ui/src/app.rs:722
+#: bigame-engine/bigame-ui/src/app.rs:776
 msgid "Lead Developer"
 msgstr "Vezető fejlesztő"
 
@@ -3549,9 +3566,9 @@ msgstr "Mérés…"
 msgid "Microsoft system DLL"
 msgstr "Microsoft rendszer-DLL"
 
-#: bigame-engine/bigame-ui/src/app.rs:555
-#: bigame-engine/bigame-ui/src/app.rs:569
-#: bigame-engine/bigame-ui/src/app.rs:578
+#: bigame-engine/bigame-ui/src/app.rs:609
+#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:632
 msgid "Missing Runtime Dependencies"
 msgstr "Hiányzó futásidejű függőségek"
 
@@ -3563,7 +3580,7 @@ msgstr "Hiányzó függőség"
 msgid "Missing files put back"
 msgstr "A hiányzó fájlok visszakerültek"
 
-#: bigame-engine/bigame-ui/src/app.rs:625
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Missing packages"
 msgstr "Hiányzó csomagok"
 
@@ -3571,7 +3588,7 @@ msgstr "Hiányzó csomagok"
 msgid "Mode %s applied"
 msgstr "%s mód alkalmazva"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:505
+#: bigame-engine/bigame-ui/src/views/settings.rs:564
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1377
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
@@ -3595,7 +3612,7 @@ msgstr "További információ erről: %s"
 msgid "More options"
 msgstr "További lehetőségek"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:517
+#: bigame-engine/bigame-ui/src/views/settings.rs:576
 msgid "More pages and settings for people who know their hardware"
 msgstr "Több oldal és beállítás azoknak, akik ismerik a hardverüket"
 
@@ -3796,6 +3813,10 @@ msgstr "Nincs szükség további tárolóra: a falcond, az lsfg-vk, a sched-ext,
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Nem található a játék futtatható fájlja, így ez a profil lehet, hogy nem illeszkedik a futó játékhoz."
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:367
+msgid "No game has files from AI Graphics"
+msgstr "Egyik játékban sincs fájl az MI-grafikától"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:278
 msgid "No game running"
 msgstr "Nem fut játék"
@@ -3869,7 +3890,7 @@ msgstr "Nincs"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "Nincs kérve: a kernel alapértelmezett ütemezője"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:434
+#: bigame-engine/bigame-ui/src/views/settings.rs:493
 msgid "None need fixing"
 msgstr "Egyiket sem kell javítani"
 
@@ -3975,6 +3996,10 @@ msgstr "Nem ajánlott"
 #: bigame-engine/bigame-ui/src/gpu_reading.rs:27
 msgid "Not reported by the driver"
 msgstr "Az illesztőprogram nem jelzi"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:371
+msgid "Not restored (close them and try again): %s"
+msgstr "Nincs visszaállítva (zárd be őket, és próbáld újra): %s"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1099
 msgid "Not set up"
@@ -4089,7 +4114,7 @@ msgstr "Semmi sem változott"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "Nincs mit érdemes telepíteni, vagy rosszabb lenne annál, ami a játékban már megvan. Az ok az oldalon olvasható."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:486
+#: bigame-engine/bigame-ui/src/views/settings.rs:545
 msgid "Notifications"
 msgstr "Értesítések"
 
@@ -4142,7 +4167,7 @@ msgstr "Kikapcsolva a Big Game Mode nem avatkozik be a játékokba. Bekapcsolva 
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "Ki: a Big Game Mode nem avatkozik be a játékokba"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:372
+#: bigame-engine/bigame-ui/src/views/settings.rs:431
 msgid "Offer a profile for new games"
 msgstr "Profil felajánlása új játékokhoz"
 
@@ -4150,7 +4175,7 @@ msgstr "Profil felajánlása új játékokhoz"
 msgid "Offline"
 msgstr "Offline"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:399
+#: bigame-engine/bigame-ui/src/views/settings.rs:458
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "A régebbi verziók a játék címéről nevezték el a profilokat, amelyet a falcond soha nem tud felismerni, és olyan beállításokat tároltak, amelyeket a falcond figyelmen kívül hagy. A javítás mindegyiket átnevezi a játék valódi folyamatának nevére, és csak a falcond beállításait tartja meg. Minden profilról előbb biztonsági mentés készül a ~/.local/state/bigame-mode mappába. A falcond saját profiljaihoz soha nem nyúl."
 
@@ -4213,7 +4238,7 @@ msgstr "Egy általános beállítás"
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "Egy sor arról, hogyan áll a gép, és elemenként egy címke: Turbo, falcond, a profil, az energiagazdálkodás, az ütemező, a GPU, a Gamescope, a felskálázás, a képkocka-generálás."
 
-#: bigame-engine/bigame-ui/src/app.rs:703
+#: bigame-engine/bigame-ui/src/app.rs:757
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "Egy szabály végigvonul a projekten: semmit sem kínál fel, amire a gép nem képes, és semmit sem nevez javulásnak mérés nélkül."
 
@@ -4254,12 +4279,12 @@ msgstr "Megnyitás"
 msgid "Open Big Game Mode"
 msgstr "Big Game Mode megnyitása"
 
-#: bigame-engine/bigame-ui/src/app.rs:613
-#: bigame-engine/bigame-ui/src/app.rs:624
+#: bigame-engine/bigame-ui/src/app.rs:667
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Open Details after starting a game to see what it really got"
 msgstr "Egy játék elindítása után nyisd meg a Részleteket, hogy lásd, mit kapott valójában"
 
-#: bigame-engine/bigame-ui/src/app.rs:538
+#: bigame-engine/bigame-ui/src/app.rs:592
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr "Az okért nyisd meg a Naplókat. A Turbo ki- és újra bekapcsolása újraindítja."
 
@@ -4807,8 +4832,8 @@ msgstr "Profilok tévéhez csatlakoztatott, kanapéról játszott PC-hez."
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Profilok kézi PC-khez, például a Steam Deckhez vagy a ROG Allyhez: az akkumulátor-üzemidőt részesítik előnyben, és némelyik kikapcsolja a teljesítménymódot."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:387
-#: bigame-engine/bigame-ui/src/views/settings.rs:398
+#: bigame-engine/bigame-ui/src/views/settings.rs:446
+#: bigame-engine/bigame-ui/src/views/settings.rs:457
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
 msgid "Profiles from an older Big Game Mode"
 msgstr "Profilok egy régebbi Big Game Mode-ból"
@@ -5068,7 +5093,7 @@ msgstr "Javítás"
 msgid "Repair puts missing files back; a changed binary belongs to whatever changed it"
 msgstr "A Javítás visszateszi a hiányzó fájlokat; egy módosított bináris ahhoz tartozik, ami módosította"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1515
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1593
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr "A Javítás most semmit nem tesz vissza ebbe a játékba; a Játékgrafika visszaállítása eltávolítja, amit a Big Game Mode elhelyezett"
 
@@ -5088,8 +5113,8 @@ msgstr "Jelentés mentve ide: %s"
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr "Jelentések szerint működik, de nem bizonyított, vagy attól függ, hogy a játék egy másik GPU-t lásson (hamisítás). Próbáld ki, és ha a játék nem megfelelően viselkedik, használd a Játékgrafika visszaállítása lehetőséget."
 
-#: bigame-engine/bigame-ui/src/app.rs:558
-#: bigame-engine/bigame-ui/src/app.rs:572
+#: bigame-engine/bigame-ui/src/app.rs:612
+#: bigame-engine/bigame-ui/src/app.rs:626
 msgid "Required packages were not found in the system"
 msgstr "A szükséges csomagok nem találhatók a rendszerben"
 
@@ -5112,14 +5137,19 @@ msgstr "Resizable BAR"
 msgid "Resolved: %s is the only upscaler"
 msgstr "Megoldva: %s az egyetlen felskálázó"
 
-#: bigame-engine/bigame-ui/src/app.rs:612
-#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Restart Big Game Mode"
 msgstr "Big Game Mode újraindítása"
 
 #: bigame-engine/bigame-ui/src/window.rs:338
 msgid "Restore"
 msgstr "Visszaállítás"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:334
+#: bigame-engine/bigame-ui/src/views/settings.rs:345
+msgid "Restore All"
+msgstr "Összes visszaállítása"
 
 #: bigame-engine/bigame-ui/src/window.rs:334
 #: bigame-engine/bigame-ui/src/window.rs:462
@@ -5130,6 +5160,14 @@ msgstr "Alapértelmezések visszaállítása"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2640
 msgid "Restore Game Graphics"
 msgstr "Játékgrafika visszaállítása"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:328
+msgid "Restore every game's graphics"
+msgstr "Az összes játék grafikájának visszaállítása"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:339
+msgid "Restore every game's graphics?"
+msgstr "Visszaállítod az összes játék grafikáját?"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:55
 msgid "Restore previous"
@@ -5402,7 +5440,7 @@ msgstr "Megjelenítés"
 msgid "Show MangoHud"
 msgstr "MangoHud megjelenítése"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:516
+#: bigame-engine/bigame-ui/src/views/settings.rs:575
 msgid "Show advanced options"
 msgstr "Speciális beállítások megjelenítése"
 
@@ -5410,7 +5448,7 @@ msgstr "Speciális beállítások megjelenítése"
 msgid "Show dialog on startup"
 msgstr "Párbeszédablak megjelenítése indításkor"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:489
+#: bigame-engine/bigame-ui/src/views/settings.rs:548
 msgid "Show notifications on game launch and exit"
 msgstr "Értesítések megjelenítése játék indításakor és kilépésekor"
 
@@ -5418,11 +5456,11 @@ msgstr "Értesítések megjelenítése játék indításakor és kilépésekor"
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Csak a hibák, a figyelmeztetések vagy egyetlen forrás megjelenítése, vagy keresés a szövegben."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:519
+#: bigame-engine/bigame-ui/src/views/settings.rs:578
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "Megjeleníti a Hangolás, Részletek és Naplók oldalt, valamint minden oldal technikai beállításait: falcond, CPU-ütemezők, Gamescope, vkBasalt, képkocka-generálás. Kikapcsolva a Big Game Mode a Turbót, azt, hogy mit részesítsenek előnyben a játékok, és a játékaidat mutatja, ami a legtöbb embernek elég."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:375
+#: bigame-engine/bigame-ui/src/views/settings.rs:434
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "Értesítést jelenít meg, soha nem ablakot a játékod fölött. A profil erre a gépre készül, és az áttekintése megmutatja, miért választotta az egyes értékeket. Semmi sem jön létre, hacsak te nem úgy döntesz."
 
@@ -5446,7 +5484,7 @@ msgstr "Kihagyva"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Kihagyva, nem elérhető, elkerült ütközések"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:352
+#: bigame-engine/bigame-ui/src/views/settings.rs:411
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "Így a Steamből indított játékokat akkor is észleli, ha ez az ablak be van zárva"
 
@@ -5461,7 +5499,7 @@ msgstr "Lágyabb, több képkockával."
 msgid "Some settings could not be put back"
 msgstr "Néhány beállítást nem sikerült visszaállítani"
 
-#: bigame-engine/bigame-ui/src/app.rs:726
+#: bigame-engine/bigame-ui/src/app.rs:780
 msgid "Special Thanks"
 msgstr "Külön köszönet"
 
@@ -5481,7 +5519,7 @@ msgstr "Indíts el egy játékot a Steamből, a Lutrisból, a Heroicból, az alk
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Indíts el egy játékot; hogy valójában mit kap, azt a folyamatából olvassuk ki, és itt jelenítjük meg."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:351
+#: bigame-engine/bigame-ui/src/views/settings.rs:410
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
 msgid "Start in the background at login"
 msgstr "Indítás a háttérben bejelentkezéskor"
@@ -5587,7 +5625,7 @@ msgstr "Steam → Beállítások → Tárhely: helyezd át a legtöbbet játszot
 msgid "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
 msgstr "A Steam Flatpakja csak a Flathub Gamescope-bővítményében találja meg a Gamescope-ot, amely nincs telepítve, és ez a játék azzal nem indulna el. Semmi sem lett kiírva. Telepítsd, és indítsd újra a Steamet: %s"
 
-#: bigame-engine/bigame-core/src/mangohud.rs:282
+#: bigame-engine/bigame-core/src/mangohud.rs:308
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr "A Steam Flatpakja csak a Flathub MangoHud-bővítményében találja meg a MangoHudot, amely nincs telepítve. Semmi sem lett kiírva. Telepítsd, és indítsd újra a Steamet: %s"
 
@@ -5678,6 +5716,10 @@ msgstr "Irányítás átvétele"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2416
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "Eltávolítva a Heroic beállításaiból ehhez a játékhoz; a játék saját FSR-je ugyanúgy fut, mint korábban"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:329
+msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
+msgstr "Az összes játékból eltávolítja az OptiScaler-t és minden fájlt, amelyet az MI-grafika elhelyezett, és a biztonsági mentésekből visszateszi az eredetieket. Tedd ezt meg a Big Game Mode eltávolítása előtt."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1376
 msgid "Technical details"
@@ -5894,7 +5936,7 @@ msgstr "A legújabb stabil kiadás az OptiScaler GitHub-oldalán, soha nem rége
 msgid "The next game gets its profile as it starts."
 msgstr "A következő játék az indulásakor megkapja a profilját."
 
-#: bigame-engine/bigame-ui/src/app.rs:537
+#: bigame-engine/bigame-ui/src/app.rs:591
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr "A játékonkénti optimalizálási szolgáltatás hibát jelzett, így a játékok nincsenek optimalizálva."
 
@@ -6022,7 +6064,7 @@ msgstr "A beállítás mentve lett, de a NetworkManager most nem tudta alkalmazn
 msgid "The sharpest image, and the smallest gain."
 msgstr "A legélesebb kép és a legkisebb nyereség."
 
-#: bigame-engine/bigame-core/src/processes.rs:1049
+#: bigame-engine/bigame-core/src/processes.rs:1069
 msgid "The system did not let Big Game Mode signal %s."
 msgstr "A rendszer nem engedte, hogy a Big Game Mode jelzést küldjön ennek: %s."
 
@@ -6116,8 +6158,8 @@ msgstr "Időtúllépés"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Tipp: válassz egy előbeállítást, kapcsold be a Turbót, és indíts el egy játékot; a Kezdőlap megmutatja, mit kapott. A felül lévő (i) gomb elmagyarázza az oldalt, amelyen vagy."
 
-#: bigame-engine/bigame-ui/src/app.rs:610
-#: bigame-engine/bigame-ui/src/app.rs:621
+#: bigame-engine/bigame-ui/src/app.rs:664
+#: bigame-engine/bigame-ui/src/app.rs:675
 msgid "Troubleshooting"
 msgstr "Hibaelhárítás"
 
@@ -6155,7 +6197,7 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "A Turbo nem tudott elindulni"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:348
+#: bigame-engine/bigame-ui/src/views/settings.rs:407
 msgid "Turbo Mode"
 msgstr "Turbo mód"
 
@@ -6628,7 +6670,7 @@ msgstr "Mi fog változni"
 msgid "What you can do instead"
 msgstr "Mit tehetsz helyette"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:373
+#: bigame-engine/bigame-ui/src/views/settings.rs:432
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "Amikor a Turbo be van kapcsolva, és egy saját profil nélküli játék elindul"
 
@@ -7309,8 +7351,8 @@ msgstr "A falcond külön profilkészleteket szállít asztali gépekhez, kézik
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "A falcond olyan utasításnál állt meg, amelyet ez a processzor elutasított: a processzor utasításkészletével való összeférhetetlenség, vagy sérült falcond programfájl."
 
-#: bigame-engine/bigame-ui/src/app.rs:536
-#: bigame-engine/bigame-ui/src/app.rs:540
+#: bigame-engine/bigame-ui/src/app.rs:590
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "falcond stopped unexpectedly"
 msgstr "A falcond váratlanul leállt"
 
@@ -7453,7 +7495,7 @@ msgstr "visszatartva, amíg a játék fut"
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "ha a játék összeomlik vele, az OptiScaler wikije ezt javasolja a játék Engine.ini fájljában, a [SystemSettings] alatt: %s"
 
-#: bigame-engine/bigame-core/src/profiles.rs:761
+#: bigame-engine/bigame-core/src/profiles.rs:774
 msgid "imported profile has no name"
 msgstr "az importált profilnak nincs neve"
 
@@ -7888,7 +7930,7 @@ msgstr "egyéb"
 msgid "overlay not shown"
 msgstr "átfedés nem látható"
 
-#: bigame-engine/bigame-core/src/profiles.rs:758
+#: bigame-engine/bigame-core/src/profiles.rs:771
 msgid "parse imported profile TOML"
 msgstr "az importált profil TOML-jának feldolgozása"
 
@@ -8240,7 +8282,7 @@ msgstr "a játék XeSS-e"
 msgid "the game's executable was not found"
 msgstr "a játék futtatható fájlja nem található"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1477
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1555
 msgid "the game's files were put back, but its own setting could not be (%s); Restore tries it again"
 msgstr "a játék fájljai visszakerültek, de a saját beállítása nem (%s); a Visszaállítás újra megpróbálja"
 
@@ -8500,7 +8542,7 @@ msgstr "DXVK-n vagy VKD3D-Protonon keresztül, a játék futásakor látható"
 msgid "too few usable runs to compare"
 msgstr "túl kevés használható futás az összehasonlításhoz"
 
-#: bigame-engine/bigame-ui/src/app.rs:712
+#: bigame-engine/bigame-ui/src/app.rs:766
 msgid "translator-credits"
 msgstr ""
 
@@ -8577,7 +8619,7 @@ msgstr "az érték nem olvasható vissza"
 msgid "variable refresh rate is requested"
 msgstr "változó frissítési frekvencia kérve"
 
-#: bigame-engine/bigame-ui/src/app.rs:736
+#: bigame-engine/bigame-ui/src/app.rs:790
 msgid "vkBasalt configuration"
 msgstr "vkBasalt-konfiguráció"
 

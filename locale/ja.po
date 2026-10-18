@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 15:00-0300\n"
+"POT-Creation-Date: 2026-10-18 15:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:22\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Japanese <ja@li.org>\n"
@@ -46,7 +46,7 @@ msgid "%n applied"
 msgid_plural "%n applied"
 msgstr[0] "%n件適用"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:437
+#: bigame-engine/bigame-ui/src/views/settings.rs:496
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n件は現状のままではゲームに一致しません"
@@ -238,6 +238,10 @@ msgstr "%sは終了コード%dで終了しました"
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "%s個のファイルがインストール時の状態と異なります（ゲームの更新または別のツールによるもの）: %s"
 
+#: bigame-engine/bigame-ui/src/app.rs:556
+msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
+msgstr "%sが見つかりましたが、AIグラフィックスのOptiScalerがまだゲームに残っています。オンラインでプレイする前にグラフィックを元に戻してください: プロファイル → ゲームのメニュー → 「ゲームのグラフィックを元に戻す」。"
+
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
 msgstr "%sはすでに終了しています。"
@@ -300,6 +304,10 @@ msgstr "%sが設定されていますが、名前解決は別のプログラム�
 #: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "falcondの停止後も%sが読み込まれたままです: falcondは、全体設定で読み込んだスケジューラーをアンロードしません"
+
+#: bigame-engine/bigame-ui/src/app.rs:553
+msgid "%s now has anti-cheat"
+msgstr "%sにアンチチートが導入されました"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:260
 msgid "%s now; performance when a game starts"
@@ -833,7 +841,7 @@ msgstr "起動オプションを追加"
 msgid "Address to ping"
 msgstr "pingを送るアドレス"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:354
+#: bigame-engine/bigame-ui/src/views/settings.rs:413
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "あなたのユーザーだけにログイン項目を追加します (~/.config/autostart)。Big Game Modeはトレイで動作し、新しいゲームが起動したときにプロファイルを提案できます。オフにすると項目が削除されます。"
 
@@ -842,7 +850,7 @@ msgid "Adds in-between frames: looks smoother, but your controls react later. Ex
 msgstr "フレームの間に中間フレームを追加します: 見た目は滑らかになりますが、操作の反応が遅くなります。実験的です。"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1026
-#: bigame-engine/bigame-ui/src/views/settings.rs:514
+#: bigame-engine/bigame-ui/src/views/settings.rs:573
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1537
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -1217,7 +1225,7 @@ msgstr "Big Game ModeがこのゲームにOptiScalerをインストールしま�
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr "Big Game Modeは%sにインストールしましたが、これはこのゲームのフォルダー (%s) ではありません: ゲームがファイルなしで移動されたか、記録が別のゲームのものです。何も変更していません"
 
-#: bigame-engine/bigame-ui/src/app.rs:700
+#: bigame-engine/bigame-ui/src/app.rs:754
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr "Big Game ModeはBigLinuxのゲーミングハブです。Turboボタン1つで、ゲームは適切なパフォーマンスプロファイルで動作します。プロファイルはゲームの起動時にfalcondが適用し、終了時に元に戻します。アプリは実際に有効になっているものを表示し、変更に効果があったかを測定し、アップスケーリングやフレーム生成など、ゲーム内で起きることも管理します。常に完全なバックアップと取り消しが可能です。"
 
@@ -1290,7 +1298,7 @@ msgstr "ビルド"
 msgid "Built into falcond"
 msgstr "falcondに組み込み"
 
-#: bigame-engine/bigame-ui/src/app.rs:742
+#: bigame-engine/bigame-ui/src/app.rs:796
 msgid "Built on"
 msgstr "使用技術"
 
@@ -1365,6 +1373,7 @@ msgstr "インストールされていない「%p」を呼び出しています 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1161
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1703
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
+#: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
 #: bigame-engine/bigame-ui/src/window.rs:337
 #: bigame-engine/bigame-ui/src/window.rs:382
@@ -1444,7 +1453,7 @@ msgstr "システムを確認中…"
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
-#: bigame-engine/bigame-ui/src/views/settings.rs:388
+#: bigame-engine/bigame-ui/src/views/settings.rs:447
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "チェック中…"
@@ -1571,7 +1580,7 @@ msgstr "組み合わせ"
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr "動作するという報告はあるものの、確立されていない組み合わせです。OptiScalerのフレーム生成もその1つです。"
 
-#: bigame-engine/bigame-ui/src/app.rs:614
+#: bigame-engine/bigame-ui/src/app.rs:668
 msgid "Command"
 msgstr "コマンド"
 
@@ -1681,7 +1690,7 @@ msgstr "コピーしました"
 msgid "Copy"
 msgstr "コピー"
 
-#: bigame-engine/bigame-ui/src/app.rs:564
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Copy Install Command"
 msgstr "インストールコマンドをコピー"
 
@@ -1761,7 +1770,7 @@ msgstr "シェーダーをダウンロードできませんでした"
 msgid "Could not export"
 msgstr "エクスポートできませんでした"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:471
+#: bigame-engine/bigame-ui/src/views/settings.rs:530
 msgid "Could not fix them"
 msgstr "修正できませんでした"
 
@@ -2008,7 +2017,7 @@ msgstr "不要なCPUの「ティック」（タイマーによる起床）をな
 msgid "Desktop"
 msgstr "デスクトップ"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:491
+#: bigame-engine/bigame-ui/src/views/settings.rs:550
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "ゲームプロファイルが適用されたときと元に戻されたときのデスクトップ通知です。プロファイルの提案は上で別に設定します。"
 
@@ -2157,9 +2166,17 @@ msgstr "変更はすべてすぐに保存されます。メインメニューの
 msgid "Every file is as it was installed"
 msgstr "すべてのファイルがインストール時のままです"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:340
+msgid "Every game AI Graphics changed gets its original files back. Close your games first."
+msgstr "AIグラフィックスが変更したすべてのゲームに元のファイルが戻ります。先にゲームを閉じてください。"
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:128
 msgid "Every game found already has a profile."
 msgstr "見つかったすべてのゲームに、すでにプロファイルがあります。"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:369
+msgid "Every game's graphics were restored"
+msgstr "すべてのゲームのグラフィックを元に戻しました"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:826
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
@@ -2380,7 +2397,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "GitHubから5つの小さなファイル（約30 KB）: ReShadeのシェーダーからColourfulnessとFilmGrain2、SweetFXからFakeHDR、そしてそれらがインクルードするヘッダー。それぞれ固定バージョンで、使用前にSHA-256で検証され、~/.local/share/reshadeに置かれます。これらがないとvkBasaltがゲームを停止させるため、スタイルはファイルがそろってから書き込まれます。"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:531
-#: bigame-engine/bigame-ui/src/views/settings.rs:392
+#: bigame-engine/bigame-ui/src/views/settings.rs:451
 msgid "Fix"
 msgstr "修正"
 
@@ -2533,7 +2550,7 @@ msgstr "ゲームのAPI"
 msgid "Game Library"
 msgstr "ゲームライブラリ"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:488
+#: bigame-engine/bigame-ui/src/views/settings.rs:547
 msgid "Game Notifications"
 msgstr "ゲーム通知"
 
@@ -2554,7 +2571,7 @@ msgstr "ゲームリスト"
 msgid "Game name cannot be empty"
 msgstr "ゲーム名を空にすることはできません"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:369
+#: bigame-engine/bigame-ui/src/views/settings.rs:428
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Game profiles"
 msgstr "ゲームプロファイル"
@@ -2715,7 +2732,7 @@ msgstr "ゲームパフォーマンス制御"
 msgid "Gaming mode for BigLinux"
 msgstr "BigLinuxのゲーミングモード"
 
-#: bigame-engine/bigame-ui/src/app.rs:707
+#: bigame-engine/bigame-ui/src/app.rs:761
 msgid "Gathering system information…"
 msgstr "システム情報を収集中…"
 
@@ -2820,7 +2837,7 @@ msgstr "HDR出力"
 msgid "HDR output is requested"
 msgstr "HDR出力が要求されています"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:454
+#: bigame-engine/bigame-ui/src/views/settings.rs:513
 msgid "HOME is not set"
 msgstr "HOMEが設定されていません"
 
@@ -3045,7 +3062,7 @@ msgstr "ダッシュボード、プロファイル、チューニング、Gamesc
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr "SteamライブラリからLossless Scalingをインストールします（LinuxではSteamがProton経由でインストールします。実行する必要はありません）。ファイルはゲームのフォルダーにあります: …/steamapps/common/Lossless Scaling/Lossless.dll。そこにあれば、パスの横の検索ボタンで自動入力されます。なければフォルダーボタンで選択してください。"
 
-#: bigame-engine/bigame-ui/src/app.rs:562
+#: bigame-engine/bigame-ui/src/app.rs:616
 msgid "Install Missing Packages"
 msgstr "不足しているパッケージをインストール"
 
@@ -3053,11 +3070,11 @@ msgstr "不足しているパッケージをインストール"
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Steam、Lutris、Heroic、またはアプリケーションメニューからゲームをインストールしてから、再スキャンしてください。"
 
-#: bigame-engine/bigame-ui/src/app.rs:611
+#: bigame-engine/bigame-ui/src/app.rs:665
 msgid "Install missing packages"
 msgstr "不足しているパッケージをインストール"
 
-#: bigame-engine/bigame-ui/src/app.rs:622
+#: bigame-engine/bigame-ui/src/app.rs:676
 msgid "Install missing packages with your package manager"
 msgstr "パッケージマネージャーで不足しているパッケージをインストール"
 
@@ -3286,7 +3303,7 @@ msgstr "ランチャー"
 msgid "Layer installed"
 msgstr "レイヤーをインストール済み"
 
-#: bigame-engine/bigame-ui/src/app.rs:722
+#: bigame-engine/bigame-ui/src/app.rs:776
 msgid "Lead Developer"
 msgstr "リード開発者"
 
@@ -3530,9 +3547,9 @@ msgstr "測定中…"
 msgid "Microsoft system DLL"
 msgstr "Microsoftシステム DLL"
 
-#: bigame-engine/bigame-ui/src/app.rs:555
-#: bigame-engine/bigame-ui/src/app.rs:569
-#: bigame-engine/bigame-ui/src/app.rs:578
+#: bigame-engine/bigame-ui/src/app.rs:609
+#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:632
 msgid "Missing Runtime Dependencies"
 msgstr "実行時の依存関係が不足しています"
 
@@ -3544,7 +3561,7 @@ msgstr "依存関係が不足"
 msgid "Missing files put back"
 msgstr "欠けていたファイルを戻しました"
 
-#: bigame-engine/bigame-ui/src/app.rs:625
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Missing packages"
 msgstr "不足しているパッケージ"
 
@@ -3552,7 +3569,7 @@ msgstr "不足しているパッケージ"
 msgid "Mode %s applied"
 msgstr "モード%sを適用しました"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:505
+#: bigame-engine/bigame-ui/src/views/settings.rs:564
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1377
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
@@ -3576,7 +3593,7 @@ msgstr "%sの詳しい情報"
 msgid "More options"
 msgstr "その他のオプション"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:517
+#: bigame-engine/bigame-ui/src/views/settings.rs:576
 msgid "More pages and settings for people who know their hardware"
 msgstr "ハードウェアに詳しい人のための、追加のページと設定"
 
@@ -3777,6 +3794,10 @@ msgstr "追加のリポジトリは不要: falcond、lsfg-vk、sched-ext、Games
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "ゲームの実行ファイルが見つからなかったため、このプロファイルは実行中のゲームに一致しない可能性があります。"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:367
+msgid "No game has files from AI Graphics"
+msgstr "AIグラフィックスのファイルがあるゲームはありません"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:278
 msgid "No game running"
 msgstr "実行中のゲームなし"
@@ -3850,7 +3871,7 @@ msgstr "なし"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "指定なし: カーネルのデフォルトスケジューラー"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:434
+#: bigame-engine/bigame-ui/src/views/settings.rs:493
 msgid "None need fixing"
 msgstr "修正が必要なものはありません"
 
@@ -3956,6 +3977,10 @@ msgstr "非推奨"
 #: bigame-engine/bigame-ui/src/gpu_reading.rs:27
 msgid "Not reported by the driver"
 msgstr "ドライバーが報告していません"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:371
+msgid "Not restored (close them and try again): %s"
+msgstr "元に戻せませんでした（ゲームを閉じてもう一度お試しください）: %s"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1099
 msgid "Not set up"
@@ -4070,7 +4095,7 @@ msgstr "何も変更されませんでした"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "インストールする価値のあるものがないか、ゲームにすでにあるものより劣ります。理由はページに表示されます。"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:486
+#: bigame-engine/bigame-ui/src/views/settings.rs:545
 msgid "Notifications"
 msgstr "通知"
 
@@ -4123,7 +4148,7 @@ msgstr "オフにすると、Big Game Modeはゲームに介入しません。�
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "オフ: Big Game Modeはゲームに介入していません"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:372
+#: bigame-engine/bigame-ui/src/views/settings.rs:431
 msgid "Offer a profile for new games"
 msgstr "新しいゲームにプロファイルを提案"
 
@@ -4131,7 +4156,7 @@ msgstr "新しいゲームにプロファイルを提案"
 msgid "Offline"
 msgstr "オフライン"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:399
+#: bigame-engine/bigame-ui/src/views/settings.rs:458
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "旧バージョンではゲームのタイトルでプロファイルに名前を付けていたため、falcondが一致させることができず、falcondが無視する設定も保存されていました。修正すると、各プロファイルの名前をゲームの実際のプロセス名に変更し、falcondの設定だけを残します。すべてのプロファイルは事前に~/.local/state/bigame-modeにバックアップされます。falcond自身のプロファイルには一切手を加えません。"
 
@@ -4194,7 +4219,7 @@ msgstr "1つの全体設定"
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "マシンの状態を示す1行と、項目ごとのチップ: Turbo、falcond、プロファイル、電力、スケジューラー、GPU、Gamescope、アップスケーリング、フレーム生成。"
 
-#: bigame-engine/bigame-ui/src/app.rs:703
+#: bigame-engine/bigame-ui/src/app.rs:757
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "このプロジェクトには一貫したルールがあります: マシンにできないことは提供せず、測定なしに改善とは呼ばないこと。"
 
@@ -4235,12 +4260,12 @@ msgstr "開く"
 msgid "Open Big Game Mode"
 msgstr "Big Game Modeを開く"
 
-#: bigame-engine/bigame-ui/src/app.rs:613
-#: bigame-engine/bigame-ui/src/app.rs:624
+#: bigame-engine/bigame-ui/src/app.rs:667
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Open Details after starting a game to see what it really got"
 msgstr "ゲームを起動した後に「詳細」を開くと、実際に適用された内容を確認できます"
 
-#: bigame-engine/bigame-ui/src/app.rs:538
+#: bigame-engine/bigame-ui/src/app.rs:592
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr "理由はログを開いて確認してください。Turboをオフにしてから再びオンにすると再起動します。"
 
@@ -4788,8 +4813,8 @@ msgstr "テレビに接続してソファーからプレイするPC向けのプ�
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Steam DeckやROG Allyなどの携帯型PC向けのプロファイルです: バッテリー持続時間を優先し、一部はパフォーマンスモードをオフにします。"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:387
-#: bigame-engine/bigame-ui/src/views/settings.rs:398
+#: bigame-engine/bigame-ui/src/views/settings.rs:446
+#: bigame-engine/bigame-ui/src/views/settings.rs:457
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
 msgid "Profiles from an older Big Game Mode"
 msgstr "旧バージョンのBig Game Modeのプロファイル"
@@ -5049,7 +5074,7 @@ msgstr "修復"
 msgid "Repair puts missing files back; a changed binary belongs to whatever changed it"
 msgstr "「修復」で欠けているファイルを戻します。変更されたバイナリは、それを変更したものの管理下にあります"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1515
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1593
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr "現在、「修復」がこのゲームに戻すものはありません。「ゲームのグラフィックを元に戻す」は、Big Game Modeが配置したものを取り除きます"
 
@@ -5069,8 +5094,8 @@ msgstr "レポートの保存先: %s"
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr "動作報告はあるものの確立されていないか、ゲームに別のGPUを報告すること（なりすまし）に依存します。試してみて、ゲームが正常に動作しなければ「ゲームのグラフィックを元に戻す」を使ってください。"
 
-#: bigame-engine/bigame-ui/src/app.rs:558
-#: bigame-engine/bigame-ui/src/app.rs:572
+#: bigame-engine/bigame-ui/src/app.rs:612
+#: bigame-engine/bigame-ui/src/app.rs:626
 msgid "Required packages were not found in the system"
 msgstr "必要なパッケージがシステムに見つかりませんでした"
 
@@ -5093,14 +5118,19 @@ msgstr "Resizable BAR"
 msgid "Resolved: %s is the only upscaler"
 msgstr "解決済み: アップスケーラーは%sのみです"
 
-#: bigame-engine/bigame-ui/src/app.rs:612
-#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Restart Big Game Mode"
 msgstr "Big Game Modeを再起動"
 
 #: bigame-engine/bigame-ui/src/window.rs:338
 msgid "Restore"
 msgstr "元に戻す"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:334
+#: bigame-engine/bigame-ui/src/views/settings.rs:345
+msgid "Restore All"
+msgstr "すべて元に戻す"
 
 #: bigame-engine/bigame-ui/src/window.rs:334
 #: bigame-engine/bigame-ui/src/window.rs:462
@@ -5111,6 +5141,14 @@ msgstr "デフォルトに戻す"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2640
 msgid "Restore Game Graphics"
 msgstr "ゲームのグラフィックを元に戻す"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:328
+msgid "Restore every game's graphics"
+msgstr "すべてのゲームのグラフィックを元に戻す"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:339
+msgid "Restore every game's graphics?"
+msgstr "すべてのゲームのグラフィックを元に戻しますか？"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:55
 msgid "Restore previous"
@@ -5383,7 +5421,7 @@ msgstr "表示"
 msgid "Show MangoHud"
 msgstr "MangoHudを表示"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:516
+#: bigame-engine/bigame-ui/src/views/settings.rs:575
 msgid "Show advanced options"
 msgstr "高度なオプションを表示"
 
@@ -5391,7 +5429,7 @@ msgstr "高度なオプションを表示"
 msgid "Show dialog on startup"
 msgstr "起動時にダイアログを表示"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:489
+#: bigame-engine/bigame-ui/src/views/settings.rs:548
 msgid "Show notifications on game launch and exit"
 msgstr "ゲーム起動時と終了時に通知を表示"
 
@@ -5399,11 +5437,11 @@ msgstr "ゲーム起動時と終了時に通知を表示"
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "エラー、警告、または1つのソースのみを表示するか、テキストを検索します。"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:519
+#: bigame-engine/bigame-ui/src/views/settings.rs:578
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "「チューニング」「詳細」「ログ」と、各ページの技術的な設定（falcond、CPUスケジューラー、Gamescope、vkBasalt、フレーム生成）を表示します。オフのときは、Big Game ModeはTurbo、ゲームで何を優先するか、そしてあなたのゲームを表示します。ほとんどの人にはこれで十分です。"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:375
+#: bigame-engine/bigame-ui/src/views/settings.rs:434
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "ゲームの上にウィンドウを出すことはなく、通知を表示するだけです。プロファイルはこのマシン向けに作成され、確認画面で各値を選んだ理由がわかります。選択しない限り何も作成されません。"
 
@@ -5427,7 +5465,7 @@ msgstr "スキップ"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "スキップ、利用不可、回避した競合"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:352
+#: bigame-engine/bigame-ui/src/views/settings.rs:411
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "このウィンドウを閉じていても、Steamから起動したゲームを検出できるようにします"
 
@@ -5442,7 +5480,7 @@ msgstr "柔らかめで、フレームが増えます。"
 msgid "Some settings could not be put back"
 msgstr "一部の設定を元に戻せませんでした"
 
-#: bigame-engine/bigame-ui/src/app.rs:726
+#: bigame-engine/bigame-ui/src/app.rs:780
 msgid "Special Thanks"
 msgstr "謝辞"
 
@@ -5462,7 +5500,7 @@ msgstr "Steam、Lutris、Heroic、アプリケーションメニュー、また�
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "ゲームを起動してください。実際に適用された内容をプロセスから読み取り、ここに表示します。"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:351
+#: bigame-engine/bigame-ui/src/views/settings.rs:410
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
 msgid "Start in the background at login"
 msgstr "ログイン時にバックグラウンドで起動"
@@ -5568,7 +5606,7 @@ msgstr "Steam → 設定 → ストレージ: よく遊ぶゲームをSSDに移�
 msgid "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
 msgstr "SteamのFlatpakは、FlathubのGamescope拡張でしかGamescopeを見つけられませんが、その拡張がインストールされておらず、このゲームはGamescope付きでは起動しません。何も書き込んでいません。拡張をインストールしてSteamを再起動してください: %s"
 
-#: bigame-engine/bigame-core/src/mangohud.rs:282
+#: bigame-engine/bigame-core/src/mangohud.rs:308
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr "SteamのFlatpakは、FlathubのMangoHud拡張でしかMangoHudを見つけられませんが、その拡張がインストールされていません。何も書き込んでいません。拡張をインストールしてSteamを再起動してください: %s"
 
@@ -5659,6 +5697,10 @@ msgstr "制御する"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2416
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "このゲームのHeroic設定から取り除きました。ゲーム自体のFSRは以前どおりに動作します"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:329
+msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
+msgstr "すべてのゲームからOptiScalerとAIグラフィックスが配置したすべてのファイルを取り除き、バックアップから元のファイルを戻します。Big Game Modeを削除する前に実行してください。"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1376
 msgid "Technical details"
@@ -5875,7 +5917,7 @@ msgstr "OptiScalerのGitHubページにある最新の安定版リリースで�
 msgid "The next game gets its profile as it starts."
 msgstr "次のゲームは起動時にプロファイルが適用されます。"
 
-#: bigame-engine/bigame-ui/src/app.rs:537
+#: bigame-engine/bigame-ui/src/app.rs:591
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr "ゲームごとの最適化サービスが失敗したため、ゲームは最適化されていません。"
 
@@ -6003,7 +6045,7 @@ msgstr "設定は保存されましたが、NetworkManagerは今すぐには適�
 msgid "The sharpest image, and the smallest gain."
 msgstr "最もシャープな画像で、向上は最小です。"
 
-#: bigame-engine/bigame-core/src/processes.rs:1049
+#: bigame-engine/bigame-core/src/processes.rs:1069
 msgid "The system did not let Big Game Mode signal %s."
 msgstr "システムがBig Game Modeによる%sへのシグナル送信を許可しませんでした。"
 
@@ -6097,8 +6139,8 @@ msgstr "タイムアウト"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "ヒント: プリセットを選び、Turboをオンにしてゲームを起動します。ホームにその結果が表示されます。上部の(i)ボタンで、今いるページの説明が表示されます。"
 
-#: bigame-engine/bigame-ui/src/app.rs:610
-#: bigame-engine/bigame-ui/src/app.rs:621
+#: bigame-engine/bigame-ui/src/app.rs:664
+#: bigame-engine/bigame-ui/src/app.rs:675
 msgid "Troubleshooting"
 msgstr "トラブルシューティング"
 
@@ -6136,7 +6178,7 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turboを開始できませんでした"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:348
+#: bigame-engine/bigame-ui/src/views/settings.rs:407
 msgid "Turbo Mode"
 msgstr "Turboモード"
 
@@ -6608,7 +6650,7 @@ msgstr "変更される内容"
 msgid "What you can do instead"
 msgstr "代わりにできること"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:373
+#: bigame-engine/bigame-ui/src/views/settings.rs:432
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "Turboがオンのときに、専用のプロファイルがないゲームが起動した場合"
 
@@ -7288,8 +7330,8 @@ msgstr "falcondには、デスクトップ、ハンドヘルド、ホームシ�
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond は、このプロセッサが拒否した命令で停止しました。CPU の命令セットの非互換、または falcond の実行ファイルの破損が考えられます。"
 
-#: bigame-engine/bigame-ui/src/app.rs:536
-#: bigame-engine/bigame-ui/src/app.rs:540
+#: bigame-engine/bigame-ui/src/app.rs:590
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "falcond stopped unexpectedly"
 msgstr "falcondが予期せず停止しました"
 
@@ -7432,7 +7474,7 @@ msgstr "ゲーム実行中は保留"
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "これでゲームがクラッシュする場合、OptiScalerのwikiでは、ゲームのEngine.iniの[SystemSettings]の下に%sを追加することを勧めています"
 
-#: bigame-engine/bigame-core/src/profiles.rs:761
+#: bigame-engine/bigame-core/src/profiles.rs:774
 msgid "imported profile has no name"
 msgstr "インポートしたプロファイルに名前がありません"
 
@@ -7867,7 +7909,7 @@ msgstr "その他"
 msgid "overlay not shown"
 msgstr "オーバーレイ非表示"
 
-#: bigame-engine/bigame-core/src/profiles.rs:758
+#: bigame-engine/bigame-core/src/profiles.rs:771
 msgid "parse imported profile TOML"
 msgstr "インポートしたプロファイルのTOMLの解析"
 
@@ -8219,7 +8261,7 @@ msgstr "ゲームのXeSS"
 msgid "the game's executable was not found"
 msgstr "ゲームの実行ファイルが見つかりません"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1477
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1555
 msgid "the game's files were put back, but its own setting could not be (%s); Restore tries it again"
 msgstr "ゲームのファイルは戻しましたが、ゲーム自体の設定は戻せませんでした (%s)。「元に戻す」で再試行します"
 
@@ -8479,7 +8521,7 @@ msgstr "DXVKまたはVKD3D-Proton経由。ゲーム実行時に確認されま�
 msgid "too few usable runs to compare"
 msgstr "比較に使える実行が少なすぎます"
 
-#: bigame-engine/bigame-ui/src/app.rs:712
+#: bigame-engine/bigame-ui/src/app.rs:766
 msgid "translator-credits"
 msgstr ""
 
@@ -8556,7 +8598,7 @@ msgstr "値を読み戻せませんでした"
 msgid "variable refresh rate is requested"
 msgstr "可変リフレッシュレートが要求されています"
 
-#: bigame-engine/bigame-ui/src/app.rs:736
+#: bigame-engine/bigame-ui/src/app.rs:790
 msgid "vkBasalt configuration"
 msgstr "vkBasaltの設定"
 

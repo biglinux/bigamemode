@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 15:00-0300\n"
+"POT-Creation-Date: 2026-10-18 15:55-0300\n"
 "PO-Revision-Date: 2026-04-20 22:27\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Swedish <sv@li.org>\n"
@@ -47,7 +47,7 @@ msgid_plural "%n applied"
 msgstr[0] "%n tillämpad"
 msgstr[1] "%n tillämpade"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:437
+#: bigame-engine/bigame-ui/src/views/settings.rs:496
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n kan aldrig matcha sitt spel som den är"
@@ -256,6 +256,10 @@ msgstr "%s avslutades med slutkod %d"
 msgid "%s file(s) are not as installed (a game update, or another tool): %s"
 msgstr "%s fil(er) är inte som vid installationen (en speluppdatering eller ett annat verktyg): %s"
 
+#: bigame-engine/bigame-ui/src/app.rs:556
+msgid "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics."
+msgstr "%s hittades, och OptiScaler från AI-grafik finns fortfarande i spelet. Återställ grafiken innan du spelar online: Profiler → spelets meny → Återställ spelets grafik."
+
 #: bigame-engine/bigame-core/src/processes.rs:953
 msgid "%s has already exited."
 msgstr "%s har redan avslutats."
@@ -318,6 +322,10 @@ msgstr "%s är inställt, men ett annat program bestämmer uppslagningarna"
 #: bigame-engine/bigame-core/src/turbo.rs:1303
 msgid "%s is still loaded after falcond stopped: falcond does not unload the scheduler its general configuration loads"
 msgstr "%s är fortfarande laddad efter att falcond stoppades: falcond laddar inte ur schemaläggaren som dess allmänna konfiguration laddar"
+
+#: bigame-engine/bigame-ui/src/app.rs:553
+msgid "%s now has anti-cheat"
+msgstr "%s har nu anti-fusk"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:260
 msgid "%s now; performance when a game starts"
@@ -851,7 +859,7 @@ msgstr "Lägg till startalternativet"
 msgid "Address to ping"
 msgstr "Adress att pinga"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:354
+#: bigame-engine/bigame-ui/src/views/settings.rs:413
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "Lägger till en inloggningspost endast för din användare (~/.config/autostart). Big Game Mode körs då i systemfältet och kan erbjuda en profil när ett nytt spel startar. Att stänga av detta tar bort posten."
 
@@ -860,7 +868,7 @@ msgid "Adds in-between frames: looks smoother, but your controls react later. Ex
 msgstr "Lägger till bildrutor emellan: ser jämnare ut, men kontrollerna reagerar senare. Experimentellt."
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1026
-#: bigame-engine/bigame-ui/src/views/settings.rs:514
+#: bigame-engine/bigame-ui/src/views/settings.rs:573
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1537
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -1235,7 +1243,7 @@ msgstr "Big Game Mode installerade OptiScaler i det här spelet, och med valet n
 msgid "Big Game Mode installed into %s, which is not this game's folder (%s): the game was moved without its files, or the record is another game's. Nothing was changed"
 msgstr "Big Game Mode installerade i %s, som inte är det här spelets mapp (%s): spelet flyttades utan sina filer, eller så tillhör posten ett annat spel. Inget ändrades"
 
-#: bigame-engine/bigame-ui/src/app.rs:700
+#: bigame-engine/bigame-ui/src/app.rs:754
 msgid "Big Game Mode is BigLinux's gaming hub. With one button, Turbo, games run with the right performance profile, applied by falcond when they open and undone when they close. The app shows what is really in force, measures whether a change helped, and takes care of what happens inside the game, such as upscaling and frame generation, always with a full backup and undo."
 msgstr "Big Game Mode är BigLinux spelnav. Med en knapp, Turbo, körs spel med rätt prestandaprofil, som falcond tillämpar när de öppnas och ångrar när de stängs. Appen visar vad som verkligen gäller, mäter om en ändring hjälpte och tar hand om det som händer inne i spelet, som uppskalning och bildgenerering, alltid med fullständig säkerhetskopia och möjlighet att ångra."
 
@@ -1308,7 +1316,7 @@ msgstr "Bygge"
 msgid "Built into falcond"
 msgstr "Inbyggd i falcond"
 
-#: bigame-engine/bigame-ui/src/app.rs:742
+#: bigame-engine/bigame-ui/src/app.rs:796
 msgid "Built on"
 msgstr "Byggt på"
 
@@ -1383,6 +1391,7 @@ msgstr "Anropar '%p', som inte är installerat — startalternativ: %o"
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1161
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1703
 #: bigame-engine/bigame-ui/src/views/profiles.rs:913
+#: bigame-engine/bigame-ui/src/views/settings.rs:344
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1256
 #: bigame-engine/bigame-ui/src/window.rs:337
 #: bigame-engine/bigame-ui/src/window.rs:382
@@ -1463,7 +1472,7 @@ msgstr "Kontrollerar ditt system…"
 #: bigame-engine/bigame-ui/src/views/details/gpus.rs:127
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:113
 #: bigame-engine/bigame-ui/src/views/settings.rs:109
-#: bigame-engine/bigame-ui/src/views/settings.rs:388
+#: bigame-engine/bigame-ui/src/views/settings.rs:447
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
 msgstr "Kontrollerar…"
@@ -1590,7 +1599,7 @@ msgstr "Kombination"
 msgid "Combinations reported to work but not established. OptiScaler's frame generation is one of them."
 msgstr "Kombinationer som rapporterats fungera men som inte är fastställda. OptiScalers bildgenerering är en av dem."
 
-#: bigame-engine/bigame-ui/src/app.rs:614
+#: bigame-engine/bigame-ui/src/app.rs:668
 msgid "Command"
 msgstr "Kommando"
 
@@ -1700,7 +1709,7 @@ msgstr "Kopierat"
 msgid "Copy"
 msgstr "Kopiera"
 
-#: bigame-engine/bigame-ui/src/app.rs:564
+#: bigame-engine/bigame-ui/src/app.rs:618
 msgid "Copy Install Command"
 msgstr "Kopiera installationskommando"
 
@@ -1780,7 +1789,7 @@ msgstr "Kunde inte ladda ner shaderna"
 msgid "Could not export"
 msgstr "Kunde inte exportera"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:471
+#: bigame-engine/bigame-ui/src/views/settings.rs:530
 msgid "Could not fix them"
 msgstr "Kunde inte åtgärda dem"
 
@@ -2027,7 +2036,7 @@ msgstr "Utformad för att eliminera onödiga CPU-'tick' (timeruppvakningar). Det
 msgid "Desktop"
 msgstr "Stationär"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:491
+#: bigame-engine/bigame-ui/src/views/settings.rs:550
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "Skrivbordsaviseringar när en spelprofil tillämpas och när den återställs. Profilerbjudandet styrs separat ovan."
 
@@ -2176,9 +2185,17 @@ msgstr "Varje ändring sparas direkt. Återställ standardvärden i huvudmenyn �
 msgid "Every file is as it was installed"
 msgstr "Varje fil är som den installerades"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:340
+msgid "Every game AI Graphics changed gets its original files back. Close your games first."
+msgstr "Varje spel som AI-grafik har ändrat får tillbaka sina originalfiler. Stäng dina spel först."
+
 #: bigame-engine/bigame-ui/src/views/profiles.rs:128
 msgid "Every game found already has a profile."
 msgstr "Alla hittade spel har redan en profil."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:369
+msgid "Every game's graphics were restored"
+msgstr "Alla spels grafik har återställts"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:826
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
@@ -2399,7 +2416,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "Fem små filer (cirka 30 KB) från GitHub: Colourfulness och FilmGrain2 från ReShades shaders, FakeHDR från SweetFX och de headers de inkluderar. Var och en är en fast version, kontrolleras mot sin SHA-256 innan den används och hamnar i ~/.local/share/reshade. Utan dem skulle vkBasalt stoppa spelet, så stilen skrivs först när de finns på plats."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:531
-#: bigame-engine/bigame-ui/src/views/settings.rs:392
+#: bigame-engine/bigame-ui/src/views/settings.rs:451
 msgid "Fix"
 msgstr "Åtgärda"
 
@@ -2552,7 +2569,7 @@ msgstr "Spelets API"
 msgid "Game Library"
 msgstr "Spelbibliotek"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:488
+#: bigame-engine/bigame-ui/src/views/settings.rs:547
 msgid "Game Notifications"
 msgstr "Spelaviseringar"
 
@@ -2573,7 +2590,7 @@ msgstr "Spellista"
 msgid "Game name cannot be empty"
 msgstr "Spelnamnet får inte vara tomt"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:369
+#: bigame-engine/bigame-ui/src/views/settings.rs:428
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:441
 msgid "Game profiles"
 msgstr "Spelprofiler"
@@ -2734,7 +2751,7 @@ msgstr "Kontroll av spelprestanda"
 msgid "Gaming mode for BigLinux"
 msgstr "Spelläge för BigLinux"
 
-#: bigame-engine/bigame-ui/src/app.rs:707
+#: bigame-engine/bigame-ui/src/app.rs:761
 msgid "Gathering system information…"
 msgstr "Samlar in systeminformation…"
 
@@ -2839,7 +2856,7 @@ msgstr "HDR-utdata"
 msgid "HDR output is requested"
 msgstr "HDR-utdata är begärd"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:454
+#: bigame-engine/bigame-ui/src/views/settings.rs:513
 msgid "HOME is not set"
 msgstr "HOME är inte satt"
 
@@ -3064,7 +3081,7 @@ msgstr "Första versionen med panelerna översikt, profiler, justering och games
 msgid "Install Lossless Scaling from your Steam library (on Linux, Steam installs it through Proton; it never needs to run). The file is then in the game's folder: …/steamapps/common/Lossless Scaling/Lossless.dll. When it is there, the search button beside the path fills it in; otherwise choose it with the folder button."
 msgstr "Installera Lossless Scaling från ditt Steam-bibliotek (på Linux installerar Steam det via Proton; det behöver aldrig köras). Filen ligger sedan i spelets mapp: …/steamapps/common/Lossless Scaling/Lossless.dll. När den finns där fyller sökknappen bredvid sökvägen i den; annars väljer du den med mappknappen."
 
-#: bigame-engine/bigame-ui/src/app.rs:562
+#: bigame-engine/bigame-ui/src/app.rs:616
 msgid "Install Missing Packages"
 msgstr "Installera saknade paket"
 
@@ -3072,11 +3089,11 @@ msgstr "Installera saknade paket"
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Installera ett spel via Steam, Lutris, Heroic eller programmenyn och sök sedan igen."
 
-#: bigame-engine/bigame-ui/src/app.rs:611
+#: bigame-engine/bigame-ui/src/app.rs:665
 msgid "Install missing packages"
 msgstr "Installera saknade paket"
 
-#: bigame-engine/bigame-ui/src/app.rs:622
+#: bigame-engine/bigame-ui/src/app.rs:676
 msgid "Install missing packages with your package manager"
 msgstr "Installera saknade paket med din pakethanterare"
 
@@ -3305,7 +3322,7 @@ msgstr "Startare"
 msgid "Layer installed"
 msgstr "Lager installerat"
 
-#: bigame-engine/bigame-ui/src/app.rs:722
+#: bigame-engine/bigame-ui/src/app.rs:776
 msgid "Lead Developer"
 msgstr "Huvudutvecklare"
 
@@ -3549,9 +3566,9 @@ msgstr "Mäter…"
 msgid "Microsoft system DLL"
 msgstr "Microsoft-system-DLL"
 
-#: bigame-engine/bigame-ui/src/app.rs:555
-#: bigame-engine/bigame-ui/src/app.rs:569
-#: bigame-engine/bigame-ui/src/app.rs:578
+#: bigame-engine/bigame-ui/src/app.rs:609
+#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:632
 msgid "Missing Runtime Dependencies"
 msgstr "Saknade körberoenden"
 
@@ -3563,7 +3580,7 @@ msgstr "Saknat beroende"
 msgid "Missing files put back"
 msgstr "Saknade filer har lagts tillbaka"
 
-#: bigame-engine/bigame-ui/src/app.rs:625
+#: bigame-engine/bigame-ui/src/app.rs:679
 msgid "Missing packages"
 msgstr "Saknade paket"
 
@@ -3571,7 +3588,7 @@ msgstr "Saknade paket"
 msgid "Mode %s applied"
 msgstr "Läge %s tillämpat"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:505
+#: bigame-engine/bigame-ui/src/views/settings.rs:564
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1377
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1549
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
@@ -3595,7 +3612,7 @@ msgstr "Mer information om %s"
 msgid "More options"
 msgstr "Fler alternativ"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:517
+#: bigame-engine/bigame-ui/src/views/settings.rs:576
 msgid "More pages and settings for people who know their hardware"
 msgstr "Fler sidor och inställningar för dig som känner din hårdvara"
 
@@ -3796,6 +3813,10 @@ msgstr "Inget extra förråd behövs: falcond, lsfg-vk, sched-ext, Gamescope, Ma
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Ingen körbar spelfil hittades, så den här profilen kanske inte matchar spelet som körs."
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:367
+msgid "No game has files from AI Graphics"
+msgstr "Inget spel har filer från AI-grafik"
+
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:278
 msgid "No game running"
 msgstr "Inget spel körs"
@@ -3869,7 +3890,7 @@ msgstr "Ingen"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "Ingen begärd: kärnans standardschemaläggare"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:434
+#: bigame-engine/bigame-ui/src/views/settings.rs:493
 msgid "None need fixing"
 msgstr "Inga behöver åtgärdas"
 
@@ -3975,6 +3996,10 @@ msgstr "Rekommenderas inte"
 #: bigame-engine/bigame-ui/src/gpu_reading.rs:27
 msgid "Not reported by the driver"
 msgstr "Rapporteras inte av drivrutinen"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:371
+msgid "Not restored (close them and try again): %s"
+msgstr "Inte återställda (stäng dem och försök igen): %s"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1099
 msgid "Not set up"
@@ -4089,7 +4114,7 @@ msgstr "Inget ändrades"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "Inget som är värt att installera, eller så skulle det bli sämre än det spelet redan har. Orsaken står på sidan."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:486
+#: bigame-engine/bigame-ui/src/views/settings.rs:545
 msgid "Notifications"
 msgstr "Aviseringar"
 
@@ -4142,7 +4167,7 @@ msgstr "Av: Big Game Mode ingriper inte i spel. På: falcond tillämpar varje sp
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "Av: Big Game Mode ingriper inte i spel"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:372
+#: bigame-engine/bigame-ui/src/views/settings.rs:431
 msgid "Offer a profile for new games"
 msgstr "Erbjud en profil för nya spel"
 
@@ -4150,7 +4175,7 @@ msgstr "Erbjud en profil för nya spel"
 msgid "Offline"
 msgstr "Frånkopplad"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:399
+#: bigame-engine/bigame-ui/src/views/settings.rs:458
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "Äldre versioner namngav profiler efter spelets titel, vilket falcond aldrig kan matcha, och sparade inställningar som falcond ignorerar. Åtgärda byter namn på var och en till spelets verkliga process och behåller bara falconds inställningar. Varje profil säkerhetskopieras först till ~/.local/state/bigame-mode. falconds egna profiler rörs aldrig."
 
@@ -4213,7 +4238,7 @@ msgstr "En allmän konfiguration"
 msgid "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation."
 msgstr "En rad om hur datorn står till, och ett chip per objekt: Turbo, falcond, profilen, energi, schemaläggaren, GPU:n, Gamescope, uppskalning, bildgenerering."
 
-#: bigame-engine/bigame-ui/src/app.rs:703
+#: bigame-engine/bigame-ui/src/app.rs:757
 msgid "One rule runs through the project: nothing is offered that the machine cannot do, and nothing is called an improvement without a measurement."
 msgstr "En regel går genom hela projektet: inget erbjuds som datorn inte kan, och inget kallas en förbättring utan en mätning."
 
@@ -4254,12 +4279,12 @@ msgstr "Öppna"
 msgid "Open Big Game Mode"
 msgstr "Öppna Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/app.rs:613
-#: bigame-engine/bigame-ui/src/app.rs:624
+#: bigame-engine/bigame-ui/src/app.rs:667
+#: bigame-engine/bigame-ui/src/app.rs:678
 msgid "Open Details after starting a game to see what it really got"
 msgstr "Öppna Detaljer efter att ett spel startat för att se vad det verkligen fick"
 
-#: bigame-engine/bigame-ui/src/app.rs:538
+#: bigame-engine/bigame-ui/src/app.rs:592
 msgid "Open Logs to see why. Turning Turbo off and on again restarts it."
 msgstr "Öppna Loggar för att se varför. Att stänga av och slå på Turbo igen startar om den."
 
@@ -4807,8 +4832,8 @@ msgstr "Profiler för en dator som är ansluten till en tv och spelas från soff
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Profiler för handhållna datorer som Steam Deck eller ROG Ally: de prioriterar batteritiden, och vissa stänger av prestandaläget."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:387
-#: bigame-engine/bigame-ui/src/views/settings.rs:398
+#: bigame-engine/bigame-ui/src/views/settings.rs:446
+#: bigame-engine/bigame-ui/src/views/settings.rs:457
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:453
 msgid "Profiles from an older Big Game Mode"
 msgstr "Profiler från en äldre Big Game Mode"
@@ -5068,7 +5093,7 @@ msgstr "Reparera"
 msgid "Repair puts missing files back; a changed binary belongs to whatever changed it"
 msgstr "Reparera lägger tillbaka saknade filer; en ändrad binärfil tillhör det som ändrade den"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1515
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1593
 msgid "Repair puts nothing back in this game now; Restore Game Graphics removes what Big Game Mode placed"
 msgstr "Reparera lägger inte tillbaka något i det här spelet nu; Återställ spelets grafik tar bort det som Big Game Mode placerade"
 
@@ -5088,8 +5113,8 @@ msgstr "Rapport sparad i %s"
 msgid "Reported to work but not established, or it depends on reporting another GPU to the game (spoofing). Try it, and Restore Game Graphics if the game does not behave."
 msgstr "Rapporteras fungera men är inte etablerat, eller så beror det på att en annan GPU rapporteras till spelet (spoofing). Prova det, och använd Återställ spelets grafik om spelet inte beter sig som det ska."
 
-#: bigame-engine/bigame-ui/src/app.rs:558
-#: bigame-engine/bigame-ui/src/app.rs:572
+#: bigame-engine/bigame-ui/src/app.rs:612
+#: bigame-engine/bigame-ui/src/app.rs:626
 msgid "Required packages were not found in the system"
 msgstr "Nödvändiga paket hittades inte i systemet"
 
@@ -5112,14 +5137,19 @@ msgstr "Resizable BAR"
 msgid "Resolved: %s is the only upscaler"
 msgstr "Löst: %s är den enda uppskalaren"
 
-#: bigame-engine/bigame-ui/src/app.rs:612
-#: bigame-engine/bigame-ui/src/app.rs:623
+#: bigame-engine/bigame-ui/src/app.rs:666
+#: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Restart Big Game Mode"
 msgstr "Starta om Big Game Mode"
 
 #: bigame-engine/bigame-ui/src/window.rs:338
 msgid "Restore"
 msgstr "Återställ"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:334
+#: bigame-engine/bigame-ui/src/views/settings.rs:345
+msgid "Restore All"
+msgstr "Återställ alla"
 
 #: bigame-engine/bigame-ui/src/window.rs:334
 #: bigame-engine/bigame-ui/src/window.rs:462
@@ -5130,6 +5160,14 @@ msgstr "Återställ standardvärden"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2640
 msgid "Restore Game Graphics"
 msgstr "Återställ spelets grafik"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:328
+msgid "Restore every game's graphics"
+msgstr "Återställ alla spels grafik"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:339
+msgid "Restore every game's graphics?"
+msgstr "Återställ alla spels grafik?"
 
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:55
 msgid "Restore previous"
@@ -5402,7 +5440,7 @@ msgstr "Visa"
 msgid "Show MangoHud"
 msgstr "Visa MangoHud"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:516
+#: bigame-engine/bigame-ui/src/views/settings.rs:575
 msgid "Show advanced options"
 msgstr "Visa avancerade alternativ"
 
@@ -5410,7 +5448,7 @@ msgstr "Visa avancerade alternativ"
 msgid "Show dialog on startup"
 msgstr "Visa dialog vid start"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:489
+#: bigame-engine/bigame-ui/src/views/settings.rs:548
 msgid "Show notifications on game launch and exit"
 msgstr "Visa aviseringar vid spelstart och avslut"
 
@@ -5418,11 +5456,11 @@ msgstr "Visa aviseringar vid spelstart och avslut"
 msgid "Show only errors, warnings or one source, or search the text."
 msgstr "Visa bara fel, varningar eller en källa, eller sök i texten."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:519
+#: bigame-engine/bigame-ui/src/views/settings.rs:578
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "Visar Justering, Detaljer och Loggar, och de tekniska inställningarna på varje sida: falcond, CPU-schemaläggare, Gamescope, vkBasalt, bildgenerering. Avstängt visar Big Game Mode Turbo, vad spelen ska prioritera och dina spel, vilket är allt de flesta behöver."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:375
+#: bigame-engine/bigame-ui/src/views/settings.rs:434
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "Visar en avisering, aldrig ett fönster över ditt spel. Profilen byggs för den här datorn, och granskningen visar varför varje värde valdes. Inget skapas om du inte väljer det."
 
@@ -5446,7 +5484,7 @@ msgstr "Överhoppad"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Hoppades över, inte tillgängligt, konflikter undvikna"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:352
+#: bigame-engine/bigame-ui/src/views/settings.rs:411
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "Så att spel du startar från Steam uppmärksammas även med det här fönstret stängt"
 
@@ -5461,7 +5499,7 @@ msgstr "Mjukare, med fler bilder."
 msgid "Some settings could not be put back"
 msgstr "Vissa inställningar kunde inte återställas"
 
-#: bigame-engine/bigame-ui/src/app.rs:726
+#: bigame-engine/bigame-ui/src/app.rs:780
 msgid "Special Thanks"
 msgstr "Särskilt tack"
 
@@ -5481,7 +5519,7 @@ msgstr "Starta ett spel från Steam, Lutris, Heroic, programmenyn eller Profiler
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Starta ett spel; vad det verkligen får läses från dess process och visas här."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:351
+#: bigame-engine/bigame-ui/src/views/settings.rs:410
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:434
 msgid "Start in the background at login"
 msgstr "Starta i bakgrunden vid inloggning"
@@ -5587,7 +5625,7 @@ msgstr "Steam → Inställningar → Lagring: flytta de spel du spelar mest till
 msgid "Steam's Flatpak finds Gamescope only in Flathub's Gamescope extension, which is not installed, and this game would not start with it. Nothing was written. Install it and restart Steam: %s"
 msgstr "Steams Flatpak hittar Gamescope bara i Flathubs Gamescope-tillägg, som inte är installerat, och det här spelet skulle inte starta med det. Inget skrevs. Installera det och starta om Steam: %s"
 
-#: bigame-engine/bigame-core/src/mangohud.rs:282
+#: bigame-engine/bigame-core/src/mangohud.rs:308
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr "Steams Flatpak hittar MangoHud bara i Flathubs MangoHud-tillägg, som inte är installerat. Inget skrevs. Installera det och starta om Steam: %s"
 
@@ -5678,6 +5716,10 @@ msgstr "Ta kontroll"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2416
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "Borttaget ur Heroics inställningar för det här spelet; spelets egen FSR körs som tidigare"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:329
+msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
+msgstr "Tar bort OptiScaler och varje fil som AI-grafik har placerat från alla spel och lägger tillbaka originalen från säkerhetskopiorna. Gör det innan du tar bort Big Game Mode."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1376
 msgid "Technical details"
@@ -5894,7 +5936,7 @@ msgstr "Den senaste stabila utgåvan på OptiScalers GitHub-sida, aldrig äldre 
 msgid "The next game gets its profile as it starts."
 msgstr "Nästa spel får sin profil när det startar."
 
-#: bigame-engine/bigame-ui/src/app.rs:537
+#: bigame-engine/bigame-ui/src/app.rs:591
 msgid "The per-game optimization service failed, so games are not being optimized."
 msgstr "Tjänsten för optimering per spel misslyckades, så spel optimeras inte."
 
@@ -6022,7 +6064,7 @@ msgstr "Inställningen sparades, men NetworkManager kunde inte tillämpa den nu"
 msgid "The sharpest image, and the smallest gain."
 msgstr "Den skarpaste bilden och den minsta vinsten."
 
-#: bigame-engine/bigame-core/src/processes.rs:1049
+#: bigame-engine/bigame-core/src/processes.rs:1069
 msgid "The system did not let Big Game Mode signal %s."
 msgstr "Systemet lät inte Big Game Mode skicka en signal till %s."
 
@@ -6116,8 +6158,8 @@ msgstr "Tidsgräns"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Tips: välj en förinställning, slå på Turbo och starta ett spel; Hem visar vad det fick. Knappen (i) högst upp förklarar sidan du är på."
 
-#: bigame-engine/bigame-ui/src/app.rs:610
-#: bigame-engine/bigame-ui/src/app.rs:621
+#: bigame-engine/bigame-ui/src/app.rs:664
+#: bigame-engine/bigame-ui/src/app.rs:675
 msgid "Troubleshooting"
 msgstr "Felsökning"
 
@@ -6155,7 +6197,7 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "Turbo kunde inte starta"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:348
+#: bigame-engine/bigame-ui/src/views/settings.rs:407
 msgid "Turbo Mode"
 msgstr "Turboläge"
 
@@ -6628,7 +6670,7 @@ msgstr "Vad som ändras"
 msgid "What you can do instead"
 msgstr "Vad du kan göra i stället"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:373
+#: bigame-engine/bigame-ui/src/views/settings.rs:432
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "När Turbo är på och ett spel utan egen profil startar"
 
@@ -7309,8 +7351,8 @@ msgstr "falcond levereras med separata profiluppsättningar för stationära dat
 msgid "falcond stopped on an instruction this processor rejected: a CPU instruction-set incompatibility, or a damaged falcond binary."
 msgstr "falcond stannade på en instruktion som den här processorn avvisade: en inkompatibilitet i processorns instruktionsuppsättning, eller en skadad falcond-fil."
 
-#: bigame-engine/bigame-ui/src/app.rs:536
-#: bigame-engine/bigame-ui/src/app.rs:540
+#: bigame-engine/bigame-ui/src/app.rs:590
+#: bigame-engine/bigame-ui/src/app.rs:594
 msgid "falcond stopped unexpectedly"
 msgstr "falcond stoppades oväntat"
 
@@ -7453,7 +7495,7 @@ msgstr "pausad medan spelet körs"
 msgid "if the game crashes with it, OptiScaler's wiki suggests %s under [SystemSettings] in the game's Engine.ini"
 msgstr "om spelet kraschar med den föreslår OptiScalers wiki %s under [SystemSettings] i spelets Engine.ini"
 
-#: bigame-engine/bigame-core/src/profiles.rs:761
+#: bigame-engine/bigame-core/src/profiles.rs:774
 msgid "imported profile has no name"
 msgstr "den importerade profilen har inget namn"
 
@@ -7888,7 +7930,7 @@ msgstr "annat"
 msgid "overlay not shown"
 msgstr "överlägget visas inte"
 
-#: bigame-engine/bigame-core/src/profiles.rs:758
+#: bigame-engine/bigame-core/src/profiles.rs:771
 msgid "parse imported profile TOML"
 msgstr "tolka den importerade profilens TOML"
 
@@ -8240,7 +8282,7 @@ msgstr "spelets XeSS"
 msgid "the game's executable was not found"
 msgstr "spelets körbara fil hittades inte"
 
-#: bigame-engine/bigame-core/src/graphics/mod.rs:1477
+#: bigame-engine/bigame-core/src/graphics/mod.rs:1555
 msgid "the game's files were put back, but its own setting could not be (%s); Restore tries it again"
 msgstr "spelets filer lades tillbaka, men dess egen inställning kunde inte återställas (%s); Återställ försöker igen"
 
@@ -8500,7 +8542,7 @@ msgstr "via DXVK eller VKD3D-Proton, syns när spelet körs"
 msgid "too few usable runs to compare"
 msgstr "för få användbara körningar att jämföra"
 
-#: bigame-engine/bigame-ui/src/app.rs:712
+#: bigame-engine/bigame-ui/src/app.rs:766
 msgid "translator-credits"
 msgstr ""
 
@@ -8577,7 +8619,7 @@ msgstr "värdet kunde inte läsas tillbaka"
 msgid "variable refresh rate is requested"
 msgstr "variabel uppdateringsfrekvens är begärd"
 
-#: bigame-engine/bigame-ui/src/app.rs:736
+#: bigame-engine/bigame-ui/src/app.rs:790
 msgid "vkBasalt configuration"
 msgstr "vkBasalt-konfiguration"
 
