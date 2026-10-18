@@ -443,7 +443,13 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     // A game whose own FSR already runs FSR 4 here (it ships the FidelityFX
     // API, and Proton ships AMD's provider into its prefix) has nothing to
     // gain from OptiScaler's FSR 4: fewest changes wins.
-    let native_fsr4 = r.native_fsr4_path();
+    // Also before Proton has placed its provider in the prefix (a new
+    // prefix, or GE-Proton, which fetches it with the launch option): the
+    // game's own FSR reaches FSR 4 through Proton, where OptiScaler on top of
+    // the same game measured 6.4 % slower (Cyberpunk 2077, RX 9060 XT).
+    let provider_missing =
+        vendor == GpuVendor::Amd && fsr4 && n.ffx_api.is_some() && !r.native_fsr4_path();
+    let native_fsr4 = r.native_fsr4_path() || provider_missing;
     let recommended_worth_it = match vendor {
         GpuVendor::Amd => (fsr4 && !native_fsr4) || listed_optiscaler,
         _ => listed_optiscaler,
@@ -474,9 +480,15 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             // FSR4_UPGRADE=1 (Proton's amdxc64.dll reads it; checked here:
             // without it the provider is never mapped). Expected, and
             // confirmed only when the game runs with the provider loaded.
-            let mut p = keep_native(Text::plain(N_(
-                "this game ships AMD's FidelityFX API, and Proton placed AMD's FSR 4 provider (amdxcffx64.dll) in its prefix: the game's own FSR runs FSR 4 on this RDNA 4 card, so OptiScaler would bring nothing it does not have",
-            )));
+            let mut p = keep_native(Text::plain(if provider_missing {
+                N_(
+                    "this game ships AMD's FidelityFX API: on this RDNA 4 card its own FSR runs FSR 4 through Proton, and OptiScaler on top of such a game measured slower",
+                )
+            } else {
+                N_(
+                    "this game ships AMD's FidelityFX API, and Proton placed AMD's FSR 4 provider (amdxcffx64.dll) in its prefix: the game's own FSR runs FSR 4 on this RDNA 4 card, so OptiScaler would bring nothing it does not have",
+                )
+            }));
             p.steps[0] = Step::InGame(Text::plain(N_(
                 "choose FSR (3.1 or newer) in the game's graphics menu",
             )));
@@ -511,6 +523,11 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
                         )
                     })),
                 );
+            }
+            if provider_missing {
+                p.steps.push(Step::Note(Text::plain(N_(
+                    "AMD's FSR 4 provider is not in this game's prefix yet: Proton places it when the game runs with the launch option. Check Again after playing",
+                ))));
             }
             p.steps.push(Step::Note(Text::plain(N_(
                 "FSR 4 is expected, not proven: it is confirmed when the game runs with the provider loaded, and the game's own menu is the last word",
@@ -626,6 +643,30 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     } else {
         standing
     };
+    // Recommended installs only what Big Game Mode verified, or what the game
+    // list asks for. A take-over documented upstream but not tested here, or
+    // one that needs spoofing, waits for Choose yourself.
+    if cfg.mode == Mode::Recommended && standing > Standing::Recommended && !listed_optiscaler {
+        return keep_native(Text::with(
+            N_(
+                "OptiScaler taking over this game's %s is not verified by Big Game Mode, so Recommended keeps the game's own upscaler; Choose yourself can try it",
+            ),
+            [input_name],
+        ));
+    }
+    // Experimental, by choice: only with experimental options allowed.
+    if standing == Standing::Experimental && !cfg.experimental {
+        return nothing(
+            Standing::Experimental,
+            Text::with(
+                N_("OptiScaler taking over this game's %s is experimental"),
+                [input_name],
+            ),
+            vec![Step::Note(Text::plain(N_(
+                "Allow experimental options (Advanced options) to try it",
+            )))],
+        );
+    }
     let api = r.api.api.unwrap_or(Api::Dx12);
     // OptiScaler goes in as `dxgi.dll`: the slot upstream recommends, and one
     // Proton already loads natively from the game folder (it sets dxgi to
@@ -703,8 +744,11 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
             [slot],
         ));
     }
-    // OptiFG is a DirectX 12 frame generator.
-    let frame_gen = if cfg.optiscaler_frame_generation() && api == Api::Dx12 {
+    // OptiFG is a DirectX 12 frame generator. Not on a GeForce without DLSS
+    // (GTX): on the lab laptop's GTX 1050 Ti it raised NVIDIA Xid 69 and 31
+    // errors, and the second ended the game.
+    let gtx = vendor == GpuVendor::Nvidia && !dlss_runs;
+    let frame_gen = if cfg.optiscaler_frame_generation() && api == Api::Dx12 && !gtx {
         FrameGen::OptiFgFsr
     } else {
         FrameGen::Off
@@ -1059,7 +1103,9 @@ mod tests {
             p.summary.english(),
             "the game's own FSR — FSR 4 expected through Proton"
         );
-        // Without the provider in the prefix, OptiScaler's FSR 4 is the way.
+        // Without the provider in the prefix yet (a new prefix, GE-Proton
+        // before its first run with the option): still the game's own FSR,
+        // never OptiScaler over it, which measured 6.4 % slower here.
         r.proton = Some(super::super::report::ProtonInfo {
             prefix: "/pfx".into(),
             fsr4_provider: false,
@@ -1068,8 +1114,16 @@ mod tests {
             hip_runtime: false,
         });
         let p = plan(&r, &recommended(), &Context::default());
-        assert_eq!(p.backend, Backend::OptiScaler);
-        assert!(p.optiscaler.is_some());
+        assert_eq!(p.backend, Backend::Native);
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        assert_eq!(p.native_action, Some(NativeAction::Fsr4Upgrade));
+        assert!(
+            p.steps
+                .iter()
+                .any(|s| s.text().english().contains("not in this game's prefix yet")),
+            "{:#?}",
+            p.steps
+        );
     }
 
     #[test]
@@ -1226,11 +1280,26 @@ mod tests {
             "{text:#?}"
         );
 
-        // A DX11 game (DXVK) was not tested: still Experimental, and what
-        // is known is said — built in, may or may not be taken over, and
-        // the wiki's Unreal tweak for a crash.
+        // A DX11 game (DXVK) was not tested: Recommended keeps the game's
+        // own FSR 2 and says Choose yourself can try it.
         r.api.api = Some(Api::Dx11);
         let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        let text: Vec<String> = p.steps.iter().map(|s| s.text().english()).collect();
+        assert!(
+            text.iter()
+                .any(|t| t.contains("not verified by Big Game Mode")),
+            "{text:#?}"
+        );
+        // Chosen, with experimental options allowed: Experimental, and what
+        // is known is said — built in, may or may not be taken over, and
+        // the wiki's Unreal tweak for a crash.
+        let chosen = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            experimental: true,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(&r, &chosen, &Context::default());
         assert_eq!(p.standing, Standing::Experimental);
         assert_eq!(
             p.summary.english(),
@@ -1294,11 +1363,24 @@ mod tests {
             dlss: Some("2.3.2.0".into()),
             ..Native::default()
         };
-        let p = plan(
-            &report(n, gpu(GpuVendor::Amd, Some(4))),
-            &recommended(),
-            &Context::default(),
-        );
+        let r = report(n, gpu(GpuVendor::Amd, Some(4)));
+        // Recommended does not spoof an NVIDIA GPU on its own.
+        let p = plan(&r, &recommended(), &Context::default());
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        // Chosen without experimental options: said, not installed.
+        let chosen = AiGraphicsConfig {
+            mode: Mode::Advanced,
+            ..AiGraphicsConfig::default()
+        };
+        let p = plan(&r, &chosen, &Context::default());
+        assert_eq!(p.standing, Standing::Experimental);
+        assert!(p.optiscaler.is_none() && p.files.is_empty());
+        // With them allowed: installed, with the spoofing it needs.
+        let chosen = AiGraphicsConfig {
+            experimental: true,
+            ..chosen
+        };
+        let p = plan(&r, &chosen, &Context::default());
         assert_eq!(p.standing, Standing::Experimental);
         assert_eq!(p.optiscaler.unwrap().input, Input::Dlss);
         assert!(p.files.iter().any(|f| f.ends_with("fakenvapi.dll")));
@@ -1435,11 +1517,20 @@ mod tests {
             &report(sottr(), gpu(GpuVendor::Amd, Some(4))),
             &AiGraphicsConfig {
                 experimental: false,
-                ..adv
+                ..adv.clone()
             },
             &ctx,
         );
         assert_eq!(p.optiscaler.unwrap().frame_gen, FrameGen::Off);
+        // Not on a GeForce GTX, where it raised Xid errors and ended a game.
+        let gtx = named(GpuVendor::Nvidia, "GP107M [GeForce GTX 1050 Ti Mobile]");
+        let p = plan(&report(sottr(), gtx), &adv, &ctx);
+        assert!(
+            p.optiscaler
+                .as_ref()
+                .is_none_or(|o| o.frame_gen == FrameGen::Off),
+            "{p:#?}"
+        );
     }
 
     #[test]
