@@ -652,7 +652,7 @@ pub fn build(
         // loop waits for the page to be shown instead of waking to find out.
         glib::spawn_future_local(async move {
             loop {
-                crate::views::details::mapped(&refresh.root).await;
+                crate::views::details::in_view(&refresh.root).await;
                 glib::timeout_future(TILE_REFRESH).await;
                 refresh.tick();
             }
@@ -701,8 +701,8 @@ impl Refresh {
     }
 
     fn tick(&self) {
-        // Hidden while the loop waited.
-        if !self.root.is_mapped() {
+        // Hidden, or left behind a game, while the loop waited.
+        if !crate::views::details::showing(&self.root) {
             return;
         }
         let n = self.tick.get().wrapping_add(1);
@@ -1208,6 +1208,13 @@ impl InfoCard {
             ));
         }
         self.facts.set_label(&facts.join(" · "));
+        // The flags read the game's process, its install folder (the FSR 4
+        // question) and the GPU: not for a card nobody sees, such as a
+        // window in the tray while the game loads. The page's loop reads
+        // them once it is in front again.
+        if !crate::views::details::showing(&self.root) {
+            return;
+        }
         // Everything the flags say is read from the running game and the
         // kernel, as Details reads it; the FSR 4 question is asked once per
         // game. All of it off the main thread.

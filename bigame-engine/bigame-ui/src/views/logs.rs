@@ -306,9 +306,9 @@ pub fn build() -> adw::PreferencesPage {
         let scroll = scroll.clone();
         glib::spawn_future_local(async move {
             loop {
-                crate::views::details::mapped(&scroll).await;
+                crate::views::details::in_view(&scroll).await;
                 glib::timeout_future(Duration::from_secs(5)).await;
-                if scroll.is_mapped() && live.is_active() {
+                if crate::views::details::showing(&scroll) && live.is_active() {
                     load();
                 }
             }
