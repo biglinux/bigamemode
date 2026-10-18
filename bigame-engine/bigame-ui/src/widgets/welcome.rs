@@ -65,7 +65,7 @@ fn simple_features() -> Vec<(&'static str, String, String)> {
         (
             "applications-games-symbolic",
             i18n("Play"),
-            i18n("Your games are in My games: choose one and press Play."),
+            i18n("Your games are in Profiles: choose one and press Play."),
         ),
     ]
 }

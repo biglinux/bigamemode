@@ -1024,7 +1024,7 @@ impl ImageQualityFields {
                             .as_deref(),
                     ));
                     if let Some(row) = &vkbasalt_row {
-                        let mut what = i18n("Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, Home turns it on and off.");
+                        let mut what = i18n("Visual filters (sharpening, colour) for Vulkan and Proton games. A look, not a speed-up: it costs a little GPU time. In the game, the Home key turns it on and off.");
                         if heroic {
                             what.push('\n');
                             what.push_str(&i18n(

@@ -1092,7 +1092,7 @@ fn build_vkbasalt(saver: &VideoSaver, group: &adw::PreferencesGroup) {
     let switch = adw::SwitchRow::builder()
         .title("vkBasalt")
         .subtitle(i18n(
-            "Visual filters (sharpening, colour). On here, it reaches every Vulkan program you open, games or not, and costs GPU time; a game's own profile can turn it on for that game alone. In the game, Home turns it on and off.",
+            "Visual filters (sharpening, colour). On here, it reaches every Vulkan program you open, games or not, and costs GPU time; a game's own profile can turn it on for that game alone. In the game, the Home key turns it on and off.",
         ))
         .active(cfg.upscaling.vkbasalt_enabled)
         .build();

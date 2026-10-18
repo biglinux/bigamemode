@@ -649,7 +649,7 @@ fn plan_for_gpu(r: &Report, cfg: &AiGraphicsConfig, ctx: &Context) -> Plan {
     if cfg.mode == Mode::Recommended && standing > Standing::Recommended && !listed_optiscaler {
         return keep_native(Text::with(
             N_(
-                "OptiScaler taking over this game's %s is not verified by Big Game Mode, so Recommended keeps the game's own upscaler; Choose yourself can try it",
+                "OptiScaler taking over this game's %s is not verified by Big Game Mode, so Recommended keeps the game's own upscaler; choose FSR (OptiScaler) or XeSS (OptiScaler) as the upscaler to try it",
             ),
             [input_name],
         ));
@@ -1281,7 +1281,7 @@ mod tests {
         );
 
         // A DX11 game (DXVK) was not tested: Recommended keeps the game's
-        // own FSR 2 and says Choose yourself can try it.
+        // own FSR 2 and says which upscaler choice can try it.
         r.api.api = Some(Api::Dx11);
         let p = plan(&r, &recommended(), &Context::default());
         assert!(p.optiscaler.is_none() && p.files.is_empty());
