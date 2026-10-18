@@ -54,9 +54,9 @@ impl State {
     #[must_use]
     pub fn title(&self) -> String {
         match self {
-            Self::Off => i18n("Turbo mode inactive"),
+            Self::Off => i18n("Turbo is OFF"),
             Self::Working { .. } => i18n("Turning On"),
-            Self::On { .. } | Self::Partial { .. } => i18n("Turbo mode activated"),
+            Self::On { .. } | Self::Partial { .. } => i18n("Turbo is ON"),
             Self::Error { .. } => i18n("Turbo Could Not Start"),
             Self::Restoring => i18n("Turning Off"),
         }
@@ -278,8 +278,8 @@ impl BoosterButton {
     }
 
     /// The line under the disc, packed by the page right after
-    /// [`Self::widget`]: what is happening while switching, or what went
-    /// wrong; nothing while plainly on or off.
+    /// [`Self::widget`]: on or off in words, what is happening while
+    /// switching, or what went wrong.
     #[must_use]
     pub fn caption(&self) -> &gtk4::Label {
         &self.caption
@@ -300,8 +300,14 @@ impl BoosterButton {
 
         let title = state.title();
         let subtitle = state.subtitle();
+        // Always a line in words: the disc's glow alone says nothing to
+        // someone who cannot tell its colours apart, or does not know them.
         let caption = match state {
-            State::Off | State::On { .. } => None,
+            State::Off => Some(format!(
+                "{title} · {}",
+                i18n("Games run normally. Press to make them faster.")
+            )),
+            State::On { detail } => Some(format!("{title} · {detail}")),
             State::Working { step } => Some(step.clone()),
             State::Restoring => Some(subtitle.clone()),
             State::Partial { detail } | State::Error { detail } => Some(detail.clone()),

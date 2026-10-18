@@ -47,6 +47,39 @@ pub fn feature_row(icon: &str, title: &str, text: &str, icon_size: i32) -> gtk4:
     row
 }
 
+/// What simple mode is about, in three steps anyone can follow.
+fn simple_features() -> Vec<(&'static str, String, String)> {
+    vec![
+        (
+            "system-shutdown-symbolic",
+            i18n("Turbo"),
+            i18n("One button makes your games run better. Press it again to go back to normal."),
+        ),
+        (
+            "power-profile-performance-symbolic",
+            i18n("What do you want?"),
+            i18n(
+                "Fastest for the most frames, Quiet for a cooler and quieter computer, Pretty for a sharper picture.",
+            ),
+        ),
+        (
+            "applications-games-symbolic",
+            i18n("Play"),
+            i18n("Your games are in My games: choose one and press Play."),
+        ),
+    ]
+}
+
+/// What the welcome screen lists: the three steps in simple mode, every
+/// feature in advanced mode.
+fn shown_features() -> Vec<(&'static str, String, String)> {
+    if crate::settings::load().advanced_mode {
+        features().into()
+    } else {
+        simple_features()
+    }
+}
+
 /// The features, in pairs: one row of the grid each.
 fn features() -> [(&'static str, String, String); 8] {
     [
@@ -151,7 +184,7 @@ pub fn show(parent: &impl IsA<gtk4::Widget>) {
         .margin_top(14)
         .hexpand(true)
         .build();
-    for (i, (icon, title, text)) in (0i32..).zip(features()) {
+    for (i, (icon, title, text)) in (0i32..).zip(shown_features()) {
         grid.attach(&feature_row(icon, &title, &text, 32), i % 2, i / 2, 1, 1);
     }
     // Centred by a clamp, not by `halign`: a centred grid of wrapping labels

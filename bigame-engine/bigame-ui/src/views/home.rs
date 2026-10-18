@@ -110,6 +110,23 @@ pub fn build(
     column.append(button.caption());
     column.append(presets.widget());
     column.append(card.widget());
+    // The one way out, for anyone: the window's Back to normal.
+    let normal = gtk4::Button::builder()
+        .label(i18n("Back to normal"))
+        .tooltip_text(i18n(
+            "Turbo off, the choice back to Fastest, every setting as it started",
+        ))
+        .action_name("win.back-to-normal")
+        .halign(gtk4::Align::Center)
+        .css_classes(["pill"])
+        .margin_top(6)
+        .build();
+    column.append(&normal);
+    // The live readings are for people who know what they read.
+    {
+        let readings = readings.clone();
+        crate::settings::follow_advanced(move |on| readings.set_visible(on));
+    }
 
     let scroll = gtk4::ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
@@ -597,8 +614,14 @@ pub fn build(
         let tick = Cell::new(0u32);
         let net = net_tile.clone();
         let gpu_busy = Rc::new(Cell::new(false));
+        let tiles = readings.clone();
         let refresh = Refresh {
             update: Box::new(move |n| {
+                // Hidden in simple mode: nothing to read for them.
+                if !tiles.is_visible() {
+                    card.tick();
+                    return;
+                }
                 if let Some(khz) = crate::views::details::telemetry::read_cpu_khz() {
                     #[allow(clippy::cast_precision_loss)]
                     let ghz = khz as f64 / 1_000_000.0;

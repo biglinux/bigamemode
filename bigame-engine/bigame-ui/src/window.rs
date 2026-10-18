@@ -28,6 +28,9 @@ pub const PAGES: [&str; 6] = [
     "settings",
 ];
 
+/// The pages shown only in advanced mode.
+pub const ADVANCED_PAGES: [&str; 3] = ["tuning", "dashboard", "logs"];
+
 /// Where a page name from an earlier version leads now.
 #[must_use]
 pub fn migrate_tab(name: &str) -> &str {
@@ -344,39 +347,90 @@ pub fn build(
                 if response != "restore" {
                     return;
                 }
-                let (stack, overlay, th, sidebar) =
-                    (stack2.clone(), overlay2.clone(), Rc::clone(&th2), sidebar2.clone());
-                // Off the main thread: falcond's goes through the helper,
-                // which may wait on a password prompt, and the launch
-                // settings through the session bus.
-                glib::spawn_future_local(async move {
-                    let done = gio::spawn_blocking(restore_defaults).await;
-                    report_restore(&overlay, done.ok());
-                    // Rebuilt only once both are written, so the page reads
-                    // back what is now in force.
-                    let old = th.borrow().clone();
-                    stack.remove(&old);
-                    let new_tuning = views::tuning::build();
-                    stack.add_named(&new_tuning, Some("tuning"));
-                    *th.borrow_mut() = new_tuning;
-                    // Through the sidebar, so its selection and the window
-                    // title follow the page.
-                    let mut i = 0;
-                    while let Some(row) = sidebar.row_at_index(i) {
-                        if row.widget_name() == "tuning" {
-                            sidebar.unselect_all();
-                            sidebar.select_row(Some(&row));
-                            break;
-                        }
-                        i += 1;
-                    }
-                    views::tuning::launch_settings_changed(stack.upcast_ref());
-                });
+                restore_and_rebuild(
+                    &stack2,
+                    &overlay2,
+                    &th2,
+                    &sidebar2,
+                    true,
+                    i18n("Default settings restored"),
+                );
             });
             dialog.present(Some(&win));
         });
     }
     window.add_action(&restore_action);
+
+    // ── Back to normal (win.back-to-normal) ───────────────────────────
+    // The one way out for anyone: Turbo off, the choice back to Fastest, and
+    // everything Restore Defaults resets. Games and their files stay.
+    let normal_action = gio::SimpleAction::new("back-to-normal", None);
+    {
+        let stack = view_stack.clone();
+        let overlay = toast_overlay.clone();
+        let win = window.clone();
+        let th = Rc::clone(&tuning_holder);
+        let sidebar = sidebar_list.clone();
+        let app = app.clone();
+        normal_action.connect_activate(move |_, _| {
+            let dialog = adw::AlertDialog::new(
+                Some(&i18n("Back to normal?")),
+                Some(&i18n(
+                    "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched.",
+                )),
+            );
+            dialog.add_response("cancel", &i18n("Cancel"));
+            dialog.add_response("normal", &i18n("Back to normal"));
+            dialog.set_response_appearance("normal", adw::ResponseAppearance::Suggested);
+            dialog.set_default_response(Some("cancel"));
+            dialog.set_close_response("cancel");
+            let (stack, overlay, th, sidebar, app) = (
+                stack.clone(),
+                overlay.clone(),
+                Rc::clone(&th),
+                sidebar.clone(),
+                app.clone(),
+            );
+            dialog.connect_response(None, move |_, response| {
+                if response != "normal" {
+                    return;
+                }
+                turbo_off_and_fastest(&app);
+                restore_and_rebuild(
+                    &stack,
+                    &overlay,
+                    &th,
+                    &sidebar,
+                    false,
+                    i18n("Everything is back to normal"),
+                );
+            });
+            dialog.present(Some(&win));
+        });
+    }
+    window.add_action(&normal_action);
+
+    // ── Simple and advanced mode ──────────────────────────────────────
+    // Tuning, Details and Logs only in advanced mode; a page hidden while
+    // it is shown gives way to Home.
+    {
+        let sidebar = sidebar_list.clone();
+        settings::follow_advanced(move |advanced| {
+            let mut i = 0;
+            while let Some(row) = sidebar.row_at_index(i) {
+                let advanced_page = ADVANCED_PAGES.contains(&row.widget_name().as_str());
+                row.set_visible(advanced || !advanced_page);
+                if !advanced
+                    && advanced_page
+                    && row.is_selected()
+                    && let Some(home) = sidebar.row_at_index(0)
+                {
+                    sidebar.select_row(Some(&home));
+                }
+                i += 1;
+            }
+        });
+    }
 
     // ── Welcome screen (win.welcome) ──────────────────────────────────
     let welcome_action = gio::SimpleAction::new("welcome", None);
@@ -403,6 +457,7 @@ pub fn build(
     // ── Main menu button (content header, end) ────────────────────────
     let menu = adw::gio::Menu::new();
     let tools = adw::gio::Menu::new();
+    tools.append(Some(&i18n("Back to normal")), Some("win.back-to-normal"));
     tools.append(
         Some(&i18n("Restore Defaults")),
         Some("win.restore-defaults"),
@@ -515,6 +570,82 @@ struct Restored {
 /// Put Tuning back to its defaults: falcond's settings (through the helper)
 /// and the launch settings (`video.toml`, the session environment, and
 /// lsfg-vk's entries, which follow its general switch).
+/// Write the defaults off the main thread, say how it went (`done_text`
+/// when every part was written), and rebuild Tuning so it reads back what
+/// is in force; `open_tuning` shows it afterwards.
+fn restore_and_rebuild(
+    stack: &adw::ViewStack,
+    overlay: &adw::ToastOverlay,
+    tuning: &Rc<RefCell<adw::PreferencesPage>>,
+    sidebar: &gtk4::ListBox,
+    open_tuning: bool,
+    done_text: String,
+) {
+    let (stack, overlay, th, sidebar) = (
+        stack.clone(),
+        overlay.clone(),
+        Rc::clone(tuning),
+        sidebar.clone(),
+    );
+    // Off the main thread: falcond's goes through the helper, which may
+    // wait on a password prompt, and the launch settings through the
+    // session bus.
+    glib::spawn_future_local(async move {
+        let done = gio::spawn_blocking(restore_defaults).await;
+        report_restore(&overlay, done.ok(), &done_text);
+        // Rebuilt only once both are written, so the page reads back what
+        // is now in force.
+        let old = th.borrow().clone();
+        stack.remove(&old);
+        let new_tuning = views::tuning::build();
+        stack.add_named(&new_tuning, Some("tuning"));
+        *th.borrow_mut() = new_tuning;
+        if open_tuning {
+            // Through the sidebar, so its selection and the window title
+            // follow the page.
+            let mut i = 0;
+            while let Some(row) = sidebar.row_at_index(i) {
+                if row.widget_name() == "tuning" {
+                    sidebar.unselect_all();
+                    sidebar.select_row(Some(&row));
+                    break;
+                }
+                i += 1;
+            }
+        }
+        views::tuning::launch_settings_changed(stack.upcast_ref());
+    });
+}
+
+/// Turn Turbo off, through `app.turbo` as the tray does, and bring the
+/// choice back to Fastest once the picker takes a choice again.
+fn turbo_off_and_fastest(app: &adw::Application) {
+    let fastest = bigame_core::turbo_preset::Preset::Fastest.id().to_variant();
+    let on = app
+        .action_state("turbo")
+        .and_then(|v| v.get::<bool>())
+        .unwrap_or(false);
+    if !on {
+        app.change_action_state("turbo-preset", &fastest);
+        return;
+    }
+    let pending: Rc<RefCell<Option<glib::SignalHandlerId>>> = Rc::default();
+    let handler = {
+        let pending = Rc::clone(&pending);
+        app.connect_action_enabled_changed(Some("turbo-preset"), move |app, _, enabled| {
+            let off = app.action_state("turbo").and_then(|v| v.get::<bool>()) == Some(false);
+            if enabled && off {
+                app.change_action_state("turbo-preset", &fastest);
+                if let Some(id) = pending.borrow_mut().take() {
+                    app.disconnect(id);
+                }
+            }
+        })
+    };
+    *pending.borrow_mut() = Some(handler);
+    app.change_action_state("turbo", &false.to_variant());
+}
+
 fn restore_defaults() -> Restored {
     let video = bigame_core::video_config::VideoConfig::default();
     Restored {
@@ -525,7 +656,7 @@ fn restore_defaults() -> Restored {
 }
 
 /// Say what Restore Defaults did: success only when every part was written.
-fn report_restore(overlay: &adw::ToastOverlay, done: Option<Restored>) {
+fn report_restore(overlay: &adw::ToastOverlay, done: Option<Restored>, done_text: &str) {
     let Some(done) = done else {
         widgets::toast::error(
             overlay,
@@ -571,7 +702,7 @@ fn report_restore(overlay: &adw::ToastOverlay, done: Option<Restored>) {
         );
     }
     if ok {
-        overlay.add_toast(adw::Toast::new(&i18n("Default settings restored")));
+        overlay.add_toast(adw::Toast::new(done_text));
     }
 }
 

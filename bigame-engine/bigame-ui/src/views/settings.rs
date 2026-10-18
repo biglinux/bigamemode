@@ -360,7 +360,8 @@ pub fn build() -> adw::PreferencesPage {
     });
     turbo.add(&login);
 
-    turbo.add(&falcond_row());
+    let falcond = falcond_row();
+    turbo.add(&falcond);
     page.add(&turbo);
 
     // ── Game profiles ───────────────────────────────────────────────────
@@ -506,6 +507,30 @@ pub fn build() -> adw::PreferencesPage {
         monitoring.add(&row);
     }
     page.add(&monitoring);
+
+    // ── Advanced ────────────────────────────────────────────────────────
+    // Last, so nobody lands on it by chance.
+    let advanced = adw::PreferencesGroup::new();
+    advanced.set_title(&i18n("Advanced"));
+    let advanced_row = switch(
+        &i18n("Show advanced options"),
+        &i18n("More pages and settings for people who know their hardware"),
+        current.advanced_mode,
+        &i18n(
+            "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need.",
+        ),
+    );
+    on_switch(&advanced_row, |on| {
+        settings::set_advanced(on).map_err(|e| e.to_string())
+    });
+    advanced.add(&advanced_row);
+    page.add(&advanced);
+
+    // The technical rows only in advanced mode.
+    settings::follow_advanced(move |on| {
+        falcond.set_visible(on);
+        monitoring.set_visible(on);
+    });
 
     page
 }
