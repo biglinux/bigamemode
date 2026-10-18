@@ -243,8 +243,24 @@ pub fn run() -> adw::glib::ExitCode {
             // Hide on close instead of destroying
             win.connect_close_request(|w| {
                 w.set_visible(false);
+                // Once GTK has let the window's textures go, what the pages
+                // used goes back to the system: the tray needs little.
+                glib::timeout_add_local_once(std::time::Duration::from_secs(5), || {
+                    bigame_core::processes::release_free_memory();
+                });
                 glib::Propagation::Stop
             });
+            // In the tray for hours, the watchers' and scans' freed memory
+            // goes back now and then too.
+            {
+                let hidden = win.downgrade();
+                glib::timeout_add_seconds_local(600, move || {
+                    if hidden.upgrade().is_some_and(|w| !w.is_visible()) {
+                        bigame_core::processes::release_free_memory();
+                    }
+                    glib::ControlFlow::Continue
+                });
+            }
             // Started at login: stay out of the way until asked for.
             if background.replace(false) {
                 win.set_visible(false);

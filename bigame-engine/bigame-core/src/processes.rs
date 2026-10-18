@@ -953,6 +953,26 @@ fn gone(target: &Target) -> UserError {
     UserError::with(N_("%s has already exited."), [target.name.as_str()])
 }
 
+/// Keep glibc's per-thread malloc arenas to a few, first thing, before any
+/// thread starts. Each worker thread otherwise gets an arena of its own, and
+/// what it frees stays resident: the tray process held six of about 57 MiB
+/// each (library scans, game covers) long after the work was done.
+pub fn limit_malloc_arenas() {
+    // SAFETY: a malloc tuning call with integer arguments, before threads.
+    unsafe {
+        libc::mallopt(libc::M_ARENA_MAX, 2);
+    }
+}
+
+/// Give the memory malloc holds free back to the system, from every arena:
+/// called when the window goes to the tray, where nothing needs it.
+pub fn release_free_memory() {
+    // SAFETY: malloc_trim walks malloc's own free lists; it takes no pointer.
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
 /// `ioprio_set`'s "this process" (thread, on Linux).
 pub const IOPRIO_WHO_PROCESS: libc::c_int = 1;
 

@@ -26,6 +26,7 @@ fn main() -> libadwaita::glib::ExitCode {
     }
     // Before any thread starts, so all of them inherit it.
     bigame_core::processes::yield_disk_to_games();
+    bigame_core::processes::limit_malloc_arenas();
     init_tracing();
     i18n::init();
     app::run()
