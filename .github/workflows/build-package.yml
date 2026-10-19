@@ -70,7 +70,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           # git for a real checkout (git archive); the rest for the checks.
-          # makepkg --syncdeps installs the recipe's depends and makedepends.
+          # makepkg --syncdeps installs the recipe's depends, makedepends and checkdepends.
           pacman -Syu --noconfirm --needed git namcap desktop-file-utils appstream libxml2 qemu-user
           useradd --create-home builder
           # makepkg refuses root. The build user may run pacman, and only

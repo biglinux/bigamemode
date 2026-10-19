@@ -3,7 +3,7 @@
 pkgname=bigame-mode
 pkgver=3.0.0
 pkgrel=1
-pkgdesc="Big Game Mode, BigLinux's game mode: Turbo and per-game profiles on falcond, AI Graphics (OptiScaler) and a live view of what each game really gets"
+pkgdesc="Big Game Mode, BigLinux's game mode: Turbo and per-game profiles on falcond, each game's Linux compatibility, anti-cheat and players, AI Graphics (OptiScaler) and a live view of what each game really gets"
 arch=('x86_64')
 url="https://github.com/biglinux/bigamemode"
 license=('GPL-3.0-or-later')
@@ -32,7 +32,8 @@ depends=(
 
     # AI Graphics: OptiScaler is fetched from its own release with curl
     # (HTTPS only, pinned SHA-256) and unpacked with bsdtar after its listing
-    # is checked.
+    # is checked. Game information (ProtonDB, Are We Anti-Cheat Yet?, Steam's
+    # counts and store search) is asked with curl too, HTTPS only.
     'curl'
     'libarchive'
 
@@ -49,6 +50,11 @@ makedepends=(
     'rust'
     'gettext'
     'python'
+)
+# The Lutris library tests write a real Lutris database with sqlite3; without
+# it they are skipped, not failed.
+checkdepends=(
+    'sqlite'
 )
 optdepends=(
     # System performance is falcond's: Turbo switches it on, and Big Game
@@ -83,11 +89,24 @@ optdepends=(
     # switched off is not pointed out.
     'libkscreen: the screen'"'"'s refresh rate and adaptive sync on KDE Plasma'
     'xorg-xrandr: the screen'"'"'s refresh rate outside KDE Plasma'
+    # Games and Steam installed as Flatpaks are started through flatpak.
+    'flatpak: games, Heroic and Steam installed as Flatpaks'
+    # On a hybrid laptop, Optimization says whether games can be sent to the
+    # discrete NVIDIA card with prime-run.
+    'nvidia-prime: prime-run, to run games on the NVIDIA card of a hybrid laptop'
+    # The support report names the graphics driver's version with one of
+    # these; without either it says "not installed".
+    'vulkan-tools: the graphics driver version in the support report (vulkaninfo)'
+    'mesa-utils: the OpenGL driver version in the support report (glxinfo)'
 )
 install="${pkgname}.install"
 # The BigLinux package builders build main once its CI has passed
-# (.github/workflows), as for the other BigLinux packages.
-source=("${pkgname}::git+${url}.git")
+# (.github/workflows), as for the other BigLinux packages. To build another
+# copy of the code (a branch, or a local checkout already tested), name it
+# in BIGAME_SOURCE, e.g.
+#   BIGAME_SOURCE="git+file://$PWD/..#branch=feat/x" makepkg
+# Unset, the package is built from the project's repository.
+source=("${pkgname}::${BIGAME_SOURCE:-git+${url}.git}")
 sha256sums=('SKIP')
 
 _cargo_env() {
