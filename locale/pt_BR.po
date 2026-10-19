@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 23:09-0300\n"
+"POT-Creation-Date: 2026-10-19 01:04-0300\n"
 "PO-Revision-Date: 2026-04-20 00:27-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -52,7 +52,7 @@ msgid_plural "%n applied"
 msgstr[0] "%n aplicado"
 msgstr[1] "%n aplicados"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:497
+#: bigame-engine/bigame-ui/src/views/settings.rs:650
 msgid "%n can never match its game as it is"
 msgid_plural "%n can never match their game as they are"
 msgstr[0] "%n nunca reconhece o jogo do jeito que está"
@@ -69,6 +69,12 @@ msgid "%n conflict avoided"
 msgid_plural "%n conflicts avoided"
 msgstr[0] "%n conflito evitado"
 msgstr[1] "%n conflitos evitados"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:33
+msgid "%n day ago"
+msgid_plural "%n days ago"
+msgstr[0] "há %n dia"
+msgstr[1] "há %n dias"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:839
 #: bigame-engine/bigame-ui/src/views/home.rs:850
@@ -92,6 +98,12 @@ msgid_plural "%n files"
 msgstr[0] "%n arquivo"
 msgstr[1] "%n arquivos"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:32
+msgid "%n hour ago"
+msgid_plural "%n hours ago"
+msgstr[0] "há %n hora"
+msgstr[1] "há %n horas"
+
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:238
 msgid "%n item needs attention"
 msgid_plural "%n items need attention"
@@ -104,11 +116,23 @@ msgid_plural "%n minutes"
 msgstr[0] "%n minuto"
 msgstr[1] "%n minutos"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:31
+msgid "%n minute ago"
+msgid_plural "%n minutes ago"
+msgstr[0] "há %n minuto"
+msgstr[1] "há %n minutos"
+
 #: bigame-engine/bigame-ui/src/views/home.rs:920
 msgid "%n per game"
 msgid_plural "%n per game"
 msgstr[0] "%n por jogo"
 msgstr[1] "%n por jogo"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:41
+msgid "%n playing now"
+msgid_plural "%n playing now"
+msgstr[0] "%n jogando agora"
+msgstr[1] "%n jogando agora"
 
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:153
 msgid "%n problem found"
@@ -116,11 +140,17 @@ msgid_plural "%n problems found"
 msgstr[0] "%n problema encontrado"
 msgstr[1] "%n problemas encontrados"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1323
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1515
 msgid "%n profile without an installed game"
 msgid_plural "%n profiles without an installed game"
 msgstr[0] "%n perfil sem jogo instalado"
 msgstr[1] "%n perfis sem jogo instalado"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:329
+msgid "%n report"
+msgid_plural "%n reports"
+msgstr[0] "%n relato"
+msgstr[1] "%n relatos"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:916
 msgid "%n restored"
@@ -247,7 +277,7 @@ msgstr "%s não aceita %s nesta máquina (aceitos: %s)"
 msgid "%s does not match what was placed"
 msgstr "%s não corresponde ao que foi colocado"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1748
 msgid "%s does not run on Linux"
 msgstr "%s não roda no Linux"
 
@@ -364,7 +394,7 @@ msgstr "%s escalonadores instalados, mas o scx-tools (scx_loader) não, então o
 msgid "%s schedulers, scx_loader available"
 msgstr "%s escalonadores, scx_loader disponível"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1831
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s aberto com as configurações de lançamento do Big Game Mode"
 
@@ -553,6 +583,10 @@ msgstr ""
 "\n"
 "Como o resultado é decidido: as execuções alternam entre as duas configurações, a primeira execução de cada uma é descartada (um cache de shaders frio é diferente de todas as execuções seguintes), e uma diferença só conta quando é maior que a variação entre execuções repetidas da mesma configuração e significativa a 95 %. Qualquer diferença menor é mostrada como sem mudança, nunca como um pequeno ganho."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:543
+msgid "%t: anti-cheat status changed from %b to %a"
+msgstr "%t: o status do antitrapaça mudou de %b para %a"
+
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:515
 msgid "'%p' without %command%: Steam passes it to the game, where it does nothing — launch options: %o"
 msgstr "'%p' sem %command%: a Steam o passa para o jogo, onde ele não faz nada — opções de inicialização: %o"
@@ -603,11 +637,11 @@ msgstr "Modo do 3D V-Cache"
 msgid "95th percentile"
 msgstr "percentil 95"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:69
+#: data/com.biglinux.BiGameMode.metainfo.xml:80
 msgid "A CPU scheduler nobody asks for no longer comes back after every game, and falcond is not restarted under a running game"
 msgstr "Um escalonador de CPU que ninguém pede não volta mais depois de cada jogo, e o falcond não é reiniciado com um jogo em execução"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:288
+#: bigame-engine/bigame-ui/src/views/profiles.rs:371
 msgid "A blank profile, every option set by hand"
 msgstr "Um perfil em branco, com cada opção definida à mão"
 
@@ -615,15 +649,19 @@ msgstr "Um perfil em branco, com cada opção definida à mão"
 msgid "A build or compile. Will finish sooner if left alone."
 msgstr "Uma compilação. Termina mais rápido se for deixada em paz."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:51
+#: data/com.biglinux.BiGameMode.metainfo.xml:62
 msgid "A crash is told from a quit by the game's own crash report, a crash reporter, how the kernel says the game ended, or systemd-coredump"
 msgstr "Uma falha se distingue de uma saída normal pelo relatório de falha do próprio jogo, por um programa de relatório de erros, pela forma como o kernel diz que o jogo terminou ou pelo systemd-coredump"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:91
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:214
+msgid "A day's peak needs readings over at least half a day."
+msgstr "O pico do dia precisa de leituras ao longo de pelo menos meio dia."
+
+#: data/com.biglinux.BiGameMode.metainfo.xml:102
 msgid "A falcond that crashes at start no longer stays enabled to crash again at every boot, and Turbo can be turned off after it"
 msgstr "Um falcond que trava ao iniciar não fica mais habilitado para travar de novo a cada inicialização, e o Turbo pode ser desligado depois disso"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:68
+#: data/com.biglinux.BiGameMode.metainfo.xml:79
 msgid "A game library on a hard disk, or adaptive sync switched off, is pointed out"
 msgstr "Uma biblioteca de jogos num disco rígido, ou a sincronização adaptativa desligada, agora é apontada"
 
@@ -639,7 +677,7 @@ msgstr "Um jogo roda com o Turbo, mas o perfil de energia não é performance. C
 msgid "A game runs under Turbo, but the profile is %s"
 msgstr "Um jogo roda com o Turbo, mas o perfil é %s"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:49
+#: data/com.biglinux.BiGameMode.metainfo.xml:60
 msgid "A game that crashes is said, with what was in it, and what Big Game Mode added can be left out of that one game."
 msgstr "Quando um jogo falha, isso é dito, junto com o que havia nele, e o que o Big Game Mode adicionou pode ser deixado de fora só daquele jogo."
 
@@ -647,11 +685,11 @@ msgstr "Quando um jogo falha, isso é dito, junto com o que havia nele, e o que 
 msgid "A game without a profile of its own gets exactly these settings: this page is the Global profile, used by every game marked “Without a profile”. A game's profile replaces only what it sets; everything else still follows this page."
 msgstr "Um jogo sem perfil próprio recebe exatamente estas configurações: esta página é o Perfil global, usado por todo jogo marcado como “Sem perfil”. O perfil de um jogo substitui só o que ele define; todo o resto continua seguindo esta página."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:63
+#: data/com.biglinux.BiGameMode.metainfo.xml:74
 msgid "A game's own frame limit no longer starts Gamescope; Steam's launch options with a wrapper but no %command% are found and fixed in one click"
 msgstr "O limite de quadros do próprio jogo não inicia mais o Gamescope; opções de inicialização da Steam com um wrapper mas sem %command% são encontradas e corrigidas com um clique"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:768
 msgid "A guided profile: every option explained, for a game you pick"
 msgstr "Um perfil guiado: cada opção explicada, para um jogo que você escolhe"
 
@@ -691,19 +729,19 @@ msgstr "Um escalonador ajustado para jogos, carregado pelo falcond pelo scx_load
 msgid "A sharper picture at your screen's resolution, and FSR 4 for games with FSR 3.1 on a graphics card that has it. Costs a few frames; no cap."
 msgstr "Uma imagem mais nítida na resolução da sua tela, e FSR 4 para jogos com FSR 3.1 numa placa de vídeo compatível. Custa alguns quadros; sem limite."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:67
+#: data/com.biglinux.BiGameMode.metainfo.xml:78
 msgid "A simple mode, the default: Turbo in words, three choices, Play on every game, and Back to normal; Settings brings the advanced pages back"
 msgstr "Um modo simples, o padrão: o Turbo explicado em palavras, três escolhas, Jogar em cada jogo e Voltar ao normal; Configurações traz de volta as páginas avançadas"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:76
+#: data/com.biglinux.BiGameMode.metainfo.xml:87
 msgid "A stability release: Turbo stays on where falcond cannot run, Turbo and its presets leave nothing behind in Steam and Heroic, and your own launch options and configuration files are kept."
 msgstr "Uma versão de estabilidade: o Turbo continua ligado onde o falcond não consegue rodar, o Turbo e seus presets não deixam nada para trás na Steam e no Heroic, e suas próprias opções de inicialização e arquivos de configuração são mantidos."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:105
+#: data/com.biglinux.BiGameMode.metainfo.xml:116
 msgid "A stricter privileged helper, and about 0.15 % of a CPU core when idle in the tray"
 msgstr "Um auxiliar privilegiado mais rigoroso, e cerca de 0,15 % de um núcleo de CPU quando ocioso na bandeja do sistema"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:83
+#: data/com.biglinux.BiGameMode.metainfo.xml:94
 msgid "A stricter privileged helper, with its authentication messages translated"
 msgstr "Um auxiliar privilegiado mais restrito, com as mensagens de autenticação traduzidas"
 
@@ -723,7 +761,7 @@ msgstr "Uma máquina virtual ou contêiner. Fechá-la pode interromper um trabal
 msgid "A web browser. Tabs playing video or running scripts cost the most."
 msgstr "Um navegador. Abas tocando vídeo ou rodando scripts são as que mais pesam."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:112
+#: data/com.biglinux.BiGameMode.metainfo.xml:123
 msgid "A welcome screen, a rewritten About and Help; Tuning with Gamescope always in view, standard resolutions and the main screen's size, and vkBasalt looks (CAS or the Nara Linux style); game profiles with the same rows as Tuning, reaching Steam and Heroic games; Launch (Turbo) through every launcher and Reopen for one opened before the preset; a redesigned AI Graphics window that follows a game's launcher stub and sees upscalers built into the executable; background programs can be closed or paused, a measured DNS applied with a backup, and falcond handed back and taken again."
 msgstr "Uma tela de boas-vindas, Sobre e Ajuda reescritos; Ajustes com o Gamescope sempre à vista, resoluções padrão e o tamanho da tela principal, e visuais do vkBasalt (CAS ou o estilo Nara Linux); perfis de jogos com as mesmas linhas dos Ajustes, chegando aos jogos da Steam e do Heroic; Iniciar (Turbo) por qualquer lançador e Reabrir para um aberto antes do preset; uma janela de Gráficos com IA redesenhada, que segue o pequeno programa que o lançador de um jogo inicia e enxerga os upscalers embutidos no executável; programas em segundo plano podem ser fechados ou pausados, um DNS medido é aplicado com backup, e o falcond é devolvido e retomado."
 
@@ -762,7 +800,7 @@ msgstr "Os Gráficos com IA estão desligados para este jogo"
 msgid "AI Graphics is per game"
 msgstr "Os Gráficos com IA são por jogo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:81
+#: data/com.biglinux.BiGameMode.metainfo.xml:92
 msgid "AI Graphics makes one change at a time to a game, and Restore from Profiles works as it does on the AI Graphics page"
 msgstr "Gráficos com IA faz uma alteração por vez em um jogo, e Restaurar em Perfis funciona como na página Gráficos com IA"
 
@@ -770,7 +808,7 @@ msgstr "Gráficos com IA faz uma alteração por vez em um jogo, e Restaurar em 
 msgid "AI Graphics needs the game's install folder, and no installed game runs as this program"
 msgstr "Os Gráficos com IA precisam da pasta de instalação do jogo, e nenhum jogo instalado roda como este programa"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:66
+#: data/com.biglinux.BiGameMode.metainfo.xml:77
 msgid "AI Graphics' Recommended installs only what was verified; frame generation is an experimental choice"
 msgstr "O Recomendado de Gráficos com IA instala só o que foi verificado; a geração de quadros é uma escolha experimental"
 
@@ -778,11 +816,11 @@ msgstr "O Recomendado de Gráficos com IA instala só o que foi verificado; a ge
 msgid "AI Graphics: OptiScaler installed with verified backups, repair and restore"
 msgstr "Gráficos com IA: OptiScaler instalado com backups verificados, reparo e restauração"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:104
+#: data/com.biglinux.BiGameMode.metainfo.xml:115
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "Gráficos com IA: a geração de quadros só aparece como ativa quando o log do OptiScaler comprova, Restaurar e Reparar mais seguros, e um cache de downloads que guarda só as versões que os jogos usam"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1956
 msgid "AI Graphics…"
 msgstr "Gráficos com IA…"
 
@@ -811,7 +849,7 @@ msgstr "O provedor do FSR 4 da AMD ainda não está no prefixo deste jogo: o Pro
 msgid "AMD's upscaler: it enlarges the image and sharpens the edges so it does not look blurred. It works on any GPU. The usual choice: render the game smaller and let FSR bring it up to the screen. The sharpness below applies to it."
 msgstr "O upscaler da AMD: ele amplia a imagem e deixa as bordas nítidas para que ela não fique borrada. Funciona em qualquer GPU. A escolha mais comum: renderizar o jogo menor e deixar o FSR levá-lo até o tamanho da tela. A nitidez abaixo se aplica a ele."
 
-#: bigame-engine/bigame-ui/src/window.rs:480
+#: bigame-engine/bigame-ui/src/window.rs:498
 msgid "About"
 msgstr "Sobre"
 
@@ -882,7 +920,7 @@ msgstr "Adicionar a opção de inicialização"
 msgid "Address to ping"
 msgstr "Endereço para ping"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:415
+#: bigame-engine/bigame-ui/src/views/settings.rs:568
 msgid "Adds a login entry for your user only (~/.config/autostart). Big Game Mode then runs in the tray and can offer a profile when a new game starts. Turning this off removes the entry."
 msgstr "Adiciona uma entrada de login só para o seu usuário (~/.config/autostart). O Big Game Mode passa a rodar na bandeja e pode oferecer um perfil quando um jogo novo iniciar. Desligar isto remove a entrada."
 
@@ -890,8 +928,8 @@ msgstr "Adiciona uma entrada de login só para o seu usuário (~/.config/autosta
 msgid "Adds in-between frames: looks smoother, but your controls react later. Experimental."
 msgstr "Adiciona quadros intermediários: fica mais fluido, mas os controles respondem mais tarde. Experimental."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1030
-#: bigame-engine/bigame-ui/src/views/settings.rs:574
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1217
+#: bigame-engine/bigame-ui/src/views/settings.rs:730
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1538
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:309
 msgid "Advanced"
@@ -922,12 +960,12 @@ msgid "After installing or removing it with its own setup, Check Again reads the
 msgstr "Depois de instalá-lo ou removê-lo com o próprio instalador, Verificar de novo lê a pasta do jogo outra vez e diz o que mudou."
 
 #: bigame-engine/bigame-ui/src/views/logs.rs:45
-#: bigame-engine/bigame-ui/src/views/profiles.rs:257
+#: bigame-engine/bigame-ui/src/views/profiles.rs:319
 msgid "All"
 msgstr "Tudo"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:251
+#: bigame-engine/bigame-ui/src/views/profiles.rs:227
+#: bigame-engine/bigame-ui/src/views/profiles.rs:313
 msgid "All launchers"
 msgstr "Todos os lançadores"
 
@@ -994,15 +1032,34 @@ msgstr "Outra ferramenta que controlaria as mesmas configurações. Cada configu
 msgid "Answers input and audio first, at some cost in throughput. For competitive games and streaming."
 msgstr "Atende primeiro à entrada e ao áudio, com algum custo de vazão. Para jogos competitivos e transmissões."
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:37
+msgid "Anti-Cheat"
+msgstr "Antitrapaça"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:344
+msgid "Anti-Cheat Status"
+msgstr "Status do Antitrapaça"
+
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:164
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1302
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1482
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1734
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:208
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:389
 msgid "Anti-cheat"
 msgstr "Antitrapaça"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:553
 msgid "Anti-cheat or Big Game Mode's game list: injecting a DLL could put the account at risk, so nothing is offered."
 msgstr "Antitrapaça ou a lista de jogos do Big Game Mode: injetar uma DLL poderia colocar a conta em risco, então nada é oferecido."
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+msgid "Any anti-cheat status"
+msgstr "Qualquer status de antitrapaça"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1538
+msgid "Any compatibility"
+msgstr "Qualquer compatibilidade"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:42
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:464
@@ -1075,6 +1132,14 @@ msgstr "Aplicando as otimizações"
 msgid "Architecture"
 msgstr "Arquitetura"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:381
+msgid "Are We Anti-Cheat Yet? is a community list: a status can change with an update of the game, and none is a promise that an account is safe."
+msgstr "O Are We Anti-Cheat Yet? é uma lista da comunidade: um status pode mudar com uma atualização do jogo, e nenhum é garantia de que uma conta está segura."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:356
+msgid "Are We Anti-Cheat Yet?'s status on the game cards"
+msgstr "O status do Are We Anti-Cheat Yet? nos cartões dos jogos"
+
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:346
 msgid "Are you sure?"
 msgstr "Tem certeza?"
@@ -1087,15 +1152,15 @@ msgstr "Em volta do jogo"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "Todos os quadros que o seu computador conseguir fazer. Nada é limitado nem adicionado."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1883
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "Pedido enviado ao lançador %l para abrir %s. O perfil se aplica; as configurações de lançamento do Big Game Mode não chegam a um jogo que o próprio lançador inicia."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1871
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "Pedido enviado ao lançador %l para abrir %s. O Turbo está desligado, então o perfil não se aplica até o Turbo ser ligado no Início."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1867
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "Pedido enviado ao lançador %l para abrir %s. O falcond não está instalado, então nenhum perfil de jogo se aplica."
 
@@ -1103,11 +1168,11 @@ msgstr "Pedido enviado ao lançador %l para abrir %s. O falcond não está insta
 msgid "Asked %s to close"
 msgstr "Pedido de fechamento enviado a %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1879
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Pedido enviado ao Heroic para abrir %s. O perfil se aplica; as configurações de lançamento do próprio jogo só chegam a ele pelas configurações dele no Heroic, gravadas quando o perfil é salvo."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1875
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Pedi à Steam para abrir %s. O perfil se aplica; as configurações de lançamento só chegam a um jogo da Steam pelas opções de lançamento da Steam."
 
@@ -1119,6 +1184,10 @@ msgstr "Pedido"
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:300
 msgid "Asked for, but it cannot be switched"
 msgstr "Pedido, mas não pode ser trocado"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:457
+msgid "Asking the sources again…"
+msgstr "Consultando as fontes de novo…"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:1481
 #: bigame-engine/bigame-ui/src/views/telemetry.rs:327
@@ -1196,12 +1265,12 @@ msgid "Back to Home"
 msgstr "Voltar para o Início"
 
 #: bigame-engine/bigame-ui/src/views/home.rs:109
-#: bigame-engine/bigame-ui/src/window.rs:395
-#: bigame-engine/bigame-ui/src/window.rs:472
+#: bigame-engine/bigame-ui/src/window.rs:413
+#: bigame-engine/bigame-ui/src/window.rs:490
 msgid "Back to normal"
 msgstr "Voltar ao normal"
 
-#: bigame-engine/bigame-ui/src/window.rs:389
+#: bigame-engine/bigame-ui/src/window.rs:407
 msgid "Back to normal?"
 msgstr "Voltar ao normal?"
 
@@ -1242,6 +1311,10 @@ msgstr "Big Game Mode"
 #: bigame-engine/bigame-core/src/optimization.rs:86
 msgid "Big Game Mode and falcond leave the driver's current preference alone."
 msgstr "O Big Game Mode e o falcond não mexem na preferência atual do driver."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:339
+msgid "Big Game Mode asks ProtonDB for each Steam game's rating, downloads Are We Anti-Cheat Yet?'s list once for the whole library, and asks Steam how many play each Steam game. Only a game's public Steam number is sent: never your Steam account, your list of games to anyone else, or anything about this computer. Nothing is asked while a game runs. Off, nothing is asked, and what was kept is still shown."
+msgstr "O Big Game Mode pede ao ProtonDB a classificação de cada jogo da Steam, baixa a lista do Are We Anti-Cheat Yet? uma única vez para a biblioteca inteira e pergunta à Steam quantas pessoas jogam cada jogo da Steam. Só o número público do jogo na Steam é enviado: nunca a sua conta Steam, nem a sua lista de jogos a mais ninguém, nem nada sobre este computador. Nada é consultado enquanto um jogo está rodando. Desligado, nada é consultado, e o que foi guardado continua sendo exibido."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:258
 msgid "Big Game Mode asks it to quit, as closing its window would (SIGTERM). Anything you have not saved in it may be lost. A program that ignores the request keeps running: nothing forces it."
@@ -1322,7 +1395,7 @@ msgstr "O Big Game Mode não mudaria nada nesta máquina, então o %t seria comp
 msgid "Big Game Mode's game list names the API this game renders with by default"
 msgstr "a lista de jogos do Big Game Mode indica a API com que este jogo renderiza por padrão"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1065
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1252
 msgid "Big Game Mode's own choices for this game — its launch settings, MangoHud and AI Graphics — kept in your configuration, with no password. What Big Game Mode wrote into Steam's launch options or Heroic's settings is recorded there, so it changes or removes exactly that."
 msgstr "As escolhas do próprio Big Game Mode para este jogo — as configurações de lançamento, o MangoHud e os Gráficos com IA — guardadas na sua configuração, sem senha. O que o Big Game Mode escreveu nas opções de inicialização da Steam ou nas configurações do Heroic fica registrado ali, então ele muda ou remove exatamente isso."
 
@@ -1355,7 +1428,7 @@ msgstr "Embutido no falcond"
 msgid "Built on"
 msgstr "Baseado em"
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:110
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:114
 msgid "Built-in profile"
 msgstr "Perfil embutido"
 
@@ -1410,6 +1483,11 @@ msgstr "Temperatura da CPU"
 msgid "Cache CCD"
 msgstr "CCD com cache"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:180
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:370
+msgid "Cached data"
+msgstr "Dados em cache"
+
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:513
 msgid "Calls '%p', which is not installed — launch options: %o"
 msgstr "Chama '%p', que não está instalado — opções de inicialização: %o"
@@ -1419,14 +1497,14 @@ msgstr "Chama '%p', que não está instalado — opções de inicialização: %o
 #: bigame-engine/bigame-ui/src/views/details/dns.rs:233
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
-#: bigame-engine/bigame-ui/src/views/profiles.rs:917
-#: bigame-engine/bigame-ui/src/views/settings.rs:346
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1104
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1352
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
+#: bigame-engine/bigame-ui/src/views/profiles.rs:2078
+#: bigame-engine/bigame-ui/src/views/settings.rs:499
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
-#: bigame-engine/bigame-ui/src/window.rs:349
-#: bigame-engine/bigame-ui/src/window.rs:394
+#: bigame-engine/bigame-ui/src/window.rs:367
+#: bigame-engine/bigame-ui/src/window.rs:412
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1458,7 +1536,7 @@ msgstr "Mude para: %s"
 msgid "Changed, then read back from the system to confirm it took."
 msgstr "Alterado e depois lido de volta do sistema para confirmar que funcionou."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:731
+#: bigame-engine/bigame-ui/src/views/profiles.rs:918
 msgid "Changes apply when you save"
 msgstr "As mudanças valem quando você salvar"
 
@@ -1503,7 +1581,7 @@ msgstr "Verificando o seu sistema…"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:641
 #: bigame-engine/bigame-ui/src/views/details/problems.rs:114
 #: bigame-engine/bigame-ui/src/views/settings.rs:111
-#: bigame-engine/bigame-ui/src/views/settings.rs:448
+#: bigame-engine/bigame-ui/src/views/settings.rs:601
 #: bigame-engine/bigame-ui/src/views/telemetry.rs:291
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:588
 msgid "Checking…"
@@ -1545,7 +1623,11 @@ msgstr "Escolhido para este jogo, mas não instalado."
 msgid "Chosen for this game, but not loaded in it."
 msgstr "Escolhido para este jogo, mas não carregado nele."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:225
+#: bigame-engine/bigame-ui/src/views/settings.rs:460
+msgid "Clear Downloaded Metadata"
+msgstr "Limpar Metadados Baixados"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:287
 msgid "Clear filters"
 msgstr "Limpar filtros"
 
@@ -1638,6 +1720,12 @@ msgstr "Combinações relatadas como funcionais, mas não comprovadas. A geraç�
 #: bigame-engine/bigame-ui/src/app.rs:670
 msgid "Command"
 msgstr "Comando"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1550
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:342
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:350
+msgid "Compatibility unknown"
+msgstr "Compatibilidade desconhecida"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:189
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:534
@@ -1807,13 +1895,13 @@ msgstr "Não foi possível alterar o arquivo do vkBasalt"
 msgid "Could not create the profile"
 msgstr "Não foi possível criar o perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1380
+#: bigame-engine/bigame-ui/src/views/profiles.rs:2108
 msgid "Could not delete profile"
 msgstr "Não foi possível excluir o perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1375
+#: bigame-engine/bigame-ui/src/views/profiles.rs:2106
 msgid "Could not delete profile: %s"
 msgstr "Não foi possível excluir o perfil: %s"
 
@@ -1825,7 +1913,7 @@ msgstr "Não foi possível baixar os shaders"
 msgid "Could not export"
 msgstr "Não foi possível exportar"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:531
+#: bigame-engine/bigame-ui/src/views/settings.rs:684
 msgid "Could not fix them"
 msgstr "Não foi possível corrigi-los"
 
@@ -1860,12 +1948,12 @@ msgstr "Não foi possível reparar"
 msgid "Could not restore"
 msgstr "Não foi possível restaurar"
 
-#: bigame-engine/bigame-ui/src/window.rs:694
+#: bigame-engine/bigame-ui/src/window.rs:712
 msgid "Could not restore Gamescope's settings"
 msgstr "Não foi possível restaurar as configurações do Gamescope"
 
-#: bigame-engine/bigame-ui/src/window.rs:675
-#: bigame-engine/bigame-ui/src/window.rs:685
+#: bigame-engine/bigame-ui/src/window.rs:693
+#: bigame-engine/bigame-ui/src/window.rs:703
 msgid "Could not restore falcond's settings"
 msgstr "Não foi possível restaurar as configurações do falcond"
 
@@ -1896,7 +1984,7 @@ msgstr "Não foi possível salvar as configurações de lançamento"
 msgid "Could not save: %s"
 msgstr "Não foi possível salvar: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1900
 msgid "Could not start %t: %e"
 msgstr "Não foi possível abrir %t: %e"
 
@@ -1919,7 +2007,7 @@ msgid "Could not update Heroic's settings for a game"
 msgstr "Não foi possível atualizar as configurações do Heroic para um jogo"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1334
-#: bigame-engine/bigame-ui/src/window.rs:712
+#: bigame-engine/bigame-ui/src/window.rs:730
 msgid "Could not update lsfg-vk's file"
 msgstr "Não foi possível atualizar o arquivo do lsfg-vk"
 
@@ -1927,6 +2015,10 @@ msgstr "Não foi possível atualizar o arquivo do lsfg-vk"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1592
 msgid "Could not write the report"
 msgstr "Não foi possível gravar o relatório"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:245
+msgid "Counts read by Big Game Mode, last 24 hours"
+msgstr "Contagens feitas pelo Big Game Mode, últimas 24 horas"
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:315
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:414
@@ -1941,17 +2033,17 @@ msgstr "Criar ou excluir perfis de jogos"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1953
 msgid "Create profile"
 msgstr "Criar perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
-#: bigame-engine/bigame-ui/src/views/profiles.rs:566
-#: bigame-engine/bigame-ui/src/views/profiles.rs:591
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1952
+#: bigame-engine/bigame-ui/src/views/profiles.rs:749
+#: bigame-engine/bigame-ui/src/views/profiles.rs:774
 msgid "Create with Wizard"
 msgstr "Criar com Assistente"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1331
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1523
 msgid "Custom profile"
 msgstr "Perfil personalizado"
 
@@ -2019,6 +2111,13 @@ msgstr "Comparação de servidores DNS"
 msgid "Dark"
 msgstr "Escuro"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:161
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:187
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:344
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:421
+msgid "Data unavailable"
+msgstr "Dados indisponíveis"
+
 #: bigame-engine/bigame-ui/src/views/telemetry.rs:281
 msgid "Dedicated"
 msgstr "Dedicada"
@@ -2034,29 +2133,29 @@ msgstr "Padrão"
 msgid "Default is shown while the desktop asks for high contrast"
 msgstr "O Padrão é mostrado enquanto a área de trabalho pede alto contraste"
 
-#: bigame-engine/bigame-ui/src/window.rs:368
+#: bigame-engine/bigame-ui/src/window.rs:386
 msgid "Default settings restored"
 msgstr "Configurações padrão restauradas"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1353
+#: bigame-engine/bigame-ui/src/views/profiles.rs:2079
 msgid "Delete"
 msgstr "Excluir"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1155
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1158
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1342
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1345
 msgid "Delete Profile"
 msgstr "Excluir Perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1162
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1349
 msgid "Delete Profile?"
 msgstr "Excluir Perfil?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1970
 msgid "Delete profile"
 msgstr "Excluir perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
+#: bigame-engine/bigame-ui/src/views/profiles.rs:2072
 msgid "Delete this profile?"
 msgstr "Excluir este perfil?"
 
@@ -2076,7 +2175,7 @@ msgstr "Feito para eliminar 'ticks' desnecessários da CPU (despertares do tempo
 msgid "Desktop"
 msgstr "Desktop"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:553
+#: bigame-engine/bigame-ui/src/views/settings.rs:706
 msgid "Desktop notifications when a game profile is applied and when it is restored. The profile offer is controlled separately above."
 msgstr "Notificações quando o perfil de um jogo é aplicado e quando é restaurado. A oferta de perfil é controlada separadamente, acima."
 
@@ -2141,6 +2240,10 @@ msgstr "Exibição"
 msgid "Display Layer"
 msgstr "Camada de Exibição"
 
+#: bigame-engine/bigame-core/src/game_info/protondb.rs:77
+msgid "Does not run under Proton, or barely runs."
+msgstr "Não roda no Proton, ou mal roda."
+
 #: bigame-engine/bigame-ui/src/profile_offer.rs:241
 msgid "Don't ask again"
 msgstr "Não perguntar novamente"
@@ -2157,6 +2260,10 @@ msgstr "Baixar e usar"
 msgid "Download the Nara Linux style's shaders?"
 msgstr "Baixar os shaders do estilo Nara Linux?"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:466
+msgid "Downloaded game information cleared"
+msgstr "Informações de jogos baixadas foram apagadas"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2306
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2758
 msgid "Downloading, checking and installing…"
@@ -2165,6 +2272,10 @@ msgstr "Baixando, verificando e instalando…"
 #: data/com.biglinux.BiGameMode.desktop:5
 msgid "Dynamic gaming performance orchestration for BigLinux"
 msgstr "Orquestração dinâmica de desempenho em jogos para o BigLinux"
+
+#: data/com.biglinux.BiGameMode.metainfo.xml:51
+msgid "Each card shows ProtonDB's rating, or Native when Steam lists a Linux version, and the anti-cheat status from Are We Anti-Cheat Yet?"
+msgstr "Cada cartão mostra a classificação do ProtonDB, ou Native quando a Steam lista uma versão para Linux, e o status do antitrapaça segundo o Are We Anti-Cheat Yet?"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1364
 msgid "Each game's frame generation is in its profile"
@@ -2194,13 +2305,17 @@ msgstr "Cada pixel vira um bloco exato de 2 × 2, 3 × 3… pixels: sem desfoque
 msgid "Each was read back from the system after it was changed."
 msgstr "Cada item foi lido de volta do sistema depois de alterado."
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:211
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:220
 msgid "Edit"
 msgstr "Editar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1950
 msgid "Edit profile"
 msgstr "Editar perfil"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:336
+msgid "Enable Online Game Information"
+msgstr "Ativar Informações Online dos Jogos"
 
 #: bigame-engine/bigame-core/src/processes.rs:91
 msgid "Encoding or transcoding media."
@@ -2236,21 +2351,25 @@ msgstr "Cada mudança é salva na hora. Restaurar Padrões, no menu principal, v
 msgid "Every file is as it was installed"
 msgstr "Todos os arquivos estão como foram instalados"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:342
+#: bigame-engine/bigame-ui/src/views/settings.rs:495
 msgid "Every game AI Graphics changed gets its original files back. Close your games first."
 msgstr "Cada jogo que os Gráficos com IA alteraram recebe de volta seus arquivos originais. Feche seus jogos antes."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:128
+#: bigame-engine/bigame-ui/src/views/profiles.rs:188
 msgid "Every game found already has a profile."
 msgstr "Todos os jogos encontrados já têm um perfil."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:70
+#: data/com.biglinux.BiGameMode.metainfo.xml:81
 msgid "Every game's graphics can be restored in one go, and a game that got anti-cheat while OptiScaler is in it is named"
 msgstr "Os gráficos de todos os jogos podem ser restaurados de uma só vez, e um jogo que recebeu anti-cheat enquanto o OptiScaler está nele é indicado pelo nome"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:371
+#: bigame-engine/bigame-ui/src/views/settings.rs:524
 msgid "Every game's graphics were restored"
 msgstr "Os gráficos de todos os jogos foram restaurados"
+
+#: data/com.biglinux.BiGameMode.metainfo.xml:53
+msgid "Every tag explains itself, with its source, its age and a link; the library filters and sorts by them in advanced mode"
+msgstr "Cada etiqueta se explica, com a fonte, a idade e um link; no modo avançado, a biblioteca filtra e ordena por elas"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:829
 msgid "Everything a supporter needs about this machine. Your username, home directory, hostname and public network addresses are removed as the report is built."
@@ -2260,7 +2379,7 @@ msgstr "Tudo o que quem vai te ajudar precisa saber sobre esta máquina. Seu nom
 msgid "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked."
 msgstr "Tudo o que está acima em um só texto para colar num fórum ou numa issue, com seu nome de usuário, pasta pessoal e nome do computador mascarados."
 
-#: bigame-engine/bigame-ui/src/window.rs:417
+#: bigame-engine/bigame-ui/src/window.rs:435
 msgid "Everything is back to normal"
 msgstr "Tudo voltou ao normal"
 
@@ -2325,13 +2444,13 @@ msgstr "Experimental: nenhum escalonador deixou os jogos mais rápidos nas medi�
 msgid "Experimental: none made games faster in Big Game Mode's measurements."
 msgstr "Experimental: nenhum deixou os jogos mais rápidos nas medições do Big Game Mode."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1125
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1127
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1131
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1312
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1314
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1318
 msgid "Export Profile"
 msgstr "Exportar Perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1143
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1330
 msgid "Export failed: %s"
 msgstr "Falha ao exportar: %s"
 
@@ -2364,7 +2483,7 @@ msgstr "FSR 4 (do próprio jogo)"
 msgid "FSR 4 available with the launch option FSR4_UPGRADE=1"
 msgstr "FSR 4 disponível com a opção de inicialização FSR4_UPGRADE=1"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:54
+#: data/com.biglinux.BiGameMode.metainfo.xml:65
 msgid "FSR 4 can be switched off for one game, and Details lists the last crashes"
 msgstr "O FSR 4 pode ser desligado para um jogo, e Detalhes lista as últimas falhas"
 
@@ -2413,7 +2532,7 @@ msgstr "Fato"
 msgid "Failed"
 msgstr "Falhou"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:103
+#: data/com.biglinux.BiGameMode.metainfo.xml:114
 msgid "Faster, more accurate game detection for Steam, Heroic and Lutris"
 msgstr "Detecção de jogos mais rápida e precisa para Steam, Heroic e Lutris"
 
@@ -2475,7 +2594,7 @@ msgstr "Filtrar e pesquisar"
 msgid "Find the game: search by name, or filter by launcher and by whether it has a profile."
 msgstr "Encontre o jogo: pesquise pelo nome ou filtre por lançador e por ter ou não perfil."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:60
+#: data/com.biglinux.BiGameMode.metainfo.xml:71
 msgid "First, do no harm: nothing Big Game Mode offers costs frames without saying so, it stays out of the way while a game runs, and a simple mode shows only what anyone needs."
 msgstr "Primeiro, não atrapalhar: nada que o Big Game Mode oferece custa quadros sem avisar, ele fica fora do caminho enquanto um jogo roda, e um modo simples mostra só o que qualquer pessoa precisa."
 
@@ -2484,7 +2603,7 @@ msgid "Five small files (about 30 KB) from GitHub: Colourfulness and FilmGrain2 
 msgstr "Cinco arquivos pequenos (cerca de 30 KB) do GitHub: Colourfulness e FilmGrain2 dos shaders do ReShade, FakeHDR do SweetFX, e os cabeçalhos que eles incluem. Cada um é uma versão fixa, conferida pelo SHA-256 antes de ser usada, e vai para ~/.local/share/reshade. Sem eles o vkBasalt interromperia o jogo, por isso o estilo só é gravado depois que eles estão no lugar."
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:533
-#: bigame-engine/bigame-ui/src/views/settings.rs:452
+#: bigame-engine/bigame-ui/src/views/settings.rs:605
 msgid "Fix"
 msgstr "Corrigir"
 
@@ -2554,6 +2673,10 @@ msgstr "Encontrados como DLLs na pasta do jogo. Escolha um no menu gráfico do j
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1291
 msgid "Found beside the game"
 msgstr "Encontrado ao lado do jogo"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:401
+msgid "Found by its exact title: the list has no store id for this copy."
+msgstr "Encontrado pelo título exato: a lista não tem o ID da loja para esta cópia."
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:166
 msgid "Frame Generation"
@@ -2631,12 +2754,20 @@ msgstr "Jogo"
 msgid "Game API"
 msgstr "API do jogo"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:191
-#: bigame-engine/bigame-ui/src/views/profiles.rs:555
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:34
+msgid "Game Compatibility"
+msgstr "Compatibilidade do Jogo"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:334
+msgid "Game Information"
+msgstr "Informações dos Jogos"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:253
+#: bigame-engine/bigame-ui/src/views/profiles.rs:738
 msgid "Game Library"
 msgstr "Biblioteca de Jogos"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:550
+#: bigame-engine/bigame-ui/src/views/settings.rs:703
 msgid "Game Notifications"
 msgstr "Notificações de Jogos"
 
@@ -2657,12 +2788,12 @@ msgstr "Lista de jogos"
 msgid "Game name cannot be empty"
 msgstr "O nome do jogo não pode ficar vazio"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:429
+#: bigame-engine/bigame-ui/src/views/settings.rs:582
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:476
 msgid "Game profiles"
 msgstr "Perfis de jogos"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:64
+#: data/com.biglinux.BiGameMode.metainfo.xml:75
 msgid "Game profiles keep the protections falcond gives every Proton game, and no CPU scheduler is pressed on anyone"
 msgstr "Os perfis de jogo mantêm as proteções que o falcond dá a todo jogo Proton, e nenhum escalonador de CPU é imposto a ninguém"
 
@@ -2674,7 +2805,7 @@ msgstr "Gamer"
 msgid "Games from Steam, Lutris, Heroic and the application menu, native or Flatpak; only installed ones appear. A green dot is your own profile, blue one that ships with falcond."
 msgstr "Jogos da Steam, Lutris, Heroic e do menu de aplicativos, nativos ou Flatpak; só os instalados aparecem. Um ponto verde é um perfil seu; azul, um que vem com o falcond."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:192
+#: bigame-engine/bigame-ui/src/views/profiles.rs:254
 msgid "Games installed on this computer, and the profiles that tune them."
 msgstr "Jogos instalados neste computador e os perfis que os ajustam."
 
@@ -2930,7 +3061,7 @@ msgstr "Saída HDR"
 msgid "HDR output is requested"
 msgstr "a saída HDR foi pedida"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:514
+#: bigame-engine/bigame-ui/src/views/settings.rs:667
 msgid "HOME is not set"
 msgstr "A variável HOME não está definida"
 
@@ -2958,7 +3089,7 @@ msgstr "Hardware"
 msgid "Help"
 msgstr "Ajuda"
 
-#: bigame-engine/bigame-ui/src/window.rs:493
+#: bigame-engine/bigame-ui/src/window.rs:511
 msgid "Help & Tutorial"
 msgstr "Ajuda e Tutorial"
 
@@ -3023,7 +3154,7 @@ msgstr "Configurações do Heroic"
 msgid "Heroic's settings for %s are not an object"
 msgstr "As configurações do Heroic para %s não são um objeto"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1092
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1279
 msgid "Heroic's settings for this game"
 msgstr "Configurações do Heroic para este jogo"
 
@@ -3061,6 +3192,10 @@ msgstr "Como os arquivos são alterados com segurança"
 msgid "How it is known"
 msgstr "Como se sabe"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:362
+msgid "How many play each Steam game now; asked only while this is on"
+msgstr "Quantas pessoas jogam cada jogo da Steam agora; consultado só enquanto isto estiver ligado"
+
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:354
 msgid "How much every disk reads and writes each second, together."
 msgstr "Quanto todos os discos leem e gravam por segundo, somados."
@@ -3078,7 +3213,7 @@ msgstr "Como o jogo inicia"
 msgid "How this is decided"
 msgstr "Como isto é decidido"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:101
+#: data/com.biglinux.BiGameMode.metainfo.xml:112
 msgid "Hybrid NVIDIA laptops: Gamescope no longer crashes, and nested Gamescope shows the game the screen's size"
 msgstr "Notebooks híbridos com NVIDIA: o Gamescope não trava mais, e o Gamescope aninhado mostra o jogo no tamanho da tela"
 
@@ -3096,9 +3231,9 @@ msgstr "Qualidade de imagem"
 msgid "Immediate"
 msgstr "Imediato"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:313
-#: bigame-engine/bigame-ui/src/views/profiles.rs:316
-#: bigame-engine/bigame-ui/src/views/profiles.rs:473
+#: bigame-engine/bigame-ui/src/views/profiles.rs:396
+#: bigame-engine/bigame-ui/src/views/profiles.rs:399
+#: bigame-engine/bigame-ui/src/views/profiles.rs:656
 msgid "Import Profile"
 msgstr "Importar Perfil"
 
@@ -3106,8 +3241,8 @@ msgstr "Importar Perfil"
 msgid "Import and export"
 msgstr "Importar e exportar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:506
-#: bigame-engine/bigame-ui/src/views/profiles.rs:545
+#: bigame-engine/bigame-ui/src/views/profiles.rs:689
+#: bigame-engine/bigame-ui/src/views/profiles.rs:728
 msgid "Import failed: %s"
 msgstr "Falha ao importar: %s"
 
@@ -3156,7 +3291,7 @@ msgstr "Indexa arquivos em segundo plano. Geralmente pode ser pausado sem proble
 msgid "Information"
 msgstr "Informação"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:132
+#: data/com.biglinux.BiGameMode.metainfo.xml:143
 msgid "Initial release with dashboard, profiles, tuning, and gamescope panels."
 msgstr "Versão inicial com as seções Painel, Perfis, Ajustes e Gamescope."
 
@@ -3168,7 +3303,7 @@ msgstr "Instale o Lossless Scaling pela sua biblioteca da Steam (no Linux, a Ste
 msgid "Install Missing Packages"
 msgstr "Instalar Pacotes Ausentes"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:217
+#: bigame-engine/bigame-ui/src/views/profiles.rs:279
 msgid "Install a game through Steam, Lutris, Heroic or the application menu, then rescan."
 msgstr "Instale um jogo pela Steam, pelo Lutris, pelo Heroic ou pelo menu de aplicativos e verifique de novo."
 
@@ -3221,6 +3356,10 @@ msgstr "Instalado. Exibido por jogo, a partir do perfil (Desligado, Ligado, For�
 msgid "Installed; every replaced file was backed up"
 msgstr "Instalado; cada arquivo substituído foi copiado antes"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:209
+msgid "Insufficient History"
+msgstr "Histórico Insuficiente"
+
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:46
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:85
 msgid "Integer scaling"
@@ -3262,7 +3401,7 @@ msgstr "O lançador guarda as configurações com que foi aberto: os jogos dele 
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Só faz efeito em tela cheia exclusiva, numa resolução abaixo da da área de trabalho. Evidência: o ambiente do processo do jogo."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1750
 msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
 msgstr "O anticheat dele, %s, recusa o Wine e o Proton de propósito: ele para o jogo antes de começar. Nenhuma configuração do Big Game Mode, do Proton ou da Steam muda isso, e contorná-lo pode fazer a conta ser banida."
 
@@ -3335,6 +3474,10 @@ msgstr "Mantém menos núcleos ocupados para os outros poderem dormir: para note
 msgid "Kept at this version: newer releases are not offered"
 msgstr "Mantido nesta versão: versões mais novas não são oferecidas"
 
+#: data/com.biglinux.BiGameMode.metainfo.xml:54
+msgid "Kept for offline use and asked again only when a source allows, never while a game runs; Settings turns it off"
+msgstr "Guardado para uso offline e consultado de novo só quando a fonte permite, nunca enquanto um jogo roda; Configurações desliga isso"
+
 #: bigame-engine/bigame-ui/src/views/logs.rs:52
 msgid "Kernel and GPU"
 msgstr "Kernel e GPU"
@@ -3351,6 +3494,15 @@ msgstr "Tipo"
 msgid "LSFG-VK inserts synthetically generated frames to multiply your framerate, providing a smoother visual experience at the cost of slight input latency."
 msgstr "O LSFG-VK insere quadros gerados artificialmente para multiplicar a sua taxa de quadros, deixando a imagem mais fluida em troca de um pouco mais de atraso nos comandos."
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:422
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:178
+msgid "Last Updated"
+msgstr "Última Atualização"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:392
+msgid "Last change in the list"
+msgstr "Última mudança na lista"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2598
 msgid "Last read"
 msgstr "Última leitura"
@@ -3364,8 +3516,8 @@ msgstr "Latency-Aware Virtual Deadline. A melhor escolha para jogos! Dá priorid
 msgid "Latest stable"
 msgstr "Mais recente estável"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
-#: bigame-engine/bigame-ui/src/views/profiles.rs:879
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1066
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1947
 msgid "Launch (Turbo)"
 msgstr "Iniciar (Turbo)"
 
@@ -3383,7 +3535,7 @@ msgid "Launch options fixed"
 msgstr "Opções de inicialização corrigidas"
 
 #: bigame-engine/bigame-ui/src/crash_watch.rs:363
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1213
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1400
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
 msgstr "Opções de inicialização: feche a Steam primeiro: ela as mantém na memória e sobrescreveria a mudança."
@@ -3400,17 +3552,17 @@ msgstr "Configurações de lançamento atualizadas nas configurações do Heroic
 msgid "Launch settings: Heroic is running a game. Close the game, then save again with Heroic closed: it keeps this game's settings in memory and would overwrite the change."
 msgstr "Configurações de lançamento: o Heroic está rodando um jogo. Feche o jogo e salve de novo com o Heroic fechado: ele mantém as configurações deste jogo na memória e sobrescreveria a mudança."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1218
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1405
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:767
 msgid "Launch settings: close Heroic first: it keeps this game's settings in memory and would overwrite the change."
 msgstr "Configurações de lançamento: feche o Heroic primeiro: ele mantém as configurações deste jogo na memória e sobrescreveria a mudança."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:918
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1105
 msgid "Launch without saving"
 msgstr "Iniciar sem salvar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:253
-#: bigame-engine/bigame-ui/src/views/profiles.rs:254
+#: bigame-engine/bigame-ui/src/views/profiles.rs:315
+#: bigame-engine/bigame-ui/src/views/profiles.rs:316
 msgid "Launcher"
 msgstr "Lançador"
 
@@ -3449,7 +3601,7 @@ msgstr "Deixados de fora de %s"
 msgid "Left to the component that owns it, which sets it for each game."
 msgstr "Deixado para o componente responsável, que o define para cada jogo."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:82
+#: data/com.biglinux.BiGameMode.metainfo.xml:93
 msgid "Less work in the background while the window is closed, and fewer helper programs taken for the running game"
 msgstr "Menos trabalho em segundo plano com a janela fechada, e menos programas auxiliares confundidos com o jogo em execução"
 
@@ -3464,6 +3616,15 @@ msgstr "Claro"
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:357
 msgid "Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."
 msgstr "Motivos prováveis: o jogo foi aberto pela Steam ou pelo launcher dele, não pelo Big Game Mode (Perfis → Iniciar); o Gamescope encerrou ao abrir (a camada WSI dele, um jogo que prefere Wayland); o perfil do jogo diz Nunca."
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:343
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:36
+msgid "Linux Compatibility"
+msgstr "Compatibilidade com Linux"
+
+#: bigame-engine/bigame-core/src/game_info/anticheat.rs:95
+msgid "Linux support was announced, and is not there yet."
+msgstr "O suporte a Linux foi anunciado, mas ainda não chegou."
 
 #: bigame-engine/bigame-ui/src/views/home.rs:126
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:199
@@ -3559,7 +3720,7 @@ msgstr "O Lutris precisa ser reaberto"
 msgid "Mailbox"
 msgstr "Caixa de Entrada (Mailbox)"
 
-#: bigame-engine/bigame-ui/src/window.rs:488
+#: bigame-engine/bigame-ui/src/window.rs:506
 msgid "Main Menu"
 msgstr "Menu Principal"
 
@@ -3641,7 +3802,7 @@ msgstr "Medir"
 msgid "Measure again"
 msgstr "Medir de novo"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1961
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3712,7 +3873,7 @@ msgstr "Pacotes ausentes"
 msgid "Mode %s applied"
 msgstr "Modo %s aplicado"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:566
+#: bigame-engine/bigame-ui/src/views/settings.rs:722
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1378
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1582
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:304
@@ -3731,12 +3892,12 @@ msgstr "Mais informações"
 msgid "More information about %s"
 msgstr "Mais informações sobre %s"
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:226
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:228
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:235
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:237
 msgid "More options"
 msgstr "Mais opções"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:577
+#: bigame-engine/bigame-ui/src/views/settings.rs:733
 msgid "More pages and settings for people who know their hardware"
 msgstr "Mais páginas e configurações para quem conhece o próprio hardware"
 
@@ -3794,7 +3955,7 @@ msgstr "Nara Linux (ReShade, três efeitos em tela cheia: custa quadros)"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1919
 msgid "Native"
 msgstr "Nativo"
 
@@ -3878,8 +4039,8 @@ msgstr "Modelo de renderização neural"
 msgid "Never"
 msgstr "Nunca"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:285
-#: bigame-engine/bigame-ui/src/views/profiles.rs:628
+#: bigame-engine/bigame-ui/src/views/profiles.rs:368
+#: bigame-engine/bigame-ui/src/views/profiles.rs:811
 msgid "New Profile"
 msgstr "Novo Perfil"
 
@@ -3929,15 +4090,15 @@ msgstr "Nenhum driver cpufreq informa um governador"
 msgid "No default route — this machine is offline"
 msgstr "Sem rota padrão — esta máquina está sem conexão"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:106
+#: data/com.biglinux.BiGameMode.metainfo.xml:117
 msgid "No extra repository needed: falcond, lsfg-vk, sched-ext, Gamescope, MangoHud and vkBasalt are optional, and what needs one says so and how to install it"
 msgstr "Nenhum repositório extra necessário: falcond, lsfg-vk, sched-ext, Gamescope, MangoHud e vkBasalt são opcionais, e o que precisa de um avisa e mostra como instalá-lo"
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:435
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:458
 msgid "No game executable was found, so this profile may not match the running game."
 msgstr "Nenhum executável do jogo foi encontrado, então este perfil pode não corresponder ao jogo em execução."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:369
+#: bigame-engine/bigame-ui/src/views/settings.rs:522
 msgid "No game has files from AI Graphics"
 msgstr "Nenhum jogo tem arquivos dos Gráficos com IA"
 
@@ -3945,17 +4106,17 @@ msgstr "Nenhum jogo tem arquivos dos Gráficos com IA"
 msgid "No game running"
 msgstr "Nenhum jogo em execução"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:131
+#: bigame-engine/bigame-ui/src/views/profiles.rs:191
 msgid "No game with a profile yet"
 msgstr "Nenhum jogo com perfil ainda"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:127
+#: bigame-engine/bigame-ui/src/views/profiles.rs:187
 msgid "No game without a profile"
 msgstr "Nenhum jogo sem perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:135
-#: bigame-engine/bigame-ui/src/views/profiles.rs:216
-#: bigame-engine/bigame-ui/src/views/profiles.rs:231
+#: bigame-engine/bigame-ui/src/views/profiles.rs:195
+#: bigame-engine/bigame-ui/src/views/profiles.rs:278
+#: bigame-engine/bigame-ui/src/views/profiles.rs:293
 msgid "No games found"
 msgstr "Nenhum jogo encontrado"
 
@@ -3978,6 +4139,10 @@ msgstr "Sem perfil"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:150
 msgid "No program of yours is using a noticeable share."
 msgstr "Nenhum programa seu está usando uma parte perceptível."
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:336
+msgid "No reports yet"
+msgstr "Nenhum relato ainda"
 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:773
 msgid "No response"
@@ -4007,6 +4172,10 @@ msgstr "Sem swap"
 msgid "No, by the game's profile (Never)"
 msgstr "Não, pelo perfil do jogo (Nunca)"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:337
+msgid "Nobody has reported on this game on ProtonDB."
+msgstr "Ninguém enviou relatos sobre este jogo no ProtonDB."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1019
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:273
 #: bigame-engine/bigame-ui/src/views/details/overview.rs:275
@@ -4018,7 +4187,7 @@ msgstr "Nenhum"
 msgid "None asked for: the kernel's default scheduler"
 msgstr "Nenhum pedido: o escalonador padrão do kernel"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:494
+#: bigame-engine/bigame-ui/src/views/settings.rs:647
 msgid "None need fixing"
 msgstr "Nenhum precisa de correção"
 
@@ -4037,6 +4206,10 @@ msgstr "Ainda não aplicado — Restaurar os gráficos do jogo devolve os arquiv
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:874
 msgid "Not applied yet — press Apply"
 msgstr "Ainda não aplicado — clique em Aplicar"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:425
+msgid "Not asked yet"
+msgstr "Ainda não consultado"
 
 #: bigame-engine/bigame-core/src/recommend.rs:53
 #: bigame-engine/bigame-ui/src/views/report.rs:37
@@ -4098,6 +4271,11 @@ msgstr "Não instalado. Filtros visuais (nitidez, cor) para jogos Vulkan e Proto
 msgid "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it Turbo applies only the general settings and presets, and these options are unavailable."
 msgstr "Não instalado. O falcond aplica o perfil de desempenho de cada jogo (perfil de energia, escalonador de CPU, 3D V-Cache) enquanto o Turbo está ligado; sem ele, o Turbo aplica apenas as configurações gerais e os presets, e estas opções ficam indisponíveis."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1587
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:415
+msgid "Not listed"
+msgstr "Não listado"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:149
 msgid "Not managed: Big Game Mode has not changed falcond's service"
 msgstr "Não gerenciado: o Big Game Mode não alterou o serviço do falcond"
@@ -4121,6 +4299,14 @@ msgstr "Não oferecido para este jogo"
 msgid "Not offered: this game has anti-cheat"
 msgstr "Não oferecido: este jogo tem anti-cheat"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:323
+msgid "Not rated yet"
+msgstr "Ainda sem classificação"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:414
+msgid "Not reachable now"
+msgstr "Inacessível agora"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:191
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:546
 msgid "Not recommended"
@@ -4130,7 +4316,7 @@ msgstr "Não recomendado"
 msgid "Not reported"
 msgstr "Não informado"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:373
+#: bigame-engine/bigame-ui/src/views/settings.rs:526
 msgid "Not restored (close them and try again): %s"
 msgstr "Não restaurados (feche-os e tente de novo): %s"
 
@@ -4194,6 +4380,10 @@ msgstr "Nada instalado"
 msgid "Nothing installed for the running game"
 msgstr "Nada instalado para o jogo em execução"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:452
+msgid "Nothing is asked while a game runs; try again once it is closed."
+msgstr "Nada é consultado enquanto um jogo está rodando; tente de novo depois de fechá-lo."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1178
 msgid "Nothing is injected into a game with anti-cheat, whatever is installed."
 msgstr "Nada é injetado num jogo com antitrapaça, seja o que for que esteja instalado."
@@ -4251,7 +4441,7 @@ msgstr "Nada foi alterado"
 msgid "Nothing worth installing, or it would be worse than what the game already has. The reason is on the page."
 msgstr "Nada que valha a pena instalar, ou seria pior do que o que o jogo já tem. O motivo está na página."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:546
+#: bigame-engine/bigame-ui/src/views/settings.rs:699
 msgid "Notifications"
 msgstr "Notificações"
 
@@ -4275,6 +4465,10 @@ msgstr "Agora: o escalonador do próprio kernel"
 #: bigame-engine/bigame-ui/src/views/home.rs:706
 msgid "OK"
 msgstr "OK"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:204
+msgid "Observed Peak"
+msgstr "Pico Observado"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:417
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1669
@@ -4305,7 +4499,7 @@ msgstr "Desligado, o Big Game Mode não interfere nos jogos. Ligado, o falcond a
 msgid "Off: Big Game Mode is not intervening in games"
 msgstr "Desligado: o Big Game Mode não está interferindo nos jogos"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:432
+#: bigame-engine/bigame-ui/src/views/settings.rs:585
 msgid "Offer a profile for new games"
 msgstr "Oferecer um perfil para jogos novos"
 
@@ -4313,7 +4507,7 @@ msgstr "Oferecer um perfil para jogos novos"
 msgid "Offline"
 msgstr "Sem conexão"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:459
+#: bigame-engine/bigame-ui/src/views/settings.rs:612
 msgid "Older versions named profiles after the game's title, which falcond can never match, and stored settings falcond ignores. Fixing renames each one to the game's real process and keeps only falcond's settings. Every profile is backed up first to ~/.local/state/bigame-mode. falcond's own profiles are never touched."
 msgstr "Versões antigas nomeavam os perfis pelo título do jogo, que o falcond nunca consegue reconhecer, e guardavam configurações que o falcond ignora. A correção renomeia cada um para o processo real do jogo e mantém apenas as configurações do falcond. Todos os perfis são copiados antes para ~/.local/state/bigame-mode. Os perfis do próprio falcond nunca são alterados."
 
@@ -4364,7 +4558,7 @@ msgstr "Ligado: jogos Vulkan e Proton. Forçado: jogos OpenGL também."
 msgid "On: falcond runs and applies each game's profile"
 msgstr "Ligado: o falcond roda e aplica o perfil de cada jogo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:53
+#: data/com.biglinux.BiGameMode.metainfo.xml:64
 msgid "One button keeps vkBasalt, FSR 4 and Wine FSR out of that game from its next start; nothing changes until it is chosen"
 msgstr "Um botão deixa o vkBasalt, o FSR 4 e o Wine FSR de fora daquele jogo a partir da próxima vez que ele abrir; nada muda até que ele seja escolhido"
 
@@ -4408,7 +4602,7 @@ msgstr "Só a aparência muda: todas as páginas funcionam igual"
 msgid "Only this game, over a Turbo preset's cap. Pick your screen's refresh rate or half of it (80 on a 160 Hz screen) so frames stay even."
 msgstr "Só este jogo, no lugar do limite de um preset do Turbo. Escolha a taxa de atualização da sua tela ou a metade dela (80 numa tela de 160 Hz) para que os quadros fiquem regulares."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:80
+#: data/com.biglinux.BiGameMode.metainfo.xml:91
 msgid "Only what Big Game Mode added is removed, account by account; your own launch options, MangoHud and vkBasalt files and their symbolic links are kept"
 msgstr "Só é removido o que o Big Game Mode adicionou, conta por conta; suas próprias opções de inicialização, arquivos do MangoHud e do vkBasalt e seus links simbólicos são mantidos"
 
@@ -4663,11 +4857,11 @@ msgstr "A própria geração de quadros do OptiScaler (OptiFG, com a geração d
 msgid "Optimization Report"
 msgstr "Relatório de Otimização"
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:213
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:222
 msgid "Optimize"
 msgstr "Otimizar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:132
+#: bigame-engine/bigame-ui/src/views/profiles.rs:192
 msgid "Optimize a game from its card to create one."
 msgstr "Otimize um jogo pelo card dele para criar um."
 
@@ -4740,6 +4934,10 @@ msgstr "Pausar %s?"
 msgid "Paused by Big Game Mode — frozen, using no CPU, until you resume it."
 msgstr "Pausado pelo Big Game Mode — congelado, sem usar CPU, até você retomá-lo."
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:197
+msgid "Peak today"
+msgstr "Pico de hoje"
+
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1396
 msgid "Per game"
 msgstr "Por jogo"
@@ -4807,14 +5005,22 @@ msgstr "Ping para %s"
 msgid "Plan"
 msgstr "Plano"
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:209
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:218
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:67
 msgid "Play"
 msgstr "Jogar"
 
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:220
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:229
 msgid "Play %s"
 msgstr "Jogar %s"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:171
+msgid "Players Now"
+msgstr "Jogadores Agora"
+
+#: bigame-engine/bigame-core/src/game_info/anticheat.rs:92
+msgid "Players report it running, without the maker's support. It can stop working with an update, and it is no promise that an account is safe."
+msgstr "Jogadores relatam que funciona, sem o suporte da desenvolvedora. Pode parar de funcionar com uma atualização, e não é garantia de que uma conta está segura."
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:161
 msgid "Post-processing filters (sharpening, colour) in Vulkan games"
@@ -4878,8 +5084,8 @@ msgstr "Problemas"
 msgid "Process"
 msgstr "Processo"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:696
-#: bigame-engine/bigame-ui/src/views/profiles.rs:703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:883
+#: bigame-engine/bigame-ui/src/views/profiles.rs:890
 msgid "Process Name"
 msgstr "Nome do Processo"
 
@@ -4888,7 +5094,7 @@ msgstr "Nome do Processo"
 msgid "Processor"
 msgstr "Processador"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:89
+#: data/com.biglinux.BiGameMode.metainfo.xml:100
 msgid "Processors without AVX2, such as Sandy Bridge and Ivy Bridge: when the installed falcond cannot run on them, Turbo still comes on with the general settings, says why, and does not start that falcond again until the package changes."
 msgstr "Processadores sem AVX2, como Sandy Bridge e Ivy Bridge: quando o falcond instalado não consegue rodar neles, o Turbo liga mesmo assim com as configurações gerais, explica o motivo e não inicia esse falcond de novo até o pacote mudar."
 
@@ -4909,8 +5115,8 @@ msgid "Profile applied"
 msgstr "Perfil aplicado"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
-#: bigame-engine/bigame-ui/src/views/profiles.rs:455
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1992
+#: bigame-engine/bigame-ui/src/views/profiles.rs:638
 msgid "Profile created"
 msgstr "Perfil criado"
 
@@ -4918,8 +5124,8 @@ msgstr "Perfil criado"
 msgid "Profile created and active"
 msgstr "Perfil criado e ativo"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1208
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1223
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1395
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1410
 msgid "Profile deleted"
 msgstr "Perfil excluído"
 
@@ -4927,15 +5133,15 @@ msgstr "Perfil excluído"
 msgid "Profile editor"
 msgstr "Editor de perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1140
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1327
 msgid "Profile exported"
 msgstr "Perfil exportado"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1051
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1238
 msgid "Profile file"
 msgstr "Arquivo de perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:478
+#: bigame-engine/bigame-ui/src/views/profiles.rs:661
 msgid "Profile files"
 msgstr "Arquivos de perfil"
 
@@ -4943,11 +5149,11 @@ msgstr "Arquivos de perfil"
 msgid "Profile for %s"
 msgstr "Perfil de %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:499
+#: bigame-engine/bigame-ui/src/views/profiles.rs:682
 msgid "Profile imported"
 msgstr "Perfil importado"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:540
+#: bigame-engine/bigame-ui/src/views/profiles.rs:723
 msgid "Profile imported via drag-and-drop"
 msgstr "Perfil importado"
 
@@ -4996,8 +5202,8 @@ msgstr "Perfis para um PC ligado a uma TV e jogado do sofá."
 msgid "Profiles for handheld PCs such as the Steam Deck or the ROG Ally: they favour battery life, and some switch performance mode off."
 msgstr "Perfis para PCs portáteis como o Steam Deck ou o ROG Ally: favorecem a duração da bateria, e alguns desligam o modo de desempenho."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:447
-#: bigame-engine/bigame-ui/src/views/settings.rs:458
+#: bigame-engine/bigame-ui/src/views/settings.rs:600
+#: bigame-engine/bigame-ui/src/views/settings.rs:611
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:488
 msgid "Profiles from an older Big Game Mode"
 msgstr "Perfis de uma versão antiga do Big Game Mode"
@@ -5006,7 +5212,7 @@ msgstr "Perfis de uma versão antiga do Big Game Mode"
 msgid "Profiles loaded"
 msgstr "Perfis carregados"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:338
+#: bigame-engine/bigame-ui/src/views/profiles.rs:421
 msgid "Profiles of yours that match no installed game. They stay until you delete them."
 msgstr "Perfis seus que não correspondem a nenhum jogo instalado. Eles ficam até você apagá-los."
 
@@ -5051,6 +5257,26 @@ msgstr "Proton / Wine"
 msgid "Proton's upgrade of a game's FSR 3.1 to FSR 4, which the Pretty Turbo preset asks for. Off keeps it out of this game alone."
 msgstr "Atualização do FSR 3.1 de um jogo para o FSR 4 feita pelo Proton, que o preset Bonito do Turbo pede. Desligado deixa isso de fora só deste jogo."
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:345
+msgid "ProtonDB could not be reached; it is asked again later."
+msgstr "Não foi possível acessar o ProtonDB; ele será consultado de novo mais tarde."
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:351
+msgid "ProtonDB rates Steam games; this one is not from Steam."
+msgstr "O ProtonDB classifica jogos da Steam; este não é da Steam."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:350
+msgid "ProtonDB's rating, or Native, on the game cards"
+msgstr "A classificação do ProtonDB, ou Native, nos cartões dos jogos"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:358
+msgid "ProtonDB's ratings are players' reports, not a promise: a game's update can change them."
+msgstr "As classificações do ProtonDB são relatos de jogadores, não uma garantia: uma atualização do jogo pode mudá-las."
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:337
+msgid "ProtonDB, Are We Anti-Cheat Yet? and Steam"
+msgstr "ProtonDB, Are We Anti-Cheat Yet? e Steam"
+
 #: bigame-engine/bigame-ui/src/views/report.rs:34
 msgid "Put back"
 msgstr "Restaurado"
@@ -5077,7 +5303,7 @@ msgid "Quiet"
 msgstr "Silencioso"
 
 #: bigame-engine/bigame-ui/src/tray.rs:219
-#: bigame-engine/bigame-ui/src/window.rs:481
+#: bigame-engine/bigame-ui/src/window.rs:499
 msgid "Quit"
 msgstr "Sair"
 
@@ -5148,8 +5374,8 @@ msgstr "Lendo o jogo…"
 msgid "Reading the system…"
 msgstr "Lendo o sistema…"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1072
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1093
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1259
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1280
 #: bigame-engine/bigame-ui/src/views/report.rs:184
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1551
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1637
@@ -5172,6 +5398,10 @@ msgstr "Pronto para jogar"
 msgid "Real-time telemetry, diagnostics and one view of every relevant log"
 msgstr "Telemetria em tempo real, diagnósticos e uma só visão de todos os registros relevantes"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:327
+msgid "Recent reports"
+msgstr "Relatos recentes"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:812
 msgid "Recommendation"
 msgstr "Recomendação"
@@ -5192,8 +5422,8 @@ msgstr "Recomendado para este jogo"
 msgid "Recommended picks for this game and graphics card. The quality preset stays the one chosen in the game's own menu."
 msgstr "Recomendado escolhe para este jogo e esta placa de vídeo. A predefinição de qualidade continua a escolhida no menu do próprio jogo."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:571
-#: bigame-engine/bigame-ui/src/views/profiles.rs:592
+#: bigame-engine/bigame-ui/src/views/profiles.rs:754
+#: bigame-engine/bigame-ui/src/views/profiles.rs:775
 msgid "Recommended · every option explained"
 msgstr "Recomendado · cada opção explicada"
 
@@ -5206,6 +5436,10 @@ msgstr "Recomendado — abre depois que o perfil for criado"
 msgid "Refresh"
 msgstr "Atualizar"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:445
+msgid "Refresh Cached Information"
+msgstr "Atualizar Informações em Cache"
+
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:861
 msgid "Regenerate"
 msgstr "Gerar novamente"
@@ -5214,7 +5448,7 @@ msgstr "Gerar novamente"
 msgid "Reinstall falcond. If it keeps happening, report it and include the Support report."
 msgstr "Reinstale o falcond. Se continuar acontecendo, relate o problema e inclua o Relatório para suporte."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1163
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1350
 msgid "Remove \"%s\" permanently?"
 msgstr "Remover \"%s\" permanentemente?"
 
@@ -5287,12 +5521,12 @@ msgstr "Relatado como funcional, mas não consolidado, ou depende de anunciar ou
 msgid "Required packages were not found in the system"
 msgstr "Os pacotes necessários não foram encontrados no sistema"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:319
-#: bigame-engine/bigame-ui/src/views/profiles.rs:322
+#: bigame-engine/bigame-ui/src/views/profiles.rs:402
+#: bigame-engine/bigame-ui/src/views/profiles.rs:405
 msgid "Rescan game library"
 msgstr "Buscar jogos novamente na biblioteca"
 
-#: bigame-engine/bigame-ui/src/window.rs:347
+#: bigame-engine/bigame-ui/src/window.rs:365
 msgid "Reset all Tuning and Gamescope settings to recommended defaults. This cannot be undone."
 msgstr "Restaura todas as configurações de Ajustes e do Gamescope para os padrões recomendados. Isso não pode ser desfeito."
 
@@ -5311,17 +5545,17 @@ msgstr "Resolvido: %s é o único upscaler"
 msgid "Restart Big Game Mode"
 msgstr "Reiniciar o Big Game Mode"
 
-#: bigame-engine/bigame-ui/src/window.rs:350
+#: bigame-engine/bigame-ui/src/window.rs:368
 msgid "Restore"
 msgstr "Restaurar"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:336
-#: bigame-engine/bigame-ui/src/views/settings.rs:347
+#: bigame-engine/bigame-ui/src/views/settings.rs:489
+#: bigame-engine/bigame-ui/src/views/settings.rs:500
 msgid "Restore All"
 msgstr "Restaurar tudo"
 
-#: bigame-engine/bigame-ui/src/window.rs:346
-#: bigame-engine/bigame-ui/src/window.rs:474
+#: bigame-engine/bigame-ui/src/window.rs:364
+#: bigame-engine/bigame-ui/src/window.rs:492
 msgid "Restore Defaults"
 msgstr "Restaurar Padrões"
 
@@ -5330,11 +5564,11 @@ msgstr "Restaurar Padrões"
 msgid "Restore Game Graphics"
 msgstr "Restaurar os gráficos do jogo"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:330
+#: bigame-engine/bigame-ui/src/views/settings.rs:483
 msgid "Restore every game's graphics"
 msgstr "Restaurar os gráficos de todos os jogos"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:341
+#: bigame-engine/bigame-ui/src/views/settings.rs:494
 msgid "Restore every game's graphics?"
 msgstr "Restaurar os gráficos de todos os jogos?"
 
@@ -5346,7 +5580,7 @@ msgstr "Restaurar anterior"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "Restaurar devolve os arquivos do jogo; uma DLL FidelityFX ausente é corrigida por Reparar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1965
 msgid "Restore the game's graphics"
 msgstr "Restaurar os gráficos do jogo"
 
@@ -5441,17 +5675,33 @@ msgstr "Rodando, mas o status não pôde ser lido"
 msgid "Runs a game with and without optimizations, several times, and calls a change an improvement only when it beats the variation."
 msgstr "Roda um jogo com e sem otimizações, várias vezes, e só chama uma mudança de melhoria quando ela supera a variação."
 
+#: bigame-engine/bigame-core/src/game_info/protondb.rs:81
+msgid "Runs perfectly under Proton, out of the box."
+msgstr "Roda perfeitamente no Proton, sem ajustes."
+
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:254
 msgid "Runs the game with and without optimizations, alternating, and calls a change an improvement only when it beats the variation."
 msgstr "Roda o jogo com e sem otimizações, alternando, e só chama uma mudança de melhoria quando ela supera a variação."
+
+#: bigame-engine/bigame-core/src/game_info/protondb.rs:80
+msgid "Runs very well, perhaps after small tweaks."
+msgstr "Roda muito bem, talvez com pequenos ajustes."
+
+#: bigame-engine/bigame-core/src/game_info/protondb.rs:78
+msgid "Runs, with significant problems."
+msgstr "Roda, com problemas sérios."
+
+#: bigame-engine/bigame-core/src/game_info/protondb.rs:79
+msgid "Runs, with some problems or limits."
+msgstr "Roda, com alguns problemas ou limitações."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2633
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2970
 msgid "Save Choice"
 msgstr "Salvar escolha"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:727
-#: bigame-engine/bigame-ui/src/views/profiles.rs:791
+#: bigame-engine/bigame-ui/src/views/profiles.rs:914
+#: bigame-engine/bigame-ui/src/views/profiles.rs:978
 msgid "Save Profile"
 msgstr "Salvar Perfil"
 
@@ -5459,7 +5709,7 @@ msgstr "Salvar Perfil"
 msgid "Save Report"
 msgstr "Salvar relatório"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:919
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1106
 msgid "Save and launch"
 msgstr "Salvar e iniciar"
 
@@ -5467,7 +5717,7 @@ msgstr "Salvar e iniciar"
 msgid "Save diagnostics"
 msgstr "Salvar diagnóstico"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:912
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1099
 msgid "Save the profile first?"
 msgstr "Salvar o perfil antes?"
 
@@ -5493,7 +5743,7 @@ msgid "Saved. It applies the next time a game starts."
 msgstr "Salvo. Vale na próxima vez que um jogo iniciar."
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:363
-#: bigame-engine/bigame-ui/src/views/profiles.rs:784
+#: bigame-engine/bigame-ui/src/views/profiles.rs:971
 msgid "Saving…"
 msgstr "Salvando…"
 
@@ -5550,11 +5800,11 @@ msgstr "Protetor de tela inibido"
 msgid "Search"
 msgstr "Pesquisar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:250
+#: bigame-engine/bigame-ui/src/views/profiles.rs:312
 msgid "Search games"
 msgstr "Buscar jogos"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:247
+#: bigame-engine/bigame-ui/src/views/profiles.rs:309
 msgid "Search games…"
 msgstr "Buscar jogos…"
 
@@ -5606,11 +5856,23 @@ msgstr "Compartilhado por todos os jogos, e salvo assim que você para de digita
 msgid "Show"
 msgstr "Mostrar"
 
+#: bigame-engine/bigame-ui/src/views/settings.rs:355
+msgid "Show Anti-Cheat Status"
+msgstr "Mostrar Status do Antitrapaça"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:349
+msgid "Show Compatibility Badges"
+msgstr "Mostrar Selos de Compatibilidade"
+
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1442
 msgid "Show MangoHud"
 msgstr "Mostrar o MangoHud"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:576
+#: bigame-engine/bigame-ui/src/views/settings.rs:361
+msgid "Show Steam Player Counts"
+msgstr "Mostrar Número de Jogadores na Steam"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:732
 msgid "Show advanced options"
 msgstr "Mostrar opções avançadas"
 
@@ -5618,7 +5880,7 @@ msgstr "Mostrar opções avançadas"
 msgid "Show dialog on startup"
 msgstr "Mostrar a janela ao iniciar"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:551
+#: bigame-engine/bigame-ui/src/views/settings.rs:704
 msgid "Show notifications on game launch and exit"
 msgstr "Mostrar notificações ao iniciar e encerrar jogos"
 
@@ -5630,11 +5892,11 @@ msgstr "Mostre só erros, avisos ou uma fonte, ou pesquise no texto."
 msgid "Shown"
 msgstr "Exibidas"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:579
+#: bigame-engine/bigame-ui/src/views/settings.rs:735
 msgid "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need."
 msgstr "Mostra Ajustes, Detalhes e Registros, e as configurações técnicas de cada página: falcond, escalonadores de CPU, Gamescope, vkBasalt, geração de quadros. Desligado, o Big Game Mode mostra o Turbo, o que os jogos devem priorizar e os seus jogos, que é tudo de que a maioria das pessoas precisa."
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:435
+#: bigame-engine/bigame-ui/src/views/settings.rs:588
 msgid "Shows a notification, never a window over your game. The profile is built for this machine, and its review shows why each value was chosen. Nothing is created unless you choose to."
 msgstr "Mostra uma notificação, nunca uma janela sobre o jogo. O perfil é montado para esta máquina, e a revisão mostra por que cada valor foi escolhido. Nada é criado sem a sua escolha."
 
@@ -5642,7 +5904,7 @@ msgstr "Mostra uma notificação, nunca uma janela sobre o jogo. O perfil é mon
 msgid "Similar to Chaos, it aggressively stress-tests the CPU by constantly migrating tasks between cores in the most unpredictable ways possible."
 msgstr "Parecido com o Chaos, ele testa a CPU sob estresse de forma agressiva, migrando tarefas entre os núcleos o tempo todo da maneira mais imprevisível possível."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:122
+#: data/com.biglinux.BiGameMode.metainfo.xml:133
 msgid "Six pages, with Details showing what is really in effect and the evidence for it; AI Graphics raises FSR 3.1 to FSR 4 through Proton and finds the upscalers Unreal Engine games ship as plugins; MangoHud per game for Steam, Heroic and Lutris; the Gamer theme; every text translated into 29 languages; a stricter sandbox for the privileged helper."
 msgstr "Seis páginas, com Detalhes mostrando o que está mesmo em vigor e a evidência disso; os Gráficos com IA elevam o FSR 3.1 ao FSR 4 pelo Proton e encontram os upscalers que jogos da Unreal Engine trazem como plugins; MangoHud por jogo para Steam, Heroic e Lutris; o tema Gamer; todos os textos traduzidos para 29 idiomas; um sandbox mais rígido para o auxiliar privilegiado."
 
@@ -5658,7 +5920,7 @@ msgstr "Ignorado"
 msgid "Skipped, not available, conflicts avoided"
 msgstr "Pulados, indisponíveis, conflitos evitados"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:413
+#: bigame-engine/bigame-ui/src/views/settings.rs:566
 msgid "So games you start from Steam are noticed even with this window closed"
 msgstr "Para que jogos iniciados pela Steam sejam percebidos mesmo com esta janela fechada"
 
@@ -5672,6 +5934,31 @@ msgstr "Mais suave, com mais quadros."
 #: bigame-engine/bigame-ui/src/views/settings.rs:210
 msgid "Some settings could not be put back"
 msgstr "Algumas configurações não puderam ser restauradas"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:345
+msgid "Sort by"
+msgstr "Ordenar por"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1619
+msgid "Sort by compatibility"
+msgstr "Ordenar por compatibilidade"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1618
+msgid "Sort by name"
+msgstr "Ordenar por nome"
+
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1620
+msgid "Sort by players now"
+msgstr "Ordenar por jogadores agora"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:368
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:408
+msgid "Source"
+msgstr "Fonte"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:314
+msgid "Source: Steam's store information on this computer"
+msgstr "Fonte: informações da loja da Steam neste computador"
 
 #: bigame-engine/bigame-ui/src/app.rs:782
 msgid "Special Thanks"
@@ -5697,11 +5984,11 @@ msgstr "Inicie um jogo e volte aqui com Alt+Tab: os gráficos mostram o último 
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Abra um jogo; o que ele realmente recebe é lido do processo dele e mostrado aqui."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1757
 msgid "Start anyway"
 msgstr "Abrir mesmo assim"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:412
+#: bigame-engine/bigame-ui/src/views/settings.rs:565
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
 msgstr "Iniciar em segundo plano ao entrar"
@@ -5714,7 +6001,7 @@ msgstr "O script de início deve ser um caminho absoluto"
 msgid "Start the game from Profiles → ⋮ → Launch (Turbo). A Steam game is started by Steam, in its own process tree: Gamescope reaches it only through Steam's launch options."
 msgstr "Abra o jogo em Perfis → ⋮ → Iniciar (Turbo). Um jogo da Steam é aberto pela Steam, na árvore de processos dela: o Gamescope só o alcança pelas opções de lançamento da Steam."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:882
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1069
 msgid "Start this game with Turbo on and this profile"
 msgstr "Iniciar este jogo com o Turbo ligado e este perfil"
 
@@ -5751,6 +6038,10 @@ msgstr "Fica na bandeja do sistema quando a janela é fechada"
 msgid "Steam"
 msgstr "Steam"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:38
+msgid "Steam Activity"
+msgstr "Atividade na Steam"
+
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1412
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:304
 msgid "Steam Deck — basic"
@@ -5769,6 +6060,10 @@ msgstr "App da Steam %s"
 msgid "Steam could not be opened again"
 msgstr "Não foi possível abrir a Steam de novo"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:162
+msgid "Steam counts the players of Steam games; this one is not from Steam."
+msgstr "A Steam conta os jogadores dos jogos da Steam; este não é da Steam."
+
 #: bigame-engine/bigame-core/src/steam.rs:252
 msgid "Steam did not close within a minute"
 msgstr "A Steam não fechou dentro de um minuto"
@@ -5781,9 +6076,13 @@ msgstr "A Steam está aberta: os jogos dela com Gamescope mantêm os tamanhos an
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "A Steam está aberta. Ela mantém o localconfig.vdf na memória e o regrava ao fechar, então esta alteração seria descartada. Feche a Steam e tente novamente."
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:185
+msgid "Steam keeps no count for this game."
+msgstr "A Steam não mantém contagem para este jogo."
+
 #: bigame-engine/bigame-ui/src/crash_watch.rs:359
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1071
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1258
 msgid "Steam launch options"
 msgstr "Opções de inicialização da Steam"
 
@@ -5795,6 +6094,10 @@ msgstr "Opções de inicialização na Steam: %s"
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:687
 msgid "Steam launch options: %s. They already run a Gamescope of your own, so Big Game Mode's was not added."
 msgstr "Opções de inicialização da Steam: %s. Elas já executam um Gamescope seu, então o do Big Game Mode não foi adicionado."
+
+#: bigame-engine/bigame-core/src/game_info/protondb.rs:82
+msgid "Steam lists a Linux version of this game."
+msgstr "A Steam lista uma versão para Linux deste jogo."
 
 #: bigame-engine/bigame-ui/src/widgets/launcher_notice.rs:53
 msgid "Steam needs to be reopened"
@@ -5812,6 +6115,10 @@ msgstr "O Flatpak da Steam só encontra o Gamescope na extensão Gamescope do Fl
 msgid "Steam's Flatpak finds MangoHud only in Flathub's MangoHud extension, which is not installed. Nothing was written. Install it and restart Steam: %s"
 msgstr "O Flatpak da Steam só encontra o MangoHud na extensão MangoHud do Flathub, que não está instalada. Nada foi gravado. Instale-a e reinicie a Steam: %s"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:200
+msgid "Steam's Most Played chart, %s"
+msgstr "Ranking Mais Jogados da Steam, %s"
+
 #: bigame-engine/bigame-core/src/steam.rs:467
 msgid "Steam's configuration has no apps section: %s"
 msgstr "A configuração da Steam não tem a seção apps: %s"
@@ -5819,6 +6126,10 @@ msgstr "A configuração da Steam não tem a seção apps: %s"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2404
 msgid "Steam's launch options for this game now read"
 msgstr "As opções de inicialização da Steam para este jogo agora são"
+
+#: data/com.biglinux.BiGameMode.metainfo.xml:52
+msgid "Steam's player count on the cards; on the game's page, today's peak from Steam's chart, or the highest count read, said to be that"
+msgstr "O número de jogadores da Steam nos cartões; na página do jogo, o pico de hoje no ranking da Steam, ou o maior número lido, indicado como tal"
 
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:101
 msgid "Steam, Lutris, Heroic and menu games in one library. A wizard explains every option, and a new game can be offered a profile as it starts."
@@ -5870,7 +6181,7 @@ msgstr "Ligue e o falcond dá a cada jogo o seu perfil de desempenho ao iniciar,
 msgid "Switched back on in the game's settings"
 msgstr "Ligado de novo nas configurações do jogo"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1005
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1192
 msgid "Switching Turbo on…"
 msgstr "Ligando o Turbo…"
 
@@ -5904,7 +6215,7 @@ msgstr "Assumir o controle"
 msgid "Taken out of Heroic's settings for this game; the game's own FSR runs as it did"
 msgstr "Removido das configurações do Heroic para este jogo; o FSR do próprio jogo roda como antes"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:331
+#: bigame-engine/bigame-ui/src/views/settings.rs:484
 msgid "Takes OptiScaler and every file AI Graphics placed out of all games, from their backups. Do it before removing Big Game Mode."
 msgstr "Tira de todos os jogos o OptiScaler e cada arquivo que os Gráficos com IA colocaram, devolvendo os originais a partir das cópias de segurança. Faça isso antes de remover o Big Game Mode."
 
@@ -5956,13 +6267,21 @@ msgstr "O tema Padrão ou Gamer, claro, escuro ou o da área de trabalho. Só a 
 msgid "The MangoHud overlay, with styles inspired by the Steam Deck."
 msgstr "O overlay do MangoHud, com estilos inspirados no Steam Deck."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:92
+#: data/com.biglinux.BiGameMode.metainfo.xml:103
 msgid "The Steam runtime's library cache tool is no longer taken for the running game"
 msgstr "A ferramenta de cache de bibliotecas do runtime do Steam não é mais confundida com o jogo em execução"
 
 #: bigame-engine/bigame-ui/src/views/settings.rs:273
 msgid "The address pinged for the latency readings on the Home and Telemetry pages. The choices are the resolvers the DNS comparison measures: the ones this computer uses and well-known public ones. Any other address can be typed in."
 msgstr "O endereço que recebe o ping das leituras de latência nas páginas Início e Telemetria. As opções são os servidores DNS que a comparação de DNS mede: os que este computador usa e servidores públicos conhecidos. Qualquer outro endereço pode ser digitado."
+
+#: bigame-engine/bigame-core/src/game_info/anticheat.rs:97
+msgid "The anti-cheat does not work on Linux, or not well enough to play online."
+msgstr "O antitrapaça não funciona no Linux, ou não bem o bastante para jogar online."
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:422
+msgid "The anti-cheat list has not been downloaded yet."
+msgstr "A lista de antitrapaças ainda não foi baixada."
 
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:530
 msgid "The back button at the top returns to Home."
@@ -5997,7 +6316,7 @@ msgstr "A conexão com a internet (%s) não é gerenciada pelo NetworkManager"
 msgid "The current version stays one click away. Updating while a version works is your choice."
 msgstr "A versão atual fica a um clique de distância. Atualizar enquanto uma versão funciona é escolha sua."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1095
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1282
 msgid "The file Heroic keeps this game's settings in. When you save, Big Game Mode writes the game's own Gamescope, Wine FSR and vkBasalt there (with Heroic closed, after keeping a copy of your file) and later takes out only what it wrote; the rest is yours."
 msgstr "O arquivo em que o Heroic guarda as configurações deste jogo. Quando você salva, o Big Game Mode grava ali o Gamescope, o Wine FSR e o vkBasalt do próprio jogo (com o Heroic fechado, depois de guardar uma cópia do seu arquivo) e depois remove só o que gravou; o resto é seu."
 
@@ -6023,13 +6342,17 @@ msgstr "O jogo desenha neste tamanho"
 msgid "The game ended with the code Windows gives %s"
 msgstr "O jogo terminou com o código que o Windows dá a %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:913
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1100
 msgid "The game gets this profile only once it is saved. Without saving, it starts with the profile as it was."
 msgstr "O jogo só recebe este perfil depois de salvo. Sem salvar, ele inicia com o perfil como estava."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:709
 msgid "The game has no DLSS, FSR or XeSS — neither as a DLL in its folder nor built into its executable. OptiScaler needs one of them to take over, so AI Graphics cannot upscale this game. Gamescope's or Wine's FSR 1 still scales the finished image from outside it."
 msgstr "O jogo não tem DLSS, FSR nem XeSS — nem como DLL na pasta dele nem embutido no executável. O OptiScaler precisa de um deles para assumir, então os Gráficos com IA não conseguem fazer o upscaling deste jogo. O FSR 1 do Gamescope ou do Wine ainda escala a imagem pronta de fora dele."
+
+#: data/com.biglinux.BiGameMode.metainfo.xml:49
+msgid "The game library says how each game runs on Linux, whether its anti-cheat lets it be played online, and how many play it on Steam."
+msgstr "A biblioteca de jogos diz como cada jogo roda no Linux, se o antitrapaça dele permite jogar online e quantas pessoas o jogam na Steam."
 
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:227
 msgid "The game renders at the screen's size divided by %s."
@@ -6039,7 +6362,7 @@ msgstr "O jogo renderiza no tamanho da tela dividido por %s."
 msgid "The game was ended by %s, the signal of a crash"
 msgstr "O jogo foi encerrado por %s, o sinal de uma falha"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:897
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1084
 msgid "The game was not started: the profile has errors"
 msgstr "O jogo não foi iniciado: o perfil tem erros"
 
@@ -6050,6 +6373,14 @@ msgstr "O jogo foi interrompido por %s (systemd-coredump)"
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2361
 msgid "The game's files are as they were before"
 msgstr "Os arquivos do jogo estão como antes"
+
+#: bigame-engine/bigame-core/src/game_info/anticheat.rs:99
+msgid "The game's maker refuses Linux and Proton on purpose."
+msgstr "A desenvolvedora do jogo recusa o Linux e o Proton de propósito."
+
+#: bigame-engine/bigame-core/src/game_info/anticheat.rs:90
+msgid "The game's maker switched its anti-cheat on for Linux and Proton."
+msgstr "A desenvolvedora do jogo ativou o antitrapaça para Linux e Proton."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:529
 msgid "The game's own feature, or a combination verified to work on Big Game Mode's test machines."
@@ -6094,6 +6425,12 @@ msgstr "A API gráfica com que o jogo desenha. O OptiScaler é configurado para 
 msgid "The helper did not record falcond's state"
 msgstr "O auxiliar não registrou o estado do falcond"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:264
+msgid "The highest of %n count Big Game Mode read"
+msgid_plural "The highest of %n counts Big Game Mode read"
+msgstr[0] "A maior de %n contagem feita pelo Big Game Mode"
+msgstr[1] "A maior de %n contagens feitas pelo Big Game Mode"
+
 #: bigame-engine/bigame-ui/src/widgets/notice.rs:185
 msgid "The image would be scaled twice, which blurs it and costs time for nothing."
 msgstr "A imagem seria escalada duas vezes, o que a deixa borrada e custa tempo à toa."
@@ -6117,6 +6454,14 @@ msgstr "O lançador inicia um pequeno bootstrap da Unreal Engine, que inicia o j
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:526
 msgid "The layer loads only in Vulkan (and Proton) games, and generates only for a game that started with an entry. Start the game again."
 msgstr "A camada só carrega em jogos Vulkan (e Proton), e só gera para um jogo que abriu com uma entrada. Abra o jogo de novo."
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:416
+msgid "The list does not have this game: most games without anti-cheat are not in it."
+msgstr "A lista não tem este jogo: a maioria dos jogos sem antitrapaça não está nela."
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:398
+msgid "The list has more than one game under this Steam id; this is the newest, and may be another edition."
+msgstr "A lista tem mais de um jogo com este ID da Steam; este é o mais recente, e pode ser outra edição."
 
 #: bigame-engine/bigame-ui/src/widgets/resolution.rs:267
 msgid "The main screen's size could not be read"
@@ -6150,7 +6495,7 @@ msgstr "A versão estável mais nova na página do OptiScaler no GitHub, nunca m
 msgid "The next game gets its profile as it starts."
 msgstr "O próximo jogo recebe o perfil assim que iniciar."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:52
+#: data/com.biglinux.BiGameMode.metainfo.xml:63
 msgid "The notice names what was in the game besides the game itself, read from the game while it ran, with the game's reason"
 msgstr "O aviso indica o que havia no jogo além do próprio jogo, lido do jogo enquanto ele rodava, com o motivo dado pelo jogo"
 
@@ -6196,7 +6541,7 @@ msgstr "As configurações de DNS anteriores estão de volta"
 msgid "The previous settings were saved, but NetworkManager could not apply them now"
 msgstr "As configurações anteriores foram salvas, mas o NetworkManager não conseguiu aplicá-las agora"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:98
+#: data/com.biglinux.BiGameMode.metainfo.xml:109
 msgid "The product is now called Big Game Mode. The tray is a quick control with Turbo, the four presets and its own symbolic icon. Steam, Heroic and Lutris opened before a preset can be reopened from a notice. A profile can be started from its editor with Turbo. Home names the CPU and every GPU on any machine."
 msgstr "O produto agora se chama Big Game Mode. A bandeja do sistema é um controle rápido com o Turbo, os quatro presets e um ícone simbólico próprio. A Steam, o Heroic e o Lutris abertos antes de um preset podem ser reabertos a partir de um aviso. Um perfil pode ser iniciado pelo próprio editor com o Turbo. O Início mostra o nome da CPU e de cada GPU em qualquer máquina."
 
@@ -6204,15 +6549,15 @@ msgstr "O produto agora se chama Big Game Mode. A bandeja do sistema é um contr
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "O perfil pede um escalonador sched-ext, mas ele não pode ser trocado nesta máquina."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
+#: bigame-engine/bigame-ui/src/views/profiles.rs:2074
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "O perfil de %s será removido. Isso não pode ser desfeito."
 
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:357
 #: bigame-engine/bigame-ui/src/views/profile_wizard.rs:410
-#: bigame-engine/bigame-ui/src/views/profiles.rs:774
-#: bigame-engine/bigame-ui/src/views/profiles.rs:845
-#: bigame-engine/bigame-ui/src/views/profiles.rs:853
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1032
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1040
+#: bigame-engine/bigame-ui/src/views/profiles.rs:961
 msgid "The profile was not saved"
 msgstr "O perfil não foi salvo"
 
@@ -6362,7 +6707,7 @@ msgstr "Este jogo tem Gráficos com IA instalados: o Wine FSR fica desligado qua
 msgid "This game's setting is kept, and applies when lsfg-vk is turned on in Tuning."
 msgstr "A configuração deste jogo é mantida, e vale quando o lsfg-vk for ligado nos Ajustes."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1059
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1246
 msgid "This game's settings"
 msgstr "Configurações deste jogo"
 
@@ -6378,7 +6723,7 @@ msgstr "Isto mede a rapidez com que cada servidor DNS responde a uma consulta. N
 msgid "This needs an AMD X3D processor (5800X3D, 7800X3D, 9800X3D…). Nothing to do: it is a hardware feature, not a fault."
 msgstr "Isto exige um processador AMD X3D (5800X3D, 7800X3D, 9800X3D…). Nada a fazer: é um recurso de hardware, não uma falha."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:62
+#: data/com.biglinux.BiGameMode.metainfo.xml:73
 msgid "Three presets, Fastest, Quiet and Pretty; only Quiet caps the frame rate, at a rate that fits the screen (half of 160 Hz is 80), and never in a game that generates frames"
 msgstr "Três presets, Máximo FPS, Silencioso e Bonito; só o Silencioso limita a taxa de quadros, a uma taxa adequada à tela (metade de 160 Hz é 80), e nunca num jogo que gera quadros"
 
@@ -6398,13 +6743,17 @@ msgstr "Dica: escolha um preset, ligue o Turbo e inicie um jogo; o Início mostr
 msgid "To put them back: Profiles → the game → its launch settings."
 msgstr "Para trazê-los de volta: Perfis → o jogo → as configurações de lançamento dele."
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:324
+msgid "Too few reports for ProtonDB to rate it."
+msgstr "Poucos relatos para o ProtonDB classificá-lo."
+
 #: bigame-engine/bigame-ui/src/app.rs:666
 #: bigame-engine/bigame-ui/src/app.rs:677
 msgid "Troubleshooting"
 msgstr "Solução de Problemas"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:136
-#: bigame-engine/bigame-ui/src/views/profiles.rs:232
+#: bigame-engine/bigame-ui/src/views/profiles.rs:196
+#: bigame-engine/bigame-ui/src/views/profiles.rs:294
 msgid "Try another name or remove the filters."
 msgstr "Tente outro nome ou remova os filtros."
 
@@ -6438,15 +6787,15 @@ msgstr "Turbo"
 msgid "Turbo Could Not Start"
 msgstr "O Turbo não pôde iniciar"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:409
+#: bigame-engine/bigame-ui/src/views/settings.rs:562
 msgid "Turbo Mode"
 msgstr "Modo Turbo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:127
+#: data/com.biglinux.BiGameMode.metainfo.xml:138
 msgid "Turbo as the master switch over falcond, per-game profiles offered when an unknown game starts, AI Graphics with OptiScaler (backup, repair and restore), a benchmark lab with A/B verdicts, diagnostics and a unified log view."
 msgstr "Turbo como chave principal do falcond, perfis por jogo oferecidos quando um jogo desconhecido abre, Gráficos com IA com OptiScaler (backup, reparo e restauração), um laboratório de benchmark com veredito A/B, diagnóstico e uma visão única dos registros."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:985
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1172
 msgid "Turbo could not be switched on; the game starts without its profile. See Home."
 msgstr "Não foi possível ligar o Turbo; o jogo inicia sem o perfil. Veja o Início."
 
@@ -6481,7 +6830,7 @@ msgstr "O Turbo está ligado. O próximo jogo recebe o perfil ao abrir."
 msgid "Turbo mode"
 msgstr "Modo Turbo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:78
+#: data/com.biglinux.BiGameMode.metainfo.xml:89
 msgid "Turbo no longer switches itself off a few seconds after it starts on processors the installed falcond cannot run on"
 msgstr "O Turbo não desliga mais sozinho alguns segundos depois de ligar em processadores nos quais o falcond instalado não consegue rodar"
 
@@ -6496,11 +6845,11 @@ msgstr "Turbo desligado, a escolha de volta para Máximo FPS, cada configuraçã
 msgid "Turbo preset"
 msgstr "Preset do Turbo"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:117
+#: data/com.biglinux.BiGameMode.metainfo.xml:128
 msgid "Turbo presets chosen before switching it on (More FPS, Locked 60 FPS, Enhanced graphics), a redrawn Home with a power button, live readings and the running game's features as coloured flags; Tuning, game profiles and the profile wizard on one model, with every conflict asked; Gamescope and Wine FSR reach Steam games through their launch options; launchers are no longer taken for the game; Details tells when falcond does not apply a game's profile, and why."
 msgstr "Presets do Turbo escolhidos antes de ligar (Mais FPS, 60 FPS Fixo, Gráficos aprimorados), uma Início redesenhada com botão power, leituras ao vivo e os recursos do jogo em execução como flags coloridas; Ajustes, perfis de jogo e o assistente num só modelo, com todo conflito perguntado; Gamescope e Wine FSR chegam aos jogos da Steam pelas opções de inicialização; lançadores não são mais tomados pelo jogo; Detalhes diz quando o falcond não aplica o perfil de um jogo, e por quê."
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:102
+#: data/com.biglinux.BiGameMode.metainfo.xml:113
 msgid "Turbo rolls back cleanly when falcond fails to start, and presets leave nothing behind when switched off"
 msgstr "O Turbo é revertido de forma limpa quando o falcond não inicia, e os presets não deixam nada para trás quando desligados"
 
@@ -6512,7 +6861,7 @@ msgstr "Turbo desligado"
 msgid "Turbo turns falcond's service on and off. The first time it did, it recorded whether falcond was enabled and running. Handing back restores exactly that and leaves falcond alone. Taking control back records falcond's state as it is then — so a later hand-back restores that — and makes it follow Turbo again: kept running and enabled if it runs, kept stopped and disabled if it does not. Switching Turbo on or off also takes control back."
 msgstr "O Turbo liga e desliga o serviço do falcond. Na primeira vez que fez isso, registrou se o falcond estava habilitado e rodando. Devolver restaura exatamente isso e deixa o falcond em paz. Retomar o controle registra o estado do falcond como está naquele momento — assim uma devolução posterior restaura esse estado — e faz com que ele siga o Turbo de novo: mantido rodando e habilitado se estiver rodando, mantido parado e desabilitado se não estiver. Ligar ou desligar o Turbo também retoma o controle."
 
-#: bigame-engine/bigame-ui/src/window.rs:390
+#: bigame-engine/bigame-ui/src/window.rs:408
 msgid "Turbo turns off, the choice goes back to Fastest, and every setting goes back to how it started. Your games are not touched."
 msgstr "O Turbo desliga, a escolha volta para Máximo FPS e cada configuração volta a ser como era no começo. Seus jogos não são alterados."
 
@@ -6558,7 +6907,7 @@ msgstr "Desligando"
 msgid "Turning On"
 msgstr "Ligando"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:79
+#: data/com.biglinux.BiGameMode.metainfo.xml:90
 msgid "Turning Turbo off or changing the preset reaches Steam and Heroic once they are closed, and deleting a profile takes its launch options out of Steam, Heroic and Lutris"
 msgstr "Desligar o Turbo ou trocar o preset chega à Steam e ao Heroic assim que forem fechados, e excluir um perfil retira suas opções de inicialização da Steam, do Heroic e do Lutris"
 
@@ -6625,6 +6974,11 @@ msgstr "Não reconhecido."
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2260
 msgid "Update"
 msgstr "Atualizar"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:42
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:46
+msgid "Update Game Information"
+msgstr "Atualizar Informações do Jogo"
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2251
 msgid "Update available: %s"
@@ -6768,6 +7122,18 @@ msgstr "Memória de vídeo"
 msgid "Video pipeline"
 msgstr "Pipeline de vídeo"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:412
+msgid "View Anti-Cheat Details"
+msgstr "Ver Detalhes do Antitrapaça"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:306
+msgid "View on ProtonDB"
+msgstr "Ver no ProtonDB"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:251
+msgid "View on SteamDB"
+msgstr "Ver no SteamDB"
+
 #: bigame-engine/bigame-ui/src/views/home.rs:1071
 msgid "View optimization details"
 msgstr "Ver detalhes da otimização"
@@ -6805,7 +7171,7 @@ msgstr "Avisos e erros"
 msgid "Watching for games"
 msgstr "Aguardando jogos"
 
-#: bigame-engine/bigame-ui/src/window.rs:479
+#: bigame-engine/bigame-ui/src/window.rs:497
 msgid "Welcome"
 msgstr "Boas-vindas"
 
@@ -6822,7 +7188,7 @@ msgstr "O que o Big Game Mode instalou para este jogo. Restaurar devolve os arqu
 msgid "What Big Game Mode would do. Nothing changes until you press Apply."
 msgstr "O que o Big Game Mode faria. Nada muda até você clicar em Aplicar."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1074
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1261
 msgid "What Steam gives this game when it starts it. When you save, Big Game Mode puts its Gamescope wrapper and its variables here (with Steam closed) and takes out only what it put there; the rest is yours."
 msgstr "O que a Steam passa a este jogo ao iniciá-lo. Quando você salva, o Big Game Mode coloca aqui o wrapper do Gamescope e as variáveis dele (com a Steam fechada) e tira só o que ele colocou; o resto é seu."
 
@@ -6931,7 +7297,7 @@ msgstr "O que vai mudar"
 msgid "What you can do instead"
 msgstr "O que você pode fazer no lugar"
 
-#: bigame-engine/bigame-ui/src/views/settings.rs:433
+#: bigame-engine/bigame-ui/src/views/settings.rs:586
 msgid "When Turbo is on and a game without its own profile starts"
 msgstr "Quando o Turbo está ligado e um jogo sem perfil próprio inicia"
 
@@ -6951,7 +7317,7 @@ msgstr "Onde está o Lossless.dll"
 msgid "Where Turbo is switched on, and where you see at a glance what games are getting."
 msgstr "Onde o Turbo é ligado, e onde você vê num relance o que os jogos estão recebendo."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1031
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1218
 msgid "Where this game's settings are kept. Nothing here needs changing to play."
 msgstr "Onde as configurações deste jogo ficam guardadas. Nada aqui precisa ser mudado para jogar."
 
@@ -6976,7 +7342,7 @@ msgstr "Qual CCD os jogos preferem enquanto o Turbo está ligado"
 msgid "Which CCD this game prefers"
 msgstr "Qual CCD este jogo prefere"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:65
+#: data/com.biglinux.BiGameMode.metainfo.xml:76
 msgid "While a game runs, Big Game Mode reads nothing behind it, watches only for the game to close, and its disk reads wait for the game"
 msgstr "Enquanto um jogo roda, o Big Game Mode não lê nada por trás dele, só fica atento ao fechamento do jogo, e suas leituras de disco esperam pelo jogo"
 
@@ -7072,13 +7438,13 @@ msgstr "O upscaling do próprio Wine para jogos Proton em tela cheia exclusiva: 
 msgid "Wired"
 msgstr "Cabeada"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:258
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:112
+#: bigame-engine/bigame-ui/src/views/profiles.rs:320
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:116
 msgid "With a profile"
 msgstr "Com perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:259
-#: bigame-engine/bigame-ui/src/widgets/game_card.rs:108
+#: bigame-engine/bigame-ui/src/views/profiles.rs:321
+#: bigame-engine/bigame-ui/src/widgets/game_card.rs:112
 msgid "Without a profile"
 msgstr "Sem perfil"
 
@@ -7275,6 +7641,10 @@ msgstr "antitrapaça"
 #: bigame-engine/bigame-core/src/graphics/transaction.rs:504
 msgid "apply failed and was rolled back"
 msgstr "a aplicação falhou e foi desfeita"
+
+#: bigame-engine/bigame-ui/src/views/settings.rs:418
+msgid "asked again %s"
+msgstr "nova consulta em %s"
 
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:495
 msgid "assumed"
@@ -7554,7 +7924,7 @@ msgstr "O falcond está rodando mas não informa nada"
 msgid "falcond is stopped while Turbo is off. That is expected."
 msgstr "O falcond fica parado enquanto o Turbo está desligado. Isso é esperado."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:79
+#: bigame-engine/bigame-ui/src/views/profiles.rs:121
 msgid "falcond loads at most 64 profiles, and there is %n more: one of yours is not applied."
 msgid_plural "falcond loads at most 64 profiles, and there are %n more: %n of yours are not applied."
 msgstr[0] "O falcond carrega no máximo 64 perfis, e há %n a mais: um dos seus não é aplicado."
@@ -7585,7 +7955,7 @@ msgstr "O falcond só protege a VRAM de um jogo quando o controlador dmem é del
 msgid "falcond recognises a game by the name of its process, as the system monitor shows it, not by its title. When a game without a profile starts with Turbo on, Big Game Mode can offer to create one."
 msgstr "O falcond reconhece um jogo pelo nome do processo, como o monitor do sistema o mostra, não pelo título. Quando um jogo sem perfil inicia com o Turbo ligado, o Big Game Mode pode oferecer criar um."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:704
+#: bigame-engine/bigame-ui/src/views/profiles.rs:891
 msgid "falcond recognises the game by the name of its process (as the system monitor shows it), not by its title. A profile under another name never applies."
 msgstr "O falcond reconhece o jogo pelo nome do processo (como o monitor do sistema o mostra), não pelo título. Um perfil com outro nome nunca é aplicado."
 
@@ -7651,7 +8021,7 @@ msgstr "O perfil geral Proton do falcond está aplicado: este jogo não tem perf
 msgid "falcond's own settings, the CPU governor, sched-ext availability, the Gamescope options this build accepts, and the environment file."
 msgstr "As configurações próprias do falcond, o governor da CPU, a disponibilidade do sched-ext, as opções do Gamescope que esta versão aceita e o arquivo de ambiente."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1054
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1241
 msgid "falcond's profile for this game: performance mode, the scheduler, 3D V-Cache and whether Gamescope wraps it. It is root's file, so Big Game Mode writes it through its privileged helper, which may ask for your password, and falcond reloads it."
 msgstr "O perfil do falcond para este jogo: modo de desempenho, o escalonador, o 3D V-Cache e se o Gamescope o envolve. É um arquivo do root, então o Big Game Mode o grava pelo auxiliar privilegiado, que pode pedir sua senha, e o falcond o recarrega."
 
@@ -7833,6 +8203,10 @@ msgstr "o log dele diz o que falta; o Big Game Mode não altera os arquivos dele
 msgid "jitter"
 msgstr "jitter"
 
+#: bigame-engine/bigame-ui/src/widgets/game_info_tags.rs:30
+msgid "just now"
+msgstr "agora mesmo"
+
 #: bigame-engine/bigame-core/src/recommend.rs:201
 msgid "keeps the scheduler of falcond's general configuration (%s) while the game runs: none has been measured faster for games in general; the game's profile can choose one"
 msgstr "mantém o escalonador da configuração geral do falcond (%s) enquanto o jogo roda: nenhum foi medido como mais rápido para jogos em geral; o perfil do jogo pode escolher um"
@@ -7871,7 +8245,7 @@ msgstr "carregado no jogo (%s), mas nenhum upscaler foi criado"
 msgid "loaded into the game as a DLL: never for games with anti-cheat"
 msgstr "carregado no jogo como DLL: nunca em jogos com antitrapaça"
 
-#: data/com.biglinux.BiGameMode.metainfo.xml:100
+#: data/com.biglinux.BiGameMode.metainfo.xml:111
 msgid "lsfg-vk 2.x: its configuration format is read and written, and a Lossless.dll it cannot use is reported instead of breaking the game"
 msgstr "lsfg-vk 2.x: o formato de configuração dele é lido e gravado, e uma Lossless.dll que ele não consegue usar é informada em vez de quebrar o jogo"
 
@@ -8070,8 +8444,8 @@ msgstr "nenhum upscaler para o OptiScaler assumir"
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:328
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:88
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:656
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1087
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1112
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1274
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1299
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1608
 msgid "none"
 msgstr "nenhum"
@@ -8196,6 +8570,12 @@ msgstr "otimizado"
 #: bigame-engine/bigame-core/src/graphics/backend.rs:295
 msgid "other"
 msgstr "outra"
+
+#: bigame-engine/bigame-ui/src/widgets/game_info_panel.rs:269
+msgid "over %n hour; not a record of Steam's."
+msgid_plural "over %n hours; not a record of Steam's."
+msgstr[0] "em %n hora; não é um recorde da Steam."
+msgstr[1] "em %n horas; não é um recorde da Steam."
 
 #: bigame-engine/bigame-core/src/gamescope.rs:363
 msgid "overlay not shown"
@@ -8727,11 +9107,11 @@ msgstr "a tarefa em segundo plano falhou"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765
-#: bigame-engine/bigame-ui/src/views/profiles.rs:653
-#: bigame-engine/bigame-ui/src/views/profiles.rs:854
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1041
+#: bigame-engine/bigame-ui/src/views/profiles.rs:836
 #: bigame-engine/bigame-ui/src/views/tuning.rs:296
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:209
-#: bigame-engine/bigame-ui/src/window.rs:676
+#: bigame-engine/bigame-ui/src/window.rs:694
 msgid "the worker thread stopped"
 msgstr "a thread de trabalho parou"
 
