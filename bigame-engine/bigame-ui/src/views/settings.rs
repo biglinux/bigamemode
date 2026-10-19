@@ -323,6 +323,159 @@ fn on_switch(row: &adw::SwitchRow, apply: impl Fn(bool) -> Result<(), String> + 
     });
 }
 
+/// A card switch: its title, subtitle, state, and the setting it changes.
+type ShowSwitch = (String, String, bool, fn(&mut settings::Settings, bool));
+
+/// What Big Game Mode asks the world about the library's games, and what
+/// the cards show of it: every switch takes effect at once, and off means
+/// not asked, not hidden behind a switch.
+#[allow(clippy::too_many_lines)]
+fn game_info_group(current: &settings::Settings) -> adw::PreferencesGroup {
+    let group = layout::group(&i18n("Game Information"), "bigame-shield-symbolic");
+    let online = switch(
+        &i18n("Enable Online Game Information"),
+        &i18n("ProtonDB, Are We Anti-Cheat Yet? and Steam"),
+        current.game_info_online,
+        &i18n(
+            "Big Game Mode asks ProtonDB for each Steam game's rating, downloads Are We Anti-Cheat Yet?'s list once for the whole library, and asks Steam how many play each Steam game. Only a game's public Steam number is sent: never your Steam account, your list of games to anyone else, or anything about this computer. Nothing is asked while a game runs. Off, nothing is asked, and what was kept is still shown.",
+        ),
+    );
+    on_switch(&online, |on| {
+        settings::set_game_info(|s| s.game_info_online = on).map_err(|e| e.to_string())
+    });
+    group.add(&online);
+    let shows: [ShowSwitch; 3] = [
+        (
+            i18n("Show Compatibility Badges"),
+            i18n("ProtonDB's rating, or Native, on the game cards"),
+            current.show_linux_rating,
+            |s, on| s.show_linux_rating = on,
+        ),
+        (
+            i18n("Show Anti-Cheat Status"),
+            i18n("Are We Anti-Cheat Yet?'s status on the game cards"),
+            current.show_anticheat,
+            |s, on| s.show_anticheat = on,
+        ),
+        (
+            i18n("Show Steam Player Counts"),
+            i18n("How many play each Steam game now; asked only while this is on"),
+            current.show_players,
+            |s, on| s.show_players = on,
+        ),
+    ];
+    for (title, subtitle, active, set) in shows {
+        let row = adw::SwitchRow::builder()
+            .title(&title)
+            .subtitle(&subtitle)
+            .active(active)
+            .build();
+        on_switch(&row, move |on| {
+            settings::set_game_info(|s| set(s, on)).map_err(|e| e.to_string())
+        });
+        group.add(&row);
+    }
+
+    // Each source: when it last answered, or why it does not.
+    let sources = [
+        adw::ActionRow::builder().title("ProtonDB").build(),
+        adw::ActionRow::builder()
+            .title("Are We Anti-Cheat Yet?")
+            .build(),
+        adw::ActionRow::builder().title("Steam").build(),
+    ];
+    for r in &sources {
+        r.set_subtitle_lines(3);
+        r.set_use_markup(false);
+        group.add(r);
+    }
+    let show_sources = {
+        let sources = sources.clone();
+        move |snap: &bigame_core::game_info::Snapshot| {
+            use bigame_core::game_info::Source;
+            let now = bigame_core::unix_now();
+            let st = &snap.store;
+            let last = [
+                st.protondb.values().map(|c| c.at).max(),
+                st.anticheat_checked,
+                st.current
+                    .values()
+                    .map(|c| c.at)
+                    .chain(st.charts.as_ref().map(|c| c.at))
+                    .max(),
+            ];
+            for ((row, source), at) in sources
+                .iter()
+                .zip([Source::Protondb, Source::Anticheat, Source::Steam])
+                .zip(last)
+            {
+                let text = match (st.trouble.get(&source), at) {
+                    (Some(t), _) if t.until > now => crate::i18n::labelled(
+                        &i18n("Not reachable now"),
+                        &format!(
+                            "{} · {}",
+                            t.message,
+                            i18n("asked again %s").replace("%s", &local_time(t.until))
+                        ),
+                    ),
+                    (_, Some(at)) => crate::i18n::labelled(
+                        &i18n("Last Updated"),
+                        &crate::widgets::game_info_tags::ago(at, now),
+                    ),
+                    (_, None) => i18n("Not asked yet"),
+                };
+                row.set_subtitle(&text);
+            }
+        }
+    };
+    show_sources(&crate::game_info::snapshot());
+    {
+        let weak = group.downgrade();
+        crate::game_info::subscribe(move |snap, _| {
+            if weak.upgrade().is_none() {
+                return glib::ControlFlow::Break;
+            }
+            show_sources(snap);
+            glib::ControlFlow::Continue
+        });
+    }
+    crate::game_info::load();
+
+    let update = gtk4::Button::builder()
+        .label(i18n("Refresh Cached Information"))
+        .valign(gtk4::Align::Center)
+        .build();
+    update.connect_clicked(|b| {
+        if crate::game_watch::current().is_some() {
+            crate::widgets::toast::show(
+                b,
+                &i18n("Nothing is asked while a game runs; try again once it is closed."),
+            );
+            return;
+        }
+        crate::game_info::update_library();
+        crate::widgets::toast::show(b, &i18n("Asking the sources again…"));
+    });
+    let clear = gtk4::Button::builder()
+        .label(i18n("Clear Downloaded Metadata"))
+        .valign(gtk4::Align::Center)
+        .css_classes(["destructive-action"])
+        .build();
+    clear.connect_clicked(|b| {
+        crate::game_info::clear();
+        crate::widgets::toast::show(b, &i18n("Downloaded game information cleared"));
+    });
+    let actions = adw::WrapBox::builder()
+        .child_spacing(8)
+        .line_spacing(8)
+        .margin_top(12)
+        .build();
+    actions.append(&update);
+    actions.append(&clear);
+    group.add(&actions);
+    group
+}
+
 /// Put back every game AI Graphics changed, after one question: what to do
 /// before removing Big Game Mode, and a way out after many games were tried.
 fn restore_all_graphics_row() -> adw::ActionRow {
@@ -561,6 +714,9 @@ pub fn build() -> gtk4::Widget {
     });
     notif.add(&notif_row);
     left.append(&notif);
+
+    // ── Game information ────────────────────────────────────────────────
+    left.append(&game_info_group(&current));
 
     // ── Monitoring ──────────────────────────────────────────────────────
     let monitoring = layout::group(&i18n("Monitoring"), "bigame-telemetry-symbolic");

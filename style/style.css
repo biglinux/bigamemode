@@ -273,6 +273,70 @@ flowbox.game-library > flowboxchild:active {
     background-color: @accent_bg_color;
 }
 
+/* ── Game information (widgets/game_info_tags.rs, game_info_panel.rs) ──
+ *
+ * The tags sit over the cover on the same dark ground as the launcher
+ * badge, so they read on any cover in any theme. The icon and the word
+ * carry the meaning; the colour only repeats it. */
+
+button.game-card-tag {
+    min-height: 0;
+    min-width: 0;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background-color: alpha(#000, 0.68);
+    color: #fff;
+    box-shadow: none;
+}
+
+button.game-card-tag:hover {
+    background-color: alpha(#000, 0.84);
+}
+
+button.game-card-tag:focus-visible {
+    outline: 2px solid @accent_color;
+    outline-offset: 1px;
+}
+
+/* Kept from before, older than its source allows. */
+button.game-card-tag.stale label {
+    opacity: 0.72;
+}
+
+/* On the tags' dark ground. */
+.game-card-tag.tier-platinum image { color: #d6e4f0; }
+.game-card-tag.tier-gold image { color: #f5c542; }
+.game-card-tag.tier-silver image { color: #c8ccd0; }
+.game-card-tag.tier-bronze image { color: #e5985c; }
+.game-card-tag.tier-borked image { color: #ff7b72; }
+.game-card-tag.tier-native image { color: #8ff0a4; }
+.game-card-tag.ac-supported image { color: #8ff0a4; }
+.game-card-tag.ac-running image { color: #99c1f1; }
+.game-card-tag.ac-planned image { color: #deddda; }
+.game-card-tag.ac-broken image { color: #f9c440; }
+.game-card-tag.ac-denied image { color: #ff7b72; }
+
+/* On the page, light or dark: middle tones that read on both. */
+image.game-info-icon {
+    -gtk-icon-size: 20px;
+}
+
+image.game-info-icon.tier-platinum { color: #7a9cb8; }
+image.game-info-icon.tier-gold { color: #c99a06; }
+image.game-info-icon.tier-silver { color: #8e9399; }
+image.game-info-icon.tier-bronze { color: #b5651d; }
+image.game-info-icon.tier-borked { color: #e01b24; }
+image.game-info-icon.tier-native { color: #26a269; }
+image.game-info-icon.ac-supported { color: #26a269; }
+image.game-info-icon.ac-running { color: #1c71d8; }
+image.game-info-icon.ac-planned { color: #77767b; }
+image.game-info-icon.ac-broken { color: #c64600; }
+image.game-info-icon.ac-denied { color: #e01b24; }
+
+.game-info-details label.title {
+    font-weight: normal;
+}
+
 /* ── State vocabulary (widgets/status.rs) ────────────────────────────
  *
  * One chip for every state on every page. Icon and label carry the

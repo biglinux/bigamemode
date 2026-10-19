@@ -6,6 +6,8 @@ pub mod error_indicator;
 pub mod fg_controls;
 pub mod game_card;
 pub mod game_fields;
+pub mod game_info_panel;
+pub mod game_info_tags;
 pub mod info;
 pub mod launch;
 pub mod launcher_notice;

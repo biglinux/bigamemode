@@ -34,6 +34,7 @@ use gtk4::{gdk, gio, glib};
 use libadwaita as adw;
 
 use crate::i18n::i18n;
+pub use crate::widgets::game_info_tags::Badges;
 
 /// Poster size, in logical pixels: 2:3, matching Steam's `library_600x900`
 /// artwork. Wide enough for the actions row in any language the interface
@@ -97,6 +98,9 @@ pub struct Entry {
     pub heroic: Option<bool>,
     /// Big Game Mode has placed AI Graphics files in this game.
     pub ai_installed: bool,
+    /// The game as the information sources know it (`ProtonDB`, the
+    /// anti-cheat list, Steam's counts).
+    pub game: bigame_core::game_info::GameRef,
 }
 
 impl Entry {
@@ -198,7 +202,12 @@ pub type Play = Rc<dyn Fn(&Entry)>;
 /// `on_menu` fires for the overflow button.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn build<A, M>(entry: &Entry, play: Option<Play>, on_activate: A, on_menu: M) -> gtk4::Widget
+pub fn build<A, M>(
+    entry: &Entry,
+    play: Option<Play>,
+    on_activate: A,
+    on_menu: M,
+) -> (gtk4::Widget, Badges)
 where
     A: Fn(&Entry) + 'static,
     M: Fn(&Entry, &gtk4::Widget) + 'static,
@@ -236,7 +245,7 @@ where
     actions.append(&primary);
     actions.append(&menu);
 
-    let poster = build_poster(entry, &actions);
+    let (poster, tags) = build_poster(entry, &actions);
 
     // ── Text ────────────────────────────────────────────────────────────
     let title = gtk4::Label::builder()
@@ -259,9 +268,23 @@ where
     status.add_css_class("caption");
     status.add_css_class("dim-label");
 
+    // Steam's count: one line, always there, so a count arriving never
+    // moves the cards below.
+    let players = gtk4::Label::builder()
+        .label("")
+        .ellipsize(gtk4::pango::EllipsizeMode::End)
+        .single_line_mode(true)
+        .xalign(0.0)
+        .max_width_chars(1)
+        .build();
+    players.add_css_class("caption");
+    players.add_css_class("dim-label");
+    players.add_css_class("game-card-players");
+
     let text = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     text.append(&title);
     text.append(&status);
+    text.append(&players);
 
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
     card.add_css_class("game-card");
@@ -366,7 +389,8 @@ where
         menu.connect_clicked(move |_| on_menu(&entry, menu_btn.upcast_ref::<gtk4::Widget>()));
     }
 
-    card.upcast()
+    let badges = Badges::new(&entry.game, &entry.title, &tags, &players);
+    (card.upcast(), badges)
 }
 
 /// The fixed-size poster: placeholder underneath, cover painted over it, and
@@ -376,7 +400,7 @@ where
 /// picture is an overlay child, which `GtkOverlay` allocates to the main
 /// child's size and leaves out of its measurement, so whatever the texture's
 /// dimensions, the poster stays [`POSTER_WIDTH`] × [`POSTER_HEIGHT`].
-fn build_poster(entry: &Entry, actions: &gtk4::Box) -> gtk4::Widget {
+fn build_poster(entry: &Entry, actions: &gtk4::Box) -> (gtk4::Widget, gtk4::Box) {
     let placeholder = gtk4::Image::from_icon_name(
         entry
             .icon
@@ -417,12 +441,11 @@ fn build_poster(entry: &Entry, actions: &gtk4::Box) -> gtk4::Widget {
         load_cover_async(path, &picture);
     }
 
-    // Launcher badge and, when the key is a guess, a warning: top-left.
+    // Launcher badge and, when the key is a guess, a warning: top-left;
+    // under them, the game information tags. The top of the cover is
+    // theirs alone: the actions take the bottom on hover and focus, so a
+    // tag is never covered, nor in the way of a button.
     let corner = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-    corner.set_halign(gtk4::Align::Start);
-    corner.set_valign(gtk4::Align::Start);
-    corner.set_margin_start(6);
-    corner.set_margin_top(6);
     let badge = gtk4::Label::new(Some(&entry.source));
     badge.add_css_class("caption");
     badge.add_css_class("game-card-badge");
@@ -437,7 +460,17 @@ fn build_poster(entry: &Entry, actions: &gtk4::Box) -> gtk4::Widget {
         )));
         corner.append(&warn);
     }
-    overlay.add_overlay(&corner);
+    let tags = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+    tags.add_css_class("game-card-tags");
+    tags.set_halign(gtk4::Align::Start);
+    let top_left = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+    top_left.set_halign(gtk4::Align::Start);
+    top_left.set_valign(gtk4::Align::Start);
+    top_left.set_margin_start(6);
+    top_left.set_margin_top(6);
+    top_left.append(&corner);
+    top_left.append(&tags);
+    overlay.add_overlay(&top_left);
 
     // Profile indicator, top-right.
     if let Some(css) = entry.status_css() {
@@ -455,7 +488,7 @@ fn build_poster(entry: &Entry, actions: &gtk4::Box) -> gtk4::Widget {
     overlay.add_overlay(actions);
     overlay.set_clip_overlay(actions, true);
 
-    overlay.upcast()
+    (overlay.upcast(), tags)
 }
 
 /// Decode a cover off the main thread, cropped to the poster, then show it.
@@ -546,6 +579,10 @@ mod tests {
             launch: None,
             heroic: None,
             ai_installed: false,
+            game: bigame_core::game_info::GameRef {
+                steam: Some(1_808_500),
+                title: "ARC Raiders".into(),
+            },
         }
     }
 

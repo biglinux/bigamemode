@@ -45,12 +45,21 @@ struct LibraryView {
     /// `grid`, `empty` (no games at all) or `none` (none matches).
     stack: gtk4::Stack,
     grid: gtk4::FlowBox,
-    /// The cards' entries, in the grid's order: what the filter reads.
+    /// The cards' entries, in the order they were added: each card's
+    /// widget name is its index here, which the filter and the sort read
+    /// (a sorted grid's positions are not the entries' order).
     entries: RefCell<Vec<game_card::Entry>>,
-    /// The search and the two filters.
+    /// The cards' game information, in the same order.
+    badges: RefCell<Vec<game_card::Badges>>,
+    /// The search and the filters.
     search: gtk4::SearchEntry,
     status_filter: adw::ToggleGroup,
     source_filter: gtk4::DropDown,
+    /// How well a game runs on Linux, and its anti-cheat ([`LINUX_FILTER`],
+    /// [`ANTICHEAT_FILTER`]); and the order of the cards ([`SORT`]).
+    linux_filter: gtk4::DropDown,
+    anticheat_filter: gtk4::DropDown,
+    sort: gtk4::DropDown,
     /// The launcher names in `source_filter`, after "All launchers".
     sources: RefCell<Vec<String>>,
     /// The page shown when nothing matches.
@@ -71,6 +80,39 @@ struct LibraryView {
 }
 
 impl LibraryView {
+    /// The entry of a grid cell, by the index its card is named with.
+    fn entry_of(&self, child: &gtk4::FlowBoxChild) -> Option<game_card::Entry> {
+        let i: usize = child.child()?.widget_name().parse().ok()?;
+        self.entries.borrow().get(i).cloned()
+    }
+
+    /// Show what is known of every card's game, as the settings allow, and
+    /// filter and sort again by it.
+    fn show_game_info(&self) {
+        let snap = crate::game_info::snapshot();
+        let settings = crate::settings::load();
+        let now = bigame_core::unix_now();
+        for b in self.badges.borrow().iter() {
+            b.show(&snap, &settings, now);
+        }
+        if self.sort.selected() > 0 {
+            self.grid.invalidate_sort();
+        }
+        self.apply_filters();
+    }
+
+    /// Ask the sources about the library's games, when a pass may run.
+    fn request_game_info(&self) {
+        let games: Vec<bigame_core::game_info::GameRef> = self
+            .entries
+            .borrow()
+            .iter()
+            .map(|e| e.game.clone())
+            .collect();
+        crate::game_info::set_library(games.clone());
+        crate::game_info::request(games, false);
+    }
+
     /// Say that `beyond` profiles are past what falcond loads, or nothing.
     fn show_limit(&self, beyond: usize) {
         self.limit_note.set_visible(beyond > 0);
@@ -102,8 +144,23 @@ impl LibraryView {
                 .get(i as usize - 1)
                 .is_some_and(|s| *s == e.source),
         };
+        let info_ok = {
+            let (linux, ac) = (
+                self.linux_filter.selected(),
+                self.anticheat_filter.selected(),
+            );
+            if (linux == 0 || linux == gtk4::INVALID_LIST_POSITION)
+                && (ac == 0 || ac == gtk4::INVALID_LIST_POSITION)
+            {
+                true
+            } else {
+                let info = crate::game_info::snapshot().info(&e.game, bigame_core::unix_now());
+                linux_matches(linux, &info) && anticheat_matches(ac, &info)
+            }
+        };
         status_ok
             && source_ok
+            && info_ok
             && (query.is_empty()
                 || e.title.to_lowercase().contains(&query)
                 || e.source.to_lowercase().contains(&query))
@@ -121,7 +178,10 @@ impl LibraryView {
             self.stack.set_visible_child_name("grid");
             return;
         }
-        let searching = !self.search.text().trim().is_empty() || self.source_filter.selected() > 0;
+        let searching = !self.search.text().trim().is_empty()
+            || self.source_filter.selected() > 0
+            || self.linux_filter.selected() > 0
+            || self.anticheat_filter.selected() > 0;
         let (title, text) = match (self.status_filter.active_name().as_deref(), searching) {
             (Some("without"), false) => (
                 i18n("No game without a profile"),
@@ -146,6 +206,8 @@ impl LibraryView {
         self.search.set_text("");
         self.status_filter.set_active_name(Some("all"));
         self.source_filter.set_selected(0);
+        self.linux_filter.set_selected(0);
+        self.anticheat_filter.set_selected(0);
         self.apply_filters();
         self.search.grab_focus();
     }
@@ -268,11 +330,32 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
     let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
     top.append(&search);
     top.append(&source_filter);
+    // What the information sources say, and the order: beside the profile
+    // filter, wrapping under it on a narrow window.
+    let dropdown = |items: Vec<String>, name: String| {
+        let refs: Vec<&str> = items.iter().map(String::as_str).collect();
+        let d = gtk4::DropDown::from_strings(&refs);
+        d.set_valign(gtk4::Align::Center);
+        d.set_tooltip_text(Some(&name));
+        d.update_property(&[gtk4::accessible::Property::Label(&name)]);
+        d
+    };
+    let linux_filter = dropdown(linux_filter_labels(), i18n("Linux Compatibility"));
+    let anticheat_filter = dropdown(anticheat_filter_labels(), i18n("Anti-Cheat Status"));
+    let sort = dropdown(sort_labels(), i18n("Sort by"));
+    let second = adw::WrapBox::builder()
+        .child_spacing(8)
+        .line_spacing(8)
+        .build();
+    second.append(&status_filter);
+    second.append(&linux_filter);
+    second.append(&anticheat_filter);
+    second.append(&sort);
     let filters = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
     filters.add_css_class("library-filters");
     filters.set_margin_bottom(12);
     filters.append(&top);
-    filters.append(&status_filter);
+    filters.append(&second);
 
     // Creating a profile: the wizard is the way to recommend — every option
     // explained, one step at a time — so it is the main button, with a
@@ -347,9 +430,13 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         stack,
         grid,
         entries: RefCell::new(Vec::new()),
+        badges: RefCell::new(Vec::new()),
         search: search.clone(),
         status_filter: status_filter.clone(),
         source_filter: source_filter.clone(),
+        linux_filter: linux_filter.clone(),
+        anticheat_filter: anticheat_filter.clone(),
+        sort: sort.clone(),
         sources: RefCell::new(Vec::new()),
         no_match,
         refresh_btn: refresh_btn.clone(),
@@ -371,16 +458,27 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             source_filter.clone(),
             status_filter.clone(),
         );
+        let (linux_filter, anticheat_filter, sort, second) = (
+            linux_filter.clone(),
+            anticheat_filter.clone(),
+            sort.clone(),
+            second.clone(),
+        );
         let first = std::cell::Cell::new(true);
         crate::settings::follow_advanced(move |on| {
             add_btn.set_visible(on);
             import_btn.set_visible(on);
             source_filter.set_visible(on);
             status_filter.set_visible(on);
+            second.set_visible(on);
             if !on {
-                // A filter nobody can see must not hide games.
+                // A filter nobody can see must not hide games, nor an
+                // order nobody chose reorder them.
                 source_filter.set_selected(0);
                 status_filter.set_active_name(Some("all"));
+                linux_filter.set_selected(0);
+                anticheat_filter.set_selected(0);
+                sort.set_selected(0);
             }
             if !first.replace(false)
                 && let Some(view) = weak.upgrade()
@@ -390,16 +488,101 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         });
     }
 
-    // The filter reads the entries by the card's position in the grid.
+    // The filter and the sort read each card's entry by the index it is
+    // named with.
     {
         let weak = Rc::downgrade(&view);
         view.grid.set_filter_func(move |child| {
-            weak.upgrade().is_none_or(|v| {
-                usize::try_from(child.index())
-                    .ok()
-                    .and_then(|i| v.entries.borrow().get(i).map(|e| v.matches(e)))
-                    .unwrap_or(true)
-            })
+            weak.upgrade()
+                .is_none_or(|v| v.entry_of(child).is_none_or(|e| v.matches(&e)))
+        });
+    }
+    {
+        let weak = Rc::downgrade(&view);
+        view.grid.set_sort_func(move |a, b| {
+            let Some(v) = weak.upgrade() else {
+                return gtk4::Ordering::Equal;
+            };
+            let (Some(a), Some(b)) = (v.entry_of(a), v.entry_of(b)) else {
+                return gtk4::Ordering::Equal;
+            };
+            compare(v.sort.selected(), &a, &b).into()
+        });
+    }
+    {
+        let v = Rc::downgrade(&view);
+        linux_filter.connect_selected_notify(move |_| {
+            if let Some(v) = v.upgrade() {
+                v.apply_filters();
+            }
+        });
+        let v = Rc::downgrade(&view);
+        anticheat_filter.connect_selected_notify(move |_| {
+            if let Some(v) = v.upgrade() {
+                v.apply_filters();
+            }
+        });
+        let v = Rc::downgrade(&view);
+        sort.connect_selected_notify(move |_| {
+            if let Some(v) = v.upgrade() {
+                v.grid.invalidate_sort();
+            }
+        });
+    }
+    // What the sources say reaches the cards in place: no card is rebuilt.
+    {
+        let weak = Rc::downgrade(&view);
+        crate::game_info::subscribe(move |_, changes| {
+            let Some(v) = weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+            v.show_game_info();
+            if let Some(change) = changes.first() {
+                toast::show(
+                    &v.grid,
+                    &i18n("%t: anti-cheat status changed from %b to %a")
+                        .replace("%t", &change.title)
+                        .replace("%b", change.before.name())
+                        .replace("%a", change.after.name()),
+                );
+            }
+            glib::ControlFlow::Continue
+        });
+        let weak = Rc::downgrade(&view);
+        crate::settings::follow_game_info(move |_| {
+            if let Some(v) = weak.upgrade() {
+                v.show_game_info();
+                if v.grid.is_mapped() {
+                    v.request_game_info();
+                }
+            }
+        });
+        crate::game_info::load();
+    }
+    // While the library is on screen in the window in front, ask again now
+    // and then: each source is asked only once what it said has aged
+    // (Steam's counts after 15 minutes), so most looks ask nothing.
+    {
+        let weak = Rc::downgrade(&view);
+        view.grid.connect_map(move |_| {
+            let weak = weak.clone();
+            glib::timeout_add_seconds_local(300, move || {
+                let Some(v) = weak.upgrade() else {
+                    return glib::ControlFlow::Break;
+                };
+                if !v.grid.is_mapped() {
+                    return glib::ControlFlow::Break;
+                }
+                let active = v
+                    .grid
+                    .root()
+                    .and_downcast::<gtk4::Window>()
+                    .is_some_and(|w| w.is_active());
+                if active {
+                    v.request_game_info();
+                }
+                glib::ControlFlow::Continue
+            });
         });
     }
     {
@@ -688,6 +871,10 @@ fn editor(
     };
 
     page.add(&ui::scope_banner(ui::Scope::Game(&game.title)));
+    // What the world knows of the game, beside what its profile does.
+    if let Some(c) = card {
+        crate::widgets::game_info_panel::add(&page, &c.game);
+    }
 
     // The process name: first for a new profile, which needs one; in
     // Advanced for one that exists, where it is rarely changed and should
@@ -1289,7 +1476,8 @@ fn show_library(
     view.entries.borrow_mut().clone_from(&entries);
     view.set_sources(&entries);
     let advanced = crate::settings::load().advanced_mode;
-    for entry in entries {
+    let mut badges = Vec::with_capacity(entries.len());
+    for (index, entry) in entries.into_iter().enumerate() {
         let nav_activate = view.nav.clone();
         let nav_menu = view.nav.clone();
         // Weak: the cards belong to the view, and the view must not be kept
@@ -1300,12 +1488,14 @@ fn show_library(
             let anchor = view.grid.clone().upcast::<gtk4::Widget>();
             Rc::new(move |entry: &game_card::Entry| launch_game(entry, &anchor)) as game_card::Play
         });
-        let card = game_card::build(
+        let (card, card_badges) = game_card::build(
             &entry,
             play,
             move |entry| open_profile(entry, &nav_activate),
             move |entry, anchor| show_card_menu(entry, anchor, &nav_menu, &library),
         );
+        card.set_widget_name(&index.to_string());
+        badges.push(card_badges);
         view.grid.insert(&card, -1);
         // The card is the focus stop, not the cell around it: one ring,
         // one Tab per game.
@@ -1313,7 +1503,9 @@ fn show_library(
             cell.set_focusable(false);
         }
     }
-    view.apply_filters();
+    *view.badges.borrow_mut() = badges;
+    view.show_game_info();
+    view.request_game_info();
 
     for row in view.other_rows.borrow_mut().drain(..) {
         view.others.remove(&row);
@@ -1338,6 +1530,119 @@ fn show_library(
         view.others.add_row(&row);
         view.other_rows.borrow_mut().push(row);
     }
+}
+
+/// The Linux filter's choices, in [`linux_matches`]'s order.
+fn linux_filter_labels() -> Vec<String> {
+    use bigame_core::game_info::protondb::Tier;
+    let mut v = vec![i18n("Any compatibility")];
+    v.extend(
+        [
+            Tier::Native,
+            Tier::Platinum,
+            Tier::Gold,
+            Tier::Silver,
+            Tier::Bronze,
+            Tier::Borked,
+        ]
+        .map(|t| t.name().to_owned()),
+    );
+    v.push(i18n("Compatibility unknown"));
+    v
+}
+
+/// Whether `info` passes the Linux filter's choice `selected`.
+fn linux_matches(selected: u32, info: &bigame_core::game_info::Info) -> bool {
+    use bigame_core::game_info::protondb::Tier;
+    const TIERS: [Tier; 6] = [
+        Tier::Native,
+        Tier::Platinum,
+        Tier::Gold,
+        Tier::Silver,
+        Tier::Bronze,
+        Tier::Borked,
+    ];
+    let tier = crate::widgets::game_info_tags::shown_tier(info);
+    match selected {
+        0 | gtk4::INVALID_LIST_POSITION => true,
+        7 => tier.is_none(),
+        i => TIERS.get(i as usize - 1).is_some_and(|t| Some(*t) == tier),
+    }
+}
+
+/// The anti-cheat filter's choices, in [`anticheat_matches`]'s order.
+fn anticheat_filter_labels() -> Vec<String> {
+    use bigame_core::game_info::anticheat::Status;
+    let mut v = vec![i18n("Any anti-cheat status")];
+    v.extend(
+        [
+            Status::Supported,
+            Status::Running,
+            Status::Planned,
+            Status::Broken,
+            Status::Denied,
+        ]
+        .map(|s| s.name().to_owned()),
+    );
+    v.push(i18n("Not listed"));
+    v
+}
+
+/// Whether `info` passes the anti-cheat filter's choice `selected`.
+fn anticheat_matches(selected: u32, info: &bigame_core::game_info::Info) -> bool {
+    use bigame_core::game_info::AntiCheat;
+    use bigame_core::game_info::anticheat::Status;
+    const STATUSES: [Status; 5] = [
+        Status::Supported,
+        Status::Running,
+        Status::Planned,
+        Status::Broken,
+        Status::Denied,
+    ];
+    let status = match &info.anticheat {
+        AntiCheat::Listed { game, .. } => Some(game.status),
+        _ => None,
+    };
+    match selected {
+        0 | gtk4::INVALID_LIST_POSITION => true,
+        6 => status.is_none(),
+        i => STATUSES
+            .get(i as usize - 1)
+            .is_some_and(|s| Some(*s) == status),
+    }
+}
+
+/// The orders the library can be shown in, in [`compare`]'s order.
+fn sort_labels() -> Vec<String> {
+    vec![
+        i18n("Sort by name"),
+        i18n("Sort by compatibility"),
+        i18n("Sort by players now"),
+    ]
+}
+
+/// The order of two cards under the sort `selected`: by name, or by what
+/// the sources say (best first, what is not known last), then by name.
+fn compare(selected: u32, a: &game_card::Entry, b: &game_card::Entry) -> std::cmp::Ordering {
+    let by_name = || a.title.to_lowercase().cmp(&b.title.to_lowercase());
+    let snap = crate::game_info::snapshot();
+    let now = bigame_core::unix_now();
+    let (ia, ib) = (snap.info(&a.game, now), snap.info(&b.game, now));
+    let key = match selected {
+        1 => {
+            let tier =
+                |i: &bigame_core::game_info::Info| crate::widgets::game_info_tags::shown_tier(i);
+            tier(&ib).cmp(&tier(&ia))
+        }
+        2 => {
+            let count = |i: &bigame_core::game_info::Info| {
+                i.players.as_ref().and_then(|p| p.now).map(|n| n.0)
+            };
+            count(&ib).cmp(&count(&ia))
+        }
+        _ => std::cmp::Ordering::Equal,
+    };
+    key.then_with(by_name)
 }
 
 /// A library entry as its card shows it.
@@ -1374,6 +1679,7 @@ fn card_entry(
             _ => None,
         },
         ai_installed: ai_installed.contains(&key.to_lowercase()),
+        game: bigame_core::game_info::GameRef::of(game),
         key,
     }
 }
@@ -1416,6 +1722,23 @@ fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
             .flatten(),
             None => None,
         };
+        // Or the community list says its maker denies Linux: a list says
+        // so for games whose folder shows no marker.
+        let refused = refused.or_else(|| {
+            let info = crate::game_info::snapshot().info(&entry.game, bigame_core::unix_now());
+            match info.anticheat {
+                bigame_core::game_info::AntiCheat::Listed { game, .. }
+                    if game.status == bigame_core::game_info::anticheat::Status::Denied =>
+                {
+                    Some(if game.anticheats.is_empty() {
+                        i18n("Anti-cheat")
+                    } else {
+                        game.anticheats.join(", ")
+                    })
+                }
+                _ => None,
+            }
+        });
         let Some(anti_cheat) = refused else {
             start_game(&entry, &anchor);
             return;
@@ -1803,4 +2126,80 @@ fn show_card_menu(
         glib::idle_add_local_once(move || p.unparent());
     });
     popover.popup();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bigame_core::game_info::anticheat::{Game, Match, Status};
+    use bigame_core::game_info::protondb::{Rating, Summary, Tier};
+    use bigame_core::game_info::{AntiCheat, Info, Linux};
+
+    fn info(linux: Linux, anticheat: AntiCheat) -> Info {
+        Info {
+            steam: Some(1),
+            linux,
+            rating: None,
+            anticheat,
+            anticheat_at: None,
+            players: None,
+        }
+    }
+
+    fn rated(tier: Option<Tier>) -> Linux {
+        Linux::Rating {
+            rating: Rating::Summary(Summary {
+                tier,
+                trending: None,
+                best: None,
+                reports: 10,
+                confidence: None,
+            }),
+            at: 0,
+            stale: false,
+        }
+    }
+
+    fn listed(status: Status) -> AntiCheat {
+        AntiCheat::Listed {
+            game: Box::new(Game {
+                name: "X".into(),
+                slug: "x".into(),
+                status,
+                anticheats: vec!["Easy Anti-Cheat".into()],
+                notes: Vec::new(),
+                updates: Vec::new(),
+                reference: None,
+                changed: None,
+                steam: Some(1),
+            }),
+            how: Match::SteamId,
+        }
+    }
+
+    #[test]
+    fn the_linux_filter_picks_each_rating_and_what_is_not_known() {
+        let gold = info(rated(Some(Tier::Gold)), AntiCheat::NotListed);
+        let native = info(Linux::Native, AntiCheat::NotListed);
+        let pending = info(rated(None), AntiCheat::NotListed);
+        let other = info(Linux::NoSteamId, AntiCheat::NotListed);
+        assert!(linux_matches(0, &gold) && linux_matches(0, &other));
+        assert!(linux_matches(1, &native) && !linux_matches(1, &gold));
+        assert!(linux_matches(3, &gold) && !linux_matches(2, &gold));
+        // Unknown: not rated, or not a Steam game; never "Borked".
+        assert!(linux_matches(7, &pending) && linux_matches(7, &other));
+        assert!(!linux_matches(6, &pending));
+        assert_eq!(linux_filter_labels().len(), 8);
+    }
+
+    #[test]
+    fn the_anti_cheat_filter_picks_each_status_and_what_is_not_listed() {
+        let denied = info(Linux::NotFetched, listed(Status::Denied));
+        let none = info(Linux::NotFetched, AntiCheat::NotListed);
+        let unavailable = info(Linux::NotFetched, AntiCheat::Unavailable);
+        assert!(anticheat_matches(5, &denied) && !anticheat_matches(1, &denied));
+        assert!(anticheat_matches(6, &none) && anticheat_matches(6, &unavailable));
+        assert!(!anticheat_matches(6, &denied));
+        assert_eq!(anticheat_filter_labels().len(), 7);
+    }
 }

@@ -2,6 +2,7 @@
 
 mod app;
 mod crash_watch;
+mod game_info;
 mod game_watch;
 pub mod i18n;
 mod profile_offer;
