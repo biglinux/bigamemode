@@ -1226,6 +1226,47 @@ fn steam_app_info(
     apps
 }
 
+/// The Steam apps among `ids` whose store data lists a Linux build: appinfo's
+/// `common/oslist`, which is what Steam's store page shows, read from every
+/// client's cache on this machine. Nothing is asked of the network, and an
+/// app no cache has is left out rather than guessed.
+#[must_use]
+pub fn steam_linux_builds<S: std::hash::BuildHasher>(
+    home: &Path,
+    ids: &HashSet<u32, S>,
+) -> HashSet<u32> {
+    let mut wanted: HashSet<u32> = ids.iter().copied().collect();
+    let mut linux = HashSet::new();
+    let mut roots: Vec<PathBuf> = steam_roots(home, &Xdg::of_home(home))
+        .into_iter()
+        .filter_map(|r| r.canonicalize().ok())
+        .collect();
+    roots.dedup();
+    for root in roots {
+        if wanted.is_empty() {
+            break;
+        }
+        let cache = root.join("appcache/appinfo.vdf");
+        if !cache.is_file() {
+            continue;
+        }
+        for (id, info) in appinfo::read(&cache, &wanted) {
+            wanted.remove(&id);
+            if info.oslist.as_deref().is_some_and(lists_linux) {
+                linux.insert(id);
+            }
+        }
+    }
+    linux
+}
+
+/// Whether an `oslist` (`windows,macos,linux`) names Linux.
+fn lists_linux(oslist: &str) -> bool {
+    oslist
+        .split(',')
+        .any(|os| os.trim().eq_ignore_ascii_case("linux"))
+}
+
 /// Apps that are runtimes, tooling or servers rather than games, by
 /// `AppID`: Steam's own runtimes and redistributables, every Proton, the
 /// anti-cheat runtimes, `SteamVR`. appinfo's type says the same for any app

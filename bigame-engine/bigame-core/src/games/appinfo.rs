@@ -50,6 +50,9 @@ pub(super) struct AppInfo {
     pub kind: Option<String>,
     /// `config/launch`, in the order of their numeric keys.
     pub launch: Vec<Launch>,
+    /// `common/oslist`: the systems the store lists a build for
+    /// (`windows,macos,linux`), as Steam's own store page shows them.
+    pub oslist: Option<String>,
 }
 
 /// The records of `wanted` in an `appinfo.vdf`; empty when the file is
@@ -274,6 +277,11 @@ fn app_info(root: &Value) -> AppInfo {
         .and_then(|c| c.get("type"))
         .and_then(Value::text)
         .map(str::to_ascii_lowercase);
+    let oslist = app
+        .get("common")
+        .and_then(|c| c.get("oslist"))
+        .and_then(Value::text)
+        .map(str::to_owned);
     let mut launch: Vec<(u32, Launch)> = Vec::new();
     if let Some(Value::Section(entries)) = app.get("config").and_then(|c| c.get("launch")) {
         for (index, entry) in entries {
@@ -297,6 +305,7 @@ fn app_info(root: &Value) -> AppInfo {
     AppInfo {
         kind,
         launch: launch.into_iter().map(|(_, l)| l).collect(),
+        oslist,
     }
 }
 
@@ -415,6 +424,7 @@ pub(super) mod tests {
                     Kv::Section(vec![
                         ("name", Kv::Text("Cyberpunk 2077")),
                         ("type", Kv::Text("Game")),
+                        ("oslist", Kv::Text("windows")),
                     ]),
                 ),
                 (
@@ -472,6 +482,8 @@ pub(super) mod tests {
             assert_eq!(cp.launch[0].executable, "redprelauncher.exe");
             assert_eq!(cp.launch[0].oslist.as_deref(), Some("windows"));
             assert_eq!(cp.launch[1].betakey.as_deref(), Some("pc_preview_a"));
+            assert_eq!(cp.oslist.as_deref(), Some("windows"));
+            assert_eq!(apps[&10].oslist, None);
         }
     }
 
