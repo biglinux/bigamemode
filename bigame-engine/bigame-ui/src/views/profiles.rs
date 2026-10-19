@@ -1396,7 +1396,55 @@ fn launch_command(game: &bigame_core::games::DetectedGame) -> Option<game_card::
 /// Start `entry`'s game: with Big Game Mode's launch settings (Gamescope, Wine
 /// FSR, vkBasalt, frame generation) on top of its profile when Big Game Mode
 /// starts it, or through its launcher.
+///
+/// A game whose anti-cheat refuses Wine and Proton is said to stop before
+/// it starts, first (Battlefield 6's EA Javelin opened only an error window
+/// on the reference desktop): its folder is read off the main thread, and
+/// the game starts anyway only when asked.
 fn launch_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
+    let (entry, anchor) = (entry.clone(), anchor.clone());
+    glib::spawn_future_local(async move {
+        let refused = match entry.target.clone() {
+            Some(target) => gio::spawn_blocking(move || {
+                bigame_core::graphics::scan::refuses_linux(
+                    &target.install_root,
+                    Some(&target.process),
+                )
+            })
+            .await
+            .ok()
+            .flatten(),
+            None => None,
+        };
+        let Some(anti_cheat) = refused else {
+            start_game(&entry, &anchor);
+            return;
+        };
+        tracing::info!(game = %entry.title, %anti_cheat, "the game's anti-cheat refuses Linux");
+        let dialog = adw::AlertDialog::builder()
+            .heading(i18n("%s does not run on Linux").replace("%s", &entry.title))
+            .body(
+                i18n(
+                    "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned.",
+                )
+                .replace("%s", &anti_cheat),
+            )
+            .build();
+        dialog.add_response("cancel", &i18n("Cancel"));
+        dialog.add_response("start", &i18n("Start anyway"));
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        let (entry, anchor2) = (entry.clone(), anchor.clone());
+        dialog.connect_response(None, move |_, response| {
+            if response == "start" {
+                start_game(&entry, &anchor2);
+            }
+        });
+        dialog.present(Some(&anchor));
+    });
+}
+
+fn start_game(entry: &game_card::Entry, anchor: &gtk4::Widget) {
     match entry.launch.clone() {
         Some(game_card::Launch::Direct(program, args)) => {
             launch_directly(entry, program, args, anchor);
