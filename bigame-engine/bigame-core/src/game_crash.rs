@@ -307,6 +307,14 @@ pub fn examine(
             None,
             None,
         )
+    } else if how.is_some_and(killed) && out_of_memory(session.pid, since) {
+        (
+            Text::plain(N_(
+                "The system ran out of memory, and the kernel stopped the game to free some",
+            )),
+            None,
+            None,
+        )
     } else if let Some(signal) = how.and_then(crash_signal) {
         (
             Text::with(
@@ -631,6 +639,40 @@ fn crash_signal(how: crate::processes::Ended) -> Option<String> {
         _ => return None,
     };
     Some(name.to_owned())
+}
+
+/// Whether SIGKILL ended the process: a launcher stopping the game, or the
+/// kernel's out-of-memory killer, which the kernel's log tells apart.
+fn killed(how: crate::processes::Ended) -> bool {
+    matches!(how, crate::processes::Ended::Signal { signal, .. } if signal == libc::SIGKILL)
+}
+
+/// Whether the kernel's out-of-memory killer stopped process `pid` since
+/// `since`, by its "Out of memory: Killed process <pid> (…)" in the kernel's
+/// log (which the journal keeps, readable by the user's own groups on
+/// most systems; unreadable, it is not).
+fn out_of_memory(pid: u32, since: SystemTime) -> bool {
+    let Ok(out) = std::process::Command::new("journalctl")
+        .args([
+            "--no-pager",
+            "--dmesg",
+            "--output=cat",
+            &format!("--since=@{}", secs(since)),
+        ])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+    else {
+        return false;
+    };
+    oom_killed_in(&String::from_utf8_lossy(&out.stdout), pid)
+}
+
+fn oom_killed_in(kernel_log: &str, pid: u32) -> bool {
+    let needle = format!("Killed process {pid} (");
+    kernel_log
+        .lines()
+        .any(|l| l.contains("Out of memory") && l.contains(&needle))
 }
 
 /// The signal that ended process `pid`, from systemd-coredump's record in
@@ -1003,6 +1045,24 @@ mod tests {
             examine(&native, SystemTime::now(), Some(Ended::Exited(5))),
             None
         );
+    }
+
+    #[test]
+    fn the_kernels_out_of_memory_killer_is_read_from_its_log() {
+        let log = "usb 1-2: new device\nOut of memory: Killed process 1302803 (Cyberpunk2077.e) total-vm:61234568kB, anon-rss:30123456kB, file-rss:0kB, shmem-rss:0kB, UID:1000 pgtables:90000kB oom_score_adj:0\n";
+        assert!(oom_killed_in(log, 1_302_803));
+        assert!(
+            !oom_killed_in(log, 13_028),
+            "another pid that starts the same"
+        );
+        assert!(!oom_killed_in(
+            "Killed process 1302803 (x) by hand",
+            1_302_803
+        ));
+        assert!(killed(crate::processes::Ended::Signal {
+            signal: libc::SIGKILL,
+            core: false
+        }));
     }
 
     #[test]
