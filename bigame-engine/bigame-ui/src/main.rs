@@ -14,10 +14,76 @@ mod views;
 mod widgets;
 mod window;
 
+/// The options `bigame-ui` takes, for `--help`.
+const USAGE: &str = "\
+Usage: bigame-ui [OPTION]
+
+Big Game Mode, BigLinux's game mode.
+
+Options:
+  --background            start in the tray, without opening the window
+  --diagnostics           print the support report and exit
+  --network               with --diagnostics: add the DNS measurements
+  --restore-all-graphics  put back every game AI Graphics changed, and exit
+  --version, -V           print the version and exit
+  --help, -h              print this help and exit
+";
+
+/// What the command line asks for before anything else runs.
+#[derive(Debug, PartialEq, Eq)]
+enum Cli {
+    /// Run (the window, or the tray with `--background`).
+    Run,
+    /// Print this and exit successfully.
+    Print(String),
+    /// An option this program does not take: say so and exit.
+    Unknown(String),
+}
+
+/// Read the command line. A question (`--version`, `--help`) or an option
+/// it does not know is answered here, before an instance already running is
+/// reached: starting the application, even to fail on an option, would ask
+/// an older running one to give way.
+fn cli(args: &[String]) -> Cli {
+    const KNOWN: [&str; 4] = [
+        "--background",
+        "--diagnostics",
+        "--network",
+        "--restore-all-graphics",
+    ];
+    for a in args {
+        match a.as_str() {
+            "--version" | "-V" => {
+                return Cli::Print(format!("bigame-ui {}\n", env!("CARGO_PKG_VERSION")));
+            }
+            "--help" | "-h" => return Cli::Print(USAGE.to_owned()),
+            _ => {}
+        }
+    }
+    // GApplication's own options pass through to it.
+    match args.iter().find(|a| {
+        a.starts_with('-') && !KNOWN.contains(&a.as_str()) && !a.starts_with("--gapplication-")
+    }) {
+        Some(other) => Cli::Unknown(other.clone()),
+        None => Cli::Run,
+    }
+}
+
 fn main() -> libadwaita::glib::ExitCode {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match cli(&args) {
+        Cli::Run => {}
+        Cli::Print(text) => {
+            print!("{text}");
+            return libadwaita::glib::ExitCode::SUCCESS;
+        }
+        Cli::Unknown(option) => {
+            eprint!("bigame-ui: unknown option {option}\n\n{USAGE}");
+            return libadwaita::glib::ExitCode::from(2);
+        }
+    }
     // The support report the Diagnostics page shows, for a terminal or a
     // bug report: no window, no display needed.
-    let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--diagnostics") {
         // --network adds the DNS measurements, which take a few seconds and
         // send queries, so they are asked for rather than assumed.
@@ -250,5 +316,37 @@ impl Drop for JournalRecord {
                 .sink
                 .send_with("bigame-ui", self.priority, text, &fields);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, cli};
+
+    fn args(a: &[&str]) -> Vec<String> {
+        a.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_question_is_answered_before_anything_runs() {
+        assert_eq!(
+            cli(&args(&["--version"])),
+            Cli::Print(format!("bigame-ui {}\n", env!("CARGO_PKG_VERSION")))
+        );
+        assert!(matches!(cli(&args(&["-h"])), Cli::Print(t) if t.contains("--background")));
+        // Even beside an acting option: a question never acts.
+        assert!(matches!(
+            cli(&args(&["--restore-all-graphics", "--version"])),
+            Cli::Print(_)
+        ));
+    }
+
+    #[test]
+    fn an_unknown_option_is_refused_and_the_known_ones_run() {
+        assert_eq!(cli(&args(&["--versoin"])), Cli::Unknown("--versoin".into()));
+        assert_eq!(cli(&args(&[])), Cli::Run);
+        assert_eq!(cli(&args(&["--background"])), Cli::Run);
+        assert_eq!(cli(&args(&["--diagnostics", "--network"])), Cli::Run);
+        assert_eq!(cli(&args(&["--gapplication-service"])), Cli::Run);
     }
 }

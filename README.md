@@ -613,10 +613,9 @@ starts it in the tray; `bigame-ui --diagnostics` prints the support report in a
 terminal without opening a window (`--network` adds the DNS measurements), and
 `bigame-ui --restore-all-graphics` puts back every game AI Graphics changed.
 
-> [!WARNING]
-> `bigame-ui` with any argument is an action, not a question: an instance of
-> an older version gives way to it. Ask the package manager for the version
-> (`pacman -Q bigame-mode`).
+`bigame-ui --version` prints the version and `bigame-ui --help` the
+options; both, and an option it does not know, are answered before anything
+else runs, so a Big Game Mode open in the tray is never disturbed by them.
 
 | Where | What is kept |
 |---|---|
