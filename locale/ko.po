@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:23\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Korean <ko@li.org>\n"
@@ -225,6 +225,10 @@ msgstr "%s은(는) 이 컴퓨터에서 %s을(를) 허용하지 않습니다 (허
 msgid "%s does not match what was placed"
 msgstr "%s이(가) 배치한 내용과 일치하지 않습니다"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s은(는) Linux에서 실행되지 않습니다"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s이(가) 종료 코드 %d(으)로 끝났습니다"
@@ -338,7 +342,7 @@ msgstr "%s 스케줄러가 설치되어 있지만 scx-tools(scx_loader)가 없�
 msgid "%s schedulers, scx_loader available"
 msgstr "%s 스케줄러, scx_loader 사용 가능"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s이(가) Big Game Mode의 실행 설정으로 시작됨"
 
@@ -756,7 +760,7 @@ msgstr "AI 그래픽: 검증된 백업, 복구, 복원을 갖춘 OptiScaler 설�
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "AI 그래픽: OptiScaler 로그로 확인될 때만 프레임 생성을 활성으로 표시, 더 안전한 복원과 복구, 게임이 사용하는 릴리스만 유지하는 다운로드 캐시"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "AI 그래픽…"
 
@@ -1061,15 +1065,15 @@ msgstr "게임 주변"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "컴퓨터가 만들 수 있는 만큼 프레임을 냅니다. 제한하거나 추가하는 것은 없습니다."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "%l에 %s 시작을 요청했습니다. 프로필은 적용되지만, 런처가 시작하는 게임에는 Big Game Mode의 실행 설정이 전달되지 않습니다."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "%l에 %s 시작을 요청했습니다. Turbo가 꺼져 있으므로 홈에서 Turbo를 켜기 전까지 프로필이 적용되지 않습니다."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "%l에 %s 시작을 요청했습니다. falcond가 설치되어 있지 않으므로 게임 프로필이 적용되지 않습니다."
 
@@ -1077,11 +1081,11 @@ msgstr "%l에 %s 시작을 요청했습니다. falcond가 설치되어 있지 �
 msgid "Asked %s to close"
 msgstr "%s에 닫기를 요청했습니다"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Heroic에 %s 시작을 요청했습니다. 프로필은 적용되지만, 게임 자체의 실행 설정은 프로필을 저장할 때 기록되는 Heroic의 게임 설정을 통해서만 게임에 전달됩니다."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Steam에 %s 시작을 요청했습니다. 프로필은 적용되지만, 실행 설정은 Steam의 실행 옵션을 통해서만 Steam 게임에 전달됩니다."
 
@@ -1394,7 +1398,8 @@ msgstr "설치되지 않은 '%p'을(를) 호출합니다 — 실행 옵션: %o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1780,12 +1785,12 @@ msgid "Could not create the profile"
 msgstr "프로필을 만들 수 없음"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "프로필을 삭제할 수 없음"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "프로필을 삭제할 수 없음: %s"
 
@@ -1868,7 +1873,7 @@ msgstr "실행 설정을 저장할 수 없음"
 msgid "Could not save: %s"
 msgstr "저장할 수 없음: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "%t을(를) 시작할 수 없음: %e"
 
@@ -1913,11 +1918,11 @@ msgstr "게임 프로필 생성 또는 삭제"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "프로필 생성"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2011,7 +2016,7 @@ msgid "Default settings restored"
 msgstr "기본 설정이 복원되었습니다"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "삭제"
 
@@ -2024,11 +2029,11 @@ msgstr "프로필 삭제"
 msgid "Delete Profile?"
 msgstr "프로필을 삭제하시겠습니까?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "프로필 삭제"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "이 프로필을 삭제하시겠습니까?"
 
@@ -2170,7 +2175,7 @@ msgstr "각 항목은 변경 후 시스템에서 다시 읽어 확인했습니�
 msgid "Edit"
 msgstr "편집"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "프로필 편집"
 
@@ -3234,6 +3239,10 @@ msgstr "열 때의 설정을 유지하므로, 다시 열어야 해당 게임에 
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "바탕 화면보다 낮은 해상도의 전용 전체 화면에서만 적용됩니다. 근거: 게임 프로세스의 환경."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "이 게임의 안티 치트 %s은(는) 의도적으로 Wine과 Proton을 거부하여 시작 전에 게임을 멈춥니다. Big Game Mode, Proton, Steam의 어떤 설정으로도 바뀌지 않으며, 우회하면 계정이 정지될 수 있습니다."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "파일은 게임 옆에 있습니다. 동작 여부는 게임이 실행되고 로그에 기록되어야 알 수 있습니다."
@@ -3332,7 +3341,7 @@ msgstr "Latency-Aware Virtual Deadline. 게임에 가장 좋은 선택입니다!
 msgid "Latest stable"
 msgstr "최신 안정 버전"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "실행 (Turbo)"
@@ -3609,7 +3618,7 @@ msgstr "측정"
 msgid "Measure again"
 msgstr "다시 측정"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3762,7 +3771,7 @@ msgstr "Nara Linux(ReShade, 전체 화면 효과 3개: 프레임이 줄어듦)"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "네이티브"
 
@@ -4877,7 +4886,7 @@ msgid "Profile applied"
 msgstr "프로필 적용됨"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "프로필이 생성되었습니다"
@@ -5057,8 +5066,8 @@ msgstr "완료되면 종료"
 msgid "Quit when finished?"
 msgstr "완료되면 종료할까요?"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "REDengine이 충돌 보고서를 작성함"
 
@@ -5314,7 +5323,7 @@ msgstr "이전 설정 복원"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "복원하면 게임 파일이 되돌아옵니다. 누락된 FidelityFX DLL은 복구로 해결됩니다"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "게임 그래픽 복원"
 
@@ -5665,6 +5674,10 @@ msgstr "게임을 시작한 뒤 Alt+Tab으로 여기로 돌아오세요. 그래�
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "게임을 시작하세요. 게임이 실제로 받는 설정을 프로세스에서 읽어 여기에 표시합니다."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "그래도 시작"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6007,7 +6020,7 @@ msgstr "게임이 %s(충돌 신호)로 종료되었습니다"
 msgid "The game was not started: the profile has errors"
 msgstr "게임을 시작하지 않았습니다: 프로필에 오류가 있습니다"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "%s(으)로 게임이 중지됨 (systemd-coredump)"
 
@@ -6168,7 +6181,7 @@ msgstr "이제 제품 이름이 Big Game Mode입니다. 트레이는 Turbo, 네 
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "프로필이 sched-ext 스케줄러를 요청하지만 이 컴퓨터에서는 전환할 수 없습니다."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "%s의 프로필이 제거됩니다. 이 작업은 되돌릴 수 없습니다."
 
@@ -6556,7 +6569,7 @@ msgstr "여기서는 사용할 수 없음 — 선택 사항이며 문제없음"
 msgid "Unchanged"
 msgstr "변경되지 않음"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "Unity가 충돌 보고서를 작성함"
 
@@ -6577,7 +6590,7 @@ msgstr "알 수 없는 CPU"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "알 수 없음: tc(iproute2)가 인터페이스의 큐 규칙을 읽을 수 없습니다"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Unreal Engine이 충돌 보고서를 작성함"
 

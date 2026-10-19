@@ -466,6 +466,31 @@ fn known_protected_executable(exe_lower: &str) -> Option<&'static str> {
     }
 }
 
+/// Anti-cheat whose maker refuses Wine and Proton in every game it
+/// protects, so the game stops before it starts: EA's Javelin ("Wine,
+/// Proton, and Steam Deck are not supported by this application!", seen
+/// with Battlefield 6 on the reference desktop), Riot's Vanguard, a Windows
+/// kernel driver, and Activision's Ricochet. Easy Anti-Cheat and `BattlEye`
+/// run under Proton when a game's maker allows it, game by game, so they
+/// are not here.
+const REFUSES_LINUX: &[&str] = &["EA Javelin Anticheat", "Riot Vanguard", "Ricochet"];
+
+/// The anti-cheat in the game installed at `root` (running as `process`,
+/// when known) that refuses to run under Wine or Proton, by name. Names
+/// only are read, a few folders deep, as for AI Graphics' check.
+#[must_use]
+pub fn refuses_linux(root: &Path, process: Option<&str>) -> Option<String> {
+    anti_cheat_near(root, None)
+        .into_iter()
+        .map(|a| a.name)
+        .chain(
+            process
+                .and_then(|p| known_protected_executable(&p.to_ascii_lowercase()))
+                .map(str::to_owned),
+        )
+        .find(|name| REFUSES_LINUX.contains(&name.as_str()))
+}
+
 fn lower_name(p: &Path) -> String {
     p.file_name()
         .and_then(|n| n.to_str())
@@ -1418,6 +1443,28 @@ mod tests {
         let s = scan(r, None);
         assert!(!s.has(ComponentKind::DlssSuperResolution));
         assert!(!s.truncated);
+    }
+
+    #[test]
+    fn an_anti_cheat_that_refuses_linux_is_named_and_one_that_may_run_is_not() {
+        let d = tempfile::tempdir().unwrap();
+        // Battlefield 6's folder on the reference desktop.
+        std::fs::create_dir(d.path().join("EAAntiCheat")).unwrap();
+        std::fs::write(d.path().join("EAAntiCheat.GameServiceLauncher.exe"), b"").unwrap();
+        std::fs::write(d.path().join("bf6.exe"), b"").unwrap();
+        assert_eq!(
+            refuses_linux(d.path(), Some("bf6.exe")).as_deref(),
+            Some("EA Javelin Anticheat")
+        );
+        // Easy Anti-Cheat runs where the game's maker allows it.
+        let e = tempfile::tempdir().unwrap();
+        std::fs::create_dir(e.path().join("EasyAntiCheat")).unwrap();
+        assert_eq!(refuses_linux(e.path(), Some("Game.exe")), None);
+        // Vanguard leaves nothing in the folder: known by the executable.
+        assert_eq!(
+            refuses_linux(e.path(), Some("VALORANT.exe")).as_deref(),
+            Some("Riot Vanguard")
+        );
     }
 
     #[test]

@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:21\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Icelandic <is@li.org>\n"
@@ -242,6 +242,10 @@ msgstr "%s tekur ekki við %s á þessari vél (leyft: %s)"
 msgid "%s does not match what was placed"
 msgstr "%s passar ekki við það sem var sett inn"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s keyrir ekki á Linux"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s endaði með skilakóða %d"
@@ -355,7 +359,7 @@ msgstr "%s verkstjórar uppsettir, en scx-tools (scx_loader) ekki, svo leikjasni
 msgid "%s schedulers, scx_loader available"
 msgstr "%s verkstjórar, scx_loader tiltækt"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s ræstur með ræsistillingum Big Game Mode"
 
@@ -773,7 +777,7 @@ msgstr "Gervigreindargrafík: OptiScaler sett upp með staðfestum öryggisafrit
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "Gervigreindargrafík: rammamyndun aðeins sýnd virk þegar annáll OptiScaler sannar það, öruggara Endurheimta og Gera við, og skyndiminni niðurhala sem heldur aðeins útgáfunum sem leikir nota"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "Gervigreindargrafík…"
 
@@ -1078,15 +1082,15 @@ msgstr "Í kringum leikinn"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "Eins margir rammar og tölvan þín getur búið til. Ekkert er takmarkað eða bætt við."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "Bað %l um að ræsa %s. Snið hans gildir; ræsistillingar Big Game Mode ná ekki til leiks sem ræsiforrit hans ræsir."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "Bað %l um að ræsa %s. Slökkt er á Turbo, svo snið hans gildir ekki fyrr en kveikt er á Turbo í Heim."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "Bað %l að ræsa %s. falcond er ekki uppsett, svo ekkert leikjasnið er notað."
 
@@ -1094,11 +1098,11 @@ msgstr "Bað %l að ræsa %s. falcond er ekki uppsett, svo ekkert leikjasnið er
 msgid "Asked %s to close"
 msgstr "Bað %s um að loka"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Bað Heroic um að ræsa %s. Snið hans gildir; eigin ræsistillingar leiksins ná aðeins til hans í gegnum stillingar hans í Heroic, sem eru skrifaðar þegar snið hans er vistað."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Bað Steam um að ræsa %s. Snið hans gildir; ræsistillingarnar ná aðeins til Steam-leiks í gegnum ræsivalkosti Steam."
 
@@ -1411,7 +1415,8 @@ msgstr "Kallar á '%p', sem er ekki uppsett — ræsivalkostir: %o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1798,12 +1803,12 @@ msgid "Could not create the profile"
 msgstr "Tókst ekki að búa til sniðið"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "Tókst ekki að eyða sniði"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "Tókst ekki að eyða sniði: %s"
 
@@ -1886,7 +1891,7 @@ msgstr "Ekki tókst að vista ræsistillingarnar"
 msgid "Could not save: %s"
 msgstr "Tókst ekki að vista: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "Tókst ekki að ræsa %t: %e"
 
@@ -1931,11 +1936,11 @@ msgstr "Búa til eða eyða leikjasniðum"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "Búa til snið"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2029,7 +2034,7 @@ msgid "Default settings restored"
 msgstr "Sjálfgefnar stillingar endurheimtar"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "Eyða"
 
@@ -2042,11 +2047,11 @@ msgstr "Eyða sniði"
 msgid "Delete Profile?"
 msgstr "Eyða sniði?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "Eyða sniði"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "Eyða þessu sniði?"
 
@@ -2188,7 +2193,7 @@ msgstr "Hvert þeirra var lesið aftur úr kerfinu eftir að því var breytt."
 msgid "Edit"
 msgstr "Breyta"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "Breyta sniði"
 
@@ -3252,6 +3257,10 @@ msgstr "Það heldur stillingunum sem það var opnað með, svo leikir þess f�
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Það tekur aðeins gildi á einkaheilskjá, í lægri upplausn en skjáborðsins. Sönnun: umhverfi leikjaferlisins."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "Svindlvörn hans, %s, hafnar Wine og Proton viljandi: hún stöðvar leikinn áður en hann ræsist. Engin stilling í Big Game Mode, Proton eða Steam breytir því, og að fara fram hjá henni getur leitt til banns á aðganginum."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "Skrár þess eru við hlið leiksins. Hvort það virkar kemur aðeins í ljós þegar leikurinn keyrir og annáll þess segir það."
@@ -3350,7 +3359,7 @@ msgstr "Latency-Aware Virtual Deadline. Allra besta valið fyrir leiki! Hann set
 msgid "Latest stable"
 msgstr "Nýjasta stöðuga"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "Ræsa (Turbo)"
@@ -3627,7 +3636,7 @@ msgstr "Mæla"
 msgid "Measure again"
 msgstr "Mæla aftur"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3780,7 +3789,7 @@ msgstr "Nara Linux (ReShade, þrjú áhrif á öllum skjánum: kostar ramma)"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "Innbyggt"
 
@@ -4895,7 +4904,7 @@ msgid "Profile applied"
 msgstr "Sniði beitt"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "Snið búið til"
@@ -5075,8 +5084,8 @@ msgstr "Hætta að verki loknu"
 msgid "Quit when finished?"
 msgstr "Hætta að verki loknu?"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "REDengine skrifaði hrunskýrslu"
 
@@ -5332,7 +5341,7 @@ msgstr "Endurheimta fyrri"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "Endurheimta setur skrár leiksins aftur; FidelityFX DLL sem vantar er lagfærð með Gera við"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "Endurheimta grafík leiksins"
 
@@ -5683,6 +5692,10 @@ msgstr "Ræstu leik og komdu svo hingað aftur með Alt+Tab: gröfin sýna síð
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Ræstu leik; það sem hann fær í raun er lesið úr ferli hans og sýnt hér."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "Ræsa samt"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6025,7 +6038,7 @@ msgstr "Leiknum var lokið af %s, merki um hrun"
 msgid "The game was not started: the profile has errors"
 msgstr "Leikurinn var ekki ræstur: sniðið inniheldur villur"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "Leikurinn var stöðvaður af %s (systemd-coredump)"
 
@@ -6186,7 +6199,7 @@ msgstr "Varan heitir nú Big Game Mode. Kerfisbakkinn er flýtistjórnun með Tu
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "Sniðið biður um sched-ext-verkstjóra, en ekki er hægt að skipta um hann á þessari vél."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "Sniðið fyrir %s verður fjarlægt. Þetta er ekki hægt að afturkalla."
 
@@ -6575,7 +6588,7 @@ msgstr "Ekki í boði hér — valfrjálst, ekkert er að"
 msgid "Unchanged"
 msgstr "Óbreytt"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "Unity skrifaði hrunskýrslu"
 
@@ -6596,7 +6609,7 @@ msgstr "Óþekktur örgjörvi"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "Óþekkt: tc (iproute2) gat ekki lesið biðraðarstjórnun netviðmótsins"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Unreal Engine skrifaði hrunskýrslu"
 

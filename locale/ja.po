@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:22\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Japanese <ja@li.org>\n"
@@ -225,6 +225,10 @@ msgstr "%sはこのマシンでは%sを受け付けません（受け付ける�
 msgid "%s does not match what was placed"
 msgstr "%sが配置した内容と一致しません"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s は Linux で動きません"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%sは終了コード%dで終了しました"
@@ -338,7 +342,7 @@ msgstr "%s個のスケジューラーがインストールされていますが�
 msgid "%s schedulers, scx_loader available"
 msgstr "スケジューラー%s個、scx_loader利用可能"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%sをBig Game Modeの起動設定で起動しました"
 
@@ -756,7 +760,7 @@ msgstr "AIグラフィックス: 検証済みのバックアップ、修復、�
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "AIグラフィックス: フレーム生成はOptiScalerのログで確認できた場合にのみ有効と表示、より安全な「元に戻す」と「修復」、ゲームが使用するリリースだけを保持するダウンロードキャッシュ"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "AIグラフィックス…"
 
@@ -1061,15 +1065,15 @@ msgstr "ゲームの周辺"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "コンピューターが出せるだけのフレームを出します。上限も追加もありません。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "%lに%sの起動を要求しました。プロファイルは適用されますが、ランチャーが起動するゲームにはBig Game Modeの起動設定は反映されません。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "%lに%sの起動を要求しました。Turboがオフのため、「ホーム」でTurboをオンにするまでプロファイルは適用されません。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "%lに%sの起動を要求しました。falcondがインストールされていないため、ゲームプロファイルは適用されません。"
 
@@ -1077,11 +1081,11 @@ msgstr "%lに%sの起動を要求しました。falcondがインストールさ�
 msgid "Asked %s to close"
 msgstr "%sに終了を要求しました"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Heroicに%sの起動を要求しました。プロファイルは適用されます。このゲーム独自の起動設定が反映されるのは、プロファイルの保存時に書き込まれるHeroic内のゲーム設定を通じた場合のみです。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Steamに%sの起動を要求しました。プロファイルは適用されます。Steamゲームに起動設定が反映されるのは、Steamの起動オプションを通じた場合のみです。"
 
@@ -1394,7 +1398,8 @@ msgstr "インストールされていない「%p」を呼び出しています 
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1780,12 +1785,12 @@ msgid "Could not create the profile"
 msgstr "プロファイルを作成できませんでした"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "プロファイルを削除できませんでした"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "プロファイルを削除できませんでした: %s"
 
@@ -1868,7 +1873,7 @@ msgstr "起動設定を保存できませんでした"
 msgid "Could not save: %s"
 msgstr "保存できませんでした: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "%tを起動できませんでした: %e"
 
@@ -1913,11 +1918,11 @@ msgstr "ゲームプロファイルを作成または削除"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "プロファイルを作成"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2011,7 +2016,7 @@ msgid "Default settings restored"
 msgstr "デフォルト設定を復元しました"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "削除"
 
@@ -2024,11 +2029,11 @@ msgstr "プロファイルを削除"
 msgid "Delete Profile?"
 msgstr "プロファイルを削除しますか？"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "プロファイルを削除"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "このプロファイルを削除しますか？"
 
@@ -2170,7 +2175,7 @@ msgstr "それぞれ、変更後にシステムから読み戻して確認しま
 msgid "Edit"
 msgstr "編集"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "プロファイルを編集"
 
@@ -3234,6 +3239,10 @@ msgstr "開いたときの設定を保持するため、そのゲームに現在
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "デスクトップより低い解像度の排他的フルスクリーンでのみ有効です。根拠: ゲームプロセスの環境。"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "このゲームのアンチチート %s は、意図的に Wine と Proton を拒否し、起動前にゲームを止めます。Big Game Mode、Proton、Steam のどの設定でも変わらず、回避するとアカウントが BAN される可能性があります。"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "ファイルはゲームの隣にあります。動作するかどうかは、ゲームを実行してログに記録されるまでわかりません。"
@@ -3332,7 +3341,7 @@ msgstr "Latency-Aware Virtual Deadline。ゲームに最適な選択です！イ
 msgid "Latest stable"
 msgstr "最新の安定版"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "起動 (Turbo)"
@@ -3609,7 +3618,7 @@ msgstr "測定"
 msgid "Measure again"
 msgstr "再測定"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3762,7 +3771,7 @@ msgstr "Nara Linux（ReShade、3つの全画面エフェクト: フレームが�
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "ネイティブ"
 
@@ -4877,7 +4886,7 @@ msgid "Profile applied"
 msgstr "プロファイルを適用しました"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "プロファイルが作成されました"
@@ -5057,8 +5066,8 @@ msgstr "完了したら終了"
 msgid "Quit when finished?"
 msgstr "完了したら終了しますか？"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "REDengineがクラッシュレポートを書き出しました"
 
@@ -5314,7 +5323,7 @@ msgstr "以前の設定に戻す"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "「元に戻す」でゲームのファイルを戻します。FidelityFX DLLの欠落は「修復」で直ります"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "ゲームのグラフィックを元に戻す"
 
@@ -5665,6 +5674,10 @@ msgstr "ゲームを起動し、Alt+Tab でここに戻ってください。グ�
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "ゲームを起動してください。実際に適用された内容をプロセスから読み取り、ここに表示します。"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "それでも起動"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6007,7 +6020,7 @@ msgstr "ゲームは %s（クラッシュ時のシグナル）で終了しまし
 msgid "The game was not started: the profile has errors"
 msgstr "ゲームは起動されませんでした: プロファイルにエラーがあります"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "ゲームは%sで停止しました（systemd-coredump）"
 
@@ -6168,7 +6181,7 @@ msgstr "製品名がBig Game Modeになりました。トレイはTurbo、4つ�
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "プロファイルはsched-extスケジューラーを要求していますが、このマシンでは切り替えられません。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "%sのプロファイルが削除されます。この操作は元に戻せません。"
 
@@ -6556,7 +6569,7 @@ msgstr "ここでは利用できません — オプションであり、問題�
 msgid "Unchanged"
 msgstr "未変更"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "Unityがクラッシュレポートを書き出しました"
 
@@ -6577,7 +6590,7 @@ msgstr "不明なCPU"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "不明: tc (iproute2) がインターフェースのキューイング規則を読み取れませんでした"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Unreal Engineがクラッシュレポートを書き出しました"
 

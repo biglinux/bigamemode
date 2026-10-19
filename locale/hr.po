@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:20\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Croatian <hr@li.org>\n"
@@ -259,6 +259,10 @@ msgstr "%s ne prihvaća %s na ovom računalu (prihvaćeno: %s)"
 msgid "%s does not match what was placed"
 msgstr "%s ne odgovara onome što je postavljeno"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s ne radi na Linuxu"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s je završio s izlaznim kodom %d"
@@ -372,7 +376,7 @@ msgstr "Instalirano raspoređivača: %s, ali scx-tools (scx_loader) nije, pa pro
 msgid "%s schedulers, scx_loader available"
 msgstr "Raspoređivača: %s, scx_loader dostupan"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "Igra %s pokrenuta je s postavkama pokretanja Big Game Mode"
 
@@ -790,7 +794,7 @@ msgstr "AI grafika: OptiScaler se instalira s provjerenim sigurnosnim kopijama, 
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "AI grafika: generiranje sličica prikazuje se kao aktivno samo kad to dokazuje dnevnik OptiScalera, sigurniji Vrati i Popravi te predmemorija preuzimanja koja čuva samo izdanja koja igre koriste"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "AI grafika…"
 
@@ -1095,15 +1099,15 @@ msgstr "Oko igre"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "Onoliko sličica koliko vaše računalo može napraviti. Ništa se ne ograničava niti dodaje."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "Pokretač %l zamoljen je da pokrene %s. Njezin se profil primjenjuje; postavke pokretanja Big Game Mode ne dopiru do igre koju pokreće njezin pokretač."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "Pokretač %l zamoljen je da pokrene %s. Turbo je isključen, pa se njezin profil ne primjenjuje dok Turbo ne uključite na stranici Početna."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "Zatraženo je da %l pokrene %s. falcond nije instaliran, pa se ne primjenjuje nijedan profil igre."
 
@@ -1111,11 +1115,11 @@ msgstr "Zatraženo je da %l pokrene %s. falcond nije instaliran, pa se ne primje
 msgid "Asked %s to close"
 msgstr "%s je zamoljen da se zatvori"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Heroic je zamoljen da pokrene %s. Njezin se profil primjenjuje; vlastite postavke pokretanja igre do nje dopiru samo putem njezinih postavki u Heroicu, zapisanih pri spremanju njezina profila."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Steam je zamoljen da pokrene %s. Njezin se profil primjenjuje; postavke pokretanja do Steam igre dolaze samo putem Steam opcija pokretanja."
 
@@ -1428,7 +1432,8 @@ msgstr "Poziva '%p', koji nije instaliran — opcije pokretanja: %o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1816,12 +1821,12 @@ msgid "Could not create the profile"
 msgstr "Kreiranje profila nije uspjelo"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "Brisanje profila nije uspjelo"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "Brisanje profila nije uspjelo: %s"
 
@@ -1904,7 +1909,7 @@ msgstr "Spremanje postavki pokretanja nije uspjelo"
 msgid "Could not save: %s"
 msgstr "Spremanje nije uspjelo: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "Pokretanje %t nije uspjelo: %e"
 
@@ -1949,11 +1954,11 @@ msgstr "Stvori ili obriši profile igara"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "Kreiraj profil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2047,7 +2052,7 @@ msgid "Default settings restored"
 msgstr "Zadane postavke vraćene"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "Izbriši"
 
@@ -2060,11 +2065,11 @@ msgstr "Izbriši profil"
 msgid "Delete Profile?"
 msgstr "Izbrisati profil?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "Izbriši profil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "Izbrisati ovaj profil?"
 
@@ -2206,7 +2211,7 @@ msgstr "Svaka je nakon promjene ponovno očitana iz sustava."
 msgid "Edit"
 msgstr "Uredi"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "Uredi profil"
 
@@ -3270,6 +3275,10 @@ msgstr "Zadržava postavke s kojima je otvoren, pa njegove igre dobivaju trenutn
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Djeluje samo u ekskluzivnom cijelom zaslonu, pri rezoluciji nižoj od rezolucije radne površine. Dokaz: okruženje procesa igre."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "Njezin anti-cheat, %s, namjerno odbija Wine i Proton: zaustavlja igru prije nego što se pokrene. Nijedna postavka u Big Game Modeu, Protonu ili Steamu to ne mijenja, a zaobilaženje može dovesti do zabrane računa."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "Njegove su datoteke pokraj igre. Radi li, zna se tek kad igra radi i njezin zapisnik to potvrdi."
@@ -3368,7 +3377,7 @@ msgstr "Latency-Aware Virtual Deadline. Apsolutno najbolji izbor za igranje! Sna
 msgid "Latest stable"
 msgstr "Najnovija stabilna"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "Pokreni (Turbo)"
@@ -3645,7 +3654,7 @@ msgstr "Izmjeri"
 msgid "Measure again"
 msgstr "Izmjeri ponovno"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3798,7 +3807,7 @@ msgstr "Nara Linux (ReShade, tri efekta preko cijelog zaslona: troši sličice)"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "Izvorno"
 
@@ -4913,7 +4922,7 @@ msgid "Profile applied"
 msgstr "Profil primijenjen"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "Profil je kreiran"
@@ -5093,8 +5102,8 @@ msgstr "Izađi po završetku"
 msgid "Quit when finished?"
 msgstr "Izaći po završetku?"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "REDengine je zapisao izvješće o rušenju"
 
@@ -5350,7 +5359,7 @@ msgstr "Vrati prethodno"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "Vrati vraća datoteke igre; FidelityFX DLL koji nedostaje popravlja Popravi"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "Vrati grafiku igre"
 
@@ -5701,6 +5710,10 @@ msgstr "Pokrenite igru pa se vratite ovamo s Alt+Tab: grafikoni prikazuju poslje
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Pokrenite igru; ono što stvarno dobiva čita se iz njezina procesa i prikazuje ovdje."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "Ipak pokreni"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6043,7 +6056,7 @@ msgstr "Igru je prekinuo signal %s, znak rušenja"
 msgid "The game was not started: the profile has errors"
 msgstr "Igra nije pokrenuta: profil sadrži pogreške"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "Igru je zaustavio signal %s (systemd-coredump)"
 
@@ -6204,7 +6217,7 @@ msgstr "Proizvod se sada zove Big Game Mode. Sistemska ladica je brza kontrola s
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "Profil traži sched-ext raspoređivač, ali na ovom računalu ga nije moguće promijeniti."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "Profil za %s bit će uklonjen. Ovo se ne može poništiti."
 
@@ -6594,7 +6607,7 @@ msgstr "Ovdje nedostupno — neobavezno, sve je u redu"
 msgid "Unchanged"
 msgstr "Nepromijenjeno"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "Unity je zapisao izvješće o rušenju"
 
@@ -6615,7 +6628,7 @@ msgstr "Nepoznat CPU"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "Nepoznato: tc (iproute2) nije mogao pročitati disciplinu reda čekanja sučelja"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Unreal Engine je zapisao izvješće o rušenju"
 
