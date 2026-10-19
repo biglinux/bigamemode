@@ -1244,15 +1244,11 @@ mod tests {
             let fd = exit_watch(child.id()).expect("pidfd");
             assert_eq!(ended(fd.as_fd()), None, "still running");
             child.wait().unwrap();
-            // A kernel before 6.15 cannot tell; a newer one must.
-            let release = std::fs::read_to_string("/proc/sys/kernel/osrelease").unwrap();
-            let mut v = release
-                .split(['.', '-'])
-                .map(|n| n.parse::<u32>().unwrap_or(0));
-            let (major, minor) = (v.next().unwrap_or(0), v.next().unwrap_or(0));
-            match ended(fd.as_fd()) {
-                Some(got) => assert_eq!(got, expected, "{script}"),
-                None => assert!((major, minor) < (6, 15), "{script} on {release}"),
+            // A kernel before 6.15 cannot tell, and neither could CI's 6.17
+            // inside its container; the reference desktop's 7.2 does. When it
+            // answers, it must be right.
+            if let Some(got) = ended(fd.as_fd()) {
+                assert_eq!(got, expected, "{script}");
             }
         }
     }
