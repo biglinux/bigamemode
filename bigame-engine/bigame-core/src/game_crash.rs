@@ -324,7 +324,8 @@ pub fn examine(
             None,
             None,
         )
-    } else if let Some(signal) = core_dump(session.pid, since) {
+    } else {
+        let signal = core_dump(session.pid, since)?;
         (
             Text::with(
                 N_("The game was stopped by %s (systemd-coredump)"),
@@ -333,8 +334,6 @@ pub fn examine(
             None,
             None,
         )
-    } else {
-        return None;
     };
     let mut extras = session.extras.clone();
     if crate::graphics::installed_processes(&crate::graphics::state_dir())
