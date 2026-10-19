@@ -90,6 +90,8 @@ pub struct Session {
     /// The Wine prefix: the folder that holds `drive_c`.
     prefix: Option<PathBuf>,
     install: Option<PathBuf>,
+    /// A Windows game, under Proton or Wine.
+    windows: bool,
     extras: BTreeSet<Extra>,
     /// The layers were read from the game's memory map ([`Self::look_inside`]),
     /// which replaces what its environment only asked for.
@@ -129,6 +131,7 @@ impl Session {
             started,
             prefix,
             install: game.install_path.clone(),
+            windows: game.runtime != crate::running::Runtime::Native,
             extras: env.extras(),
             looked_inside: false,
         }
@@ -293,6 +296,15 @@ pub fn examine(
                 [reporter],
             ),
             None,
+            None,
+        )
+    } else if let Some(exception) = how.filter(|_| session.windows).and_then(windows_exception) {
+        (
+            Text::with(
+                N_("The game ended with the code Windows gives %s"),
+                [exception],
+            ),
+            Some(exception.to_owned()),
             None,
         )
     } else if let Some(signal) = how.and_then(crash_signal) {
@@ -543,10 +555,10 @@ fn shorten(text: &str) -> String {
 }
 
 /// Programs that start only when a game has crashed. Unity's
-/// `UnityCrashHandler64.exe`, Chromium's `crashpad_handler` and REDengine's
+/// `UnityCrashHandler64.exe`, Chromium's `crashpad_handler` and `REDengine`'s
 /// `REDEngineErrorReporter.exe` run beside the game from its start (the
 /// last seen with Cyberpunk 2077 on the reference desktop), so they say
-/// nothing; REDengine's crash is in its report queue.
+/// nothing; `REDengine`'s crash is in its report queue.
 const REPORTERS: &[&str] = &[
     "crashreportclient.exe",
     "crashreporter.exe",
@@ -575,6 +587,28 @@ fn reporter_running(since: SystemTime) -> Option<String> {
             let age = crate::running::running_for(pid)?;
             (age <= age_limit).then_some(name)
         })
+}
+
+/// The Windows exception a Wine game's exit status stands for, when it is
+/// one a crash raises. Wine ends a process an unhandled exception stopped
+/// with the exception's code, of which the exit status keeps the low byte:
+/// checked on the reference desktop with a program reading 0x3F800010
+/// under Proton Experimental (status 5; a normal exit, 0). Only codes no
+/// game ends with on purpose count: a 1 or a 2 says nothing.
+fn windows_exception(how: crate::processes::Ended) -> Option<&'static str> {
+    let crate::processes::Ended::Exited(code) = how else {
+        return None;
+    };
+    Some(match code {
+        0x05 => "EXCEPTION_ACCESS_VIOLATION (0xC0000005)",
+        0x06 => "EXCEPTION_IN_PAGE_ERROR (0xC0000006)",
+        0x1D => "EXCEPTION_ILLEGAL_INSTRUCTION (0xC000001D)",
+        0x94 => "EXCEPTION_INT_DIVIDE_BY_ZERO (0xC0000094)",
+        0xFD => "EXCEPTION_STACK_OVERFLOW (0xC00000FD)",
+        0x09 => "STATUS_STACK_BUFFER_OVERRUN (0xC0000409)",
+        0x74 => "STATUS_HEAP_CORRUPTION (0xC0000374)",
+        _ => return None,
+    })
 }
 
 /// The name of the signal that ended a process, when it is one a crash
@@ -788,6 +822,7 @@ mod tests {
             started,
             prefix: prefix.map(Path::to_path_buf),
             install: None,
+            windows: true,
             extras: BTreeSet::from([Extra::VkBasalt, Extra::Fsr4Upgrade]),
             looked_inside: true,
         }
@@ -953,6 +988,21 @@ mod tests {
         ] {
             assert_eq!(examine(&s, SystemTime::now(), Some(quit)), None, "{quit:?}");
         }
+        // Wine's exit for an unhandled access violation, in a Windows game
+        // only: a native game's 5 is its own.
+        let crash = examine(&s, SystemTime::now(), Some(Ended::Exited(5))).unwrap();
+        assert_eq!(
+            crash.evidence.english(),
+            "The game ended with the code Windows gives EXCEPTION_ACCESS_VIOLATION (0xC0000005)"
+        );
+        let native = Session {
+            windows: false,
+            ..s
+        };
+        assert_eq!(
+            examine(&native, SystemTime::now(), Some(Ended::Exited(5))),
+            None
+        );
     }
 
     #[test]
