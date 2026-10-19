@@ -55,8 +55,9 @@ struct LibraryView {
     search: gtk4::SearchEntry,
     status_filter: adw::ToggleGroup,
     source_filter: gtk4::DropDown,
-    /// How well a game runs on Linux, and its anti-cheat ([`LINUX_FILTER`],
-    /// [`ANTICHEAT_FILTER`]); and the order of the cards ([`SORT`]).
+    /// How well a game runs on Linux, and its anti-cheat
+    /// ([`linux_filter_labels`], [`anticheat_filter_labels`]); and the
+    /// order of the cards ([`sort_labels`]).
     linux_filter: gtk4::DropDown,
     anticheat_filter: gtk4::DropDown,
     sort: gtk4::DropDown,
