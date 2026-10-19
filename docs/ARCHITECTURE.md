@@ -194,6 +194,21 @@ apply → verify → report → restore**.
   `/sys/kernel/sched_ext` reports one (`running::in_game`, Home's "In the
   game" line). When lsfg-vk's file changed after the game started, Home says
   that turning it on or off waits for the next start.
+- A game that closed with an error is told from one that was quit
+  (`game_crash.rs`, `crash_watch.rs`). Big Game Mode is not the game's
+  parent, so it reads what a crash leaves, only what was left while the
+  game ran: REDengine's `ReportQueue`, Unreal's `Saved/Crashes` (not an
+  `Ensure` or a hang), Unity's `Crashes` under the prefix's `Temp`, a crash
+  reporter still open, and how the process ended from a pidfd held since
+  the game was found (Linux 6.15's `PIDFD_INFO_EXIT`): a crash signal, or,
+  for a Windows game, the low byte Wine keeps of the exception that ended
+  it (5 for an access violation). SIGKILL is a quit unless the kernel's
+  log says its out-of-memory killer sent it to the game's pid; SIGTERM and
+  any other exit code are a quit. What was in the game is its environment, read once at the
+  start, and the layers mapped in it a minute and a half in; nothing is
+  read in between. The fix offered keeps vkBasalt, FSR 4 (`FSR4_UPGRADE=0`
+  and `PROTON_FSR4_UPGRADE=0`: Valve's Proton upgrades only at exactly
+  `1`) and Wine FSR out of that game's own launch settings.
 - When an unknown game starts with Turbo on, a notification offers a profile.
   The recommendation writes only falcond's fields and says where each value
   comes from: `performance_mode` on AC power only, `scx_sched = none` unless a
@@ -604,7 +619,7 @@ directory.
 | `/var/lib/bigame-mode/game-backend.json` | how falcond was before Big Game Mode took charge |
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
-| `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups, `turbo-preset-active.toml` (the preset in force and the user's own values before it), `scheduler-before-turbo.json`, `lsfg-vk.toml` (lsfg-vk entries Big Game Mode wrote or set aside), `mangohud/steam-added.toml` |
+| `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups, `turbo-preset-active.toml` (the preset in force and the user's own values before it), `scheduler-before-turbo.json`, `lsfg-vk.toml` (lsfg-vk entries Big Game Mode wrote or set aside), `mangohud/steam-added.toml`, `crashes.json` (the last 20 games that closed with an error) |
 | `$XDG_CONFIG_HOME/bigame-mode/vkbasalt-cas.conf` | the CAS-only vkBasalt file the Pretty preset points `VKBASALT_CONFIG_FILE` at |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |

@@ -47,7 +47,33 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## What's new in 2.4.0
+## What's new in 2.4.1
+
+**A game that crashes is said, with what was in it.** Cyberpunk 2077 closed
+after 25 minutes on an access violation in its own scripts, and Big Game
+Mode only said "Cyberpunk 2077 closed", as for a game quit from its menu.
+
+- **A crash is told from a quit,** from what it leaves and only what was
+  left while the game ran: the game's own crash report (REDengine, Unreal
+  Engine, Unity), a crash reporter still open, how the kernel says the
+  process ended (a crash signal, or the code Wine ends a Windows game with
+  when an exception stops it), the kernel's out-of-memory killer, and
+  systemd-coredump's record.
+- **The notice says what was in the game** besides the game itself (vkBasalt,
+  FSR 4, Wine FSR, MangoHud, lsfg-vk, OptiScaler, Gamescope), read from the
+  game while it ran, never from settings, with the game's reason and how
+  many times it crashed this week.
+- **Leave them out of this game:** one button keeps vkBasalt, FSR 4 and
+  Wine FSR out of that game alone from its next start, written where its
+  launcher reads it (an open Steam is closed and opened again around the
+  write, never while it runs a game). Nothing changes until it is chosen;
+  Profiles puts them back.
+- **FSR 4 can be switched off for one game**, whatever the Pretty preset
+  asks for the others.
+- Details lists the last crashes, the support report carries them, and
+  falcond's VRAM protection error is said in your language.
+
+### 2.4.0
 
 **First, do no harm.** A full review asked one question of every feature:
 can it make a game slower without saying so? Where it could, it no longer
@@ -268,8 +294,9 @@ Nothing is read while a game has the screen.
 **Details** says for every part whether it is **active**, **waiting**,
 **configured but not detected**, **off**, **missing a dependency** or
 **unsupported**, with the evidence and the fix. It adds the video pipeline, a
-ranked **Problems** list, the network with a DNS comparison, background load,
-broken Steam launch options and a support report.
+ranked **Problems** list, the games that closed with an error and what was in
+them, the network with a DNS comparison, background load, broken Steam launch
+options and a support report.
 **Logs** gathers falcond, the helper, power-profiles-daemon, scx_loader,
 Gamescope, GPU drivers, crashes and, from Steam games' output, Proton/Wine,
 MangoHud, vkBasalt, lsfg-vk and OptiScaler, filtered by source.
@@ -403,6 +430,7 @@ terminal without opening a window (`--network` adds the DNS measurements), and
 | AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
 | "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turbo still comes on with the general settings; per-game profiles need a falcond built for the x86-64 baseline. Turning Turbo off and on again does not help. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
+| A game closed by itself | Big Game Mode says so when the game left a sign of a crash, with what was in it: **Leave them out of this game** for a while tells whether vkBasalt or FSR 4 had a part in it. A crash with nothing added is the game's, its drivers' or the system's |
 | Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
 
 ## How it works
