@@ -301,7 +301,12 @@ const INFRASTRUCTURE: &[&str] = &[
     "unitycrashhandler64.exe",
     "crashreportclient.exe",
     "rederrorreporter.exe",
+    // REDengine's watchdog, beside Cyberpunk 2077 from its start.
+    "redengineerrorreporter.exe",
     "redprelauncher.exe",
+    // Windows' error reporting, which opens when a game has crashed: taken
+    // for the game, it would start a second watch as the game goes.
+    "werfault.exe",
     "easyanticheat.exe",
     "easyanticheat_eos.exe",
     "beservice.exe",
@@ -2413,6 +2418,35 @@ mod tests {
         assert_eq!(frame_cap_in(b"DXVK_CONFIG=dxgi.syncInterval = 0\0"), None);
         assert_eq!(frame_cap_in(b"VKD3D_FRAME_RATE=0\0"), None);
         assert_eq!(frame_cap_in(b""), None);
+    }
+
+    #[test]
+    fn the_window_a_crash_opens_is_not_the_game() {
+        // Cyberpunk 2077 on the reference desktop, 2026-10-18: the game is
+        // gone, REDengine's watchdog is still there, and an error report
+        // opens.
+        let tree = vec![
+            p(
+                1,
+                0,
+                "/home/u/.local/share/Steam/ubuntu12_32/reaper|SteamLaunch AppId=1091500 --",
+                1,
+            ),
+            p(
+                2,
+                1,
+                "python3|/s/steamapps/common/Proton - Experimental/proton waitforexitandrun x",
+                5,
+            ),
+            p(
+                3,
+                2,
+                "S:\\steamapps\\common\\Cyberpunk 2077\\bin\\x64\\REDEngineErrorReporter.exe|380",
+                800,
+            ),
+            p(4, 2, "C:\\windows\\system32\\WerFault.exe|-u -p 380", 300),
+        ];
+        assert!(identify(&tree).is_empty(), "{:?}", identify(&tree));
     }
 
     #[test]
