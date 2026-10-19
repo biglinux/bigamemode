@@ -47,7 +47,33 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## What's new in 2.4.0
+## What's new in 2.4.1
+
+**A game that crashes is said, with what was in it.** Cyberpunk 2077 closed
+after 25 minutes on an access violation in its own scripts, and Big Game
+Mode only said "Cyberpunk 2077 closed", as for a game quit from its menu.
+
+- **A crash is told from a quit,** from what it leaves and only what was
+  left while the game ran: the game's own crash report (REDengine, Unreal
+  Engine, Unity), a crash reporter still open, how the kernel says the
+  process ended (a crash signal, or the code Wine ends a Windows game with
+  when an exception stops it), the kernel's out-of-memory killer, and
+  systemd-coredump's record.
+- **The notice says what was in the game** besides the game itself (vkBasalt,
+  FSR 4, Wine FSR, MangoHud, lsfg-vk, OptiScaler, Gamescope), read from the
+  game while it ran, never from settings, with the game's reason and how
+  many times it crashed this week.
+- **Leave them out of this game:** one button keeps vkBasalt, FSR 4 and
+  Wine FSR out of that game alone from its next start, written where its
+  launcher reads it (an open Steam is closed and opened again around the
+  write, never while it runs a game). Nothing changes until it is chosen;
+  Profiles puts them back.
+- **FSR 4 can be switched off for one game**, whatever the Pretty preset
+  asks for the others.
+- Details lists the last crashes, the support report carries them, and
+  falcond's VRAM protection error is said in your language.
+
+### 2.4.0
 
 **First, do no harm.** A full review asked one question of every feature:
 can it make a game slower without saying so? Where it could, it no longer
@@ -81,6 +107,14 @@ does.
 - **Simple mode, the default:** Turbo says ON or OFF in words, three
   choices, **Play** on every game and **Back to normal** to undo it all.
   Settings → Advanced brings Tuning, Details and Logs back.
+- **Telemetry has its own page**, in the sidebar in simple mode too: the
+  processor, memory, disk, network and one card per GPU, each with a chart
+  of the last minute. The cards keep their size and place whatever the
+  readings say, and the whole page fits the window.
+- **One look on every page:** Home, Profiles, Tuning, Details, Logs and
+  Settings use Telemetry's cards, with an icon and a title in each card's
+  header, laid out in columns on a wide window and one under the other on a
+  narrow one. Turbo's button is as it was.
 - **What no setting fixes, said plainly:** a game library on a hard disk,
   adaptive sync switched off, and Steam launch options with a wrapper but no
   `%command%` (with a one-click fix).
@@ -247,14 +281,22 @@ release (HTTPS, pinned SHA-256) with a verified backup, or raises FSR 3.1 to
 FSR 4 through Proton. **Check Again**, **Repair**, **Restore** and **Diagnose**
 are always there. Games with anti-cheat are never touched.
 
-### Details, monitoring and logs
+### Telemetry, details and logs
+
+**Telemetry** shows, once a second, what the processor (load, the fastest
+core's clock and the average, temperature), memory (and swap), the disks
+(read and written), the network (latency, received and sent) and every GPU
+(load, temperature, clock, video memory, power, and which one renders the
+game) are doing, each with a chart of the last minute. The cards keep their
+size and place; a reading the driver does not publish says so in its place.
+Nothing is read while a game has the screen.
 
 **Details** says for every part whether it is **active**, **waiting**,
 **configured but not detected**, **off**, **missing a dependency** or
-**unsupported**, with the evidence and the fix. It adds live telemetry, a card
-per GPU (load, clocks, VRAM, temperature, power, and which one renders the
-game), the video pipeline, a ranked **Problems** list, the network with a DNS
-comparison, background load, broken Steam launch options and a support report.
+**unsupported**, with the evidence and the fix. It adds the video pipeline, a
+ranked **Problems** list, the games that closed with an error and what was in
+them, the network with a DNS comparison, background load, broken Steam launch
+options and a support report.
 **Logs** gathers falcond, the helper, power-profiles-daemon, scx_loader,
 Gamescope, GPU drivers, crashes and, from Steam games' output, Proton/Wine,
 MangoHud, vkBasalt, lsfg-vk and OptiScaler, filtered by source.
@@ -329,7 +371,7 @@ translation template, runs the tests and installs the package. Then open
 | `dbus`, `polkit`, `systemd` | the privileged helper: a system-bus service started by systemd, every method authorised by Polkit |
 | `curl`, `libarchive` | downloading and unpacking OptiScaler (AI Graphics) |
 | `hwdata` | graphics card names |
-| `iputils`, `iproute2` | network latency and queue discipline (Details) |
+| `iputils`, `iproute2` | network latency (Telemetry) and queue discipline (Details) |
 
 ### Optional components
 
@@ -388,6 +430,7 @@ terminal without opening a window (`--network` adds the DNS measurements), and
 | AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
 | "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turbo still comes on with the general settings; per-game profiles need a falcond built for the x86-64 baseline. Turning Turbo off and on again does not help. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
+| A game closed by itself | Big Game Mode says so when the game left a sign of a crash, with what was in it: **Leave them out of this game** for a while tells whether vkBasalt or FSR 4 had a part in it. A crash with nothing added is the game's, its drivers' or the system's |
 | Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
 
 ## How it works

@@ -10,4 +10,5 @@ pub mod profile_wizard;
 pub mod profiles;
 pub mod report;
 pub mod settings;
+pub mod telemetry;
 pub mod tuning;

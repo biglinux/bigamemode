@@ -439,6 +439,7 @@ fn wizard_step(title: &str, description: &str, input: &gtk4::Widget) -> gtk4::Sc
     vbox.set_margin_bottom(16);
     vbox.set_margin_start(24);
     vbox.set_margin_end(24);
+    vbox.add_css_class("bgm-cards");
 
     let title_lbl = gtk4::Label::new(Some(title));
     title_lbl.set_halign(gtk4::Align::Center);

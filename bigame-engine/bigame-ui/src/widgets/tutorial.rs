@@ -330,6 +330,48 @@ fn content(tab: &str) -> Help {
                 "Every change is saved at once. Restore Defaults, in the main menu, puts this page back to the recommended values.",
             ),
         },
+        "telemetry" => Help {
+            icon: "bigame-telemetry-symbolic",
+            title: i18n("Telemetry"),
+            lead: i18n("What the computer and every graphics card are doing, second by second."),
+            steps: Vec::new(),
+            parts: vec![
+                (
+                    "bigame-cpu-symbolic",
+                    i18n("Processor"),
+                    i18n(
+                        "How busy all its cores are, the fastest core's clock and the average, and its temperature.",
+                    ),
+                ),
+                (
+                    "bigame-memory-symbolic",
+                    i18n("Memory"),
+                    i18n("Memory in use out of the total, and swap."),
+                ),
+                (
+                    "drive-harddisk-symbolic",
+                    i18n("Disk"),
+                    i18n("How much every disk reads and writes each second, together."),
+                ),
+                (
+                    "network-transmit-receive-symbolic",
+                    i18n("Network"),
+                    i18n(
+                        "The latency to the address chosen in Settings, and what the network cards receive and send.",
+                    ),
+                ),
+                (
+                    "video-display-symbolic",
+                    i18n("Graphics cards"),
+                    i18n(
+                        "One card per GPU with its load, temperature, clock, video memory and power, and which one renders the game. Not reported means the driver does not publish that reading.",
+                    ),
+                ),
+            ],
+            tip: i18n(
+                "Start a game, then come back here with Alt+Tab: the charts show the last minute. While the game has the screen, nothing is read.",
+            ),
+        },
         "dashboard" => Help {
             icon: "speedometer-symbolic",
             title: i18n("Details"),
@@ -341,13 +383,6 @@ fn content(tab: &str) -> Help {
                     i18n("Overview"),
                     i18n(
                         "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation.",
-                    ),
-                ),
-                (
-                    "video-display-symbolic",
-                    i18n("Telemetry and graphics cards"),
-                    i18n(
-                        "Live CPU and GPU readings, and one card per GPU with its load, clock, video memory, temperature and power, and which one renders the game.",
                     ),
                 ),
                 (
@@ -445,7 +480,7 @@ fn content(tab: &str) -> Help {
                     "network-wireless-symbolic",
                     i18n("Notifications and ping target"),
                     i18n(
-                        "Notifications when a game starts or exits, and the address the Details page pings for its latency graph.",
+                        "Notifications when a game starts or exits, and the address the Telemetry page pings for its latency chart.",
                     ),
                 ),
                 (

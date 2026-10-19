@@ -96,6 +96,7 @@ pub fn report(include_network: bool) -> String {
     section_scheduler(&mut out, &caps);
     section_falcond(&mut out);
     section_booster(&mut out);
+    section_crashes(&mut out, &crate::game_crash::recorded());
     if include_network {
         section_network(&mut out);
     }
@@ -712,6 +713,33 @@ fn section_booster(out: &mut String) {
     let _ = writeln!(out);
 }
 
+/// The last games that closed with an error, and what was in them: a
+/// crash that comes back with the same extras is what a supporter asks
+/// about first.
+fn section_crashes(out: &mut String, crashes: &[crate::game_crash::Crash]) {
+    let _ = writeln!(out, "── Games that closed with an error ──");
+    if crashes.is_empty() {
+        let _ = writeln!(out, "  none recorded");
+    }
+    for crash in crashes.iter().take(5) {
+        let when = date(libc::time_t::try_from(crash.at).unwrap_or_default());
+        let _ = writeln!(
+            out,
+            "  {when}  {} ({}) after {} min: {}",
+            crash.game,
+            crash.process,
+            crash.played_secs / 60,
+            crash.evidence.english()
+        );
+        if let Some(reason) = &crash.reason {
+            let _ = writeln!(out, "    reason     {reason}");
+        }
+        let extras: Vec<&str> = crash.extras.iter().map(|e| e.label()).collect();
+        let _ = writeln!(out, "    extras     {}", or_none(&extras.join(", ")));
+    }
+    let _ = writeln!(out);
+}
+
 /// One skipped knob as a line of the report, in English like the rest of it.
 fn skipped_line(skipped: &crate::booster::plan::Skipped) -> String {
     use crate::booster::plan::Skipped;
@@ -1095,6 +1123,35 @@ mod tests {
         let mut out = String::new();
         section_versions(&mut out, &db.path().join("nowhere"));
         assert!(out.contains("no pacman database"), "{out}");
+    }
+
+    #[test]
+    fn the_crashes_are_listed_with_what_was_in_the_game() {
+        let crash = crate::game_crash::Crash {
+            game: "Cyberpunk 2077".into(),
+            process: "Cyberpunk2077.exe".into(),
+            at: 1_792_365_332,
+            played_secs: 1536,
+            evidence: crate::text::Text::plain("REDengine wrote a crash report"),
+            reason: Some("EXCEPTION_ACCESS_VIOLATION (0xC0000005)".into()),
+            report: None,
+            extras: vec![
+                crate::game_crash::Extra::VkBasalt,
+                crate::game_crash::Extra::Fsr4Upgrade,
+            ],
+        };
+        let mut out = String::new();
+        section_crashes(&mut out, &[crash]);
+        assert!(out.contains(
+            "Cyberpunk 2077 (Cyberpunk2077.exe) after 25 min: REDengine wrote a crash report"
+        ));
+        assert!(out.contains("reason     EXCEPTION_ACCESS_VIOLATION (0xC0000005)"));
+        assert!(
+            out.contains("extras     vkBasalt sharpening, FSR 4 in place of the game's FSR 3.1")
+        );
+        let mut none = String::new();
+        section_crashes(&mut none, &[]);
+        assert!(none.contains("none recorded"));
     }
 
     #[test]

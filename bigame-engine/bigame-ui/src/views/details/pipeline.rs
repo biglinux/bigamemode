@@ -75,6 +75,7 @@ impl Pipeline {
     pub fn new(hw: &bigame_core::hardware::Hardware) -> Self {
         let header = adw::PreferencesGroup::new();
         header.set_title(&i18n("Video pipeline"));
+        header.add_css_class("plain-group");
         header.set_description(Some(&i18n(
             "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows.",
         )));

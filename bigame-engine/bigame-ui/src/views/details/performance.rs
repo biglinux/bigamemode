@@ -29,6 +29,7 @@ impl Performance {
     pub fn new(hw: &bigame_core::hardware::Hardware) -> Self {
         let group = adw::PreferencesGroup::new();
         group.set_title(&i18n("Performance"));
+        crate::widgets::layout::icon(&group, "power-profile-performance-symbolic");
         group.set_description(Some(&i18n(
             "What is applied to the system while a game runs, and how each item was verified.",
         )));

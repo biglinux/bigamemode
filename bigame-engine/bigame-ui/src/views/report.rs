@@ -227,9 +227,10 @@ fn live_group() -> Option<adw::PreferencesGroup> {
 /// Build a page presenting `report`.
 #[must_use]
 pub fn build(report: &Report) -> gtk4::Widget {
-    let page = adw::PreferencesPage::new();
+    let page = crate::widgets::layout::Page::new();
 
     let head = adw::PreferencesGroup::new();
+    head.add_css_class("plain-group");
     head.set_title(&if report.turned_on {
         i18n("Optimization Report")
     } else {
@@ -243,8 +244,12 @@ pub fn build(report: &Report) -> gtk4::Widget {
     page.add(&head);
 
     if let Some(live) = live_group() {
+        crate::widgets::layout::icon(&live, "input-gaming-symbolic");
         page.add(&live);
     }
+
+    let (left, right) = page.columns();
+    let mut columns = [left, right].into_iter().cycle();
 
     for section in SECTIONS {
         let items: Vec<&Item> = report
@@ -255,18 +260,19 @@ pub fn build(report: &Report) -> gtk4::Widget {
         if items.is_empty() {
             continue;
         }
-        let group = adw::PreferencesGroup::new();
-        group.set_title(&section_title(*section));
+        let group = crate::widgets::layout::group(&section_title(*section), section_icon(*section));
         if let Some(d) = section_description(*section) {
             group.set_description(Some(&d));
         }
         for item in items {
             group.add(&item_row(item));
         }
-        page.add(&group);
+        if let Some(column) = columns.next() {
+            column.append(&group);
+        }
     }
 
-    page.upcast()
+    page.widget().clone().upcast()
 }
 
 #[cfg(test)]

@@ -52,19 +52,19 @@ const SETTLE_MS: u32 = 500;
 /// Build the Tuning page. What it shows is read off the main thread (the
 /// helper's file, sched-ext over D-Bus, `PATH`) and filled in when it comes.
 #[must_use]
-pub fn build() -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::new();
+pub fn build() -> gtk4::Widget {
+    let page = crate::widgets::layout::Page::new();
     page.add(&ui::scope_banner(Scope::General));
-    let filled = page.clone();
+    let widget = page.widget().clone().upcast();
     glib::spawn_future_local(async move {
         if let Ok(m) = gio::spawn_blocking(Machine::detect).await {
-            fill(&filled, &m);
+            fill(&page, &m);
         }
     });
-    page
+    widget
 }
 
-fn fill(page: &adw::PreferencesPage, m: &Machine) {
+fn fill(page: &crate::widgets::layout::Page, m: &Machine) {
     let falcond = Saver::new(
         m.general.clone(),
         |c| bigame_core::config::write_blocking(c).map(|()| None),
@@ -77,17 +77,18 @@ fn fill(page: &adw::PreferencesPage, m: &Machine) {
         N_("Could not save the launch settings"),
         Some(launch_settings_changed),
     );
-    page.add(&build_performance(&falcond, m));
+    let (left, right) = page.columns();
+    left.append(&build_performance(&falcond, m));
     let display = Display::build(&video, m);
-    page.add(&display.group);
-    page.add(&build_image_quality(&video, &display));
-    page.add(&build_frame_generation(&video, m));
-    page.add(&build_monitoring(m));
-    page.add(&build_advanced(&falcond, m));
+    right.append(&display.group);
+    left.append(&build_image_quality(&video, &display));
+    right.append(&build_frame_generation(&video, m));
+    right.append(&build_monitoring(m));
+    left.append(&build_advanced(&falcond, m));
     // The savers hold the controls (to put them back) and the controls the
     // savers: let go when the page goes (Restore Defaults rebuilds it).
     let (falcond, video) = (Rc::downgrade(&falcond), Rc::downgrade(&video));
-    page.connect_destroy(move |_| {
+    page.widget().connect_destroy(move |_| {
         if let Some(s) = falcond.upgrade() {
             s.release();
         }
@@ -512,7 +513,7 @@ fn report_steam_gamescope(
 #[allow(clippy::too_many_lines)]
 fn build_performance(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
     let shared = falcond.shared();
-    let group = ui::section(&i18n("Performance"));
+    let group = ui::section(N_("Performance"));
     if !m.falcond {
         group.add(&falcond_missing_row());
         return group;
@@ -667,7 +668,7 @@ impl Display {
     #[allow(clippy::too_many_lines)]
     fn build(saver: &VideoSaver, m: &Machine) -> Self {
         let video = saver.shared();
-        let group = ui::section(&i18n("Display"));
+        let group = ui::section(N_("Display"));
         group.set_description(Some(&i18n(
             "For games started from Big Game Mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
         )));
@@ -823,7 +824,7 @@ fn show_sharpness(row: &adw::SpinRow, filter: GamescopeFilter) {
 #[allow(clippy::too_many_lines)]
 fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::PreferencesGroup {
     let video = saver.shared();
-    let group = ui::section(&i18n("Image quality"));
+    let group = ui::section(N_("Image quality"));
     group.set_description(Some(&i18n(
         "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it.",
     )));
@@ -1293,7 +1294,7 @@ fn build_vkbasalt(saver: &VideoSaver, group: &adw::PreferencesGroup) {
 /// is in its profile.
 fn build_frame_generation(saver: &VideoSaver, m: &Machine) -> adw::PreferencesGroup {
     let video = saver.shared();
-    let group = ui::section(&i18n("Frame generation"));
+    let group = ui::section(N_("Frame generation"));
     if !m.lsfg {
         group.add(&ui::missing_row(
             "lsfg-vk",
@@ -1374,7 +1375,7 @@ fn build_frame_generation(saver: &VideoSaver, m: &Machine) -> adw::PreferencesGr
 /// `MangoHud`: shown per game (in the profile); how it looks, here.
 fn build_monitoring(m: &Machine) -> adw::PreferencesGroup {
     use bigame_core::mangohud::{Style, StyleState};
-    let group = ui::section(&i18n("Monitoring"));
+    let group = ui::section(N_("Monitoring"));
     if !m.mangohud {
         group.add(&ui::missing_row(
             "MangoHud",
@@ -1534,7 +1535,7 @@ fn falcond_missing_row() -> adw::ActionRow {
 /// scheduler flag is: last, each with its ⓘ.
 #[allow(clippy::too_many_lines)]
 fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup {
-    let group = ui::section(&i18n("Advanced"));
+    let group = ui::section(N_("Advanced"));
     group.set_description(Some(&i18n(
         "For those who want to look under the hood. The defaults suit almost everyone: nothing here needs changing to play.",
     )));

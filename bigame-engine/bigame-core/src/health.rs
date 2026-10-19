@@ -360,7 +360,7 @@ pub fn dmem_check(status: Option<&crate::status::FalcondStatus>) -> Option<Check
             Status::Warning,
             Text::with(
                 N_("falcond could not protect a game's VRAM: %s"),
-                [error.clone()],
+                [dmem_error(error)],
             ),
             advice(N_(
                 "falcond protects a game's VRAM only when the dmem controller is delegated to your session (the dmemcg-booster service does that); without it games run as before, without the protection",
@@ -375,6 +375,26 @@ pub fn dmem_check(status: Option<&crate::status::FalcondStatus>) -> Option<Check
             None,
         )
     })
+}
+
+/// falcond's DMEM error in the user's language: falcond 2.0.14 writes one
+/// of a few fixed English sentences (read from its binary), each said here
+/// in plain words. One it adds later is shown as it wrote it.
+fn dmem_error(error: &str) -> Arg {
+    let known = match error.trim() {
+        "dmem exists, but the source cgroup hierarchy does not expose dmem to the game scope" => {
+            N_("the kernel has the dmem controller, but it is not handed down to the game's cgroup")
+        }
+        "permission denied while accessing dmem cgroup files" => {
+            N_("it was not allowed to change the dmem cgroup files")
+        }
+        "no valid dmem capacity regions" => {
+            N_("the graphics driver reports no video memory that dmem can protect")
+        }
+        "dmem controller is not available" => N_("this kernel has no dmem controller"),
+        _ => return Arg::Raw(error.to_owned()),
+    };
+    Arg::Text(Text::plain(known))
 }
 
 /// A falcond directory that someone other than root can write: falcond, a
@@ -1048,7 +1068,19 @@ mod tests {
         );
         let c = dmem_check(Some(&s)).unwrap();
         assert_eq!(c.status, Status::Warning);
-        assert!(c.detail.english().contains("does not expose dmem"));
+        assert_eq!(
+            c.detail.english(),
+            "falcond could not protect a game's VRAM: the kernel has the dmem controller, but it is not handed down to the game's cgroup"
+        );
+        // One this version does not know is shown as falcond wrote it.
+        s.dmem_last_error = Some("something new".into());
+        assert!(
+            dmem_check(Some(&s))
+                .unwrap()
+                .detail
+                .english()
+                .ends_with(": something new")
+        );
     }
 
     #[test]

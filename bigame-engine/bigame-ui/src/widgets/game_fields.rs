@@ -956,6 +956,39 @@ impl ImageQualityFields {
                 None
             };
 
+            // Kept out of this game after it crashed with it in
+            // (crate::crash_watch); shown only then, as the way back.
+            if own.fsr4_upgrade_off {
+                let items = vec![
+                    (INHERIT.to_owned(), i18n("General configuration")),
+                    ("off".to_owned(), i18n("Off")),
+                ];
+                let fsr4 = Picker::new(
+                    &i18n("FSR 4 in place of the game's FSR 3.1"),
+                    &i18n(
+                        "Proton's upgrade of a game's FSR 3.1 to FSR 4, which the Pretty Turbo preset asks for. Off keeps it out of this game alone.",
+                    ),
+                    &items,
+                    "off",
+                );
+                fsr4.row
+                    .add_prefix(&gtk4::Image::from_icon_name("zoom-fit-best-symbolic"));
+                fsr4.row.set_subtitle_lines(4);
+                group.add(&fsr4.row);
+                let (l, row) = (Rc::clone(live), fsr4.row.clone());
+                fsr4.connect_changed(move |id| {
+                    let off = id == "off";
+                    l.edit(row.upcast_ref(), |l, _| l.fsr4_upgrade_off = off);
+                });
+                let l = Rc::downgrade(live);
+                live.on_resync(move || {
+                    if let Some(live) = l.upgrade() {
+                        let off = live.launch.borrow().fsr4_upgrade_off;
+                        fsr4.set(if off { "off" } else { INHERIT });
+                    }
+                });
+            }
+
             {
                 let l = Rc::downgrade(live);
                 let (wine, quality, vkbasalt) = (wine.clone(), quality.clone(), vkbasalt.clone());
@@ -1494,7 +1527,7 @@ impl GameFields {
     pub fn build(g: &GameOptimization, m: &Machine, game: &Game, titled: bool) -> Self {
         let section = |title: &str, description: String| {
             titled.then(|| {
-                let group = crate::widgets::optimization::section(&i18n(title));
+                let group = crate::widgets::optimization::section(title);
                 group.set_description(Some(&description));
                 group
             })
