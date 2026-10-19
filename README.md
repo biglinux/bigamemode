@@ -7,7 +7,7 @@
 **BigLinux's game mode.**<br>
 One switch for per-game performance, presets for what games should favour,
 a library that says how each game runs on Linux, AI Graphics with full backup
-and undo, and a page that shows — with evidence — what is really in effect.
+and undo, and pages that show — with evidence — what is really in effect.
 
 [![Version](https://img.shields.io/badge/version-3.0.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
@@ -15,8 +15,10 @@ and undo, and a page that shows — with evidence — what is really in effect.
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
 [![Languages](https://img.shields.io/badge/languages-29-f39c12?style=for-the-badge)](#languages)
 
+[What's new](#whats-new-in-300) ·
+[Tour](#a-tour-of-the-application) ·
 [Features](#features) ·
-[Screenshots](#screenshots) ·
+[Game information](#game-information) ·
 [Installation](#installation) ·
 [Troubleshooting](#troubleshooting) ·
 [Security](#security) ·
@@ -38,72 +40,55 @@ and undo, and a page that shows — with evidence — what is really in effect.
 Big Game Mode (the BiGame-mode project) is the gaming hub of BigLinux. With one
 button, **Turbo**, every game gets its own performance profile, applied by
 [falcond](https://git.pika-os.com/general-packages/falcond) when the game
-starts and undone when it closes. The application shows what is really in
-effect, measures whether a change helped, and takes care of what happens
-*inside* the game — upscaling and frame generation — always with a backup and
-a way back.
+starts and undone when it closes. The application finds every game installed
+by Steam, Heroic, Lutris, Faugus or the application menu; says how each runs
+on Linux, whether its anti-cheat allows online play and how many play it;
+shows what is really in effect; measures whether a change helped; and takes
+care of what happens *inside* the game — upscaling and frame generation —
+always with a backup and a way back.
 
 > [!NOTE]
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
+> Nothing is changed in bulk either: there is no "apply all", a DNS server is
+> never changed and a program never paused or closed without you asking.
 
 ## What's new in 3.0.0
 
-**A new layout, one purpose per page.** Seven pages became six, in the
-order a person uses them:
+**A new layout, one purpose per page.** Seven pages became six, in the order
+a person uses them:
 
 | Page | What it holds |
 |---|---|
-| **Home** | One **Turbo** card — the switch, the three presets under it with what the chosen one does, and Back to normal — and a **Now** card with the game being played: its cover, launcher, how long it has run, its ProtonDB and anti-cheat tags, and one coloured flag per feature it really got. With no game, it says what Turbo is doing and where to start one. |
-| **Games** | The library (formerly Profiles), each game with its profile and its compatibility. |
-| **Optimization** | Tabs: **Overview** (the machine at a glance and the recommendations for its own hardware and packages), **Tuning**, **Details**, and **Network and apps** (the connection and DNS, the programs beside the game, Steam's launch options). |
-| **Telemetry** | The live charts, as before. |
-| **Records** | Tabs: **Reports** (the last Turbo report and the support report), **Games that crashed**, and **Logs**. |
-| **Settings** | As before, with Game Information. |
+| **Home** | One **Turbo** card — the switch, the three presets under it with what the chosen one does, and Back to normal — and a **Now** card with the game being played. |
+| **Games** | The library (formerly Profiles): every installed game, its profile, its compatibility, anti-cheat and players. |
+| **Optimization** | Tabs: **Overview**, **Tuning**, **Details**, **Network and apps**. |
+| **Telemetry** | The live charts, second by second. |
+| **Records** | Tabs: **Reports**, **Games that crashed**, **Logs**. |
+| **Settings** | Appearance, background start, notifications, game information, advanced options. |
 
-- **Recommendations instead of Problems.** Each says whether it is
+- **Recommendations instead of Problems:** each says whether it is
   *Recommended*, needs your *Attention*, is *Not supported* on this hardware,
-  *Informative*, *Already adequate*, or *Needs measurement*, and leads to the
-  page that changes it. Nothing is applied from the list: there is no
-  "apply all", a DNS is never changed and a program never paused or closed
-  without you asking.
-- **Simple and advanced share everything.** Simple mode hides the Tuning,
-  Details and Logs tabs instead of whole pages; a page saved by an older
+  is *Informative*, *Already adequate*, or *Needs measurement*, and leads to the
+  page that changes it.
+- **Every game's Linux compatibility, anti-cheat and players** — Steam's
+  games and, from 3.0.0, those of Heroic, Lutris and Faugus too: a Linux build
+  says **Native**, a Windows one is matched to its Steam version by its exact
+  title. See [Game information](#game-information).
+- **The Now card** on Home: the game's cover, launcher, how long it has run,
+  its ProtonDB and anti-cheat tags, and one coloured flag per feature it
+  really got (active, configured but not seen, off, unavailable).
+- **Simple and advanced share everything:** simple mode hides the Tuning,
+  Details and Logs tabs instead of whole pages, and a page saved by an older
   version opens where its content went.
 - **Icons that are not in every theme** ship with the application, so no
   page shows a missing image outside BigLinux's icon theme.
+- A game whose anti-cheat refuses Linux is said before **Play**, and the
+  window never leaves the focus on a notice's button (keys meant for a game
+  could press it).
 
-**Your library knows how each game runs on Linux.** Every card says, at a
-glance and without leaving the library:
-
-- **How well it runs**: ProtonDB's rating (Platinum, Gold, Silver, Bronze,
-  Borked), or **Native** when Steam lists a Linux version. A game nobody has
-  reported on says so; it is never called Borked.
-- **Whether its anti-cheat lets you play online**: the status from the
-  community list Are We Anti-Cheat Yet? (Supported, Running, Planned,
-  Broken, Denied), with the anti-cheats it uses.
-- **How many play it on Steam now**, and on the game's page today's peak
-  from Steam's own chart, or the highest count Big Game Mode read itself,
-  said to be that, until there is history enough.
-
-**Games from Heroic, Lutris and Faugus too.** One that is a Linux build
-says **Native**; a Windows one is looked for on Steam's store by its exact
-title (an edition's name aside, never a sequel or a DLC), and its rating,
-anti-cheat status and players are said to be those of its Steam version.
-
-A tag opens what it means, where it comes from and when, with a link to the
-source; the game's page has the whole picture. In advanced mode the library
-filters and sorts by compatibility, anti-cheat status and players. What was
-learnt is kept, so the library works offline and opens at once; it is asked
-again only once a source says it may have changed, a few games at a time,
-never while a game runs, and never from SteamDB, which forbids it. Only a
-game's public Steam number is sent. Settings → Game Information turns any of
-it off, says when each source last answered, and clears what was
-downloaded.
-
-Also: a game whose community status is **Denied** is said before **Play**,
-and the window never leaves the focus on a notice's button (keys meant for a
-game could press it).
+<details>
+<summary><b>Earlier versions</b> (2.3.0 to 2.4.1)</summary>
 
 ### 2.4.1
 
@@ -278,6 +263,143 @@ package.
 
 </details>
 
+</details>
+
+## A tour of the application
+
+### Home
+
+<img src="docs/screenshots/home.png" width="860" alt="Home: the Turbo card and the Now card">
+
+- **Turbo** is the master switch. The disc fills as each part of Turbo is
+  really applied, and the line under it says which; the machine is named
+  under it (processor and the GPU games render on).
+- **What do you want?** — *Fastest*, *Quiet* or *Pretty*, chosen before or
+  while Turbo is on (see [Turbo and presets](#turbo-and-presets)).
+- **Back to normal** turns Turbo off, brings the choice back to Fastest and
+  every setting to how it started. Your games are not touched.
+- **Now** shows the game being played with its cover, launcher, runtime
+  (Proton version or native) and graphics API, how long it has run, its tags,
+  and one flag per feature as Big Game Mode reads it from the running game:
+  the profile, scheduler, power profile, Gamescope, upscaling, frame
+  generation, MangoHud, vkBasalt and the frame cap. **Create profile** appears
+  when the game has none; **View the Turbo report** opens it in Records. With
+  no game, it says what Turbo is doing and where to start one.
+- In advanced mode, **Live readings** follow: CPU clock, GPU load, latency.
+
+### Games
+
+<img src="docs/screenshots/games.png" width="860" alt="Games: the library, each game with its launcher, rating, anti-cheat status and players">
+
+Every installed game, from every launcher, with its cover, its profile (a
+green dot is yours, a blue one ships with falcond), its compatibility tag,
+anti-cheat tag and players. Search by name, filter by launcher and by
+whether it has a profile; in advanced mode, filter by compatibility and
+anti-cheat status and sort by name, rating or players.
+
+<img src="docs/screenshots/games-other-launchers.png" width="860" alt="Heroic's games with their ProtonDB ratings and Steam players">
+
+A game's menu has **Launch (Turbo)**, **Edit profile**, **AI Graphics** and
+**Measure the difference**. Its page starts with **Game Compatibility** —
+Linux compatibility, anti-cheat and Steam activity, each with its source,
+its age and a link — and then the profile's sections:
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/game.png" alt="A Steam game's page: ProtonDB, anti-cheat and Steam activity"></td>
+<td width="50%"><img src="docs/screenshots/game-other-launcher.png" alt="A Heroic game's page: its Steam version's rating and players"></td>
+</tr>
+<tr>
+<td align="center">A Steam game</td>
+<td align="center">A Heroic game, said of its Steam version</td>
+</tr>
+</table>
+
+### Optimization
+
+<img src="docs/screenshots/optimization.png" width="860" alt="Optimization, Overview: the machine at a glance and the recommendations">
+
+- **Overview**: a line on how the machine stands, a chip per item (Turbo,
+  falcond, profile, power, scheduler, GPU, Gamescope, upscaling, frame
+  generation), and the **Recommendations** for this machine's own hardware
+  and packages — falcond and its profiles, sched-ext, 3D V-Cache, adaptive
+  sync, Resizable BAR, NTSync, hybrid graphics, VRAM protection, 32-bit
+  MangoHud, a game library on a hard disk and more — each with its state, the
+  command to copy or a button to the page that fixes it, and the checks that
+  passed. What only a measurement can tell is said as that.
+- **Tuning** (advanced): the general configuration every game gets.
+- **Details** (advanced): what is really in force for the game, item by item.
+- **Network and apps**: the connection, a DNS comparison, the programs
+  competing for the CPU, and Steam launch options that call a missing
+  program.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/tuning.png" alt="Tuning: performance, Gamescope, image quality and frame generation"></td>
+<td width="50%"><img src="docs/screenshots/details.png" alt="Details: performance and the video pipeline, with the evidence"></td>
+</tr>
+<tr>
+<td align="center"><b>Tuning</b>: what the machine cannot do is shown as such</td>
+<td align="center"><b>Details</b>: what is in effect, with the evidence</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/network-and-apps.png" alt="Network and apps: the connection, DNS and background load"></td>
+<td><img src="docs/screenshots/ai-graphics.png" alt="AI Graphics: the verdict for a game and what to do"></td>
+</tr>
+<tr>
+<td align="center"><b>Network and apps</b>: nothing changes unless you ask</td>
+<td align="center"><b>AI Graphics</b>, from a game's menu: the verdict first</td>
+</tr>
+</table>
+
+### Telemetry
+
+<img src="docs/screenshots/telemetry.png" width="860" alt="Telemetry: processor, memory, disks, network and every GPU">
+
+Once a second: the processor (load, the fastest core's clock and the
+average, temperature), memory and swap, the disks, the network (latency,
+received and sent) and every GPU (load, temperature, clock, video memory,
+power, and which one renders the game), each with a chart of the last
+minute. A reading the driver does not publish says so. Nothing is read while
+a game has the screen.
+
+### Records
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/records.png" alt="Records, Reports: the last Turbo report"></td>
+<td width="50%"><img src="docs/screenshots/crashes.png" alt="Records, Games that crashed"></td>
+</tr>
+</table>
+
+- **Reports**: the last Turbo report — applied and verified, managed per
+  game, skipped, not available, conflicts avoided, failed — with what is in
+  force right now, and the **support report** to paste into a forum or an
+  issue (user name, home folder, host name and public addresses removed).
+- **Games that crashed**: each game that closed with an error, when, what
+  showed it (the game's own crash report, a crash reporter, how the kernel
+  says it ended, systemd-coredump), what the game said, and what else was in
+  it (vkBasalt, FSR 4, Wine FSR, MangoHud, lsfg-vk, OptiScaler, Gamescope).
+- **Logs** (advanced): falcond, the helper, power-profiles-daemon,
+  scx_loader, Gamescope, the GPU drivers and, from Steam games' output,
+  Proton/Wine, MangoHud, vkBasalt, lsfg-vk and OptiScaler, filtered by source.
+
+### Settings
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications"></td>
+<td width="50%"><img src="docs/screenshots/settings-game-info.png" alt="Settings, Game Information: switches and each source's state"></td>
+</tr>
+</table>
+
+The Default or Gamer theme, light, dark or the system's; starting in the
+background at login; handing falcond back as it was; notifications; **Game
+Information** (each source on or off, when it last answered, refresh or clear
+what was downloaded); and the advanced options.
+
+<div align="center"><img src="docs/screenshots/about.png" width="560" alt="About Big Game Mode 3.0.0"></div>
+
 ## Features
 
 ### Turbo and presets
@@ -339,36 +461,6 @@ release (HTTPS, pinned SHA-256) with a verified backup, or raises FSR 3.1 to
 FSR 4 through Proton. **Check Again**, **Repair**, **Restore** and **Diagnose**
 are always there. Games with anti-cheat are never touched.
 
-### Optimization, Telemetry and Records
-
-**Telemetry** shows, once a second, what the processor (load, the fastest
-core's clock and the average, temperature), memory (and swap), the disks
-(read and written), the network (latency, received and sent) and every GPU
-(load, temperature, clock, video memory, power, and which one renders the
-game) are doing, each with a chart of the last minute. The cards keep their
-size and place; a reading the driver does not publish says so in its place.
-Nothing is read while a game has the screen.
-
-**Game information**: each card shows ProtonDB's rating (or Native), the
-anti-cheat status from Are We Anti-Cheat Yet? and Steam's player count; the
-game's page explains each, with its source, its age and a link.
-
-**Optimization** opens on an **Overview**: the machine at a glance and the
-**Recommendations** for its own hardware and packages, each *Recommended*,
-*Attention*, *Not supported*, *Informative*, *Already adequate* or *Needs
-measurement*, with the command to copy or a button to the page that fixes
-it. Its **Details** tab says for every part whether it is **active**,
-**waiting**, **configured but not detected**, **off**, **missing a
-dependency** or **unsupported**, with the evidence and the fix, and adds the
-video pipeline. **Network and apps** has the network with a DNS comparison,
-background load and broken Steam launch options.
-
-**Records** keeps the last Turbo report and the support report, the games
-that closed with an error and what was in them, and the **Logs**: falcond,
-the helper, power-profiles-daemon, scx_loader, Gamescope, GPU drivers,
-crashes and, from Steam games' output, Proton/Wine, MangoHud, vkBasalt,
-lsfg-vk and OptiScaler, filtered by source.
-
 ### Measure the difference
 
 Compares a game with and without optimisations over several alternated runs
@@ -376,55 +468,59 @@ and gives a verdict with Welch's t-test. A gain is called one only when it
 exceeds the run-to-run spread. Method and results:
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
+### Crash watch
+
+A game that closes is told from a game that crashed by what it leaves, and
+only what was left while it ran. The notice names what was in the game
+besides the game itself, read from the game while it ran, never from
+settings; **Leave them out of this game** keeps vkBasalt, FSR 4 and Wine FSR
+out of that one game from its next start, written where its launcher reads
+it. Every crash is kept in Records.
+
 ### Tray
 
 Closing the window keeps Big Game Mode in the tray, with Turbo, the presets and
 **Open** a click away. On GNOME the tray needs an AppIndicator extension.
 
-## Screenshots
+## Game information
 
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/games.png" alt="Games: the library of installed games, with ProtonDB, anti-cheat and player counts"></td>
-<td width="50%"><img src="docs/screenshots/game.png" alt="A game's page: Linux compatibility, anti-cheat and Steam activity"></td>
-</tr>
-<tr>
-<td align="center"><b>Games</b>: every installed game, with how it runs on Linux</td>
-<td align="center"><b>A game's page</b>: its compatibility, sources and dates</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/optimization.png" alt="Optimization: the machine at a glance and its recommendations"></td>
-<td><img src="docs/screenshots/details.png" alt="Optimization, Details: what is in effect, with the evidence"></td>
-</tr>
-<tr>
-<td align="center"><b>Optimization</b>: what would help this machine</td>
-<td align="center"><b>Details</b>: what is in effect, with the evidence</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/tuning.png" alt="Tuning: performance, Gamescope, image quality and frame generation"></td>
-<td><img src="docs/screenshots/ai-graphics.png" alt="AI Graphics: the verdict for a game and what to do"></td>
-</tr>
-<tr>
-<td align="center"><b>Tuning</b>: what the machine cannot do is shown as such</td>
-<td align="center"><b>AI Graphics</b>: the verdict first, then why</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/records.png" alt="Records: the last Turbo report"></td>
-<td><img src="docs/screenshots/telemetry.png" alt="Telemetry: processor, memory, disks, network and every GPU"></td>
-</tr>
-<tr>
-<td align="center"><b>Records</b>: the Turbo report, crashes and logs</td>
-<td align="center"><b>Telemetry</b>: second by second</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications, game information"></td>
-<td><img src="docs/screenshots/about.png" alt="About Big Game Mode"></td>
-</tr>
-<tr>
-<td align="center"><b>Settings</b>: themes, game information, advanced options</td>
-<td align="center"><b>About</b></td>
-</tr>
-</table>
+Three questions, each answered by the source that can answer it, and each
+said with that source, its age and a link to it:
+
+| Question | Source | How it is asked | Kept |
+|---|---|---|---|
+| *Does it run well on Linux?* | [ProtonDB](https://www.protondb.com)'s rating (Platinum, Gold, Silver, Bronze, Borked); **Native** when Steam lists a Linux build, or when the copy installed is one | `protondb.com/api/v1/reports/summaries/<appid>.json`; Steam's own data on this computer | 24 hours |
+| *Does its anti-cheat allow online play?* | The community list [Are We Anti-Cheat Yet?](https://areweanticheatyet.com) (Supported, Running, Planned, Broken, Denied) | its `games.json`, once for the whole library, with `ETag` | 12 hours |
+| *How many play it?* | Steam's own counts and its Most Played chart | `ISteamUserStats/GetNumberOfCurrentPlayers`, `ISteamChartsService/GetGamesByConcurrentPlayers` | 15 minutes |
+
+**Games from other launchers.** A Heroic, Lutris or Faugus game that is a
+Linux build (Big Game Mode can start its file directly) is **Native**: it runs
+here without Proton or Wine. A Windows build is looked for on Steam's store
+(`store.steampowered.com/api/storesearch`) by its title. Only an app whose
+name is the title — once case, marks such as ™ and ® and punctuation are set
+aside — is taken, or one that differs only by an edition's name ("Ultimate
+Edition", "Game of the Year Edition"…): *Control* is matched to *CONTROL
+Ultimate Edition*, never to the sequel *CONTROL Resonant*, a DLC or a
+soundtrack. What ProtonDB, the list and Steam say of it is said to be its
+Steam version's: the tag's tooltip, its popover and the game's page name
+that version, and the card says "playing on Steam". A title with no such
+match shows nothing rather than a guess.
+
+**Privacy and courtesy.**
+
+- Only a game's public Steam number, or, for another launcher's Windows game,
+  its title, is sent. Never your Steam account, your list of games to anyone
+  else, or anything about this computer.
+- Nothing is asked while a game runs, nor while the library is not on
+  screen. A pass asks only for what aged past its source's limit, a few at a
+  time; a store search is kept a month when found and a week when not.
+- A source that fails or asks to wait (`Retry-After`) is left alone, longer
+  each time, with jitter.
+- SteamDB is never read: it forbids automated access. The game's page links
+  to it.
+- What was learnt is kept in `~/.cache/bigame-mode/game-info/`, so the
+  library works offline and opens at once. Settings → Game Information turns
+  any of it off, shows when each source last answered, and clears it.
 
 ## Installation
 
@@ -444,15 +540,32 @@ makepkg -si
 translation template, runs the tests and installs the package. Then open
 **Big Game Mode** from the application menu.
 
+To build another copy of the code — a branch, or a checkout you changed and
+committed — name it in `BIGAME_SOURCE`; the recipe itself is not edited:
+
+```bash
+cd bigamemode/pkgbuild
+BIGAME_SOURCE="git+file://$(cd .. && pwd)#branch=$(git branch --show-current)" makepkg -si
+```
+
+### Upgrading
+
+`pacman` stops the helper; it comes back, new, at its next call. A Big Game
+Mode open in the tray gives way to the new version the next time it is
+opened. Settings, profiles, game information and the backups of AI Graphics
+are kept; a page saved by an older version opens where its content went.
+
 ### Requirements
 
 | Package | Why |
 |---|---|
-| `gtk4`, `libadwaita`, `glib2`, `hicolor-icon-theme` | the interface |
-| `dbus`, `polkit`, `systemd` | the privileged helper: a system-bus service started by systemd, every method authorised by Polkit |
-| `curl`, `libarchive` | downloading and unpacking OptiScaler (AI Graphics) |
+| `gtk4`, `libadwaita`, `glib2`, `cairo`, `gdk-pixbuf2`, `graphene`, `pango`, `hicolor-icon-theme` | the interface |
+| `dbus`, `polkit`, `systemd` | the privileged helper: a system-bus service started by systemd, every method authorised by Polkit; the journal for Logs |
+| `curl`, `libarchive` | downloading and unpacking OptiScaler (AI Graphics); game information (HTTPS only) |
 | `hwdata` | graphics card names |
-| `iputils`, `iproute2` | network latency (Telemetry) and queue discipline (Details) |
+| `iputils`, `iproute2` | network latency (Telemetry) and queue discipline (Network and apps) |
+
+To build: `git`, `rust`, `gettext`, `python`; to run every test: `sqlite`.
 
 ### Optional components
 
@@ -469,26 +582,29 @@ how to install it.
 | `vkbasalt` | CAS sharpening and the Nara Linux look | BigLinux repository |
 | `lsfg-vk` | frame generation with your own `Lossless.dll` | BigLinux repository |
 | `nvidia-utils` | GPU telemetry on NVIDIA cards (NVML) | `extra` |
+| `nvidia-prime` | `prime-run`, to send games to the NVIDIA card of a hybrid laptop | `extra` |
 | `networkmanager` | applying a DNS server from the DNS comparison | `extra` |
 | `ntsync-autoload` | loading the NTSync driver at boot for Proton/Wine | `extra` |
 | `libkscreen` (KDE Plasma) or `xorg-xrandr` | the screen's refresh rate (the Quiet preset's cap) and whether adaptive sync is off | `extra` |
+| `flatpak` | games, Heroic and Steam installed as Flatpaks | `extra` |
+| `vulkan-tools` or `mesa-utils` | the graphics driver's version in the support report | `extra` |
 
 On BigLinux every optional component above is in the distribution's own
 repositories; on Arch, the three marked "BigLinux repository" come from the
-AUR. The launchers themselves (Steam, Heroic, Lutris) are not dependencies:
-Big Game Mode finds the ones installed, native or Flatpak.
+AUR. The launchers themselves (Steam, Heroic, Lutris, Faugus) are not
+dependencies: Big Game Mode finds the ones installed, native or Flatpak.
 
 The package installs `bigame-ui` (the application, run as your user),
 `bigame-daemon` (the root helper) with its systemd unit, D-Bus files and Polkit
 policy, the desktop entry, AppStream metadata, icons and translations.
 
 > [!TIP]
-> On upgrade the helper stops and comes back, new, at its next call. On
-> removal falcond is handed back as it was before Big Game Mode took charge.
-> Files AI Graphics placed in games stay until **Restore the game's graphics**,
-> or, for every game at once, Settings → Advanced → **Restore every game's
-> graphics** (`bigame-ui --restore-all-graphics` in a terminal) — do it before
-> removing the package. The backups are in `~/.local/state/bigame-mode/graphics`.
+> On removal falcond is handed back as it was before Big Game Mode took
+> charge. Files AI Graphics placed in games stay until **Restore the game's
+> graphics**, or, for every game at once, Settings → Advanced → **Restore
+> every game's graphics** (`bigame-ui --restore-all-graphics` in a terminal) —
+> do it before removing the package. The backups are in
+> `~/.local/state/bigame-mode/graphics`.
 
 ## Running
 
@@ -496,6 +612,18 @@ Open **Big Game Mode** from the menu, or run `bigame-ui`. `bigame-ui --backgroun
 starts it in the tray; `bigame-ui --diagnostics` prints the support report in a
 terminal without opening a window (`--network` adds the DNS measurements), and
 `bigame-ui --restore-all-graphics` puts back every game AI Graphics changed.
+
+> [!WARNING]
+> `bigame-ui` with any argument is an action, not a question: an instance of
+> an older version gives way to it. Ask the package manager for the version
+> (`pacman -Q bigame-mode`).
+
+| Where | What is kept |
+|---|---|
+| `~/.config/bigame-mode/settings.toml` | the application's settings |
+| `~/.local/state/bigame-mode/` | the last Turbo report, crashes, AI Graphics backups, launcher backups |
+| `~/.cache/bigame-mode/game-info/` | game information, for offline use |
+| `/etc/falcond/`, `/usr/share/falcond/profiles/user/` | falcond's configuration and your profiles, written by the helper |
 
 ## Troubleshooting
 
@@ -512,7 +640,8 @@ terminal without opening a window (`--network` adds the DNS measurements), and
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
 | "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turbo still comes on with the general settings; per-game profiles need a falcond built for the x86-64 baseline. Turning Turbo off and on again does not help. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
 | A game's tag says "Denied" or "Broken" | Its anti-cheat refuses Linux or does not work there, as players report it: online play will not work, whatever Big Game Mode or Proton does. Open the tag for the source |
-| A game shows no rating | It is not a Steam game, or nobody has reported on it yet, or Big Game Mode has not been able to ask: Settings → Game Information says which |
+| A game shows no rating | Nobody has reported on it yet; or, for a Heroic, Lutris or Faugus game, Steam's store has no game with exactly its title; or Big Game Mode has not been able to ask: its popover and Settings → Game Information say which |
+| A Heroic or Lutris game shows another game's rating | The Steam version is taken only when its name is the title (an edition's name aside); if one is still wrong, report it with the two names |
 | A game closed by itself | Big Game Mode says so when the game left a sign of a crash, with what was in it: **Leave them out of this game** for a while tells whether vkBasalt or FSR 4 had a part in it. A crash with nothing added is the game's, its drivers' or the system's |
 | Something else | Records → Reports → **Support report**, or `bigame-ui --diagnostics`, and Records → **Logs** |
 
@@ -571,7 +700,7 @@ Details in [docs/SECURITY.md](docs/SECURITY.md).
 | **System** | BigLinux and other Arch/Manjaro systems with systemd. falcond 2.0.3 or newer is recommended |
 | **CPU** | Any x86-64 processor: the package is built for the x86-64 baseline, and CI runs it on emulated processors from an AMD Opteron (2003) to current ones. falcond has to be built the same way ([CPU compatibility](docs/CPU-COMPATIBILITY.md)) |
 | **Desktop** | Tested on KDE Plasma (Wayland); X11 sessions are supported but less tested |
-| **Games** | Steam (including Proton), Heroic, Lutris and native games from the menu, native or Flatpak |
+| **Games** | Steam (including Proton), Heroic (Epic, GOG, Amazon, sideloaded), Lutris, Faugus and native games from the menu, native or Flatpak |
 | **GPUs** | AMD, NVIDIA and Intel, including hybrid laptops (the GPU a game renders on is identified, with PRIME offload) |
 | **Tested on** | Ryzen 7 5700G with Radeon RX 9060 XT (RDNA 4) and Radeon Vega; a hybrid laptop with Intel HD 630 and GeForce GTX 1050 Ti (NVIDIA 580); a virtual machine with a stock BigLinux |
 | **Detected, not yet tested on real hardware** | RDNA 3, RTX, Intel Arc, hybrid CPUs, 3D V-Cache, laptops on battery, VRR and HDR. There, Big Game Mode offers only what it detects as supported |
@@ -668,7 +797,8 @@ BIGAME_LOCALEDIR=/tmp/bgm-locale LANGUAGE=pt_BR bigame-engine/target/debug/bigam
 
 ### Packaging
 
-`pkgbuild/PKGBUILD` builds `main` from GitHub with
+`pkgbuild/PKGBUILD` builds `main` from GitHub (or the copy named in
+`BIGAME_SOURCE`, see [Installation](#installation)) with
 `cargo build --release --frozen --workspace` (LTO), checks the translation
 template, compiles the catalogues and runs `cargo test --release --frozen
 --workspace` in `check()`.

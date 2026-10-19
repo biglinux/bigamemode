@@ -214,9 +214,17 @@ apply → verify → report → restore**.
   list as one file for the library (12 h, `If-None-Match`, validated
   before it replaces the kept one), and Steam's player counts (15 min, as
   Steam caches them) and "Most Played" chart (the day's peak, top 100).
-  "Native" is appinfo's `common/oslist`, read locally. A Steam `AppID` is
-  used only for a game Steam installed; another game is matched in the
-  list only by its exact title when one entry has it. Every request is
+  "Native" is appinfo's `common/oslist`, read locally, for a game Steam
+  installed, and `DetectedGame::runs_on_linux` for another launcher's (a
+  file Big Game Mode can start directly). Another launcher's Windows build
+  is looked for on Steam's store search (`steam_search.rs`) by its title:
+  an app whose normalised name equals it, else one that differs only by an
+  edition's name, never a sequel, DLC or soundtrack; kept a month when
+  found and a week when not, at most 20 a pass, the first failure stopping
+  the search for a while. What the three sources say of that `AppID` is
+  shown as the Steam version's (`Info::steam_version`). A game with no
+  Steam `AppID` is matched in the anti-cheat list only by its exact title
+  when one entry has it. Every request is
   `curl` with an argument vector, HTTPS only, capped in size and time; a
   source that fails or asks to wait (`Retry-After`) is left alone, longer
   each time. A pass runs only with the library on screen in the active
