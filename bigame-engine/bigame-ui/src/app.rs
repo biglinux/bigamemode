@@ -556,7 +556,7 @@ fn warn_anti_cheat_later(app: &adw::Application) {
                 );
                 n.set_body(Some(
                     &crate::i18n::i18n(
-                        "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Profiles → the game's menu → Restore the game's graphics.",
+                        "%s found, and OptiScaler from AI Graphics is still in the game. Restore its graphics before playing online: Games → the game's menu → Restore the game's graphics.",
                     )
                     .replace("%s", &anti_cheat),
                 ));
@@ -666,7 +666,7 @@ fn install_missing_packages_hint(missing: &[String], runs: Option<String>) -> St
             i18n("Troubleshooting"),
             i18n("Install missing packages"),
             i18n("Restart Big Game Mode"),
-            i18n("Open Details after starting a game to see what it really got"),
+            i18n("Open Optimization after starting a game to see what it really got"),
             i18n("Command"),
             cmd
         );
@@ -677,7 +677,7 @@ fn install_missing_packages_hint(missing: &[String], runs: Option<String>) -> St
         i18n("Troubleshooting"),
         i18n("Install missing packages with your package manager"),
         i18n("Restart Big Game Mode"),
-        i18n("Open Details after starting a game to see what it really got"),
+        i18n("Open Optimization after starting a game to see what it really got"),
         i18n("Missing packages"),
         missing.join(", ")
     )

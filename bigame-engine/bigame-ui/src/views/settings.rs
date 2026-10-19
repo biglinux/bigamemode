@@ -264,7 +264,9 @@ fn ping_rows(current: &str) -> [adw::PreferencesRow; 2] {
     let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
     let combo = adw::ComboRow::builder()
         .title(i18n("Ping Target"))
-        .subtitle(i18n("The resolvers the DNS comparison in Details measures"))
+        .subtitle(i18n(
+            "The resolvers the DNS comparison in Optimization measures",
+        ))
         .model(&gtk4::StringList::new(&labels))
         .selected(selected)
         .build();
@@ -733,7 +735,7 @@ pub fn build() -> gtk4::Widget {
         &i18n("More pages and settings for people who know their hardware"),
         current.advanced_mode,
         &i18n(
-            "Shows Tuning, Details and Logs, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need.",
+            "Shows the Tuning and Details tabs of Optimization, the Logs of Records, and the technical settings in each page: falcond, CPU schedulers, Gamescope, vkBasalt, frame generation. Off, Big Game Mode shows Turbo, what games should favour and your games, which is all most people need.",
         ),
     );
     on_switch(&advanced_row, |on| {

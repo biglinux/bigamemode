@@ -168,12 +168,12 @@ impl Pipeline {
         );
         let mangohud = StatusRow::new(
             "MangoHud",
-            &i18n("The performance overlay, chosen per game in Profiles"),
+            &i18n("The performance overlay, chosen per game in Games"),
             "utilities-system-monitor-symbolic",
         );
         let ai = StatusRow::new(
             &i18n("AI Graphics (OptiScaler)"),
-            &i18n("Upscaling and frame generation inside the game, per game in Profiles"),
+            &i18n("Upscaling and frame generation inside the game, per game in Games"),
             "starred-symbolic",
         );
         for r in [&gamescope, &wine_fsr, &vkbasalt, &framegen, &mangohud, &ai] {
@@ -354,8 +354,8 @@ impl Pipeline {
         body = match gs {
             State::NotDetected => body
                 .note(&i18n("Expected: the game inside a gamescope process. Found: no Gamescope in its process tree."))
-                .note(&i18n("Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Profiles → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."))
-                .note(&i18n("Start the game from Profiles → ⋮ → Launch (Turbo). A Steam game is started by Steam, in its own process tree: Gamescope reaches it only through Steam's launch options.")),
+                .note(&i18n("Likely reasons: the game was started from Steam or its launcher, not from Big Game Mode (Games → Launch); Gamescope ended at start (its WSI layer, a game that prefers Wayland); the game's profile says Never."))
+                .note(&i18n("Start the game from Games → ⋮ → Launch (Turbo). A Steam game is started by Steam, in its own process tree: Gamescope reaches it only through Steam's launch options.")),
             State::Missing => body.command("sudo pacman -S gamescope"),
             _ => body,
         };
@@ -596,7 +596,7 @@ impl Pipeline {
             ),
             None => (
                 State::Waiting,
-                i18n("Per game, from the game's card in Profiles"),
+                i18n("Per game, from the game's card in Games"),
             ),
         };
         // Not asked for is not a problem: a game without AI Graphics is off.

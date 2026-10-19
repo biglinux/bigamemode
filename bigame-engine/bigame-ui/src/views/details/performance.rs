@@ -177,11 +177,11 @@ impl Performance {
                     AppliedProfile::GenericProton => body
                         .fact(&i18n("Profile applied"), "Proton")
                         .note(&i18n(
-                            "\"Proton\" is falcond's general profile for any Proton game without a profile of its own: performance mode and screen-saver inhibit, no scheduler, no V-Cache preference. Create a profile in Profiles to choose more.",
+                            "\"Proton\" is falcond's general profile for any Proton game without a profile of its own: performance mode and screen-saver inhibit, no scheduler, no V-Cache preference. Create a profile in Games to choose more.",
                         )),
                     AppliedProfile::Other(name) => body.fact(&i18n("Profile applied"), name),
                     AppliedProfile::None if game => body.note(&i18n(
-                        "falcond matched no profile to this process. It applies nothing for a game it does not know; create a profile in Profiles.",
+                        "falcond matched no profile to this process. It applies nothing for a game it does not know; create a profile in Games.",
                     )),
                     AppliedProfile::None => body,
                 };
@@ -272,7 +272,7 @@ impl Performance {
         body = body.fact(&i18n("Managed by"), "falcond → power-profiles-daemon");
         if power_state == State::NotDetected {
             body = body.note(&i18n(
-                "The game's profile may have performance mode off, or falcond found the game after another program changed the profile. Check the profile in Profiles.",
+                "The game's profile may have performance mode off, or falcond found the game after another program changed the profile. Check the profile in Games.",
             ));
         }
         if power_state == State::Missing {

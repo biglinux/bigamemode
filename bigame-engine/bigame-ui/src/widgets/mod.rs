@@ -18,6 +18,7 @@ pub mod resolution;
 pub mod scheduler_info;
 pub mod sparkline;
 pub mod status;
+pub mod tabs;
 pub mod toast;
 pub mod turbo_art;
 pub mod turbo_presets;

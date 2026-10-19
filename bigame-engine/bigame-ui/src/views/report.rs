@@ -224,22 +224,39 @@ fn live_group() -> Option<adw::PreferencesGroup> {
     Some(group)
 }
 
-/// Build a page presenting `report`.
+/// A page presenting `report`, the last one Turbo wrote; without one, a
+/// line saying where one comes from.
 #[must_use]
-pub fn build(report: &Report) -> gtk4::Widget {
+pub fn page(report: Option<&Report>) -> crate::widgets::layout::Page {
     let page = crate::widgets::layout::Page::new();
 
     let head = adw::PreferencesGroup::new();
     head.add_css_class("plain-group");
+    let Some(report) = report else {
+        head.set_title(&i18n("No Turbo report yet"));
+        head.set_description(Some(&i18n(
+            "Turn Turbo on or off from Home: what it applies, what it leaves to each game and what it puts back is reported here.",
+        )));
+        page.add(&head);
+        return page;
+    };
     head.set_title(&if report.turned_on {
         i18n("Optimization Report")
     } else {
         i18n("Turbo turned off")
     });
-    head.set_description(Some(&if report.turned_on {
+    let what = if report.turned_on {
         i18n("What Turbo did when it was turned on, and why.")
     } else {
         i18n("What was put back when Turbo was turned off.")
+    };
+    let when = i64::try_from(report.at)
+        .ok()
+        .and_then(|t| gtk4::glib::DateTime::from_unix_local(t).ok())
+        .and_then(|t| t.format("%x %H:%M").ok());
+    head.set_description(Some(&match when {
+        Some(when) => format!("{what} {}", crate::i18n::labelled(&i18n("When"), &when)),
+        None => what,
     }));
     page.add(&head);
 
@@ -272,7 +289,7 @@ pub fn build(report: &Report) -> gtk4::Widget {
         }
     }
 
-    page.widget().clone().upcast()
+    page
 }
 
 #[cfg(test)]

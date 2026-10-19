@@ -224,7 +224,7 @@ impl ComputerDns {
             .body(
                 Text::fill(
                     &i18n(
-                        "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Details › Network puts them back.",
+                        "This changes the system's network settings for the connection “%s”: %s becomes its first DNS server, and the servers handed out automatically are no longer used. The current settings are saved first; “Restore previous” under Optimization › Network and apps puts them back.",
                     ),
                     &[connection.name.clone(), server.to_string()],
                 ),

@@ -1801,7 +1801,7 @@ fn launch_directly(
                 profile = %exe_for_launch,
                 launch_program = %program,
                 launch_args = ?args,
-                "launch requested from Profiles"
+                "launch requested from Games"
             );
             let video = bigame_core::video_config::load();
             bigame_core::launcher::LaunchPlan::build_for_game(
@@ -1850,7 +1850,7 @@ fn launch_through(
     let anchor = anchor.clone();
     glib::spawn_future_local(async move {
         let by = start.by;
-        tracing::info!(game = %title, launcher = by, argv = ?start.argv, "launch through the launcher requested from Profiles");
+        tracing::info!(game = %title, launcher = by, argv = ?start.argv, "launch through the launcher requested from Games");
         let result = gio::spawn_blocking(move || {
             let unit = bigame_core::systemd::Reader::shared()
                 .and_then(|r| r.unit_state(bigame_core::turbo::BACKEND_UNIT))

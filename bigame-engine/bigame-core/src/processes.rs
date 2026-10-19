@@ -94,7 +94,7 @@ impl Kind {
                 N_("Part of your desktop session. Big Game Mode will not close or pause it.")
             }
             Self::ThisApp => N_(
-                "Big Game Mode itself. Details reads the system every second while it is on screen; minimised, it costs almost nothing.",
+                "Big Game Mode itself. Optimization and Telemetry read the system every few seconds while they are on screen; minimised, it costs almost nothing.",
             ),
             Self::Other => N_("Unrecognised."),
         }

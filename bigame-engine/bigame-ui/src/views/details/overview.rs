@@ -173,7 +173,7 @@ impl Overview {
                 i18n("%s is running without a profile")
                     .replace("%s", game_name.as_deref().unwrap_or("")),
                 i18n(
-                    "falcond has no profile for it, so nothing per game is applied. Create one in Profiles.",
+                    "falcond has no profile for it, so nothing per game is applied. Create one in Games.",
                 ),
             ),
             Headline::ProfileNotApplied => {
@@ -202,7 +202,7 @@ impl Overview {
             Headline::FalcondSilent => (
                 "dialog-warning-symbolic",
                 i18n("falcond is running but reports nothing"),
-                i18n("Its status file could not be read. See Problems below."),
+                i18n("Its status file could not be read. See Recommendations below."),
             ),
             Headline::TurboUnreadable => (
                 "dialog-warning-symbolic",

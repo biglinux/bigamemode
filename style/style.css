@@ -45,6 +45,54 @@
     font-weight: 600;
 }
 
+/* The Now card (views/home.rs): the cover centred over the game's name. */
+.home-cover-frame {
+    border-radius: 10px;
+    margin-bottom: 4px;
+}
+
+.home-cover-frame picture.home-cover {
+    border-radius: 10px;
+}
+
+.home-running-dot {
+    min-width: 8px;
+    min-height: 8px;
+    border-radius: 999px;
+    background-color: @success_color;
+}
+
+.home-running label {
+    color: @success_color;
+}
+
+/* On the card, not over a cover: the page's own ground and colours. */
+.now-card button.game-card-tag {
+    background-color: alpha(currentColor, 0.08);
+    color: @window_fg_color;
+}
+
+.now-card button.game-card-tag:hover {
+    background-color: alpha(currentColor, 0.16);
+}
+
+.now-card .game-card-tag.tier-platinum image { color: #7a9cb8; }
+.now-card .game-card-tag.tier-gold image { color: #c99a06; }
+.now-card .game-card-tag.tier-silver image { color: #8e9399; }
+.now-card .game-card-tag.tier-bronze image { color: #b5651d; }
+.now-card .game-card-tag.tier-borked image { color: #e01b24; }
+.now-card .game-card-tag.tier-native image { color: #26a269; }
+.now-card .game-card-tag.ac-supported image { color: #26a269; }
+.now-card .game-card-tag.ac-running image { color: #3584e4; }
+.now-card .game-card-tag.ac-planned image { color: #77767b; }
+.now-card .game-card-tag.ac-broken image { color: #c64600; }
+.now-card .game-card-tag.ac-denied image { color: #e01b24; }
+
+/* The tabs of Optimization and Records. */
+.page-tabs {
+    margin-bottom: 2px;
+}
+
 /* The presets under the control. */
 .turbo-preset {
     border-radius: 14px;

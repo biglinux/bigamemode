@@ -1,9 +1,15 @@
 //! Main application window with `AdwNavigationSplitView` sidebar navigation.
 //!
-//! Seven pages, in the order a person uses them: Home (Turbo), Profiles (the
-//! games), Telemetry (the live charts), Tuning (what is applied), Details
-//! (what is really happening), Logs, Settings. The Optimization Report is not a page of its own: it is
-//! shown over Home with a way back.
+//! Six pages, in the order a person uses them: Home (Turbo and the game
+//! being played), Games (the library and each game's profile),
+//! Optimization (what would help, the general configuration, what is in
+//! force, the network and the programs beside the game), Telemetry (the
+//! live charts), Records (the Turbo report, the games that crashed, the
+//! logs) and Settings. Optimization and Records are pages of tabs; simple
+//! mode hides their advanced tabs (Tuning, Details, Logs).
+//!
+//! A place is a page, or a page and one of its tabs: `optimization/tuning`.
+//! `win.go` opens one, from anywhere in the window.
 
 use adw::prelude::*;
 use gtk4::{gio, glib};
@@ -18,30 +24,52 @@ use crate::views;
 use crate::widgets;
 
 /// The pages, by stack name. A saved page name from an older version
-/// (`video`, `benchmark`, `diagnostics`) maps to where its content went.
-pub const PAGES: [&str; 7] = [
+/// maps to where its content went ([`migrate_tab`]).
+pub const PAGES: [&str; 6] = [
     "home",
-    "profiles",
+    "games",
+    "optimization",
     "telemetry",
-    "tuning",
-    "dashboard",
-    "logs",
+    "records",
     "settings",
 ];
 
-/// The pages shown only in advanced mode.
-pub const ADVANCED_PAGES: [&str; 3] = ["tuning", "dashboard", "logs"];
+/// Open a place (`page` or `page/tab`).
+type Go = Rc<dyn Fn(&str)>;
 
-/// Where a page name from an earlier version leads now.
+/// Where a saved place (`page` or `page/tab`), from this version or an
+/// earlier one, leads now: the page, and the tab when it names one.
 #[must_use]
-pub fn migrate_tab(name: &str) -> &str {
-    match name {
-        "video" => "tuning",
-        "benchmark" | "diagnostics" => "dashboard",
-        // The report is rebuilt per run and does not exist at startup.
-        "report" | "" => "home",
-        other if PAGES.contains(&other) => other,
-        _ => "home",
+pub fn migrate_tab(name: &str) -> (&'static str, Option<&'static str>) {
+    let (page, tab) = name.split_once('/').unwrap_or((name, ""));
+    let tab_of = |tabs: &[&'static str]| tabs.iter().copied().find(|t| *t == tab);
+    match page {
+        // Before 3.0.0 each of these was a page of its own.
+        "profiles" => ("games", None),
+        "tuning" | "video" => ("optimization", Some("tuning")),
+        "dashboard" | "benchmark" | "diagnostics" => ("optimization", Some("details")),
+        "logs" => ("records", Some("logs")),
+        "report" => ("records", Some("reports")),
+        "optimization" => ("optimization", tab_of(&views::optimization::TABS)),
+        "records" => ("records", tab_of(&views::records::TABS)),
+        other => (
+            PAGES
+                .iter()
+                .copied()
+                .find(|p| *p == other)
+                .unwrap_or("home"),
+            None,
+        ),
+    }
+}
+
+/// The help for a place: its page's, or its tab's when the tab has its own.
+#[must_use]
+pub fn help_key(page: &str, tab: &str) -> String {
+    match (page, tab) {
+        ("optimization", "tuning" | "details") | ("records", "logs" | "crashes") => tab.to_owned(),
+        ("records", _) => "report".to_owned(),
+        _ => page.to_owned(),
     }
 }
 
@@ -67,45 +95,22 @@ pub fn build(
     // ── View stack (content driven by sidebar) ───────────────────────
     let view_stack = adw::ViewStack::new();
 
-    // Home is the landing page and carries the single Turbo control. The
-    // report page is rebuilt on demand, so it always reflects the latest run
-    // rather than a stale snapshot of an earlier one.
-    let report_holder: Rc<RefCell<Option<gtk4::Widget>>> = Rc::new(RefCell::new(None));
     let page_title = adw::WindowTitle::new(&i18n("Home"), "");
-    // A "Back to Home" button, shown only while the report is on screen.
-    //
-    // The report is not a sidebar destination — it has no row of its own — so
-    // without this the sidebar and the window title would still say "Home"
-    // while it is shown, with no obvious way out. Showing where you are, and
-    // how to leave, is the minimum.
-    let back_button = gtk4::Button::builder()
-        .icon_name("go-previous-symbolic")
-        .tooltip_text(i18n("Back to Home"))
-        .visible(false)
-        .build();
-    back_button.update_property(&[gtk4::accessible::Property::Label(&i18n("Back to Home"))]);
 
-    let show_report: Rc<dyn Fn(&bigame_core::turbo::Report)> = {
+    // Records is built first: Home shows its Turbo report there.
+    let records = views::records::Records::build();
+    let optimization = views::optimization::Optimization::build();
+    // A Turbo report is kept in Records, and shown there when asked.
+    let show_report: views::home::ShowReport = {
         let stack = view_stack.clone();
-        let holder = Rc::clone(&report_holder);
-        let title = page_title.clone();
-        let back = back_button.clone();
-        Rc::new(move |report| {
-            if let Some(old) = holder.borrow_mut().take() {
-                stack.remove(&old);
+        let records = Rc::clone(&records);
+        Rc::new(move |report, open| {
+            records.show_report(report, open);
+            if open {
+                stack.set_visible_child_name("records");
             }
-            let page = views::report::build(report);
-            stack.add_named(&page, Some("report"));
-            *holder.borrow_mut() = Some(page);
-            stack.set_visible_child_name("report");
-            title.set_title(&i18n("Optimization Report"));
-            back.set_visible(true);
         })
     };
-    {
-        let stack = view_stack.clone();
-        back_button.connect_clicked(move |_| stack.set_visible_child_name("home"));
-    }
 
     // A launcher opened before a Turbo change is asked to reopen from the
     // top of the window, whichever page is shown.
@@ -114,21 +119,15 @@ pub fn build(
     let home = views::home::build(app, Rc::clone(&show_report), Rc::clone(&launcher_notice));
     view_stack.add_named(&home, Some("home"));
 
-    let profiles = views::profiles::build();
-    view_stack.add_named(&profiles, Some("profiles"));
+    let games = views::profiles::build();
+    view_stack.add_named(&games, Some("games"));
+
+    view_stack.add_named(optimization.widget(), Some("optimization"));
 
     let telemetry = views::telemetry::build();
     view_stack.add_named(&telemetry, Some("telemetry"));
 
-    // Wrap in Rc<RefCell> so the Restore Defaults action can swap it without a rebuild
-    let tuning_holder = Rc::new(RefCell::new(views::tuning::build()));
-    view_stack.add_named(&*tuning_holder.borrow(), Some("tuning"));
-
-    let details = views::details::build();
-    view_stack.add_named(&details, Some("dashboard"));
-
-    let logs = views::logs::build();
-    view_stack.add_named(&logs, Some("logs"));
+    view_stack.add_named(records.widget(), Some("records"));
 
     let settings_view = views::settings::build();
     view_stack.add_named(&settings_view, Some("settings"));
@@ -136,7 +135,6 @@ pub fn build(
     // ── Content: header + view stack wrapped in toast overlay ────────
     let content_header = adw::HeaderBar::new();
     content_header.set_title_widget(Some(&page_title));
-    content_header.pack_start(&back_button);
 
     // A game that closed with an error is said there too, under it.
     let crash_notice = widgets::crash_notice::CrashNotice::new();
@@ -164,11 +162,10 @@ pub fn build(
     // ── Sidebar: nav list (icon + label rows) ─────────────────────────
     let nav_items = [
         ("home", i18n("Home"), "go-home-symbolic"),
-        ("profiles", i18n("Profiles"), "applications-games-symbolic"),
+        ("games", i18n("Games"), "applications-games-symbolic"),
+        ("optimization", i18n("Optimization"), "speedometer-symbolic"),
         ("telemetry", i18n("Telemetry"), "bigame-telemetry-symbolic"),
-        ("tuning", i18n("Tuning"), "preferences-system-symbolic"),
-        ("dashboard", i18n("Details"), "speedometer-symbolic"),
-        ("logs", i18n("Logs"), "utilities-terminal-symbolic"),
+        ("records", i18n("Records"), "document-open-recent-symbolic"),
         ("settings", i18n("Settings"), "emblem-system-symbolic"),
     ];
     debug_assert_eq!(nav_items.len(), PAGES.len());
@@ -270,61 +267,104 @@ pub fn build(
         });
     }
 
-    // ── Restore last active tab ───────────────────────────────────────
-    {
-        let tab = migrate_tab(&saved.last_tab).to_owned();
-        view_stack.set_visible_child_name(&tab);
-        let mut idx = 0i32;
-        while let Some(row) = sidebar_list.row_at_index(idx) {
-            if row.widget_name() == tab.as_str() {
-                sidebar_list.select_row(Some(&row));
-                if let Some(ar) = row.downcast_ref::<adw::ActionRow>() {
-                    page_title.set_title(&ar.title());
+    // ── Places: a page, or a page and one of its tabs ─────────────────
+    let go: Go = {
+        let stack = view_stack.clone();
+        let (optimization, records) = (Rc::clone(&optimization), Rc::clone(&records));
+        Rc::new(move |place| {
+            let (page, tab) = migrate_tab(place);
+            if let Some(tab) = tab {
+                match page {
+                    "optimization" => {
+                        optimization.tabs().show(tab);
+                    }
+                    "records" => {
+                        records.tabs().show(tab);
+                    }
+                    _ => {}
                 }
-                break;
             }
-            idx += 1;
-        }
-    }
+            stack.set_visible_child_name(page);
+        })
+    };
+    // The page on screen and its tab, as a place to come back to.
+    let current_place: Rc<dyn Fn() -> String> = {
+        let stack = view_stack.clone();
+        let (optimization, records) = (Rc::clone(&optimization), Rc::clone(&records));
+        Rc::new(move || {
+            let page = stack
+                .visible_child_name()
+                .map(|n| n.to_string())
+                .unwrap_or_default();
+            match page.as_str() {
+                "optimization" => format!("{page}/{}", optimization.tabs().current()),
+                "records" => format!("{page}/{}", records.tabs().current()),
+                _ => page,
+            }
+        })
+    };
 
-    // ── Persist active tab on switch ──────────────────────────────────
+    // ── The sidebar and the title follow the page ─────────────────────
     {
         let stack = view_stack.clone();
-        let back = back_button.clone();
         let title = page_title.clone();
         let list = sidebar_list.clone();
+        let place = Rc::clone(&current_place);
         view_stack.connect_visible_child_name_notify(move |_| {
             let Some(name) = stack.visible_child_name() else {
                 return;
             };
-            let name = name.to_string();
-
-            // Leaving the report by any route — the back button, the sidebar,
-            // a keyboard shortcut — must put the header back.
-            if name != "report" {
-                back.set_visible(false);
-                let mut idx = 0i32;
-                while let Some(row) = list.row_at_index(idx) {
-                    if row.widget_name() == name.as_str() {
-                        if let Some(ar) = row.downcast_ref::<adw::ActionRow>() {
-                            title.set_title(&ar.title());
-                        }
-                        break;
+            let mut idx = 0i32;
+            while let Some(row) = list.row_at_index(idx) {
+                if row.widget_name() == name.as_str() {
+                    if !row.is_selected() {
+                        list.select_row(Some(&row));
                     }
-                    idx += 1;
+                    if let Some(ar) = row.downcast_ref::<adw::ActionRow>() {
+                        title.set_title(&ar.title());
+                    }
+                    break;
                 }
-            }
-
-            // The report is rebuilt per run and does not exist at startup, so
-            // remembering it as the last tab would restore an empty page.
-            if name == "report" {
-                return;
+                idx += 1;
             }
             let mut s = settings::load();
-            s.last_tab = name;
+            s.last_tab = place();
             settings::save(&s);
         });
     }
+    // A tab chosen is remembered too.
+    for tabs in [optimization.tabs().clone(), records.tabs().clone()] {
+        let place = Rc::clone(&current_place);
+        let stack = view_stack.clone();
+        let widget = tabs.widget().clone();
+        tabs.connect_changed(move |_| {
+            if stack.visible_child().as_ref() != Some(widget.upcast_ref()) {
+                return;
+            }
+            let mut s = settings::load();
+            s.last_tab = place();
+            settings::save(&s);
+        });
+    }
+
+    // ── Restore the last place ────────────────────────────────────────
+    go(&saved.last_tab);
+
+    // ── win.go: open a place from anywhere in the window ──────────────
+    let go_action = gio::SimpleAction::new("go", Some(glib::VariantTy::STRING));
+    {
+        let go = Rc::clone(&go);
+        let split = nav_split.clone();
+        go_action.connect_activate(move |_, place| {
+            if let Some(place) = place.and_then(glib::Variant::get::<String>) {
+                go(&place);
+                if split.is_collapsed() {
+                    split.set_show_content(true);
+                }
+            }
+        });
+    }
+    window.add_action(&go_action);
 
     // ── Persist window geometry on close ──────────────────────────────
     {
@@ -357,8 +397,8 @@ pub fn build(
         let stack = view_stack.clone();
         let overlay = toast_overlay.clone();
         let win = window.clone();
-        let th = Rc::clone(&tuning_holder);
-        let sidebar = sidebar_list.clone();
+        let opt = Rc::clone(&optimization);
+        let go = Rc::clone(&go);
         restore_action.connect_activate(move |_, _| {
             let dialog = adw::AlertDialog::new(
                 Some(&i18n("Restore Defaults")),
@@ -371,8 +411,8 @@ pub fn build(
             dialog.set_close_response("cancel");
             let stack2 = stack.clone();
             let overlay2 = overlay.clone();
-            let th2 = Rc::clone(&th);
-            let sidebar2 = sidebar.clone();
+            let opt2 = Rc::clone(&opt);
+            let go2 = Rc::clone(&go);
             dialog.connect_response(None, move |_, response| {
                 if response != "restore" {
                     return;
@@ -380,9 +420,8 @@ pub fn build(
                 restore_and_rebuild(
                     &stack2,
                     &overlay2,
-                    &th2,
-                    &sidebar2,
-                    true,
+                    &opt2,
+                    Some(Rc::clone(&go2)),
                     i18n("Default settings restored"),
                 );
             });
@@ -399,8 +438,7 @@ pub fn build(
         let stack = view_stack.clone();
         let overlay = toast_overlay.clone();
         let win = window.clone();
-        let th = Rc::clone(&tuning_holder);
-        let sidebar = sidebar_list.clone();
+        let opt = Rc::clone(&optimization);
         let app = app.clone();
         normal_action.connect_activate(move |_, _| {
             let dialog = adw::AlertDialog::new(
@@ -414,11 +452,10 @@ pub fn build(
             dialog.set_response_appearance("normal", adw::ResponseAppearance::Suggested);
             dialog.set_default_response(Some("cancel"));
             dialog.set_close_response("cancel");
-            let (stack, overlay, th, sidebar, app) = (
+            let (stack, overlay, opt, app) = (
                 stack.clone(),
                 overlay.clone(),
-                Rc::clone(&th),
-                sidebar.clone(),
+                Rc::clone(&opt),
                 app.clone(),
             );
             dialog.connect_response(None, move |_, response| {
@@ -429,9 +466,8 @@ pub fn build(
                 restore_and_rebuild(
                     &stack,
                     &overlay,
-                    &th,
-                    &sidebar,
-                    false,
+                    &opt,
+                    None,
                     i18n("Everything is back to normal"),
                 );
             });
@@ -441,24 +477,13 @@ pub fn build(
     window.add_action(&normal_action);
 
     // ── Simple and advanced mode ──────────────────────────────────────
-    // Tuning, Details and Logs only in advanced mode; a page hidden while
-    // it is shown gives way to Home.
+    // Tuning, Details and Logs only in advanced mode; a tab hidden while it
+    // is shown gives way to its page's first.
     {
-        let sidebar = sidebar_list.clone();
+        let (optimization, records) = (Rc::clone(&optimization), Rc::clone(&records));
         settings::follow_advanced(move |advanced| {
-            let mut i = 0;
-            while let Some(row) = sidebar.row_at_index(i) {
-                let advanced_page = ADVANCED_PAGES.contains(&row.widget_name().as_str());
-                row.set_visible(advanced || !advanced_page);
-                if !advanced
-                    && advanced_page
-                    && row.is_selected()
-                    && let Some(home) = sidebar.row_at_index(0)
-                {
-                    sidebar.select_row(Some(&home));
-                }
-                i += 1;
-            }
+            optimization.set_advanced(advanced);
+            records.set_advanced(advanced);
         });
     }
 
@@ -512,13 +537,11 @@ pub fn build(
         .css_classes(["flat"])
         .build();
     {
-        let stack = view_stack.clone();
+        let place = Rc::clone(&current_place);
         info_btn.connect_clicked(move |btn| {
-            let tab = stack
-                .visible_child_name()
-                .map(|s| s.to_string())
-                .unwrap_or_default();
-            widgets::tutorial::show(btn, &tab);
+            let place = place();
+            let (page, tab) = place.split_once('/').unwrap_or((place.as_str(), ""));
+            widgets::tutorial::show(btn, &help_key(page, tab));
         });
     }
 
@@ -602,21 +625,15 @@ struct Restored {
 /// lsfg-vk's entries, which follow its general switch).
 /// Write the defaults off the main thread, say how it went (`done_text`
 /// when every part was written), and rebuild Tuning so it reads back what
-/// is in force; `open_tuning` shows it afterwards.
+/// is in force; with `go`, Tuning is shown afterwards.
 fn restore_and_rebuild(
     stack: &adw::ViewStack,
     overlay: &adw::ToastOverlay,
-    tuning: &Rc<RefCell<gtk4::Widget>>,
-    sidebar: &gtk4::ListBox,
-    open_tuning: bool,
+    optimization: &Rc<views::optimization::Optimization>,
+    go: Option<Go>,
     done_text: String,
 ) {
-    let (stack, overlay, th, sidebar) = (
-        stack.clone(),
-        overlay.clone(),
-        Rc::clone(tuning),
-        sidebar.clone(),
-    );
+    let (stack, overlay, optimization) = (stack.clone(), overlay.clone(), Rc::clone(optimization));
     // Off the main thread: falcond's goes through the helper, which may
     // wait on a password prompt, and the launch settings through the
     // session bus.
@@ -625,23 +642,9 @@ fn restore_and_rebuild(
         report_restore(&overlay, done.ok(), &done_text);
         // Rebuilt only once both are written, so the page reads back what
         // is now in force.
-        let old = th.borrow().clone();
-        stack.remove(&old);
-        let new_tuning = views::tuning::build();
-        stack.add_named(&new_tuning, Some("tuning"));
-        *th.borrow_mut() = new_tuning;
-        if open_tuning {
-            // Through the sidebar, so its selection and the window title
-            // follow the page.
-            let mut i = 0;
-            while let Some(row) = sidebar.row_at_index(i) {
-                if row.widget_name() == "tuning" {
-                    sidebar.unselect_all();
-                    sidebar.select_row(Some(&row));
-                    break;
-                }
-                i += 1;
-            }
+        optimization.rebuild_tuning();
+        if let Some(go) = go {
+            go("optimization/tuning");
         }
         views::tuning::launch_settings_changed(stack.upcast_ref());
     });
@@ -763,34 +766,42 @@ mod tests {
     }
 
     #[test]
-    fn the_pages_of_removed_categories_lead_to_where_their_content_went() {
-        assert_eq!(migrate_tab("video"), "tuning");
-        assert_eq!(migrate_tab("benchmark"), "dashboard");
-        assert_eq!(migrate_tab("diagnostics"), "dashboard");
-        assert_eq!(migrate_tab("report"), "home");
-        assert_eq!(migrate_tab(""), "home");
-        assert_eq!(migrate_tab("nonsense"), "home");
+    fn the_pages_of_earlier_versions_lead_to_where_their_content_went() {
+        assert_eq!(migrate_tab("profiles"), ("games", None));
+        assert_eq!(migrate_tab("tuning"), ("optimization", Some("tuning")));
+        assert_eq!(migrate_tab("video"), ("optimization", Some("tuning")));
+        assert_eq!(migrate_tab("dashboard"), ("optimization", Some("details")));
+        assert_eq!(migrate_tab("benchmark"), ("optimization", Some("details")));
+        assert_eq!(
+            migrate_tab("diagnostics"),
+            ("optimization", Some("details"))
+        );
+        assert_eq!(migrate_tab("logs"), ("records", Some("logs")));
+        assert_eq!(migrate_tab("report"), ("records", Some("reports")));
+        assert_eq!(migrate_tab(""), ("home", None));
+        assert_eq!(migrate_tab("nonsense"), ("home", None));
         for p in PAGES {
-            assert_eq!(migrate_tab(p), p);
+            assert_eq!(migrate_tab(p), (p, None));
         }
     }
 
     #[test]
-    fn benchmark_video_and_diagnostics_are_no_longer_pages() {
-        for gone in ["benchmark", "video", "diagnostics"] {
-            assert!(!PAGES.contains(&gone));
-        }
+    fn a_place_names_its_tab_and_an_unknown_tab_is_the_page() {
         assert_eq!(
-            PAGES,
-            [
-                "home",
-                "profiles",
-                "telemetry",
-                "tuning",
-                "dashboard",
-                "logs",
-                "settings"
-            ]
+            migrate_tab("optimization/around"),
+            ("optimization", Some("around"))
         );
+        assert_eq!(migrate_tab("records/crashes"), ("records", Some("crashes")));
+        assert_eq!(migrate_tab("optimization/nonsense"), ("optimization", None));
+        assert_eq!(migrate_tab("home/whatever"), ("home", None));
+    }
+
+    #[test]
+    fn every_place_has_help() {
+        assert_eq!(help_key("optimization", "tuning"), "tuning");
+        assert_eq!(help_key("optimization", "overview"), "optimization");
+        assert_eq!(help_key("records", "reports"), "report");
+        assert_eq!(help_key("records", "logs"), "logs");
+        assert_eq!(help_key("games", ""), "games");
     }
 }

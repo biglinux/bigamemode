@@ -528,7 +528,7 @@ fn load_cover_async(path: PathBuf, picture: &gtk4::Picture) {
 
 /// The image at `path` scaled to cover `width` × `height` and cropped to it,
 /// centred.
-fn decode_cover(path: &Path, width: i32, height: i32) -> Option<gdk::Texture> {
+pub(crate) fn decode_cover(path: &Path, width: i32, height: i32) -> Option<gdk::Texture> {
     use gtk4::gdk_pixbuf::Pixbuf;
     // The header only, to know the aspect ratio before decoding.
     let (_, source_w, source_h) = Pixbuf::file_info(path)?;
