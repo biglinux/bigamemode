@@ -263,9 +263,15 @@ impl Crash {
 const LATE: Duration = Duration::from_secs(120);
 
 /// Look, once the game of `session` is gone (`ended`), at what a crash
-/// would have left. `None`: nothing did, and the game was most likely quit.
+/// would have left, and at how its process ended (`how`, from its pidfd:
+/// [`crate::processes::ended`]). `None`: nothing says it crashed, and the
+/// game was most likely quit.
 #[must_use]
-pub fn examine(session: &Session, ended: SystemTime) -> Option<Crash> {
+pub fn examine(
+    session: &Session,
+    ended: SystemTime,
+    how: Option<crate::processes::Ended>,
+) -> Option<Crash> {
     // A report from the second the game started counts; one from before
     // belongs to another run.
     let since = session
@@ -285,6 +291,15 @@ pub fn examine(session: &Session, ended: SystemTime) -> Option<Crash> {
             Text::with(
                 N_("%s, the game's crash reporter, opened as it closed"),
                 [reporter],
+            ),
+            None,
+            None,
+        )
+    } else if let Some(signal) = how.and_then(crash_signal) {
+        (
+            Text::with(
+                N_("The game was ended by %s, the signal of a crash"),
+                [signal],
             ),
             None,
             None,
@@ -528,13 +543,13 @@ fn shorten(text: &str) -> String {
 }
 
 /// Programs that start only when a game has crashed. Unity's
-/// `UnityCrashHandler64.exe` and Chromium's `crashpad_handler` run beside
-/// every game, so they say nothing.
+/// `UnityCrashHandler64.exe`, Chromium's `crashpad_handler` and REDengine's
+/// `REDEngineErrorReporter.exe` run beside the game from its start (the
+/// last seen with Cyberpunk 2077 on the reference desktop), so they say
+/// nothing; REDengine's crash is in its report queue.
 const REPORTERS: &[&str] = &[
     "crashreportclient.exe",
     "crashreporter.exe",
-    "rederrorreporter.exe",
-    "redengineerrorreporter.exe",
     "werfault.exe",
     "winedbg.exe",
     "bssndrpt64.exe",
@@ -560,6 +575,28 @@ fn reporter_running(since: SystemTime) -> Option<String> {
             let age = crate::running::running_for(pid)?;
             (age <= age_limit).then_some(name)
         })
+}
+
+/// The name of the signal that ended a process, when it is one a crash
+/// raises. `SIGKILL` and `SIGTERM` are someone stopping the game (a
+/// launcher, the session ending), not the game failing. A Wine game that
+/// fails ends with an exit status instead, which its report says more
+/// about; only a Wine that fails itself, or a native game, gets here.
+fn crash_signal(how: crate::processes::Ended) -> Option<String> {
+    let crate::processes::Ended::Signal { signal, .. } = how else {
+        return None;
+    };
+    let name = match signal {
+        libc::SIGSEGV => "SIGSEGV",
+        libc::SIGABRT => "SIGABRT",
+        libc::SIGBUS => "SIGBUS",
+        libc::SIGILL => "SIGILL",
+        libc::SIGFPE => "SIGFPE",
+        libc::SIGTRAP => "SIGTRAP",
+        libc::SIGSYS => "SIGSYS",
+        _ => return None,
+    };
+    Some(name.to_owned())
 }
 
 /// The signal that ended process `pid`, from systemd-coredump's record in
@@ -773,7 +810,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let started = SystemTime::now() - Duration::from_secs(1524);
         let dir = red_report(d.path(), "Cyberpunk2077-20261018-201525-1068-1140");
-        let crash = examine(&session(Some(d.path()), started), SystemTime::now()).unwrap();
+        let crash = examine(&session(Some(d.path()), started), SystemTime::now(), None).unwrap();
         assert_eq!(crash.report.as_deref(), Some(dir.as_path()));
         assert_eq!(crash.evidence.english(), "REDengine wrote a crash report");
         assert_eq!(
@@ -854,7 +891,7 @@ mod tests {
         std::fs::create_dir_all(d.path().join("drive_c/users/steamuser")).unwrap();
         let started = SystemTime::now() - Duration::from_secs(60);
         assert_eq!(
-            examine(&session(Some(d.path()), started), SystemTime::now()),
+            examine(&session(Some(d.path()), started), SystemTime::now(), None),
             None
         );
     }
@@ -884,6 +921,38 @@ mod tests {
                 .extras()
                 .contains(&Extra::Gamescope)
         );
+    }
+
+    #[test]
+    fn a_crash_signal_is_a_crash_and_being_stopped_is_not() {
+        use crate::processes::Ended;
+        let d = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(d.path().join("drive_c/users/steamuser")).unwrap();
+        let started = SystemTime::now() - Duration::from_secs(120);
+        let s = session(Some(d.path()), started);
+        let abort = Ended::Signal {
+            signal: libc::SIGABRT,
+            core: false,
+        };
+        let crash = examine(&s, SystemTime::now(), Some(abort)).unwrap();
+        assert_eq!(
+            crash.evidence.english(),
+            "The game was ended by SIGABRT, the signal of a crash"
+        );
+        for quit in [
+            Ended::Exited(0),
+            Ended::Exited(1),
+            Ended::Signal {
+                signal: libc::SIGKILL,
+                core: false,
+            },
+            Ended::Signal {
+                signal: libc::SIGTERM,
+                core: false,
+            },
+        ] {
+            assert_eq!(examine(&s, SystemTime::now(), Some(quit)), None, "{quit:?}");
+        }
     }
 
     #[test]

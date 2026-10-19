@@ -13,6 +13,7 @@
 //! changes until that is chosen.
 
 use std::cell::{Cell, RefCell};
+use std::os::fd::{AsFd as _, OwnedFd};
 use std::time::SystemTime;
 
 use adw::prelude::*;
@@ -51,6 +52,9 @@ thread_local! {
     /// The game being watched, from the moment it is found.
     static WATCHED: Cell<Option<u32>> = const { Cell::new(None) };
     static SESSION: RefCell<Option<Session>> = const { RefCell::new(None) };
+    /// The game's pidfd, held from the moment it is found: the kernel
+    /// tells how the process ended to whoever holds one.
+    static PIDFD: RefCell<Option<(u32, OwnedFd)>> = const { RefCell::new(None) };
     /// The last crash, until it is dismissed or dealt with.
     static LAST: RefCell<Option<(Crash, usize)>> = const { RefCell::new(None) };
     static LISTENERS: RefCell<Vec<Listener>> = const { RefCell::new(Vec::new()) };
@@ -111,6 +115,9 @@ fn changed(game: Option<&GameIdentity>) {
     let Some(game) = game.cloned() else {
         return;
     };
+    if let Some(fd) = bigame_core::processes::exit_watch(game.pid) {
+        PIDFD.with(|p| *p.borrow_mut() = Some((game.pid, fd)));
+    }
     glib::spawn_future_local(async move {
         let found = game.clone();
         let Ok(session) = gio::spawn_blocking(move || Session::begin(&found)).await else {
@@ -150,11 +157,25 @@ fn changed(game: Option<&GameIdentity>) {
 /// The game of `session` is gone: look for what a crash leaves.
 fn finish(session: Session) {
     let ended = SystemTime::now();
+    let pidfd = PIDFD
+        .with(|p| p.borrow_mut().take_if(|(pid, _)| *pid == session.pid))
+        .map(|(_, fd)| fd);
     glib::spawn_future_local(async move {
         glib::timeout_future_seconds(REPORTER_GRACE).await;
         let game = session.game.clone();
         let found = gio::spawn_blocking(move || {
-            let crash = game_crash::examine(&session, ended)?;
+            // Read once its parent has reaped it, which the wait above
+            // nearly always covers.
+            let how = pidfd.as_ref().and_then(|fd| {
+                (0..10).find_map(|_| {
+                    bigame_core::processes::ended(fd.as_fd()).or_else(|| {
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                        None
+                    })
+                })
+            });
+            tracing::debug!(game = %session.game, ?how, "the game's process ended");
+            let crash = game_crash::examine(&session, ended, how)?;
             if let Err(e) = game_crash::record(&crash) {
                 tracing::warn!(error = %format!("{e:#}"), "the crash could not be recorded");
             }

@@ -1017,6 +1017,67 @@ pub fn exit_watch(pid: u32) -> Option<OwnedFd> {
     Some(unsafe { OwnedFd::from_raw_fd(fd) })
 }
 
+/// How a process ended, as the kernel recorded it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ended {
+    /// It exited with this status.
+    Exited(i32),
+    /// A signal ended it; `core`: the kernel was asked for a core dump.
+    Signal {
+        /// The signal's number.
+        signal: i32,
+        /// It would have dumped core.
+        core: bool,
+    },
+}
+
+/// `struct pidfd_info` as first published (Linux 6.15, 64 bytes): the
+/// kernel fills what fits and says so in `mask`.
+#[repr(C)]
+#[derive(Default)]
+struct PidfdInfo {
+    mask: u64,
+    cgroupid: u64,
+    ids: [u32; 11],
+    exit_code: i32,
+}
+
+/// `PIDFD_GET_INFO`: `_IOWR(0xFF, 11, struct pidfd_info)` at the size above.
+const PIDFD_GET_INFO: libc::c_ulong = 0xC000_0000 | (0x40 << 16) | (0xFF << 8) | 0x0B;
+/// `PIDFD_INFO_EXIT`.
+const PIDFD_INFO_EXIT: u64 = 1 << 3;
+
+/// How the process of `pidfd` (from [`exit_watch`]) ended. The kernel
+/// keeps it for anyone who holds the pidfd, not only the parent, once the
+/// process is reaped (Linux 6.15). `None` while it runs or is not reaped
+/// yet, and on an older kernel.
+#[must_use]
+pub fn ended(pidfd: std::os::fd::BorrowedFd<'_>) -> Option<Ended> {
+    use std::os::fd::AsRawFd as _;
+    let mut info = PidfdInfo {
+        mask: PIDFD_INFO_EXIT,
+        ..PidfdInfo::default()
+    };
+    // SAFETY: the ioctl writes at most the 64 bytes its number encodes into
+    // `info`, which is that size and lives for the call.
+    let rc = unsafe { libc::ioctl(pidfd.as_raw_fd(), PIDFD_GET_INFO, &raw mut info) };
+    (rc == 0 && info.mask & PIDFD_INFO_EXIT != 0).then(|| decode_wait_status(info.exit_code))
+}
+
+/// A `wait(2)` status, as `WIFSIGNALED`/`WTERMSIG`/`WCOREDUMP` and
+/// `WEXITSTATUS` read it.
+fn decode_wait_status(status: i32) -> Ended {
+    let signal = status & 0x7f;
+    if signal != 0 && signal != 0x7f {
+        Ended::Signal {
+            signal,
+            core: status & 0x80 != 0,
+        }
+    } else {
+        Ended::Exited((status >> 8) & 0xff)
+    }
+}
+
 /// Send `sig` to `target` once `check` accepts what it is now. Returns
 /// whether it was stopped (paused) before the signal.
 ///
@@ -1154,6 +1215,47 @@ fn switch_on(environ: &[u8], key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn how_a_process_ended_is_read_from_its_pidfd() {
+        use std::os::fd::AsFd as _;
+        assert_eq!(decode_wait_status(3 << 8), Ended::Exited(3));
+        assert_eq!(
+            decode_wait_status(0x0B | 0x80),
+            Ended::Signal {
+                signal: 11,
+                core: true
+            }
+        );
+        for (script, expected) in [
+            ("exit 3", Ended::Exited(3)),
+            (
+                "kill -TERM $$",
+                Ended::Signal {
+                    signal: 15,
+                    core: false,
+                },
+            ),
+        ] {
+            let mut child = std::process::Command::new("sh")
+                .args(["-c", &format!("sleep 0.2; {script}")])
+                .spawn()
+                .unwrap();
+            let fd = exit_watch(child.id()).expect("pidfd");
+            assert_eq!(ended(fd.as_fd()), None, "still running");
+            child.wait().unwrap();
+            // A kernel before 6.15 cannot tell; a newer one must.
+            let release = std::fs::read_to_string("/proc/sys/kernel/osrelease").unwrap();
+            let mut v = release
+                .split(['.', '-'])
+                .map(|n| n.parse::<u32>().unwrap_or(0));
+            let (major, minor) = (v.next().unwrap_or(0), v.next().unwrap_or(0));
+            match ended(fd.as_fd()) {
+                Some(got) => assert_eq!(got, expected, "{script}"),
+                None => assert!((major, minor) < (6, 15), "{script} on {release}"),
+            }
+        }
+    }
 
     #[test]
     fn a_process_exit_is_watched_through_a_descriptor() {
