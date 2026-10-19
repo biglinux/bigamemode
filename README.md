@@ -86,6 +86,11 @@ glance and without leaving the library:
   from Steam's own chart, or the highest count Big Game Mode read itself,
   said to be that, until there is history enough.
 
+**Games from Heroic, Lutris and Faugus too.** One that is a Linux build
+says **Native**; a Windows one is looked for on Steam's store by its exact
+title (an edition's name aside, never a sequel or a DLC), and its rating,
+anti-cheat status and players are said to be those of its Steam version.
+
 A tag opens what it means, where it comes from and when, with a link to the
 source; the game's page has the whole picture. In advanced mode the library
 filters and sorts by compatibility, anti-cheat status and players. What was

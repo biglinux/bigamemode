@@ -154,19 +154,36 @@ impl Panel {
         }
     }
 
+    /// For another launcher's game, the Steam version its counts are of.
+    fn steam_version(&self, info: &bigame_core::game_info::Info) {
+        if let Some(v) = &info.steam_version {
+            let row = adw::ActionRow::builder()
+                .title(labelled(&i18n("Steam version"), &v.name))
+                .subtitle(i18n(
+                    "Found by its title. The counts are of players on Steam, not of this launcher's.",
+                ))
+                .subtitle_lines(3)
+                .use_markup(false)
+                .build();
+            row.add_prefix(&gtk4::Image::from_icon_name("dialog-information-symbolic"));
+            self.add(2, &row);
+        }
+    }
+
     /// The Steam card: now, the day's peak, the readings.
     fn players(&self, info: &bigame_core::game_info::Info, now: u64) {
         let (Some(id), Some(p)) = (info.steam, info.players.as_ref()) else {
             let row = adw::ActionRow::builder()
                 .title(i18n("Data unavailable"))
                 .subtitle(i18n(
-                    "Steam counts the players of Steam games; this one is not from Steam.",
+                    "Steam counts the players of Steam games, and no Steam version of this game was found by its title.",
                 ))
                 .subtitle_lines(3)
                 .build();
             self.add(2, &row);
             return;
         };
+        self.steam_version(info);
         let now_row = adw::ActionRow::builder()
             .title(i18n("Players Now"))
             .use_markup(false)

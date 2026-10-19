@@ -11,6 +11,16 @@ fn steam(id: u32, title: &str) -> GameRef {
     GameRef {
         steam: Some(id),
         title: title.into(),
+        linux_build: false,
+    }
+}
+
+/// A game another launcher installed: a Windows build, or a Linux one.
+fn other(title: &str, linux_build: bool) -> GameRef {
+    GameRef {
+        steam: None,
+        title: title.into(),
+        linux_build,
     }
 }
 
@@ -37,6 +47,8 @@ struct Fake {
     calls: Arc<AtomicUsize>,
     offline: Arc<AtomicBool>,
     list: Arc<Mutex<String>>,
+    /// The titles looked for on Steam.
+    searched: Arc<Mutex<Vec<String>>>,
 }
 
 impl Fake {
@@ -45,6 +57,7 @@ impl Fake {
             calls: Arc::new(AtomicUsize::new(0)),
             offline: Arc::new(AtomicBool::new(false)),
             list: Arc::new(Mutex::new(list("Denied"))),
+            searched: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -105,6 +118,33 @@ impl Fake {
                 Ok(anticheat::Fetched::Updated)
             }),
             linux: Box::new(|ids| ids.iter().copied().filter(|id| *id == 105_600).collect()),
+            search: {
+                let (c, o, searched) = (
+                    Arc::clone(&self.calls),
+                    Arc::clone(&self.offline),
+                    Arc::clone(&self.searched),
+                );
+                Box::new(move |title| {
+                    c.fetch_add(1, Ordering::SeqCst);
+                    searched.lock().unwrap().push(title.to_owned());
+                    if o.load(Ordering::SeqCst) {
+                        return Err(Failure::Offline);
+                    }
+                    let items = [
+                        steam_search::Found {
+                            id: 3_669_870,
+                            name: "CONTROL Resonant".into(),
+                        },
+                        steam_search::Found {
+                            id: 870_780,
+                            name: "CONTROL Ultimate Edition".into(),
+                        },
+                    ];
+                    Ok(steam_search::Fetched::Found(steam_search::best(
+                        &items, title,
+                    )))
+                })
+            },
         }
     }
 
@@ -127,10 +167,7 @@ fn library() -> Vec<GameRef> {
         steam(1_091_500, "Cyberpunk 2077"),
         steam(2_807_960, "Battlefield 6"),
         steam(105_600, "Terraria"),
-        GameRef {
-            steam: None,
-            title: "SuperTuxKart".into(),
-        },
+        other("SuperTuxKart", true),
     ]
 }
 
@@ -164,7 +201,11 @@ fn a_pass_learns_each_answer_and_the_next_asks_only_what_aged() {
         Linux::Native
     );
     let stk = snap.info(&library()[3], NOW);
-    assert_eq!(stk.linux, Linux::NoSteamId);
+    assert_eq!(
+        stk.linux,
+        Linux::LinuxBuild,
+        "a Linux build runs here as it is"
+    );
     assert_eq!(stk.players, None);
     assert_eq!(stk.anticheat, AntiCheat::NotListed);
 
@@ -331,6 +372,10 @@ fn only_a_steam_installed_game_has_a_steam_id() {
         launcher: None,
     };
     assert_eq!(GameRef::of(&g).steam, Some(1_091_500));
+    assert!(
+        !GameRef::of(&g).searched(),
+        "a Steam game is not looked for"
+    );
     g.source = crate::games::Source::Flatpak;
     g.app_id = Some("com.example.Game".into());
     assert_eq!(GameRef::of(&g).steam, None);
@@ -341,4 +386,82 @@ fn only_a_steam_installed_game_has_a_steam_id() {
         None,
         "another store's number is not a Steam id"
     );
+    // Heroic's Windows build is looked for on Steam; a native port is not.
+    assert!(!GameRef::of(&g).linux_build && GameRef::of(&g).searched());
+    g.launch_command = Some(vec!["/games/port/game.x86_64".into()]);
+    assert!(GameRef::of(&g).linux_build && !GameRef::of(&g).searched());
+}
+
+#[test]
+fn another_launchers_game_is_said_of_its_steam_version_found_by_title() {
+    let d = tempfile::tempdir().unwrap();
+    let fake = Fake::new();
+    let net = fake.net();
+    let stop = AtomicBool::new(false);
+    let control = other("Control", false);
+    let unknown = other("A Game Nobody Sells", false);
+    let native = other("SuperTuxKart", true);
+    let games = vec![control.clone(), unknown.clone(), native.clone()];
+    let (snap, done) = refresh_in(d.path(), &games, all(), &stop, &net, NOW);
+    assert!(done.changed);
+    // A Linux build is not looked for: it runs here as it is.
+    assert_eq!(
+        *fake.searched.lock().unwrap(),
+        vec!["A Game Nobody Sells".to_owned(), "Control".to_owned()]
+    );
+    let info = snap.info(&control, NOW);
+    assert_eq!(info.steam, Some(870_780), "the edition, never the sequel");
+    assert_eq!(
+        info.steam_version.as_ref().map(|f| f.name.as_str()),
+        Some("CONTROL Ultimate Edition")
+    );
+    assert!(
+        matches!(info.linux, Linux::Rating { .. }),
+        "{:?}",
+        info.linux
+    );
+    assert!(info.players.is_some());
+    let none = snap.info(&unknown, NOW);
+    assert_eq!((none.steam, none.linux), (None, Linux::NoSteamId));
+    assert!(none.players.is_none());
+    assert_eq!(snap.info(&native, NOW).linux, Linux::LinuxBuild);
+
+    // Kept: the next pass looks for nothing again.
+    let before = fake.searched.lock().unwrap().len();
+    let _ = refresh_in(d.path(), &games, all(), &stop, &net, NOW + 3600);
+    assert_eq!(fake.searched.lock().unwrap().len(), before);
+    // Not found is asked again after a week; found, after a month.
+    let _ = refresh_in(d.path(), &games, all(), &stop, &net, NOW + SEARCH_NONE_TTL);
+    assert_eq!(
+        fake.searched.lock().unwrap()[before..],
+        ["A Game Nobody Sells".to_owned()]
+    );
+}
+
+#[test]
+fn a_search_that_fails_is_not_asked_again_in_the_pass_nor_for_a_while() {
+    let d = tempfile::tempdir().unwrap();
+    let fake = Fake::new();
+    fake.offline.store(true, Ordering::SeqCst);
+    let net = fake.net();
+    let stop = AtomicBool::new(false);
+    let games = vec![other("Control", false), other("Hades", false)];
+    let (snap, _) = refresh_in(d.path(), &games, all(), &stop, &net, NOW);
+    assert_eq!(
+        fake.searched.lock().unwrap().len(),
+        1,
+        "the first failure stops the rest"
+    );
+    assert_eq!(snap.info(&games[0], NOW).linux, Linux::Unavailable);
+    fake.offline.store(false, Ordering::SeqCst);
+    let _ = refresh_in(d.path(), &games, all(), &stop, &net, NOW + 60);
+    assert_eq!(
+        fake.searched.lock().unwrap().len(),
+        1,
+        "resting after a failure"
+    );
+    // Nothing is looked for with every source off.
+    let d2 = tempfile::tempdir().unwrap();
+    let _ = refresh_in(d2.path(), &games, Wants::default(), &stop, &net, NOW);
+    assert_eq!(fake.searched.lock().unwrap().len(), 1);
 }

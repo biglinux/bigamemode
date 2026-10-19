@@ -9,6 +9,11 @@
 //!   Yet?'s list ([`anticheat`]), one file for the whole library.
 //! - *How many play it?* Steam's own counts ([`players`]).
 //!
+//! A game another launcher installed (Heroic, Lutris, Faugus) is a Linux
+//! build or not as the library found it; one that is not is looked for on
+//! Steam's store by its title ([`steam_search`]), and what the three
+//! sources say of its Steam version is said as that.
+//!
 //! Information only: nothing here changes a profile, a launch option, the
 //! environment of a game or anything falcond reads, and nothing reads it but
 //! the pages that show it.
@@ -27,6 +32,7 @@ pub mod anticheat;
 mod http;
 pub mod players;
 pub mod protondb;
+pub mod steam_search;
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -45,6 +51,12 @@ pub const ANTICHEAT_TTL: u64 = 12 * 3600;
 pub const PLAYERS_TTL: u64 = 15 * 60;
 /// Steam's chart, as often as its counts.
 pub const CHARTS_TTL: u64 = 15 * 60;
+/// A game's Steam version found by its title: titles do not change.
+pub const SEARCH_FOUND_TTL: u64 = 30 * 24 * 3600;
+/// None found: asked again in a week, in case it comes to Steam.
+pub const SEARCH_NONE_TTL: u64 = 7 * 24 * 3600;
+/// At most this many titles looked for on Steam in one pass.
+const MAX_SEARCHES_PER_PASS: usize = 20;
 /// A game gone from the library is forgotten after this long.
 const FORGET_AFTER: u64 = 30 * 24 * 3600;
 /// Requests at once in one pass.
@@ -64,8 +76,14 @@ pub struct GameRef {
     /// or another store's is not one.
     pub steam: Option<u32>,
     /// Its title, for the anti-cheat list's exact-title match when there is
-    /// no Steam id.
+    /// no Steam id, and to look for its Steam version.
     pub title: String,
+    /// The copy installed is a Linux build ([`DetectedGame::runs_on_linux`]):
+    /// it runs without Proton or Wine, whatever another store's version
+    /// does.
+    ///
+    /// [`DetectedGame::runs_on_linux`]: crate::games::DetectedGame::runs_on_linux
+    pub linux_build: bool,
 }
 
 impl GameRef {
@@ -78,7 +96,15 @@ impl GameRef {
                 .flatten()
                 .filter(|id| *id > 0),
             title: game.name.clone(),
+            linux_build: game.runs_on_linux(),
         }
+    }
+
+    /// Whether its Steam version is looked for by its title: not installed
+    /// by Steam, and not a Linux build.
+    #[must_use]
+    pub fn searched(&self) -> bool {
+        self.steam.is_none() && !self.linux_build
     }
 }
 
@@ -147,6 +173,9 @@ pub enum Source {
     Anticheat,
     /// Steam's counts and chart.
     Steam,
+    /// Steam's store search, for the Steam version of another launcher's
+    /// game.
+    SteamSearch,
 }
 
 /// What is kept.
@@ -173,6 +202,11 @@ pub struct Store {
     pub trouble: BTreeMap<Source, Trouble>,
     /// When each game was last in the library.
     pub last_seen: BTreeMap<u32, u64>,
+    /// The Steam version of another launcher's game, by its title
+    /// ([`anticheat::normalize`]d); `None`: there is none.
+    pub steam_by_title: BTreeMap<String, Cached<Option<steam_search::Found>>>,
+    /// When each such title was last in the library.
+    pub titles_seen: BTreeMap<String, u64>,
 }
 
 /// Where the information is kept.
@@ -308,13 +342,40 @@ impl Snapshot {
         }
     }
 
+    /// The Steam version found for `game` by its title, if it was looked
+    /// for and there is one.
+    #[must_use]
+    pub fn steam_version(&self, game: &GameRef) -> Option<&steam_search::Found> {
+        game.searched()
+            .then(|| {
+                self.store
+                    .steam_by_title
+                    .get(&anticheat::normalize(&game.title))
+            })
+            .flatten()
+            .and_then(|c| c.value.as_ref())
+    }
+
     /// What is known of `game` at `now`.
     #[must_use]
     pub fn info(&self, game: &GameRef, now: u64) -> Info {
         let s = &self.store;
-        let linux = match game.steam {
+        let found = self.steam_version(game);
+        let steam = game.steam.or(found.map(|f| f.id));
+        let looked_for = game.searched()
+            && s.steam_by_title
+                .contains_key(&anticheat::normalize(&game.title));
+        let linux = match steam {
+            _ if game.linux_build => Linux::LinuxBuild,
+            None if looked_for => Linux::NoSteamId,
+            None if game.searched() && s.trouble.contains_key(&Source::SteamSearch) => {
+                Linux::Unavailable
+            }
+            None if game.searched() => Linux::NotFetched,
             None => Linux::NoSteamId,
-            Some(id) if s.native.contains(&id) => Linux::Native,
+            // Steam's own data says it of the copy Steam installed; another
+            // launcher's copy is the Windows build, rated by ProtonDB.
+            Some(id) if game.steam.is_some() && s.native.contains(&id) => Linux::Native,
             Some(id) => match s.protondb.get(&id) {
                 Some(c) => Linux::Rating {
                     rating: c.value.clone(),
@@ -327,14 +388,13 @@ impl Snapshot {
         };
         // The native build is said, and ProtonDB's rating still shown in the
         // details: a native game can be played through Proton too.
-        let rating = game
-            .steam
+        let rating = steam
             .and_then(|id| s.protondb.get(&id))
             .map(|c| (c.value.clone(), c.at));
         let anticheat = if self.dataset.is_empty() {
             AntiCheat::Unavailable
         } else {
-            match self.dataset.find(game.steam, &game.title) {
+            match self.dataset.find(steam, &game.title) {
                 Some((g, how)) => AntiCheat::Listed {
                     game: Box::new(g.clone()),
                     how,
@@ -343,7 +403,7 @@ impl Snapshot {
             }
         };
         let anticheat_at = s.anticheat_checked;
-        let players = game.steam.map(|id| {
+        let players = steam.map(|id| {
             let current = s.current.get(&id);
             let chart = s
                 .charts
@@ -370,7 +430,8 @@ impl Snapshot {
             }
         });
         Info {
-            steam: game.steam,
+            steam,
+            steam_version: found.cloned(),
             linux,
             rating,
             anticheat,
@@ -399,8 +460,11 @@ pub enum Linux {
     NotFetched,
     /// `ProtonDB` could not be reached, and nothing is kept.
     Unavailable,
-    /// Not a Steam game: `ProtonDB` rates Steam games by their id.
+    /// No Steam version: not a Steam game, and none found on Steam's store
+    /// by its title. `ProtonDB` rates Steam games by their id.
     NoSteamId,
+    /// The copy installed is a Linux build.
+    LinuxBuild,
 }
 
 /// What the anti-cheat list says of a game.
@@ -453,8 +517,11 @@ pub struct Players {
 /// Everything known of one game.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Info {
-    /// Its Steam `AppID`.
+    /// Its Steam `AppID`: Steam's own, or its Steam version's.
     pub steam: Option<u32>,
+    /// The Steam version found by its title, for a game another launcher
+    /// installed: what is said of `steam` is said of that version.
+    pub steam_version: Option<steam_search::Found>,
     /// How well it runs.
     pub linux: Linux,
     /// `ProtonDB`'s answer, even for a native game.
@@ -502,6 +569,7 @@ type CurrentFn = dyn Fn(u32) -> Result<players::Fetched<u64>, Failure> + Sync;
 type ChartsFn = dyn Fn() -> Result<players::Fetched<players::Charts>, Failure> + Sync;
 type DatasetFn = dyn Fn(&Path, &Path) -> Result<anticheat::Fetched, Failure> + Sync;
 type LinuxFn = dyn Fn(&HashSet<u32>) -> HashSet<u32> + Sync;
+type SearchFn = dyn Fn(&str) -> Result<steam_search::Fetched, Failure> + Sync;
 
 /// The sources, as functions, so a pass can be tested without a network.
 struct Net {
@@ -510,6 +578,7 @@ struct Net {
     charts: Box<ChartsFn>,
     dataset: Box<DatasetFn>,
     linux: Box<LinuxFn>,
+    search: Box<SearchFn>,
 }
 
 /// One request a pass makes for one game.
@@ -533,6 +602,7 @@ impl Net {
             charts: Box::new(players::fetch_charts),
             dataset: Box::new(anticheat::fetch),
             linux: Box::new(|ids| crate::games::steam_linux_builds(&crate::paths::home_dir(), ids)),
+            search: Box::new(steam_search::fetch),
         }
     }
 }
@@ -548,31 +618,45 @@ fn refresh_in(
 ) -> (Snapshot, Refreshed) {
     let mut snap = Snapshot::load_from(dir);
     let mut done = Refreshed::default();
+    let store = &mut snap.store;
+    // Aged past `ttl`, or asked for now.
+    let due = |at: u64, ttl: u64| wants.now || now.saturating_sub(at) >= ttl;
+
+    // Another launcher's games: their Steam version, by title, first, so
+    // what is asked below is asked for it too.
+    search_titles(store, games, wants, stop, net, now, &mut done);
+    let steam_of = |store: &Store, g: &GameRef| {
+        g.steam.or_else(|| {
+            g.searched()
+                .then(|| store.steam_by_title.get(&anticheat::normalize(&g.title)))
+                .flatten()
+                .and_then(|c| c.value.as_ref().map(|f| f.id))
+        })
+    };
     let ids: Vec<u32> = {
-        let mut ids: Vec<u32> = games.iter().filter_map(|g| g.steam).collect();
+        let mut ids: Vec<u32> = games.iter().filter_map(|g| steam_of(store, g)).collect();
         ids.sort_unstable();
         ids.dedup();
         ids
     };
-    let store = &mut snap.store;
-    // Aged past `ttl`, or asked for now.
-    let due = |at: u64, ttl: u64| wants.now || now.saturating_sub(at) >= ttl;
     for id in &ids {
         store.last_seen.insert(*id, now);
     }
-    // Local, read on every pass: a game updated with a Linux build says so.
-    let native = (net.linux)(&ids.iter().copied().collect());
+    // Local, read on every pass: a game updated with a Linux build says
+    // so. Only for the copies Steam installed.
+    let installed: HashSet<u32> = games.iter().filter_map(|g| g.steam).collect();
+    let native = (net.linux)(&installed);
     if native
         != store
             .native
             .iter()
             .copied()
-            .filter(|i| ids.contains(i))
+            .filter(|i| installed.contains(i))
             .collect()
     {
         done.changed = true;
     }
-    store.native.retain(|i| !ids.contains(i));
+    store.native.retain(|i| !installed.contains(i));
     store.native.extend(native);
 
     // The anti-cheat list: one file for the whole library.
@@ -605,7 +689,9 @@ fn refresh_in(
     // game, so a failed fetch or a game just added is never "a change".
     if !snap.dataset.is_empty() {
         for g in games {
-            let Some(id) = g.steam else { continue };
+            let Some(id) = steam_of(store, g) else {
+                continue;
+            };
             let Some((entry, _)) = snap.dataset.find(Some(id), &g.title) else {
                 continue;
             };
@@ -778,10 +864,94 @@ fn refresh_in(
         store.native.remove(&id);
         done.changed = true;
     }
+    let gone: Vec<String> = store
+        .titles_seen
+        .iter()
+        .filter(|(_, at)| now.saturating_sub(**at) > FORGET_AFTER)
+        .map(|(t, _)| t.clone())
+        .collect();
+    for t in gone {
+        store.titles_seen.remove(&t);
+        store.steam_by_title.remove(&t);
+        done.changed = true;
+    }
     if let Err(e) = store.save(dir) {
         tracing::warn!(target: "game_info", error = %format!("{e:#}"), "the game information could not be kept");
     }
     (snap, done)
+}
+
+/// Look for the Steam version of the games of `games` another launcher
+/// installed and that are not Linux builds, by title: those never looked
+/// for, and those whose answer aged (a month when found, a week when not),
+/// a few in a pass, one after the other; a failure stops the rest.
+fn search_titles(
+    store: &mut Store,
+    games: &[GameRef],
+    wants: Wants,
+    stop: &AtomicBool,
+    net: &Net,
+    now: u64,
+    done: &mut Refreshed,
+) {
+    let mut titles: Vec<(String, &str)> = games
+        .iter()
+        .filter(|g| g.searched())
+        .map(|g| (anticheat::normalize(&g.title), g.title.as_str()))
+        .filter(|(key, _)| !key.is_empty())
+        .collect();
+    titles.sort_by(|a, b| a.0.cmp(&b.0));
+    titles.dedup_by(|a, b| a.0 == b.0);
+    for (key, _) in &titles {
+        store.titles_seen.insert(key.clone(), now);
+    }
+    if !wants.any() || store.resting(Source::SteamSearch, now) {
+        return;
+    }
+    let due: Vec<(String, &str)> = titles
+        .into_iter()
+        .filter(|(key, _)| {
+            store.steam_by_title.get(key).is_none_or(|c| {
+                let ttl = if c.value.is_some() {
+                    SEARCH_FOUND_TTL
+                } else {
+                    SEARCH_NONE_TTL
+                };
+                wants.now || c.stale(ttl, now)
+            })
+        })
+        .take(MAX_SEARCHES_PER_PASS)
+        .collect();
+    for (key, title) in due {
+        if stop.load(Ordering::Relaxed) {
+            return;
+        }
+        match (net.search)(title) {
+            Ok(steam_search::Fetched::Found(found)) => {
+                store.worked(Source::SteamSearch);
+                store.steam_by_title.insert(
+                    key,
+                    Cached {
+                        value: found,
+                        at: now,
+                    },
+                );
+                done.changed = true;
+            }
+            Ok(steam_search::Fetched::Later(wait)) => {
+                store.failed(Source::SteamSearch, "asked to wait".into(), wait, now);
+                return;
+            }
+            Ok(steam_search::Fetched::Failed(e)) => {
+                store.failed(Source::SteamSearch, e, None, now);
+                return;
+            }
+            Err(e) => {
+                store.failed(Source::SteamSearch, e.to_string(), None, now);
+                return;
+            }
+        }
+    }
 }
 
 /// Forget everything downloaded: the next pass fetches it again.

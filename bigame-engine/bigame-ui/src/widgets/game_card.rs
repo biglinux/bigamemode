@@ -582,6 +582,7 @@ mod tests {
             game: bigame_core::game_info::GameRef {
                 steam: Some(1_808_500),
                 title: "ARC Raiders".into(),
+                linux_build: false,
             },
         }
     }

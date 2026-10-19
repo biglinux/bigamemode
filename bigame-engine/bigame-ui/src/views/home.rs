@@ -1371,6 +1371,7 @@ impl InfoCard {
                         || bigame_core::game_info::GameRef {
                             steam: app_id.as_deref().and_then(|id| id.parse().ok()),
                             title: identity.display_name.clone(),
+                            linux_build: identity.runtime == bigame_core::running::Runtime::Native,
                         },
                         bigame_core::game_info::GameRef::of,
                     );

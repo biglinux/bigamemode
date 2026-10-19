@@ -339,7 +339,7 @@ fn game_info_group(current: &settings::Settings) -> adw::PreferencesGroup {
         &i18n("ProtonDB, Are We Anti-Cheat Yet? and Steam"),
         current.game_info_online,
         &i18n(
-            "Big Game Mode asks ProtonDB for each Steam game's rating, downloads Are We Anti-Cheat Yet?'s list once for the whole library, and asks Steam how many play each Steam game. Only a game's public Steam number is sent: never your Steam account, your list of games to anyone else, or anything about this computer. Nothing is asked while a game runs. Off, nothing is asked, and what was kept is still shown.",
+            "Big Game Mode asks ProtonDB for each Steam game's rating, downloads Are We Anti-Cheat Yet?'s list once for the whole library, and asks Steam how many play each Steam game. A Windows game from Heroic, Lutris or Faugus is looked for on Steam's store by its title, once a month, and what is said of it is said of its Steam version. Only a game's public Steam number, or that title, is sent: never your Steam account, your list of games to anyone else, or anything about this computer. Nothing is asked while a game runs. Off, nothing is asked, and what was kept is still shown.",
         ),
     );
     on_switch(&online, |on| {
@@ -385,6 +385,9 @@ fn game_info_group(current: &settings::Settings) -> adw::PreferencesGroup {
             .title("Are We Anti-Cheat Yet?")
             .build(),
         adw::ActionRow::builder().title("Steam").build(),
+        adw::ActionRow::builder()
+            .title(i18n("Steam store search"))
+            .build(),
     ];
     for r in &sources {
         r.set_subtitle_lines(3);
@@ -405,10 +408,16 @@ fn game_info_group(current: &settings::Settings) -> adw::PreferencesGroup {
                     .map(|c| c.at)
                     .chain(st.charts.as_ref().map(|c| c.at))
                     .max(),
+                st.steam_by_title.values().map(|c| c.at).max(),
             ];
             for ((row, source), at) in sources
                 .iter()
-                .zip([Source::Protondb, Source::Anticheat, Source::Steam])
+                .zip([
+                    Source::Protondb,
+                    Source::Anticheat,
+                    Source::Steam,
+                    Source::SteamSearch,
+                ])
                 .zip(last)
             {
                 let text = match (st.trouble.get(&source), at) {

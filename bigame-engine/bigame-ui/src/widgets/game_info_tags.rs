@@ -45,6 +45,18 @@ pub fn playing_now(count: u64) -> String {
     )
 }
 
+/// "31,351 playing on Steam": the players of a game's Steam version, for a
+/// game another launcher installed.
+#[must_use]
+pub fn playing_on_steam(count: u64) -> String {
+    let n = usize::try_from(count).unwrap_or(usize::MAX);
+    crate::i18n::ni18n("%n playing on Steam", "%n playing on Steam", n).replacen(
+        &n.to_string(),
+        &bigame_core::text::grouped(count),
+        1,
+    )
+}
+
 /// The icon and CSS class of a rating.
 #[must_use]
 pub fn tier_look(tier: Tier) -> (&'static str, &'static str) {
@@ -70,12 +82,13 @@ pub fn status_css(status: Status) -> &'static str {
     }
 }
 
-/// The rating a card shows: Native when Steam lists a Linux build, else
-/// `ProtonDB`'s tier; none when there is no rating to show.
+/// The rating a card shows: Native when the copy installed is a Linux build
+/// or Steam lists one, else `ProtonDB`'s tier; none when there is no rating
+/// to show.
 #[must_use]
 pub fn shown_tier(info: &Info) -> Option<Tier> {
     match &info.linux {
-        Linux::Native => Some(Tier::Native),
+        Linux::Native | Linux::LinuxBuild => Some(Tier::Native),
         Linux::Rating {
             rating: Rating::Summary(s),
             ..
@@ -182,18 +195,19 @@ impl Badges {
             Some(tier) => {
                 let (icon, look) = tier_look(tier);
                 let stale = matches!(info.linux, Linux::Rating { stale: true, .. });
-                let source = if tier == Tier::Native {
-                    "Steam"
-                } else {
-                    "ProtonDB"
+                let tooltip = match (&info.linux, &info.steam_version) {
+                    (Linux::LinuxBuild, _) => {
+                        i18n("A Linux build: it runs here without Proton or Wine")
+                    }
+                    (Linux::Native, _) => labelled("Steam", tier.name()),
+                    (_, Some(v)) => format!(
+                        "{} · {}",
+                        labelled("ProtonDB", tier.name()),
+                        labelled(&i18n("Steam version"), &v.name)
+                    ),
+                    (_, None) => labelled("ProtonDB", tier.name()),
                 };
-                i.linux.set(
-                    icon,
-                    tier.name(),
-                    look,
-                    stale,
-                    &labelled(source, tier.name()),
-                );
+                i.linux.set(icon, tier.name(), look, stale, &tooltip);
             }
             None => i.linux.button.set_visible(false),
         }
@@ -215,7 +229,13 @@ impl Badges {
             .as_ref()
             .and_then(|p| p.now)
             .filter(|_| s.show_players)
-            .map(|(n, _)| playing_now(n))
+            .map(|(n, _)| {
+                if info.steam_version.is_some() {
+                    playing_on_steam(n)
+                } else {
+                    playing_now(n)
+                }
+            })
             .unwrap_or_default();
         i.players.set_label(&players);
     }
@@ -301,13 +321,23 @@ pub struct Said {
 #[must_use]
 pub fn linux_text(info: &Info, now: u64) -> Said {
     let mut lines = Vec::new();
-    let link = info.steam.map(|id| {
-        (
-            i18n("View on ProtonDB"),
-            bigame_core::game_info::protondb::page_url(id),
-        )
-    });
+    let link = info
+        .steam
+        .filter(|_| info.linux != Linux::LinuxBuild)
+        .map(|id| {
+            (
+                i18n("View on ProtonDB"),
+                bigame_core::game_info::protondb::page_url(id),
+            )
+        });
     match &info.linux {
+        Linux::LinuxBuild => {
+            lines.push(Tier::Native.name().to_owned());
+            lines.push(i18n(
+                "This copy is a Linux build: it runs here without Proton or Wine.",
+            ));
+            lines.push(i18n("Source: the game's files on this computer"));
+        }
         Linux::Native => {
             lines.push(Tier::Native.name().to_owned());
             lines.push(i18n(Tier::Native.meaning()));
@@ -349,9 +379,15 @@ pub fn linux_text(info: &Info, now: u64) -> Said {
         Linux::NoSteamId => {
             lines.push(i18n("Compatibility unknown"));
             lines.push(i18n(
-                "ProtonDB rates Steam games; this one is not from Steam.",
+                "ProtonDB rates Steam games, and no Steam version of this game was found by its title.",
             ));
         }
+    }
+    if let Some(v) = &info.steam_version {
+        lines.push(labelled(&i18n("Steam version"), &v.name));
+        lines.push(i18n(
+            "Said of its Steam version, found by its title: the copy from another store is the same game, though its launcher and updates may differ.",
+        ));
     }
     Said {
         lines,

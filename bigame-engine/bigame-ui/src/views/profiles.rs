@@ -2138,6 +2138,7 @@ mod tests {
     fn info(linux: Linux, anticheat: AntiCheat) -> Info {
         Info {
             steam: Some(1),
+            steam_version: None,
             linux,
             rating: None,
             anticheat,
@@ -2185,6 +2186,9 @@ mod tests {
         let other = info(Linux::NoSteamId, AntiCheat::NotListed);
         assert!(linux_matches(0, &gold) && linux_matches(0, &other));
         assert!(linux_matches(1, &native) && !linux_matches(1, &gold));
+        // A Linux build from another launcher is Native too.
+        let build = info(Linux::LinuxBuild, AntiCheat::NotListed);
+        assert!(linux_matches(1, &build) && !linux_matches(7, &build));
         assert!(linux_matches(3, &gold) && !linux_matches(2, &gold));
         // Unknown: not rated, or not a Steam game; never "Borked".
         assert!(linux_matches(7, &pending) && linux_matches(7, &other));

@@ -943,6 +943,23 @@ fn unescape_value(value: &str) -> String {
     out
 }
 
+impl DetectedGame {
+    /// Whether the copy installed is a Linux build: a program of the
+    /// application menu or a Flatpak, or a launcher's game whose file is an
+    /// ELF binary or a script — the games Lutris, Heroic and Faugus get a
+    /// command of their own for, found as the library was read, so this
+    /// reads no file. A Steam game says so in Steam's own data
+    /// ([`steam_linux_builds`]), not here.
+    #[must_use]
+    pub fn runs_on_linux(&self) -> bool {
+        match self.source {
+            Source::Native | Source::Flatpak => true,
+            Source::Steam => false,
+            Source::Lutris | Source::Heroic | Source::Faugus => self.launch_command.is_some(),
+        }
+    }
+}
+
 /// Whether `path` can be run here directly: an executable ELF binary or a
 /// script with a `#!` line. A Windows `.exe` from a Wine runner cannot, and
 /// starting one outside its prefix measures nothing.
