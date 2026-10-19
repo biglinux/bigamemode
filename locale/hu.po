@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 21:47-0300\n"
+"POT-Creation-Date: 2026-10-18 22:08-0300\n"
 "PO-Revision-Date: 2026-04-20 22:21\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hungarian <hu@li.org>\n"
@@ -892,7 +892,7 @@ msgstr "Speciális — a profil létrehozása után nyílik meg"
 msgid "Advanced…"
 msgstr "Speciális…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:263
+#: bigame-engine/bigame-ui/src/crash_watch.rs:261
 msgid "After %s of play."
 msgstr "%s játék után."
 
@@ -923,7 +923,8 @@ msgstr "Kísérleti opciók engedélyezése"
 msgid "Allow experimental options (Advanced options) to try it"
 msgstr "A kipróbáláshoz engedélyezd a kísérleti opciókat (Speciális beállítások)"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:283
+#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:96
 msgid "Also in the game"
 msgstr "A játékban volt még"
 
@@ -1061,7 +1062,7 @@ msgstr "Architektúra"
 msgid "Are you sure?"
 msgstr "Biztos vagy benne?"
 
-#: bigame-engine/bigame-ui/src/views/details/mod.rs:154
+#: bigame-engine/bigame-ui/src/views/details/mod.rs:156
 msgid "Around the game"
 msgstr "A játék körül"
 
@@ -2106,8 +2107,8 @@ msgstr "Elvetés"
 msgid "Disk"
 msgstr "Lemez"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:102
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:119
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:169
 msgid "Dismiss"
 msgstr "Elvetés"
 
@@ -2151,7 +2152,7 @@ msgstr "Dinamikus játékteljesítmény-vezérlés a BigLinuxhoz"
 msgid "Each game's frame generation is in its profile"
 msgstr "Minden játék képkocka-generálása a saját profiljában található"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:285
+#: bigame-engine/bigame-ui/src/crash_watch.rs:291
 msgid "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
 msgstr "Mindegyik a játék saját választása a Profilok vagy az MI-grafika oldalon; ha ott módosítod, a következő indítástól kimarad."
 
@@ -2571,7 +2572,7 @@ msgstr "Megjelenített képkockák renderelt képkockánként"
 msgid "Frequency CCD"
 msgstr "Frekvencia-CCD"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:347
+#: bigame-engine/bigame-ui/src/crash_watch.rs:353
 msgid "From its next start, %s runs without: %s."
 msgstr "A következő indítástól %s a következők nélkül fut: %s."
 
@@ -2690,6 +2691,10 @@ msgstr "A játékok a Big Game Mode optimalizációi nélkül futnak. Kapcsold b
 #: bigame-engine/bigame-core/src/turbo_preset.rs:98
 msgid "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped."
 msgstr "A játékok a kijelződhöz illő képkocka-sebességnél megállnak, így a számítógép hűvösebb és halkabb marad. A képkockákat generáló játékok nincsenek korlátozva."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:26
+msgid "Games that closed with an error"
+msgstr "Hibával bezárult játékok"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:656
 msgid "Games with files installed"
@@ -2959,7 +2964,7 @@ msgstr "A Heroic nyitva van: a saját indítási beállításokkal rendelkező j
 msgid "Heroic is open: this game's launch settings were not written into its settings there"
 msgstr "A Heroic nyitva van: a játék indítási beállításai nem íródtak be az ottani beállításaiba"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:370
+#: bigame-engine/bigame-ui/src/crash_watch.rs:376
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2420
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "A Heroic egy játékot futtat: előbb zárd be a játékot. A Heroic a memóriában tartja ennek a játéknak a beállításait, és elvetné a módosítást."
@@ -3219,7 +3224,7 @@ msgstr "Onnan folytatja, ahol szüneteltették, és ismét használni kezdi a pr
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "Teljesen lefagy, amíg nem folytatod: az ablakai nem válaszolnak, és minden hang, letöltés vagy hívás leáll benne. Egy szerverrel kommunikáló program elveszítheti a kapcsolatot. Ha végeztél, itt folytathatod — a Big Game Mode is folytatja, amikor kilép."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:381
+#: bigame-engine/bigame-ui/src/crash_watch.rs:387
 msgid "It is kept in the game's settings and written once that is possible."
 msgstr "A játék beállításaiban megmarad, és amint lehet, beíródik."
 
@@ -3338,7 +3343,7 @@ msgstr "Legújabb stabil"
 msgid "Launch (Turbo)"
 msgstr "Indítás (Turbo)"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:363
+#: bigame-engine/bigame-ui/src/crash_watch.rs:369
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:693
 msgid "Launch options"
 msgstr "Indítási opciók"
@@ -3351,7 +3356,7 @@ msgstr "Indítási opciók törölve"
 msgid "Launch options fixed"
 msgstr "Indítási opciók javítva"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:357
+#: bigame-engine/bigame-ui/src/crash_watch.rs:363
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1213
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
@@ -3401,16 +3406,16 @@ msgid "Leave the game's graphics as they are."
 msgstr "A játék grafikájának érintetlenül hagyása."
 
 #: bigame-engine/bigame-ui/src/crash_watch.rs:231
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:123
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:140
 msgid "Leave them out of this game"
 msgstr "Hagyd ki őket ebből a játékból"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:135
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
 msgid "Leaving them out of the game's launch settings…"
 msgstr "Kihagyás a játék indítási beállításaiból…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:330
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:148
+#: bigame-engine/bigame-ui/src/crash_watch.rs:336
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:165
 msgid "Left out of %s"
 msgstr "Kihagyva innen: %s"
 
@@ -4024,8 +4029,8 @@ msgstr "Nincs beállítva"
 msgid "Not detected"
 msgstr "Nem észlelhető"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:332
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:160
+#: bigame-engine/bigame-ui/src/crash_watch.rs:338
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:177
 msgid "Not everything was left out of %s"
 msgstr "Nem minden maradt ki innen: %s"
 
@@ -4203,7 +4208,7 @@ msgstr "Nincs mit telepíteni: itt a játék saját felskálázója a legjobb v�
 msgid "Nothing to measure"
 msgstr "Nincs mit mérni"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:278
+#: bigame-engine/bigame-ui/src/crash_watch.rs:284
 msgid "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
 msgstr "Semmi sem lett hozzáadva a játékhoz: a hiba magában a játékban, az illesztőprogramjaiban vagy a rendszerben van."
 
@@ -4411,7 +4416,8 @@ msgstr "Nyisd meg a menüjét (⋮), és válaszd a Létrehozás varázslóval p
 msgid "Open official page"
 msgstr "Hivatalos oldal megnyitása"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:110
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:107
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:127
 msgid "Open the game's report"
 msgstr "A játék jelentésének megnyitása"
 
@@ -5741,7 +5747,7 @@ msgstr "A Steam nyitva van: a Gamescope-ot használó játékai a régi méretek
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "A Steam fut. A localconfig.vdf fájlt a memóriában tartja, és kilépéskor újraírja, így ez a módosítás elveszne. Zárd be a Steamet, és próbáld újra."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:353
+#: bigame-engine/bigame-ui/src/crash_watch.rs:359
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Steam launch options"
@@ -6271,7 +6277,7 @@ msgstr "Ezek a játékok képkockákat generálnak, ezért nincsenek korlátozva
 msgid "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 msgstr "Ezeknek a játékoknak az indítási opciói már saját Gamescope-ot futtatnak, így a Big Game Mode-é nem lett hozzáadva: %s"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/crash_watch.rs:295
 msgid "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
 msgstr "Lehet, hogy semmi közük hozzá. Ha egy ideig kihagyod őket ebből a játékból, kiderül, van-e."
 
@@ -6300,7 +6306,7 @@ msgstr "Ez a fájl nem létezik"
 msgid "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 msgstr "Ez a játék és GPU megfelel a DLSS-NR-on-AMD követelményeinek, és nincs telepítve a játék mellé. Opcionális: ha ki szeretnéd próbálni, telepítsd magad a hivatalos oldaláról, majd nyomd meg az Újraellenőrzés gombot."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:271
+#: bigame-engine/bigame-ui/src/crash_watch.rs:277
 msgid "This game closed with an error %n time this week."
 msgid_plural "This game closed with an error %n times this week."
 msgstr[0] "Ez a játék ezen a héten %n alkalommal omlott össze."
@@ -6346,7 +6352,7 @@ msgstr "Időtúllépés"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Tipp: válassz egy előbeállítást, kapcsold be a Turbót, és indíts el egy játékot; a Kezdőlap megmutatja, mit kapott. A felül lévő (i) gomb elmagyarázza az oldalt, amelyen vagy."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:385
+#: bigame-engine/bigame-ui/src/crash_watch.rs:391
 msgid "To put them back: Profiles → the game → its launch settings."
 msgstr "Visszaállításuk: Profilok → a játék → az indítási beállításai."
 
@@ -6826,6 +6832,10 @@ msgstr "Mi igényel figyelmet, és mit lehet tenni ellene. A parancsok másolás
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:993
 msgid "What only the game's own menu can do."
 msgstr "Amit csak a játék saját menüje tud."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:28
+msgid "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it."
+msgstr "Mi jelezte az egyes összeomlásokat, mit üzent a játék, és mi volt benne magán a játékon kívül. Ha egy játék minden összeomlásánál ugyanazok a kiegészítők szerepelnek, érdemes kihagyni őket abból a játékból."
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:79
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -8659,7 +8669,7 @@ msgstr "a vkBasalt shaderei nincsenek mind a helyükön"
 msgid "the worker thread failed"
 msgstr "a munkaszál hibát jelzett"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:320
+#: bigame-engine/bigame-ui/src/crash_watch.rs:326
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765

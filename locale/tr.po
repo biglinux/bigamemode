@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 21:47-0300\n"
+"POT-Creation-Date: 2026-10-18 22:08-0300\n"
 "PO-Revision-Date: 2026-04-20 22:27\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Turkish <tr@li.org>\n"
@@ -892,7 +892,7 @@ msgstr "Gelişmiş — profil oluşturulduktan sonra açılır"
 msgid "Advanced…"
 msgstr "Gelişmiş…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:263
+#: bigame-engine/bigame-ui/src/crash_watch.rs:261
 msgid "After %s of play."
 msgstr "%s oynandıktan sonra."
 
@@ -923,7 +923,8 @@ msgstr "Deneysel seçeneklere izin ver"
 msgid "Allow experimental options (Advanced options) to try it"
 msgstr "Denemek için deneysel seçeneklere izin verin (Gelişmiş seçenekler)"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:283
+#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:96
 msgid "Also in the game"
 msgstr "Oyunda ayrıca bulunanlar"
 
@@ -1061,7 +1062,7 @@ msgstr "Mimari"
 msgid "Are you sure?"
 msgstr "Emin misiniz?"
 
-#: bigame-engine/bigame-ui/src/views/details/mod.rs:154
+#: bigame-engine/bigame-ui/src/views/details/mod.rs:156
 msgid "Around the game"
 msgstr "Oyunun çevresi"
 
@@ -2106,8 +2107,8 @@ msgstr "Vazgeç"
 msgid "Disk"
 msgstr "Disk"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:102
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:119
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:169
 msgid "Dismiss"
 msgstr "Kapat"
 
@@ -2151,7 +2152,7 @@ msgstr "BigLinux için dinamik oyun performansı yönetimi"
 msgid "Each game's frame generation is in its profile"
 msgstr "Her oyunun kare oluşturma ayarı kendi profilindedir"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:285
+#: bigame-engine/bigame-ui/src/crash_watch.rs:291
 msgid "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
 msgstr "Her biri oyunun Profiller veya Yapay Zeka Grafikleri içindeki kendi seçimidir; orada değiştirilirse bir sonraki başlatmadan itibaren dışarıda bırakılır."
 
@@ -2571,7 +2572,7 @@ msgstr "İşlenen kare başına gösterilen kare"
 msgid "Frequency CCD"
 msgstr "Frekans CCD'si"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:347
+#: bigame-engine/bigame-ui/src/crash_watch.rs:353
 msgid "From its next start, %s runs without: %s."
 msgstr "Bir sonraki başlatmadan itibaren %s şunlar olmadan çalışır: %s."
 
@@ -2690,6 +2691,10 @@ msgstr "Oyunlar Big Game Mode'un optimizasyonları olmadan çalışıyor. Turbo'
 #: bigame-engine/bigame-core/src/turbo_preset.rs:98
 msgid "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped."
 msgstr "Oyunlar ekranınıza uyan bir kare hızında durur; böylece bilgisayar daha serin ve sessiz kalır. Kare oluşturan oyunlar sınırlanmaz."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:26
+msgid "Games that closed with an error"
+msgstr "Hatayla kapanan oyunlar"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:656
 msgid "Games with files installed"
@@ -2959,7 +2964,7 @@ msgstr "Heroic açık: kendi başlatma ayarları olan oyunları, Heroic kapatıl
 msgid "Heroic is open: this game's launch settings were not written into its settings there"
 msgstr "Heroic açık: bu oyunun başlatma ayarları oradaki ayarlarına yazılmadı"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:370
+#: bigame-engine/bigame-ui/src/crash_watch.rs:376
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2420
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "Heroic bir oyun çalıştırıyor: önce oyunu kapatın. Heroic bu oyunun ayarlarını bellekte tutar ve değişikliği yok sayar."
@@ -3219,7 +3224,7 @@ msgstr "Duraklatıldığı yerden devam eder ve CPU'yu yeniden kullanmaya başla
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "Siz sürdürene kadar tamamen donar: pencereleri yanıt vermez, içindeki her ses, indirme veya arama durur. Bir sunucuyla konuşan program bağlantısını kaybedebilir. İşiniz bittiğinde onu buradan sürdürün — Big Game Mode da kapanırken onu sürdürür."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:381
+#: bigame-engine/bigame-ui/src/crash_watch.rs:387
 msgid "It is kept in the game's settings and written once that is possible."
 msgstr "Oyunun ayarlarında saklanır ve mümkün olur olmaz yazılır."
 
@@ -3338,7 +3343,7 @@ msgstr "En son kararlı"
 msgid "Launch (Turbo)"
 msgstr "Başlat (Turbo)"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:363
+#: bigame-engine/bigame-ui/src/crash_watch.rs:369
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:693
 msgid "Launch options"
 msgstr "Başlatma seçenekleri"
@@ -3351,7 +3356,7 @@ msgstr "Başlatma seçenekleri temizlendi"
 msgid "Launch options fixed"
 msgstr "Başlatma seçenekleri düzeltildi"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:357
+#: bigame-engine/bigame-ui/src/crash_watch.rs:363
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1213
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
@@ -3401,16 +3406,16 @@ msgid "Leave the game's graphics as they are."
 msgstr "Oyunun grafiklerini olduğu gibi bırak."
 
 #: bigame-engine/bigame-ui/src/crash_watch.rs:231
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:123
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:140
 msgid "Leave them out of this game"
 msgstr "Bunları bu oyunun dışında bırak"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:135
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
 msgid "Leaving them out of the game's launch settings…"
 msgstr "Bunlar oyunun başlatma ayarlarının dışında bırakılıyor…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:330
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:148
+#: bigame-engine/bigame-ui/src/crash_watch.rs:336
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:165
 msgid "Left out of %s"
 msgstr "%s için dışarıda bırakıldı"
 
@@ -4024,8 +4029,8 @@ msgstr "Yapılandırılmadı"
 msgid "Not detected"
 msgstr "Algılanmadı"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:332
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:160
+#: bigame-engine/bigame-ui/src/crash_watch.rs:338
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:177
 msgid "Not everything was left out of %s"
 msgstr "%s için her şey dışarıda bırakılamadı"
 
@@ -4203,7 +4208,7 @@ msgstr "Kurulacak bir şey yok: burada en iyi seçim oyunun kendi ölçekleyicis
 msgid "Nothing to measure"
 msgstr "Ölçülecek bir şey yok"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:278
+#: bigame-engine/bigame-ui/src/crash_watch.rs:284
 msgid "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
 msgstr "Oyuna hiçbir şey eklenmedi: hata oyunun kendisinden, sürücülerinden ya da sistemden kaynaklanıyor."
 
@@ -4411,7 +4416,8 @@ msgstr "Menüsünü (⋮) açın ve Sihirbazla oluştur'u ya da zaten bir profil
 msgid "Open official page"
 msgstr "Resmi sayfayı aç"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:110
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:107
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:127
 msgid "Open the game's report"
 msgstr "Oyunun raporunu aç"
 
@@ -5741,7 +5747,7 @@ msgstr "Steam açık: Gamescope kullanan oyunları, Steam kapatılana kadar eski
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam çalışıyor. localconfig.vdf dosyasını bellekte tutar ve çıkışta yeniden yazar, bu yüzden bu düzenleme atılır. Steam'i kapatıp yeniden deneyin."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:353
+#: bigame-engine/bigame-ui/src/crash_watch.rs:359
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Steam launch options"
@@ -6271,7 +6277,7 @@ msgstr "Bu oyunlar kare oluşturur, bu yüzden sınırlanmaz: %s."
 msgid "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 msgstr "Bu oyunların başlatma seçenekleri zaten kendi Gamescope'larını çalıştırıyor, bu yüzden Big Game Mode'unki eklenmedi: %s"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/crash_watch.rs:295
 msgid "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
 msgstr "Bunların sorunla hiçbir ilgisi olmayabilir. Bir süre bu oyunun dışında bırakmak, ilgileri olup olmadığını gösterir."
 
@@ -6300,7 +6306,7 @@ msgstr "Bu dosya mevcut değil"
 msgid "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 msgstr "Bu oyun ve GPU, DLSS-NR-on-AMD'nin gerektirdiklerini karşılıyor ve oyunun yanına kurulu değil. İsteğe bağlıdır: denemek isterseniz resmî sayfasından kendiniz kurun, ardından Yeniden Denetle'ye basın."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:271
+#: bigame-engine/bigame-ui/src/crash_watch.rs:277
 msgid "This game closed with an error %n time this week."
 msgid_plural "This game closed with an error %n times this week."
 msgstr[0] "Bu oyun bu hafta %n kez çöktü."
@@ -6346,7 +6352,7 @@ msgstr "Zaman aşımı"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "İpucu: bir ön ayar seçin, Turbo'yu açın ve bir oyun başlatın; Ana Sayfa oyunun ne aldığını gösterir. Üstteki (i) düğmesi bulunduğunuz sayfayı açıklar."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:385
+#: bigame-engine/bigame-ui/src/crash_watch.rs:391
 msgid "To put them back: Profiles → the game → its launch settings."
 msgstr "Geri eklemek için: Profiller → oyun → başlatma ayarları."
 
@@ -6826,6 +6832,10 @@ msgstr "Dikkat gerektirenler ve bunlar için neler yapılabileceği. Komutlar ko
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:993
 msgid "What only the game's own menu can do."
 msgstr "Yalnızca oyunun kendi menüsünün yapabildikleri."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:28
+msgid "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it."
+msgstr "Her çökmeyi neyin gösterdiği, oyunun ne söylediği ve oyunun kendisi dışında içinde ne olduğu. Bir oyunun her çökmesinde aynı ekler varsa, onları o oyundan çıkarmaya değer."
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:79
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -8659,7 +8669,7 @@ msgstr "vkBasalt gölgelendiricilerinin hepsi yerinde değil"
 msgid "the worker thread failed"
 msgstr "çalışan iş parçacığı başarısız oldu"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:320
+#: bigame-engine/bigame-ui/src/crash_watch.rs:326
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765

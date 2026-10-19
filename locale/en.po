@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 21:47-0300\n"
+"POT-Creation-Date: 2026-10-18 22:08-0300\n"
 "PO-Revision-Date: 2026-04-20 22:17\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: English <en@li.org>\n"
@@ -892,7 +892,7 @@ msgstr "Advanced — opens after the profile is created"
 msgid "Advanced…"
 msgstr "Advanced…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:263
+#: bigame-engine/bigame-ui/src/crash_watch.rs:261
 msgid "After %s of play."
 msgstr "After %s of play."
 
@@ -923,7 +923,8 @@ msgstr "Allow experimental options"
 msgid "Allow experimental options (Advanced options) to try it"
 msgstr "Allow experimental options (Advanced options) to try it"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:283
+#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:96
 msgid "Also in the game"
 msgstr "Also in the game"
 
@@ -1061,7 +1062,7 @@ msgstr "Architecture"
 msgid "Are you sure?"
 msgstr "Are you sure?"
 
-#: bigame-engine/bigame-ui/src/views/details/mod.rs:154
+#: bigame-engine/bigame-ui/src/views/details/mod.rs:156
 msgid "Around the game"
 msgstr "Around the game"
 
@@ -2106,8 +2107,8 @@ msgstr "Discard"
 msgid "Disk"
 msgstr "Disk"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:102
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:119
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:169
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -2151,7 +2152,7 @@ msgstr "Dynamic gaming performance orchestration for BigLinux"
 msgid "Each game's frame generation is in its profile"
 msgstr "Each game's frame generation is in its profile"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:285
+#: bigame-engine/bigame-ui/src/crash_watch.rs:291
 msgid "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
 msgstr "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
 
@@ -2571,7 +2572,7 @@ msgstr "Frames shown per rendered frame"
 msgid "Frequency CCD"
 msgstr "Frequency CCD"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:347
+#: bigame-engine/bigame-ui/src/crash_watch.rs:353
 msgid "From its next start, %s runs without: %s."
 msgstr "From its next start, %s runs without: %s."
 
@@ -2690,6 +2691,10 @@ msgstr "Games run without Big Game Mode's optimizations. Turn Turbo on at Home."
 #: bigame-engine/bigame-core/src/turbo_preset.rs:98
 msgid "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped."
 msgstr "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:26
+msgid "Games that closed with an error"
+msgstr "Games that closed with an error"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:656
 msgid "Games with files installed"
@@ -2959,7 +2964,7 @@ msgstr "Heroic is open: its games with launch settings of their own keep the old
 msgid "Heroic is open: this game's launch settings were not written into its settings there"
 msgstr "Heroic is open: this game's launch settings were not written into its settings there"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:370
+#: bigame-engine/bigame-ui/src/crash_watch.rs:376
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2420
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
@@ -3219,7 +3224,7 @@ msgstr "It carries on from where it was paused and starts using the CPU again."
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:381
+#: bigame-engine/bigame-ui/src/crash_watch.rs:387
 msgid "It is kept in the game's settings and written once that is possible."
 msgstr "It is kept in the game's settings and written once that is possible."
 
@@ -3338,7 +3343,7 @@ msgstr "Latest stable"
 msgid "Launch (Turbo)"
 msgstr "Launch (Turbo)"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:363
+#: bigame-engine/bigame-ui/src/crash_watch.rs:369
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:693
 msgid "Launch options"
 msgstr "Launch options"
@@ -3351,7 +3356,7 @@ msgstr "Launch options cleared"
 msgid "Launch options fixed"
 msgstr "Launch options fixed"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:357
+#: bigame-engine/bigame-ui/src/crash_watch.rs:363
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1213
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
@@ -3401,16 +3406,16 @@ msgid "Leave the game's graphics as they are."
 msgstr "Leave the game's graphics as they are."
 
 #: bigame-engine/bigame-ui/src/crash_watch.rs:231
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:123
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:140
 msgid "Leave them out of this game"
 msgstr "Leave them out of this game"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:135
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
 msgid "Leaving them out of the game's launch settings…"
 msgstr "Leaving them out of the game's launch settings…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:330
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:148
+#: bigame-engine/bigame-ui/src/crash_watch.rs:336
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:165
 msgid "Left out of %s"
 msgstr "Left out of %s"
 
@@ -4024,8 +4029,8 @@ msgstr "Not configured"
 msgid "Not detected"
 msgstr "Not detected"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:332
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:160
+#: bigame-engine/bigame-ui/src/crash_watch.rs:338
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:177
 msgid "Not everything was left out of %s"
 msgstr "Not everything was left out of %s"
 
@@ -4203,7 +4208,7 @@ msgstr "Nothing to install: the game's own upscaler is the best choice here. Tur
 msgid "Nothing to measure"
 msgstr "Nothing to measure"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:278
+#: bigame-engine/bigame-ui/src/crash_watch.rs:284
 msgid "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
 msgstr "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
 
@@ -4411,7 +4416,8 @@ msgstr "Open its menu (⋮) and choose Create with Wizard, or Edit when it alrea
 msgid "Open official page"
 msgstr "Open official page"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:110
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:107
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:127
 msgid "Open the game's report"
 msgstr "Open the game's report"
 
@@ -5741,7 +5747,7 @@ msgstr "Steam is open: its games with Gamescope keep the old sizes until it is c
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:353
+#: bigame-engine/bigame-ui/src/crash_watch.rs:359
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Steam launch options"
@@ -6271,7 +6277,7 @@ msgstr "These games generate frames, so they are not capped: %s."
 msgid "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 msgstr "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/crash_watch.rs:295
 msgid "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
 msgstr "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
 
@@ -6300,7 +6306,7 @@ msgstr "This file does not exist"
 msgid "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 msgstr "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:271
+#: bigame-engine/bigame-ui/src/crash_watch.rs:277
 msgid "This game closed with an error %n time this week."
 msgid_plural "This game closed with an error %n times this week."
 msgstr[0] "This game closed with an error %n time this week."
@@ -6346,7 +6352,7 @@ msgstr "Timeout"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:385
+#: bigame-engine/bigame-ui/src/crash_watch.rs:391
 msgid "To put them back: Profiles → the game → its launch settings."
 msgstr "To put them back: Profiles → the game → its launch settings."
 
@@ -6826,6 +6832,10 @@ msgstr "What needs attention, and what can be done about it. Commands are copied
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:993
 msgid "What only the game's own menu can do."
 msgstr "What only the game's own menu can do."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:28
+msgid "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it."
+msgstr "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it."
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:79
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -8659,7 +8669,7 @@ msgstr "the vkBasalt shaders are not all in place"
 msgid "the worker thread failed"
 msgstr "the worker thread failed"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:320
+#: bigame-engine/bigame-ui/src/crash_watch.rs:326
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765

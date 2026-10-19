@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 21:47-0300\n"
+"POT-Creation-Date: 2026-10-18 22:08-0300\n"
 "PO-Revision-Date: 2026-04-20 22:28\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Chinese <zh@li.org>\n"
@@ -875,7 +875,7 @@ msgstr "高级 — 创建配置文件后打开"
 msgid "Advanced…"
 msgstr "高级…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:263
+#: bigame-engine/bigame-ui/src/crash_watch.rs:261
 msgid "After %s of play."
 msgstr "已游玩 %s。"
 
@@ -906,7 +906,8 @@ msgstr "允许实验性选项"
 msgid "Allow experimental options (Advanced options) to try it"
 msgstr "允许实验性选项（高级选项）即可尝试"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:283
+#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:96
 msgid "Also in the game"
 msgstr "游戏中还有"
 
@@ -1044,7 +1045,7 @@ msgstr "架构"
 msgid "Are you sure?"
 msgstr "确定吗？"
 
-#: bigame-engine/bigame-ui/src/views/details/mod.rs:154
+#: bigame-engine/bigame-ui/src/views/details/mod.rs:156
 msgid "Around the game"
 msgstr "游戏周边"
 
@@ -2088,8 +2089,8 @@ msgstr "放弃"
 msgid "Disk"
 msgstr "磁盘"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:102
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:119
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:169
 msgid "Dismiss"
 msgstr "忽略"
 
@@ -2133,7 +2134,7 @@ msgstr "BigLinux 的动态游戏性能编排"
 msgid "Each game's frame generation is in its profile"
 msgstr "每个游戏的帧生成在其配置文件中设置"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:285
+#: bigame-engine/bigame-ui/src/crash_watch.rs:291
 msgid "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
 msgstr "每一项都是该游戏在配置文件或 AI 图形中自己的选择；在那里更改后，从下次启动起就不再使用。"
 
@@ -2553,7 +2554,7 @@ msgstr "每个渲染帧显示的帧数"
 msgid "Frequency CCD"
 msgstr "频率 CCD"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:347
+#: bigame-engine/bigame-ui/src/crash_watch.rs:353
 msgid "From its next start, %s runs without: %s."
 msgstr "从下次启动起，%s 运行时将不带：%s。"
 
@@ -2672,6 +2673,10 @@ msgstr "游戏在没有 Big Game Mode 优化的情况下运行。请在“主页
 #: bigame-engine/bigame-core/src/turbo_preset.rs:98
 msgid "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped."
 msgstr "游戏帧率会停在适合您屏幕的数值，电脑因此更凉快、更安静。会生成帧的游戏不受限制。"
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:26
+msgid "Games that closed with an error"
+msgstr "因错误而关闭的游戏"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:656
 msgid "Games with files installed"
@@ -2941,7 +2946,7 @@ msgstr "Heroic 已打开：在关闭 Heroic 之前，其拥有自有启动设置
 msgid "Heroic is open: this game's launch settings were not written into its settings there"
 msgstr "Heroic 已打开：此游戏的启动设置未写入它在 Heroic 中的设置"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:370
+#: bigame-engine/bigame-ui/src/crash_watch.rs:376
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2420
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "Heroic 正在运行游戏：请先关闭游戏。Heroic 会将此游戏的设置保留在内存中，并会丢弃此更改。"
@@ -3201,7 +3206,7 @@ msgstr "它会从暂停处继续，并重新开始使用 CPU。"
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "它会完全冻结，直到你让它继续：窗口停止响应，其中的声音、下载或通话都会停止。与服务器通信的程序可能会断开连接。用完后请在这里让它继续——Big Game Mode 退出时也会让它继续。"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:381
+#: bigame-engine/bigame-ui/src/crash_watch.rs:387
 msgid "It is kept in the game's settings and written once that is possible."
 msgstr "已保存在游戏设置中，一旦可以就会写入。"
 
@@ -3320,7 +3325,7 @@ msgstr "最新稳定版"
 msgid "Launch (Turbo)"
 msgstr "启动（Turbo）"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:363
+#: bigame-engine/bigame-ui/src/crash_watch.rs:369
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:693
 msgid "Launch options"
 msgstr "启动选项"
@@ -3333,7 +3338,7 @@ msgstr "启动选项已清除"
 msgid "Launch options fixed"
 msgstr "启动选项已修复"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:357
+#: bigame-engine/bigame-ui/src/crash_watch.rs:363
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1213
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
@@ -3383,16 +3388,16 @@ msgid "Leave the game's graphics as they are."
 msgstr "保持游戏图形设置不变。"
 
 #: bigame-engine/bigame-ui/src/crash_watch.rs:231
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:123
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:140
 msgid "Leave them out of this game"
 msgstr "在此游戏中去掉它们"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:135
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
 msgid "Leaving them out of the game's launch settings…"
 msgstr "正在从游戏的启动设置中去掉它们…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:330
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:148
+#: bigame-engine/bigame-ui/src/crash_watch.rs:336
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:165
 msgid "Left out of %s"
 msgstr "已从 %s 中去掉"
 
@@ -4006,8 +4011,8 @@ msgstr "未配置"
 msgid "Not detected"
 msgstr "未检测到"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:332
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:160
+#: bigame-engine/bigame-ui/src/crash_watch.rs:338
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:177
 msgid "Not everything was left out of %s"
 msgstr "未能从 %s 中去掉全部项目"
 
@@ -4185,7 +4190,7 @@ msgstr "无需安装：此处游戏自带的超分辨率是最佳选择。请按
 msgid "Nothing to measure"
 msgstr "没有可测量的内容"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:278
+#: bigame-engine/bigame-ui/src/crash_watch.rs:284
 msgid "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
 msgstr "没有向游戏添加任何东西：错误来自游戏本身、其驱动程序或系统。"
 
@@ -4393,7 +4398,8 @@ msgstr "打开其菜单（⋮）并选择“使用向导创建”，如果已有
 msgid "Open official page"
 msgstr "打开官方页面"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:110
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:107
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:127
 msgid "Open the game's report"
 msgstr "打开游戏的报告"
 
@@ -5723,7 +5729,7 @@ msgstr "Steam 已打开：在关闭 Steam 之前，其使用 Gamescope 的游戏
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam 正在运行。它会将 localconfig.vdf 保留在内存中，并在退出时重写该文件，因此此次修改会被丢弃。请关闭 Steam 后重试。"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:353
+#: bigame-engine/bigame-ui/src/crash_watch.rs:359
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Steam launch options"
@@ -6253,7 +6259,7 @@ msgstr "这些游戏会生成帧，因此不受限制：%s。"
 msgid "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 msgstr "这些游戏的启动选项已经运行了它们自己的 Gamescope，因此未添加 Big Game Mode 的 Gamescope：%s"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/crash_watch.rs:295
 msgid "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
 msgstr "它们可能与此无关。在此游戏中暂时去掉它们，就能知道是否有关。"
 
@@ -6282,7 +6288,7 @@ msgstr "此文件不存在"
 msgid "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 msgstr "此游戏和 GPU 满足 DLSS-NR-on-AMD 的要求，但它未安装在游戏旁边。它是可选的：如果想尝试，请从其官方页面自行安装，然后按“重新检查”。"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:271
+#: bigame-engine/bigame-ui/src/crash_watch.rs:277
 msgid "This game closed with an error %n time this week."
 msgid_plural "This game closed with an error %n times this week."
 msgstr[0] "这是该游戏本周第 %n 次崩溃。"
@@ -6327,7 +6333,7 @@ msgstr "超时"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "提示：选择一个预设，开启 Turbo 并启动游戏；主页会显示它获得了什么。顶部的 (i) 按钮会解释你所在的页面。"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:385
+#: bigame-engine/bigame-ui/src/crash_watch.rs:391
 msgid "To put them back: Profiles → the game → its launch settings."
 msgstr "要恢复它们：配置文件 → 该游戏 → 其启动设置。"
 
@@ -6806,6 +6812,10 @@ msgstr "需要注意的事项，以及可以采取的措施。命令只会被复
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:993
 msgid "What only the game's own menu can do."
 msgstr "只有游戏自身菜单才能做到的事。"
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:28
+msgid "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it."
+msgstr "每次崩溃的迹象、游戏给出的信息，以及游戏本身之外加载的内容。如果某个游戏每次崩溃时都有相同的附加项，值得在该游戏中去掉它们。"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:79
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -8638,7 +8648,7 @@ msgstr "vkBasalt 着色器未全部就位"
 msgid "the worker thread failed"
 msgstr "工作线程失败"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:320
+#: bigame-engine/bigame-ui/src/crash_watch.rs:326
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765

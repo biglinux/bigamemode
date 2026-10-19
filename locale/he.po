@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 21:47-0300\n"
+"POT-Creation-Date: 2026-10-18 22:08-0300\n"
 "PO-Revision-Date: 2026-04-20 22:20\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hebrew <he@li.org>\n"
@@ -892,7 +892,7 @@ msgstr "מתקדם — נפתח לאחר יצירת הפרופיל"
 msgid "Advanced…"
 msgstr "מתקדם…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:263
+#: bigame-engine/bigame-ui/src/crash_watch.rs:261
 msgid "After %s of play."
 msgstr "לאחר %s של משחק."
 
@@ -923,7 +923,8 @@ msgstr "אפשר אפשרויות ניסיוניות"
 msgid "Allow experimental options (Advanced options) to try it"
 msgstr "אפשר אפשרויות ניסיוניות (אפשרויות מתקדמות) כדי לנסות את זה"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:283
+#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:96
 msgid "Also in the game"
 msgstr "עוד במשחק"
 
@@ -1061,7 +1062,7 @@ msgstr "ארכיטקטורה"
 msgid "Are you sure?"
 msgstr "האם אתה בטוח?"
 
-#: bigame-engine/bigame-ui/src/views/details/mod.rs:154
+#: bigame-engine/bigame-ui/src/views/details/mod.rs:156
 msgid "Around the game"
 msgstr "סביב המשחק"
 
@@ -2106,8 +2107,8 @@ msgstr "השלך"
 msgid "Disk"
 msgstr "דיסק"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:102
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:119
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:169
 msgid "Dismiss"
 msgstr "סגור"
 
@@ -2151,7 +2152,7 @@ msgstr "תזמור דינמי של ביצועי משחקים עבור BigLinux"
 msgid "Each game's frame generation is in its profile"
 msgstr "יצירת הפריימים של כל משחק נמצאת בפרופיל שלו"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:285
+#: bigame-engine/bigame-ui/src/crash_watch.rs:291
 msgid "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start."
 msgstr "כל אחד מהם הוא בחירה של המשחק עצמו בפרופילים או בגרפיקת AI; אם משנים אותו שם, הוא מושמט החל מההפעלה הבאה."
 
@@ -2571,7 +2572,7 @@ msgstr "פריימים מוצגים לכל פריים מרונדר"
 msgid "Frequency CCD"
 msgstr "CCD תדר"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:347
+#: bigame-engine/bigame-ui/src/crash_watch.rs:353
 msgid "From its next start, %s runs without: %s."
 msgstr "החל מההפעלה הבאה, %s יפעל בלי: %s."
 
@@ -2690,6 +2691,10 @@ msgstr "משחקים רצים ללא האופטימיזציות של Big Game Mo
 #: bigame-engine/bigame-core/src/turbo_preset.rs:98
 msgid "Games stop at a frame rate that fits your screen, so the computer stays cooler and quieter. Games that generate frames are not capped."
 msgstr "המשחקים נעצרים בקצב פריימים שמתאים למסך שלך, כך שהמחשב נשאר קריר ושקט יותר. משחקים שיוצרים פריימים אינם מוגבלים."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:26
+msgid "Games that closed with an error"
+msgstr "משחקים שנסגרו עם שגיאה"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:656
 msgid "Games with files installed"
@@ -2959,7 +2964,7 @@ msgstr "Heroic פתוח: המשחקים שלו עם הגדרות הפעלה מש
 msgid "Heroic is open: this game's launch settings were not written into its settings there"
 msgstr "Heroic פתוח: הגדרות ההפעלה של משחק זה לא נכתבו בהגדרות שלו שם"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:370
+#: bigame-engine/bigame-ui/src/crash_watch.rs:376
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:2420
 msgid "Heroic is running a game: close the game first. Heroic keeps this game's settings in memory and would discard the change."
 msgstr "Heroic מריץ משחק: סגור קודם את המשחק. Heroic שומר את ההגדרות של משחק זה בזיכרון וימחק את השינוי."
@@ -3219,7 +3224,7 @@ msgstr "הוא ממשיך מהנקודה שבה הושהה ומתחיל להשת
 msgid "It freezes completely until you resume it: its windows stop responding, and any sound, download or call in it stops. A program that talks to a server may lose its connection. Resume it here when you are done — Big Game Mode also resumes it when Big Game Mode quits."
 msgstr "הוא קופא לגמרי עד שתמשיך אותו: החלונות שלו מפסיקים להגיב, וכל צליל, הורדה או שיחה בו נעצרים. תוכנה שמתקשרת עם שרת עלולה לאבד את החיבור. המשך אותו כאן כשתסיים — Big Game Mode גם ממשיך אותו כשהוא עצמו נסגר."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:381
+#: bigame-engine/bigame-ui/src/crash_watch.rs:387
 msgid "It is kept in the game's settings and written once that is possible."
 msgstr "זה נשמר בהגדרות המשחק וייכתב ברגע שזה יתאפשר."
 
@@ -3338,7 +3343,7 @@ msgstr "היציבה האחרונה"
 msgid "Launch (Turbo)"
 msgstr "הפעלה (Turbo)"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:363
+#: bigame-engine/bigame-ui/src/crash_watch.rs:369
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:693
 msgid "Launch options"
 msgstr "אפשרויות הפעלה"
@@ -3351,7 +3356,7 @@ msgstr "אפשרויות ההפעלה נוקו"
 msgid "Launch options fixed"
 msgstr "אפשרויות ההפעלה תוקנו"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:357
+#: bigame-engine/bigame-ui/src/crash_watch.rs:363
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1213
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:678
 msgid "Launch options: close Steam first: it keeps them in memory and would overwrite the change."
@@ -3401,16 +3406,16 @@ msgid "Leave the game's graphics as they are."
 msgstr "השאר את הגרפיקה של המשחק כפי שהיא."
 
 #: bigame-engine/bigame-ui/src/crash_watch.rs:231
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:123
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:140
 msgid "Leave them out of this game"
 msgstr "השמט אותם מהמשחק הזה"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:135
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:152
 msgid "Leaving them out of the game's launch settings…"
 msgstr "משמיט אותם מהגדרות ההפעלה של המשחק…"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:330
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:148
+#: bigame-engine/bigame-ui/src/crash_watch.rs:336
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:165
 msgid "Left out of %s"
 msgstr "הושמטו מ-%s"
 
@@ -4024,8 +4029,8 @@ msgstr "לא מוגדר"
 msgid "Not detected"
 msgstr "לא זוהה"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:332
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:160
+#: bigame-engine/bigame-ui/src/crash_watch.rs:338
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:177
 msgid "Not everything was left out of %s"
 msgstr "לא הכול הושמט מ-%s"
 
@@ -4203,7 +4208,7 @@ msgstr "אין מה להתקין: מנגנון הגדלת הרזולוציה ש�
 msgid "Nothing to measure"
 msgstr "אין מה למדוד"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:278
+#: bigame-engine/bigame-ui/src/crash_watch.rs:284
 msgid "Nothing was added to the game: the error is the game's own, or its drivers' or the system's."
 msgstr "שום דבר לא נוסף למשחק: השגיאה היא של המשחק עצמו, של מנהלי ההתקן שלו או של המערכת."
 
@@ -4411,7 +4416,8 @@ msgstr "פתח את התפריט שלו (⋮) ובחר \"יצירה עם אשף\
 msgid "Open official page"
 msgstr "פתח את הדף הרשמי"
 
-#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:110
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:107
+#: bigame-engine/bigame-ui/src/widgets/crash_notice.rs:127
 msgid "Open the game's report"
 msgstr "פתח את הדוח של המשחק"
 
@@ -5741,7 +5747,7 @@ msgstr "Steam פתוח: המשחקים שלו עם Gamescope שומרים על �
 msgid "Steam is running. It keeps localconfig.vdf in memory and rewrites it on exit, so this edit would be discarded. Close Steam and try again."
 msgstr "Steam פועל. הוא שומר את localconfig.vdf בזיכרון וכותב אותו מחדש ביציאה, ולכן השינוי הזה יאבד. סגור את Steam ונסה שוב."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:353
+#: bigame-engine/bigame-ui/src/crash_watch.rs:359
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:421
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1071
 msgid "Steam launch options"
@@ -6271,7 +6277,7 @@ msgstr "משחקים אלה יוצרים פריימים, ולכן הם אינם 
 msgid "These games' launch options already run a Gamescope of their own, so Big Game Mode's was not added: %s"
 msgstr "אפשרויות ההפעלה של משחקים אלה כבר מריצות Gamescope משלהן, ולכן זה של Big Game Mode לא נוסף: %s"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:289
+#: bigame-engine/bigame-ui/src/crash_watch.rs:295
 msgid "They may have nothing to do with it. Leaving them out of this game for a while tells whether they do."
 msgstr "ייתכן שאין להם שום קשר לכך. השמטתם מהמשחק הזה לזמן מה תראה אם יש."
 
@@ -6300,7 +6306,7 @@ msgstr "קובץ זה אינו קיים"
 msgid "This game and GPU meet what DLSS-NR-on-AMD asks for, and it is not installed beside the game. It is optional: install it yourself from its official page if you want to try it, then press Check Again."
 msgstr "משחק זה וה-GPU עומדים בדרישות של DLSS-NR-on-AMD, והוא אינו מותקן לצד המשחק. הוא אופציונלי: אם תרצה לנסות אותו, התקן אותו בעצמך מהדף הרשמי שלו, ואז לחץ על \"בדוק שוב\"."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:271
+#: bigame-engine/bigame-ui/src/crash_watch.rs:277
 msgid "This game closed with an error %n time this week."
 msgid_plural "This game closed with an error %n times this week."
 msgstr[0] "המשחק הזה קרס %n פעם השבוע."
@@ -6346,7 +6352,7 @@ msgstr "תם הזמן"
 msgid "Tip: choose a preset, switch Turbo on and start a game; Home shows what it got. The (i) button at the top explains the page you are on."
 msgstr "טיפ: בחר ערכה, הפעל את Turbo והתחל משחק; דף הבית מציג מה הוא קיבל. לחצן ה-(i) שבראש הדף מסביר את הדף שבו אתה נמצא."
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:385
+#: bigame-engine/bigame-ui/src/crash_watch.rs:391
 msgid "To put them back: Profiles → the game → its launch settings."
 msgstr "כדי להחזיר אותם: פרופילים → המשחק → הגדרות ההפעלה שלו."
 
@@ -6826,6 +6832,10 @@ msgstr "מה דורש תשומת לב, ומה אפשר לעשות בנידון. 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:993
 msgid "What only the game's own menu can do."
 msgstr "מה שרק התפריט של המשחק עצמו יכול לעשות."
+
+#: bigame-engine/bigame-ui/src/views/details/crashes.rs:28
+msgid "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it."
+msgstr "מה הצביע על כל קריסה, מה המשחק דיווח ומה היה בו מלבד המשחק עצמו. אם אותן תוספות מופיעות בכל קריסה של משחק, כדאי להוציא אותן ממנו."
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:79
 msgid "What sits between the game and the screen. Configured is what you asked for; detected is what the running game shows."
@@ -8659,7 +8669,7 @@ msgstr "לא כל ה-shaders של vkBasalt נמצאים במקומם"
 msgid "the worker thread failed"
 msgstr "תהליכון העבודה נכשל"
 
-#: bigame-engine/bigame-ui/src/crash_watch.rs:320
+#: bigame-engine/bigame-ui/src/crash_watch.rs:326
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:612
 #: bigame-engine/bigame-ui/src/views/home.rs:264
 #: bigame-engine/bigame-ui/src/views/home.rs:765

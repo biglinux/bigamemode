@@ -14,6 +14,7 @@
 //! process and asks the GPU's power controller, which the game needs more.
 //! The live charts are on their own page, Telemetry, on the same terms.
 
+mod crashes;
 mod dns;
 pub(crate) mod extras;
 pub(crate) mod overview;
@@ -147,6 +148,7 @@ fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hard
     left.append(performance.group());
     let problems = problems::Problems::new();
     left.append(problems.group());
+    left.append(&crashes::group());
     let pipeline = pipeline::Pipeline::new(hw);
     right.append(pipeline.header_group());
     right.append(pipeline.group());

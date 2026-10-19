@@ -255,12 +255,18 @@ fn played(secs: u64) -> String {
     }
 }
 
+/// "After … of play.", for `secs` of play.
+#[must_use]
+pub fn played_line(secs: u64) -> String {
+    i18n("After %s of play.").replace("%s", &played(secs))
+}
+
 /// What the notice and the notification say under the title.
 #[must_use]
 pub fn body(crash: &Crash, week: usize) -> String {
     let mut lines = Vec::new();
     let evidence = tr(&crash.evidence);
-    let mut first = i18n("After %s of play.").replace("%s", &played(crash.played_secs));
+    let mut first = played_line(crash.played_secs);
     first.push(' ');
     first.push_str(&match &crash.reason {
         Some(reason) => labelled(&evidence, reason),
