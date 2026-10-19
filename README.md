@@ -6,10 +6,10 @@
 
 **BigLinux's game mode.**<br>
 One switch for per-game performance, presets for what games should favour,
-AI Graphics with full backup and undo, and a page that shows — with evidence —
-what is really in effect.
+a library that says how each game runs on Linux, AI Graphics with full backup
+and undo, and a page that shows — with evidence — what is really in effect.
 
-[![Version](https://img.shields.io/badge/version-2.4.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-6c5ce7?style=for-the-badge)](https://github.com/biglinux/bigamemode/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2ea44f?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.88%2B-dea584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![GTK4](https://img.shields.io/badge/GTK4-libadwaita-4a86cf?style=for-the-badge&logo=gnome&logoColor=white)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -26,7 +26,7 @@ what is really in effect.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-light.png">
-  <img src="docs/screenshots/home.png" width="860" alt="Big Game Mode's Home page in simple mode: Turbo in words, three choices and Back to normal">
+  <img src="docs/screenshots/home.png" width="860" alt="Big Game Mode's Home page: the Turbo card with its three presets and Back to normal, and the Now card">
 </picture>
 
 </div>
@@ -47,7 +47,31 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## What's new in 2.5.0
+## What's new in 3.0.0
+
+**A new layout, one purpose per page.** Seven pages became six, in the
+order a person uses them:
+
+| Page | What it holds |
+|---|---|
+| **Home** | One **Turbo** card — the switch, the three presets under it with what the chosen one does, and Back to normal — and a **Now** card with the game being played: its cover, launcher, how long it has run, its ProtonDB and anti-cheat tags, and one coloured flag per feature it really got. With no game, it says what Turbo is doing and where to start one. |
+| **Games** | The library (formerly Profiles), each game with its profile and its compatibility. |
+| **Optimization** | Tabs: **Overview** (the machine at a glance and the recommendations for its own hardware and packages), **Tuning**, **Details**, and **Network and apps** (the connection and DNS, the programs beside the game, Steam's launch options). |
+| **Telemetry** | The live charts, as before. |
+| **Records** | Tabs: **Reports** (the last Turbo report and the support report), **Games that crashed**, and **Logs**. |
+| **Settings** | As before, with Game Information. |
+
+- **Recommendations instead of Problems.** Each says whether it is
+  *Recommended*, needs your *Attention*, is *Not supported* on this hardware,
+  *Informative*, *Already adequate*, or *Needs measurement*, and leads to the
+  page that changes it. Nothing is applied from the list: there is no
+  "apply all", a DNS is never changed and a program never paused or closed
+  without you asking.
+- **Simple and advanced share everything.** Simple mode hides the Tuning,
+  Details and Logs tabs instead of whole pages; a page saved by an older
+  version opens where its content went.
+- **Icons that are not in every theme** ship with the application, so no
+  page shows a missing image outside BigLinux's icon theme.
 
 **Your library knows how each game runs on Linux.** Every card says, at a
 glance and without leaving the library:
@@ -96,7 +120,7 @@ Mode only said "Cyberpunk 2077 closed", as for a game quit from its menu.
   Wine FSR out of that game alone from its next start, written where its
   launcher reads it (an open Steam is closed and opened again around the
   write, never while it runs a game). Nothing changes until it is chosen;
-  Profiles puts them back.
+  Games puts them back.
 - **FSR 4 can be switched off for one game**, whatever the Pretty preset
   asks for the others.
 - Details lists the last crashes, the support report carries them, and
@@ -310,7 +334,7 @@ release (HTTPS, pinned SHA-256) with a verified backup, or raises FSR 3.1 to
 FSR 4 through Proton. **Check Again**, **Repair**, **Restore** and **Diagnose**
 are always there. Games with anti-cheat are never touched.
 
-### Telemetry, details and logs
+### Optimization, Telemetry and Records
 
 **Telemetry** shows, once a second, what the processor (load, the fastest
 core's clock and the average, temperature), memory (and swap), the disks
@@ -324,15 +348,21 @@ Nothing is read while a game has the screen.
 anti-cheat status from Are We Anti-Cheat Yet? and Steam's player count; the
 game's page explains each, with its source, its age and a link.
 
-**Details** says for every part whether it is **active**, **waiting**,
-**configured but not detected**, **off**, **missing a dependency** or
-**unsupported**, with the evidence and the fix. It adds the video pipeline, a
-ranked **Problems** list, the games that closed with an error and what was in
-them, the network with a DNS comparison, background load, broken Steam launch
-options and a support report.
-**Logs** gathers falcond, the helper, power-profiles-daemon, scx_loader,
-Gamescope, GPU drivers, crashes and, from Steam games' output, Proton/Wine,
-MangoHud, vkBasalt, lsfg-vk and OptiScaler, filtered by source.
+**Optimization** opens on an **Overview**: the machine at a glance and the
+**Recommendations** for its own hardware and packages, each *Recommended*,
+*Attention*, *Not supported*, *Informative*, *Already adequate* or *Needs
+measurement*, with the command to copy or a button to the page that fixes
+it. Its **Details** tab says for every part whether it is **active**,
+**waiting**, **configured but not detected**, **off**, **missing a
+dependency** or **unsupported**, with the evidence and the fix, and adds the
+video pipeline. **Network and apps** has the network with a DNS comparison,
+background load and broken Steam launch options.
+
+**Records** keeps the last Turbo report and the support report, the games
+that closed with an error and what was in them, and the **Logs**: falcond,
+the helper, power-profiles-daemon, scx_loader, Gamescope, GPU drivers,
+crashes and, from Steam games' output, Proton/Wine, MangoHud, vkBasalt,
+lsfg-vk and OptiScaler, filtered by source.
 
 ### Measure the difference
 
@@ -350,31 +380,44 @@ Closing the window keeps Big Game Mode in the tray, with Turbo, the presets and
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/profiles.png" alt="Profiles: the library of installed games, each with Play"></td>
-<td width="50%"><img src="docs/screenshots/tuning.png" alt="Tuning: performance, Gamescope, image quality and frame generation"></td>
+<td width="50%"><img src="docs/screenshots/games.png" alt="Games: the library of installed games, with ProtonDB, anti-cheat and player counts"></td>
+<td width="50%"><img src="docs/screenshots/game.png" alt="A game's page: Linux compatibility, anti-cheat and Steam activity"></td>
 </tr>
 <tr>
-<td align="center"><b>Profiles</b>: every installed game, Play on each</td>
-<td align="center"><b>Tuning</b>: what the machine cannot do is shown as such</td>
+<td align="center"><b>Games</b>: every installed game, with how it runs on Linux</td>
+<td align="center"><b>A game's page</b>: its compatibility, sources and dates</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/ai-graphics.png" alt="AI Graphics: the verdict for a game and what to do"></td>
-<td><img src="docs/screenshots/details.png" alt="Details: what is in effect, with the evidence"></td>
+<td><img src="docs/screenshots/optimization.png" alt="Optimization: the machine at a glance and its recommendations"></td>
+<td><img src="docs/screenshots/details.png" alt="Optimization, Details: what is in effect, with the evidence"></td>
 </tr>
 <tr>
-<td align="center"><b>AI Graphics</b>: the verdict first, then why</td>
+<td align="center"><b>Optimization</b>: what would help this machine</td>
 <td align="center"><b>Details</b>: what is in effect, with the evidence</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/logs.png" alt="Logs: every source a game session depends on"></td>
-<td><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications and advanced options"></td>
+<td><img src="docs/screenshots/tuning.png" alt="Tuning: performance, Gamescope, image quality and frame generation"></td>
+<td><img src="docs/screenshots/ai-graphics.png" alt="AI Graphics: the verdict for a game and what to do"></td>
 </tr>
 <tr>
-<td align="center"><b>Logs</b>: every source, filtered</td>
-<td align="center"><b>Settings</b>: themes, and the switch for advanced options</td>
+<td align="center"><b>Tuning</b>: what the machine cannot do is shown as such</td>
+<td align="center"><b>AI Graphics</b>: the verdict first, then why</td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img src="docs/screenshots/about.png" width="430" alt="About Big Game Mode"></td>
+<td><img src="docs/screenshots/records.png" alt="Records: the last Turbo report"></td>
+<td><img src="docs/screenshots/telemetry.png" alt="Telemetry: processor, memory, disks, network and every GPU"></td>
+</tr>
+<tr>
+<td align="center"><b>Records</b>: the Turbo report, crashes and logs</td>
+<td align="center"><b>Telemetry</b>: second by second</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/settings.png" alt="Settings: theme, background start, notifications, game information"></td>
+<td><img src="docs/screenshots/about.png" alt="About Big Game Mode"></td>
+</tr>
+<tr>
+<td align="center"><b>Settings</b>: themes, game information, advanced options</td>
+<td align="center"><b>About</b></td>
 </tr>
 </table>
 
@@ -454,19 +497,19 @@ terminal without opening a window (`--network` adds the DNS measurements), and
 | Symptom | What to do |
 |---|---|
 | Games seem stuck at 60 FPS | Before 2.4.0, *Locked 60 FPS* and *Enhanced graphics* capped every game at 60. Choose **Fastest**, then reopen Steam: it keeps the environment it was opened with |
-| Stutter in big games that no setting fixes | Details → Problems says when the game library is on a hard disk or adaptive sync is off: move the games to an SSD, turn adaptive sync on |
-| I can't find Tuning, Details or Logs | Settings → Advanced → **Show advanced options** |
-| Games get no performance profile | Install `falcond`: without it Turbo applies only the general settings. Details → Problems names anything else missing |
-| A game does not get its profile | Details shows whether falcond applies it and why not; falcond 2.0.3 or newer is needed for games that rename their main thread (Cyberpunk 2077) |
+| Stutter in big games that no setting fixes | Optimization → Overview says when the game library is on a hard disk or adaptive sync is off: move the games to an SSD, turn adaptive sync on |
+| I can't find Tuning, Details or Logs | They are tabs of Optimization and Records, shown in advanced mode: Settings → Advanced → **Show advanced options** |
+| Games get no performance profile | Install `falcond`: without it Turbo applies only the general settings. Optimization → Overview names anything else missing |
+| A game does not get its profile | Optimization → Details shows whether falcond applies it and why not; falcond 2.0.3 or newer is needed for games that rename their main thread (Cyberpunk 2077) |
 | A preset does not reach Steam's games | Steam keeps the settings it was opened with: use **Reopen Steam** in the notice |
 | A frame generation option is disabled | lsfg-vk is not installed or your `Lossless.dll` is not usable by it; the row says which |
-| AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
+| AI Graphics left a game broken | Games → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
 | "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turbo still comes on with the general settings; per-game profiles need a falcond built for the x86-64 baseline. Turning Turbo off and on again does not help. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
 | A game's tag says "Denied" or "Broken" | Its anti-cheat refuses Linux or does not work there, as players report it: online play will not work, whatever Big Game Mode or Proton does. Open the tag for the source |
 | A game shows no rating | It is not a Steam game, or nobody has reported on it yet, or Big Game Mode has not been able to ask: Settings → Game Information says which |
 | A game closed by itself | Big Game Mode says so when the game left a sign of a crash, with what was in it: **Leave them out of this game** for a while tells whether vkBasalt or FSR 4 had a part in it. A crash with nothing added is the game's, its drivers' or the system's |
-| Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
+| Something else | Records → Reports → **Support report**, or `bigame-ui --diagnostics`, and Records → **Logs** |
 
 ## How it works
 
