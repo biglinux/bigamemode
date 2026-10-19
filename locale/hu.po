@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:21\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Hungarian <hu@li.org>\n"
@@ -242,6 +242,10 @@ msgstr "%s ezen a gépen nem fogadja el ezt: %s (elfogadott: %s)"
 msgid "%s does not match what was placed"
 msgstr "%s nem egyezik azzal, amit elhelyeztünk"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "A(z) %s nem fut Linuxon"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s a következő kilépési kóddal fejeződött be: %d"
@@ -355,7 +359,7 @@ msgstr "%s ütemező telepítve, de az scx-tools (scx_loader) nem, így a játé
 msgid "%s schedulers, scx_loader available"
 msgstr "%s ütemező, scx_loader elérhető"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s elindítva a Big Game Mode indítási beállításaival"
 
@@ -773,7 +777,7 @@ msgstr "MI-grafika: az OptiScaler telepítése ellenőrzött biztonsági mentés
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "MI-grafika: a képkocka-generálás csak akkor látszik aktívnak, ha az OptiScaler naplója igazolja, biztonságosabb Visszaállítás és Javítás, valamint letöltési gyorsítótár, amely csak a játékok által használt kiadásokat tartja meg"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "MI-grafika…"
 
@@ -1078,15 +1082,15 @@ msgstr "A játék körül"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "Annyi képkocka, amennyit a számítógéped elő tud állítani. Semmi sincs korlátozva vagy hozzáadva."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "Kérés elküldve a(z) %l indítónak: %s indítása. A profilja érvényes; a Big Game Mode indítási beállításai nem jutnak el egy olyan játékhoz, amelyet az indítója indít el."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "Kérés elküldve a(z) %l indítónak: %s indítása. A Turbo ki van kapcsolva, ezért a profilja csak akkor érvényes, ha a Kezdőlapon bekapcsolod a Turbót."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "Kérés elküldve a(z) %l indítónak: %s indítása. A falcond nincs telepítve, ezért egyetlen játékprofil sem érvényes."
 
@@ -1094,11 +1098,11 @@ msgstr "Kérés elküldve a(z) %l indítónak: %s indítása. A falcond nincs te
 msgid "Asked %s to close"
 msgstr "Bezárásra kérve: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Kérés elküldve a Heroicnak a következő indítására: %s. A profilja érvényesül; a játék saját indítási beállításai csak a Heroicban lévő beállításain keresztül jutnak el hozzá, amelyek a profil mentésekor íródnak be."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Kérés elküldve a Steamnek a következő indítására: %s. A profilja érvényesül; az indítási beállítások egy Steam-játékhoz csak a Steam indítási opcióin keresztül jutnak el."
 
@@ -1411,7 +1415,8 @@ msgstr "Ezt hívja meg: '%p', de nincs telepítve — indítási opciók: %o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1798,12 +1803,12 @@ msgid "Could not create the profile"
 msgstr "Nem sikerült létrehozni a profilt"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "Nem sikerült törölni a profilt"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "Nem sikerült törölni a profilt: %s"
 
@@ -1886,7 +1891,7 @@ msgstr "Nem sikerült menteni az indítási beállításokat"
 msgid "Could not save: %s"
 msgstr "Nem sikerült menteni: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "%t nem indítható el: %e"
 
@@ -1931,11 +1936,11 @@ msgstr "Játékprofilok létrehozása vagy törlése"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "Profil létrehozása"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2029,7 +2034,7 @@ msgid "Default settings restored"
 msgstr "Alapértelmezett beállítások visszaállítva"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "Törlés"
 
@@ -2042,11 +2047,11 @@ msgstr "Profil törlése"
 msgid "Delete Profile?"
 msgstr "Profil törlése?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "Profil törlése"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "Törlöd ezt a profilt?"
 
@@ -2188,7 +2193,7 @@ msgstr "Mindegyiket visszaolvastuk a rendszerből a módosítása után."
 msgid "Edit"
 msgstr "Szerkesztés"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "Profil szerkesztése"
 
@@ -3252,6 +3257,10 @@ msgstr "Megtartja azokat a beállításokat, amelyekkel megnyitották, így a j�
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Csak kizárólagos teljes képernyőn lép érvénybe, az asztalénál kisebb felbontáson. Bizonyíték: a játékfolyamat környezete."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "Az anti-cheat rendszere, a(z) %s, szándékosan elutasítja a Wine-t és a Protont: még indulás előtt leállítja a játékot. Ezen semmilyen Big Game Mode-, Proton- vagy Steam-beállítás nem változtat, a megkerülése pedig a fiók kitiltásához vezethet."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "A fájljai a játék mellett vannak. Hogy működik-e, csak akkor derül ki, amikor a játék fut, és a naplója ezt jelzi."
@@ -3350,7 +3359,7 @@ msgstr "Latency-Aware Virtual Deadline. A legjobb választás játékhoz! Erőse
 msgid "Latest stable"
 msgstr "Legújabb stabil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "Indítás (Turbo)"
@@ -3627,7 +3636,7 @@ msgstr "Mérés"
 msgid "Measure again"
 msgstr "Mérés újra"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3780,7 +3789,7 @@ msgstr "Nara Linux (ReShade, három teljes képernyős effektus: képkockákba k
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "Natív"
 
@@ -4895,7 +4904,7 @@ msgid "Profile applied"
 msgstr "Profil alkalmazva"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "Profil létrehozva"
@@ -5075,8 +5084,8 @@ msgstr "Kilépés befejezéskor"
 msgid "Quit when finished?"
 msgstr "Kilépsz befejezéskor?"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "A REDengine összeomlási jelentést írt"
 
@@ -5332,7 +5341,7 @@ msgstr "Előző visszaállítása"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "A Visszaállítás visszateszi a játék fájljait; a hiányzó FidelityFX DLL-t a Javítás pótolja"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "A játék grafikájának visszaállítása"
 
@@ -5683,6 +5692,10 @@ msgstr "Indíts el egy játékot, majd térj vissza ide Alt+Tab-bal: a grafikono
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Indíts el egy játékot; hogy valójában mit kap, azt a folyamatából olvassuk ki, és itt jelenítjük meg."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "Indítás mégis"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6025,7 +6038,7 @@ msgstr "A játékot a(z) %s jelzés állította le, ami összeomlásra utal"
 msgid "The game was not started: the profile has errors"
 msgstr "A játék nem indult el: a profil hibás"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "A játékot a(z) %s állította le (systemd-coredump)"
 
@@ -6186,7 +6199,7 @@ msgstr "A termék neve mostantól Big Game Mode. A tálca gyors vezérlőként s
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "A profil sched-ext ütemezőt kér, de ezen a gépen nem lehet átkapcsolni."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "%s profilja törlésre kerül. Ez nem vonható vissza."
 
@@ -6575,7 +6588,7 @@ msgstr "Itt nem érhető el — opcionális, nincs semmi baj"
 msgid "Unchanged"
 msgstr "Változatlan"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "A Unity összeomlási jelentést írt"
 
@@ -6596,7 +6609,7 @@ msgstr "Ismeretlen CPU"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "Ismeretlen: a tc (iproute2) nem tudta kiolvasni az interfész sorkezelési szabályát"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Az Unreal Engine összeomlási jelentést írt"
 
