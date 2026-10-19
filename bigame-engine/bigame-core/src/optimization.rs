@@ -886,6 +886,9 @@ impl GameOptimization {
             self.launch
                 .heroic_env(&video.upscaling, upscales, optiscaler, vkbasalt_config);
         if fsr4 {
+            // AI Graphics' upgrade for this game, over a "kept out" of its
+            // launch settings: one value per name.
+            env.retain(|(k, _)| !HEROIC_FSR4.iter().any(|(h, _)| h == k));
             env.extend(HEROIC_FSR4.map(|(k, v)| (k.to_owned(), v.to_owned())));
         }
         if self.launch.frame_limit == 0 && uncapped_for_frame_generation(&self.profile.name) {

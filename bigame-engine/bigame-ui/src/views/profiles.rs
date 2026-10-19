@@ -182,9 +182,12 @@ impl LibraryView {
 /// Build the profile list page.
 #[allow(clippy::too_many_lines)]
 fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
-    let page = adw::PreferencesPage::new();
+    let page = crate::widgets::layout::Page::new();
 
+    // The posters are cards of their own: the group is the section around
+    // them, not a card.
     let group = adw::PreferencesGroup::new();
+    group.add_css_class("plain-group");
     group.set_title(&i18n("Game Library"));
     group.set_description(Some(&i18n(
         "Games installed on this computer, and the profiles that tune them.",
@@ -411,7 +414,7 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
         });
     }
     // Typing anywhere on the page goes to the search.
-    search.set_key_capture_widget(Some(&page));
+    search.set_key_capture_widget(Some(page.widget()));
     {
         let v = Rc::clone(&view);
         status_filter.connect_active_name_notify(move |_| v.apply_filters());
@@ -545,12 +548,12 @@ fn build_list_page(nav_view: &adw::NavigationView) -> adw::NavigationPage {
             });
             true
         });
-        page.add_controller(drop_target);
+        page.widget().add_controller(drop_target);
     }
 
     adw::NavigationPage::builder()
         .title(i18n("Game Library"))
-        .child(&page)
+        .child(page.widget())
         .build()
 }
 
@@ -668,7 +671,7 @@ fn editor(
     m: &ui::Machine,
     mut game: ui::Game,
 ) -> adw::ToolbarView {
-    let page = adw::PreferencesPage::new();
+    let page = crate::widgets::layout::Page::new();
     // What reaches the game: its Steam launch options, Big Game Mode's own
     // launch, its settings in Heroic, or — started through another
     // launcher (Lutris, Flatpak) — nothing of the game's own.
@@ -707,12 +710,13 @@ fn editor(
     }
 
     let fields = Rc::new(GameFields::build(&g, m, &game, true));
-    page.add(&fields.performance.group);
-    page.add(&fields.gamescope.group);
-    page.add(&fields.image_quality.group);
-    page.add(&fields.frame_generation.group);
-    page.add(&fields.mangohud.group);
-    page.add(&advanced_group(
+    let (left, right) = page.columns();
+    left.append(&fields.performance.group);
+    right.append(&fields.gamescope.group);
+    left.append(&fields.image_quality.group);
+    right.append(&fields.frame_generation.group);
+    right.append(&fields.mangohud.group);
+    left.append(&advanced_group(
         &g.profile.name,
         (!is_new).then_some(&name_row),
         game.reach,
@@ -808,7 +812,7 @@ fn editor(
         add_header_actions(&detail_header, &shared.borrow().profile.name);
     }
     toolbar.add_top_bar(&detail_header);
-    toolbar.set_content(Some(&page));
+    toolbar.set_content(Some(page.widget()));
     toolbar.add_bottom_bar(&bar);
     toolbar
 }
@@ -1023,7 +1027,7 @@ fn advanced_group(
     reach: ui::Reach,
 ) -> adw::PreferencesGroup {
     use crate::widgets::launch::icon;
-    let group = ui::section(&i18n("Advanced"));
+    let group = ui::section(crate::i18n::N_("Advanced"));
     group.set_description(Some(&i18n(
         "Where this game's settings are kept. Nothing here needs changing to play.",
     )));

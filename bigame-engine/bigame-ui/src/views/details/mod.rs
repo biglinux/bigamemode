@@ -9,19 +9,18 @@
 //! ([`bigame_core::overview::Snapshot`]), taken off the main thread only
 //! while the page is in front of someone ([`showing`]) — every 3 s with the
 //! window focused, 6 s behind another window — and again at once when
-//! falcond's status file changes or the running game changes. Telemetry has
-//! its own, faster reading (1 s), on the same terms. Left behind a game
-//! being played, nothing is read: a reading looks into the game's process
-//! and asks the GPU's power controller, which the game needs more.
+//! falcond's status file changes or the running game changes. Left behind a
+//! game being played, nothing is read: a reading looks into the game's
+//! process and asks the GPU's power controller, which the game needs more.
+//! The live charts are on their own page, Telemetry, on the same terms.
 
+mod crashes;
 mod dns;
 pub(crate) mod extras;
-mod gpus;
 pub(crate) mod overview;
 mod performance;
 mod pipeline;
 mod problems;
-pub(crate) mod telemetry;
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -32,6 +31,8 @@ use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use bigame_core::overview::Snapshot;
+
+use crate::i18n::i18n;
 
 /// Snapshot interval while the window has focus.
 const SNAPSHOT_FOCUSED: Duration = Duration::from_secs(3);
@@ -125,46 +126,42 @@ pub(crate) async fn in_view(widget: &impl IsA<gtk4::Widget>) {
 /// never shows the page — such as one started hidden at login.
 #[must_use]
 pub fn build() -> gtk4::Widget {
-    let page = adw::PreferencesPage::new();
-    let root = page.clone();
+    let page = crate::widgets::layout::Page::new();
+    let widget = page.widget().clone().upcast();
     glib::spawn_future_local(async move {
-        mapped(&root).await;
+        mapped(page.widget()).await;
         if let Ok(hw) = gio::spawn_blocking(bigame_core::hardware::Hardware::detect).await {
-            fill(&root, &Rc::new(hw));
+            fill(&page, &Rc::new(hw));
         }
     });
-    page.upcast()
+    widget
 }
 
 #[allow(clippy::too_many_lines)]
-fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
+fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hardware>) {
     let overview = overview::Overview::new(hw);
     page.add(overview.group());
 
-    let telemetry = telemetry::Telemetry::new();
-    page.add(telemetry.group());
-    telemetry.start();
-
-    let gpus = gpus::Gpus::new(hw);
-    page.add(gpus.group());
-    gpus.start(hw, telemetry.gpu_targets());
-
+    // What is in force, and what is wrong; then what feeds the game.
+    let (left, right) = page.columns();
     let performance = performance::Performance::new(hw);
-    page.add(performance.group());
-
-    let pipeline = pipeline::Pipeline::new(hw);
-    page.add(pipeline.header_group());
-    page.add(pipeline.group());
-
+    left.append(performance.group());
     let problems = problems::Problems::new();
-    page.add(problems.group());
+    left.append(problems.group());
+    left.append(&crashes::group());
+    let pipeline = pipeline::Pipeline::new(hw);
+    right.append(pipeline.header_group());
+    right.append(pipeline.group());
 
-    page.add(&extras::network_group());
-    page.add(&extras::background_group());
-    page.add(&extras::steam_group());
-    page.add(&extras::report_group());
+    page.section(&i18n("Around the game"));
+    let (left, right) = page.columns();
+    left.append(&extras::network_group());
+    left.append(&extras::steam_group());
+    right.append(&extras::background_group());
+    right.append(&extras::report_group());
 
     // ── The snapshot, and everything it feeds ───────────────────────────
+    let root = page.widget().clone();
     let busy = Rc::new(Cell::new(false));
     let refresh: Rc<dyn Fn()> = {
         let (overview, performance, pipeline, problems) = (
@@ -213,7 +210,7 @@ fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
     {
         let refresh = Rc::clone(&refresh);
         let slow = Rc::clone(&slow);
-        let root = page.clone();
+        let root = root.clone();
         glib::spawn_future_local(async move {
             let mut since_slow = Duration::ZERO;
             loop {
@@ -233,7 +230,7 @@ fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
     // falcond's status file: a profile applied or restored shows at once.
     {
         let refresh = Rc::clone(&refresh);
-        let root = page.clone();
+        let root = root.clone();
         let file = gio::File::for_path(bigame_core::status::status_path());
         if let Ok(monitor) = file.monitor_file(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
         {
@@ -254,7 +251,7 @@ fn fill(page: &adw::PreferencesPage, hw: &Rc<bigame_core::hardware::Hardware>) {
     // A game starting or ending: the pipeline changes at once.
     {
         let refresh = Rc::clone(&refresh);
-        let root = page.clone();
+        let root = root.clone();
         crate::game_watch::subscribe(move |_| {
             if showing(&root) {
                 refresh();

@@ -18,7 +18,8 @@ use libadwaita as adw;
 
 use bigame_core::logs::{Entry, LABEL_WIDTH, Level, Reader, Source};
 
-use crate::i18n::{i18n, ni18n};
+use crate::i18n::i18n;
+use crate::widgets::layout::{self, fixed_label};
 
 /// Entries kept in memory; older ones scroll away.
 const KEEP: usize = 3000;
@@ -90,13 +91,29 @@ struct State {
 /// Build the Logs page.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn build() -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::new();
-    let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("Logs"));
-    group.set_description(Some(&i18n(
+pub fn build() -> gtk4::Widget {
+    let page = layout::Page::new();
+    page.intro(&i18n(
         "falcond, Big Game Mode and its helper, the kernel's graphics drivers, sched-ext, power profiles and Polkit — and, from each game, Steam, Proton, Gamescope, MangoHud, vkBasalt, lsfg-vk and OptiScaler. From the system journal and their own log files.",
-    )));
+    ));
+
+    // ── At a glance ─────────────────────────────────────────────────────
+    let counts = Counts {
+        shown: count_card(&i18n("Shown"), "view-list-bullet-symbolic"),
+        errors: count_card(&i18n("Errors"), "dialog-error-symbolic"),
+        warnings: count_card(&i18n("Warnings"), "dialog-warning-symbolic"),
+    };
+    let glance = layout::row_box();
+    for (card, _) in [&counts.shown, &counts.errors, &counts.warnings] {
+        glance.append(card);
+    }
+    page.stack_when_tiny(&glance);
+    page.add(&glance);
+    let group = layout::card(
+        &i18n("Journal and log files"),
+        "utilities-terminal-symbolic",
+    );
+    group.set_spacing(8);
 
     // ── Controls ────────────────────────────────────────────────────────
     let filters = Filter::all();
@@ -149,7 +166,8 @@ pub fn build() -> adw::PreferencesPage {
     bar.append(&refresh);
     bar.append(&copy);
     bar.append(&export);
-    group.add(&bar);
+    bar.set_margin_top(6);
+    group.append(&bar);
 
     // ── The list ────────────────────────────────────────────────────────
     let view = gtk4::TextView::builder()
@@ -162,21 +180,16 @@ pub fn build() -> adw::PreferencesPage {
         .left_margin(12)
         .right_margin(12)
         .build();
-    view.add_css_class("card");
+    view.add_css_class("log-view");
     install_tags(&view.buffer());
     let scroll = gtk4::ScrolledWindow::builder()
         .min_content_height(460)
         .vexpand(true)
         .child(&view)
         .build();
-    scroll.set_margin_top(8);
-    group.add(&scroll);
-    let counts = gtk4::Label::new(None);
-    counts.add_css_class("caption");
-    counts.add_css_class("dim-label");
-    counts.set_xalign(0.0);
-    counts.set_margin_top(6);
-    group.add(&counts);
+    scroll.add_css_class("telemetry-tile");
+    scroll.set_overflow(gtk4::Overflow::Hidden);
+    group.append(&scroll);
     page.add(&group);
 
     let state = Rc::new(RefCell::new(State {
@@ -190,7 +203,6 @@ pub fn build() -> adw::PreferencesPage {
     let render = {
         let state = Rc::clone(&state);
         let view = view.clone();
-        let counts = counts.clone();
         Rc::new(move || render(&state.borrow(), &view, &counts))
     };
 
@@ -315,7 +327,22 @@ pub fn build() -> adw::PreferencesPage {
         });
     }
 
-    page
+    page.widget().clone().upcast()
+}
+
+/// The three numbers over the list: a card each, as on Telemetry.
+struct Counts {
+    shown: (gtk4::Box, gtk4::Label),
+    errors: (gtk4::Box, gtk4::Label),
+    warnings: (gtk4::Box, gtk4::Label),
+}
+
+fn count_card(title: &str, icon: &str) -> (gtk4::Box, gtk4::Label) {
+    let card = layout::card(title, icon);
+    let value = fixed_label("—", &["title-2", "telemetry-value"]);
+    value.set_margin_top(6);
+    card.append(&value);
+    (card, value)
 }
 
 /// Severity colours, readable on light and dark backgrounds alike, and
@@ -391,7 +418,7 @@ fn visible(state: &State) -> impl Iterator<Item = &Entry> {
     })
 }
 
-fn render(state: &State, view: &gtk4::TextView, counts: &gtk4::Label) {
+fn render(state: &State, view: &gtk4::TextView, counts: &Counts) {
     let buffer = view.buffer();
     buffer.set_text("");
     let mut shown = 0usize;
@@ -429,14 +456,19 @@ fn render(state: &State, view: &gtk4::TextView, counts: &gtk4::Label) {
         .iter()
         .filter(|e| e.level == Level::Warning)
         .count();
-    counts.set_label(
-        &[
-            ni18n("%n shown", "%n shown", shown),
-            ni18n("%n error", "%n errors", errors),
-            ni18n("%n warning", "%n warnings", warnings),
-        ]
-        .join(" · "),
-    );
+    counts.shown.1.set_label(&shown.to_string());
+    counts.errors.1.set_label(&errors.to_string());
+    counts.warnings.1.set_label(&warnings.to_string());
+    for (label, n, class) in [
+        (&counts.errors.1, errors, "error"),
+        (&counts.warnings.1, warnings, "warning"),
+    ] {
+        if n > 0 {
+            label.add_css_class(class);
+        } else {
+            label.remove_css_class(class);
+        }
+    }
 }
 
 fn export_to_file(anchor: &gtk4::Button, state: &State) {

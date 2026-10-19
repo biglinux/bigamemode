@@ -32,22 +32,6 @@
     opacity: 0.85;
 }
 
-/* The three live readings above the disc. */
-.home-mini {
-    padding: 8px 10px;
-    border-radius: 12px;
-}
-
-.home-status {
-    font-weight: 600;
-}
-
-/* The card: Turbo's result, or the running game and its flags. */
-.home-card {
-    padding: 10px 14px;
-    border-radius: 16px;
-}
-
 .home-cover {
     border-radius: 8px;
 }
@@ -352,16 +336,99 @@ flowbox.game-library > flowboxchild:active {
     background-color: alpha(@window_fg_color, 0.04);
 }
 
+/* Every page (widgets/layout.rs): a settings group is a card with its icon
+ * and title in the header and its rows inside, like Telemetry's cards. A
+ * group that holds cards of its own opts out with .plain-group. */
+.bgm-cards preferencesgroup:not(.plain-group) > box {
+    background-color: @card_bg_color;
+    color: @card_fg_color;
+    border-radius: 12px;
+    border: 1px solid alpha(@borders, 0.2);
+    padding: 4px;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) > box > box.header {
+    margin: 10px 12px 4px 12px;
+}
+
+.group-icon {
+    opacity: 0.6;
+}
+
+.bgm-cards preferencesgroup > box > box.header > .group-icon {
+    margin: 1px 10px 0 0;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) list.boxed-list,
+.bgm-cards preferencesgroup:not(.plain-group) list.boxed-list > row {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+}
+
+/* Rows inside the card: a hairline between them, a tint on hover. */
+.bgm-cards preferencesgroup:not(.plain-group) list.boxed-list > row {
+    border-radius: 8px;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) list.boxed-list > row:not(:last-child) {
+    box-shadow: inset 0 -1px alpha(currentColor, 0.07);
+    border-radius: 0;
+}
+
+.bgm-cards preferencesgroup:not(.plain-group) list.boxed-list > row.activatable:hover {
+    background-color: alpha(currentColor, 0.04);
+}
+
+.page-section {
+    font-size: 15px;
+}
+
+/* Logs: the list sits in a tile of its card, on the card's own surface. */
+textview.log-view,
+textview.log-view > text {
+    background-color: transparent;
+}
+
+/* Telemetry page: cards of a fixed shape, figures that do not shift. */
 .telemetry-card {
-    min-width: 200px;
-}
-
-.gpu-card {
     padding: 14px 16px;
+    min-width: 160px;
 }
 
-.gpu-role.gpu-role-active { color: @success_color; }
-.gpu-role.gpu-role-idle { color: alpha(@window_fg_color, 0.6); }
+.telemetry-value {
+    font-feature-settings: "tnum";
+}
+
+.telemetry-detail {
+    font-feature-settings: "tnum";
+}
+
+.telemetry-tile {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.04);
+}
+
+.telemetry-chart {
+    min-width: 80px;
+}
+
+.telemetry-role {
+    padding: 2px 10px;
+    border-radius: 999px;
+}
+
+.telemetry-role.telemetry-role-active {
+    color: @success_color;
+    background-color: alpha(@success_color, 0.14);
+}
+
+.telemetry-role.telemetry-role-idle {
+    color: alpha(@window_fg_color, 0.7);
+    background-color: alpha(@window_fg_color, 0.07);
+}
 
 .gpu-bar {
     min-height: 4px;
