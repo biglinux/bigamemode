@@ -233,6 +233,24 @@ pub fn build(
         .content(&nav_split)
         .build();
 
+    // A notice's buttons act at once on another program (reopen Steam or
+    // Heroic, rewrite a game's launch options). When the window comes to
+    // the front, the focus is never left on one of them: the keys a player
+    // was pressing in a game the moment the window took the focus would
+    // otherwise press it (seen on the reference desktop: Heroic "reopened"
+    // three times by keys meant for The Callisto Protocol). They stay a
+    // click, or a Tab, away.
+    {
+        let notices = notices.clone();
+        window.connect_is_active_notify(move |w| {
+            if w.is_active()
+                && gtk4::prelude::GtkWindowExt::focus(w).is_some_and(|f| f.is_ancestor(&notices))
+            {
+                gtk4::prelude::GtkWindowExt::set_focus(w, None::<&gtk4::Widget>);
+            }
+        });
+    }
+
     // ── Sidebar row selection → switch content + update title ─────────
     {
         let stack = view_stack.clone();
