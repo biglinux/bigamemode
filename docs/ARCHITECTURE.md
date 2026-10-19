@@ -209,6 +209,19 @@ apply → verify → report → restore**.
   read in between. The fix offered keeps vkBasalt, FSR 4 (`FSR4_UPGRADE=0`
   and `PROTON_FSR4_UPGRADE=0`: Valve's Proton upgrades only at exactly
   `1`) and Wine FSR out of that game's own launch settings.
+- What the world knows about a game (`game_info/`) is information only:
+  `ProtonDB`'s summary per Steam `AppID` (24 h), Are We Anti-Cheat Yet?'s
+  list as one file for the library (12 h, `If-None-Match`, validated
+  before it replaces the kept one), and Steam's player counts (15 min, as
+  Steam caches them) and "Most Played" chart (the day's peak, top 100).
+  "Native" is appinfo's `common/oslist`, read locally. A Steam `AppID` is
+  used only for a game Steam installed; another game is matched in the
+  list only by its exact title when one entry has it. Every request is
+  `curl` with an argument vector, HTTPS only, capped in size and time; a
+  source that fails or asks to wait (`Retry-After`) is left alone, longer
+  each time. A pass runs only with the library on screen in the active
+  window and no game running, and stops between requests when a game
+  starts. Nothing it learns changes a profile or a launch.
 - When an unknown game starts with Turbo on, a notification offers a profile.
   The recommendation writes only falcond's fields and says where each value
   comes from: `performance_mode` on AC power only, `scx_sched = none` unless a
@@ -620,6 +633,7 @@ directory.
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups, `turbo-preset-active.toml` (the preset in force and the user's own values before it), `scheduler-before-turbo.json`, `lsfg-vk.toml` (lsfg-vk entries Big Game Mode wrote or set aside), `mangohud/steam-added.toml`, `crashes.json` (the last 20 games that closed with an error) |
+| `$XDG_CACHE_HOME/bigame-mode/game-info/` | `store.json` (ratings, counts and their readings, when each source last answered and why one does not), `anticheat-games.json` and its `ETag` |
 | `$XDG_CONFIG_HOME/bigame-mode/vkbasalt-cas.conf` | the CAS-only vkBasalt file the Pretty preset points `VKBASALT_CONFIG_FILE` at |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |

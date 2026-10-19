@@ -47,7 +47,36 @@ a way back.
 > One rule runs through the project: **nothing is offered that the machine
 > cannot do, and nothing is called an improvement without a measurement.**
 
-## What's new in 2.4.1
+## What's new in 2.5.0
+
+**Your library knows how each game runs on Linux.** Every card says, at a
+glance and without leaving the library:
+
+- **How well it runs**: ProtonDB's rating (Platinum, Gold, Silver, Bronze,
+  Borked), or **Native** when Steam lists a Linux version. A game nobody has
+  reported on says so; it is never called Borked.
+- **Whether its anti-cheat lets you play online**: the status from the
+  community list Are We Anti-Cheat Yet? (Supported, Running, Planned,
+  Broken, Denied), with the anti-cheats it uses.
+- **How many play it on Steam now**, and on the game's page today's peak
+  from Steam's own chart, or the highest count Big Game Mode read itself,
+  said to be that, until there is history enough.
+
+A tag opens what it means, where it comes from and when, with a link to the
+source; the game's page has the whole picture. In advanced mode the library
+filters and sorts by compatibility, anti-cheat status and players. What was
+learnt is kept, so the library works offline and opens at once; it is asked
+again only once a source says it may have changed, a few games at a time,
+never while a game runs, and never from SteamDB, which forbids it. Only a
+game's public Steam number is sent. Settings → Game Information turns any of
+it off, says when each source last answered, and clears what was
+downloaded.
+
+Also: a game whose community status is **Denied** is said before **Play**,
+and the window never leaves the focus on a notice's button (keys meant for a
+game could press it).
+
+### 2.4.1
 
 **A game that crashes is said, with what was in it.** Cyberpunk 2077 closed
 after 25 minutes on an access violation in its own scripts, and Big Game
@@ -291,6 +320,10 @@ game) are doing, each with a chart of the last minute. The cards keep their
 size and place; a reading the driver does not publish says so in its place.
 Nothing is read while a game has the screen.
 
+**Game information**: each card shows ProtonDB's rating (or Native), the
+anti-cheat status from Are We Anti-Cheat Yet? and Steam's player count; the
+game's page explains each, with its source, its age and a link.
+
 **Details** says for every part whether it is **active**, **waiting**,
 **configured but not detected**, **off**, **missing a dependency** or
 **unsupported**, with the evidence and the fix. It adds the video pipeline, a
@@ -430,6 +463,8 @@ terminal without opening a window (`--network` adds the DNS measurements), and
 | AI Graphics left a game broken | Profiles → the game's menu → **Restore the game's graphics**, or AI Graphics → **Repair** |
 | No tray icon on GNOME | Install and enable an AppIndicator extension |
 | "falcond is not compatible with this processor" | The installed falcond was built for a newer x86-64 level than this processor's (falcond 2.0.14 built for x86-64-v3 stops with SIGILL without AVX2/BMI2). Turbo still comes on with the general settings; per-game profiles need a falcond built for the x86-64 baseline. Turning Turbo off and on again does not help. [CPU compatibility](docs/CPU-COMPATIBILITY.md) |
+| A game's tag says "Denied" or "Broken" | Its anti-cheat refuses Linux or does not work there, as players report it: online play will not work, whatever Big Game Mode or Proton does. Open the tag for the source |
+| A game shows no rating | It is not a Steam game, or nobody has reported on it yet, or Big Game Mode has not been able to ask: Settings → Game Information says which |
 | A game closed by itself | Big Game Mode says so when the game left a sign of a crash, with what was in it: **Leave them out of this game** for a while tells whether vkBasalt or FSR 4 had a part in it. A crash with nothing added is the game's, its drivers' or the system's |
 | Something else | Details → **Support report**, or `bigame-ui --diagnostics`, and the **Logs** page |
 
