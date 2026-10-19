@@ -244,7 +244,11 @@ fn fill(pages: &Pages, root: &gtk4::Widget, hw: &Rc<bigame_core::hardware::Hardw
     // loop's next look.
     for page in [&pages.overview, &pages.details] {
         let refresh = Rc::clone(&refresh);
-        page.widget().connect_map(move |_| refresh());
+        page.widget().connect_map(move |w| {
+            if showing(w) {
+                refresh();
+            }
+        });
     }
 
     // falcond's status file: a profile applied or restored shows at once.

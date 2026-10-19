@@ -1050,6 +1050,8 @@ struct InfoCard {
     tags: gtk4::Box,
     players: gtk4::Label,
     badges: Rc<RefCell<Option<crate::widgets::game_info_tags::Badges>>>,
+    /// The game's launcher, once the library has said it.
+    launcher: Rc<Cell<Option<&'static str>>>,
     flags_title: gtk4::Label,
     flags: adw::WrapBox,
     summary: gtk4::Label,
@@ -1211,6 +1213,7 @@ impl InfoCard {
             tags,
             players,
             badges: Rc::new(RefCell::new(None)),
+            launcher: Rc::new(Cell::new(None)),
             flags_title,
             flags,
             summary,
@@ -1275,6 +1278,10 @@ impl InfoCard {
     // The empty card and the game's, side by side: one reads as the other.
     #[allow(clippy::too_many_lines)]
     fn show(&self, game: Option<&GameIdentity>, turbo_on: bool) {
+        // The same game shown again (its graphics API found, Turbo or the
+        // preset changed): its cover, name, launcher and tags stay.
+        let same_game =
+            game.is_some() && self.game.borrow().as_ref().map(|g| g.pid) == game.map(|g| g.pid);
         *self.game.borrow_mut() = game.cloned();
         self.turbo_on.set(turbo_on);
         self.show_report();
@@ -1318,6 +1325,21 @@ impl InfoCard {
         self.icon.set_visible(false);
         self.open_games.set_visible(false);
         self.running.set_visible(true);
+        self.create
+            .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
+        if same_game {
+            self.facts.set_label(&runtime_facts(g, self.launcher.get()));
+            self.tick();
+            return;
+        }
+        // Another game: nothing of the one before stays on the card.
+        self.launcher.set(None);
+        *self.badges.borrow_mut() = None;
+        while let Some(child) = self.tags.first_child() {
+            self.tags.remove(&child);
+        }
+        self.tags.set_visible(false);
+        self.players.set_visible(false);
         self.name.set_label(&g.display_name);
         self.facts.set_label(&runtime_facts(g, None));
         // Steam's cover by its id; any other launcher's from the library,
@@ -1379,14 +1401,13 @@ impl InfoCard {
                     me.cover.set_paintable(Some(&texture));
                     me.cover_frame.set_visible(true);
                 }
+                me.launcher.set(launcher);
                 if let Some(g) = shown.borrow().as_ref() {
                     me.facts.set_label(&runtime_facts(g, launcher));
                 }
                 me.show_badges(&reference);
             });
         }
-        self.create
-            .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
         self.tick();
     }
 
