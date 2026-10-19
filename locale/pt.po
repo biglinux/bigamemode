@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:25\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Portuguese <pt@li.org>\n"
@@ -242,6 +242,10 @@ msgstr "%s não aceita %s nesta máquina (aceites: %s)"
 msgid "%s does not match what was placed"
 msgstr "%s não corresponde ao que foi colocado"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s não funciona no Linux"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s terminou com o código de saída %d"
@@ -355,7 +359,7 @@ msgstr "Escalonadores %s instalados, mas o scx-tools (scx_loader) não está, po
 msgid "%s schedulers, scx_loader available"
 msgstr "Escalonadores %s, scx_loader disponível"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s iniciado com as definições de arranque do Big Game Mode"
 
@@ -773,7 +777,7 @@ msgstr "Gráficos com IA: OptiScaler instalado com cópias de segurança verific
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "Gráficos com IA: a geração de fotogramas só aparece como ativa quando o registo do OptiScaler o prova, Repor e Reparar mais seguros, e uma cache de transferências que guarda só as versões que os jogos usam"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "Gráficos com IA…"
 
@@ -1078,15 +1082,15 @@ msgstr "À volta do jogo"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "Tantos fotogramas quantos o seu computador conseguir fazer. Nada é limitado nem acrescentado."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "Foi pedido ao lançador %l que iniciasse %s. O seu perfil aplica-se; as definições de arranque do Big Game Mode não chegam a um jogo iniciado pelo seu lançador."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "Foi pedido ao lançador %l que iniciasse %s. O Turbo está desligado, por isso o seu perfil só se aplica quando o Turbo for ligado em Início."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "Foi pedido ao lançador %l que iniciasse %s. O falcond não está instalado, por isso nenhum perfil de jogo se aplica."
 
@@ -1094,11 +1098,11 @@ msgstr "Foi pedido ao lançador %l que iniciasse %s. O falcond não está instal
 msgid "Asked %s to close"
 msgstr "Foi pedido a %s que fechasse"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "Foi pedido ao Heroic que iniciasse %s. O seu perfil aplica-se; as definições de arranque do próprio jogo só chegam a ele através das suas definições no Heroic, escritas quando o seu perfil é guardado."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "Foi pedido ao Steam que iniciasse %s. O seu perfil aplica-se; as definições de arranque só chegam a um jogo Steam através das opções de arranque do Steam."
 
@@ -1411,7 +1415,8 @@ msgstr "Chama '%p', que não está instalado — opções de arranque: %o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1798,12 +1803,12 @@ msgid "Could not create the profile"
 msgstr "Não foi possível criar o perfil"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "Não foi possível eliminar o perfil"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "Não foi possível eliminar o perfil: %s"
 
@@ -1886,7 +1891,7 @@ msgstr "Não foi possível guardar as definições de arranque"
 msgid "Could not save: %s"
 msgstr "Não foi possível guardar: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "Não foi possível iniciar %t: %e"
 
@@ -1931,11 +1936,11 @@ msgstr "Criar ou eliminar perfis de jogo"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "Criar perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2029,7 +2034,7 @@ msgid "Default settings restored"
 msgstr "Definições predefinidas repostas"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "Eliminar"
 
@@ -2042,11 +2047,11 @@ msgstr "Eliminar perfil"
 msgid "Delete Profile?"
 msgstr "Eliminar perfil?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "Eliminar perfil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "Eliminar este perfil?"
 
@@ -2188,7 +2193,7 @@ msgstr "Cada um foi relido do sistema depois de ser alterado."
 msgid "Edit"
 msgstr "Editar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "Editar perfil"
 
@@ -3252,6 +3257,10 @@ msgstr "Mantém as definições com que foi aberto, por isso os seus jogos só r
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Só tem efeito em ecrã inteiro exclusivo, numa resolução inferior à do ambiente de trabalho. Prova: o ambiente do processo do jogo."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "O anti-batota dele, %s, recusa o Wine e o Proton de propósito: para o jogo antes de começar. Nenhuma definição do Big Game Mode, do Proton ou do Steam muda isso, e contorná-lo pode levar ao banimento da conta."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "Os seus ficheiros estão junto ao jogo. Só se sabe se funciona quando o jogo é executado e o seu registo o indica."
@@ -3350,7 +3359,7 @@ msgstr "Latency-Aware Virtual Deadline. A melhor escolha absoluta para jogos! D�
 msgid "Latest stable"
 msgstr "Última estável"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "Iniciar (Turbo)"
@@ -3627,7 +3636,7 @@ msgstr "Medir"
 msgid "Measure again"
 msgstr "Medir novamente"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3780,7 +3789,7 @@ msgstr "Nara Linux (ReShade, três efeitos de ecrã inteiro: custam fotogramas)"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "Nativo"
 
@@ -4895,7 +4904,7 @@ msgid "Profile applied"
 msgstr "Perfil aplicado"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "Perfil criado"
@@ -5075,8 +5084,8 @@ msgstr "Sair ao terminar"
 msgid "Quit when finished?"
 msgstr "Sair ao terminar?"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "O REDengine escreveu um relatório de falha"
 
@@ -5332,7 +5341,7 @@ msgstr "Repor anterior"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "Repor devolve os ficheiros do jogo; uma DLL FidelityFX em falta é corrigida por Reparar"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "Repor os gráficos do jogo"
 
@@ -5683,6 +5692,10 @@ msgstr "Inicie um jogo e volte aqui com Alt+Tab: os gráficos mostram o último 
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Inicie um jogo; o que ele recebe realmente é lido do seu processo e mostrado aqui."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "Iniciar mesmo assim"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6025,7 +6038,7 @@ msgstr "O jogo foi terminado por %s, o sinal de uma falha"
 msgid "The game was not started: the profile has errors"
 msgstr "O jogo não foi iniciado: o perfil tem erros"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "O jogo foi parado por %s (systemd-coredump)"
 
@@ -6186,7 +6199,7 @@ msgstr "O produto chama-se agora Big Game Mode. A área de notificação é um c
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "O perfil pede um escalonador sched-ext, mas não pode ser alterado nesta máquina."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "O perfil de %s vai ser removido. Isto não pode ser anulado."
 
@@ -6575,7 +6588,7 @@ msgstr "Indisponível aqui — opcional, não há nada de errado"
 msgid "Unchanged"
 msgstr "Inalterado"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "O Unity escreveu um relatório de falha"
 
@@ -6596,7 +6609,7 @@ msgstr "CPU desconhecido"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "Desconhecido: o tc (iproute2) não conseguiu ler a disciplina de fila da interface"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "O Unreal Engine escreveu um relatório de falha"
 

@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:28\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Chinese <zh@li.org>\n"
@@ -225,6 +225,10 @@ msgstr "%s 在本机上不接受 %s（可接受：%s）"
 msgid "%s does not match what was placed"
 msgstr "%s 与已放置的内容不一致"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s 无法在 Linux 上运行"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s 已结束，退出代码 %d"
@@ -338,7 +342,7 @@ msgstr "已安装 %s 调度器，但未安装 scx-tools (scx_loader)，因此游
 msgid "%s schedulers, scx_loader available"
 msgstr "%s 调度器，scx_loader 可用"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s 已使用 Big Game Mode 的启动设置启动"
 
@@ -756,7 +760,7 @@ msgstr "AI 图形：安装 OptiScaler，并提供经过验证的备份、修复�
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "AI 图形：仅在 OptiScaler 日志证实时才显示帧生成已启用，更安全的“恢复”和“修复”，以及只保留游戏所用版本的下载缓存"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "AI 图形…"
 
@@ -1061,15 +1065,15 @@ msgstr "游戏周边"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "电脑能跑出多少帧就跑多少帧。不限制，也不额外添加。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "已请求 %l 启动 %s。其配置文件会生效；Big Game Mode 的启动设置不会作用于由其启动器启动的游戏。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "已请求 %l 启动 %s。Turbo 已关闭，因此在“主页”中开启 Turbo 之前，其配置文件不会生效。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "已请求 %l 启动 %s。falcond 未安装，因此不会应用任何游戏配置文件。"
 
@@ -1077,11 +1081,11 @@ msgstr "已请求 %l 启动 %s。falcond 未安装，因此不会应用任何游
 msgid "Asked %s to close"
 msgstr "已请求 %s 关闭"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "已请求 Heroic 启动 %s。其配置文件会生效；游戏自有的启动设置只能通过它在 Heroic 中的设置作用于它，这些设置在保存其配置文件时写入。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "已请求 Steam 启动 %s。其配置文件会生效；启动设置只能通过 Steam 的启动选项作用于 Steam 游戏。"
 
@@ -1394,7 +1398,8 @@ msgstr "调用了未安装的 '%p' — 启动选项：%o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1780,12 +1785,12 @@ msgid "Could not create the profile"
 msgstr "无法创建配置文件"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "无法删除配置文件"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "无法删除配置文件：%s"
 
@@ -1868,7 +1873,7 @@ msgstr "无法保存启动设置"
 msgid "Could not save: %s"
 msgstr "无法保存：%s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "无法启动 %t：%e"
 
@@ -1913,11 +1918,11 @@ msgstr "创建或删除游戏配置文件"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "创建配置文件"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2011,7 +2016,7 @@ msgid "Default settings restored"
 msgstr "已恢复默认设置"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "删除"
 
@@ -2024,11 +2029,11 @@ msgstr "删除配置文件"
 msgid "Delete Profile?"
 msgstr "删除配置文件？"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "删除配置文件"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "删除此配置文件？"
 
@@ -2170,7 +2175,7 @@ msgstr "每项在更改后都已从系统中读回确认。"
 msgid "Edit"
 msgstr "编辑"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "编辑配置文件"
 
@@ -3234,6 +3239,10 @@ msgstr "它会保留打开时的设置，因此只有重新打开后，其游戏
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "它只在独占全屏且分辨率低于桌面分辨率时生效。依据：游戏进程的环境。"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "它的反作弊 %s 故意拒绝 Wine 和 Proton：会在游戏启动前将其终止。Big Game Mode、Proton 或 Steam 的任何设置都无法改变这一点，绕过它还可能导致账号被封禁。"
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "其文件位于游戏旁边。只有在游戏运行且其日志表明时，才能知道它是否有效。"
@@ -3332,7 +3341,7 @@ msgstr "延迟感知虚拟截止时间（Latency-Aware Virtual Deadline）。游
 msgid "Latest stable"
 msgstr "最新稳定版"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "启动（Turbo）"
@@ -3609,7 +3618,7 @@ msgstr "测量"
 msgid "Measure again"
 msgstr "重新测量"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3762,7 +3771,7 @@ msgstr "Nara Linux（ReShade，三种全屏效果：会损失帧数）"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "原生"
 
@@ -4877,7 +4886,7 @@ msgid "Profile applied"
 msgstr "配置文件已应用"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "配置文件已创建"
@@ -5057,8 +5066,8 @@ msgstr "完成后退出"
 msgid "Quit when finished?"
 msgstr "完成后退出？"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "REDengine 写入了崩溃报告"
 
@@ -5314,7 +5323,7 @@ msgstr "恢复先前设置"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "“恢复”会放回游戏的文件；缺失的 FidelityFX DLL 可通过“修复”解决"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "恢复游戏图形"
 
@@ -5665,6 +5674,10 @@ msgstr "启动游戏，然后用 Alt+Tab 回到这里：图表显示最近一分
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "启动一个游戏；它实际获得的内容会从其进程中读取并显示在这里。"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "仍然启动"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6007,7 +6020,7 @@ msgstr "游戏被 %s（崩溃信号）终止"
 msgid "The game was not started: the profile has errors"
 msgstr "游戏未启动：配置文件有错误"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "游戏被 %s 终止（systemd-coredump）"
 
@@ -6168,7 +6181,7 @@ msgstr "产品现更名为 Big Game Mode。托盘成为快速控制入口，提�
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "配置文件请求了 sched-ext 调度器，但在本机上无法切换。"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "%s 的配置文件将被删除。此操作无法撤销。"
 
@@ -6556,7 +6569,7 @@ msgstr "此处不可用 — 属于可选项，没有任何问题"
 msgid "Unchanged"
 msgstr "未更改"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "Unity 写入了崩溃报告"
 
@@ -6577,7 +6590,7 @@ msgstr "未知 CPU"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "未知：tc (iproute2) 无法读取该接口的队列规则"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Unreal Engine 写入了崩溃报告"
 

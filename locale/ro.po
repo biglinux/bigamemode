@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: bigame-mode\n"
 "Report-Msgid-Bugs-To: https://github.com/biglinux/bigamemode/issues\n"
-"POT-Creation-Date: 2026-10-18 22:19-0300\n"
+"POT-Creation-Date: 2026-10-18 23:09-0300\n"
 "PO-Revision-Date: 2026-04-20 22:25\n"
 "Last-Translator: Translation Automator <auto@translator.ai>\n"
 "Language-Team: Romanian <ro@li.org>\n"
@@ -259,6 +259,10 @@ msgstr "%s nu acceptă %s pe acest sistem (acceptate: %s)"
 msgid "%s does not match what was placed"
 msgstr "%s nu corespunde cu ce a fost plasat"
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1425
+msgid "%s does not run on Linux"
+msgstr "%s nu rulează pe Linux"
+
 #: bigame-engine/bigame-ui/src/widgets/error_indicator.rs:203
 msgid "%s ended with exit code %d"
 msgstr "%s s-a încheiat cu codul de ieșire %d"
@@ -372,7 +376,7 @@ msgstr "Planificatoare %s instalate, dar scx-tools (scx_loader) nu este, deci pr
 msgid "%s schedulers, scx_loader available"
 msgstr "Planificatoare %s, scx_loader disponibil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1460
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
 msgid "%s started with Big Game Mode's launch settings"
 msgstr "%s pornit cu setările de lansare ale Big Game Mode"
 
@@ -790,7 +794,7 @@ msgstr "Grafică AI: OptiScaler instalat cu copii de siguranță verificate, rep
 msgid "AI Graphics: frame generation shown active only when OptiScaler's log proves it, safer Restore and Repair, and a download cache that keeps only the releases games use"
 msgstr "Grafică AI: generarea de cadre apare activă doar când jurnalul OptiScaler o dovedește, Restabilește și Repară mai sigure și un cache de descărcări care păstrează doar versiunile folosite de jocuri"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1585
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1633
 msgid "AI Graphics…"
 msgstr "Grafică AI…"
 
@@ -1095,15 +1099,15 @@ msgstr "În jurul jocului"
 msgid "As many frames as your computer can make. Nothing is capped or added."
 msgstr "Câte cadre poate face computerul tău. Nimic nu este limitat sau adăugat."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1512
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1560
 msgid "Asked %l to start %s. Its profile applies; Big Game Mode's launch settings do not reach a game its launcher starts."
 msgstr "I s-a cerut lui %l să pornească %s. Profilul său se aplică; setările de lansare ale Big Game Mode nu ajung la un joc pornit de lansatorul său."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1500
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
 msgid "Asked %l to start %s. Turbo is off, so its profile does not apply until Turbo is switched on in Home."
 msgstr "I s-a cerut lui %l să pornească %s. Turbo este oprit, așa că profilul său nu se aplică până când Turbo nu este pornit în Acasă."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1496
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1544
 msgid "Asked %l to start %s. falcond is not installed, so no game profile applies."
 msgstr "I s-a cerut lui %l să pornească %s. falcond nu este instalat, deci nu se aplică niciun profil de joc."
 
@@ -1111,11 +1115,11 @@ msgstr "I s-a cerut lui %l să pornească %s. falcond nu este instalat, deci nu 
 msgid "Asked %s to close"
 msgstr "I s-a cerut lui %s să se închidă"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1508
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1556
 msgid "Asked Heroic to start %s. Its profile applies; the game's own launch settings reach it only through its settings in Heroic, written when its profile is saved."
 msgstr "I s-a cerut lui Heroic să pornească %s. Profilul său se aplică; setările de lansare proprii ale jocului ajung la el doar prin setările sale din Heroic, scrise când profilul său este salvat."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1504
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1552
 msgid "Asked Steam to start %s. Its profile applies; the launch settings reach a Steam game only through Steam's launch options."
 msgstr "I s-a cerut lui Steam să pornească %s. Profilul său se aplică; setările de lansare ajung la un joc Steam doar prin opțiunile de lansare ale Steam."
 
@@ -1428,7 +1432,8 @@ msgstr "Apelează „%p”, care nu este instalat — opțiuni de lansare: %o"
 #: bigame-engine/bigame-ui/src/views/details/extras.rs:348
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:117
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1165
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1707
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1433
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1755
 #: bigame-engine/bigame-ui/src/views/profiles.rs:917
 #: bigame-engine/bigame-ui/src/views/settings.rs:346
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1257
@@ -1816,12 +1821,12 @@ msgid "Could not create the profile"
 msgstr "Nu s-a putut crea profilul"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1193
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1737
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1785
 msgid "Could not delete profile"
 msgstr "Nu s-a putut șterge profilul"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1188
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1735
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1783
 msgid "Could not delete profile: %s"
 msgstr "Nu s-a putut șterge profilul: %s"
 
@@ -1904,7 +1909,7 @@ msgstr "Setările de lansare nu au putut fi salvate"
 msgid "Could not save: %s"
 msgstr "Nu s-a putut salva: %s"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1529
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1577
 msgid "Could not start %t: %e"
 msgstr "Nu s-a putut porni %t: %e"
 
@@ -1949,11 +1954,11 @@ msgstr "Creează sau șterge profiluri de joc"
 #: bigame-engine/bigame-ui/src/profile_offer.rs:236
 #: bigame-engine/bigame-ui/src/profile_offer.rs:503
 #: bigame-engine/bigame-ui/src/views/home.rs:1084
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1582
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1630
 msgid "Create profile"
 msgstr "Creează profil"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1581
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1629
 #: bigame-engine/bigame-ui/src/views/profiles.rs:566
 #: bigame-engine/bigame-ui/src/views/profiles.rs:591
 msgid "Create with Wizard"
@@ -2047,7 +2052,7 @@ msgid "Default settings restored"
 msgstr "Setările implicite au fost restabilite"
 
 #: bigame-engine/bigame-ui/src/views/profiles.rs:1166
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1708
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1756
 msgid "Delete"
 msgstr "Șterge"
 
@@ -2060,11 +2065,11 @@ msgstr "Șterge profil"
 msgid "Delete Profile?"
 msgstr "Ștergi profilul?"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1599
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1647
 msgid "Delete profile"
 msgstr "Șterge profilul"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1701
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1749
 msgid "Delete this profile?"
 msgstr "Ștergi acest profil?"
 
@@ -2206,7 +2211,7 @@ msgstr "Fiecare a fost recitită din sistem după ce a fost modificată."
 msgid "Edit"
 msgstr "Editează"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1579
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1627
 msgid "Edit profile"
 msgstr "Editează profilul"
 
@@ -3270,6 +3275,10 @@ msgstr "Păstrează setările cu care a fost deschis, așa că jocurile sale pri
 msgid "It only takes effect in exclusive fullscreen, at a resolution below the desktop's. Evidence: the game process's environment."
 msgstr "Are efect doar în ecran complet exclusiv, la o rezoluție mai mică decât cea a desktopului. Dovadă: mediul procesului jocului."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1427
+msgid "Its anti-cheat, %s, refuses Wine and Proton on purpose: it stops the game before it starts. No setting in Big Game Mode, Proton or Steam changes that, and getting around it can get the account banned."
+msgstr "Anti-cheat-ul lui, %s, refuză intenționat Wine și Proton: oprește jocul înainte să pornească. Nicio setare din Big Game Mode, Proton sau Steam nu schimbă asta, iar ocolirea lui poate duce la blocarea contului."
+
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:1154
 msgid "Its files are beside the game. Whether it works is known only when the game runs and its log says so."
 msgstr "Fișierele sale sunt lângă joc. Dacă funcționează se știe doar când jocul rulează și jurnalul său o spune."
@@ -3368,7 +3377,7 @@ msgstr "Latency-Aware Virtual Deadline. Cea mai bună alegere pentru jocuri! Pri
 msgid "Latest stable"
 msgstr "Ultima versiune stabilă"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1576
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1624
 #: bigame-engine/bigame-ui/src/views/profiles.rs:879
 msgid "Launch (Turbo)"
 msgstr "Lansează (Turbo)"
@@ -3645,7 +3654,7 @@ msgstr "Măsoară"
 msgid "Measure again"
 msgstr "Măsoară din nou"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1590
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1638
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:253
 #: bigame-engine/bigame-ui/src/widgets/welcome.rs:128
 msgid "Measure the difference"
@@ -3798,7 +3807,7 @@ msgstr "Nara Linux (ReShade, trei efecte pe tot ecranul: costă cadre)"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:252
 #: bigame-engine/bigame-ui/src/views/home.rs:1275
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1548
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1596
 msgid "Native"
 msgstr "Nativ"
 
@@ -4913,7 +4922,7 @@ msgid "Profile applied"
 msgstr "Profil aplicat"
 
 #: bigame-engine/bigame-ui/src/profile_offer.rs:344
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1621
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1669
 #: bigame-engine/bigame-ui/src/views/profiles.rs:455
 msgid "Profile created"
 msgstr "Profil creat"
@@ -5093,8 +5102,8 @@ msgstr "Ieșire la final"
 msgid "Quit when finished?"
 msgstr "Ieși la final?"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:1117
-#: bigame-engine/bigame-core/src/game_crash.rs:383
+#: bigame-engine/bigame-core/src/game_crash.rs:1116
+#: bigame-engine/bigame-core/src/game_crash.rs:382
 msgid "REDengine wrote a crash report"
 msgstr "REDengine a scris un raport de blocare"
 
@@ -5350,7 +5359,7 @@ msgstr "Restabilește anterioarele"
 msgid "Restore puts the game's files back; a missing FidelityFX DLL is fixed by Repair"
 msgstr "Restabilește pune la loc fișierele jocului; un DLL FidelityFX lipsă se remediază cu Repară"
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1594
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1642
 msgid "Restore the game's graphics"
 msgstr "Restabilește grafica jocului"
 
@@ -5701,6 +5710,10 @@ msgstr "Pornește un joc, apoi revino aici cu Alt+Tab: graficele arată ultimul 
 msgid "Start a game; what it really gets is read from its process and shown here."
 msgstr "Pornește un joc; ce primește cu adevărat este citit din procesul său și afișat aici."
 
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1434
+msgid "Start anyway"
+msgstr "Pornește oricum"
+
 #: bigame-engine/bigame-ui/src/views/settings.rs:412
 #: bigame-engine/bigame-ui/src/widgets/tutorial.rs:469
 msgid "Start in the background at login"
@@ -6043,7 +6056,7 @@ msgstr "Jocul a fost încheiat de %s, semnalul unei blocări"
 msgid "The game was not started: the profile has errors"
 msgstr "Jocul nu a fost pornit: profilul are erori"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:330
+#: bigame-engine/bigame-core/src/game_crash.rs:331
 msgid "The game was stopped by %s (systemd-coredump)"
 msgstr "Jocul a fost oprit de %s (systemd-coredump)"
 
@@ -6204,7 +6217,7 @@ msgstr "Produsul se numește acum Big Game Mode. Zona de notificare oferă contr
 msgid "The profile asks for a sched-ext scheduler, but it cannot be switched on this machine."
 msgstr "Profilul cere un planificator sched-ext, dar acesta nu poate fi comutat pe acest sistem."
 
-#: bigame-engine/bigame-ui/src/views/profiles.rs:1703
+#: bigame-engine/bigame-ui/src/views/profiles.rs:1751
 msgid "The profile for %s will be removed. This cannot be undone."
 msgstr "Profilul pentru %s va fi eliminat. Acțiunea nu poate fi anulată."
 
@@ -6594,7 +6607,7 @@ msgstr "Indisponibil aici — opțional, nu este nicio problemă"
 msgid "Unchanged"
 msgstr "Neschimbat"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:385
+#: bigame-engine/bigame-core/src/game_crash.rs:384
 msgid "Unity wrote a crash report"
 msgstr "Unity a scris un raport de blocare"
 
@@ -6615,7 +6628,7 @@ msgstr "CPU necunoscut"
 msgid "Unknown: tc (iproute2) could not read the interface's queue discipline"
 msgstr "Necunoscut: tc (iproute2) nu a putut citi disciplina de coadă a interfeței"
 
-#: bigame-engine/bigame-core/src/game_crash.rs:384
+#: bigame-engine/bigame-core/src/game_crash.rs:383
 msgid "Unreal Engine wrote a crash report"
 msgstr "Unreal Engine a scris un raport de blocare"
 
