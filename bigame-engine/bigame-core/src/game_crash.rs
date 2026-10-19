@@ -304,7 +304,7 @@ pub fn examine(
                 N_("The game ended with the code Windows gives %s"),
                 [exception],
             ),
-            Some(exception.to_owned()),
+            None,
             None,
         )
     } else if let Some(signal) = how.and_then(crash_signal) {
@@ -320,9 +320,9 @@ pub fn examine(
         (
             Text::with(
                 N_("The game was stopped by %s (systemd-coredump)"),
-                [signal.clone()],
+                [signal],
             ),
-            Some(signal),
+            None,
             None,
         )
     } else {

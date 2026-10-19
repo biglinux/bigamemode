@@ -60,6 +60,14 @@ impl CrashNotice {
             notice,
             crash: RefCell::new(None),
         });
+        // Alive as long as its widget is: the window keeps only the widget,
+        // and the crash watch only a weak reference.
+        {
+            let keep = Rc::clone(&me);
+            me.revealer.connect_destroy(move |_| {
+                let _ = &keep;
+            });
+        }
         if let Some((crash, week)) = crash_watch::last() {
             me.show(&crash, week);
         }
@@ -68,6 +76,15 @@ impl CrashNotice {
             let Some(me) = weak.upgrade() else {
                 return glib::ControlFlow::Break;
             };
+            tracing::debug!(
+                event = match event {
+                    Event::Crashed(..) => "crashed",
+                    Event::Busy => "busy",
+                    Event::LeftOut { .. } => "left out",
+                },
+                shown = me.revealer.is_visible(),
+                "crash notice"
+            );
             match event {
                 Event::Crashed(crash, times) => me.show(crash, *times),
                 Event::Busy => me.busy(),
