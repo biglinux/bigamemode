@@ -47,6 +47,16 @@ pub struct Settings {
     /// Turbo, what games should favour, the games — and nothing that takes
     /// knowing the hardware.
     pub advanced_mode: bool,
+    /// Ask `ProtonDB`, Are We Anti-Cheat Yet? and Steam about the library's
+    /// games (`bigame_core::game_info`). Off, nothing is asked, and what
+    /// was kept is still shown.
+    pub game_info_online: bool,
+    /// Show the Linux rating on the game cards.
+    pub show_linux_rating: bool,
+    /// Show the anti-cheat status on the game cards.
+    pub show_anticheat: bool,
+    /// Show Steam's player counts on the game cards, and ask for them.
+    pub show_players: bool,
 }
 
 impl Default for Settings {
@@ -68,6 +78,10 @@ impl Default for Settings {
             // the features they have not met yet are listed.
             show_welcome: true,
             advanced_mode: false,
+            game_info_online: true,
+            show_linux_rating: true,
+            show_anticheat: true,
+            show_players: true,
         }
     }
 }
@@ -109,6 +123,38 @@ thread_local! {
 pub fn follow_advanced(f: impl Fn(bool) + 'static) {
     f(load().advanced_mode);
     ADVANCED.with(|a| a.borrow_mut().push(Box::new(f)));
+}
+
+/// Something told whenever a game information setting changes.
+type GameInfoListener = Box<dyn Fn(&Settings)>;
+
+thread_local! {
+    static GAME_INFO: std::cell::RefCell<Vec<GameInfoListener>> =
+        std::cell::RefCell::new(Vec::new());
+}
+
+/// Call `f` whenever one of the game information settings is changed in
+/// Settings. Main thread only.
+pub fn follow_game_info(f: impl Fn(&Settings) + 'static) {
+    GAME_INFO.with(|a| a.borrow_mut().push(Box::new(f)));
+}
+
+/// Change the game information settings with `edit`, keep them, and tell
+/// everything that follows them.
+///
+/// # Errors
+/// Returns an error when the settings cannot be written; nothing is told
+/// then.
+pub fn set_game_info(edit: impl FnOnce(&mut Settings)) -> std::io::Result<()> {
+    let mut s = load();
+    edit(&mut s);
+    try_save(&s)?;
+    GAME_INFO.with(|a| {
+        for f in a.borrow().iter() {
+            f(&s);
+        }
+    });
+    Ok(())
 }
 
 /// Switch advanced mode, keep it, and tell everything that follows it.

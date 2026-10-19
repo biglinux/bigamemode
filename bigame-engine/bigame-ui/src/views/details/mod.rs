@@ -1,4 +1,6 @@
-//! Details: what the machine is doing for the game, with the evidence.
+//! The readings behind the Optimization page: what the machine is doing
+//! for the game, with the evidence, in its Overview, Details and Network
+//! and apps tabs.
 //!
 //! One rule for every optimization on this page: *what is it, is it
 //! available, is it configured, is it active, how do we know, why is it not
@@ -7,14 +9,13 @@
 //!
 //! Every value comes from one reading of the system
 //! ([`bigame_core::overview::Snapshot`]), taken off the main thread only
-//! while the page is in front of someone ([`showing`]) — every 3 s with the
+//! while one of the tabs they feed is in front of someone ([`showing`]) — every 3 s with the
 //! window focused, 6 s behind another window — and again at once when
 //! falcond's status file changes or the running game changes. Left behind a
 //! game being played, nothing is read: a reading looks into the game's
 //! process and asks the GPU's power controller, which the game needs more.
 //! The live charts are on their own page, Telemetry, on the same terms.
 
-mod crashes;
 mod dns;
 pub(crate) mod extras;
 pub(crate) mod overview;
@@ -31,8 +32,6 @@ use gtk4::{gio, glib};
 use libadwaita as adw;
 
 use bigame_core::overview::Snapshot;
-
-use crate::i18n::i18n;
 
 /// Snapshot interval while the window has focus.
 const SNAPSHOT_FOCUSED: Duration = Duration::from_secs(3);
@@ -119,49 +118,58 @@ pub(crate) async fn in_view(widget: &impl IsA<gtk4::Widget>) {
     }
 }
 
-/// Build the Details page.
-///
-/// Filled the first time it is on screen: the hardware (sysfs, DRM, the
-/// displays) is read off the main thread, and not at all for a window that
-/// never shows the page — such as one started hidden at login.
-#[must_use]
-pub fn build() -> gtk4::Widget {
-    let page = crate::widgets::layout::Page::new();
-    let widget = page.widget().clone().upcast();
+/// The Optimization tabs one reading of the system fills.
+#[derive(Clone)]
+pub struct Pages {
+    /// The machine at a glance, and what would help it.
+    pub overview: crate::widgets::layout::Page,
+    /// What is in force for the game, item by item.
+    pub details: crate::widgets::layout::Page,
+    /// The network, the programs beside the game, Steam's launch options.
+    pub around: crate::widgets::layout::Page,
+}
+
+/// Fill the Optimization tabs once `root` (the Optimization page) is first
+/// on screen: the hardware (sysfs, DRM, the displays) is read off the main
+/// thread, and not at all for a window that never shows the page — such as
+/// one started hidden at login.
+pub fn build(pages: Pages, root: &gtk4::Widget) {
+    let root = root.clone();
     glib::spawn_future_local(async move {
-        mapped(page.widget()).await;
+        mapped(&root).await;
         if let Ok(hw) = gio::spawn_blocking(bigame_core::hardware::Hardware::detect).await {
-            fill(&page, &Rc::new(hw));
+            fill(&pages, &root, &Rc::new(hw));
         }
     });
-    widget
+}
+
+/// Whether a tab the readings feed is the one on screen.
+fn reading(pages: &Pages) -> bool {
+    showing(pages.overview.widget()) || showing(pages.details.widget())
 }
 
 #[allow(clippy::too_many_lines)]
-fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hardware>) {
+fn fill(pages: &Pages, root: &gtk4::Widget, hw: &Rc<bigame_core::hardware::Hardware>) {
     let overview = overview::Overview::new(hw);
-    page.add(overview.group());
+    pages.overview.add(overview.group());
+    let problems = problems::Problems::new();
+    pages.overview.add(problems.group());
+    pages.overview.add(&problems::measure_group());
 
-    // What is in force, and what is wrong; then what feeds the game.
-    let (left, right) = page.columns();
+    // What is in force, and what feeds the game.
+    let (left, right) = pages.details.columns();
     let performance = performance::Performance::new(hw);
     left.append(performance.group());
-    let problems = problems::Problems::new();
-    left.append(problems.group());
-    left.append(&crashes::group());
     let pipeline = pipeline::Pipeline::new(hw);
     right.append(pipeline.header_group());
     right.append(pipeline.group());
 
-    page.section(&i18n("Around the game"));
-    let (left, right) = page.columns();
+    let (left, right) = pages.around.columns();
     left.append(&extras::network_group());
     left.append(&extras::steam_group());
     right.append(&extras::background_group());
-    right.append(&extras::report_group());
 
     // ── The snapshot, and everything it feeds ───────────────────────────
-    let root = page.widget().clone();
     let busy = Rc::new(Cell::new(false));
     let refresh: Rc<dyn Fn()> = {
         let (overview, performance, pipeline, problems) = (
@@ -211,10 +219,15 @@ fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hard
         let refresh = Rc::clone(&refresh);
         let slow = Rc::clone(&slow);
         let root = root.clone();
+        let tabs = pages.clone();
         glib::spawn_future_local(async move {
             let mut since_slow = Duration::ZERO;
             loop {
                 in_view(&root).await;
+                if !reading(&tabs) {
+                    glib::timeout_future(PAUSED_CHECK).await;
+                    continue;
+                }
                 refresh();
                 if since_slow.is_zero() || since_slow >= SLOW_INTERVAL {
                     slow();
@@ -227,10 +240,21 @@ fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hard
         });
     }
 
+    // A tab the readings feed, opened: read at once rather than on the
+    // loop's next look.
+    for page in [&pages.overview, &pages.details] {
+        let refresh = Rc::clone(&refresh);
+        page.widget().connect_map(move |w| {
+            if showing(w) {
+                refresh();
+            }
+        });
+    }
+
     // falcond's status file: a profile applied or restored shows at once.
     {
         let refresh = Rc::clone(&refresh);
-        let root = root.clone();
+        let tabs = pages.clone();
         let file = gio::File::for_path(bigame_core::status::status_path());
         if let Ok(monitor) = file.monitor_file(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
         {
@@ -238,7 +262,7 @@ fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hard
                 if matches!(
                     event,
                     gio::FileMonitorEvent::Changed | gio::FileMonitorEvent::Created
-                ) && showing(&root)
+                ) && reading(&tabs)
                 {
                     refresh();
                 }
@@ -251,9 +275,9 @@ fn fill(page: &crate::widgets::layout::Page, hw: &Rc<bigame_core::hardware::Hard
     // A game starting or ending: the pipeline changes at once.
     {
         let refresh = Rc::clone(&refresh);
-        let root = root.clone();
+        let tabs = pages.clone();
         crate::game_watch::subscribe(move |_| {
-            if showing(&root) {
+            if reading(&tabs) {
                 refresh();
             }
             glib::ControlFlow::Continue

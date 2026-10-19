@@ -1,12 +1,16 @@
-//! Problems: everything that needs attention, classified by what can be
-//! done about it, and the full list of checks behind it.
+//! Recommendations: what would help this machine and its games, classified
+//! by what can be done about it, and the full list of checks behind it.
 //!
 //! Two sources: the runtime findings of the snapshot (configured but not
 //! detected, asked for but missing) and the system health checks
-//! (`bigame_core::health`). Each is classed *fixable* (a command to copy),
-//! *needs you* (advice), *hardware* (a limit, not a fault) or
-//! *information*. Nothing here runs a command: a fix that needs root is
-//! the user's to run.
+//! (`bigame_core::health`), which look at this machine's own hardware and
+//! packages. Each is *recommended* (a command to copy), *attention* (only
+//! the user can decide), *not supported* (a limit of the hardware, not a
+//! fault), *informative* or *already adequate*; what only a measurement can
+//! tell is said as *needs measurement* ([`measure_group`]). A finding that a
+//! page of the application can fix links to it. Nothing here runs a
+//! command or changes a setting: a fix that needs root is the user's to
+//! run, and there is no "apply all".
 
 use std::cell::RefCell;
 use std::fmt::Write as _;
@@ -32,6 +36,8 @@ enum Class {
     Hardware,
     /// Worth knowing, nothing to do.
     Info,
+    /// Only measuring the game can tell.
+    Measure,
     /// Fine.
     Ok,
 }
@@ -39,18 +45,19 @@ enum Class {
 impl Class {
     fn label(self) -> String {
         match self {
-            Self::Fixable => i18n("Fixable"),
-            Self::NeedsYou => i18n("Needs you"),
-            Self::Hardware => i18n("Hardware"),
-            Self::Info => i18n("Information"),
-            Self::Ok => i18n("OK"),
+            Self::Fixable => i18n("Recommended"),
+            Self::NeedsYou => i18n("Attention"),
+            Self::Hardware => i18n("Not supported"),
+            Self::Info => i18n("Informative"),
+            Self::Measure => i18n("Needs measurement"),
+            Self::Ok => i18n("Already adequate"),
         }
     }
 
     fn css(self) -> &'static str {
         match self {
             Self::Fixable | Self::NeedsYou => "state-attention",
-            Self::Hardware | Self::Info => "state-neutral",
+            Self::Hardware | Self::Info | Self::Measure => "state-neutral",
             Self::Ok => "state-active",
         }
     }
@@ -67,10 +74,48 @@ fn class_of(c: &Check) -> Class {
     }
 }
 
-/// The problems group.
+/// A page of the application that fixes a finding: where it leads
+/// (`win.go`'s place) and what its button says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Go {
+    Tuning,
+    Games,
+    Logs,
+}
+
+impl Go {
+    fn place(self) -> &'static str {
+        match self {
+            Self::Tuning => "optimization/tuning",
+            Self::Games => "games",
+            Self::Logs => "records/logs",
+        }
+    }
+
+    fn label(self) -> String {
+        match self {
+            Self::Tuning => i18n("Open Tuning"),
+            Self::Games => i18n("Open Games"),
+            Self::Logs => i18n("Open Logs"),
+        }
+    }
+
+    /// Whether its page is shown only in advanced mode.
+    fn advanced(self) -> bool {
+        matches!(self, Self::Tuning | Self::Logs)
+    }
+}
+
+/// One runtime finding: title, what was found, its class, the command
+/// that fixes it and the page that does.
+type Finding = (String, String, Class, Option<String>, Option<Go>);
+
+/// The recommendations group.
 #[derive(Clone)]
 pub struct Problems {
     group: adw::PreferencesGroup,
+    /// Whether advanced mode is on: a link to a page it hides is left out.
+    advanced: Rc<std::cell::Cell<bool>>,
     summary: adw::ActionRow,
     /// Rows from the snapshot, replaced on every reading.
     runtime_rows: Rc<RefCell<Vec<gtk4::Widget>>>,
@@ -89,10 +134,10 @@ impl Problems {
     #[must_use]
     pub fn new() -> Self {
         let group = adw::PreferencesGroup::new();
-        group.set_title(&i18n("Problems"));
-        crate::widgets::layout::icon(&group, "dialog-warning-symbolic");
+        group.set_title(&i18n("Recommendations"));
+        crate::widgets::layout::icon(&group, "starred-symbolic");
         group.set_description(Some(&i18n(
-            "What needs attention, and what can be done about it. Commands are copied, never run.",
+            "What would help this machine and its games, what is already fine, and what this hardware cannot do. Nothing is applied from here: commands are copied, never run, and a setting is changed only on its own page.",
         )));
         let copy_all = gtk4::Button::builder()
             .icon_name("edit-copy-symbolic")
@@ -124,8 +169,14 @@ impl Problems {
             .build();
         group.add(&fine);
 
+        let advanced = Rc::new(std::cell::Cell::new(false));
+        {
+            let advanced = Rc::clone(&advanced);
+            crate::settings::follow_advanced(move |on| advanced.set(on));
+        }
         Self {
             group,
+            advanced,
             summary,
             runtime_rows: Rc::new(RefCell::new(Vec::new())),
             health_rows: Rc::new(RefCell::new(Vec::new())),
@@ -150,7 +201,11 @@ impl Problems {
         } else {
             (
                 "dialog-warning-symbolic",
-                ni18n("%n problem found", "%n problems found", total),
+                ni18n(
+                    "%n recommendation for this machine",
+                    "%n recommendations for this machine",
+                    total,
+                ),
             )
         };
         self.summary.set_title(&title);
@@ -175,18 +230,25 @@ impl Problems {
             self.group.remove(&w);
         }
         let game = snap.game.is_some();
-        let mut findings: Vec<(String, String, Class, Option<String>)> = Vec::new();
-        let mut add = |state: State, title: &str, detail: String, command: Option<&str>| {
-            if !state.needs_attention() {
-                return;
-            }
-            let class = if command.is_some() {
-                Class::Fixable
-            } else {
-                Class::NeedsYou
+        let mut findings: Vec<Finding> = Vec::new();
+        let mut add =
+            |state: State, title: &str, detail: String, command: Option<&str>, go: Option<Go>| {
+                if !state.needs_attention() {
+                    return;
+                }
+                let class = if command.is_some() {
+                    Class::Fixable
+                } else {
+                    Class::NeedsYou
+                };
+                findings.push((
+                    title.to_owned(),
+                    detail,
+                    class,
+                    command.map(str::to_owned),
+                    go,
+                ));
             };
-            findings.push((title.to_owned(), detail, class, command.map(str::to_owned)));
-        };
         add(
             snap.turbo_state(),
             &i18n("Turbo"),
@@ -208,6 +270,7 @@ impl Problems {
             },
             (snap.turbo_state() == State::Missing)
                 .then_some("sudo pacman -S falcond falcond-profiles"),
+            (snap.turbo_state() == State::Error).then_some(Go::Logs),
         );
         if snap.turbo_state() == State::Active {
             add(
@@ -217,6 +280,7 @@ impl Problems {
                     "The service runs but its status file cannot be read; nothing it does can be verified.",
                 ),
                 None,
+                Some(Go::Logs),
             );
         }
         add(
@@ -226,6 +290,7 @@ impl Problems {
                 "A game runs under Turbo, but the power profile is not performance. Check the game's profile has performance mode on.",
             ),
             None,
+            Some(Go::Games),
         );
         let sched = snap.scheduler.state(game);
         add(
@@ -251,12 +316,14 @@ impl Problems {
                 }
                 _ => None,
             },
+            None,
         );
         add(
             snap.vcache.state(game),
             &i18n("3D V-Cache"),
             i18n("The mode the profile asked for is not the one set."),
             None,
+            Some(Go::Games),
         );
         add(
             snap.gamescope_state(),
@@ -264,10 +331,11 @@ impl Problems {
             match snap.gamescope_state() {
                 State::Missing => i18n("Configured, but not installed."),
                 _ => i18n(
-                    "Configured, but the game is not running inside it. Start the game from Profiles → Launch (Turbo); a Steam game is started by Steam and gets Gamescope only through Steam's launch options.",
+                    "Configured, but the game is not running inside it. Start the game from Games → Launch (Turbo); a Steam game is started by Steam and gets Gamescope only through Steam's launch options.",
                 ),
             },
             (snap.gamescope_state() == State::Missing).then_some("sudo pacman -S gamescope"),
+            (snap.gamescope_state() != State::Missing).then_some(Go::Games),
         );
         add(
             snap.wine_fsr_state(),
@@ -275,6 +343,7 @@ impl Problems {
             i18n(
                 "Configured, but the variable is not in the game's environment. Close and reopen Steam, then start the game again.",
             ),
+            None,
             None,
         );
         add(
@@ -287,6 +356,7 @@ impl Problems {
                 ),
             },
             (snap.vkbasalt_state() == State::Missing).then_some("sudo pacman -S vkbasalt"),
+            None,
         );
         add(
             snap.frame_generation_state(),
@@ -304,6 +374,8 @@ impl Problems {
             },
             (snap.frame_generation_state() == State::Missing && !snap.lsfg.installed)
                 .then_some("sudo pacman -S lsfg-vk"),
+            (snap.frame_generation_state() == State::Missing && snap.lsfg.installed)
+                .then_some(Go::Tuning),
         );
         add(
             snap.mangohud_state(),
@@ -313,21 +385,24 @@ impl Problems {
                 _ => i18n("Chosen for this game, but not loaded in it."),
             },
             (snap.mangohud_state() == State::Missing).then_some("sudo pacman -S mangohud"),
+            None,
         );
 
         if let Some(conflict) = snap.upscaler_conflict() {
             use bigame_core::overview::UpscalerConflict;
-            let (detail, command) = match conflict {
+            let (detail, command, go) = match conflict {
                 UpscalerConflict::WineFsrFromTuning => (
                     i18n(
                         "Wine FSR and OptiScaler both upscale this game: two upscalers in series. Turn Wine FSR off in Tuning → Upscaling and sharpening, then restart Steam and the game.",
                     ),
                     None,
+                    Some(Go::Tuning),
                 ),
                 UpscalerConflict::WineFsrFromElsewhere => (
                     i18n(
                         "Wine FSR and OptiScaler both upscale this game: two upscalers in series. WINE_FULLSCREEN_FSR=1 does not come from Big Game Mode: remove it from the game's launch options in Steam (Properties → Launch options).",
                     ),
+                    None,
                     None,
                 ),
                 UpscalerConflict::GamescopeScaling => (
@@ -335,6 +410,7 @@ impl Problems {
                         "Gamescope renders below its output and OptiScaler upscales too: two upscalers in series. Set Gamescope's render size to 0 in Tuning, or turn Gamescope off for this game.",
                     ),
                     None::<&str>,
+                    Some(Go::Tuning),
                 ),
             };
             findings.push((
@@ -342,11 +418,14 @@ impl Problems {
                 detail,
                 Class::NeedsYou,
                 command.map(str::to_owned),
+                go,
             ));
         }
         self.counts.borrow_mut().0 = findings.len();
-        for (title, detail, class, command) in findings {
-            let row = problem_row(&title, &detail, class, command.as_deref());
+        let advanced = self.advanced.get();
+        for (title, detail, class, command, go) in findings {
+            let go = go.filter(|g| advanced || !g.advanced());
+            let row = problem_row(&title, &detail, class, command.as_deref(), go);
             self.group.add(&row);
             self.runtime_rows.borrow_mut().push(row.upcast());
         }
@@ -397,7 +476,7 @@ impl Problems {
                     Some(Fix::Advice(a)) => format!("{} — {}", tr(&c.detail), tr(a)),
                     _ => tr(&c.detail),
                 };
-                let row = problem_row(&tr(&c.title), &detail, class, command);
+                let row = problem_row(&tr(&c.title), &detail, class, command, None);
                 match class {
                     Class::Ok => {
                         this.fine.add_row(&row);
@@ -409,7 +488,7 @@ impl Problems {
                         this.health_rows.borrow_mut().push(row.upcast());
                         problems += 1;
                     }
-                    Class::Hardware | Class::Info => {
+                    Class::Hardware | Class::Info | Class::Measure => {
                         this.group.add(&row);
                         this.health_rows.borrow_mut().push(row.upcast());
                     }
@@ -436,9 +515,15 @@ fn fix_text(fix: &Fix) -> String {
     }
 }
 
-/// One finding: title, what was found, its class, and a copy button when a
-/// command fixes it.
-fn problem_row(title: &str, detail: &str, class: Class, command: Option<&str>) -> adw::ActionRow {
+/// One finding: title, what was found, its class, a copy button when a
+/// command fixes it, and a button to the page that fixes it.
+fn problem_row(
+    title: &str,
+    detail: &str,
+    class: Class,
+    command: Option<&str>,
+    go: Option<Go>,
+) -> adw::ActionRow {
     let subtitle = match command {
         Some(c) => format!("{detail}\n→ {c}"),
         None => detail.to_owned(),
@@ -459,11 +544,12 @@ fn problem_row(title: &str, detail: &str, class: Class, command: Option<&str>) -
         Class::NeedsYou => "dialog-warning-symbolic",
         Class::Hardware => "action-unavailable-symbolic",
         Class::Info => "dialog-information-symbolic",
+        Class::Measure => "utilities-system-monitor-symbolic",
     });
     icon.add_css_class(match class {
         Class::Ok => "success",
         Class::Fixable | Class::NeedsYou => "warning",
-        Class::Hardware | Class::Info => "dim-label",
+        Class::Hardware | Class::Info | Class::Measure => "dim-label",
     });
     row.add_prefix(&icon);
     let badge = gtk4::Label::builder()
@@ -487,5 +573,34 @@ fn problem_row(title: &str, detail: &str, class: Class, command: Option<&str>) -
         });
         row.add_suffix(&copy);
     }
+    if let Some(go) = go {
+        let open = gtk4::Button::builder()
+            .label(go.label())
+            .valign(gtk4::Align::Center)
+            .build();
+        open.connect_clicked(move |b| {
+            let _ = b.activate_action("win.go", Some(&go.place().to_variant()));
+        });
+        row.add_suffix(&open);
+    }
     row
+}
+
+/// What only a measurement can tell: whether Turbo makes a game faster on
+/// this machine. Said as that, with where to measure it, rather than
+/// guessed from what a setting is called.
+pub fn measure_group() -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    group.set_title(&i18n("What only a measurement can tell"));
+    crate::widgets::layout::icon(&group, "utilities-system-monitor-symbolic");
+    group.add(&problem_row(
+        &i18n("Whether Turbo makes a game faster here"),
+        &i18n(
+            "No setting is called faster without measuring it. Measure the difference, in a game's menu in Games, runs the game with and without Turbo, alternating, and calls a change an improvement only when it beats the variation.",
+        ),
+        Class::Measure,
+        None,
+        Some(Go::Games),
+    ));
+    group
 }

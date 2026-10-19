@@ -670,7 +670,7 @@ impl Display {
         let video = saver.shared();
         let group = ui::section(N_("Display"));
         group.set_description(Some(&i18n(
-            "For games started from Big Game Mode (Profiles → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
+            "For games started from Big Game Mode (Games → Launch (Turbo)). A game's profile can force Gamescope on or off, or set any of these values for itself.",
         )));
         let quiet = Rc::new(Cell::new(false));
         if !m.gamescope {
@@ -1077,7 +1077,7 @@ fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::Preference
         Kind::Info,
         &i18n("AI Graphics is per game"),
         &i18n(
-            "Upscaling inside the game (FSR 4, XeSS, DLSS through OptiScaler) is set from the game's card in Profiles. A game with it launches without Wine FSR and without a Gamescope render size.",
+            "Upscaling inside the game (FSR 4, XeSS, DLSS through OptiScaler) is set from the game's card in Games. A game with it launches without Wine FSR and without a Gamescope render size.",
         ),
     );
     group.add(ai.widget());
@@ -1363,7 +1363,7 @@ fn build_frame_generation(saver: &VideoSaver, m: &Machine) -> adw::PreferencesGr
         Kind::Info,
         &i18n("Each game's frame generation is in its profile"),
         &i18n(
-            "Profiles → the game → Edit profile → Frame generation. A game whose AI Graphics has OptiScaler generating frames launches with lsfg-vk off.",
+            "Games → the game → Edit profile → Frame generation. A game whose AI Graphics has OptiScaler generating frames launches with lsfg-vk off.",
         ),
     );
     group.add(per_game.widget());

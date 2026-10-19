@@ -289,7 +289,7 @@ pub fn body(crash: &Crash, week: usize) -> String {
         lines.push(labelled(&i18n("Also in the game"), &names.join(", ")));
         if crash.removable().is_empty() {
             lines.push(i18n(
-                "Each is the game's own choice in Profiles or AI Graphics; changed there, it is left out from the next start.",
+                "Each is the game's own choice in Games or AI Graphics; changed there, it is left out from the next start.",
             ));
         } else {
             lines.push(i18n(
@@ -389,7 +389,7 @@ fn outcome(crash: &Crash, left: &game_crash::LeftOut) -> (bool, String) {
         ));
     }
     lines.push(i18n(
-        "To put them back: Profiles → the game → its launch settings.",
+        "To put them back: Games → the game → its launch settings.",
     ));
     (ok, lines.join("\n"))
 }
