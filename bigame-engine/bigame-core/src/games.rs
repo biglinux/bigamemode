@@ -943,6 +943,23 @@ fn unescape_value(value: &str) -> String {
     out
 }
 
+impl DetectedGame {
+    /// Whether the copy installed is a Linux build: a program of the
+    /// application menu or a Flatpak, or a launcher's game whose file is an
+    /// ELF binary or a script — the games Lutris, Heroic and Faugus get a
+    /// command of their own for, found as the library was read, so this
+    /// reads no file. A Steam game says so in Steam's own data
+    /// ([`steam_linux_builds`]), not here.
+    #[must_use]
+    pub fn runs_on_linux(&self) -> bool {
+        match self.source {
+            Source::Native | Source::Flatpak => true,
+            Source::Steam => false,
+            Source::Lutris | Source::Heroic | Source::Faugus => self.launch_command.is_some(),
+        }
+    }
+}
+
 /// Whether `path` can be run here directly: an executable ELF binary or a
 /// script with a `#!` line. A Windows `.exe` from a Wine runner cannot, and
 /// starting one outside its prefix measures nothing.
@@ -1224,6 +1241,47 @@ fn steam_app_info(
         }
     }
     apps
+}
+
+/// The Steam apps among `ids` whose store data lists a Linux build: appinfo's
+/// `common/oslist`, which is what Steam's store page shows, read from every
+/// client's cache on this machine. Nothing is asked of the network, and an
+/// app no cache has is left out rather than guessed.
+#[must_use]
+pub fn steam_linux_builds<S: std::hash::BuildHasher>(
+    home: &Path,
+    ids: &HashSet<u32, S>,
+) -> HashSet<u32> {
+    let mut wanted: HashSet<u32> = ids.iter().copied().collect();
+    let mut linux = HashSet::new();
+    let mut roots: Vec<PathBuf> = steam_roots(home, &Xdg::of_home(home))
+        .into_iter()
+        .filter_map(|r| r.canonicalize().ok())
+        .collect();
+    roots.dedup();
+    for root in roots {
+        if wanted.is_empty() {
+            break;
+        }
+        let cache = root.join("appcache/appinfo.vdf");
+        if !cache.is_file() {
+            continue;
+        }
+        for (id, info) in appinfo::read(&cache, &wanted) {
+            wanted.remove(&id);
+            if info.oslist.as_deref().is_some_and(lists_linux) {
+                linux.insert(id);
+            }
+        }
+    }
+    linux
+}
+
+/// Whether an `oslist` (`windows,macos,linux`) names Linux.
+fn lists_linux(oslist: &str) -> bool {
+    oslist
+        .split(',')
+        .any(|os| os.trim().eq_ignore_ascii_case("linux"))
 }
 
 /// Apps that are runtimes, tooling or servers rather than games, by

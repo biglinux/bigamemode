@@ -1544,7 +1544,7 @@ impl GameFields {
                 "Written into this game's Steam launch options when you save, with Steam closed; your own options there are kept.",
             ),
             Reach::Launch => {
-                i18n("For this game when Big Game Mode starts it (Profiles → Launch (Turbo)).")
+                i18n("For this game when Big Game Mode starts it (Games → Launch (Turbo)).")
             }
             Reach::Heroic { .. } => i18n(
                 "Written into Heroic's settings for this game when you save, with Heroic closed; your own settings there are kept.",

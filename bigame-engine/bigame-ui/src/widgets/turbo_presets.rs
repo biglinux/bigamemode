@@ -1,4 +1,5 @@
-//! The Turbo preset picker, under the Turbo control on Home.
+//! The Turbo preset picker, inside the Turbo card on Home, under its
+//! control.
 //!
 //! With Turbo off it chooses the preset for when Turbo is switched on; with
 //! Turbo on it changes the preset in force, for the games started from then
@@ -78,7 +79,7 @@ fn describe(preset: Preset, machine: Option<Machine>, generating: &FrameGenerato
         }
         text.push(' ');
         text.push_str(&i18n(
-            "A native Linux game is capped only when Big Game Mode starts it (Profiles → Launch).",
+            "A native Linux game is capped only when Big Game Mode starts it (Games → Launch).",
         ));
         // Where the generation sits decides what the cap holds: OptiScaler's
         // runs in the game, above the limiter, and is left uncapped; lsfg-vk
@@ -167,8 +168,16 @@ impl PresetPicker {
         note.set_xalign(0.0);
         note.set_visible(false);
 
-        let root =
-            crate::widgets::layout::panel(&i18n("What do you want?"), "preferences-other-symbolic");
+        // Part of the Turbo card: a heading of its own, no card around it.
+        let root = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
+        root.add_css_class("turbo-presets");
+        root.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "What do you want?",
+        ))]);
+        root.append(&crate::widgets::layout::fixed_label(
+            &i18n("What do you want?"),
+            &["heading"],
+        ));
         root.append(&row);
         root.append(&description);
         root.append(&note);

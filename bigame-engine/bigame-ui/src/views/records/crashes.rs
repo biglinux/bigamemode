@@ -20,7 +20,7 @@ use crate::widgets::layout;
 /// How many crashes the group lists.
 const SHOWN: usize = 10;
 
-/// The group, hidden while no game has crashed.
+/// The group; while no game has crashed, a row says so.
 pub fn group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Games that closed with an error"));
@@ -28,13 +28,21 @@ pub fn group() -> adw::PreferencesGroup {
     group.set_description(Some(&i18n(
         "What showed each crash, what the game said, and what was in it besides the game itself. The same extras in every crash of a game are worth leaving out of it.",
     )));
-    group.set_visible(false);
+    let none = adw::ActionRow::builder()
+        .title(i18n("No game has closed with an error"))
+        .subtitle(i18n(
+            "When a game closes with an error, what showed it is kept here, with what else was in the game.",
+        ))
+        .subtitle_lines(3)
+        .build();
+    none.add_prefix(&gtk4::Image::from_icon_name("emblem-ok-symbolic"));
+    group.add(&none);
 
     let rows: Rc<RefCell<Vec<adw::ActionRow>>> = Rc::new(RefCell::new(Vec::new()));
     let refresh: Rc<dyn Fn()> = {
-        let (group, rows) = (group.clone(), Rc::clone(&rows));
+        let (group, rows, none) = (group.clone(), Rc::clone(&rows), none.clone());
         Rc::new(move || {
-            let (group, rows) = (group.clone(), Rc::clone(&rows));
+            let (group, rows, none) = (group.clone(), Rc::clone(&rows), none.clone());
             glib::spawn_future_local(async move {
                 // Whether each report is still there, read here: the game
                 // library may be on a disk that has to spin up first.
@@ -53,7 +61,7 @@ pub fn group() -> adw::PreferencesGroup {
                 for row in rows.borrow_mut().drain(..) {
                     group.remove(&row);
                 }
-                group.set_visible(!crashes.is_empty());
+                none.set_visible(crashes.is_empty());
                 for (crash, report) in &crashes {
                     let row = row(crash, *report);
                     group.add(&row);

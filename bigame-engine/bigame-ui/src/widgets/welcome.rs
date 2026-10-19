@@ -65,7 +65,7 @@ fn simple_features() -> Vec<(&'static str, String, String)> {
         (
             "applications-games-symbolic",
             i18n("Play"),
-            i18n("Your games are in Profiles: choose one and press Play."),
+            i18n("Your games are in Games: choose one and press Play."),
         ),
     ]
 }
@@ -118,7 +118,7 @@ fn features() -> [(&'static str, String, String); 8] {
         ),
         (
             "speedometer-symbolic",
-            i18n("Details, with evidence"),
+            i18n("Optimization, with evidence"),
             i18n(
                 "Each optimization says whether it is active, waiting, off, missing or not supported, how that is known, and how to fix it.",
             ),
@@ -134,7 +134,7 @@ fn features() -> [(&'static str, String, String); 8] {
             "utilities-terminal-symbolic",
             i18n("Always at hand"),
             i18n(
-                "Closing the window leaves Big Game Mode in the tray, still watching for games. Logs gathers what falcond, Gamescope and the GPU drivers say.",
+                "Closing the window leaves Big Game Mode in the tray, still watching for games. Records keeps the Turbo report, the games that crashed and what falcond, Gamescope and the GPU drivers say.",
             ),
         ),
     ]

@@ -823,6 +823,7 @@ pub fn status_icon(good: bool) -> gtk4::Image {
 
 // ── Support report ──────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_lines)]
 pub fn report_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Support report"));
@@ -889,7 +890,16 @@ pub fn report_group() -> adw::PreferencesGroup {
             });
         }
     };
-    generate();
+    // Generated the first time it is on screen, not for a window that
+    // never shows it.
+    {
+        let generate = generate.clone();
+        let column = column.clone();
+        glib::spawn_future_local(async move {
+            crate::views::details::mapped(&column).await;
+            generate();
+        });
+    }
     {
         let generate = generate.clone();
         refresh.connect_clicked(move |_| generate());

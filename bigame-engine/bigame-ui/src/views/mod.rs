@@ -6,8 +6,10 @@ pub mod home;
 
 pub mod logs;
 pub mod measure_dialog;
+pub mod optimization;
 pub mod profile_wizard;
 pub mod profiles;
+pub mod records;
 pub mod report;
 pub mod settings;
 pub mod telemetry;

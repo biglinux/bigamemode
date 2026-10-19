@@ -18,7 +18,7 @@ error.
 
 | Component | Where | Responsibility |
 |---|---|---|
-| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home, Profiles, Telemetry, Tuning, Details, Logs, Settings, and the Optimization Report over Home. Simple mode (the default, `advanced_mode = false` in `settings.toml`) shows Home, Profiles, Telemetry and Settings only, with Play on every game and Back to normal; Settings → Advanced shows the rest. While a game runs, no page reads anything unless its window is the active one, the game's exit is watched through a pidfd, and the process does its disk reads in the idle I/O class (a game it starts gets the normal class back). `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
+| UI | `bigame-engine/bigame-ui` (GTK4, libadwaita, `ksni` tray) | Never runs as root. Pages: Home (the Turbo card and the Now card), Games (the library), Optimization (tabs Overview, Tuning, Details, Network and apps), Telemetry, Records (tabs Reports, Games that crashed, Logs) and Settings; `win.go` opens a page or a page's tab (`optimization/tuning`), and a page saved by an earlier version opens where its content went (`window::migrate_tab`). Simple mode (the default, `advanced_mode = false` in `settings.toml`) hides the Tuning, Details and Logs tabs, with Play on every game and Back to normal; Settings → Advanced shows them. Icons the application uses that Adwaita lacks are in its resources, behind the icon theme's own. While a game runs, no page reads anything unless its window is the active one, the game's exit is watched through a pidfd, and the process does its disk reads in the idle I/O class (a game it starts gets the normal class back). `--background` starts it hidden in the tray (login autostart); `--diagnostics [--network]` prints the support report and exits. |
 | Core | `bigame-engine/bigame-core` (library, no UI) | Hardware and capability detection, Turbo (`turbo.rs`) and its presets (`turbo_preset.rs`: a layer of session variables over Tuning while Turbo is on — DXVK/VKD3D-Proton frame caps, Wine FSR, vkBasalt, `FSR4_UPGRADE`; native games launched by Big Game Mode are capped with MangoHud's limiter), the Booster engine (`booster/`), profiles and their migration, running-game detection (`running.rs`), recommendations (`recommend.rs`), the launch pipeline (`launcher.rs`, `gamescope.rs`), AI Graphics (`graphics/`), benchmarking (`benchmark/`), network measurement, logs, health and diagnostics. |
 | Helper | `bigame-engine/bigame-daemon` (root, system bus `com.biglinux.BiGameMode`, object `/com/biglinux/BiGameMode`) | The handful of writes the UI cannot do: `SaveProfile`, `DeleteProfile`, `ApplyFalcondConfig`, `SetVCacheMode`, `SetCpuGovernor`, `SetCpuEpp`, `SetGpuDpmLevel`, `SetGameBackend`, `ReleaseGameBackend`, plus the unauthenticated `Ping`. Started on demand by D-Bus through `bigame-daemon.service`. See [SECURITY.md](SECURITY.md). |
 | falcond | external system service | Matches game processes by name and applies their profile — performance power profile, sched-ext scheduler (through `scx_loader`), 3D V-Cache mode, idle inhibit — and restores everything when the game exits. |
@@ -209,6 +209,27 @@ apply → verify → report → restore**.
   read in between. The fix offered keeps vkBasalt, FSR 4 (`FSR4_UPGRADE=0`
   and `PROTON_FSR4_UPGRADE=0`: Valve's Proton upgrades only at exactly
   `1`) and Wine FSR out of that game's own launch settings.
+- What the world knows about a game (`game_info/`) is information only:
+  `ProtonDB`'s summary per Steam `AppID` (24 h), Are We Anti-Cheat Yet?'s
+  list as one file for the library (12 h, `If-None-Match`, validated
+  before it replaces the kept one), and Steam's player counts (15 min, as
+  Steam caches them) and "Most Played" chart (the day's peak, top 100).
+  "Native" is appinfo's `common/oslist`, read locally, for a game Steam
+  installed, and `DetectedGame::runs_on_linux` for another launcher's (a
+  file Big Game Mode can start directly). Another launcher's Windows build
+  is looked for on Steam's store search (`steam_search.rs`) by its title:
+  an app whose normalised name equals it, else one that differs only by an
+  edition's name, never a sequel, DLC or soundtrack; kept a month when
+  found and a week when not, at most 20 a pass, the first failure stopping
+  the search for a while. What the three sources say of that `AppID` is
+  shown as the Steam version's (`Info::steam_version`). A game with no
+  Steam `AppID` is matched in the anti-cheat list only by its exact title
+  when one entry has it. Every request is
+  `curl` with an argument vector, HTTPS only, capped in size and time; a
+  source that fails or asks to wait (`Retry-After`) is left alone, longer
+  each time. A pass runs only with the library on screen in the active
+  window and no game running, and stops between requests when a game
+  starts. Nothing it learns changes a profile or a launch.
 - When an unknown game starts with Turbo on, a notification offers a profile.
   The recommendation writes only falcond's fields and says where each value
   comes from: `performance_mode` on AC power only, `scx_sched = none` unless a
@@ -554,9 +575,11 @@ of it needs root.
   and scale (`sparkline::chart`, newest point at the right edge), and an
   `AdwBreakpointBin` that only turns rows into columns (4 → 2 × 2 → stacked
   GPUs → one column).
-- **Details** is what is really happening. One reading
+- **Optimization**'s Overview and Details tabs are what is really
+  happening. One reading
   (`bigame_core::overview::Snapshot`) taken off the main thread every 3 s
-  while the page is on screen (6 s unfocused), and again when falcond's
+  while one of those tabs is on screen (6 s unfocused), at once when one is
+  opened, and again when falcond's
   status file or the running game changes, feeds the overview chips, the
   Performance rows (Turbo, falcond and the profile it applied, the power
   profile, the scheduler, 3D V-Cache) and the Video pipeline rows
@@ -620,6 +643,7 @@ directory.
 | `/var/lib/falcond/status`, `/tmp/falcond_status` | falcond's status, read only when it is a root-owned regular file |
 | `$XDG_CONFIG_HOME/bigame-mode/` | `settings.toml` (window, last page, theme; absent on a first run), `video.toml`, `gamescope.toml`, `games/<process>.toml` |
 | `$XDG_STATE_HOME/bigame-mode/` | Booster journal, last Turbo report, profile-migration backups, `turbo-preset-active.toml` (the preset in force and the user's own values before it), `scheduler-before-turbo.json`, `lsfg-vk.toml` (lsfg-vk entries Big Game Mode wrote or set aside), `mangohud/steam-added.toml`, `crashes.json` (the last 20 games that closed with an error) |
+| `$XDG_CACHE_HOME/bigame-mode/game-info/` | `store.json` (ratings, counts and their readings, when each source last answered and why one does not), `anticheat-games.json` and its `ETag` |
 | `$XDG_CONFIG_HOME/bigame-mode/vkbasalt-cas.conf` | the CAS-only vkBasalt file the Pretty preset points `VKBASALT_CONFIG_FILE` at |
 | `$XDG_CONFIG_HOME/bigame-mode/graphics-games.toml` | the user's own AI Graphics game list (optional) |
 | `$XDG_STATE_HOME/bigame-mode/graphics/<game>/` | AI Graphics manifests and backups |
@@ -675,7 +699,7 @@ where the reference measurements were made, behaved the same unless noted.
   never with a restart, which would tear down a running game's profile.
 - If falcond is killed with SIGKILL while a profile is active, systemd restarts
   it and the new instance snapshots the boosted state. Big Game Mode does not
-  paper over that with a second writer; Details → Problems warns when
+  paper over that with a second writer; Optimization → Overview warns when
   systemd has restarted falcond.
 - A user profile with the same name as a shipped one (ignoring case) is laid
   over it field by field (2.0.14; 2.0.2 ignored it). At most 64 profiles are

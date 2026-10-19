@@ -5,10 +5,14 @@
 //! the master switch. Off, Big Game Mode does not intervene in games; on, it
 //! detects them and optimizes them.
 //!
-//! Everything fits one window without scrolling: three live readings, the
-//! Turbo disc, the presets, and one card that says what Turbo did and, while
-//! a game runs, which one and what it really got (one coloured flag per
-//! feature). The full report is one button away, inside that card.
+//! Two cards side by side. **Turbo**: the disc, the three presets under it
+//! with what the chosen one does, and Back to normal. **Now**: the game
+//! being played — its cover, name, launcher, how long it has run, what
+//! `ProtonDB` and the anti-cheat list say of it, and what it really got (one
+//! coloured flag per feature: active, configured but not seen, off,
+//! unavailable) with what can be done next; with no game, what Turbo is
+//! doing and where to start one. The full Turbo report is one button away,
+//! in Records. In advanced mode, three live readings follow.
 //!
 //! Transitions run on a worker thread with its own Tokio runtime and report
 //! back through a channel the GTK main loop drains, so D-Bus round trips and
@@ -29,7 +33,7 @@ use bigame_core::turbo::{self, Report, Section, Step};
 
 use bigame_core::turbo_preset;
 
-use crate::i18n::{error_text, i18n, ni18n, tr};
+use crate::i18n::{error_text, i18n, labelled, ni18n, tr};
 use crate::widgets::booster_button::{self, BoosterButton, State};
 use crate::widgets::launcher_notice::LauncherNotice;
 use crate::widgets::layout;
@@ -48,6 +52,10 @@ enum Event {
     Failed(String),
 }
 
+/// How Home hands the window a Turbo report, to keep in Records, and asks
+/// it to open it there (`true`).
+pub type ShowReport = Rc<dyn Fn(&Report, bool)>;
+
 /// How often the live readings refresh with no game running.
 const TILE_REFRESH: std::time::Duration = std::time::Duration::from_secs(2);
 
@@ -60,8 +68,9 @@ const PING_EVERY: u32 = 5;
 
 /// Build the Home page.
 ///
-/// `show_report` is how the page asks the window to open the report, so
-/// navigation stays the window's concern. Turbo and its preset are given to
+/// `show_report` is how the page hands the window a Turbo report, to keep
+/// in Records, and asks it to open it there (`true`), so navigation stays
+/// the window's concern. Turbo and its preset are given to
 /// `app` as the stateful actions `app.turbo` and `app.turbo-preset`: their
 /// state is what this page shows, read from the systems that hold it, and
 /// changing it runs what the Turbo button and the preset picker run. The
@@ -70,7 +79,7 @@ const PING_EVERY: u32 = 5;
 #[allow(clippy::too_many_lines, clippy::needless_pass_by_value)]
 pub fn build(
     app: &adw::Application,
-    show_report: Rc<dyn Fn(&Report)>,
+    show_report: ShowReport,
     launcher_notice: Rc<LauncherNotice>,
 ) -> gtk4::Widget {
     let button = BoosterButton::new();
@@ -90,12 +99,13 @@ pub fn build(
 
     let tip = tip_banner();
 
-    // ── The page: Turbo on the left, what it is set to on the right ─────
+    // ── The page: Turbo on the left, the game on the right ──────────────
     let page = layout::Page::new();
     let (left, right) = page.card_columns();
-    // The Turbo card takes the height of the column beside it.
+    // Each card takes the height of the one beside it.
     left.set_valign(gtk4::Align::Fill);
     let turbo_card = layout::panel(&i18n("Turbo"), "power-profile-performance-symbolic");
+    turbo_card.add_css_class("home-turbo");
     turbo_card.set_vexpand(true);
     let disc = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     disc.set_valign(gtk4::Align::Center);
@@ -104,6 +114,10 @@ pub fn build(
     disc.append(button.caption());
     disc.append(&machine);
     turbo_card.append(&disc);
+    // The presets, part of the same card: what Turbo is for, chosen where
+    // it is switched on.
+    turbo_card.append(&gtk4::Separator::new(gtk4::Orientation::Horizontal));
+    turbo_card.append(presets.widget());
     // The one way out, for anyone: the window's Back to normal.
     let normal = gtk4::Button::builder()
         .label(i18n("Back to normal"))
@@ -118,7 +132,6 @@ pub fn build(
     turbo_card.append(&normal);
     left.append(&turbo_card);
     right.set_valign(gtk4::Align::Fill);
-    right.append(presets.widget());
     card.widget().set_vexpand(true);
     right.append(card.widget());
 
@@ -444,10 +457,11 @@ pub fn build(
                             card.show(crate::game_watch::current().as_ref(), on);
                             card.refresh_preset();
                             crate::game_watch::check();
-                            // Open the report on its own only when something
-                            // went wrong; a clean run is summarised on Home.
-                            if failed && let Some(r) = last.borrow().as_ref() {
-                                show(r);
+                            // Kept in Records; opened there on its own only
+                            // when something went wrong, a clean run is
+                            // summarised on Home.
+                            if let Some(r) = last.borrow().as_ref() {
+                                show(r, failed);
                             }
                             return glib::ControlFlow::Break;
                         }
@@ -518,6 +532,7 @@ pub fn build(
         let switching = Rc::clone(&switching_preset);
         let root = home_root.clone();
         let busy = Rc::new(Cell::new(false));
+        let show = Rc::clone(&show_report);
         crate::app::follow_backend_unit(move |unit| {
             // No reading: systemd could not be asked, and saying "off"
             // would be a guess.
@@ -527,7 +542,7 @@ pub fn build(
             if !button.state().is_interactive() || switching.get() || busy.replace(true) {
                 return;
             }
-            let (button, turbo_on, last, card, busy, notice, root) = (
+            let (button, turbo_on, last, card, busy, notice, root, show) = (
                 Rc::clone(&button),
                 Rc::clone(&turbo_on),
                 Rc::clone(&last),
@@ -535,6 +550,7 @@ pub fn build(
                 Rc::clone(&busy),
                 Rc::clone(&notice),
                 root.clone(),
+                Rc::clone(&show),
             );
             glib::spawn_future_local(async move {
                 let reading = gio::spawn_blocking(move || {
@@ -572,6 +588,9 @@ pub fn build(
                         tidy_up(&root, &card);
                     }
                     turbo_on.set(on);
+                    if let Some(r) = &report {
+                        show(r, false);
+                    }
                     *last.borrow_mut() = report;
                     button.set_state(&if on {
                         State::On {
@@ -1005,19 +1024,40 @@ impl Flag {
     }
 }
 
-/// What Turbo did, or the running game: cover, name, how it runs, and one
-/// flag per feature, with the report's summary and its button.
+/// Width and height of the cover on the Now card: Steam's portrait art,
+/// 2:3.
+const COVER_WIDTH: i32 = 132;
+const COVER_HEIGHT: i32 = 198;
+
+/// The Now card: the game being played — cover, name, launcher, how long it
+/// has run, what `ProtonDB` and the anti-cheat list say of it, one flag per
+/// feature, and what can be done next — or, with no game, what Turbo is
+/// doing and where to start one.
 #[derive(Clone)]
 struct InfoCard {
     root: gtk4::Box,
-    cover: gtk4::Image,
+    /// The cover, or Turbo's symbol while no game runs.
+    cover: gtk4::Picture,
+    cover_frame: gtk4::Overlay,
     icon: gtk4::Image,
     name: gtk4::Label,
+    /// Launcher · runtime · graphics API.
     facts: gtk4::Label,
+    /// "Running · 00:12:34", with its dot.
+    running: gtk4::Box,
+    running_text: gtk4::Label,
+    /// `ProtonDB`'s rating and the anti-cheat status, and the players line.
+    tags: gtk4::Box,
+    players: gtk4::Label,
+    badges: Rc<RefCell<Option<crate::widgets::game_info_tags::Badges>>>,
+    /// The game's launcher, once the library has said it.
+    launcher: Rc<Cell<Option<&'static str>>>,
+    flags_title: gtk4::Label,
     flags: adw::WrapBox,
     summary: gtk4::Label,
     details: gtk4::Button,
     create: gtk4::Button,
+    open_games: gtk4::Button,
     game: Rc<RefCell<Option<GameIdentity>>>,
     turbo_on: Rc<Cell<bool>>,
     /// Turbo's state could be read; when not, the card says nothing from it.
@@ -1031,59 +1071,94 @@ struct InfoCard {
     last_report: Rc<RefCell<Option<Report>>>,
 }
 
+/// A label of the Now card: centred, wrapped.
+fn centred(classes: &[&str]) -> gtk4::Label {
+    let l = gtk4::Label::new(None);
+    for c in classes {
+        l.add_css_class(c);
+    }
+    l.set_wrap(true);
+    l.set_justify(gtk4::Justification::Center);
+    l.set_halign(gtk4::Align::Center);
+    l
+}
+
 impl InfoCard {
-    fn new(last_report: Rc<RefCell<Option<Report>>>, show_report: Rc<dyn Fn(&Report)>) -> Self {
-        // A fixed-size image, not a Picture: a Picture asks for the art's
-        // natural size (600x900 for Steam's covers) and stretches the card.
-        let cover = gtk4::Image::new();
-        cover.set_pixel_size(88);
-        cover.set_valign(gtk4::Align::Center);
+    #[allow(clippy::too_many_lines)]
+    fn new(last_report: Rc<RefCell<Option<Report>>>, show_report: ShowReport) -> Self {
+        // The cover in a frame of its size: the picture over it is neither
+        // measured nor let out of it, so the art never sizes the card.
+        let frame = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        frame.set_size_request(COVER_WIDTH, COVER_HEIGHT);
+        let cover = gtk4::Picture::builder()
+            .content_fit(gtk4::ContentFit::Cover)
+            .can_shrink(true)
+            .build();
         cover.add_css_class("home-cover");
+        let cover_frame = gtk4::Overlay::new();
+        cover_frame.set_child(Some(&frame));
+        cover_frame.add_overlay(&cover);
+        cover_frame.set_measure_overlay(&cover, false);
+        cover_frame.set_clip_overlay(&cover, true);
+        cover_frame.set_halign(gtk4::Align::Center);
+        cover_frame.add_css_class("home-cover-frame");
         // With no game: Turbo's own symbol in the cover's place.
         let icon = gtk4::Image::from_icon_name("power-profile-performance-symbolic");
-        icon.set_pixel_size(36);
-        icon.set_valign(gtk4::Align::Center);
+        icon.set_pixel_size(64);
+        icon.set_halign(gtk4::Align::Center);
+        icon.set_margin_top(12);
+        icon.set_margin_bottom(6);
         icon.add_css_class("home-card-icon");
 
-        let name = gtk4::Label::new(None);
-        name.add_css_class("title-4");
-        name.set_xalign(0.0);
+        let name = centred(&["title-3"]);
+        name.set_lines(2);
         name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        name.set_max_width_chars(40);
-        let facts = gtk4::Label::new(None);
-        facts.add_css_class("caption");
-        facts.add_css_class("dim-label");
-        facts.set_xalign(0.0);
-        facts.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        facts.set_max_width_chars(60);
+        name.set_max_width_chars(28);
+        let facts = centred(&["caption", "dim-label"]);
+        facts.set_max_width_chars(40);
 
+        let dot = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+        dot.add_css_class("home-running-dot");
+        dot.set_valign(gtk4::Align::Center);
+        let running_text = gtk4::Label::new(None);
+        running_text.add_css_class("caption-heading");
+        running_text.add_css_class("numeric");
+        let running = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+        running.set_halign(gtk4::Align::Center);
+        running.add_css_class("home-running");
+        running.append(&dot);
+        running.append(&running_text);
+
+        let tags = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+        tags.set_halign(gtk4::Align::Center);
+        tags.add_css_class("home-game-tags");
+        let players = centred(&["caption", "dim-label"]);
+
+        let flags_title = centred(&["caption-heading", "dim-label"]);
+        flags_title.set_label(&i18n("Optimization"));
+        flags_title.set_margin_top(6);
         let flags = adw::WrapBox::new();
         flags.set_child_spacing(6);
         flags.set_line_spacing(6);
+        flags.set_align(0.5);
 
-        let summary = gtk4::Label::new(None);
-        summary.add_css_class("caption");
-        summary.add_css_class("dim-label");
-        summary.set_xalign(0.0);
-        summary.set_hexpand(true);
-        summary.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        let summary = centred(&["caption", "dim-label"]);
+
         let details = gtk4::Button::builder()
-            .label(i18n("View optimization details"))
+            .label(i18n("View the Turbo report"))
             .css_classes(["flat", "home-details"])
-            .halign(gtk4::Align::End)
             .build();
         {
             let last = Rc::clone(&last_report);
             details.connect_clicked(move |_| {
                 if let Some(report) = last.borrow().as_ref() {
-                    show_report(report);
+                    show_report(report, true);
                 }
             });
         }
         let create = gtk4::Button::builder()
             .label(i18n("Create profile"))
             .css_classes(["pill", "suggested-action"])
-            .halign(gtk4::Align::End)
             .visible(false)
             .build();
         create.set_action_name(Some("app.profile-review"));
@@ -1091,37 +1166,60 @@ impl InfoCard {
         // none, but without a target of the right type GTK rejects the
         // button on every update ("parameter type mismatch").
         create.set_action_target_value(Some(&glib::variant::ToVariant::to_variant("")));
-        let bottom = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-        bottom.append(&summary);
-        bottom.append(&create);
-        bottom.append(&details);
+        let open_games = gtk4::Button::builder()
+            .label(i18n("Open Games"))
+            .css_classes(["pill"])
+            .action_name("win.go")
+            .action_target(&"games".to_variant())
+            .build();
+        let actions = adw::WrapBox::new();
+        actions.set_child_spacing(8);
+        actions.set_line_spacing(6);
+        actions.set_align(0.5);
+        actions.set_margin_top(6);
+        actions.append(&create);
+        actions.append(&open_games);
+        actions.append(&details);
 
-        let text = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-        text.set_valign(gtk4::Align::Center);
-        text.set_hexpand(true);
-        text.append(&name);
-        text.append(&facts);
-        text.append(&flags);
-        text.append(&bottom);
+        let body = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+        body.set_valign(gtk4::Align::Center);
+        body.set_vexpand(true);
+        body.append(&cover_frame);
+        body.append(&icon);
+        body.append(&name);
+        body.append(&facts);
+        body.append(&running);
+        body.append(&tags);
+        body.append(&players);
+        body.append(&flags_title);
+        body.append(&flags);
+        body.append(&summary);
+        body.append(&actions);
 
-        let inside = gtk4::Box::new(gtk4::Orientation::Horizontal, 14);
-        inside.append(&cover);
-        inside.append(&icon);
-        inside.append(&text);
-        let root = layout::panel(&i18n("Right now"), "input-gaming-symbolic");
+        let root = layout::panel(&i18n("Now"), "input-gaming-symbolic");
         root.add_css_class("home-card");
-        root.append(&inside);
+        root.add_css_class("now-card");
+        root.append(&body);
 
         let me = Self {
             root,
             cover,
+            cover_frame,
             icon,
             name,
             facts,
+            running,
+            running_text,
+            tags,
+            players,
+            badges: Rc::new(RefCell::new(None)),
+            launcher: Rc::new(Cell::new(None)),
+            flags_title,
             flags,
             summary,
             details,
             create,
+            open_games,
             game: Rc::new(RefCell::new(None)),
             turbo_on: Rc::new(Cell::new(false)),
             turbo_readable: Rc::new(Cell::new(true)),
@@ -1129,6 +1227,20 @@ impl InfoCard {
             fsr4_applies: Rc::new(Cell::new(None)),
             last_report,
         };
+        // What ProtonDB and the anti-cheat list say, as it arrives.
+        {
+            let weak = me.root.downgrade();
+            let badges = Rc::clone(&me.badges);
+            crate::game_info::subscribe(move |snap, _| {
+                if weak.upgrade().is_none() {
+                    return glib::ControlFlow::Break;
+                }
+                if let Some(b) = badges.borrow().as_ref() {
+                    b.show(snap, &crate::settings::load(), bigame_core::unix_now());
+                }
+                glib::ControlFlow::Continue
+            });
+        }
         me.show(None, false);
         me
     }
@@ -1147,39 +1259,63 @@ impl InfoCard {
             self.flags.append(chip.widget());
         }
         self.flags.set_visible(!flags.is_empty());
+        self.flags_title.set_visible(!flags.is_empty());
     }
 
     /// The report's summary line and its button.
     fn show_report(&self) {
         let last = self.last_report.borrow();
-        let text = last.as_ref().map(summary_line).unwrap_or_default();
+        let text = last
+            .as_ref()
+            .map(|r| labelled(&i18n("Last Turbo report"), &summary_line(r)))
+            .unwrap_or_default();
         self.summary.set_label(&text);
-        self.summary.set_visible(!text.is_empty());
+        self.summary
+            .set_visible(last.as_ref().is_some_and(|r| !summary_line(r).is_empty()));
         self.details.set_visible(last.is_some());
     }
 
+    // The empty card and the game's, side by side: one reads as the other.
+    #[allow(clippy::too_many_lines)]
     fn show(&self, game: Option<&GameIdentity>, turbo_on: bool) {
+        // The same game shown again (its graphics API found, Turbo or the
+        // preset changed): its cover, name, launcher and tags stay.
+        let same_game =
+            game.is_some() && self.game.borrow().as_ref().map(|g| g.pid) == game.map(|g| g.pid);
         *self.game.borrow_mut() = game.cloned();
         self.turbo_on.set(turbo_on);
         self.show_report();
         let Some(g) = game else {
-            self.cover.set_visible(false);
+            self.cover_frame.set_visible(false);
+            self.cover.set_paintable(None::<&gtk4::gdk::Paintable>);
             self.icon.set_visible(true);
             self.create.set_visible(false);
+            self.open_games.set_visible(true);
+            self.running.set_visible(false);
+            self.tags.set_visible(false);
+            self.players.set_visible(false);
+            *self.badges.borrow_mut() = None;
+            while let Some(child) = self.tags.first_child() {
+                self.tags.remove(&child);
+            }
             self.facts.set_visible(true);
             if turbo_on {
-                self.name.set_label(&i18n("Watching for games"));
-                self.facts
-                    .set_label(&i18n("The next game gets its profile as it starts."));
+                self.icon.remove_css_class("dim-label");
+                self.name.set_label(&i18n("No game running"));
+                self.facts.set_label(&i18n(
+                    "Turbo is watching: the next game you start gets its profile as it starts. Start one from Steam, Heroic, Lutris, the application menu or Games.",
+                ));
                 let mut flags = vec![Flag::new(Fact::Active, i18n("Turbo"))];
                 if let Some(preset) = self.preset_in_session.get() {
                     flags.push(Flag::new(Fact::Active, i18n(preset.label())));
                 }
                 self.set_flags(&flags);
             } else {
-                self.name.set_label(&i18n("Turbo is off"));
-                self.facts
-                    .set_label(&i18n("Games run without Big Game Mode's optimizations."));
+                self.icon.add_css_class("dim-label");
+                self.name.set_label(&i18n("No game running"));
+                self.facts.set_label(&i18n(
+                    "Turbo is off: games run without Big Game Mode's optimizations. Turn it on, then start a game.",
+                ));
                 self.set_flags(&[Flag::new(Fact::Off, i18n("Turbo"))]);
             }
             self.root.set_visible(self.turbo_readable.get());
@@ -1187,18 +1323,36 @@ impl InfoCard {
         };
         self.root.set_visible(true);
         self.icon.set_visible(false);
+        self.open_games.set_visible(false);
+        self.running.set_visible(true);
+        self.create
+            .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
+        if same_game {
+            self.facts.set_label(&runtime_facts(g, self.launcher.get()));
+            self.tick();
+            return;
+        }
+        // Another game: nothing of the one before stays on the card.
+        self.launcher.set(None);
+        *self.badges.borrow_mut() = None;
+        while let Some(child) = self.tags.first_child() {
+            self.tags.remove(&child);
+        }
+        self.tags.set_visible(false);
+        self.players.set_visible(false);
         self.name.set_label(&g.display_name);
-        // Steam's cover by its id; any other launcher's from the library.
-        // Found and decoded off the main thread at the size shown; dropped
-        // if another game took the card meanwhile.
-        self.cover.set_visible(false);
+        self.facts.set_label(&runtime_facts(g, None));
+        // Steam's cover by its id; any other launcher's from the library,
+        // which also says which launcher it is. Found and decoded off the
+        // main thread at the size shown; dropped if another game took the
+        // card meanwhile.
+        self.cover_frame.set_visible(false);
         {
-            let image = self.cover.clone();
+            let me = self.clone();
             let shown = Rc::clone(&self.game);
             let pid = g.pid;
-            let size = image.pixel_size() * image.scale_factor().max(1);
+            let scale = self.cover.scale_factor().max(1);
             let app_id = g.steam_app_id.clone();
-            let name = self.name.clone();
             let bare_name = g.display_name == g.process_name;
             let identity = g.clone();
             glib::spawn_future_local(async move {
@@ -1207,44 +1361,74 @@ impl InfoCard {
                         let home = std::env::var_os("HOME")?;
                         bigame_core::games::steam_cover(std::path::Path::new(&home), id)
                     });
-                    // Only a process name: the library knows the title.
-                    let installed = (steam.is_none() || bare_name)
-                        .then(|| {
-                            // Its own file first: two games can share a name.
-                            bigame_core::games::installed_game_for_running(&identity)
-                        })
-                        .flatten();
+                    // Its own file first: two games can share a name.
+                    let installed = bigame_core::games::installed_game_for_running(&identity);
+                    let launcher = match &installed {
+                        Some(i) => Some(i.source.label()),
+                        None => app_id.as_ref().map(|_| "Steam"),
+                    };
+                    let reference = installed.as_ref().map_or_else(
+                        || bigame_core::game_info::GameRef {
+                            steam: app_id.as_deref().and_then(|id| id.parse().ok()),
+                            title: identity.display_name.clone(),
+                            linux_build: identity.runtime == bigame_core::running::Runtime::Native,
+                        },
+                        bigame_core::game_info::GameRef::of,
+                    );
                     let title = installed.as_ref().map(|g| g.name.clone());
                     let texture =
                         steam
                             .or_else(|| installed.and_then(|g| g.cover))
                             .and_then(|path| {
-                                gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(
-                                    &path, size, size, true,
+                                crate::widgets::game_card::decode_cover(
+                                    &path,
+                                    COVER_WIDTH * scale,
+                                    COVER_HEIGHT * scale,
                                 )
-                                .ok()
-                                .map(|p| gtk4::gdk::Texture::for_pixbuf(&p))
                             });
-                    (title, texture)
+                    (title, texture, launcher, reference)
                 })
                 .await
                 .ok();
                 let still_shown = shown.borrow().as_ref().is_some_and(|g| g.pid == pid);
-                let Some((title, texture)) = found.filter(|_| still_shown) else {
+                let Some((title, texture, launcher, reference)) = found.filter(|_| still_shown)
+                else {
                     return;
                 };
                 if let Some(title) = title.filter(|_| bare_name) {
-                    name.set_label(&title);
+                    me.name.set_label(&title);
                 }
                 if let Some(texture) = texture {
-                    image.set_paintable(Some(&texture));
-                    image.set_visible(true);
+                    me.cover.set_paintable(Some(&texture));
+                    me.cover_frame.set_visible(true);
                 }
+                me.launcher.set(launcher);
+                if let Some(g) = shown.borrow().as_ref() {
+                    me.facts.set_label(&runtime_facts(g, launcher));
+                }
+                me.show_badges(&reference);
             });
         }
-        self.create
-            .set_action_target_value(Some(&glib::variant::ToVariant::to_variant(&g.process_name)));
         self.tick();
+    }
+
+    /// The game's `ProtonDB` rating and anti-cheat status, and its players.
+    fn show_badges(&self, game: &bigame_core::game_info::GameRef) {
+        while let Some(child) = self.tags.first_child() {
+            self.tags.remove(&child);
+        }
+        let title = self.name.label().to_string();
+        let badges =
+            crate::widgets::game_info_tags::Badges::new(game, &title, &self.tags, &self.players);
+        badges.show(
+            &crate::game_info::snapshot(),
+            &crate::settings::load(),
+            bigame_core::unix_now(),
+        );
+        *self.badges.borrow_mut() = Some(badges);
+        self.tags.set_visible(true);
+        self.players.set_visible(true);
+        // Nothing is asked while a game runs: what is kept is shown.
     }
 
     /// Read again which preset the session holds, and show it.
@@ -1271,24 +1455,19 @@ impl InfoCard {
         let Some(g) = self.game.borrow().clone() else {
             return;
         };
-        let mut facts = vec![match &g.runtime {
-            bigame_core::running::Runtime::Native => i18n("Native"),
-            bigame_core::running::Runtime::Proton(tool) if !tool.is_empty() => tool.clone(),
-            bigame_core::running::Runtime::Proton(_) => "Proton".into(),
-            bigame_core::running::Runtime::Wine => "Wine".into(),
-        }];
-        if g.graphics != bigame_core::running::Graphics::Unknown {
-            facts.push(g.graphics.label().to_owned());
-        }
-        if let Some(secs) = bigame_core::running::running_for(g.pid) {
-            facts.push(format!(
-                "{:02}:{:02}:{:02}",
-                secs / 3600,
-                (secs / 60) % 60,
-                secs % 60
-            ));
-        }
-        self.facts.set_label(&facts.join(" · "));
+        self.running_text
+            .set_label(&match bigame_core::running::running_for(g.pid) {
+                Some(secs) => labelled(
+                    &i18n("Running"),
+                    &format!(
+                        "{:02}:{:02}:{:02}",
+                        secs / 3600,
+                        (secs / 60) % 60,
+                        secs % 60
+                    ),
+                ),
+                None => i18n("Running"),
+            });
         // The flags read the game's process, its install folder (the FSR 4
         // question) and the GPU: not for a card nobody sees, such as a
         // window in the tray while the game loads. The page's loop reads
@@ -1336,6 +1515,22 @@ impl InfoCard {
             me.create.set_visible(offer);
         });
     }
+}
+
+/// The launcher (once known), how the game runs and its graphics API:
+/// "Steam · Proton 10.0 · Vulkan".
+fn runtime_facts(g: &GameIdentity, launcher: Option<&str>) -> String {
+    let mut facts: Vec<String> = launcher.map(str::to_owned).into_iter().collect();
+    facts.push(match &g.runtime {
+        bigame_core::running::Runtime::Native => i18n("Native"),
+        bigame_core::running::Runtime::Proton(tool) if !tool.is_empty() => tool.clone(),
+        bigame_core::running::Runtime::Proton(_) => "Proton".into(),
+        bigame_core::running::Runtime::Wine => "Wine".into(),
+    });
+    if g.graphics != bigame_core::running::Graphics::Unknown {
+        facts.push(g.graphics.label().to_owned());
+    }
+    facts.join(" · ")
 }
 
 /// One flag per feature for the running game, from what Details reads.

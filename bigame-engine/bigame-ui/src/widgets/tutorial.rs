@@ -169,12 +169,12 @@ fn content(tab: &str) -> Help {
                 "Where Turbo is switched on, and where you see at a glance what games are getting.",
             ),
             steps: vec![
-                i18n("Choose what games should favour: one of the four presets under the power button."),
+                i18n("Choose what games should favour: one of the three presets under the power button, in the same card."),
                 i18n(
                     "Press the power button. The disc fills as each part of Turbo is really applied, and the caption under it says which.",
                 ),
                 i18n(
-                    "Start a game from Steam, Lutris, Heroic, the application menu or Profiles. The card at the bottom shows it with its flags.",
+                    "Start a game from Steam, Lutris, Heroic, the application menu or Games. The Now card shows it with its flags.",
                 ),
                 i18n("Press the power button again to switch Turbo off: everything it changed is put back."),
             ],
@@ -201,9 +201,9 @@ fn content(tab: &str) -> Help {
                 ),
                 (
                     "input-gaming-symbolic",
-                    i18n("The game card"),
+                    i18n("Now"),
                     i18n(
-                        "While a game runs: which one, how it runs, and one coloured flag per feature (profile, scheduler, power, Gamescope, upscaling, frame generation, MangoHud, vkBasalt, frame cap). Green is in force, yellow needs a look, grey is off. Create profile appears when the game has none; View optimization details opens the full report.",
+                        "While a game runs: its cover, its launcher, how long it has run, what ProtonDB and the anti-cheat list say of it, and one coloured flag per feature (profile, scheduler, power, Gamescope, upscaling, frame generation, MangoHud, vkBasalt, frame cap). Green is in force, yellow is configured but not seen in the game, grey is off or unavailable. Create profile appears when the game has none; View the Turbo report opens it in Records.",
                     ),
                 ),
             ])
@@ -212,9 +212,9 @@ fn content(tab: &str) -> Help {
                 "A preset can be changed at any time, here or from the tray; with Turbo on it reaches the games started from then on, and it ends when Turbo does. A launcher opened before the change (Steam, Heroic, Lutris) gets it once reopened, and a notice at the top of the window offers to reopen it.",
             ),
         },
-        "profiles" => Help {
+        "games" => Help {
             icon: "applications-games-symbolic",
-            title: i18n("Profiles"),
+            title: i18n("Games"),
             lead: i18n("Your installed games, and the profile that tunes each one."),
             steps: vec![
                 i18n("Find the game: search by name, or filter by launcher and by whether it has a profile."),
@@ -253,6 +253,13 @@ fn content(tab: &str) -> Help {
                     i18n("Measure the difference"),
                     i18n(
                         "Runs the game with and without optimizations, alternating, and calls a change an improvement only when it beats the variation.",
+                    ),
+                ),
+                (
+                    "bigame-linux-symbolic",
+                    i18n("Game Compatibility"),
+                    i18n(
+                        "How each game runs on Linux (ProtonDB, or a Linux build on Steam), its anti-cheat as the Are We Anti-Cheat Yet? list says, and how many play it on Steam. Read only with the setting on, kept for offline use, and never asked while a game runs.",
                     ),
                 ),
                 (
@@ -372,45 +379,92 @@ fn content(tab: &str) -> Help {
                 "Start a game, then come back here with Alt+Tab: the charts show the last minute. While the game has the screen, nothing is read.",
             ),
         },
-        "dashboard" => Help {
+        "optimization" => Help {
             icon: "speedometer-symbolic",
+            title: i18n("Optimization"),
+            lead: i18n(
+                "What would help this machine and its games, the general configuration, what is really in force, and what is around the game.",
+            ),
+            steps: vec![
+                i18n("Read Overview: each recommendation says whether it is recommended, already adequate, not supported here, or needs a measurement to tell."),
+                i18n(
+                    "Follow a recommendation's button to the page that changes it, or copy its command. Nothing is applied from the list itself.",
+                ),
+                i18n("In advanced mode, Tuning holds the general configuration and Details shows what a running game really got."),
+            ],
+            parts: vec![
+                (
+                    "speedometer-symbolic",
+                    i18n("Overview"),
+                    i18n(
+                        "The machine at a glance, then the recommendations for its own hardware and packages, with the checks that passed.",
+                    ),
+                ),
+                (
+                    "preferences-system-symbolic",
+                    i18n("Tuning"),
+                    i18n("What every game gets, unless its own profile says otherwise (advanced mode)."),
+                ),
+                (
+                    "view-list-bullet-symbolic",
+                    i18n("Details"),
+                    i18n(
+                        "Each item of performance and of the video pipeline as Active, Configured, Not detected, Off, Missing dependency or Not supported, with the evidence (advanced mode).",
+                    ),
+                ),
+                (
+                    "network-wireless-symbolic",
+                    i18n("Network and apps"),
+                    i18n(
+                        "The connection and a DNS comparison, programs competing for the CPU, and Steam launch options that call a missing program. A DNS is never changed, and a program never paused or closed, without you asking.",
+                    ),
+                ),
+            ],
+            tip: i18n(
+                "There is no button that applies everything: each change is one you choose, on the page that makes it, and can be undone there.",
+            ),
+        },
+        "records" | "crashes" => Help {
+            icon: "document-open-recent-symbolic",
+            title: i18n("Records"),
+            lead: i18n("What happened, kept to read afterwards."),
+            steps: Vec::new(),
+            parts: vec![
+                (
+                    "view-list-bullet-symbolic",
+                    i18n("Reports"),
+                    i18n(
+                        "The last Turbo report, item by item, and the support report to paste into a forum or an issue.",
+                    ),
+                ),
+                (
+                    "dialog-error-symbolic",
+                    i18n("Games that crashed"),
+                    i18n(
+                        "Each game that closed with an error: when, what showed it, what the game said, and what else was in it. The same extras in every crash of a game are worth leaving out of it.",
+                    ),
+                ),
+                (
+                    "utilities-terminal-symbolic",
+                    i18n("Logs"),
+                    i18n("The journal and log files of a game session (advanced mode)."),
+                ),
+            ],
+            tip: i18n(
+                "When a game closes with an error, a notice at the top of the window says so, and the crash is kept here.",
+            ),
+        },
+        "details" => Help {
+            icon: "view-list-bullet-symbolic",
             title: i18n("Details"),
             lead: i18n("What is really in force for the game, and how Big Game Mode knows it."),
             steps: Vec::new(),
             parts: vec![
                 (
-                    "emblem-ok-symbolic",
-                    i18n("Overview"),
-                    i18n(
-                        "One line on how the machine stands, and a chip per item: Turbo, falcond, the profile, power, the scheduler, the GPU, Gamescope, upscaling, frame generation.",
-                    ),
-                ),
-                (
                     "view-list-bullet-symbolic",
                     i18n("Performance and video pipeline"),
                     i18n(
                         "Each item is Active, Waiting for a game, Configured, Not detected, Off, Missing dependency or Not supported. Open a row for what that means, the evidence and the fix.",
-                    ),
-                ),
-                (
-                    "dialog-warning-symbolic",
-                    i18n("Problems"),
-                    i18n(
-                        "Everything that needs attention, classed as fixable, needing you, hardware or information, with commands to copy. A hardware limit is never an error.",
-                    ),
-                ),
-                (
-                    "network-wireless-symbolic",
-                    i18n("Network, background load and Steam"),
-                    i18n(
-                        "The connection and a DNS comparison, programs competing for the CPU, and Steam launch options that call a missing program.",
-                    ),
-                ),
-                (
-                    "edit-copy-symbolic",
-                    i18n("Support report"),
-                    i18n(
-                        "Everything above in one text to paste into a forum or an issue, with your user name, home folder and host masked.",
                     ),
                 ),
             ],
@@ -527,7 +581,7 @@ fn content(tab: &str) -> Help {
                     i18n("Attempted, and the system did not change: the reason is on the row."),
                 ),
             ],
-            tip: i18n("The back button at the top returns to Home."),
+            tip: i18n("Each new Turbo report replaces this one; Home shows its summary under Now."),
         },
         _ => Help {
             icon: "help-about-symbolic",
@@ -546,7 +600,19 @@ mod tests {
 
     #[test]
     fn every_page_has_help_of_its_own() {
-        for page in crate::window::PAGES.iter().copied().chain(["report"]) {
+        let tabs = [
+            ("optimization", "tuning"),
+            ("optimization", "details"),
+            ("records", "reports"),
+            ("records", "crashes"),
+            ("records", "logs"),
+        ];
+        let places = crate::window::PAGES
+            .iter()
+            .map(|p| crate::window::help_key(p, ""))
+            .chain(tabs.iter().map(|(p, t)| crate::window::help_key(p, t)));
+        for page in places {
+            let page = page.as_str();
             let help = content(page);
             assert!(!help.parts.is_empty(), "{page} has no help");
             assert!(!help.lead.is_empty() && !help.tip.is_empty(), "{page}");

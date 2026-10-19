@@ -246,3 +246,52 @@ mod tests {
         assert_eq!(plain.english(), "no values");
     }
 }
+
+/// `n` with the digit grouping of the user's locale (`LC_NUMERIC`, as the
+/// interface set it at start-up): 31,351 in English, 31.351 in Portuguese,
+/// 31 351 in French. A locale with no separator (C) groups nothing.
+#[must_use]
+pub fn grouped(n: u64) -> String {
+    // SAFETY: localeconv returns a pointer to static data of the C library,
+    // read at once and copied; the interface calls this on its main thread,
+    // where the locale is set, and nothing changes it afterwards.
+    let sep = unsafe {
+        let lc = libc::localeconv();
+        if lc.is_null() || (*lc).thousands_sep.is_null() {
+            String::new()
+        } else {
+            std::ffi::CStr::from_ptr((*lc).thousands_sep)
+                .to_string_lossy()
+                .into_owned()
+        }
+    };
+    group_with(n, &sep)
+}
+
+fn group_with(n: u64, sep: &str) -> String {
+    let digits = n.to_string();
+    if sep.is_empty() {
+        return digits;
+    }
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3 * sep.len());
+    for (i, d) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push_str(sep);
+        }
+        out.push(d);
+    }
+    out
+}
+
+#[cfg(test)]
+mod grouping_tests {
+    #[test]
+    fn digits_are_grouped_by_threes_with_the_locales_separator() {
+        assert_eq!(super::group_with(31_351, ","), "31,351");
+        assert_eq!(super::group_with(1_009_131, "."), "1.009.131");
+        assert_eq!(super::group_with(999, "."), "999");
+        assert_eq!(super::group_with(0, "."), "0");
+        assert_eq!(super::group_with(31_351, "\u{202f}"), "31\u{202f}351");
+        assert_eq!(super::group_with(31_351, ""), "31351");
+    }
+}
