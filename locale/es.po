@@ -1329,8 +1329,8 @@ msgid "Big Game Mode asks it to quit, as closing its window would (SIGTERM). Any
 msgstr "Big Game Mode le pide que se cierre, como haría cerrar su ventana (SIGTERM). Lo que no hayas guardado en él puede perderse. Un programa que ignore la petición sigue en ejecución: nada lo obliga."
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:98
-msgid "Big Game Mode cannot start this game, and its launcher takes no launch settings from Big Game Mode: it gets Tuning's, Wine FSR and vkBasalt from the session environment."
-msgstr "Big Game Mode no puede iniciar este juego, y su lanzador no recibe configuración de inicio de Big Game Mode: recibe la de Ajustes, Wine FSR y vkBasalt desde el entorno de la sesión."
+msgid "Big Game Mode cannot start this game, and its launcher takes no launch settings from Big Game Mode: it gets Tuning's Wine FSR from the session environment, and no vkBasalt, which reaches only the games Steam or Big Game Mode starts."
+msgstr "Big Game Mode no puede iniciar este juego, y su lanzador no recibe configuración de inicio de Big Game Mode: recibe el Wine FSR de Ajustes desde el entorno de la sesión, y no vkBasalt, que solo llega a los juegos que inician Steam o Big Game Mode."
 
 #: bigame-engine/bigame-core/src/graphics/mod.rs:267
 #: bigame-engine/bigame-core/src/graphics/transaction.rs:798
@@ -5933,8 +5933,8 @@ msgid "Service Issues Detected"
 msgstr "Se detectaron problemas en el servicio"
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:828
-msgid "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it."
-msgstr "Se establece en el entorno de la sesión para cada juego iniciado después. Un lanzador que ya está abierto (Steam) conserva su entorno anterior: ciérralo y vuelve a abrirlo."
+msgid "Wine FSR, and the file vkBasalt reads, are set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it. vkBasalt itself reaches games only."
+msgstr "Wine FSR, y el archivo que lee vkBasalt, se establecen en el entorno de la sesión para cada juego iniciado después. Un lanzador que ya está abierto (Steam) conserva su entorno anterior: ciérralo y vuelve a abrirlo. vkBasalt en sí solo llega a los juegos."
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1289
 msgid "Set its path in the row above: one file for every game, saved at once."
@@ -6116,8 +6116,8 @@ msgid "Started through"
 msgstr "Iniciado mediante"
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1555
-msgid "Started through its own launcher, this game gets Tuning's settings from the session environment."
-msgstr "Iniciado mediante su propio lanzador, este juego recibe la configuración de Ajustes desde el entorno de la sesión."
+msgid "Started through its own launcher, this game gets Tuning's Wine FSR from the session environment; Tuning's vkBasalt reaches only the games Steam or Big Game Mode starts."
+msgstr "Iniciado mediante su propio lanzador, este juego recibe el Wine FSR de Ajustes desde el entorno de la sesión; el vkBasalt de Ajustes solo llega a los juegos que inician Steam o Big Game Mode."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:134
 #: bigame-engine/bigame-ui/src/views/measure_dialog.rs:139
@@ -7278,8 +7278,8 @@ msgid "Visual filters (sharpening, colour) for Vulkan and Proton games. A look, 
 msgstr "Filtros visuales (nitidez, color) para juegos de Vulkan y Proton. Un efecto visual, no una aceleración: cuesta un poco de tiempo de GPU. En el juego, la tecla Home lo activa y lo desactiva."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1095
-msgid "Visual filters (sharpening, colour). On here, it reaches every Vulkan program you open, games or not, and costs GPU time; a game's own profile can turn it on for that game alone. In the game, the Home key turns it on and off."
-msgstr "Filtros visuales (nitidez, color). Activado aquí, llega a todos los programas Vulkan que abras, sean juegos o no, y cuesta tiempo de GPU; el perfil de un juego puede activarlo solo para ese juego. En el juego, la tecla Home lo activa y lo desactiva."
+msgid "Visual filters (sharpening, colour), for games only. On here, the games Steam or Big Game Mode starts get it, and no other program loads it (a local AI included); a game's own profile can turn it on or off for that game alone. It costs GPU time. In the game, the Home key turns it on and off."
+msgstr "Filtros visuales (nitidez, color), solo para juegos. Activado aquí, lo reciben los juegos que inician Steam o Big Game Mode, y ningún otro programa lo carga (tampoco una IA local); el perfil de un juego puede activarlo o desactivarlo solo para ese juego. Cuesta tiempo de GPU. En el juego, la tecla Home lo activa y lo desactiva."
 
 #: bigame-engine/bigame-ui/src/views/ai_graphics.rs:730
 msgid "Vulkan on the host"
@@ -7353,8 +7353,8 @@ msgid "What is in the game's folder now, placed by Big Game Mode."
 msgstr "Lo que hay ahora en la carpeta del juego, colocado por Big Game Mode."
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1570
-msgid "What is left on “General configuration” comes from the session environment, as Tuning sets it."
-msgstr "Lo que quede en «Configuración general» viene del entorno de la sesión, tal como lo establece Ajustes."
+msgid "What is left on “General configuration” follows Tuning: Wine FSR from the session environment, vkBasalt in the games Steam or Big Game Mode starts."
+msgstr "Lo que quede en «Configuración general» sigue a Ajustes: Wine FSR desde el entorno de la sesión, vkBasalt en los juegos que inician Steam o Big Game Mode."
 
 #: bigame-engine/bigame-ui/src/widgets/game_fields.rs:1563
 msgid "What is left on “General configuration” follows Tuning → Display."
@@ -7548,8 +7548,8 @@ msgid "Wine FSR and OptiScaler both upscale this game: two upscalers in series. 
 msgstr "Wine FSR y OptiScaler escalan este juego a la vez: dos escaladores en serie. WINE_FULLSCREEN_FSR=1 no proviene de Big Game Mode: quítalo de las opciones de lanzamiento del juego en Steam (Propiedades → Opciones de lanzamiento)."
 
 #: bigame-engine/bigame-ui/src/views/tuning.rs:1618
-msgid "Wine FSR and vkBasalt are written to ~/.config/environment.d/bigame-mode.conf and pushed into the user systemd manager, so every game started afterwards inherits them."
-msgstr "Wine FSR y vkBasalt se escriben en ~/.config/environment.d/bigame-mode.conf y se envían al gestor de systemd del usuario, para que todos los juegos iniciados después los hereden."
+msgid "Wine FSR is written to ~/.config/environment.d/bigame-mode.conf and pushed into the user systemd manager, so every game started afterwards inherits it. vkBasalt is not: a Vulkan layer in ~/.local/share/vulkan/implicit_layer.d gives it to the games Steam starts, and to no other program."
+msgstr "Wine FSR se escribe en ~/.config/environment.d/bigame-mode.conf y se envía al gestor de systemd del usuario, para que todos los juegos iniciados después lo hereden. vkBasalt no: una capa de Vulkan en ~/.local/share/vulkan/implicit_layer.d lo entrega a los juegos que inicia Steam, y a ningún otro programa."
 
 #: bigame-engine/bigame-ui/src/widgets/launch.rs:240
 msgid "Wine FSR enlarges a game that runs in exclusive fullscreen at a size below the screen's, with AMD FSR 1. The mode says how much smaller the game renders: the game's list of resolutions gains that size, and choosing it in the game's own video settings turns the upscaling on. It exists only in Proton builds that carry Wine's fullscreen patch, such as GE-Proton and Proton-tkg; Valve's current Proton ignores it."
@@ -9459,8 +9459,8 @@ msgid "vkBasalt has to run in the game: loaded by Gamescope it sharpens Gamescop
 msgstr "vkBasalt tiene que ejecutarse en el juego: cargado por Gamescope, aplica nitidez por segunda vez a la salida ya escalada de Gamescope, y Gamescope lo saca del juego; Big Game Mode lo mantiene en el juego"
 
 #: bigame-engine/bigame-ui/src/views/details/pipeline.rs:454
-msgid "vkBasalt is a Vulkan layer: it loads only in Vulkan (and Proton) games, and only when ENABLE_VKBASALT=1 reached the game. A launcher started before the setting keeps its old environment; restart it."
-msgstr "vkBasalt es una capa de Vulkan: solo se carga en juegos de Vulkan (y Proton), y solo cuando ENABLE_VKBASALT=1 llegó al juego. Un lanzador iniciado antes del ajuste mantiene su entorno anterior; reinícialo."
+msgid "vkBasalt is a Vulkan layer: it loads only in Vulkan (and Proton) games, from Tuning in those Steam or Big Game Mode starts, or from the game's own profile. A game gets a change from its next start; a launcher started with ENABLE_VKBASALT in its environment keeps it: restart it."
+msgstr "vkBasalt es una capa de Vulkan: solo se carga en juegos de Vulkan (y Proton), desde Ajustes en los que inician Steam o Big Game Mode, o desde el perfil propio del juego. Un juego recibe un cambio a partir de su próximo inicio; un lanzador iniciado con ENABLE_VKBASALT en su entorno lo mantiene: reinícialo."
 
 #: bigame-engine/bigame-ui/src/widgets/turbo_presets.rs:64
 msgid "vkBasalt is not installed, so there is no sharpening."
