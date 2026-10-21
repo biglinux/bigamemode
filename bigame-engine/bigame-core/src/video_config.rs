@@ -178,13 +178,15 @@ pub fn sync_session_env_with(
 ) -> Result<Vec<String>> {
     crate::turbo_preset::prepare(layer.levers)?;
     let env = session_env_with(cfg, layer);
+    let (unset, set) = session_change(&env, layer.owns_preset_keys);
+    sync_session(&unset, &set)?;
+    keep_vkbasalt_out()?;
+    // Last: a vkBasalt manifest that cannot be read must not keep the rest
+    // of the session (Wine FSR, a preset's frame cap) from its change.
     crate::vkbasalt_layer::sync(
         env.get(crate::vkbasalt_layer::SWITCH)
             .is_some_and(|v| v == "1"),
     )?;
-    let (unset, set) = session_change(&env, layer.owns_preset_keys);
-    sync_session(&unset, &set)?;
-    keep_vkbasalt_out()?;
     Ok(set)
 }
 

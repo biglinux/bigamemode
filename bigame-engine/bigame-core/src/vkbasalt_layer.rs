@@ -61,7 +61,12 @@ pub fn is_on() -> bool {
 /// # Errors
 /// Returns an error when a manifest cannot be read, written or removed.
 pub fn sync(on: bool) -> Result<()> {
-    sync_in(&dir(), &crate::capabilities::system_layer_dirs(), on)
+    let mut sources = crate::capabilities::system_layer_dirs();
+    // A vkBasalt installed for this user only, which
+    // `crate::capabilities::vkbasalt_installed` accepts too. The copies are
+    // not taken for it: their names do not start with `vkBasalt`.
+    sources.push(dir());
+    sync_in(&dir(), &sources, on)
 }
 
 fn sync_in(dir: &Path, system_dirs: &[PathBuf], on: bool) -> Result<()> {
@@ -289,6 +294,15 @@ mod tests {
         std::fs::remove_file(system.join("vkBasalt.json")).unwrap();
         sync_in(&user, &systems, true).unwrap();
         assert!(ours(&user).is_empty());
+
+        // A vkBasalt installed for this user only, beside the copy: copied,
+        // and the copy is never taken for a vkBasalt of its own.
+        std::fs::write(user.join("vkBasalt.json"), SYSTEM).unwrap();
+        let sources = [system.clone(), user.clone()];
+        sync_in(&user, &sources, true).unwrap();
+        assert_eq!(ours(&user), [user.join("bigame-mode-vkBasalt.json")]);
+        sync_in(&user, &sources, true).unwrap();
+        assert_eq!(ours(&user).len(), 1);
         let _ = std::fs::remove_dir_all(&root);
     }
 
