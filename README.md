@@ -419,7 +419,8 @@ Before switching it on, choose what games should favour:
 
 A preset lives only in the running session (the user's systemd manager, never
 `environment.d`) and leaves with Turbo, even when falcond stops on its own. Your
-own `DXVK_CONFIG` and FSR 4 variables are kept and given back.
+own `DXVK_CONFIG` and FSR 4 variables are kept and given back. Pretty's
+vkBasalt, like Tuning's, reaches games only.
 
 ### Per-game profiles
 
@@ -439,7 +440,10 @@ added.
 - system performance through falcond (scheduler, V-Cache, profiles);
 - **Gamescope** with sizes picked from standard resolutions and the main
   screen's;
-- **Wine FSR** and **vkBasalt** (CAS or the Nara Linux look);
+- **Wine FSR** and **vkBasalt** (CAS or the Nara Linux look). vkBasalt
+  reaches games only — those Steam or Big Game Mode starts — through a Vulkan
+  layer for games, never the rest of the session: a local AI or any other
+  Vulkan program does not load it;
 - **frame generation** with [lsfg-vk](https://github.com/PancakeTAS/lsfg-vk)
   (1.x and 2.x, with your own `Lossless.dll`, never shipped or downloaded);
 - the **MangoHud** overlay, with Steam Deck–like styles.

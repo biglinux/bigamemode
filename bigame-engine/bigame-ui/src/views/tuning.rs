@@ -10,7 +10,8 @@
 //! Two kinds of settings live here, and each says which it is: falcond's
 //! (written through the privileged helper, which reloads falcond) and the
 //! launch settings in `video.toml` (read when Big Game Mode starts a game;
-//! Wine FSR and vkBasalt also go into the session environment). Every
+//! Wine FSR also goes into the session environment, vkBasalt into a Vulkan
+//! layer for games, `bigame_core::vkbasalt_layer`). Every
 //! change is saved at once, off the main thread, one write at a time with
 //! the newest state last (a spin button or a typed path waits until it
 //! settles); a save that fails is said, with its reason, and the page goes
@@ -826,7 +827,7 @@ fn build_image_quality(saver: &VideoSaver, display: &Display) -> adw::Preference
     let video = saver.shared();
     let group = ui::section(N_("Image quality"));
     group.set_description(Some(&i18n(
-        "Set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it.",
+        "Wine FSR, and the file vkBasalt reads, are set in the session environment for every game started afterwards. A launcher already running (Steam) keeps its old environment: close and reopen it. vkBasalt itself reaches games only.",
     )));
     let cfg = video.borrow().clone();
 
@@ -1093,7 +1094,7 @@ fn build_vkbasalt(saver: &VideoSaver, group: &adw::PreferencesGroup) {
     let switch = adw::SwitchRow::builder()
         .title("vkBasalt")
         .subtitle(i18n(
-            "Visual filters (sharpening, colour). On here, it reaches every Vulkan program you open, games or not, and costs GPU time; a game's own profile can turn it on for that game alone. In the game, the Home key turns it on and off.",
+            "Visual filters (sharpening, colour), for games only. On here, the games Steam or Big Game Mode starts get it, and no other program loads it (a local AI included); a game's own profile can turn it on or off for that game alone. It costs GPU time. In the game, the Home key turns it on and off.",
         ))
         .active(cfg.upscaling.vkbasalt_enabled)
         .build();
@@ -1616,7 +1617,7 @@ fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup 
     let env_row = adw::ActionRow::builder()
         .title(i18n("Environment file"))
         .subtitle(i18n(
-            "Wine FSR and vkBasalt are written to ~/.config/environment.d/bigame-mode.conf and pushed into the user systemd manager, so every game started afterwards inherits them.",
+            "Wine FSR is written to ~/.config/environment.d/bigame-mode.conf and pushed into the user systemd manager, so every game started afterwards inherits it. vkBasalt is not: a Vulkan layer in ~/.local/share/vulkan/implicit_layer.d gives it to the games Steam starts, and to no other program.",
         ))
         .subtitle_lines(4)
         .use_markup(false)

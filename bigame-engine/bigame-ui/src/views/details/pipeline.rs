@@ -452,7 +452,7 @@ impl Pipeline {
             );
         body = match vb {
             State::NotDetected => body.note(&i18n(
-                "vkBasalt is a Vulkan layer: it loads only in Vulkan (and Proton) games, and only when ENABLE_VKBASALT=1 reached the game. A launcher started before the setting keeps its old environment; restart it.",
+                "vkBasalt is a Vulkan layer: it loads only in Vulkan (and Proton) games, from Tuning in those Steam or Big Game Mode starts, or from the game's own profile. A game gets a change from its next start; a launcher started with ENABLE_VKBASALT in its environment keeps it: restart it.",
             )),
             State::Missing => body.command("sudo pacman -S vkbasalt"),
             _ => body,

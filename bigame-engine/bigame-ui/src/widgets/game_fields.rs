@@ -96,7 +96,7 @@ fn no_reach_row() -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(i18n("Not for this game"))
         .subtitle(i18n(
-            "Big Game Mode cannot start this game, and its launcher takes no launch settings from Big Game Mode: it gets Tuning's, Wine FSR and vkBasalt from the session environment.",
+            "Big Game Mode cannot start this game, and its launcher takes no launch settings from Big Game Mode: it gets Tuning's Wine FSR from the session environment, and no vkBasalt, which reaches only the games Steam or Big Game Mode starts.",
         ))
         .subtitle_lines(4)
         .use_markup(false)
@@ -1553,7 +1553,7 @@ impl GameFields {
                 "For this game when Big Game Mode starts it, and in its Steam launch options or its settings in Heroic when one of them starts it (written when you save, with that launcher closed).",
             ),
             Reach::Nothing => i18n(
-                "Started through its own launcher, this game gets Tuning's settings from the session environment.",
+                "Started through its own launcher, this game gets Tuning's Wine FSR from the session environment; Tuning's vkBasalt reaches only the games Steam or Big Game Mode starts.",
             ),
         };
         let display_group = section(
@@ -1568,7 +1568,7 @@ impl GameFields {
             format!(
                 "{reaches} {}",
                 i18n(
-                    "What is left on “General configuration” comes from the session environment, as Tuning sets it."
+                    "What is left on “General configuration” follows Tuning: Wine FSR from the session environment, vkBasalt in the games Steam or Big Game Mode starts."
                 )
             ),
         );

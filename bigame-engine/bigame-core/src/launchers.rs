@@ -593,15 +593,34 @@ fn parse_environ(raw: &[u8]) -> Option<HashMap<String, String>> {
 /// else than `session` does. An environment that cannot be read is taken
 /// as behind: offering to open a launcher again costs a click, a preset that
 /// silently does not arrive costs the game.
+///
+/// vkBasalt's switch is not in the session's environment
+/// ([`crate::vkbasalt_layer`]): Steam's games get it from the layer for
+/// games (`vkbasalt_layer`, whether it is there) unless Steam's environment
+/// sets it. Another launcher's games never get it from the session, so it
+/// is no reason to open that launcher again.
 fn behind<S: std::hash::BuildHasher>(
+    launcher: Launcher,
     env: Option<&HashMap<String, String, S>>,
     session: &HashMap<String, String, S>,
+    vkbasalt_layer: bool,
 ) -> bool {
     let Some(env) = env else {
         return true;
     };
-    crate::video_config::in_force(|k| env.get(k).map(String::as_str))
-        != crate::video_config::in_force(|k| session.get(k).map(String::as_str))
+    let switch = crate::vkbasalt_layer::SWITCH;
+    let steam = launcher == Launcher::Steam;
+    crate::video_config::in_force(|k| match env.get(k) {
+        None if k == switch && steam && vkbasalt_layer => Some("1"),
+        _ if k == switch && !steam => None,
+        v => v.map(String::as_str),
+    }) != crate::video_config::in_force(|k| {
+        if k == switch && !steam {
+            None
+        } else {
+            session.get(k).map(String::as_str)
+        }
+    })
 }
 
 /// The launchers open now whose games would not get what the session holds
@@ -609,13 +628,14 @@ fn behind<S: std::hash::BuildHasher>(
 #[must_use]
 pub fn behind_the_session() -> Vec<Launcher> {
     let session = crate::video_config::session_env(&crate::video_config::load());
+    let vkbasalt_layer = crate::vkbasalt_layer::is_on();
     find_open(&snapshot())
         .into_iter()
         .filter(|open| {
             let env = std::fs::read(format!("/proc/{}/environ", open.env_from))
                 .ok()
                 .and_then(|raw| parse_environ(&raw));
-            behind(env.as_ref(), &session)
+            behind(open.launcher, env.as_ref(), &session, vkbasalt_layer)
         })
         .map(|open| open.launcher)
         .collect()
@@ -1131,7 +1151,7 @@ mod tests {
             ("WINE_FULLSCREEN_FSR", "1"),
             ("WINE_FULLSCREEN_FSR_MODE", "performance"),
         ]);
-        assert!(behind(Some(&before), &session));
+        assert!(behind(Launcher::Steam, Some(&before), &session, false));
         // Opened after: the same, whatever else it has.
         let mut after = before.clone();
         after.extend(env(&[
@@ -1143,13 +1163,51 @@ mod tests {
             ("ENABLE_VKBASALT", "0"),
             ("LANG", "pt_BR.UTF-8"),
         ]));
-        assert!(!behind(Some(&after), &session));
+        assert!(!behind(Launcher::Steam, Some(&after), &session, false));
         // A switch at 0 is a switch that is off, and its detail goes with it
         // (the reference desktop's Steam: ENABLE_VKBASALT=0 from the login).
         let off = env(&[("ENABLE_VKBASALT", "0"), ("WINE_FULLSCREEN_FSR_MODE", "x")]);
-        assert!(!behind(Some(&off), &HashMap::new()));
+        assert!(!behind(Launcher::Steam, Some(&off), &HashMap::new(), false));
         // Unreadable: offered, rather than a preset silently missing.
-        assert!(behind(None, &session));
+        assert!(behind(Launcher::Steam, None, &session, false));
+    }
+
+    #[test]
+    fn vkbasalt_reaches_steams_games_from_the_layer_not_from_steam() {
+        let session = env(&[
+            ("ENABLE_VKBASALT", "1"),
+            ("VKBASALT_CONFIG_FILE", "/c/cas.conf"),
+        ]);
+        // Steam opened after the CAS file went in: its games get vkBasalt
+        // from the layer for games, without the switch in its environment.
+        let steam = env(&[("HOME", "/h"), ("VKBASALT_CONFIG_FILE", "/c/cas.conf")]);
+        assert!(!behind(Launcher::Steam, Some(&steam), &session, true));
+        // The layer is not there (vkBasalt not installed): they would not.
+        assert!(behind(Launcher::Steam, Some(&steam), &session, false));
+        // A Steam opened when Big Game Mode 3.0.0 or older held the switch
+        // off in the session: its `0` keeps the layer out of its games.
+        let mut old = steam.clone();
+        old.insert("ENABLE_VKBASALT".into(), "0".into());
+        assert!(behind(Launcher::Steam, Some(&old), &session, true));
+        // And one that held it on gives vkBasalt to every program it starts.
+        let mut everywhere = env(&[("HOME", "/h"), ("ENABLE_VKBASALT", "1")]);
+        assert!(behind(
+            Launcher::Steam,
+            Some(&everywhere),
+            &HashMap::new(),
+            false
+        ));
+        // Heroic's games never get vkBasalt from the session: opening Heroic
+        // again would change nothing, so it is not offered for that.
+        let heroic = Launcher::Heroic { flatpak: true };
+        assert!(!behind(
+            heroic,
+            Some(&env(&[("HOME", "/h")])),
+            &session,
+            true
+        ));
+        everywhere.remove("HOME");
+        assert!(!behind(heroic, Some(&everywhere), &HashMap::new(), true));
     }
 
     fn game(source: Source) -> DetectedGame {

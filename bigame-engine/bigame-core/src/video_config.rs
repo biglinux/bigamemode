@@ -114,16 +114,17 @@ pub const SESSION_KEYS: &[&str] = &[
 ///
 /// environment.d is read at login; the running manager is what Steam, and
 /// the games it starts after a Steam restart, inherit now. If `cfg` produces
-/// no variables the file is removed and the variables are unset.
+/// no variables the file is removed and the variables are unset. vkBasalt's
+/// switch is never among them: it reaches games only
+/// ([`crate::vkbasalt_layer`]).
 ///
 /// # Errors
 /// Returns error if directory creation or file I/O fails, or the running
 /// session's environment cannot be updated.
 pub fn write_env_file(cfg: &VideoConfig) -> Result<()> {
-    write_env_file_at(
-        &env_file_path(),
-        &crate::launcher::build_persistent_env(cfg),
-    )?;
+    let mut env = crate::launcher::build_persistent_env(cfg);
+    env.remove(crate::vkbasalt_layer::SWITCH);
+    write_env_file_at(&env_file_path(), &env)?;
     sync_session_env(cfg).context(UserError::plain(N_(
         "could not update the running session's environment",
     )))?;
@@ -154,11 +155,13 @@ fn write_env_file_at(path: &Path, env: &HashMap<String, String>) -> Result<()> {
 /// force laid over them ([`crate::turbo_preset`]), and return the
 /// assignments it holds afterwards (read back).
 ///
-/// The preset's part never goes to `environment.d`: only here.
+/// The preset's part never goes to `environment.d`: only here. vkBasalt's
+/// switch goes to neither: it is given to the games the Steam client starts
+/// ([`crate::vkbasalt_layer`]), and kept out of the session.
 ///
 /// # Errors
 /// Returns an error when the session's environment cannot be set, or reads
-/// back different.
+/// back different, or vkBasalt's layer for games cannot be written.
 pub fn sync_session_env(cfg: &VideoConfig) -> Result<Vec<String>> {
     sync_session_env_with(cfg, &crate::turbo_preset::layer())
 }
@@ -175,9 +178,76 @@ pub fn sync_session_env_with(
 ) -> Result<Vec<String>> {
     crate::turbo_preset::prepare(layer.levers)?;
     let env = session_env_with(cfg, layer);
+    crate::vkbasalt_layer::sync(
+        env.get(crate::vkbasalt_layer::SWITCH)
+            .is_some_and(|v| v == "1"),
+    )?;
     let (unset, set) = session_change(&env, layer.owns_preset_keys);
     sync_session(&unset, &set)?;
+    keep_vkbasalt_out()?;
     Ok(set)
+}
+
+/// Take vkBasalt's switch out of the running session, where Big Game Mode
+/// 3.0.0 and older put it (at `1` while on, `0` while off): at `1` it reached
+/// every Vulkan program, and at any value it keeps the layer for games out
+/// of Steam's games ([`crate::vkbasalt_layer`]).
+///
+/// What the login put there from an older `environment.d` cannot be unset
+/// (systemd 261, see [`session_change`]): it is held at `0` until the next
+/// login, which no longer reads it. Games then get vkBasalt through their
+/// own launch only.
+fn keep_vkbasalt_out() -> Result<()> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    /// The login holds the switch: unsetting it again would only bring the
+    /// login's `1` back for a moment.
+    static FROM_THE_LOGIN: AtomicBool = AtomicBool::new(false);
+    let switch = crate::vkbasalt_layer::SWITCH;
+    let manager = user_manager(session_bus()?)?;
+    let now = || -> Result<Option<String>> {
+        let env: Vec<String> = manager
+            .get_property("Environment")
+            .context("read the session environment back")?;
+        Ok(env.iter().find_map(|a| {
+            a.split_once('=')
+                .filter(|(k, _)| *k == switch)
+                .map(|(_, v)| v.to_owned())
+        }))
+    };
+    let held = now()?;
+    let login = FROM_THE_LOGIN.load(Ordering::Relaxed);
+    if held.is_none() || (login && held.as_deref() != Some("1")) {
+        return Ok(());
+    }
+    if !login {
+        manager
+            .call_method(
+                "UnsetAndSetEnvironment",
+                &(vec![switch], Vec::<String>::new()),
+            )
+            .context("UnsetAndSetEnvironment")?;
+        if now()?.is_none() {
+            return Ok(());
+        }
+    }
+    FROM_THE_LOGIN.store(true, Ordering::Relaxed);
+    let off = format!("{switch}=0");
+    manager
+        .call_method(
+            "UnsetAndSetEnvironment",
+            &(Vec::<String>::new(), vec![off.as_str()]),
+        )
+        .context("UnsetAndSetEnvironment")?;
+    if now()?.as_deref() != Some("0") {
+        anyhow::bail!(UserError::with(
+            N_("the session environment did not change: missing %s, still set %s"),
+            [off, String::new()]
+        ));
+    }
+    tracing::warn!(
+        "the login put vkBasalt's switch in the session; it is held off until the next login"
+    );
+    Ok(())
 }
 
 /// What [`sync_session_env`] brings the running session to: `cfg`'s
@@ -196,7 +266,9 @@ fn session_env_with(
     env
 }
 
-/// The running `systemd --user` manager's environment.
+/// The running `systemd --user` manager's environment, with vkBasalt's
+/// switch as a game the Steam client starts now sees it
+/// ([`crate::vkbasalt_layer::in_games`]).
 ///
 /// # Errors
 /// Returns an error when the session bus or the manager cannot be reached.
@@ -204,11 +276,13 @@ pub fn session_environment() -> Result<HashMap<String, String>> {
     let now: Vec<String> = user_manager(session_bus()?)?
         .get_property("Environment")
         .context("read the session environment")?;
-    Ok(now
+    let mut env = now
         .iter()
         .filter_map(|a| a.split_once('='))
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .collect())
+        .collect();
+    crate::vkbasalt_layer::in_games(&mut env, crate::vkbasalt_layer::is_on());
+    Ok(env)
 }
 
 /// One session bus connection for the whole process, opened on first use:
@@ -281,14 +355,19 @@ const DETAILS: &[(&str, &str)] = &[
 /// only while a preset's record is there (`owns_preset_keys`): otherwise
 /// they are the user's alone (a `DXVK_CONFIG` of their own, from their
 /// `environment.d` or set by hand), and a Tuning save must not unset them.
+///
+/// vkBasalt's switch is neither set nor unset here: it goes to games only
+/// ([`crate::vkbasalt_layer`]), and [`keep_vkbasalt_out`] takes it out.
 fn session_change(
     env: &HashMap<String, String>,
     owns_preset_keys: bool,
 ) -> (Vec<String>, Vec<String>) {
+    let vkbasalt = crate::vkbasalt_layer::SWITCH;
     let managed = |k: &&&str| owns_preset_keys || !crate::turbo_preset::PRESET_KEYS.contains(*k);
     let absent = SESSION_KEYS
         .iter()
         .filter(managed)
+        .filter(|k| **k != vkbasalt)
         .filter(|k| !env.contains_key(**k));
     let unset = absent
         .clone()
@@ -297,6 +376,7 @@ fn session_change(
         .collect();
     let mut set: Vec<String> = env
         .iter()
+        .filter(|(k, _)| *k != vkbasalt)
         .map(|(k, v)| format!("{k}={v}"))
         .chain(
             absent
@@ -407,14 +487,32 @@ mod tests {
         let (unset, set) = session_change(&env, true);
         // Wine FSR off: its switch is set to 0, which overrides a value the
         // login put there; its mode and vkBasalt's file are just unset.
-        assert_eq!(set, ["ENABLE_VKBASALT=1", "WINE_FULLSCREEN_FSR=0"]);
+        // vkBasalt's own switch never goes to the session: every Vulkan
+        // program would load it, a local AI's compute included.
+        assert_eq!(set, ["WINE_FULLSCREEN_FSR=0"]);
         assert!(unset.contains(&"WINE_FULLSCREEN_FSR_MODE".to_owned()));
         assert!(unset.contains(&"VKBASALT_CONFIG_FILE".to_owned()));
         assert!(!unset.contains(&"ENABLE_VKBASALT".to_owned()));
-        // Everything off: both switches at 0, the other keys removed.
+        // Everything off: Wine FSR's switch at 0, the other keys removed,
+        // vkBasalt's left to `keep_vkbasalt_out`.
         let (unset, set) = session_change(&HashMap::new(), true);
-        assert_eq!(set, ["ENABLE_VKBASALT=0", "WINE_FULLSCREEN_FSR=0"]);
+        assert_eq!(set, ["WINE_FULLSCREEN_FSR=0"]);
         assert_eq!(unset.len(), SESSION_KEYS.len() - SWITCHES.len());
+        assert!(!unset.contains(&"ENABLE_VKBASALT".to_owned()));
+    }
+
+    #[test]
+    fn vkbasalts_file_still_reaches_the_session_without_its_switch() {
+        // Pretty's CAS file: vkBasalt reads it in the games the layer for
+        // games reaches, which only the session's environment gets to.
+        let env = HashMap::from([
+            ("ENABLE_VKBASALT".to_owned(), "1".to_owned()),
+            ("VKBASALT_CONFIG_FILE".to_owned(), "/c/cas.conf".to_owned()),
+        ]);
+        let (unset, set) = session_change(&env, true);
+        assert!(set.contains(&"VKBASALT_CONFIG_FILE=/c/cas.conf".to_owned()));
+        assert!(!set.iter().any(|a| a.starts_with("ENABLE_VKBASALT=")));
+        assert!(!unset.contains(&"VKBASALT_CONFIG_FILE".to_owned()));
     }
 
     #[test]
