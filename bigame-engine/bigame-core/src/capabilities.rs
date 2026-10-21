@@ -423,15 +423,20 @@ fn detect_sched_ext() -> SchedExtCaps {
     }
 }
 
-fn vulkan_layer_installed(stem: &str) -> bool {
-    let mut dirs: Vec<std::path::PathBuf> = [
+/// The folders a package puts its implicit Vulkan layers' manifests in.
+pub(crate) fn system_layer_dirs() -> Vec<std::path::PathBuf> {
+    [
         "/usr/share/vulkan/implicit_layer.d",
         "/usr/local/share/vulkan/implicit_layer.d",
         "/etc/vulkan/implicit_layer.d",
     ]
     .iter()
     .map(std::path::PathBuf::from)
-    .collect();
+    .collect()
+}
+
+fn vulkan_layer_installed(stem: &str) -> bool {
+    let mut dirs = system_layer_dirs();
     // A layer installed for one user (a local build, a Flatpak-free install).
     dirs.push(crate::paths::data_home().join("vulkan/implicit_layer.d"));
     dirs.iter().any(|dir| {

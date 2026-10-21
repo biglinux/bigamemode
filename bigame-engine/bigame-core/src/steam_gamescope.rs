@@ -54,10 +54,15 @@ pub fn segment(
 /// `segment` with vkBasalt kept out of Gamescope and in the game: Gamescope
 /// would load it for itself, filter its own output after its FSR, and take
 /// `ENABLE_VKBASALT` from the game. `env` in front, because a variable after
-/// another wrapper would be taken for the program to run.
+/// another wrapper would be taken for the program to run. Gamescope runs
+/// where Steam marks a game, so the layer for games
+/// ([`crate::vkbasalt_layer`]) would load in it too: its own
+/// `ENABLE_VKBASALT=0` keeps that out.
 #[must_use]
 pub fn keeping_vkbasalt_in_the_game(segment: &str) -> String {
-    format!("env DISABLE_VKBASALT=1 {segment} env -u DISABLE_VKBASALT ENABLE_VKBASALT=1")
+    format!(
+        "env DISABLE_VKBASALT=1 ENABLE_VKBASALT=0 {segment} env -u DISABLE_VKBASALT ENABLE_VKBASALT=1"
+    )
 }
 
 /// Whether `words` run a Gamescope before the game's command.
@@ -744,7 +749,9 @@ mod tests {
         let seg = keeping_vkbasalt_in_the_game(SEG);
         assert_eq!(
             seg,
-            format!("env DISABLE_VKBASALT=1 {SEG} env -u DISABLE_VKBASALT ENABLE_VKBASALT=1")
+            format!(
+                "env DISABLE_VKBASALT=1 ENABLE_VKBASALT=0 {SEG} env -u DISABLE_VKBASALT ENABLE_VKBASALT=1"
+            )
         );
         // After another wrapper, `env` keeps the variable a variable.
         let on = launch_options("gamemoderun %command%", None, Some(&seg));

@@ -55,6 +55,7 @@ pub mod turbo_preset;
 pub mod vcache;
 pub mod video_config;
 pub mod vkbasalt;
+pub mod vkbasalt_layer;
 pub mod watch;
 
 /// Seconds since the Unix epoch, as recorded in journals, manifests and

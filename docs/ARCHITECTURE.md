@@ -268,6 +268,19 @@ apply → verify → report → restore**.
   (`env -u DISABLE_VKBASALT ENABLE_VKBASALT=1 <game>`): Gamescope otherwise
   loads it itself, filters its own output after FSR, and removes
   `ENABLE_VKBASALT` from the game's environment.
+- vkBasalt reaches games only (`vkbasalt_layer.rs`). Its switch never goes
+  into `environment.d` or the session: there it reached every Vulkan
+  program, and vkBasalt 0.3.2.10 crashes one that makes a device to compute
+  rather than to show (a local AI's `llama-server`, `vulkaninfo`). Tuning's
+  or a Turbo preset's vkBasalt is a copy of vkBasalt's manifest in
+  `~/.local/share/vulkan/implicit_layer.d`, enabled by `SteamEnv=1` (set by
+  Steam in its games only, as for its own overlay layer; the Steam Runtime's
+  container takes it in) and disabled by any `ENABLE_VKBASALT`, so a game's
+  own `1` or `0` from its profile wins without loading vkBasalt twice.
+  Games Big Game Mode starts get `ENABLE_VKBASALT=1` for that launch; games
+  another launcher starts get vkBasalt from their profile only. Steam's
+  Gamescope wrapper gives Gamescope `ENABLE_VKBASALT=0` as well, since it
+  runs where Steam marks the game.
 - lsfg-vk re-reads its file for a game that started with an entry and then
   applies a new multiplier, but it neither starts nor stops generating for a
   running game; on and off take effect at the next start. The layout older
