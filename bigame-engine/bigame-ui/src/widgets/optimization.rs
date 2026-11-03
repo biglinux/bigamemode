@@ -59,6 +59,9 @@ pub struct Machine {
     pub mangohud: bool,
     /// falcond is installed: Turbo and the per-game performance profiles.
     pub falcond: bool,
+    /// The command that installs falcond here, when it is not installed and
+    /// installs from this system's repositories.
+    pub falcond_install: Option<String>,
 }
 
 impl Machine {
@@ -78,6 +81,7 @@ impl Machine {
             lsfg_dll: bigame_core::fg::is_lossless_dll_ready(),
             mangohud: bigame_core::capabilities::which("mangohud").is_some(),
             falcond: bigame_core::capabilities::which("falcond").is_some(),
+            falcond_install: bigame_core::health::falcond_install_command(),
         }
     }
 }
@@ -263,6 +267,21 @@ pub fn missing_row(title: &str, what: &str, command: &str) -> adw::ActionRow {
         crate::widgets::toast::show(b, &i18n("Copied"));
     });
     row.add_suffix(&copy);
+    row
+}
+
+/// [`missing_row`] for something no command installs here: what to do
+/// instead, in words.
+#[must_use]
+pub fn missing_advice_row(title: &str, what: &str, advice: &str) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .subtitle_lines(6)
+        .use_markup(false)
+        .build();
+    row.set_title(title);
+    row.set_subtitle(&format!("{what}\n→ {advice}"));
+    let chip = Chip::new(State::Missing);
+    row.add_suffix(chip.widget());
     row
 }
 

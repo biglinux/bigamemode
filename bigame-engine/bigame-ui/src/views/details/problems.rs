@@ -266,10 +266,16 @@ impl Problems {
                 (State::Error, None) => {
                     i18n("falcond's service failed; turn Turbo off and on again, and see Logs.")
                 }
+                (State::Missing, _) if snap.falcond_install.is_none() => format!(
+                    "{} {}",
+                    i18n("falcond is not installed, so there is no per-game optimization."),
+                    i18n(bigame_core::health::FALCOND_NOT_IN_REPOSITORIES)
+                ),
                 _ => i18n("falcond is not installed, so there is no per-game optimization."),
             },
-            (snap.turbo_state() == State::Missing)
-                .then_some("sudo pacman -S falcond falcond-profiles"),
+            snap.falcond_install
+                .as_deref()
+                .filter(|_| snap.turbo_state() == State::Missing),
             (snap.turbo_state() == State::Error).then_some(Go::Logs),
         );
         if snap.turbo_state() == State::Active {

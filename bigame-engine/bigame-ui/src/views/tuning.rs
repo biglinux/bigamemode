@@ -516,7 +516,7 @@ fn build_performance(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGro
     let shared = falcond.shared();
     let group = ui::section(N_("Performance"));
     if !m.falcond {
-        group.add(&falcond_missing_row());
+        group.add(&falcond_missing_row(m));
         return group;
     }
     group.set_description(Some(&i18n(
@@ -1521,15 +1521,20 @@ fn add_falcond_rows(group: &adw::PreferencesGroup, falcond: &FalcondSaver) {
     falcond.on_revert(move |c| set.set(&c.profile_mode));
 }
 
-/// What Tuning shows in falcond's place when it is not installed.
-fn falcond_missing_row() -> adw::ActionRow {
-    ui::missing_row(
-        "falcond",
-        &i18n(
-            "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it Turbo applies only the general settings and presets, and these options are unavailable.",
+/// What Tuning shows in falcond's place when it is not installed: the
+/// command that installs it here, or what to do where none does.
+fn falcond_missing_row(m: &Machine) -> adw::ActionRow {
+    let what = i18n(
+        "Not installed. falcond applies each game's performance profile (power profile, CPU scheduler, 3D V-Cache) while Turbo is on; without it Turbo applies only the general settings and presets, and these options are unavailable.",
+    );
+    match &m.falcond_install {
+        Some(command) => ui::missing_row("falcond", &what, command),
+        None => ui::missing_advice_row(
+            "falcond",
+            &what,
+            &i18n(bigame_core::health::FALCOND_NOT_IN_REPOSITORIES),
         ),
-        "sudo pacman -S falcond",
-    )
+    }
 }
 
 /// falcond's own settings and the facts for the person who knows what a
@@ -1544,7 +1549,7 @@ fn build_advanced(falcond: &FalcondSaver, m: &Machine) -> adw::PreferencesGroup 
     if m.falcond {
         add_falcond_rows(&group, falcond);
     } else {
-        group.add(&falcond_missing_row());
+        group.add(&falcond_missing_row(m));
     }
     // The governor, for reference: power-profiles-daemon sets it.
     let gov_row = adw::ActionRow::builder()
