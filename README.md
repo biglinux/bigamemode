@@ -598,6 +598,29 @@ repositories; on Arch, the three marked "BigLinux repository" come from the
 AUR. The launchers themselves (Steam, Heroic, Lutris, Faugus) are not
 dependencies: Big Game Mode finds the ones installed, native or Flatpak.
 
+### Installing falcond
+
+```bash
+sudo pacman -S --needed falcond falcond-profiles
+```
+
+- **Feral GameMode is installed.** falcond's package conflicts with it, and
+  pacman's question to remove it answers *no* by default, which stops the
+  install. Remove it in the same command:
+  `sudo pacman -Rns gamemode && sudo pacman -S --needed falcond falcond-profiles`
+  (`lib32-gamemode` too, when it is there). A Steam launch option still
+  calling `gamemoderun` then stops that game from starting; the support
+  report (`bigame-ui --diagnostics`) names it under *Conflicts*.
+- **`target not found: falcond` on BigLinux or BigCommunity.** The package
+  lists are old, or `[biglinux-stable]` in `/etc/pacman.conf` reads from a
+  mirror that lacks it. Run `sudo pacman -Syu`; if it is still missing, check
+  that section's `Server` line (`https://repo.biglinux.com.br/stable/$arch`
+  carries falcond). There is no need to build falcond from the AUR.
+
+Diagnostics and Optimization give the command that fits the system: with
+GameMode's removal in it when GameMode is installed, and none where falcond
+is not in the repositories.
+
 The package installs `bigame-ui` (the application, run as your user),
 `bigame-daemon` (the root helper) with its systemd unit, D-Bus files and Polkit
 policy, the desktop entry, AppStream metadata, icons and translations.
