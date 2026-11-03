@@ -4270,8 +4270,8 @@ msgid "Not for this game"
 msgstr "このゲームでは対象外"
 
 #: bigame-engine/bigame-core/src/health.rs:99
-msgid "Not in this system's repositories: install it from your distribution or the AUR"
-msgstr "このシステムのリポジトリにはありません: ディストリビューションまたはAURからインストールしてください"
+msgid "Not in this system's repositories. Update the package lists (sudo pacman -Syu): BigLinux and BigCommunity carry it in biglinux-stable; other distributions, in the AUR"
+msgstr "このシステムのリポジトリにはありません。パッケージリストを更新してください (sudo pacman -Syu)。BigLinux と BigCommunity では biglinux-stable に、その他のディストリビューションでは AUR にあります"
 
 #: bigame-engine/bigame-ui/src/views/details/performance.rs:218
 #: bigame-engine/bigame-ui/src/widgets/optimization.rs:613
@@ -8281,6 +8281,10 @@ msgstr "注入をブロック: %s"
 #: bigame-engine/bigame-core/src/health.rs:845
 msgid "installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"
 msgstr "falcondと一緒にインストールされていますが、Big Game Modeは使用しません。2つのコントローラーが同じ設定を保存・復元することになるためです"
+
+#: bigame-engine/bigame-core/src/health.rs:910
+msgid "installed; falcond's package conflicts with it, so the command that installs falcond removes it first"
+msgstr "インストールされています。falcond のパッケージはこれと競合するため、falcond をインストールするコマンドが先にこれを削除します"
 
 #: bigame-engine/bigame-core/src/graphics/diagnose.rs:237
 msgid "installed and intact; it loads when the game starts"
