@@ -306,12 +306,14 @@ pub fn which(binary: &str) -> Option<PathBuf> {
 /// has, read from its sync databases (no root, no network). A package only
 /// some distributions carry (falcond, lsfg-vk and vkbasalt are in the
 /// distribution's own repositories on `BigLinux`, in the AUR on Arch) is
-/// offered as a command only where it installs. The answer is kept for the
-/// session.
+/// offered as a command only where it installs. A yes is kept for the
+/// session; a no for a minute, so updated package lists are seen without
+/// running pacman on every reading of a page.
 #[must_use]
 pub fn in_repositories(package: &str) -> bool {
-    static CACHE: std::sync::Mutex<Option<std::collections::HashMap<String, bool>>> =
-        std::sync::Mutex::new(None);
+    type Cache = std::collections::HashMap<String, (bool, std::time::Instant)>;
+    const NO_KEPT_FOR: std::time::Duration = std::time::Duration::from_secs(60);
+    static CACHE: std::sync::Mutex<Option<Cache>> = std::sync::Mutex::new(None);
     let valid = !package.is_empty()
         && !package.starts_with('-')
         && package
@@ -323,17 +325,22 @@ pub fn in_repositories(package: &str) -> bool {
     let mut cache = CACHE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let cache = cache.get_or_insert_with(std::collections::HashMap::new);
-    *cache.entry(package.to_owned()).or_insert_with(|| {
-        std::process::Command::new("pacman")
-            .args(["-Sp", "--print-format", "%n", "--", package])
-            .env("LC_ALL", "C")
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|s| s.success())
-    })
+    let cache = cache.get_or_insert_with(Cache::new);
+    if let Some(&(found, at)) = cache.get(package)
+        && (found || at.elapsed() < NO_KEPT_FOR)
+    {
+        return found;
+    }
+    let found = std::process::Command::new("pacman")
+        .args(["-Sp", "--print-format", "%n", "--", package])
+        .env("LC_ALL", "C")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success());
+    cache.insert(package.to_owned(), (found, std::time::Instant::now()));
+    found
 }
 
 /// [`detect_gamescope`], run once per installed binary: the answer is kept

@@ -600,6 +600,8 @@ dependencies: Big Game Mode finds the ones installed, native or Flatpak.
 
 ### Installing falcond
 
+On BigLinux and BigCommunity (on Arch, falcond comes from the AUR):
+
 ```bash
 sudo pacman -S --needed falcond falcond-profiles
 ```
@@ -608,7 +610,7 @@ sudo pacman -S --needed falcond falcond-profiles
   pacman's question to remove it answers *no* by default, which stops the
   install. Remove it in the same command:
   `sudo pacman -Rns gamemode && sudo pacman -S --needed falcond falcond-profiles`
-  (`lib32-gamemode` too, when it is there). A Steam launch option still
+  (`lib32-gamemode` or `gamemode-git` too, when they are there). A Steam launch option still
   calling `gamemoderun` then stops that game from starting; the support
   report (`bigame-ui --diagnostics`) names it under *Conflicts*.
 - **`target not found: falcond` on BigLinux or BigCommunity.** The package
