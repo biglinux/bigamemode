@@ -337,6 +337,9 @@ pub struct Snapshot {
     pub backend_failure: Option<crate::systemd::Failure>,
     /// falcond is installed.
     pub falcond_installed: bool,
+    /// The command that installs falcond here, when it is not installed and
+    /// installs from this system's repositories.
+    pub falcond_install: Option<String>,
     /// falcond's status, when its file is there and trusted.
     pub falcond: Option<FalcondStatus>,
     /// The profile falcond applied, explained.
@@ -511,6 +514,7 @@ fn read_turbo() -> TurboReading {
 impl Snapshot {
     /// Read everything. Never fails: what cannot be read is `None`.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn collect(game: Option<GameIdentity>) -> Self {
         let TurboReading {
             on: turbo_on,
@@ -594,6 +598,7 @@ impl Snapshot {
             unit_failed,
             backend_failure,
             falcond_installed: capabilities::which("falcond").is_some(),
+            falcond_install: crate::health::falcond_install_command(),
             profile,
             profile_not_applied,
             power_profile: crate::dbus::power_profile_get(),

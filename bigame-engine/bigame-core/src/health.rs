@@ -86,20 +86,69 @@ fn advice(template: &'static str) -> Option<Fix> {
     Some(Fix::Advice(Text::plain(template)))
 }
 
-/// The command that installs `packages` where they install from this
-/// system's repositories; advice where they do not (an Arch system without
-/// `BigLinux`'s repositories has falcond in the AUR).
-fn install(packages: &[&str]) -> Option<Fix> {
-    if packages
-        .iter()
-        .all(|p| crate::capabilities::in_repositories(p))
-    {
-        cmd(format!("sudo pacman -S --needed {}", packages.join(" ")))
-    } else {
-        advice(N_(
-            "Not in this system's repositories: install it from your distribution or the AUR",
-        ))
+/// What to do where falcond does not install from this system's
+/// repositories. Most often the package lists are old, or a `BigLinux` or
+/// `BigCommunity` system reads `biglinux-stable` from a mirror without it;
+/// sent to the AUR first, people end up building falcond with Zig.
+pub const FALCOND_NOT_IN_REPOSITORIES: &str = N_(
+    "Not in this system's repositories. Update the package lists (sudo pacman -Syu): BigLinux and BigCommunity carry it in biglinux-stable; other distributions, in the AUR",
+);
+
+/// The packages falcond comes in.
+const FALCOND_PACKAGES: [&str; 2] = ["falcond", "falcond-profiles"];
+
+/// What falcond's package conflicts with: Feral `GameMode`, under these names
+/// or a package that provides them (`gamemode-git`).
+const FALCOND_CONFLICTS: [&str; 2] = ["gamemode", "lib32-gamemode"];
+
+/// The command that installs falcond here, when it is not installed and
+/// installs from this system's repositories.
+///
+/// falcond's package conflicts with Feral `GameMode`, and pacman asks before
+/// removing it with "no" as the answer it takes by default: the install then
+/// stops with "unresolvable package conflicts". `GameMode`, when installed,
+/// is removed first, in the same command, by its packages' own names.
+#[must_use]
+pub fn falcond_install_command() -> Option<String> {
+    use crate::capabilities::which;
+    if which("falcond").is_some() {
+        return None;
     }
+    // Every package's description is read only when GameMode shows: this
+    // runs with each reading of the Details page.
+    let gamemode = which("gamemoded").is_some()
+        || which("gamemoderun").is_some()
+        || Path::new("/usr/lib32/libgamemode.so.0").exists();
+    let conflicting = if gamemode {
+        installed_providing(Path::new(PACMAN_DB), &FALCOND_CONFLICTS)
+    } else {
+        Some(Vec::new())
+    };
+    falcond_install_command_with(crate::capabilities::in_repositories, conflicting)
+}
+
+/// `conflicting`: the installed packages to remove first, `None` when
+/// pacman's database could not be read, and then no command is offered.
+fn falcond_install_command_with(
+    in_repositories: impl Fn(&str) -> bool,
+    conflicting: Option<Vec<String>>,
+) -> Option<String> {
+    let conflicting = conflicting?;
+    if !FALCOND_PACKAGES.iter().all(|p| in_repositories(p)) {
+        return None;
+    }
+    let install = format!("sudo pacman -S --needed {}", FALCOND_PACKAGES.join(" "));
+    Some(if conflicting.is_empty() {
+        install
+    } else {
+        format!("sudo pacman -Rns {} && {install}", conflicting.join(" "))
+    })
+}
+
+/// [`falcond_install_command`] as a check's fix, or what to do where falcond
+/// is not in the repositories.
+fn install_falcond() -> Option<Fix> {
+    falcond_install_command().map_or_else(|| advice(FALCOND_NOT_IN_REPOSITORIES), cmd)
 }
 
 /// A value shown as it is — a version, a list of names.
@@ -152,6 +201,32 @@ pub fn package_version(db: &Path, name: &str) -> Option<String> {
             })?
         })
     })
+}
+
+/// The installed packages that are, or provide, one of `names`, by their
+/// own names (only those remove them), sorted; `None` when pacman's database
+/// cannot be read.
+fn installed_providing(db: &Path, names: &[&str]) -> Option<Vec<String>> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(db).ok()?.flatten() {
+        let Ok(desc) = std::fs::read_to_string(entry.path().join("desc")) else {
+            continue;
+        };
+        let Some(own) = desc_field(&desc, "%NAME%").first().copied() else {
+            continue;
+        };
+        let provides = desc_field(&desc, "%PROVIDES%");
+        let offers = |name: &str| {
+            provides
+                .iter()
+                .any(|p| p.split_once('=').map_or(*p, |(provided, _)| provided) == name)
+        };
+        if names.iter().any(|name| own == *name || offers(name)) {
+            found.push(own.to_owned());
+        }
+    }
+    found.sort();
+    Some(found)
 }
 
 /// The lines of one `%FIELD%` section of a pacman `desc` file.
@@ -682,7 +757,7 @@ pub fn collect() -> Vec<Check> {
             N_("falcond"),
             Status::Warning,
             N_("not installed: no per-game performance profiles; Turbo applies only the general settings"),
-            install(&["falcond", "falcond-profiles"]),
+            install_falcond(),
         ),
         (Some(u), true) if u.is_failed() => match u.failure() {
             // The specific cause, when systemd gives one: an illegal
@@ -838,11 +913,19 @@ pub fn collect() -> Vec<Check> {
     });
 
     // GameMode
-    out.push(if caps.gamemode {
+    out.push(if caps.gamemode && caps.falcond_installed {
         check(
             N_("Feral GameMode"),
             Status::Warning,
             N_("installed alongside falcond; Big Game Mode does not use it, because two controllers would save and restore the same settings"),
+            None,
+        )
+    } else if caps.gamemode {
+        // falcond's own check carries the command, when one installs it.
+        check(
+            N_("Feral GameMode"),
+            Status::Info,
+            N_("installed; falcond's package conflicts with it: it has to be removed before falcond can be installed"),
             None,
         )
     } else {
@@ -1413,6 +1496,66 @@ mod tests {
         std::fs::remove_dir_all(db.join("falcond-2.0.2-2")).unwrap();
         assert_eq!(package_version(&db, "falcond").as_deref(), Some("2.0.14"));
         let _ = std::fs::remove_dir_all(&db);
+    }
+
+    #[test]
+    fn falcond_installs_only_from_the_repositories_and_gamemode_goes_first() {
+        let everywhere = |_: &str| true;
+        let removing = |names: &[&str]| Some(names.iter().map(|n| (*n).to_owned()).collect());
+        assert_eq!(
+            falcond_install_command_with(everywhere, removing(&[])).as_deref(),
+            Some("sudo pacman -S --needed falcond falcond-profiles")
+        );
+        // pacman's own question would default to keeping GameMode, and the
+        // install would stop on the conflict.
+        assert_eq!(
+            falcond_install_command_with(everywhere, removing(&["gamemode-git", "lib32-gamemode"]))
+                .as_deref(),
+            Some(
+                "sudo pacman -Rns gamemode-git lib32-gamemode && sudo pacman -S --needed falcond falcond-profiles"
+            )
+        );
+        // A mirror with falcond but not its profiles offers no command.
+        assert_eq!(
+            falcond_install_command_with(|p| p == "falcond", removing(&[])),
+            None
+        );
+        // Nor does a pacman database that cannot be read.
+        assert_eq!(falcond_install_command_with(everywhere, None), None);
+    }
+
+    #[test]
+    fn gamemode_is_removed_by_the_names_of_the_packages_that_provide_it() {
+        let dir = tempfile::tempdir().unwrap();
+        for (entry, desc) in [
+            (
+                "gamemode-git-r1-1",
+                "%NAME%\ngamemode-git\n\n%VERSION%\nr1-1\n\n%PROVIDES%\ngamemode=1.8.2\n",
+            ),
+            (
+                "lib32-gamemode-1.8.2-1",
+                "%NAME%\nlib32-gamemode\n\n%VERSION%\n1.8.2-1\n",
+            ),
+            (
+                "gamemode-extras-1-1",
+                "%NAME%\ngamemode-extras\n\n%VERSION%\n1-1\n",
+            ),
+            (
+                "mangohud-0.8.4-1",
+                "%NAME%\nmangohud\n\n%VERSION%\n0.8.4-1\n",
+            ),
+        ] {
+            std::fs::create_dir_all(dir.path().join(entry)).unwrap();
+            std::fs::write(dir.path().join(entry).join("desc"), desc).unwrap();
+        }
+        assert_eq!(
+            installed_providing(dir.path(), &FALCOND_CONFLICTS),
+            Some(vec!["gamemode-git".to_owned(), "lib32-gamemode".to_owned()])
+        );
+        assert_eq!(
+            installed_providing(&dir.path().join("absent"), &FALCOND_CONFLICTS),
+            None
+        );
     }
 
     #[test]

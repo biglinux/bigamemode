@@ -122,7 +122,10 @@ impl Performance {
             State::Error => body.note(&i18n(
                 "Turn Turbo off and on again at Home to restart it. Logs show why it failed.",
             )),
-            State::Missing => body.command("sudo pacman -S falcond falcond-profiles"),
+            State::Missing => match &snap.falcond_install {
+                Some(command) => body.command(command),
+                None => body.note(&i18n(bigame_core::health::FALCOND_NOT_IN_REPOSITORIES)),
+            },
             State::Off => body.note(&i18n(
                 "Turn Turbo on at Home. Until then no profile, scheduler or power profile is applied for a game.",
             )),

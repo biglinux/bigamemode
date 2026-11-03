@@ -456,7 +456,9 @@ pub async fn turn_on<F: FnMut(Step)>(mut progress: F) -> Result<Report> {
         items: Vec::new(),
     };
 
-    if caps.gamemode {
+    // Without falcond there is no second controller to avoid, and the report
+    // already says falcond is not installed.
+    if caps.gamemode && caps.falcond_installed {
         report.push(
             Kind::GameMode,
             Section::ConflictAvoided,
