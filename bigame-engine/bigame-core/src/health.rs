@@ -199,7 +199,7 @@ pub fn package_version(db: &Path, name: &str) -> Option<String> {
 /// Whether a package named exactly `name` is installed: one that only
 /// provides it does not count, since only the package's own name removes it.
 fn installed_as(db: &Path, name: &str) -> bool {
-    std::fs::read_dir(db).ok().is_some_and(|entries| {
+    std::fs::read_dir(db).is_ok_and(|entries| {
         entries.flatten().any(|entry| {
             entry
                 .file_name()
